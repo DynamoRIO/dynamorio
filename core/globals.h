@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -204,8 +204,8 @@ typedef byte * cache_pc;  /* fragment cache pc */
 #define RELEASE_LOGGING 1
 
 /* make sure defines are consistent */
-#if !defined(X86) && !defined(ARM)
-# error Must define X86 or ARM, no other platforms are supported
+#if !defined(X86) && !defined(ARM) && !defined(AARCH64)
+# error Must define X86, ARM or AARCH64: no other platforms are supported
 #endif
 
 #if defined(PAPI) && defined(WINDOWS)
@@ -214,12 +214,6 @@ typedef byte * cache_pc;  /* fragment cache pc */
 
 #if defined(DCONTEXT_IN_EDI) && !defined(STEAL_REGISTER)
 # error Must steal register to keep dcontext in edi
-#endif
-
-#if defined(SIDELINE_COUNT_STUDY)
-# if !defined(PROFILE_LINKCOUNT) || !defined(SIDELINE)
-#  error SIDELINE_COUNT_STUDY requires PROFILE_LINKCOUNT and defined(SIDELINE)
-# endif
 #endif
 
 #ifdef DGC_DIAGNOSTICS
@@ -289,14 +283,14 @@ typedef struct _module_data_t module_data_t;
  * Structure written by dr_get_time() to specify the current time.
  */
 typedef struct {
-    uint year;         /**< */
-    uint month;        /**< */
-    uint day_of_week;  /**< */
-    uint day;          /**< */
-    uint hour;         /**< */
-    uint minute;       /**< */
-    uint second;       /**< */
-    uint milliseconds; /**< */
+    uint year;         /**< The current year. */
+    uint month;        /**< The current month, in the range 1 to 12. */
+    uint day_of_week;  /**< The day of the week, in the range 0 to 6. */
+    uint day;          /**< The day of the month, in the range 1 to 31. */
+    uint hour;         /**< The hour of the day, in the range 0 to 23. */
+    uint minute;       /**< The minutes past the hour. */
+    uint second;       /**< The seconds past the minute. */
+    uint milliseconds; /**< The milliseconds past the second. */
 } dr_time_t;
 /* DR_API EXPORT END */
 
@@ -335,14 +329,6 @@ typedef struct _thread_record_t {
 /* a few always-exported routines are part of the app interface */
 # undef DYNAMORIO_EXPORT
 # define DYNAMORIO_EXPORT DR_APP_API
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-#ifndef LINKCOUNT_64_BITS
-typedef uint linkcount_type_t;
-#else
-typedef uint64 linkcount_type_t;
-#endif
 #endif
 
 #include "heap.h"
@@ -384,8 +370,13 @@ typedef struct _client_flush_req_t {
  * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
 #define IS_CLIENT_THREAD(dcontext) \
     ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
-     (dcontext)->client_data != NULL && \
-     (dcontext)->client_data->is_client_thread)
+     (dcontext)->client_data != NULL && (dcontext)->client_data->is_client_thread)
+#ifdef DEBUG
+/* For use after dcontext->client_data is NULL */
+# define IS_CLIENT_THREAD_EXITING(dcontext)               \
+    ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
+     (dcontext)->is_client_thread_exiting)
+#endif
 
 /* Client interface-specific data for dcontexts */
 typedef struct _client_data_t {
@@ -463,9 +454,15 @@ extern bool dynamo_exited;       /* has dynamo exited? */
 extern bool dynamo_exited_and_cleaned; /* has dynamo component cleanup started? */
 #ifdef DEBUG
 extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
+/* process exit in middle of any thread init? */
+extern bool dynamo_thread_init_during_process_exit;
 #endif
 extern bool dynamo_resetting;    /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */
+/* Not guarded by DR_APP_EXPORTS because later detach implementations might not
+ * go through the app interface.
+ */
+extern bool doing_detach;
 
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library;  /* used as standalone library */
@@ -520,17 +517,17 @@ extern bool    dr_late_injected_primary_thread;
 #ifdef RETURN_AFTER_CALL
 extern bool    dr_preinjected;
 #endif
-#ifdef DR_APP_EXPORTS
 /* flags to indicate when DR is being initialized / exited using the API */
 extern bool    dr_api_entry;
 extern bool    dr_api_exit;
-#endif
 
 /* in dynamo.c */
-/* 9-bit addressed hash table takes up 2K, has capacity of 512
- * we never resize, assuming won't be seeing more than a few hundred threads
+/* 12-bit addressed hash table takes up 16K, has capacity of 4096.
+ * XXX: We currently never resize, assuming won't be seeing more than
+ * a few thousand threads: it should be simple to swap for a resizing
+ * table using generic_table_t though.
  */
-#define ALL_THREADS_HASH_BITS 9
+#define ALL_THREADS_HASH_BITS 12
 extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int dynamorio_app_init(void);
@@ -577,12 +574,13 @@ void dynamorio_take_over_threads(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 
 /* functions needed by detach */
-int dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
-                       IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+int dynamo_shared_exit(thread_record_t *toexit
+                       _IF_WINDOWS(bool detach_stacked_callbacks));
 /* perform exit tasks that require full thread data structs */
 void dynamo_process_exit_with_thread_info(void);
 /* thread cleanup prior to clean exit event */
 void dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id);
+void dynamo_exit_post_detach(void);
 
 /* enter/exit DR hooks */
 void entering_dynamorio(void);
@@ -619,6 +617,7 @@ typedef enum {
     WHERE_CONTEXT_SWITCH,
     WHERE_IBL,
     WHERE_FCACHE,
+    WHERE_CLEAN_CALLEE,
     WHERE_UNKNOWN,
 #ifdef HOT_PATCHING_INTERFACE
     WHERE_HOTPATCH,
@@ -792,6 +791,11 @@ struct _dcontext_t {
         coarse_info_t *dir_exit;
     } coarse_exit;
 
+    where_am_i_t   whereami;        /* where control is at the moment */
+#ifdef UNIX
+    char           signals_pending; /* != 0: pending; < 0: currently handling one */
+#endif
+
     /************* end of offset-crucial fields *********************/
 
     /* FIXME: now that we initialize a new thread's dcontext right away, and
@@ -806,7 +810,6 @@ struct _dcontext_t {
     uint thread_port; /* mach_port_t */
 #endif
     thread_record_t   *thread_record;  /* so don't have to do a thread_lookup */
-    where_am_i_t       whereami;        /* where control is at the moment */
     void *         allocated_start; /* used for cache alignment */
     fragment_t *     last_fragment;   /* cached value of linkstub_fragment(last_exit) */
 
@@ -859,7 +862,6 @@ struct _dcontext_t {
 #ifdef UNIX
     void *         signal_field;
     void *         pcprofile_field;
-    bool           signals_pending;
 #endif
     void *         private_code;          /* various thread-private routines */
 
@@ -944,6 +946,10 @@ struct _dcontext_t {
 #ifdef CLIENT_INTERFACE
     /* client interface-specific data */
     client_data_t *client_data;
+# ifdef DEBUG
+    /* i#2237: on exit we delete client_data before some IS_CLIENT_THREAD asserts. */
+    bool is_client_thread_exiting;
+# endif
 #endif
 
     /* FIXME trace_sysenter_exit is used to capture an exit from a trace that
@@ -1025,10 +1031,12 @@ struct _dcontext_t {
     bool post_syscall;
 # endif
 #endif
-    /* The start/stop APi doesn't change thread_record_t.under_dynamo_control,
+    /* The start/stop API doesn't change thread_record_t.under_dynamo_control,
      * but we need some indication so we add a custom field.
      */
     bool currently_stopped;
+    /* This is a flag requesting that this thread go native. */
+    bool go_native;
 };
 
 /* sentinel value for dcontext_t* used to indicate

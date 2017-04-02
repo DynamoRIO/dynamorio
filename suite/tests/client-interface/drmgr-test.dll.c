@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,11 +53,16 @@ static int tls_idx;
 static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
-static bool in_syscall_A;
-static bool in_syscall_B;
-static bool in_post_syscall_A;
-static bool in_post_syscall_B;
+static volatile bool in_syscall_A;
+static volatile bool in_syscall_B;
+static volatile bool in_post_syscall_A;
+static volatile bool in_post_syscall_B;
+static volatile bool in_event_thread_init;
+static volatile bool in_event_thread_init_ex;
+static int thread_exit_events;
+static int thread_exit_ex_events;
 static void *syslock;
+static void *threadlock;
 static uint one_time_exec;
 
 #define MAGIC_NUMBER_FROM_CACHE 0x0eadbeef
@@ -70,6 +75,8 @@ static bool checked_cls_write_from_cache;
 static void event_exit(void);
 static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
+static void event_thread_init_ex(void *drcontext);
+static void event_thread_exit_ex(void *drcontext);
 static void event_thread_context_init(void *drcontext, bool new_depth);
 static void event_thread_context_exit(void *drcontext, bool process_exit);
 static bool event_filter_syscall(void *drcontext, int sysnum);
@@ -112,12 +119,18 @@ dr_init(client_id_t id)
                                   NULL, NULL, 10};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
                                   "drmgr-test-A", NULL, 5};
+    drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
+                                        NULL, NULL, -1};
+    drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
+                                        NULL, NULL, 1};
     bool ok;
 
     drmgr_init();
     dr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
     drmgr_register_thread_exit_event(event_thread_exit);
+    drmgr_register_thread_init_event_ex(event_thread_init_ex, &thread_init_pri);
+    drmgr_register_thread_exit_event_ex(event_thread_exit_ex, &thread_exit_pri);
 
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
                                                  event_bb_insert,
@@ -159,6 +172,7 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
+    threadlock = dr_mutex_create();
 
     ok = drmgr_register_bb_app2app_event(one_time_bb_event, NULL);
     CHECK(ok, "drmgr app2app registration failed");
@@ -168,11 +182,17 @@ static void
 event_exit(void)
 {
     dr_mutex_destroy(syslock);
+    dr_mutex_destroy(threadlock);
     CHECK(checked_tls_from_cache, "failed to hit clean call");
     CHECK(checked_cls_from_cache, "failed to hit clean call");
     CHECK(checked_tls_write_from_cache, "failed to hit clean call");
     CHECK(checked_cls_write_from_cache, "failed to hit clean call");
     CHECK(one_time_exec == 1, "failed to execute one-time event");
+
+    if (thread_exit_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit\n");
+    if (thread_exit_ex_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit_ex\n");
 
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
@@ -198,6 +218,27 @@ event_thread_init(void *drcontext)
         main_thread = dr_get_thread_id(drcontext);
     drmgr_set_tls_field(drcontext, tls_idx,
                         (void *)(ptr_int_t)dr_get_thread_id(drcontext));
+    if (!in_event_thread_init) {
+        dr_mutex_lock(threadlock);
+        if (!in_event_thread_init) {
+            dr_fprintf(STDERR, "in event_thread_init\n");
+            in_event_thread_init = true;
+        }
+        dr_mutex_unlock(threadlock);
+    }
+}
+
+static void
+event_thread_init_ex(void *drcontext)
+{
+    if (!in_event_thread_init_ex) {
+        dr_mutex_lock(threadlock);
+        if (!in_event_thread_init_ex) {
+            dr_fprintf(STDERR, "in event_thread_init_ex\n");
+            in_event_thread_init_ex = true;
+        }
+        dr_mutex_unlock(threadlock);
+    }
 }
 
 static void
@@ -206,6 +247,19 @@ event_thread_exit(void *drcontext)
     CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
           (void *)(ptr_int_t)dr_get_thread_id(drcontext),
           "tls not preserved");
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    thread_exit_events++;
+    dr_mutex_unlock(threadlock);
+}
+
+static void
+event_thread_exit_ex(void *drcontext)
+{
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    thread_exit_ex_events++;
+    dr_mutex_unlock(threadlock);
 }
 
 static void
@@ -321,17 +375,13 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
         dr_restore_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
     }
     if (freq % 300 == 0 && inst == (instr_t*)user_data/*first instr*/) {
-        instr_t *first, *second;
         /* test write from cache */
         dr_save_reg(drcontext, bb, inst, reg1, SPILL_SLOT_1);
         dr_save_reg(drcontext, bb, inst, reg2, SPILL_SLOT_2);
         instrlist_insert_mov_immed_ptrsz(drcontext,
                                          (ptr_int_t)MAGIC_NUMBER_FROM_CACHE,
                                          opnd_create_reg(reg1),
-                                         bb, inst, &first, &second);
-        instr_set_meta(first);
-        if (second != NULL)
-            instr_set_meta(second);
+                                         bb, inst, NULL, NULL);
         drmgr_insert_write_tls_field(drcontext, tls_idx, bb, inst, reg1, reg2);
         dr_insert_clean_call(drcontext, bb, inst, (void *)check_tls_write_from_cache,
                              false, 0);

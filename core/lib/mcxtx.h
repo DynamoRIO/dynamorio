@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,7 +39,7 @@
  */
 /* START INCLUDE */
 
-#ifdef ARM
+#ifdef AARCHXX
 # ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
@@ -94,7 +94,15 @@
      * The program counter.
      * \note This field is not always set or read by all API routines.
      */
-    reg_t pc;
+    byte *pc;
+    union {
+        uint xflags; /**< The platform-independent name for condition flags. */
+        struct {
+            uint nzcv; /**< Condition flags (status register). */
+            uint fpcr; /**< Floating-Point Control Register. */
+            uint fpsr; /**< Floating-Point Status Register. */
+        }; /**< AArch64 flag registers. */
+    }; /**< The anonymous union of alternative names for flag registers. */
 # else /* 32-bit */
     union {
         reg_t r13; /**< The r13 register. */
@@ -113,12 +121,12 @@
         reg_t r15; /**< The r15 register. */
         byte *pc;  /**< The program counter. */
     };
-# endif /* 64/32-bit */
     union {
         uint xflags; /**< The platform-independent name for full APSR register. */
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
+# endif /* 64/32-bit */
     /**
      * The SIMD registers.  We would probably be ok if we did not preserve the
      * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
@@ -233,7 +241,8 @@
      * have a separate WOW64 build, we have them in the struct but ignored
      * for normal 32-bit.
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
+     * DrMi#665: we now preserve all of the xmm registers.
      */
 # endif
-    dr_ymm_t ymm[NUM_XMM_SLOTS];
+    dr_ymm_t ymm[NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

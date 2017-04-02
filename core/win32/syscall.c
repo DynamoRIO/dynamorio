@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -92,7 +92,8 @@ static uint syscall_extra_idx;
 const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     "Nt"#name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -101,10 +102,65 @@ const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 /* i#1598: we try to make progress on unknown versions */
 int windows_unknown_syscalls[TRAMPOLINE_MAX];
 
+SYS_CONST int windows_10_1607_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w12x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1607_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w12w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1607_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w12x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1511_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w11x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1511_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w11w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1511_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+    w11x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
 SYS_CONST int windows_10_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w10x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -112,7 +168,8 @@ SYS_CONST int windows_10_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_10_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w10w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -120,7 +177,8 @@ SYS_CONST int windows_10_wow64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_10_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w10x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -128,7 +186,8 @@ SYS_CONST int windows_10_x86_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_81_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w81x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -136,7 +195,8 @@ SYS_CONST int windows_81_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_81_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w81w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -144,7 +204,8 @@ SYS_CONST int windows_81_wow64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_81_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w81x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -152,7 +213,8 @@ SYS_CONST int windows_81_x86_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_8_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w8x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -160,7 +222,8 @@ SYS_CONST int windows_8_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_8_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w8w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -168,7 +231,8 @@ SYS_CONST int windows_8_wow64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_8_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w8x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -176,7 +240,8 @@ SYS_CONST int windows_8_x86_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_7_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w7x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -184,7 +249,8 @@ SYS_CONST int windows_7_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_7_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w7x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -192,7 +258,8 @@ SYS_CONST int windows_7_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_vista_sp1_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     vista1_x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -200,7 +267,8 @@ SYS_CONST int windows_vista_sp1_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_vista_sp1_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     vista1,
 #include "syscallx.h"
 #undef SYSCALL
@@ -208,7 +276,8 @@ SYS_CONST int windows_vista_sp1_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_vista_sp0_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     vista0_x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -216,7 +285,8 @@ SYS_CONST int windows_vista_sp0_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_vista_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     vista0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -224,7 +294,8 @@ SYS_CONST int windows_vista_sp0_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_2003_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w2k3,
 #include "syscallx.h"
 #undef SYSCALL
@@ -232,7 +303,8 @@ SYS_CONST int windows_2003_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_XP_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     xp64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -241,7 +313,8 @@ SYS_CONST int windows_XP_x64_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_XP_wow64_index[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     wow64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -249,7 +322,8 @@ SYS_CONST int windows_XP_wow64_index[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_XP_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     xp,
 #include "syscallx.h"
 #undef SYSCALL
@@ -257,7 +331,8 @@ SYS_CONST int windows_XP_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_2000_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     w2k,
 #include "syscallx.h"
 #undef SYSCALL
@@ -265,7 +340,8 @@ SYS_CONST int windows_2000_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_NT_sp4_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     ntsp4,
 #include "syscallx.h"
 #undef SYSCALL
@@ -274,7 +350,8 @@ SYS_CONST int windows_NT_sp4_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_NT_sp3_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     ntsp3,
 #include "syscallx.h"
 #undef SYSCALL
@@ -283,7 +360,8 @@ SYS_CONST int windows_NT_sp3_syscalls[TRAMPOLINE_MAX] = {
 SYS_CONST int windows_NT_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     ntsp0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -294,12 +372,14 @@ SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 #ifdef X64
 # define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                  w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     nargs,
 #else
 # define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                  w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     arg32,
 #endif
 #include "syscallx.h"
@@ -312,7 +392,8 @@ SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 static SYS_CONST int syscall_requires_action[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     act,
 #include "syscallx.h"
 #undef SYSCALL
@@ -926,6 +1007,87 @@ syscall_uses_edx_param_base()
 #define SET_RETURN_VAL(dc, val) \
   get_mcontext(dc)->xax = (reg_t) (val)
 
+/****************************************************************************
+ * Thread-handle-to-id table for DrMi#1884.
+ *
+ * A handle from the app may not have THREAD_QUERY_INFORMATION privileges, so
+ * we are forced to maintain a translation table.
+ */
+
+static generic_table_t *handle2tid_table;
+#define INIT_HTABLE_SIZE_TID 6 /* should remain small */
+
+/* Returns 0 == INVALID_THREAD_ID on failure */
+static thread_id_t
+handle_to_tid_lookup(HANDLE thread_handle)
+{
+    thread_id_t tid;
+    TABLE_RWLOCK(handle2tid_table, read, lock);
+    tid = (thread_id_t) generic_hash_lookup(GLOBAL_DCONTEXT, handle2tid_table,
+                                            (ptr_uint_t)thread_handle);
+    TABLE_RWLOCK(handle2tid_table, read, unlock);
+    return tid;
+}
+
+static bool
+handle_to_tid_add(HANDLE thread_handle, thread_id_t tid)
+{
+    TABLE_RWLOCK(handle2tid_table, write, lock);
+    generic_hash_add(GLOBAL_DCONTEXT, handle2tid_table,
+                     (ptr_uint_t)thread_handle, (void *)tid);
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "handle_to_tid: thread "PFX" => %d\n", thread_handle, tid);
+    TABLE_RWLOCK(handle2tid_table, write, unlock);
+    return true;
+}
+
+static bool
+handle_to_tid_remove(HANDLE thread_handle)
+{
+    bool found = false;
+    TABLE_RWLOCK(handle2tid_table, write, lock);
+    found = generic_hash_remove(GLOBAL_DCONTEXT, handle2tid_table,
+                                (ptr_uint_t)thread_handle);
+    TABLE_RWLOCK(handle2tid_table, write, unlock);
+    return found;
+}
+
+static thread_id_t
+thread_handle_to_tid(HANDLE thread_handle)
+{
+    thread_id_t tid = handle_to_tid_lookup(thread_handle);
+    if (tid == INVALID_THREAD_ID)
+        tid = thread_id_from_handle(thread_handle);
+    return tid;
+}
+
+static process_id_t
+thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid/*optional*/)
+{
+    if (tid == INVALID_THREAD_ID)
+        tid = handle_to_tid_lookup(thread_handle);
+    if (tid != INVALID_THREAD_ID) {
+        /* Get a handle with more privileges */
+        thread_handle = thread_handle_from_id(tid);
+    }
+    return process_id_from_thread_handle(thread_handle);
+}
+
+void
+syscall_interception_init(void)
+{
+    handle2tid_table = generic_hash_create
+        (GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TID, 80 /* not perf-critical */,
+         HASHTABLE_SHARED | HASHTABLE_PERSISTENT, NULL
+         _IF_DEBUG("section-to-file table"));
+}
+
+void
+syscall_interception_exit(void)
+{
+    generic_hash_destroy(GLOBAL_DCONTEXT, handle2tid_table);
+}
+
 /***************************************************************************
  * PRE SYSTEM CALL
  *
@@ -979,18 +1141,20 @@ presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
     dcontext->aslr_context.last_child_padded = 0;
 
     DOLOG(1, LOG_SYSCALLS, {
-        app_pc base = (app_pc) get_section_address(section_handle);
-        /* we will inject in post_syscall or when the first thread is about
-         * to be created */
-        LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-            "syscall: NtCreateProcess section @"PFX"\n", base);
-        DOLOG(1, LOG_SYSCALLS, {
-            char buf[MAXIMUM_PATH];
-            get_module_name(base, buf, sizeof(buf));
-            if (buf[0] != '\0')
-                LOG(THREAD, LOG_SYSCALLS, 2,
-                    "\tNtCreateProcess for module %s\n", buf);
-        });
+        if (section_handle != 0) {
+            app_pc base = (app_pc) get_section_address(section_handle);
+            /* we will inject in post_syscall or when the first thread is about
+             * to be created */
+            LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
+                "syscall: NtCreateProcess section @"PFX"\n", base);
+            DOLOG(1, LOG_SYSCALLS, {
+                char buf[MAXIMUM_PATH];
+                get_module_name(base, buf, sizeof(buf));
+                if (buf[0] != '\0')
+                    LOG(THREAD, LOG_SYSCALLS, 2,
+                        "\tNtCreateProcess for module %s\n", buf);
+            });
+        }
     });
 }
 
@@ -1368,7 +1532,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
                        wenv_to_propagate[i], get_config_val(env_to_propagate[i]));
             NULL_TERMINATE_BUFFER(buf);
             if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                         buf, sz_var[i], &got))
+                                         buf, sz_var[i], NULL))
                 goto add_dr_env_failure;
             sz += sz_var[i];
         }
@@ -1377,7 +1541,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     /* write final 0 */
     buf[0] = 0;
     if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env), buf,
-                                 sizeof(*env), &got))
+                                 sizeof(*env), NULL))
         goto add_dr_env_failure;
 
     /* install new env */
@@ -1387,7 +1551,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             "%s: failed to mark "PFX" writable\n", __FUNCTION__, env_ptr);
         goto add_dr_env_failure;
     }
-    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), &got))
+    if (!nt_write_virtual_memory(phandle, env_ptr, &new_env, sizeof(new_env), NULL))
         goto add_dr_env_failure;
     if (!nt_remote_protect_virtual_memory(phandle, (byte*)PAGE_START(env_ptr), PAGE_SIZE,
                                           old_prot, &old_prot)) {
@@ -1438,8 +1602,8 @@ static void
 presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
 {
     HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-    thread_id_t tid = thread_id_from_handle(thread_handle);
-    process_id_t pid = process_id_from_thread_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
+    process_id_t pid = thread_handle_to_pid(thread_handle, tid);
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
         "syscall: NtResumeThread pid=%d tid=%d\n", pid, tid);
     if (DYNAMO_OPTION(follow_children) && pid != POINTER_MAX && !is_pid_me(pid)) {
@@ -1586,7 +1750,10 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
         os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
-                              IF_X64_ELSE(mc->xcx, mc->xdx),
+                              /* r10, which will go to rcx in cleanup_and_terminate
+                               * and back to r10 in global_do_syscall_syscall (i#1901).
+                               */
+                              IF_X64_ELSE(mc->r10, mc->xdx),
                               mc->xdx, true /* entire process */, 0, 0);
     }
     return true;
@@ -1610,8 +1777,9 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
     ASSERT(tr != NULL);
     if (thread_handle == 0)
         thread_handle = NT_CURRENT_THREAD;
-    tid = thread_id_from_handle(thread_handle);
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1, "syscall: NtTerminateThread tid=%d\n", tid);
+    tid = thread_handle_to_tid(thread_handle);
+    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
+        "syscall: NtTerminateThread "PFX" => tid=%d\n", thread_handle, tid);
 
     if (tid == 0xFFFFFFFF) {
         /* probably invalid handle, do nothing for now */
@@ -1637,7 +1805,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
                 * considered exited just before it is signaled, but is ok
                 * for an assert. */
                is_thread_exited(thread_handle) == THREAD_EXITED ||
-               !is_pid_me(process_id_from_thread_handle(thread_handle)));
+               !is_pid_me(thread_handle_to_pid(thread_handle, tid)));
         copy_mcontext(&mcontext, mc);
     } else {
         /* case 9347 - racy early thread, yet primary is not yet 'known' */
@@ -1664,7 +1832,10 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         KSTOP(num_exits_dir_syscall);
         os_terminate_wow64_write_args(false/*thread*/, thread_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateThread],
-                              IF_X64_ELSE(mc->xcx, mc->xdx),
+                              /* r10, which will go to rcx in cleanup_and_terminate
+                               * and back to r10 in global_do_syscall_syscall (i#1901).
+                               */
+                              IF_X64_ELSE(mc->r10, mc->xdx),
                               mc->xdx, exitproc, 0, 0);
     }
 }
@@ -1676,14 +1847,21 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) sys_param(dcontext, param_base, 1);
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     bool intercept = true;
     bool execute_syscall = true;
     /* FIXME : we are going to read and write to cxt, which may be unsafe */
     ASSERT(tid != 0xFFFFFFFF);
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
-        "syscall: NtSetContextThread handle="PFX" tid=%d cxt->Xip="PFX"\n",
-        thread_handle, tid, cxt->CXT_XIP);
+        "syscall: NtSetContextThread handle="PFX" tid=%d cxt->Xip="PFX" flags="PFX"\n",
+        thread_handle, tid, cxt->CXT_XIP, cxt->ContextFlags);
+    if (get_thread_id() == tid) {
+        /* Simple case when called on own thread. */
+        /* FIXME i#2249 : we should handle these flags. */
+        ASSERT_NOT_IMPLEMENTED(!TEST(CONTEXT_CONTROL, cxt->ContextFlags) &&
+                               !TEST(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags));
+        return execute_syscall;
+    }
     mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
     if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
         priv_mcontext_t mcontext;
@@ -2478,12 +2656,16 @@ presys_CreateSection(dcontext_t *dcontext, reg_t *param_base)
 static void
 presys_Close(dcontext_t *dcontext, reg_t *param_base)
 {
+    HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
     if (DYNAMO_OPTION(track_module_filenames)) {
-        HANDLE handle = (HANDLE) sys_param(dcontext, param_base, 0);
         if (section_to_file_remove(handle)) {
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
                 "syscall: NtClose of section handle "PFX"\n", handle);
         }
+    }
+    if (handle_to_tid_remove(handle)) {
+        LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
+            "syscall: NtClose of thread handle "PFX"\n", handle);
     }
 }
 
@@ -2628,7 +2810,7 @@ pre_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_SuspendThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtSuspendThread tid=%d\n", tid);
         if (SELF_PROTECT_ON_CXT_SWITCH) {
@@ -2646,7 +2828,7 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef DEBUG
     else if (sysnum == syscalls[SYS_AlertResumeThread]) {
         HANDLE thread_handle= (HANDLE) sys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
             "syscall: NtAlertResumeThread tid=%d\n", tid);
     }
@@ -2881,7 +3063,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
     CONTEXT *cxt = (CONTEXT *) postsys_param(dcontext, param_base, 1);
     thread_record_t *trec;
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     char buf[MAX_CONTEXT_SIZE];
     CONTEXT *alt_cxt;
     CONTEXT *xlate_cxt;
@@ -2906,7 +3088,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
          * for either case we do nothing for now
          */
         DODEBUG({
-            process_id_t pid = process_id_from_thread_handle(thread_handle);
+            process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             if (!is_pid_me(pid)) {
                 IPC_ALERT("Warning: NtGetContextThread called on thread "
                           "tid="PFX" in different process, pid="PFX,
@@ -3027,7 +3209,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     HANDLE thread_handle= (HANDLE) postsys_param(dcontext, param_base, 0);
     /* ignoring 2nd argument (OUT PULONG PreviousSuspendCount OPTIONAL) */
-    thread_id_t tid = thread_id_from_handle(thread_handle);
+    thread_id_t tid = thread_handle_to_tid(thread_handle);
     process_id_t pid;
 
     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
@@ -3042,7 +3224,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     if (!success || tid == get_thread_id())
         return;
 
-    pid = process_id_from_thread_handle(thread_handle);
+    pid = thread_handle_to_pid(thread_handle, tid);
     if (!is_pid_me(pid)) {
         /* (FIXME : IPC) */
         IPC_ALERT("Warning: SuspendThread called on thread in "
@@ -3174,8 +3356,8 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
     THREADINFOCLASS class = (THREADINFOCLASS) postsys_param(dcontext, param_base, 1);
     if (success && class == ThreadAmILastThread) {
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
-        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
+        process_id_t pid = thread_handle_to_pid(thread_handle, tid);
         if (pid != POINTER_MAX && is_pid_me(pid) &&
             get_num_client_threads() > 0 && is_last_app_thread()) {
             PVOID info = (PVOID) postsys_param(dcontext, param_base, 2);
@@ -3190,6 +3372,20 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
     }
 }
 #endif
+
+/* NtOpenThread */
+static void
+postsys_OpenThread(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    if (success) {
+        HANDLE *handle = (HANDLE*) postsys_param(dcontext, param_base, 0);
+        CLIENT_ID *cid = (CLIENT_ID *) postsys_param(dcontext, param_base, 3);
+        LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2,
+            "syscall: NtOpenThread "PFX"=>"PFX" "PFX"=>"TIDFMT"\n",
+            handle, *handle, cid, cid->UniqueThread);
+        handle_to_tid_add(*handle, (thread_id_t)cid->UniqueThread);
+    }
+}
 
 /* NtAllocateVirtualMemory */
 static void
@@ -3916,20 +4112,25 @@ void post_system_call(dcontext_t *dcontext)
     }
     else if (sysnum == syscalls[SYS_SetContextThread]) {
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
-        thread_id_t tid = thread_id_from_handle(thread_handle);
+        thread_id_t tid = thread_handle_to_tid(thread_handle);
         ASSERT(tid != 0xFFFFFFFF);
         /* FIXME : we modified the passed in context, we should restore it
          * to app state (same for SYS_Continue though is more difficult there)
          */
-        mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
-        if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
-            /* Case 10101: we shouldn't get here since we now skip the system call,
-             * unless it should fail for permission issues */
-            ASSERT(dcontext->expect_last_syscall_to_fail);
-            /* must wake up thread so it can go to nt_continue_dynamo_start */
-            nt_thread_resume(thread_handle, NULL);
+        if (tid != get_thread_id()) {
+            mutex_lock(&thread_initexit_lock); /* need lock to lookup thread */
+            if (intercept_asynch_for_thread(tid, false/*no unknown threads*/)) {
+                /* Case 10101: we shouldn't get here since we now skip the system call,
+                 * unless it should fail for permission issues */
+                ASSERT(dcontext->expect_last_syscall_to_fail);
+                /* must wake up thread so it can go to nt_continue_dynamo_start */
+                nt_thread_resume(thread_handle, NULL);
+            }
+            mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
         }
-        mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
+    }
+    else if (sysnum == syscalls[SYS_OpenThread]) {
+        postsys_OpenThread(dcontext, param_base, success);
     }
 #ifdef CLIENT_INTERFACE
     else if (sysnum == syscalls[SYS_QueryInformationThread]) {
@@ -3974,7 +4175,7 @@ void post_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
                 "syscall post: NtCreateProcess section @"PFX"\n", base);
         });
-        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateProcessEx]) {
@@ -3992,12 +4193,13 @@ void post_system_call(dcontext_t *dcontext)
         uint job_member_level = (uint) postsys_param(dcontext, param_base, 8);
 
         DOLOG(1, LOG_SYSCALLS, {
-            app_pc base = (app_pc) get_section_address(section_handle);
-
-            LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
-                "syscall: NtCreateProcessEx section @"PFX"\n", base);
+            if (section_handle != 0) {
+                app_pc base = (app_pc) get_section_address(section_handle);
+                LOG(THREAD, LOG_SYSCALLS, IF_DGCDIAG_ELSE(1, 2),
+                    "syscall: NtCreateProcessEx section @"PFX"\n", base);
+            }
         });
-        if (safe_read(process_handle, sizeof(proc_handle), &proc_handle))
+        if (success && safe_read(process_handle, sizeof(proc_handle), &proc_handle))
             maybe_inject_into_process(dcontext, proc_handle, NULL);
     }
     else if (sysnum == syscalls[SYS_CreateUserProcess]) {
@@ -4036,8 +4238,8 @@ void post_system_call(dcontext_t *dcontext)
         HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
         ASSERT(thread_handle != 0); /* 0 => current thread */
         if (thread_handle != 0) {
-            thread_id_t tid = thread_id_from_handle(thread_handle);
-            process_id_t pid = process_id_from_thread_handle(thread_handle);
+            thread_id_t tid = thread_handle_to_tid(thread_handle);
+            process_id_t pid = thread_handle_to_pid(thread_handle, tid);
             ASSERT(tid != get_thread_id()); /* not current thread */
             /* FIXME : if is thread in this process and syscall fails then
              * no way to recover since we already cleaned up the thread */
@@ -4287,8 +4489,7 @@ dr_syscall_invoke_another(void *drcontext)
     }
 # ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
-        /* we could instead have sys_param_addr() use r10, like we do on linux */
-        mc->r10 = mc->xcx;
+        /* sys_param_addr() is already using r10 */
     }
 # endif
 }

@@ -6021,8 +6021,8 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
      * producers this may be a good additional sanity check.
      */
 
-    SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing assuming KnownDll file %ls hasn't changed",
-                                 dll_full_file_name);
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
+        "ASLR sharing assuming KnownDll file %ls hasn't changed", dll_full_file_name);
     /* FIXME: since we currently don't really care about anything
      * other than the name itself, it is safe to ignore potential
      * change */

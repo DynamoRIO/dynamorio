@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -327,8 +327,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     /* we cannot use a stack buffer for encoding since our stack on x64 linux
      * can be too far to reach from our heap
      */
-    byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
-                           HEAPACCT(ACCT_IR));
+    byte *buf = heap_alloc(dcontext, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -344,7 +343,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
             SYSLOG_INTERNAL_WARNING("cannot encode %s", opcode_to_encoding_info
                                     (instr->opcode, instr_get_isa_mode(instr)
                                      _IF_ARM(false))->name);
-            heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+            heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -353,8 +352,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     len = (int) (nxt - buf);
     CLIENT_ASSERT(len > 0 || instr_is_label(instr),
                   "encode instr for length/eflags error: zero length");
-    CLIENT_ASSERT(len < 32, "encode instr for length/eflags error: instr too long");
-    ASSERT_CURIOSITY(len >= 0 && len < 18);
+    CLIENT_ASSERT(len <= MAX_INSTR_LENGTH,
+                  "encode instr for length/eflags error: instr too long");
 
     /* do not cache encoding if mangle is false, that way we can have
      * non-cti-instructions that are pc-relative.
@@ -366,7 +365,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         ((valid_to_cache && instr_is_app(instr)) ||
          always_cache /*caller will use then invalidate*/)) {
         bool valid = instr_operands_valid(instr);
-#ifdef X64
+#ifdef X86_64
         /* we can't call instr_rip_rel_valid() b/c the raw bytes are not yet
          * set up: we rely on instr_encode() setting instr->rip_rel_pos and
          * the valid flag, even though raw bytes weren't there at the time.
@@ -385,14 +384,14 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
          */
         tmp = instr->bytes;
         instr->bytes = buf;
-#ifdef X64
+#ifdef X86_64
         instr_set_rip_rel_valid(instr, rip_rel_valid);
 #endif
         copy_and_re_relativize_raw_instr(dcontext, instr, tmp, tmp);
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+    heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
     return len;
 }
 
@@ -900,11 +899,13 @@ instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
                            dr_opnd_query_flags_t flags)
 {
     if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
-        !instr_predicate_reads_srcs(pred))
-        flags &= ~EFLAGS_READ_ALL;
+        !instr_predicate_reads_srcs(pred)) {
+        /* i#1836: the predicate itself reads some flags */
+        full_eflags &= ~EFLAGS_READ_NON_PRED;
+    }
     if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
         !instr_predicate_writes_eflags(pred))
-        flags &= ~EFLAGS_WRITE_ALL;
+        full_eflags &= ~EFLAGS_WRITE_ALL;
     return full_eflags;
 }
 
@@ -1031,7 +1032,7 @@ instr_set_raw_bits(instr_t *instr, byte *addr, uint length)
     instr->flags |= INSTR_RAW_BITS_VALID;
     instr->bytes = addr;
     instr->length = length;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1045,7 +1046,7 @@ instr_shift_raw_bits(instr_t *instr, ssize_t offs)
 {
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         instr->bytes += offs;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1065,7 +1066,7 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
          * addresses for exception/signal handlers
          * Also do not de-allocate allocated bits
          */
-#ifdef X64
+#ifdef X86_64
         instr_set_rip_rel_valid(instr, false);
 #endif
     }
@@ -1111,7 +1112,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     instr->flags |= INSTR_RAW_BITS_ALLOCATED;
     instr->flags &= ~INSTR_OPERANDS_VALID;
     instr->flags &= ~INSTR_EFLAGS_VALID;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1185,7 +1186,7 @@ instr_set_raw_byte(instr_t *instr, uint pos, byte val)
     CLIENT_ASSERT(pos >= 0 && pos < instr->length && instr->bytes != NULL,
                   "instr_set_raw_byte: ordinal invalid, or no raw bits");
     instr->bytes[pos] = (byte) val;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1202,7 +1203,7 @@ instr_set_raw_bytes(instr_t *instr, byte *start, uint num_bytes)
     CLIENT_ASSERT(num_bytes <= instr->length && instr->bytes != NULL,
                   "instr_set_raw_bytes: ordinal invalid, or no raw bits");
     memcpy(instr->bytes, start, num_bytes);
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1219,7 +1220,7 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
     CLIENT_ASSERT(pos >= 0 && pos+3 < instr->length && instr->bytes != NULL,
                   "instr_set_raw_word: ordinal invalid, or no raw bits");
     *((uint *)(instr->bytes+pos)) = word;
-#ifdef X64
+#ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
 }
@@ -1290,7 +1291,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     CLIENT_ASSERT(!instr_operands_valid(instr), "instr_expand: opnds are already valid");
     CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_expand: raw bits are invalid");
     curbytes = instr->bytes;
-    if ((uint)decode_sizeof(dcontext, curbytes, NULL _IF_X64(NULL)) == instr->length) {
+    if ((uint)decode_sizeof(dcontext, curbytes, NULL _IF_X86_64(NULL)) == instr->length) {
         dr_set_isa_mode(dcontext, old_mode, NULL);
         return instr; /* Level 1 */
     }
@@ -1381,7 +1382,7 @@ instr_is_level_0(instr_t *instr)
     CLIENT_ASSERT(instr_raw_bits_valid(instr),
                   "instr_is_level_0: raw bits are invalid");
     dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
-    if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X64(NULL)) ==
+    if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X86_64(NULL)) ==
         instr->length) {
         dr_set_isa_mode(dcontext, old_mode, NULL);
         return false; /* Level 1 */
@@ -1785,9 +1786,10 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
     if (instr_reg_in_src(instr, reg))
         return true;
 
-    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
-        return false;
-
+    /* As a special case, the addressing registers inside a destination memory
+     * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+     * DR_QUERY_INCLUDE_COND_DSTS (i#1849).
+     */
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
         if (!opnd_is_reg(opnd) && opnd_uses_reg(opnd, reg))
@@ -1922,6 +1924,7 @@ instr_writes_memory(instr_t *instr)
     return false;
 }
 
+#ifdef X86
 bool
 instr_zeroes_ymmh(instr_t *instr)
 {
@@ -1940,6 +1943,7 @@ instr_zeroes_ymmh(instr_t *instr)
     }
     return false;
 }
+#endif /* X86 */
 
 #if defined(X64) || defined(ARM)
 /* PR 251479: support general re-relativization.  If INSTR_RIP_REL_VALID is set and
@@ -2137,6 +2141,11 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     int memcount = -1;
     bool write = false;
     bool have_addr = false;
+    /* We allow not selecting xmm fields since clients may legitimately
+     * emulate a memref w/ just GPRs
+     */
+    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc_flags),
+                  "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
@@ -2760,6 +2769,21 @@ instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
+                       opnd_t src1, opnd_t src2)
+{
+    instr_t *in = instr_build(dcontext, opcode, 4, 2);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    return in;
+}
+
+instr_t *
 instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
@@ -3017,15 +3041,37 @@ instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     }
 }
 
-instr_t *
-instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+static instr_t *
+instr_create_save_immedN_to_dcontext(dcontext_t *dcontext, opnd_size_t sz,
+                                     opnd_t immed_op, int offs)
 {
-    opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
+    opnd_t memopnd = opnd_create_dcontext_field_sz(dcontext, offs, sz);
     /* PR 244737: thread-private scratch space needs to fixed for x64 */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    /* there is no immed to mem instr on ARM */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return XINST_CREATE_store(dcontext, memopnd, OPND_CREATE_INT32(immed));
+    /* There is no immed to mem instr on ARM/AArch64. */
+    IF_AARCHXX(ASSERT_NOT_IMPLEMENTED(false));
+    return XINST_CREATE_store(dcontext, memopnd, immed_op);
+}
+
+instr_t *
+instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_4,
+                                                OPND_CREATE_INT32(immed), offs);
+}
+
+instr_t *
+instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_2,
+                                                OPND_CREATE_INT16(immed), offs);
+}
+
+instr_t *
+instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed, int offs)
+{
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_1,
+                                                OPND_CREATE_INT8(immed), offs);
 }
 
 instr_t *
@@ -3035,8 +3081,8 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
         (dcontext, basereg, offs, sz);
     ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
-    /* there is no immed to mem instr on ARM */
-    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
+    /* There is no immed to mem instr on ARM or AArch64. */
+    IF_NOT_X86(ASSERT_NOT_IMPLEMENTED(false));
     return XINST_CREATE_store(dcontext, memopnd,
                               opnd_create_immed_int(immed, sz));
 }
@@ -3044,8 +3090,13 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
+#else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     return XINST_CREATE_jump_mem(dcontext, memopnd);
+#endif
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -3092,8 +3143,8 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
          *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
          *((uint*)(pc+4)) == os_tls_offset(offs));
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCHXX)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -3131,7 +3182,7 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         opnd_is_far_base_disp(memop) &&
         opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#elif defined (ARM)
+#elif defined(AARCHXX)
         opnd_is_base_disp(memop) &&
         opnd_get_base(memop) == dr_reg_stolen &&
         opnd_get_index(memop) == DR_REG_NULL
@@ -3186,8 +3237,8 @@ instr_is_tls_xcx_spill(instr_t *instr)
                                       REG_ECX, MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCHXX)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif
@@ -3260,26 +3311,6 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
                 *offs_out = check_disp;
             return true;
         }
-#ifdef ARM
-        /* mangling instr inserted by mangle_syscall_arch */
-        if (check_disp == os_tls_offset(TLS_REG1_SLOT) && *reg == DR_REG_R10) {
-            ASSERT(*reg != dr_reg_stolen);
-            DODEBUG({
-                instr_t *syscall = instr_get_next(instr);
-                while (syscall != NULL) {
-                    if (instr_is_syscall(syscall))
-                        break;
-                    syscall = instr_get_next(syscall);
-                }
-                ASSERT(syscall != NULL);
-            });
-            if (tls != NULL)
-                *tls = true;
-            if (offs_out != NULL)
-                *offs_out = check_disp;
-            return true;
-        }
-#endif
     }
     if (dcontext != GLOBAL_DCONTEXT &&
         instr_check_mcontext_spill_restore(dcontext, instr, spill,
@@ -3344,7 +3375,7 @@ instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2
     return XINST_CREATE_move(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
-#ifdef X64
+#ifdef X86_64
 /* Returns NULL if pc is not the start of a rip-rel lea.
  * If it could be, returns the address it refers to (which we assume is
  * never NULL).
@@ -3386,6 +3417,9 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
 # elif defined(ARM)
     /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
     return OP_vmov;
+# elif defined(AARCH64)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    return 0;
 # endif /* X86/ARM */
 }
 

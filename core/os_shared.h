@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,8 +64,15 @@ void os_thread_exit(dcontext_t *dcontext, bool other_thread);
 void os_thread_under_dynamo(dcontext_t *dcontext);
 /* must only be called for the executing thread */
 void os_thread_not_under_dynamo(dcontext_t *dcontext);
+void os_process_under_dynamorio_initiate(dcontext_t *dcontext);
+void os_process_under_dynamorio_complete(dcontext_t *dcontext);
+void os_process_not_under_dynamorio(dcontext_t *dcontext);
 
 bool os_take_over_all_unknown_threads(dcontext_t *dcontext);
+
+bool detach_do_not_translate(thread_record_t *tr);
+void detach_finalize_translation(thread_record_t *tr, priv_mcontext_t *mc);
+void detach_finalize_cleanup(void);
 
 void os_heap_init(void);
 void os_heap_exit(void);
@@ -165,6 +172,15 @@ void thread_set_self_mcontext(priv_mcontext_t *mc);
 bool
 os_thread_take_over_suspended_native(dcontext_t *dcontext);
 
+void
+os_thread_take_over_secondary(dcontext_t *dcontext);
+
+/* Readies a known but currently-native thread for takeover.
+ * Returns whether the thread is known.
+ */
+bool
+os_thread_re_take_over(void);
+
 dcontext_t *get_thread_private_dcontext(void);
 void set_thread_private_dcontext(dcontext_t *dcontext);
 
@@ -210,8 +226,17 @@ typedef enum {
     DR_STATE_PEB              = 0x0001, /**< Switch the PEB pointer. */
     DR_STATE_TEB_MISC         = 0x0002, /**< Switch miscellaneous TEB fields. */
     DR_STATE_STACK_BOUNDS     = 0x0004, /**< Switch the TEB stack bounds fields. */
-#endif
     DR_STATE_ALL              =     ~0, /**< Switch all state. */
+#else
+    /**
+     * On Linux, DR's own TLS can optionally be swapped, but this is risky
+     * and not recommended as incoming signals are not properly handled when in
+     * such a state.  Thus DR_STATE_ALL does *not* swap it.
+     */
+    DR_STATE_DR_TLS        = 0x0001,
+    DR_STATE_ALL           = (~0) & (~DR_STATE_DR_TLS), /**< Switch all normal state. */
+    DR_STATE_GO_NATIVE     = ~0, /**< Switch all state.  Use with care. */
+#endif
 } dr_state_flags_t;
 
 /* DR_API EXPORT END */
@@ -267,6 +292,7 @@ typedef enum {
     ILLEGAL_INSTRUCTION_EXCEPTION,
     UNREADABLE_MEMORY_EXECUTION_EXCEPTION,
     IN_PAGE_ERROR_EXCEPTION,
+    GUARD_PAGE_EXCEPTION,
 } dr_exception_type_t;
 
 void os_forge_exception(app_pc exception_address, dr_exception_type_t type);
@@ -406,9 +432,7 @@ char *get_dynamorio_library_path(void);
 #define DR_MEMPROT_READ  0x01 /**< Read privileges. */
 #define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
 #define DR_MEMPROT_EXEC  0x04 /**< Execute privileges. */
-#ifdef WINDOWS
-# define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
-#endif
+#define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
 /**
  * DR's default cache consistency strategy modifies the page protection of
  * pages containing code, making them read-only.  It pretends on application
@@ -439,7 +463,6 @@ char *get_dynamorio_library_path(void);
  * clients to avoid writing to such memory.
  */
 #define DR_MEMPROT_PRETEND_WRITE 0x10
-#ifdef LINUX
 /**
  * In addition to the appropriate DR_MEMPROT_READ and/or DR_MEMPROT_EXEC flags,
  * this flag will be set for the VDSO and VVAR pages on Linux.
@@ -448,8 +471,7 @@ char *get_dynamorio_library_path(void);
  * In some cases, accessing the VVAR pages can cause problems
  * (e.g., https://github.com/DynamoRIO/drmemory/issues/1778).
  */
-# define DR_MEMPROT_VDSO  0x20
-#endif
+#define DR_MEMPROT_VDSO  0x20
 
 /**
  * Flags describing memory used by dr_query_memory_ex().
@@ -491,6 +513,27 @@ typedef struct _dr_mem_info_t {
 # define MEMPROT_GUARD DR_MEMPROT_GUARD
 #else
 # define MEMPROT_VDSO  DR_MEMPROT_VDSO
+#endif
+/* i#1861: avoid merging Android regions w/ different custom comments */
+#define MEMPROT_HAS_COMMENT DR_MEMPROT_GUARD /* Android-only */
+#define MEMPROT_META_FLAGS (MEMPROT_VDSO | MEMPROT_HAS_COMMENT)
+
+/* Ignore any PAGE_SIZE provided by the tool chain and define a new
+ * version for DynamoRIO's internal use. Since PAGE_SIZE looks like
+ * it might be a constant, in new code it would be better to use an
+ * explicit function call.
+ */
+#undef PAGE_SIZE
+#define PAGE_SIZE os_page_size()
+
+/* Convenience macro to align to the start of a page of memory.
+ * It uses a function call so be careful where performance is critical.
+ */
+#define PAGE_START(x) (((ptr_uint_t)(x)) & ~(os_page_size()-1))
+
+size_t os_page_size(void);
+#ifdef UNIX
+void os_page_size_init(const char **env);
 #endif
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
@@ -928,11 +971,9 @@ query_time_seconds(void);
 uint64
 query_time_millis(void);
 
-#ifdef UNIX
 /* microseconds since 1601 */
 uint64
 query_time_micros();
-#endif
 
 /* gives a good but not necessarily crypto-strength random seed */
 uint
@@ -1017,9 +1058,9 @@ enum {
     JMP_ABS_MEM_IND64_MODRM = 0x25,
 # endif
 };
-#elif defined(ARM)
+#elif defined(AARCHXX)
 enum {
-    /* FIXME i#1551: this is for A32 for now to get things compiling */
+    /* FIXME i#1551, i#1569: this is for A32 for now to get things compiling */
     JMP_REL32_OPCODE  = 0xec000000,
     JMP_REL32_SIZE    = 4,
     CALL_REL32_OPCODE = 0xed000000,

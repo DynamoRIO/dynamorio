@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -204,24 +204,51 @@ endif (WIN32)
 # ANDROID is not mutually exclusive with LINUX or UNIX.
 if (CMAKE_SYSTEM_NAME MATCHES "^Android")
   set(ANDROID 1)
+  # We prefix new options with DR_ to make it easier for containing projects including
+  # DR to avoid name conflicts and to separate options.
+  set(DR_DEVICE_BASEDIR "/data/local/tmp" CACHE STRING "base dir for Android binaries")
+  option(DR_COPY_TO_DEVICE "copy cross-compiled binaries to DR_DEVICE_BASEDIR" OFF)
+  if (DR_COPY_TO_DEVICE)
+    find_program(ADB adb DOC "adb Android utility")
+    if (NOT ADB)
+      message(FATAL_ERROR "Unable to find adb for DR_COPY_TO_DEVICE")
+    else ()
+      execute_process(COMMAND ${ADB} get-state
+        RESULT_VARIABLE adb_result
+        ERROR_VARIABLE adb_err
+        OUTPUT_VARIABLE adb_out OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if (adb_result OR NOT adb_out STREQUAL "device")
+        message(FATAL_ERROR "Android device not connected for DR_COPY_TO_DEVICE")
+      endif ()
+    endif ()
+  endif ()
 endif ()
 
 # The target architecture.
 # For cross-compilation this should still work as you're supposed to set this var.
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(ARM 1)
+  set(ARM 1) # This means AArch32.
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(AARCH64 1)
 else ()
   set(X86 1) # This means IA-32 or AMD64
 endif ()
 
 if (X86)
   set(ARCH_NAME x86)
+elseif (ARM)
+  set(ARCH_NAME arm)
+elseif (AARCH64)
+  set(ARCH_NAME aarch64)
 else ()
-  if (ARM)
-    set(ARCH_NAME arm)
-  else ()
-    message(FATAL_ERROR "Unknown architecture target")
-  endif ()
+  message(FATAL_ERROR "Unknown architecture target")
+endif ()
+
+if (ARM OR AARCH64)
+  set(AARCHXX 1)
+  set(ARCH_NAME_SHARED aarchxx)
+else ()
+  set(ARCH_NAME_SHARED ${ARCH_NAME})
 endif ()
 
 # The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
@@ -238,6 +265,11 @@ if (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
   set(X64 OFF)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
+
+if (APPLE AND X64)
+  # XXX #1979: 64-bit OSX is not supported.
+  message(FATAL_ERROR "64-bit Mac OSX is not supported")
+endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
@@ -263,13 +295,6 @@ if (VPS)
     set(GBOP 1)
   endif (WIN32)
 endif (VPS)
-
-option(STATIC_LIBRARY "build DR statically (not supported yet)")
-if (STATIC_LIBRARY)
-  set(SHARED_OR_STATIC STATIC)
-else ()
-  set(SHARED_OR_STATIC SHARED)
-endif ()
 
 # temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
 # to VMAP by default
@@ -307,13 +332,12 @@ if ("${KSTATS}" STREQUAL "")
 endif()
 
 option(CALLPROF "internal caller profiling support")
-option(LINKCOUNT "internal linkcount profiling")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
-if (ARM)
-  set(ANNOTATIONS_DEFAULT OFF)
-else ()
+if (X86)
   set(ANNOTATIONS_DEFAULT ON)
+else ()
+  set(ANNOTATIONS_DEFAULT OFF)
 endif ()
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
 option(JITOPT_ANNOTATION "JIT optimization via annotations" OFF)
@@ -337,16 +361,7 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-elseif (ARM AND NOT X64)
-  # 32-bit Linux ARM reserves some space upper for kernel, either 0x8 or 0xc:
-  # we have to be conservative and stay below 0x8 b/c we cannot recover if we
-  # conflict with the kernel (initial exec will fail with EBADF).
-  # XXX: we could have drrun check and provide a user-visible message?
-  set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
-elseif (UNIX AND NOT X64)
-  # put dynamorio at top of address space, little chance of conflict
-  set(preferred_base "0xf7000000" CACHE STRING "Preferred library base address")
-else (UNIX AND NOT X64)
+else (WIN32 AND DEBUG)
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
 endif (WIN32 AND DEBUG)
 
@@ -374,7 +389,6 @@ mark_as_advanced(
   VPS
   KSTATS
   CALLPROF
-  LINKCOUNT
   PROFILE
   SET_PREFERRED_BASE
   preferred_base
@@ -457,29 +471,48 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
       # We want the committer date (not author date) (xref i#1565).  We request UNIX
       # timestamp format and then divide down to days to get a small enough number
       # for the Windows resource limits.
-      #
-      # XXX i#1565: to support building when not in a git repo (e.g., from a source
-      # tarball) we should add support for a local file holding the version.
       execute_process(COMMAND ${GIT} log -n 1 --format=%ct
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE git_out)
       if (git_result OR git_err)
-        message(FATAL_ERROR "*** ${GIT} log failed: ***\n${git_err}")
+        message("*** ${GIT} log failed: ***\n${git_err}")
+      else (git_result OR git_err)
+        math(EXPR daycount "${git_out} / (60*60*24)")
       endif (git_result OR git_err)
-      math(EXPR daycount "${git_out} / (60*60*24)")
-      if (daycount)
-        set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
-      endif ()
     endif (GIT)
+    if (NOT daycount)
+      # XXX i#1565: to support building when not in a git repo (e.g., from a source
+      # tarball) we use date to get current time for timestamp.
+      # This is not ideal as it confuses the build timestamp with the commit
+      # timestamp.  We should add support for a local file holding the version.
+      find_program(DATE date DOC "system date")
+      if (DATE)
+        execute_process(COMMAND ${DATE} +%s
+          RESULT_VARIABLE date_result
+          ERROR_VARIABLE date_err
+          OUTPUT_VARIABLE date_out)
+        if (date_result OR date_err)
+          message("*** ${DATE} failed: ***\n${date_err}")
+        else (date_result OR date_err)
+          math(EXPR daycount "${date_out} / (60*60*24)")
+        endif (date_result OR date_err)
+      endif (DATE)
+    endif (NOT daycount)
+    if (NOT daycount)
+      # set a much further date in the future to avoid confusing
+      # this fake date with the real date from git log
+      set(daycount 33333)
+    endif (NOT daycount)
+    set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: if VERSION_NUMBER's major number is incremented without also
 # incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "6.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "6.2.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -533,6 +566,9 @@ endif (UNIX)
 
 if (UNIX)
   identify_clang(CMAKE_COMPILER_IS_CLANG)
+  if (CMAKE_COMPILER_IS_CLANG)
+    set(CLANG 1)
+  endif (CMAKE_COMPILER_IS_CLANG)
 
   if (CYGWIN)
     message(FATAL_ERROR "building using gcc within cygwin is not supported")
@@ -650,12 +686,18 @@ macro(add_static_lib_debug_info target dest_dir)
 endmacro()
 
 # compiler flags
+# BASE_CFLAGS applies to both C and C++.
+# BASE_CONLY_FLAGS applies to just C.
+# BASE_CXXONLY_FLAGS applies to just C++.
+set(BASE_CFLAGS "")
+set(BASE_CONLY_FLAGS "")
+set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
   # -std=c99 doesn't quite work
   # FIXME case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
   # warnings and pass -pedantic to main gcc
-  set(BASE_CFLAGS "-std=gnu99")
+  set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -std=gnu99")
   # disable strict aliasing opt in gcc 3.3.3 -- gives warnings and makes bad assumptions
   set(BASE_CFLAGS "${BASE_CFLAGS} -fno-strict-aliasing")
   # Ubuntu defaults to -fstack-protector these days, which depends on app TLS.
@@ -667,16 +709,17 @@ if (UNIX)
   if (X86)
     if (X64)
       set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-m64")
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
       set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-m32")
       # i#847 keep stack boundary 4-byte aligned (except on Mac)
-      # XXX i#1346: what is clang equivalent?
-      if (NOT CMAKE_COMPILER_IS_CLANG AND NOT APPLE)
+      # XXX i#1800: clang does not support -mpreferred-stack-boundary=2 or
+      # an equivalent flag, so clang's build may not run legacy binaries.
+      if (NOT CMAKE_COMPILER_IS_CLANG)
         set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-        set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
+      elseif (NOT APPLE)
+        message(STATUS "WARNING: 32-bit clang lacks stack alignment control:")
+        message(STATUS "  resulting build may not run all apps correctly")
       endif ()
       set(LD_FLAGS "-melf_i386")
     endif (X64)
@@ -685,7 +728,6 @@ if (UNIX)
     if (X64)
     else (X64)
       set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
-      set(BASE_CXXFLAGS "-mthumb -march=armv7-a")
       set(LD_FLAGS "-marmelf_linux_eabi")
       if (ANDROID OR CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
         # We use eabihf by default for ARM build.
@@ -696,13 +738,20 @@ if (UNIX)
         # so we use softfp for Android build instead.
         # We also need to add softfp for the gnueabi target.
         set(BASE_CFLAGS "-mfloat-abi=softfp ${BASE_CFLAGS}")
-        set(BASE_CXXFLAGS "-mfloat-abi=softfp ${BASE_CXXFLAGS}")
       endif ()
     endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
-    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.7")
+    # We're building our release package on 10.11, and that XCode does not
+    # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
+    # Thus we have abandoned support for below 10.9.
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
+  endif ()
+  if (APPLE)
+    set(ld_entry_flag "-e")
+  else ()
+    set(ld_entry_flag "--entry")
   endif ()
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror -Wwrite-strings")
@@ -723,9 +772,7 @@ if (UNIX)
     if (CLANG_COLOR_DIAGNOSTICS)
       set(clang_args "-fcolor-diagnostics ${clang_args}")
     endif (CLANG_COLOR_DIAGNOSTICS)
-    # Apply to both C and C++.
     set(BASE_CFLAGS "${clang_args} ${BASE_CFLAGS}")
-    set(BASE_CXXFLAGS "${clang_args} ${BASE_CXXFLAGS}")
   endif (NOT CMAKE_COMPILER_IS_CLANG)
   set(DBG "-g3")
   # gcc doesn't change its optimizations based on -g
@@ -769,7 +816,7 @@ if (UNIX)
   set(LINK_DBG "")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
-  set(BASE_CFLAGS "/nologo")
+  set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
   # build in parallel, always.
   # note that /MP is not officially supported on VS 2005 and others
   # have seen occasional problems: we'll risk it.  we could check for
@@ -833,11 +880,14 @@ else (UNIX)
   # explicitly request /Od even though it's cl's default b/c VS has /O2 as default
   # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
   set(DBG_OPT "/Od")
-  set(BASE_CXXFLAGS "${BASE_CFLAGS}")
-  if (CMAKE_RC_FLAGS)
-    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo")
-  else ()
-    set(CMAKE_RC_FLAGS "/nologo")
+  if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # i#1821: cmake 3.3.1 (but not 2.8.12) somehow messes up this /nologo flag.
+    # We just avoid it for VS generators as a workaround.
+    if (CMAKE_RC_FLAGS)
+      set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo")
+    else ()
+      set(CMAKE_RC_FLAGS "/nologo")
+    endif ()
   endif ()
 endif (UNIX)
 
@@ -870,7 +920,6 @@ if (UNIX)
 
   if (VISIBILITY)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
-    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -fvisibility=${VISIBILITY}")
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
 
@@ -1016,16 +1065,16 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CXXFLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_DBG}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_DBG}")
@@ -1111,6 +1160,7 @@ endfunction (install_target)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set(DR_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_LIB}")
+set(DR_LIBRARY_BASE_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${INSTALL_BIN}")
 # if drinjectlib is built before any exe target this dir won't exist
 # and the "cmake -E copy" will fail (PR 549174)
@@ -1228,17 +1278,20 @@ include_directories(BEFORE
 # Debug vs release is automatically added as a suffix.
 if (X64)
   set(exported_targets_name "DynamoRIOTarget64")
+  set(exported_map_name "DynamoRIOMap64")
 else (X64)
   set(exported_targets_name "DynamoRIOTarget32")
+  set(exported_map_name "DynamoRIOMap32")
 endif (X64)
 
 # i#948: we need to map RelWithDebInfo and RelMinSize to Release so importing
 # projects don't end up with Debug instead, yet Release for static libs
 # set in DynamoRIOConfig.cmake.
-# We do this with the MAP_IMPORTED_CONFIG_<CONFIG> target property.
-# If we pass APPEND to the first one, subsequent configs keep growing the file,
-# so we remove it up front.
-file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake "")
+# We do this with the MAP_IMPORTED_CONFIG_<CONFIG> target property in a
+# special DynamoRIOMap file included by DynamoRIOConfig.cmake for build dirs, and
+# directly in the DynamoRIOTarget file for install dirs (where we can append easily).
+# For the Map file, we need to start empty:
+file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake "")
 set(exported_targets_append "")
 macro(DR_export_target target)
   export(TARGETS ${ARGV} FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
@@ -1248,7 +1301,7 @@ SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELEASE RelWithDebInfo)
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebInfo)
 ")
   if (NOT DEBUG)
-    file(APPEND ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake ${toadd})
+    file(APPEND ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake ${toadd})
   endif (NOT DEBUG)
   # We append to the installed file even in debug build so the ordering of
   # release vs debug doesn't matter in the final package.
@@ -1341,13 +1394,13 @@ option(BUILD_SAMPLES "build client samples" ON)
 
 option(BUILD_CLIENTS "build client tools" ON)
 
-if (ARM)
+if (NOT X86)
   # FIXME i#1551: fail to install necessary package on Linux ARM
   # XXX i#1730: if we enable this we'll need to disable for cross-compilation
   option(BUILD_DOCS "build documentation" OFF)
-else (ARM)
+else ()
   option(BUILD_DOCS "build documentation" ON)
-endif (ARM)
+endif ()
 
 if (VMSAFE)
   # I did not preserve VMSAFE docs building: to reactivate it, need to
@@ -1369,7 +1422,6 @@ endif (NOT CLIENT_INTERFACE)
 option(BUILD_TESTS "build tests" OFF)
 if (BUILD_TESTS)
   # Tests require tools
-  # FIXME i#65 NOT YET COMPLETED: what about x64 Windows: we need 32-bit drdeploy.exe!
   set(BUILD_TOOLS ON)
   enable_testing()
   # add Dashboard support
@@ -1536,6 +1588,49 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
+# Used by tests in multiple places.
+if (BUILD_TESTS AND UNIX)
+  if (ANDROID)
+    # pthreads is inside Bionic on Android, and for some reason find_library() can't
+    # locate libm or libdl within the Android toolchain: we just assume they're there.
+    set(libmath m)
+    set(libdl dl)
+    set(libpthread "")
+  else ()
+    # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
+    # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
+    # multi-arch compilation, whose value is x86_64-linux-gnu or i386-linux-gnu
+    # for 64/32-bit. However, in Ubuntu 11.10, some of the 32-bit libraries
+    # like libm.so, libdl.so, and libpthread.so are in /usr/lib32 or /lib32
+    # instead of /lib/i386-linux-gnu, so cmake cannot to find them.
+    # solution: add explicit paths for lookup.
+    find_library(libmath m)
+    if (NOT libmath AND NOT X64)
+      find_library(libmath m PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libdl dl)
+    if (NOT libdl AND NOT X64)
+      find_library(libdl dl PATHS /usr/lib32 /lib32)
+    endif ()
+    find_library(libpthread pthread)
+    if (NOT libpthread AND NOT X64)
+      find_library(libpthread pthread PATHS /usr/lib32 /lib32)
+    endif ()
+    if (NOT libmath OR NOT libdl OR NOT libpthread)
+      message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
+    endif ()
+  endif ()
+endif ()
+
+# zlib is used for some clients/ and tests.
+if (CMAKE_CROSSCOMPILING)
+  # find_package looks at the host system.
+  # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
+  set(ZLIB_FOUND OFF)
+else ()
+  find_package(ZLIB)
+endif ()
+
 if (BUILD_CLIENTS)
   # Must be prior to api/docs
   add_subdirectory(clients)
@@ -1551,7 +1646,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
         set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
       else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
         # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX)
+        if (TEST_SUITE AND UNIX AND NOT APPLE)
           message(FATAL_ERROR "ImageMagick is required to build the documentation")
         else ()
           # Non-fatal for a single, un-official build, or on Windows
@@ -1565,7 +1660,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "doxygen is required to build the documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1577,7 +1672,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
     if (NOT FIG2DEV_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1590,7 +1685,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
     if (NOT GHOSTSCRIPT_FOUND)
       # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX)
+      if (TEST_SUITE AND UNIX AND NOT APPLE)
         message(FATAL_ERROR "ghostscript is required to build documentation")
       else ()
         # Non-fatal for a single, un-official build, or on Windows
@@ -1604,7 +1699,7 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
       find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
       if (NOT GHOSTSCRIPT_ON_PATH)
         # We require on Linux pre-commit where it's trivial to install
-        if (TEST_SUITE AND UNIX)
+        if (TEST_SUITE AND UNIX AND NOT APPLE)
           message(FATAL_ERROR
             "ghostscript is installed, but must be on PATH for fig2dev to find it")
         else ()
@@ -1773,11 +1868,11 @@ if (UNIX)
   # We've already split out our separate .debug files and stripped the
   # originals in our build rules
   set(CPACK_STRIP_FILES OFF)
-  if (VMKERNEL)
-    set(CPACK_SYSTEM_NAME "ESXi")
-  else (VMKERNEL)
+  if (APPLE)
+    set(CPACK_SYSTEM_NAME "MacOS")
+  else ()
     set(CPACK_SYSTEM_NAME "Linux")
-  endif (VMKERNEL)
+  endif ()
 else (UNIX)
   # FIXME: try Windows NSIS
   set(CPACK_GENERATOR "ZIP")

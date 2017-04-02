@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,6 +38,8 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
+#include "hashtable.h"
 #include <string.h> /* memset */
 
 #define VERBOSE 1
@@ -49,143 +51,66 @@
 #endif
 
 /****************************************************************************/
-/* global */
+/* Global declarations. */
 
 #ifdef SHOW_RESULTS
+static int num_traces;
 static int num_complete_inlines;
 #endif
 
-static void *htable_mutex; /* for multithread support */
-
 static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                                        bool for_trace, bool translating,
+                                        void **user_data);
 static void event_fragment_deleted(void *drcontext, void *tag);
 static dr_custom_trace_action_t
 query_end_trace(void *drcontext, void * trace_tag, void *next_tag);
 
 /****************************************************************************/
-/* hashtable so we know if a particular tag is for a call trace or a
- * normal back branch trace
+/* We use a hashtable to know if a particular tag is for a call trace or a
+ * normal back branch trace.
  */
 
 typedef struct _trace_head_entry_t {
     void *tag;
     bool is_trace_head;
     bool has_ret;
-    /* have to end at next block after see return */
+    /* We have to end at the next block after we see a return. */
     int end_next;
-    /* some callees are too large to inline, so have size limit */
+    /* Some callees are too large to inline, so we have a size limit. */
     uint size;
+    /* We use a ref count so we know when to remove in the presence of
+     * thread-private duplicated blocks.
+     */
+    uint refcount;
     struct _trace_head_entry_t *next;
 } trace_head_entry_t;
 
-/* global table */
-static trace_head_entry_t **htable;
+/* Global hash table. */
+static hashtable_t head_table;
+#define HASH_BITS 13
 
-/* max call-trace size */
+/* Max call-trace size */
 #define INLINE_SIZE_LIMIT (4*1024)
 
-/* no instruction alignment -> use the lsb! */
-#define HASH_MASK(num_bits) ((~0U)>>(32-(num_bits)))
-#define HASH_FUNC_BITS(val, num_bits) ((val) & (HASH_MASK(num_bits)))
-#define HASH_FUNC(val, mask) ((val) & (mask))
-#define HASHTABLE_SIZE(num_bits) (1U << (num_bits))
-
-#define HASH_BITS 13
-#define TABLE_SIZE HASHTABLE_SIZE(HASH_BITS) * sizeof(trace_head_entry_t*)
-
-/* if drcontext == NULL uses global memory */
-static trace_head_entry_t **
-htable_create(void *drcontext)
-{
-    trace_head_entry_t **table = (trace_head_entry_t**) dr_global_alloc(TABLE_SIZE);
-    /* assume during process init so no lock needed */
-    memset(table, 0, TABLE_SIZE);
-    return table;
-}
-
-/* if drcontext == NULL uses global memory */
-static void
-htable_free(void *drcontext, trace_head_entry_t **table)
-{
-    /* assume during process exit so no lock needed */
-    int i;
-    /* clean up memory */
-    for (i = 0; i < HASHTABLE_SIZE(HASH_BITS); i++) {
-        trace_head_entry_t *e = table[i];
-        while (e) {
-            trace_head_entry_t *nexte = e->next;
-            dr_global_free(e, sizeof(trace_head_entry_t));
-            e = nexte;
-        }
-        table[i] = NULL;
-    }
-    dr_global_free(table, TABLE_SIZE);
-}
-
-/* Caller must hold htable_mutex if drcontext == NULL. */
 static trace_head_entry_t *
-add_trace_head_entry(void *drcontext, void *tag)
+create_trace_head_entry(void *tag)
 {
-    trace_head_entry_t **table = htable;
-    trace_head_entry_t *e;
-    uint hindex;
-    e = (trace_head_entry_t *) dr_global_alloc(sizeof(trace_head_entry_t));
+    trace_head_entry_t *e = (trace_head_entry_t *) dr_global_alloc(sizeof(*e));
     e->tag = tag;
     e->end_next = 0;
     e->size = 0;
     e->has_ret = false;
     e->is_trace_head = false;
-    /* we assume we're masking away top 32 bits for 64-bit, so cast here */
-    hindex = HASH_FUNC_BITS((uint)(ptr_uint_t)tag, HASH_BITS);
-    e->next = table[hindex];
-    table[hindex] = e;
+    e->refcount = 1;
     return e;
 }
 
-/* Lookup an entry by pc and return a pointer to the corresponding entry .
- * Returns NULL if no such entry exists.
- * Caller must hold htable_mutex if drcontext == NULL.
- */
-static trace_head_entry_t *
-lookup_trace_head_entry(void *drcontext, void *tag)
+static void
+free_trace_head_entry(void *entry)
 {
-    trace_head_entry_t **table = htable;
-    trace_head_entry_t *e;
-    uint hindex;
-    /* we assume we're masking away top 32 bits for 64-bit, so cast here */
-    hindex = HASH_FUNC_BITS((uint)(ptr_uint_t)tag, HASH_BITS);
-    for (e = table[hindex]; e; e = e->next) {
-        if (e->tag == tag)
-            return e;
-    }
-    return NULL;
-}
-
-/* Lookup an entry by tag and index and delete it.
- * Returns false if no such entry exists.
- * Caller must hold htable_mutex if drcontext == NULL.
- */
-static bool
-remove_trace_head_entry(void *drcontext, void *tag)
-{
-    trace_head_entry_t **table = htable;
-    trace_head_entry_t *e, *prev;
-    uint hindex;
-    /* we assume we're masking away top 32 bits for 64-bit, so cast here */
-    hindex = HASH_FUNC_BITS((uint)(ptr_uint_t)tag, HASH_BITS);
-    for (prev = NULL, e = table[hindex]; e; prev = e, e = e->next) {
-        if (e->tag == tag) {
-            if (prev)
-                prev->next = e->next;
-            else
-                table[hindex] = e->next;
-            dr_global_free(e, sizeof(trace_head_entry_t));
-            return true;
-        }
-    }
-    return false;
+    trace_head_entry_t *e = (trace_head_entry_t *) entry;
+    dr_global_free(e, sizeof(*e));
 }
 
 /****************************************************************************/
@@ -195,29 +120,30 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'inline'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init())
+        DR_ASSERT(false);
 
-    htable_mutex = dr_mutex_create();
-
-    /* global HASH_BITS-bit addressed hash table */
-    htable = htable_create(NULL/*global*/);
+    hashtable_init_ex(&head_table, HASH_BITS, HASH_INTPTR, false/*!strdup*/,
+                      false/*synchronization is external*/,
+                      free_trace_head_entry, NULL, NULL);
 
     dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
+    if (!drmgr_register_bb_instrumentation_event(event_analyze_bb, NULL, NULL))
+        DR_ASSERT(false);
     dr_register_delete_event(event_fragment_deleted);
     dr_register_end_trace_event(query_end_trace);
 
-    /* make it easy to tell, by looking at log file, which client executed */
+    /* Make it easy to tell from the log file which client executed. */
     dr_log(NULL, LOG_ALL, 1, "Client 'inline' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
+        /* Ask for best-effort printing to cmd window.  Must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client inline is running\n");
     }
-    num_complete_inlines = 0;
 #endif
 }
 
@@ -225,25 +151,29 @@ static void
 event_exit(void)
 {
 #ifdef SHOW_RESULTS
-    /* display the results */
+    /* Display the results! */
     char msg[512];
     int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                       "Inlining results:\n"
-                       "  Number of complete inlines: %d\n", num_complete_inlines);
+                          "Inlining results:\n"
+                          "  Number of traces: %d\n"
+                          "  Number of complete inlines: %d\n",
+                          num_traces, num_complete_inlines);
     DR_ASSERT(len > 0);
     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
     DISPLAY_STRING(msg);
 #endif
-    htable_free(NULL/*global*/, htable);
-    dr_mutex_destroy(htable_mutex);
+    hashtable_delete(&head_table);
+    if (!drmgr_unregister_bb_instrumentation_event(event_analyze_bb))
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
 /****************************************************************************/
 /* the work itself */
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb,
+                 bool for_trace, bool translating, void **user_data)
 {
     instr_t *instr;
     trace_head_entry_t *e = NULL;
@@ -252,36 +182,58 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     for (instr  = instrlist_first_app(bb);
          instr != NULL;
          instr  = instr_get_next_app(instr)) {
-        /* blocks containing calls are trace heads */
+        /* Blocks containing calls are trace heads. */
         if (instr_is_call(instr)) {
             dr_mark_trace_head(drcontext, tag);
-            dr_mutex_lock(htable_mutex);
-            e = add_trace_head_entry(NULL, tag);
+            hashtable_lock(&head_table);
+            e = hashtable_lookup(&head_table, tag);
+            if (e == NULL) {
+                e = create_trace_head_entry(tag);
+                if (!hashtable_add(&head_table, tag, (void *)e))
+                    DR_ASSERT(false);
+            } else
+                e->refcount++;
             e->is_trace_head = true;
-            dr_mutex_unlock(htable_mutex);
+            hashtable_unlock(&head_table);
 #ifdef VERBOSE
             dr_log(drcontext, LOG_ALL, 3,
-                   "inline: marking bb "PFX" as trace head\n", tag);
+                   "inline: marking bb "PFX" as call trace head\n", tag);
 #endif
-            /* doesn't matter what's in rest of bb */
+            /* Doesn't matter what's in rest of the bb. */
             return DR_EMIT_DEFAULT;
         } else if (instr_is_return(instr)) {
-            dr_mutex_lock(htable_mutex);
-            e = add_trace_head_entry(NULL, tag);
+            hashtable_lock(&head_table);
+            e = hashtable_lookup(&head_table, tag);
+            if (e == NULL) {
+                e = create_trace_head_entry(tag);
+                if (!hashtable_add(&head_table, tag, (void *)e))
+                    DR_ASSERT(false);
+            } else
+                e->refcount++;
             e->has_ret = true;
-            dr_mutex_unlock(htable_mutex);
+            hashtable_unlock(&head_table);
+#ifdef VERBOSE
+            dr_log(drcontext, LOG_ALL, 3,
+                   "inline: marking bb "PFX" as return trace head\n", tag);
+#endif
         }
     }
     return DR_EMIT_DEFAULT;
 }
 
-/* to keep the size of our hashtable down */
+/* To keep the size of our hashtable down. */
 static void
 event_fragment_deleted(void *drcontext, void *tag)
 {
-    dr_mutex_lock(htable_mutex);
-    remove_trace_head_entry(NULL, tag);
-    dr_mutex_unlock(htable_mutex);
+    trace_head_entry_t *e;
+    hashtable_lock(&head_table);
+    e = hashtable_lookup(&head_table, tag);
+    if (e != NULL) {
+        e->refcount--;
+        if (e->refcount == 0)
+            hashtable_remove(&head_table, tag);
+    }
+    hashtable_unlock(&head_table);
 }
 
 /* Ask whether to end trace prior to adding next_tag fragment.
@@ -293,31 +245,34 @@ event_fragment_deleted(void *drcontext, void *tag)
 static dr_custom_trace_action_t
 query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
 {
-    /* if this is a call trace, only end on the block AFTER a return
-     *   (need to get the return inlined!)
-     * if this is a standard back branch trace, end it if we see a
+    /* If this is a call trace, only end on the block AFTER a return
+     *   (need to get the return inlined!).
+     * If this is a standard back branch trace, end it if we see a
      *   block with a call (so that we'll go into the call trace).
      *   otherwise return 0 and let DynamoRIO determine whether to
      *   terminate the trace now.
      */
     trace_head_entry_t *e;
-    dr_mutex_lock(htable_mutex);
-    e = lookup_trace_head_entry(NULL, trace_tag);
+    hashtable_lock(&head_table);
+    e = hashtable_lookup(&head_table, trace_tag);
     if (e == NULL || !e->is_trace_head) {
-        e = lookup_trace_head_entry(NULL, next_tag);
+        e = hashtable_lookup(&head_table, next_tag);
         if (e == NULL || !e->is_trace_head) {
-            dr_mutex_unlock(htable_mutex);
+            hashtable_unlock(&head_table);
             return CUSTOM_TRACE_DR_DECIDES;
         } else {
-            /* we've found a call, end this trace now so it won't keep going and
-             * end up never entering the call trace
+            /* We've found a call: end this trace now so it won't keep going and
+             * end up never entering the call trace.
              */
 #ifdef VERBOSE
             dr_log(drcontext, LOG_ALL, 3,
                    "inline: ending trace "PFX" before block "PFX" containing call\n",
                    trace_tag, next_tag);
 #endif
-            dr_mutex_unlock(htable_mutex);
+#ifdef SHOW_RESULTS
+            num_traces++;
+#endif
+            hashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
     } else if (e->end_next > 0) {
@@ -330,12 +285,13 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
 #endif
 #ifdef SHOW_RESULTS
             num_complete_inlines++;
+            num_traces++;
 #endif
-            dr_mutex_unlock(htable_mutex);
+            hashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
     } else {
-        trace_head_entry_t *nxte = lookup_trace_head_entry(NULL, next_tag);
+        trace_head_entry_t *nxte = hashtable_lookup(&head_table, next_tag);
         uint size = dr_fragment_size(drcontext, next_tag);
         e->size += size;
         if (e->size > INLINE_SIZE_LIMIT) {
@@ -344,27 +300,30 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
                    "inline: ending trace "PFX" before "PFX" because reached size limit\n",
                    trace_tag, next_tag);
 #endif
-            dr_mutex_unlock(htable_mutex);
+#ifdef SHOW_RESULTS
+            num_traces++;
+#endif
+            hashtable_unlock(&head_table);
             return CUSTOM_TRACE_END_NOW;
         }
         if (nxte != NULL && nxte->has_ret && !nxte->is_trace_head) {
-            /* end trace after NEXT block */
+            /* End trace after NEXT block */
             e->end_next = 2;
 #ifdef VERBOSE
             dr_log(drcontext, LOG_ALL, 3,
                    "inline: going to be ending trace "PFX" after "PFX"\n",
                    trace_tag, next_tag);
 #endif
-            dr_mutex_unlock(htable_mutex);
+            hashtable_unlock(&head_table);
             return CUSTOM_TRACE_CONTINUE;
         }
     }
-    /* do not end trace */
+    /* Do not end trace */
 #ifdef VERBOSE
     dr_log(drcontext, LOG_ALL, 3,
            "inline: NOT ending trace "PFX" after "PFX"\n", trace_tag, next_tag);
 #endif
-    dr_mutex_unlock(htable_mutex);
+    hashtable_unlock(&head_table);
     return CUSTOM_TRACE_CONTINUE;
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,6 +70,7 @@ static app_pc addr_replace;
 static app_pc addr_replace2;
 static app_pc addr_replace_callsite;
 
+static app_pc addr_skip_flags;
 static app_pc addr_level0;
 static app_pc addr_level1;
 static app_pc addr_level2;
@@ -227,6 +228,10 @@ module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
             CHECK(ok, "wrap failed");
         }
 #endif
+        /* test leaner wrapping */
+        if (load_count == 2)
+            drwrap_set_global_flags(DRWRAP_NO_FRILLS | DRWRAP_FAST_CLEANCALLS);
+        wrap_addr(&addr_skip_flags, "skip_flags", mod, true, false);
     }
 }
 
@@ -243,6 +248,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
         ok = drwrap_replace_native(addr_replace_callsite, NULL, false, 0, NULL, true);
         CHECK(ok, "un-replace_native failed");
 
+        unwrap_addr(addr_skip_flags, "skip_flags", mod, true, false);
         unwrap_addr(addr_level0, "level0", mod, true, true);
         unwrap_addr(addr_level1, "level1", mod, true, true);
         unwrap_addr(addr_level2, "level2", mod, true, true);
@@ -309,12 +315,25 @@ replacewith(int *x)
 }
 
 static int
+on_clean_stack(int i, int j, int k, int l, int m, int n, int o, int p)
+{
+    return i + j + k + l + m + n + o + p;
+}
+
+static int
 replacewith2(int *x)
 {
     ptr_int_t param = dr_read_saved_reg(dr_get_current_drcontext(),
                                     DRWRAP_REPLACE_NATIVE_DATA_SLOT);
     CHECK(param == DRWRAP_NATIVE_PARAM, "native param wrong");
-    *x = 999;
+    /* Test dr_call_on_clean_stack() */
+    *x = (int)(ptr_uint_t)
+        dr_call_on_clean_stack(dr_get_current_drcontext(),
+                               (void *(*)(void)) on_clean_stack,
+                               (void *)(ptr_uint_t)500, (void *)(ptr_uint_t)400,
+                               (void *)(ptr_uint_t)50, (void *)(ptr_uint_t)40,
+                               (void *)(ptr_uint_t)4, (void *)(ptr_uint_t)3,
+                               (void *)(ptr_uint_t)1, (void *)(ptr_uint_t)1);
     /* We must call this prior to returning, to avoid going native.
      * This also serves as a test of dr_redirect_native_target()
      * as drwrap's continuation relies on that.
@@ -345,7 +364,10 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
 {
     bool ok;
     CHECK(wrapcxt != NULL && user_data != NULL, "invalid arg");
-    if (drwrap_get_func(wrapcxt) == addr_level0) {
+    if (drwrap_get_func(wrapcxt) == addr_skip_flags) {
+        CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 1, "get_arg wrong");
+        CHECK(drwrap_get_arg(wrapcxt, 1) == (void *) 2, "get_arg wrong");
+    } else if (drwrap_get_func(wrapcxt) == addr_level0) {
         dr_fprintf(STDERR, "  <pre-level0>\n");
         CHECK(drwrap_get_arg(wrapcxt, 0) == (void *) 37, "get_arg wrong");
         ok = drwrap_set_arg(wrapcxt, 0, (void *) 42);

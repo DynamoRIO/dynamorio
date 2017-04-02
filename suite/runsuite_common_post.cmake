@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,7 +32,7 @@
 # Test suite post-processing
 # See instructions in runsuite_common_pre.cmake
 
-cmake_minimum_required (VERSION 2.4)
+cmake_minimum_required (VERSION 2.6)
 if (COMMAND cmake_policy)
   # avoid warnings on include()
   cmake_policy(VERSION 2.8)
@@ -97,6 +97,12 @@ endif (build_package)
 
 set(outf "${BINARY_BASE}/results.txt")
 file(WRITE ${outf} "==================================================\nRESULTS\n\n")
+file(GLOB all_missing_cross_compilations ${BINARY_BASE}/*/Testing/missing-cross-compile)
+foreach (missing_cross_compile ${all_missing_cross_compilations})
+  file(READ ${missing_cross_compile} missing_cross_compile_name)
+  file(APPEND ${outf} "${missing_cross_compile_name}: skipped ")
+  file(APPEND ${outf} "(cross-compile configuration unavailable)\n")
+endforeach (missing_cross_compile)
 if (arg_already_built)
   file(GLOB all_xml ${RESULTS_DIR}/*Test.xml ${RESULTS_DIR}/*final*Build.xml)
 else (arg_already_built)
@@ -109,6 +115,9 @@ foreach (xml ${all_xml})
   file(READ ${xml} string)
   if ("${string}" MATCHES "Configuring incomplete")
     file(APPEND ${outf} "${build}: **** pre-build configure errors ****\n")
+    string(REGEX MATCHALL "CMake Error at .*errors occurred!"
+      config_error "${string}")
+    file(APPEND ${outf} "\t${config_error}\n")
   else ("${string}" MATCHES "Configuring incomplete")
     string(REGEX REPLACE "Configure.xml$" "Build.xml" xml "${xml}")
     file(READ ${xml} string)

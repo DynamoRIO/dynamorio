@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,13 @@
  */
 #pragma warning( disable : 4115 )
 
+/* Like all of DR, we use utf8 internally and for our API and convert to wchar
+ * when interacting with the Windows kernel.
+ * We use tchar just for general code.
+ */
+#define UNICODE
+#define _UNICODE
+
 #include "../globals.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -65,10 +72,6 @@
 #include "inject_shared.h"
 #include "os_private.h"
 #include "dr_inject.h"
-
-#ifdef UNICODE
-# error dr_inject.h and drdeploy.c not set up for unicde
-#endif
 
 #define VERBOSE 0
 #if VERBOSE
@@ -99,7 +102,6 @@ static BOOL use_environment = TRUE; /* FIXME : for now default to using
                                      * never use the environment if using
                                      * debug injection.  Revisit.
                                      */
-static const char *ops_param;
 static double wallclock; /* in seconds */
 
 /* FIXME : assert stuff, internal error, display_message duplicated from
@@ -193,12 +195,40 @@ BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
 }
 #endif
 
+/* Always null-terminates */
+static bool
+char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elements*/)
+{
+    int res = MultiByteToWideChar(CP_UTF8, 0/*=>MB_PRECOMPOSED*/, str, -1/*null-term*/,
+                                  wbuf, (int)wbuflen);
+    if (res <= 0)
+        return false;
+    wbuf[wbuflen - 1] = L'\0';
+    return true;
+}
+
+/* Always null-terminates */
+static bool
+tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen/*# elements*/)
+{
+    int res = WideCharToMultiByte(CP_UTF8, 0, wstr, -1/*null-term*/,
+                                  buf, (int)buflen, NULL, NULL);
+    if (res <= 0)
+        return false;
+    buf[buflen - 1] = '\0';
+    return true;
+}
+
 /*************************************************************************/
 
 /* Opaque type to users, holds our state */
 typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
+    TCHAR wimage_name[MAXIMUM_PATH];
+    /* We need something to point at for dr_inject_get_image_name so we just
+     * keep a utf8 buffer as well.
+     */
     char image_name[MAXIMUM_PATH];
 } dr_inject_info_t;
 
@@ -353,7 +383,7 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
     /* get environment variable values if they are set */
 #undef TEMP_CMD
 #define TEMP_CMD(name, NAME)                                                  \
- name##_value[0] = '\0';  /* to be pedantic */                                \
+ name##_value[0] = _T('\0');  /* to be pedantic */                            \
  len = GetEnvironmentVariable(_TEXT(DYNAMORIO_VAR_##NAME), name##_value,      \
                               BUFFER_SIZE_ELEMENTS(name##_value));            \
  do_##name = (use_environment &&                                              \
@@ -364,13 +394,6 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
         do_##name ? "set" : "not set", #name, name##_value));
 
     DO_ENV_VARS();
-
-    if (ops_param != NULL) {
-        /* -ops overrides env var */
-        strncpy(options_value, ops_param, BUFFER_SIZE_ELEMENTS(options_value));
-        NULL_TERMINATE_BUFFER(options_value);
-        do_options = TRUE;
-    }
 
     /* we always want to set the rununder to make sure RUNUNDER_ON is on
      * to support following children; we set RUNUNDER_EXPLICIT to allow
@@ -391,10 +414,11 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
         do_autoinject = true;
     }
 
-    /* FIXME : doesn't support svchost-* yet */
-    ASSERT(_tcsicmp(_TEXT(SVCHOST_EXE_NAME), image_name));
+    /* XXX: doesn't support svchost-* yet */
+    /* _TEXT("x" "y") does not work so we hardcode the wide constants */
+    ASSERT(_tcsicmp(L_SVCHOST_EXE_NAME, image_name));
     res = RegCreateKeyEx(DYNAMORIO_REGISTRY_HIVE,
-                         _TEXT(DYNAMORIO_REGISTRY_KEY), 0,  NULL,
+                         L_DYNAMORIO_REGISTRY_KEY, 0,  NULL,
                          REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL,
                          &product_name_key, &disp);
     ASSERT(res == ERROR_SUCCESS);
@@ -477,7 +501,7 @@ unset_registry_from_env(const TCHAR *image_name)
     }
     if (created_product_reg_key) {
         res = RegDeleteKey(DYNAMORIO_REGISTRY_HIVE,
-                           _TEXT(DYNAMORIO_REGISTRY_KEY));
+                           L_DYNAMORIO_REGISTRY_KEY);
         ASSERT(res == ERROR_SUCCESS);
         VERBOSE_PRINT(("deleted product reg key\n"));
     }
@@ -585,9 +609,21 @@ void restore_debugger_key_injection(int id, BOOL started)
 enum { MAX_CMDLINE = 36 * 1024 };
 
 static const TCHAR *
-get_image_name(const TCHAR *app_name)
+get_image_wname(const TCHAR *wapp_name)
 {
-    const TCHAR *name_start = double_tcsrchr(app_name, _TEXT('\\'), _TEXT('/'));
+    const TCHAR *name_start = double_tcsrchr(wapp_name, _TEXT('\\'), _TEXT('/'));
+    if (name_start == NULL)
+        name_start = wapp_name;
+    else
+        name_start++;
+    return name_start;
+}
+
+/* Simpler and faster to have two versions than to convert */
+static const char *
+get_image_name(const char *app_name)
+{
+    const char *name_start = double_strrchr(app_name, '\\', '/');
     if (name_start == NULL)
         name_start = app_name;
     else
@@ -603,7 +639,7 @@ get_image_name(const TCHAR *app_name)
  * comment in the docs for dr_inject_process_create.
  */
 static bool
-exe_is_right_bitwidth(const char *exe, int *errcode)
+exe_is_right_bitwidth(const TCHAR *wexe, int *errcode)
 {
     bool res = false;
     HANDLE f;
@@ -611,7 +647,7 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
     DWORD read;
     IMAGE_DOS_HEADER dos;
     IMAGE_NT_HEADERS nt;
-    f = CreateFile(exe, GENERIC_READ, FILE_SHARE_READ,
+    f = CreateFile(wexe, GENERIC_READ, FILE_SHARE_READ,
                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (f == INVALID_HANDLE_VALUE)
         goto read_nt_headers_error;
@@ -731,13 +767,18 @@ dr_inject_process_create(const char *app_name, const char **argv,
     int errcode = 0;
     BOOL res;
     char *app_cmdline;
+    TCHAR *wapp_cmdline;
+    TCHAR wapp_name[MAXIMUM_PATH];
     size_t sofar = 0;
     int i;
 
     if (data == NULL)
         return ERROR_INVALID_PARAMETER;
 
-    if (!exe_is_right_bitwidth(app_name, &errcode) &&
+    if (!char_to_tchar(app_name, wapp_name, BUFFER_SIZE_ELEMENTS(wapp_name)))
+        return ERROR_INVALID_PARAMETER;
+
+    if (!exe_is_right_bitwidth(wapp_name, &errcode) &&
         /* don't return here if couldn't find app: get appropriate errcode below */
         errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
         /* Rather than return ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE, we give the
@@ -750,14 +791,19 @@ dr_inject_process_create(const char *app_name, const char **argv,
     }
 
     /* Quote and concatenate the array of strings to pass to CreateProcess. */
+    /* To avoid having to write a utf8-to-wchar append_to_buffer(), we build it
+     * up as utf8 and then convert it.
+     */
     app_cmdline = malloc(MAX_CMDLINE);
-    if (!app_cmdline)
+    wapp_cmdline = malloc(MAX_CMDLINE*sizeof(wchar_t));
+    if (app_cmdline == NULL || wapp_cmdline == NULL)
         return GetLastError();
-    VERBOSE_PRINT("orig command line is [%s]\n", GetCommandLine());
     for (i = 0; argv[i] != NULL; i++) {
         append_app_arg_and_space(app_cmdline, MAX_CMDLINE, &sofar, argv[i]);
     }
     app_cmdline[sofar-1] = '\0'; /* Trim the trailing space. */
+    if (!char_to_tchar(app_cmdline, wapp_cmdline, MAX_CMDLINE))
+        return ERROR_INVALID_PARAMETER;
 
     /* Launch the application process. */
     ZeroMemory(&si, sizeof(si));
@@ -770,18 +816,20 @@ dr_inject_process_create(const char *app_name, const char **argv,
 
     strncpy(info->image_name, get_image_name(app_name),
             BUFFER_SIZE_ELEMENTS(info->image_name));
+    _tcsncpy(info->wimage_name, get_image_wname(wapp_name),
+            BUFFER_SIZE_ELEMENTS(info->wimage_name));
 
     /* FIXME, won't need to check this, or unset/restore debugger_key_injection
      * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
-    info->using_debugger_injection = using_debugger_key_injection(info->image_name);
+    info->using_debugger_injection = using_debugger_key_injection(info->wimage_name);
 
     if (info->using_debugger_injection) {
         unset_debugger_key_injection();
     }
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
-    res = CreateProcess(app_name, app_cmdline, NULL, NULL, TRUE,
+    res = CreateProcess(wapp_name, wapp_cmdline, NULL, NULL, TRUE,
                         CREATE_SUSPENDED |
                         ((debug_stop_function && info->using_debugger_injection) ?
                          DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS : 0),
@@ -789,6 +837,7 @@ dr_inject_process_create(const char *app_name, const char **argv,
     if (!res)
         errcode = GetLastError();
     free(app_cmdline);
+    free(wapp_cmdline);
 
     if (info->using_debugger_injection) {
         restore_debugger_key_injection(info->pi.dwProcessId, res);
@@ -843,6 +892,9 @@ dr_inject_process_inject(void *data, bool force_injection,
 
     if (library_path == NULL) {
         int err;
+        /* XXX i#943: we assume this return a utf8 value but that may not be true
+         * for PARAMS_IN_REGISTRY?
+         */
         err = get_process_parameter(info->pi.hProcess,
                                     PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
                                     library_path_buf, sizeof(library_path_buf));
@@ -861,7 +913,10 @@ dr_inject_process_inject(void *data, bool force_injection,
 #ifdef PARAMS_IN_REGISTRY
     /* don't set registry from environment if using debug key */
     if (!info->using_debugger_injection) {
-        set_registry_from_env(info->image_name, library_path);
+        TCHAR wpath[MAXIMUM_PATH];
+        if (!char_to_tchar(library_path, wpath, BUFFER_SIZE_ELEMENTS(wpath)))
+            return false;
+        set_registry_from_env(info->wimage_name, wpath);
     }
 #endif
 
@@ -912,7 +967,7 @@ dr_inject_process_exit(void *data, bool terminate)
     int exitcode = -1;
 #ifdef PARAMS_IN_REGISTRY
     if (!info->using_debugger_injection) {
-        unset_registry_from_env(info->image_name);
+        unset_registry_from_env(info->wimage_name);
     }
 #endif
     if (terminate) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -107,9 +107,9 @@ DECL_EXTERN(precious)
  */
     DECLARE_FUNC(precious_push_fake_retaddr)
 GLOBAL_LABEL(precious_push_fake_retaddr:)
-    push 0          /* Fake retaddr, will crash if it returns. */
-    jmp precious    /* no return */
-    END_FUNC(precious_push_fake_retaddr)
+        push     0          /* Fake retaddr, will crash if it returns. */
+        jmp      GLOBAL_REF(precious)    /* no return */
+        END_FUNC(precious_push_fake_retaddr)
 
 END_FILE
 

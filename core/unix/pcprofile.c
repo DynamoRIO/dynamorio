@@ -112,6 +112,7 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
     int i;
     int size = HASHTABLE_SIZE(HASH_BITS) * sizeof(pc_profile_entry_t*);
     thread_pc_info_t *info;
+    size_t special_heap_size = INTERNAL_OPTION(prof_pcs_heap_size);
 
     if (shared_itimer) {
         /* Linux kernel 2.6.12+ shares itimers across all threads.  We thus
@@ -121,8 +122,8 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
          */
         ASSERT(parent_info != NULL);
         info = (thread_pc_info_t *) parent_info;
-        dcontext->pcprofile_field = (void *) info; // hack!
-        ASSERT(info->thread_shared);
+        dcontext->pcprofile_field = parent_info;
+        info->thread_shared = true;
         return;
     }
 
@@ -144,9 +145,12 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
      * and creating a new one acquires global locks and can deadlock:
      * we should allocate many units up front or something
      */
-    info->special_heap = special_heap_init(sizeof(pc_profile_entry_t),
-                                           false /* no locks */,
-                                           false /* -x */, true /* persistent */);
+    info->special_heap = special_heap_pclookup_init(sizeof(pc_profile_entry_t),
+                                                    false/*no locks*/,
+                                                    false/*-x*/, true/*persistent*/,
+                                                    NULL/*vector*/, NULL/*vector data*/,
+                                                    NULL/*heap region*/,
+                                                    special_heap_size, false/*not full*/);
 
     set_itimer_callback(dcontext, ITIMER_VIRTUAL, ALARM_FREQUENCY, pcprofile_alarm, NULL);
 }
@@ -301,6 +305,9 @@ pcprofile_add_entry(thread_pc_info_t *info, void *pc, int whereami)
     pc_profile_entry_t *e;
 
     /* special_heap is hardcoded for sizeof(pc_profile_entry_t) */
+    apicheck(special_heap_can_calloc(info->special_heap, 1),
+             "Profile pc heap capacity exceeded. Use option -prof_pcs_heap_size "
+             "to rerun with a larger profiling heap.");
     e = (pc_profile_entry_t*) special_heap_alloc(info->special_heap);
     e->pc = pc;
     e->counter = 1;
@@ -572,6 +579,8 @@ pcprofile_results(thread_pc_info_t *info)
                         print_file(info->file, " context switch\n");
                     } else if (e->whereami == WHERE_IBL) {
                         print_file(info->file, " indirect_branch_lookup\n");
+                    } else if (e->whereami == WHERE_CLEAN_CALLEE) {
+                        print_file(info->file, " clean call\n");
                     } else {
                         print_file(STDERR, "ERROR: unknown whereAmI %d\n",
                                 e->whereami);

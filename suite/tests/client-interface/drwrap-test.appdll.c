@@ -140,6 +140,15 @@ level0(int x)
     return x;
 }
 
+int EXPORT
+skip_flags(int x, int y)
+{
+    /* check if arg value is changed by drwrap */
+    if (x != 1 || y != 2)
+        print("wrong argument %d %d!", x, y);
+    return (x+y);
+}
+
 void *level2_ptr;
 
 /***************************************************************************
@@ -207,6 +216,7 @@ run_tests(void)
     int res;
     level2_ptr = (void *) level2;
     print("thread.appdll process init\n");
+    skip_flags(1, 2);
     print("level0 returned %d\n", level0(37));
     res = skipme(&x);
     print("skipme returned %d and x=%d\n", res, x);
@@ -280,13 +290,13 @@ DECL_EXTERN(level2)
 #define FUNCNAME makes_tailcall
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-# if defined(UNIX) && defined(X64) && !defined(ARM)
+# if defined(UNIX) && defined(X86) && defined(X64)
         push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
         call     PTRSZ SYMREF(level2_ptr)
         pop      REG_XBP
         ret
 # else
-        JUMP     level2
+        JUMP     GLOBAL_REF(level2)
 # endif
 # ifndef ARM
         ret /* won't get here */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,11 +41,12 @@
 #cmakedefine INTERNAL
 #cmakedefine DEBUG
 #cmakedefine DRSTATS_DEMO
-#cmakedefine STATIC_LIBRARY
 
 /* target */
 #cmakedefine X86
 #cmakedefine ARM
+#cmakedefine AARCH64
+#cmakedefine AARCHXX
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX
@@ -65,6 +66,9 @@
 #cmakedefine PROCESS_CONTROL
 #cmakedefine GBOP
 
+/* i#1801 for clang build */
+#cmakedefine CLANG
+
 /* for use by developers */
 #cmakedefine KSTATS
 #cmakedefine CALLPROF
@@ -72,7 +76,6 @@
 /* XXX: perhaps should rename CALLPROF cmake var to CALL_PROFILE */
 # define CALL_PROFILE
 #endif
-#cmakedefine LINKCOUNT
 #cmakedefine PARAMS_IN_REGISTRY
 
 /* when packaging */
@@ -104,6 +107,13 @@
 #cmakedefine DR_DO_NOT_DEFINE_uint64
 #cmakedefine DR_DO_NOT_DEFINE_ushort
 #cmakedefine DR__Bool_EXISTS
+#if defined(UNIX) && !defined(CPP2ASM)
+/* i#1812: our check for these types searches sys/types.h, which we include in
+ * globals_shared.h, but some tests do not include that.  To get everything to
+ * work consistently we include it here.
+ */
+# include <sys/types.h>
+#endif
 
 /* Issue 20: we need to know lib dirs for cross-arch execve */
 #define LIBDIR_X64 ${INSTALL_LIB_X64}
@@ -141,7 +151,7 @@
 #       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
-#    $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
+#    no longer supported: $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
 #    $(D)PROFILE_RDTSC
 #    ($(D)PAPI - now deprecated)
 #    $(D)WINDOWS_PC_SAMPLE - on for all Windows builds
@@ -160,7 +170,7 @@
 #    $(D)GBOP - generic buffer overflow prevention via hooking APIs
 # optimization of application
 #    $(D)SIDELINE
-#    $(D)SIDELINE_COUNT_STUDY
+#    no longer supported: $(D)SIDELINE_COUNT_STUDY
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
@@ -319,12 +329,6 @@
    /* even though only usable in all-private config useful in default builds */
 #  define SHARING_STUDY
 #  define HASHTABLE_STATISTICS
-#endif
-
-#ifdef LINKCOUNT
-#  define PROFILE_LINKCOUNT
-/* not bothering to support 32-bit: only if we start using it again */
-#  define LINKCOUNT_64_BITS
 #endif
 
 #endif /* _CONFIGURE_H_ */

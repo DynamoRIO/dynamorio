@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,8 +41,8 @@
  *   "Intel Architecture Software Developer's Manual", 1999.
  */
 
-#ifndef X86_ARCH_H
-#define X86_ARCH_H
+#ifndef ARCH_H
+#define ARCH_H
 
 #include <stddef.h> /* for offsetof */
 #include "instr.h" /* for reg_id_t */
@@ -50,7 +50,7 @@
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 #include "../fragment.h" /* IS_IBL_TARGET */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 static inline bool
 mixed_mode_enabled(void)
 {
@@ -114,7 +114,7 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG3_OFFS XDX_OFFSET
 # define SCRATCH_REG4_OFFS XSI_OFFSET
 # define SCRATCH_REG5_OFFS XDI_OFFSET
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define R0_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
 # define R1_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
 # define R2_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
@@ -183,6 +183,8 @@ mixed_mode_enabled(void)
 # define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
 # define APP_STACK_BASE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_stack_base))
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
+#else
+# define SIGPENDING_OFFSET      ((PROT_OFFS)+offsetof(dcontext_t, signals_pending))
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -229,7 +231,7 @@ typedef enum {
     /* Pre-ibl routines for far ctis */
     IBL_FAR,
     IBL_FAR_UNLINKED,
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* PR 257963: trace inline cmp has separate entries b/c it saves flags */
     IBL_TRACE_CMP,
     IBL_TRACE_CMP_UNLINKED,
@@ -263,10 +265,10 @@ typedef enum {
     ((ibltype) == IBL_TRACE_PRIVATE || (ibltype) == IBL_TRACE_SHARED)
 #define IS_IBL_LINKED(ibltype) \
     ((ibltype) == IBL_LINKED || (ibltype) == IBL_FAR \
-     IF_X64(|| (ibltype) == IBL_TRACE_CMP))
+     IF_X86_64(|| (ibltype) == IBL_TRACE_CMP))
 #define IS_IBL_UNLINKED(ibltype) \
     ((ibltype) == IBL_UNLINKED || (ibltype) == IBL_FAR_UNLINKED \
-     IF_X64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
+     IF_X86_64(|| (ibltype) == IBL_TRACE_CMP_UNLINKED))
 
 #define IBL_FRAG_FLAGS(ibl_code) \
     (IS_IBL_TRACE((ibl_code)->source_fragment_type) ? FRAG_IS_TRACE : 0)
@@ -274,7 +276,7 @@ typedef enum {
 static inline ibl_entry_point_type_t
 get_ibl_entry_type(uint link_or_instr_flags)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (TEST(LINK_TRACE_CMP, link_or_instr_flags))
         return IBL_TRACE_CMP;
 #endif
@@ -292,7 +294,7 @@ typedef struct
     ibl_branch_type_t branch_type;
 } ibl_type_t;
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* PR 282576: With shared_code_x86, GLOBAL_DCONTEXT no longer specifies
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
@@ -322,7 +324,7 @@ typedef enum {
 # define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_XMM_REGS  NUM_XMM_SAVED
+#define NUM_SIMD_REGS NUM_SIMD_SAVED
 #define NUM_GP_REGS   DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
@@ -335,10 +337,10 @@ typedef struct _clean_call_info_t {
     bool opt_inline;
     bool should_align;
     bool save_all_regs;
-    bool skip_save_aflags;
-    bool skip_clear_eflags;
-    uint num_xmms_skip;
-    bool xmm_skip[NUM_XMM_REGS];
+    bool skip_save_flags;
+    bool skip_clear_flags;
+    uint num_simd_skip;
+    bool simd_skip[NUM_SIMD_REGS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -347,19 +349,27 @@ typedef struct _clean_call_info_t {
     instrlist_t *ilist; /* instruction list for inline optimization */
 } clean_call_info_t;
 
+/* flags for insert_meta_call_vargs, to indicate various properties about the call */
+typedef enum {
+    META_CALL_CLEAN             = 0x0001,
+    META_CALL_RETURNS           = 0x0002,
+    /* alias of DR_CLEANCALL_RETURNS_TO_NATIVE */
+    META_CALL_RETURNS_TO_NATIVE = 0x0004,
+} meta_call_flags_t;
+
 cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                             ibl_source_fragment_type_t source_fragment_type,
-                            ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode));
+                            ibl_branch_type_t branch_type _IF_X86_64(gencode_mode_t mode));
 cache_pc get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                          ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type);
 cache_pc get_ibl_routine_template(dcontext_t *dcontext,
                                   ibl_source_fragment_type_t source_fragment_type,
                                   ibl_branch_type_t branch_type
-                                  _IF_X64(gencode_mode_t mode));
+                                  _IF_X86_64(gencode_mode_t mode));
 bool get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type);
 bool get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
-                             _IF_X64(gencode_mode_t *mode_out));
+                             _IF_X86_64(gencode_mode_t *mode_out));
 const char *get_ibl_routine_name(dcontext_t *dcontext, cache_pc target,
                                  const char **ibl_brtype_name);
 cache_pc get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry);
@@ -386,15 +396,15 @@ const char *get_target_delete_entry_name(dcontext_t *dcontext,
  * non-global dcontext; also less ugly than adding GLOBAL_DCONTEXT_X86.
  */
 cache_pc
-shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc
-unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+unlinked_shared_syscall_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc shared_syscall_routine(dcontext_t *dcontext);
 cache_pc unlinked_shared_syscall_routine(dcontext_t *dcontext);
 #endif
 #ifdef TRACE_HEAD_CACHE_INCR
 cache_pc trace_head_incr_routine(dcontext_t *dcontext);
-cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
+cache_pc trace_head_incr_shared_routine(IF_X86_64(gencode_mode_t mode));
 #endif
 
 /* in mangle_shared.c */
@@ -414,7 +424,7 @@ parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, bool returns, byte *encode_pc, void *callee,
+                       meta_call_flags_t flags, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args);
 void
 mangle_init(void);
@@ -423,19 +433,19 @@ mangle_exit(void);
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first OUT, instr_t **second OUT);
+                       OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
                         instrlist_t *ilist, instr_t *instr,
-                        instr_t **first OUT, instr_t **second OUT);
+                        OUT instr_t **first, OUT instr_t **last);
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
                       opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
+                      OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+                       OUT instr_t **first, OUT instr_t **last);
 
 /* in mangle.c arch-specific implementation */
 #ifdef ARM
@@ -443,6 +453,9 @@ int
 reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
                     instr_t *end);
 #endif
+
+void
+mangle_arch_init(void);
 
 reg_id_t
 shrink_reg_for_param(reg_id_t regular, opnd_t arg);
@@ -453,11 +466,11 @@ void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst,
                       instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
+                      OUT instr_t **first, OUT instr_t **last);
 void
 insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        ptr_int_t val, instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+                       OUT instr_t **first, OUT instr_t **last);
 instr_t *
 convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void
@@ -483,14 +496,14 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr);
 #endif
-#ifdef ARM
+#ifdef AARCHXX
 /* mangle instructions that use pc or dr_reg_stolen */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
-                              instr_t *instr _IF_X64(gencode_mode_t mode));
+                              instr_t *instr _IF_X86_64(gencode_mode_t mode));
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
@@ -537,6 +550,12 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save);
 #ifdef X86
+# ifdef UNIX
+/* Mangle reference of fs/gs semgents, reg must not be used in the oldop. */
+opnd_t
+mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
+                    instr_t *where, opnd_t oldop, reg_id_t reg);
+# endif
 /* mangle the instruction that reference memory via segment register */
 void
 mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -577,6 +596,18 @@ mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
                              instr_t *instr, instr_t *next_instr);
 #endif /* ARM */
 
+#ifdef AARCH64
+instr_t *
+mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist,
+                 instr_t *instr, instr_t *next_instr, app_pc pc);
+instr_t *
+mangle_reads_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                             instr_t *instr, instr_t *next_instr);
+instr_t *
+mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist,
+                              instr_t *instr, instr_t *next_instr);
+#endif /* AARCH64 */
+
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */
@@ -592,6 +623,7 @@ enum {
     DIRECT_STUB_SPILL_SLOT      = TLS_REG0_SLOT,
     MANGLE_RIPREL_SPILL_SLOT    = TLS_REG0_SLOT,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
+    DIRECT_STUB_SPILL_SLOT2     = TLS_REG1_SLOT, /* used on AArch64 */
     INDIRECT_STUB_SPILL_SLOT    = TLS_REG1_SLOT,
     MANGLE_FAR_SPILL_SLOT       = TLS_REG1_SLOT,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
@@ -603,7 +635,11 @@ enum {
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
+# ifdef AARCH64
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_REG5_SLOT,
+# else
     DCONTEXT_BASE_SPILL_SLOT    = TLS_REG3_SLOT,
+# endif
     PREFIX_XAX_SPILL_SLOT       = TLS_REG0_SLOT,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
@@ -621,8 +657,16 @@ enum {
 #define MANGLE_DGC_TEMP_OFFSET_1 XBX_OFFSET
 #define MANGLE_DGC_TEMP_OFFSET_2 XCX_OFFSET
 
-/* in interp.c but not exported to non-x86 files */
-bool must_not_be_inlined(app_pc pc);
+#ifdef AARCH64
+    /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
+    ENTRY_PC_SPILL_SLOT         = TLS_REG1_SLOT,
+#endif
+};
+
+#ifdef AARCH64
+/* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
+# define ENTRY_PC_REG        DR_REG_X0
+#endif
 
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {
@@ -682,7 +726,7 @@ int
 encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch,
                        instrlist_t *ilist, cache_pc start_pc);
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* Shouldn't need to mark as packed.  We order for 6-byte little-endian selector:pc. */
 typedef struct _far_ref_t {
     /* We target WOW64 and cross-plaform so no 8-byte Intel-only pc */
@@ -700,7 +744,7 @@ typedef struct ibl_code_t {
     /* for far ctis (i#823) */
     byte *far_ibl;
     byte *far_ibl_unlinked;
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* PR 257963: trace inline cmp has already saved eflags */
     byte *trace_cmp_entry;
     byte *trace_cmp_unlinked;
@@ -784,6 +828,9 @@ typedef struct _generated_code_t {
 #endif
     byte *do_syscall;
     uint do_syscall_offs; /* offs of pc after actual syscall instr */
+#ifdef ARM
+    byte *fcache_enter_gonative;
+#endif
 #ifdef WINDOWS
     byte *fcache_enter_indirect;
     byte *do_callback_return;
@@ -842,7 +889,7 @@ typedef struct _generated_code_t {
 
     bool thread_shared;
     bool writable;
-#ifdef X64
+#if defined(X86) && defined(X64)
     gencode_mode_t gencode_mode; /* mode of this code (x64, x86, x86_to_x64) */
 #endif
 
@@ -860,7 +907,7 @@ typedef struct _generated_code_t {
 /* thread-private generated code */
 fcache_enter_func_t fcache_enter_routine(dcontext_t *dcontext);
 cache_pc fcache_return_routine(dcontext_t *dcontext);
-cache_pc fcache_return_routine_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 /* thread-shared generated code */
 byte * emit_fcache_enter_shared(dcontext_t *dcontext, generated_code_t *code, byte *pc);
@@ -869,24 +916,24 @@ fcache_enter_func_t fcache_enter_shared_routine(dcontext_t *dcontext);
 /* the fcache_return routines are queried by get_direct_exit_target and need more
  * direct control than the dcontext
  */
-cache_pc fcache_return_shared_routine(IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_shared_routine(IF_X86_64(gencode_mode_t mode));
 
 /* coarse-grain generated code */
 byte * emit_fcache_return_coarse(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte * emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *code,
                                      byte *pc);
-cache_pc fcache_return_coarse_routine(IF_X64(gencode_mode_t mode));
-cache_pc trace_head_return_coarse_routine(IF_X64(gencode_mode_t mode));
+cache_pc fcache_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
+cache_pc trace_head_return_coarse_routine(IF_X86_64(gencode_mode_t mode));
 
 /* shared clean call context switch */
 bool client_clean_call_is_thread_private();
-cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
-cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
+cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 void protect_generated_code(generated_code_t *code, bool writable);
 
 extern generated_code_t *shared_code;
-#ifdef X64
+#if defined(X86) && defined(X64)
 extern generated_code_t *shared_code_x86;
 extern generated_code_t *shared_code_x86_to_x64;
 #endif
@@ -896,7 +943,7 @@ is_shared_gencode(generated_code_t *code)
 {
     if (code == NULL) /* since shared_code_x86 in particular can be NULL */
         return false;
-#ifdef X64
+#if defined(X86) && defined(X64)
     return code == shared_code_x86 || code == shared_code ||
            code == shared_code_x86_to_x64;
 #else
@@ -905,9 +952,9 @@ is_shared_gencode(generated_code_t *code)
 }
 
 static inline generated_code_t *
-get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT
            IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -952,7 +999,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 
 /* returns the thread private code or GLOBAL thread shared code */
 static inline generated_code_t*
-get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
+get_emitted_routines_code(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
     generated_code_t *code;
     /* This routine exists only because GLOBAL_DCONTEXT is not a real dcontext
@@ -960,10 +1007,10 @@ get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     /* PR 244737: thread-private uses only shared gencode on x64 */
     /* PR 253431: to distinguish shared x86 gencode from x64 gencode, a dcontext
      * must be passed in; use get_shared_gencode() for x64 builds */
-    IF_X64(ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT));
+    IF_X86_64(ASSERT(mode != GENCODE_FROM_DCONTEXT || dcontext != GLOBAL_DCONTEXT));
     if (USE_SHARED_GENCODE_ALWAYS() ||
         (USE_SHARED_GENCODE() && dcontext == GLOBAL_DCONTEXT)) {
-        code = get_shared_gencode(dcontext _IF_X64(mode));
+        code = get_shared_gencode(dcontext _IF_X86_64(mode));
     } else {
         ASSERT(dcontext != GLOBAL_DCONTEXT);
         /* NOTE thread private code entry points may also refer to shared
@@ -976,7 +1023,7 @@ get_emitted_routines_code(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 ibl_code_t *get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
                                  uint fragment_flags);
 ibl_code_t *get_ibl_routine_code_ex(dcontext_t *dcontext, ibl_branch_type_t branch_type,
-                                    uint fragment_flags _IF_X64(gencode_mode_t mode));
+                                    uint fragment_flags _IF_X86_64(gencode_mode_t mode));
 
 /* in emit_utils.c but not exported to non-x86 files */
 int insert_exit_stub_other_flags(dcontext_t *dcontext,  fragment_t *f, linkstub_t *l,
@@ -999,7 +1046,7 @@ byte * emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code,
 void update_indirect_branch_lookup(dcontext_t *dcontext);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
-                   _IF_X64(far_ref_t *far_jmp_opnd));
+                   _IF_X86_64(far_ref_t *far_jmp_opnd));
 
 #ifndef WINDOWS
 void update_syscalls(dcontext_t *dcontext);
@@ -1029,12 +1076,16 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv);
 
-void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mode));
+void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X86_64(gencode_mode_t mode));
 #endif /* WINDOWS */
 
 byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                        byte *fcache_return_pc, bool thread_shared, int interrupt,
                        uint *syscall_offs /*OUT*/);
+
+#ifdef ARM
+byte * emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc);
+#endif
 
 #ifdef WINDOWS
 /* PR 282576: These separate routines are ugly, but less ugly than adding param to
@@ -1042,9 +1093,9 @@ byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
  * non-global dcontext; also less ugly than adding GLOBAL_DCONTEXT_X86.
  */
 cache_pc
-after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+after_shared_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 cache_pc
-after_do_syscall_code_ex(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+after_do_syscall_code_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 
 byte * emit_fcache_enter_indirect(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                                   byte *fcache_return_pc);
@@ -1065,7 +1116,7 @@ byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte 
 byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc);
 
-cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode));
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -1097,11 +1148,11 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt));
+                   uint flags, bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute
-                      _IF_X64(bool x86_to_x64_ibl_opt));
+                      _IF_X86_64(bool x86_to_x64_ibl_opt));
 
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 
@@ -1228,16 +1279,16 @@ typedef struct _callee_info_t {
     app_pc start;             /* entry point of a function  */
     app_pc bwd_tgt;           /* earliest backward branch target */
     app_pc fwd_tgt;           /* last forward branch target */
-    int num_xmms_used;        /* number of xmms used by callee */
-    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
+    int num_simd_used;        /* number of SIMD registers (xmms) used by callee */
+    bool simd_used[NUM_SIMD_REGS]; /* SIMD (xmm/ymm) registers usage */
     bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
     int num_callee_save_regs; /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
     bool has_locals;          /* if reference local via stack */
-    bool xbp_is_fp;           /* if xbp is used as frame pointer */
+    bool standard_fp;         /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;          /* can be inlined or not */
-    bool write_aflags;        /* if the function changes aflags */
-    bool read_aflags;         /* if the function reads aflags from caller */
+    bool write_flags;         /* if the function changes flags */
+    bool read_flags;          /* if the function reads flags from caller */
     bool tls_used;            /* application accesses TLS (errno, etc.) */
     reg_id_t spill_reg;       /* base register for spill slots */
     uint slots_used;          /* scratch slots needed after analysis */
@@ -1247,7 +1298,7 @@ typedef struct _callee_info_t {
 extern callee_info_t     default_callee_info;
 extern clean_call_info_t default_clean_call_info;
 
-/* in clean_call_opt.c */
+/* in clean_call_opt_shared.c */
 #ifdef CLIENT_INTERFACE
 void
 clean_call_opt_init(void);
@@ -1256,7 +1307,8 @@ clean_call_opt_exit(void);
 #endif /* CLIENT_INTERFACE */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+                   void *callee, bool save_fpstate, bool always_out_of_line,
+                   uint num_args, opnd_t *args);
 void
 insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *where, opnd_t *args);
@@ -1292,7 +1344,7 @@ add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags
 cache_pc
 get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
-#ifdef ARM
+#ifdef AARCHXX
 size_t
 get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags);
 
@@ -1557,4 +1609,4 @@ void
 instrlist_convert_to_x86(instrlist_t *ilist);
 #endif
 
-#endif /* X86_ARCH_H */
+#endif /* ARCH_H */

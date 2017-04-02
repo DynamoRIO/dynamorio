@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,8 +37,12 @@
 
 The \p drreg DynamoRIO Register Management Extension is a mediator for
 selecting, preserving, and using registers among multiple instrumentation
-components.  The interface must be used in concert with the \p drmgr
-instrumentation pass scheme.
+components.  The interface is meant to be used in concert with the \p drmgr
+instrumentation pass scheme.  The results are most efficient when used in
+the \p drmgr instrumentation insertion phase.  Use outside of the insertion
+phase, such as during \p drmgr's instrumentation-to-instrumentation
+transformation phase, or use outside of \p drmgr entirely, is supported,
+but duplicate spills and restores may not be optimized away.
 
 CAUTION: this extension is still a work in progress.  Not all pieces are
 implemented yet, and the interface may be in flux until the details are
@@ -46,6 +50,8 @@ finalized.
 
  - \ref sec_drreg_setup
  - \ref sec_drreg_usage
+ - \ref sec_drreg_app_values
+ - \ref sec_drreg_linear
 
 \section sec_drreg_setup Setup
 
@@ -58,9 +64,10 @@ That will automatically set up the include path and library dependence.
 
 The initialization routine \p drreg_init() must be called prior to any of
 the other routines.  Additional calls to drreg_init() are allowed (so long
-as they are paired with corresponding calls to drreg_exit()) but only the
-first caller's options are honored.  Typically this is the end-user tool
-itself, with most other library components not directly interacting with
+as they are paired with corresponding calls to drreg_exit()).  The option
+fields are combined from multiple calls as described in the documentation
+for each field.  Typically the end-user tool itself specifies these
+options, with most other library components not directly interacting with
 drreg (libraries often take in scratch registers from the caller for most
 of their operations).
 
@@ -74,6 +81,55 @@ extend across application instructions, in which case \p drreg will
 automatically restore or re-spill application values, when the intervening
 application instruction reads or writes that register, while still
 preserving the client's value in that register for use after the
-application instruction.
+application instruction.  Reservations may not extend beyond the end of a
+basic block.
+
+\section sec_drreg_app_values Application Values
+
+\p drreg assumes that only application instructions need to read
+application values.  \p drreg assumes that it is safe to wait as long as
+possible to restore a spilled application value that is no longer reserved.
+If a client is inserting instrumentation that reads application values, or
+is using a library routine that does the same, the client needs to tell \p
+drreg to restore the needed application registers.  This can be done with
+drreg_restore_app_values() or with drreg_get_app_value().  This essentially
+acts as a "barrier" to lazy restoring.  Library routines that require such
+a barrier include anything that reads application instruction operands,
+including dr_insert_mbr_instrumentation(),
+dr_insert_call_instrumentation(), etc.  They can also include
+dr_insert_clean_call() if not enough TLS slots were requested and as a
+consequence drreg and DR itself are sharing slots.
+
+\section sec_drreg_linear Linear Control Flow
+
+The \p drreg API was designed for linear control flow.  The API assumes
+that it can safely wait to restore an unreserved scratch register across
+application instructions.  If a client inserts internal control flow inside
+a basic block that crosses application instructions, and the client is not
+explicitly ensuring that each forward jump contains the same set of saved
+scratch registers at its source and target (typically done by saving all
+scratch registers that will be needed inside control flow prior to any
+forward branches), the client should tell \p drreg to disable its
+optimizations.  This is done by calling drreg_set_bb_properties() and
+passing #DRREG_CONTAINS_SPANNING_CONTROL_FLOW either prior to the drmgr
+insertion phase or as early as possible in the insertion phase.  Setting
+this property causes application instructions to become barriers to spilled
+scratch registers that have been unreserved but have not yet been lazily
+restored.  Such scratch registers are then restored prior to each
+application instruction.  \p drreg will still collapse adjacent
+spill+restore pairs for the same app instr.
+
+For control flow added during the app2app phase (such as by
+drutil_expand_rep_string()), \p drreg is able to identify and act on its
+own.  Normally, drreg disables optimizations if it sees any kind of
+internal control flow (viz., a branch with an instr_t target) while
+examining code during the analysis phase.  If the client is certain that
+all app2app internal control flow that it and any libraries it uses either
+do not cross application instructions or satisfy the property that each
+forward jump contains the same set of saved scratch registers at its source
+as at its target (typically done by saving all scratch registers needed
+inside control flow prior to any forward branches), then the client can
+call drreg_set_bb_properties() and pass #DRREG_IGNORE_CONTROL_FLOW in order
+to enable full lazy restores by \p drreg.
 
 */

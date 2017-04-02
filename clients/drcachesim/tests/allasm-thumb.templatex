@@ -6,11 +6,12 @@ Hello world!
 Hello world!
 All done
 ---- <application exited with code 0> ----
+Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
-    Hits:                              635
+    Hits:                              6[34].
     Misses:                             11
-    Miss rate:                        1[,\.]70%
+    Miss rate:                        1[,\.]69%
   L1D stats:
     Hits:                               3[0-9]
     Misses:                             *[0-9]*

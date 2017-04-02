@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,6 +35,7 @@
 #define MODULE_ELF_H
 
 #include <elf.h> /* for ELF types */
+#include "../module_shared.h"
 
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Mac and for now we do
@@ -48,6 +49,7 @@
 # define ELF_DYNAMIC_ENTRY_TYPE Elf64_Dyn
 # define ELF_ADDR Elf64_Addr
 # define ELF_WORD Elf64_Xword
+# define ELF_SWORD Elf64_Sxword
 # define ELF_HALF Elf64_Half
 # define ELF_SYM_TYPE Elf64_Sym
 # define ELF_WORD_SIZE 64 /* __ELF_NATIVE_CLASS */
@@ -68,6 +70,7 @@
 # define ELF_DYNAMIC_ENTRY_TYPE Elf32_Dyn
 # define ELF_ADDR Elf32_Addr
 # define ELF_WORD Elf32_Word
+# define ELF_SWORD Elf32_Sword
 # define ELF_HALF Elf32_Half
 # define ELF_SYM_TYPE Elf32_Sym
 # define ELF_WORD_SIZE 32 /* __ELF_NATIVE_CLASS */
@@ -141,33 +144,45 @@
                                                 * offset for the symbol.
                                                 */
 # endif
-#elif defined(ARM)
-# ifdef X64
-#  error NYI
-# else
-#  define ELF_R_TYPE   ELF32_R_TYPE
-#  define ELF_R_SYM    ELF32_R_SYM
-#  define ELF_R_INFO   ELF32_R_INFO
+#elif defined(AARCH64)
+# define ELF_R_TYPE   ELF64_R_TYPE
+# define ELF_R_SYM    ELF64_R_SYM
 /* relocation type */
-#  define ELF_R_NONE      R_ARM_NONE      /* No reloc */
-#  define ELF_R_DIRECT    R_ARM_ABS32     /* Direct 32 bit */
-#  define ELF_R_COPY      R_ARM_COPY      /* Copy symbol at runtime */
-#  define ELF_R_GLOB_DAT  R_ARM_GLOB_DAT  /* GOT entry */
-#  define ELF_R_JUMP_SLOT R_ARM_JUMP_SLOT /* PLT entry */
-#  define ELF_R_RELATIVE  R_ARM_RELATIVE  /* Adjust by program delta */
-#  define ELF_R_IRELATIVE R_ARM_IRELATIVE /* Adjust indirectly by program base */
+# define ELF_R_NONE       R_AARCH64_NONE         /* No relocation. */
+# define ELF_R_DIRECT     R_AARCH64_ABS64        /* Direct 64 bit. */
+# define ELF_R_COPY       R_AARCH64_COPY         /* Copy symbol at runtime. */
+# define ELF_R_GLOB_DAT   R_AARCH64_GLOB_DAT     /* Create GOT entry. */
+# define ELF_R_JUMP_SLOT  R_AARCH64_JUMP_SLOT    /* Create PLT entry. */
+# define ELF_R_RELATIVE   R_AARCH64_RELATIVE     /* Adjust by program base. */
+# define ELF_R_IRELATIVE  R_AARCH64_IRELATIVE    /* STT_GNU_IFUNC relocation. */
 /* tls related */
-#  define ELF_R_TLS_DTPMOD  R_ARM_TLS_DTPMOD32 /* Module ID */
-#  define ELF_R_TLS_TPOFF   R_ARM_TLS_TPOFF32  /* Negated offsets in static TLS block */
-#  define ELF_R_TLS_DTPOFF  R_ARM_TLS_DTPOFF32 /* Offset in TLS block */
-#  ifndef ANDROID
-#   define ELF_R_TLS_DESC    R_ARM_TLS_DESC    /* TLS descriptor containing
-                                                * pointer to code and to
-                                                * argument, returning the TLS
-                                                * offset for the symbol.
-                                                */
-#  endif /* ANDROID */
-# endif /* 64/32 */
+# define ELF_R_TLS_DTPMOD 1028 /* R_AARCH64_TLS_DTPMOD64 Module number. */
+# define ELF_R_TLS_TPOFF  1030 /* R_AARCH64_TLS_TPREL64  TP-relative offset. */
+# define ELF_R_TLS_DTPOFF 1029 /* R_AARCH64_TLS_DTPREL64 Module-relative offset. */
+# define ELF_R_TLS_DESC   1031 /* R_AARCH64_TLSDESC      TLS Descriptor. */
+#elif defined(ARM)
+# define ELF_R_TYPE   ELF32_R_TYPE
+# define ELF_R_SYM    ELF32_R_SYM
+# define ELF_R_INFO   ELF32_R_INFO
+/* relocation type */
+# define ELF_R_NONE      R_ARM_NONE      /* No reloc */
+# define ELF_R_DIRECT    R_ARM_ABS32     /* Direct 32 bit */
+# define ELF_R_COPY      R_ARM_COPY      /* Copy symbol at runtime */
+# define ELF_R_GLOB_DAT  R_ARM_GLOB_DAT  /* GOT entry */
+# define ELF_R_JUMP_SLOT R_ARM_JUMP_SLOT /* PLT entry */
+# define ELF_R_RELATIVE  R_ARM_RELATIVE  /* Adjust by program delta */
+# define ELF_R_IRELATIVE R_ARM_IRELATIVE /* Adjust indirectly by program base */
+/* tls related */
+# define ELF_R_TLS_DTPMOD  R_ARM_TLS_DTPMOD32 /* Module ID */
+# define ELF_R_TLS_TPOFF   R_ARM_TLS_TPOFF32  /* Negated offsets in static TLS block */
+# define ELF_R_TLS_DTPOFF  R_ARM_TLS_DTPOFF32 /* Offset in TLS block */
+# ifndef ANDROID
+#  define ELF_R_TLS_DESC    R_ARM_TLS_DESC    /* TLS descriptor containing
+                                               * pointer to code and to
+                                               * argument, returning the TLS
+                                               * offset for the symbol.
+                                               */
+# endif /* ANDROID */
 #endif /* X86/ARM */
 
 bool
@@ -278,7 +293,7 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  */
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable);
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags);
 
 /* Iterate program headers of a mapped ELF image and find the string that
  * PT_INTERP points to.  Typically this comes early in the file and is always

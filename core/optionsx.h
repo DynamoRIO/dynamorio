@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -241,17 +241,6 @@
     /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
     OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
     OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")
-#ifdef EXPOSE_INTERNAL_OPTIONS
-# ifdef PROFILE_LINKCOUNT
-    OPTION(uint, tracedump_threshold, "profile_counts threshold for dumping a trace")
-
-      /* threshold is limited to 32-bit integer even if linkcounts
-       * are 64 bits -- should be fine, few counts reach that high,
-       * purpose of threshold is to weed out the multitudes of
-       * wimpy traces to reduce the size of the trace file
-       */
-# endif
-#endif /* EXPOSE_INTERNAL_OPTIONS */
     OPTION_INTERNAL(bool, bbdump_tags, "dump tags, sizes, and sharedness of all bbs")
     OPTION_INTERNAL(bool, gendump, "dump generated code")
     OPTION_DEFAULT(bool, global_rstats, true, "enable global release-build statistics")
@@ -279,6 +268,9 @@
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
     OPTION_INTERNAL(uint, log_at_fragment_count,
         "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
+    /* For debugging purposes.  The bb count is distinct from the fragment count. */
+    OPTION_INTERNAL(uint, go_native_at_bb_count,
+        "once this count is reached, each thread will go native when creating a new bb")
     /* Note that these are not truly DYNAMIC, and they don't get synchronized before each LOG */
     OPTION_DEFAULT(uint, checklevel, 2, "level of asserts/consistency checks (PR 211887)")
 
@@ -301,7 +293,7 @@
 #ifdef KSTATS
     /* turn on kstats by default for debug builds */
     /* For ARM we have no cheap tsc so we disable by default (i#1581) */
-    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_ARM_ELSE(false, true)),
+    OPTION_DEFAULT(bool, kstats, IF_DEBUG_ELSE_0(IF_X86_ELSE(true, false)),
                    "enable path timing statistics")
 #endif
 
@@ -322,20 +314,25 @@
 
 #if defined(UNIX)
     OPTION_NAME_INTERNAL(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
+    /* for default size 0, special_heap_init() will use initial_heap_unit_size instead */
+    OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 0,
+                            "special heap size for pc-sampling profiling")
 #else
 # ifdef WINDOWS_PC_SAMPLE
      OPTION_NAME(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
 # endif
 #endif
 
+    /* XXX i#1114: enable by default when the implementation is complete */
+    OPTION_DEFAULT(bool, opt_jit, false,
+                   "optimize translation of dynamically generated code")
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 # ifdef PROFILE_RDTSC
     OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time"))
 # endif
 
-# ifdef PROFILE_LINKCOUNT
-    OPTION_NAME_INTERNAL(bool, profile_counts, "prof_counts", "profiling via counters")
-# endif
+/* -prof_counts and PROFILE_LINKCOUNT are no longer supported and have been removed */
 
 # ifdef CLIENT_INTERFACE
     /* FIXME (xref PR 215082): make these external now that our product is our API? */
@@ -343,6 +340,7 @@
      * client option strings to matter, so we check this separately
      * from the general -persist_check_options
      */
+    /* This option is ignored for STATIC_LIBRARY. */
     OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                             ";-separated string containing client "
                             "lib paths, IDs, and options")
@@ -352,9 +350,11 @@
      */
     /* XXX i#1285: MacOS private loader is NYI */
     OPTION_DEFAULT_INTERNAL(bool, private_loader,
-                            IF_MACOS_ELSE(false, true),
+                            /* i#2117: for UNIX static DR we disable TLS swaps. */
+                            IF_STATIC_LIBRARY_ELSE(IF_WINDOWS_ELSE(true, false),
+                                                   IF_MACOS_ELSE(false, true)),
                             "use private loader for clients and dependents")
-# ifdef UNIX
+#  ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
      * so use the runtime option to control the tls size.
      */
@@ -366,8 +366,8 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, privload_register_gdb, true,
                             "register private loader DLLs with gdb")
-# endif
-# ifdef WINDOWS
+#  endif
+#  ifdef WINDOWS
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
     OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
                             "redirect heap usage by private libraries to DR heap")
@@ -377,70 +377,20 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
                             "use private PEB + TEB fields for private libraries")
-# endif
+#  endif
 
     /* PR 200418: Code Manipulation API.  This option enables the code
      * manipulation events and sets some default options.  We can't
      * afford to check for this in our exported routines, so we allow
      * ourselves to be used as a utility or standalone library
      * regardless of this option.
+     * For the static library, we commit to use with code_api and enable
+     * it by default as it's more of a pain to set options with this model.
      */
-    OPTION_COMMAND_INTERNAL(bool, code_api, false, "code_api", {
+    OPTION_COMMAND_INTERNAL(bool, code_api, IF_STATIC_LIBRARY_ELSE(true, false),
+                            "code_api", {
         if (options->code_api) {
-            /* PR 202669: larger stack size since we're saving a 512-byte
-             * buffer on the stack when saving fp state.
-             * Also, C++ RTL initialization (even when a C++
-             * client does little else) can take a lot of stack space.
-             * Furthermore, dbghelp.dll usage via drsyms has been observed
-             * to require 36KB, which is already beyond the minimum to
-             * share gencode in the same 64K alloc as the stack.
-             *
-             * XXX: if we raise this beyond 56KB we should adjust the
-             * logic in heap_mmap_reserve_post_stack() to handle sharing the
-             * tail end of a multi-64K-region stack.
-             */
-            options->stack_size = MAX(options->stack_size, 56*1024);
-
-            /* For CI builds we'll disable elision by default since we
-             * expect most CI users will prefer a view of the
-             * instruction stream that's as unmodified as possible.
-             * Also xref PR 214169: eliding calls presents a confusing
-             * view of basic blocks since clients see both the call
-             * and the called function in the same block.  TODO PR
-             * 214169: pass both sides to the client and merge
-             * internally to get the best of both worlds.
-             */
-            options->max_elide_jmp = 0;
-            options->max_elide_call = 0;
-
-            /* indcall2direct causes problems with the code manip API,
-             * so disable by default (xref PR 214051 & PR 214169).
-             * Even if we address those issues, we may want to keep
-             * disabled if we expect users will be confused by this
-             * optimization.
-             */
-            options->indcall2direct = false;
-
-            /* To support clients changing syscall numbers we need to
-             * be able to swap ignored for non-ignored (xref PR 307284)
-             */
-            options->inline_ignored_syscalls = false;
-
-            /* Clients usually want to see all the code, regardless of bugs and
-             * perf issues, so we empty the default native exec list when using
-             * -code_api.  The user can override this behavior by passing their
-             * own -native_exec_list.
-             * However the .pexe section thing on Vista is too dangerous so we
-             * leave that on. */
-            memset(options->native_exec_default_list, 0,
-                   sizeof(options->native_exec_default_list));
-            options->native_exec_managed_code = false;
-
-            /* Don't randomize dynamorio.dll */
-            IF_WINDOWS(options->aslr_dr = false;)
-
-            /* FIXME PR 215179 on getting rid of this tracing restriction. */
-            options->pad_jmps_mark_no_trace = true;
+            options_enable_code_api_dependences(options);
         }
      }, "enable Code Manipulation API", STATIC, OP_PCACHE_NOP)
 
@@ -531,8 +481,8 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    /* FIXME i#1551: NYI on ARM */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_ARM_ELSE(0, 2),
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, 0),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags
@@ -580,7 +530,7 @@
                    "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
 #endif
 
-#ifdef ARM
+#ifdef AARCHXX
     /* we only allow register between r8 and r12(A32)/r29(A64) to be used */
     OPTION_DEFAULT_INTERNAL(uint, steal_reg, IF_X64_ELSE(28/*r28*/, 10/*r10*/),
                             "the register stolen/used by DynamoRIO")
@@ -595,6 +545,11 @@
      */
     OPTION_DEFAULT_INTERNAL(uint, opt_mangle, 1,
                             "optimization level on optimizing mangle sequences")
+#endif
+#ifdef AARCH64
+    OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
+                            "replace blocks using exclusive load/store with a "
+                            "macro-instruction (unsafe)")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -656,6 +611,13 @@
     /* XXX: make a dynamic option */
     OPTION_INTERNAL(bool, external_dump, "do a core dump using an external debugger (specified in the ONCRASH registry value) when warranted by the dumpcore_mask (kills process on win2k or w/ drwtsn32)")
 #endif
+#if defined(STATIC_LIBRARY) && defined(UNIX)
+    /* i#2119: invoke app handler on DR crash.
+     * If this were off by default it could be a dumpcore bitflag instead.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, invoke_app_on_crash, true,
+                            "On a DR crash, invoke the app fault handler if it exists.")
+#endif
 
     OPTION_DEFAULT(uint, stderr_mask,
                    /* Enable for client linux debug so ASSERTS are visible (PR 232783) */
@@ -692,6 +654,14 @@
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
 
+    /* i#2080: we have had some problems using sigreturn to set a thread's
+     * context to a given state.  Turning this off will instead use a direct
+     * mechanism that will set only the GPR's and will assume the target stack
+     * is valid and its beyond-TOS slot can be clobbered.  X86-only.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, use_sigreturn_setcontext, true,
+                            "use sigreturn to set a thread's context")
+
     /* i#853: Use our all_memory_areas address space cache when possible.  This
      * avoids expensive reads of /proc/pid/maps, but if the cache becomes stale,
      * we may have incorrect results.
@@ -707,7 +677,7 @@
 
     /* For MacOS, set to 0 to disable the check */
     OPTION_DEFAULT(uint, max_supported_os_version,
-        IF_WINDOWS_ELSE(100, IF_MACOS_ELSE(14, 0)),
+        IF_WINDOWS_ELSE(100, IF_MACOS_ELSE(15, 0)),
         /* case 447, defaults to supporting NT, 2000, XP, 2003, and Vista.
          * Windows 7 added with i#218
          * Windows 8 added with i#565
@@ -734,6 +704,7 @@
         IF_DEBUG_ELSE_0(60)*3*1000, /* disabled in release */
         "timeout (in ms) before assuming a deadlock had occurred (0 to disable)")
 
+    /* stack_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, stack_size,
                    /* the CI build has a larger MAX_OPTIONS_STRING so we need
                     * a larger stack even w/ no client present.
@@ -785,14 +756,14 @@
      * turn them on.
      * We mark as pcache-affecting though we have other explicit checks
      */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, disable_traces, IF_ARM_ELSE(true, false), "disable_traces", {
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, disable_traces, IF_X86_ELSE(false, true), "disable_traces", {
         if (options->disable_traces) { /* else leave alone */
             DISABLE_TRACES(options);
         }
      }, "disable trace creation (block fragments only)", STATIC, OP_PCACHE_GLOBAL)
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, enable_traces, IF_ARM_ELSE(false, true), "enable_traces", {
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, enable_traces, IF_X86_ELSE(true, false), "enable_traces", {
         if (options->enable_traces) { /* else leave alone */
             REENABLE_TRACES(options);
         }
@@ -811,7 +782,10 @@
      * with max bb size (even 64 may be too big), xref case 7893. */
     OPTION_DEFAULT(uint, selfmod_max_writes, 5,
         "maximum write instrs per selfmod fragment")
-    OPTION_DEFAULT(uint, max_bb_instrs, 1024,
+    /* If this is too large, clients with heavyweight instrumentation hit the
+     * "exceeded maximum size" failure.
+     */
+    OPTION_DEFAULT(uint, max_bb_instrs, IF_CLIENT_INTERFACE_ELSE(256, 1024),
         "maximum instrs per basic block")
     PC_OPTION_DEFAULT(bool, process_SEH_push,
         IF_RETURN_AFTER_CALL_ELSE(true, false),
@@ -828,8 +802,8 @@
      * off -shared_traces to avoid tripping over un-initialized ibl tables
      * PR 361894: if no TLS available, we fall back to thread-private
      */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_COMMAND(bool, shared_traces, IF_HAVE_TLS_ELSE(IF_X86_ELSE(true, false), false),
                    "shared_traces", {
         /* for -no_shared_traces, set options back to defaults for private traces: */
         IF_NOT_X64_OR_ARM(options->private_ib_in_tls = options->shared_traces;)
@@ -853,7 +827,7 @@
         options->finite_bb_cache = !options->thread_private;
         options->finite_trace_cache = !options->thread_private;
         if (options->thread_private && options->indirect_stubs)
-            options->coarse_units = true;
+            IF_NOT_ARM(options->coarse_units = true); /* i#1575: coarse NYI on ARM */
         IF_NOT_X64_OR_ARM(options->private_ib_in_tls = !options->thread_private;)
         options->atomic_inlined_linking = !options->thread_private;
         options->shared_trace_ibl_routine = !options->thread_private;
@@ -911,9 +885,9 @@
 
     /* XXX i#1611: for ARM, our far links go through the stub and hence can't
      * be shared with an unlinked fall-through.  If we switch to allowing
-     * "ldr pc, [pc + X]" as an exit cti we can turn this back on.
+     * "ldr pc, [pc + X]" as an exit cti we can turn this back on for 32-bit ARM.
      */
-    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, IF_ARM_ELSE(false, true),
+    OPTION_DEFAULT_INTERNAL(bool, cbr_single_stub, IF_X86_ELSE(true, false),
         "both sides of a cbr share a single stub")
 
     /* PR 210990: Improvement is in the noise for spec2k on P4, but is noticeable on
@@ -924,7 +898,7 @@
      * avoid a stub unless we use "ldr pc, [r10+offs]" as an exit cti, which
      * complicates the code that handles exit ctis and doesn't work for A64.
      */
-    OPTION_COMMAND(bool, indirect_stubs, IF_ARM_ELSE(true, false), "indirect_stubs", {
+    OPTION_COMMAND(bool, indirect_stubs, IF_X86_ELSE(false, true), "indirect_stubs", {
         /* we put inlining back in place if we have stubs, for private,
          * though should re-measure whether inlining is worthwhile */
         if (options->thread_private && options->indirect_stubs) {
@@ -962,8 +936,8 @@
     OPTION_DEFAULT(bool, ibl_table_in_tls, IF_HAVE_TLS_ELSE(true, false),
         "use TLS to hold IBL table addresses & masks")
 
-    /* FIXME i#1551: enable traces on ARM once we have them working */
-    OPTION_DEFAULT(bool, bb_ibl_targets, IF_ARM_ELSE(true, false), "enable BB to BB IBL")
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
+    OPTION_DEFAULT(bool, bb_ibl_targets, IF_X86_ELSE(false, true), "enable BB to BB IBL")
 
      /* IBL code cannot target both single restore prefix and full prefix frags
       * simultaneously since the restore of %eax in the former case means that the
@@ -1013,9 +987,9 @@
     /* control sharing of indirect branch lookup routines */
     /* Default TRUE as it's needed for shared_traces (which is on by default) */
     /* PR 361894: if no TLS available, we fall back to thread-private */
-    /* FIXME i#1551: enable traces on ARM once we have them working */
+    /* FIXME i#1551, i#1569: enable traces on ARM/AArch64 once we have them working */
     OPTION_DEFAULT(bool, shared_trace_ibl_routine,
-                   IF_HAVE_TLS_ELSE(IF_ARM_ELSE(false, true), false),
+                   IF_HAVE_TLS_ELSE(IF_X86_ELSE(true, false), false),
                    "share ibl routine for traces")
     OPTION_DEFAULT(bool, speculate_last_exit, false,
         "enable speculative linking of trace last IB exit")
@@ -1024,7 +998,8 @@
 
     /* FIXME: case 8023 covers re-enabling on linux */
     OPTION_DEFAULT(uint, protect_mask,
-        IF_WINDOWS_ELSE(0x101 /* SELFPROT_DATA_RARE | SELFPROT_GENCODE */, 0/*NYI*/),
+        IF_STATIC_LIBRARY_ELSE(0,
+            IF_WINDOWS_ELSE(0x101/*SELFPROT_DATA_RARE|SELFPROT_GENCODE*/, 0/*NYI*/)),
         "which memory regions to protect")
     OPTION_INTERNAL(bool, single_privileged_thread, "suspend all other threads when one is out of cache")
 
@@ -1156,13 +1131,34 @@
 
     OPTION_INTERNAL(bool, simulate_contention, "simulate lock contention for testing purposes only")
 
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
-    OPTION_DEFAULT_INTERNAL(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
+    /* Virtual memory manager.
+     * Our current default allocation unit matches the allocation granularity on
+     * windows, to avoid worrying about external fragmentation
+     * Since most of our allocations fall within this range this makes the
+     * common operation be finding a single empty block.
+     *
+     * On Linux we save a lot of wasted alignment space by using a smaller
+     * granularity (PR 415959).
+     *
+     * FIXME: for Windows, if we reserve the whole region up front and
+     * just commit pieces, why do we need to match the Windows kernel
+     * alloc granularity?
+     *
+     * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
+     */
+    OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
+                   "allocation unit for virtual memory manager")
+    /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
      * DR areas and subsequent problems with DR areas and allmem synch (i#369)
      */
     OPTION_DEFAULT_INTERNAL(uint_size, max_heap_unit_size, 256*1024, "maximum heap unit size")
+    /* heap_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, heap_commit_increment, 4*1024, "heap commit increment")
+    /* cache_commit_increment may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint, cache_commit_increment, 4*1024, "cache commit increment")
 
     /* cache capacity control
@@ -1338,7 +1334,7 @@
     /* FIXME i#1674: enable on ARM once bugs are fixed, along with all the
      * reset_* trigger options as well.
      */
-    OPTION_COMMAND(bool, enable_reset, IF_ARM_ELSE(false, true), "enable_reset", {
+    OPTION_COMMAND(bool, enable_reset, IF_X86_ELSE(true, false), "enable_reset", {
         if (!options->enable_reset) {
             DISABLE_RESET(options);
         }
@@ -1357,28 +1353,28 @@
         "if we hit the reset_at_vmm_*_limit switch to requesting from the os (so we'll "
         "only actually reset once the os is out and we're at the limit)")
     OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit,
-        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(true, false), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "schedule a reset the first (and only the first) time we switch to the os "
         "allocations from -switch_to_os_at_vmm_reset_limit above")
     OPTION_DEFAULT(uint, reset_at_vmm_percent_free_limit,
-        IF_ARM_ELSE(0, 10), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(10, 0), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all when vmm heap % free is < reset_at_vmm_percent_free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_vmm_free_limit, 0,
         "reset all when vmm heap has less then reset_at_vmm_free free memory remaining")
     OPTION_DEFAULT(uint, report_reset_vmm_threshold, 3,
         "syslog one thrash warning message after this many resets at low vmm heap free")
     OPTION_DEFAULT(bool, reset_at_vmm_full,
-        IF_ARM_ELSE(false, true), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(true, false), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches the first time vmm heap runs out of space")
     OPTION_DEFAULT(uint, reset_at_commit_percent_free_limit, 0,
-        "reset all less then this % of the commit limit remains free (0 disables)")
+        "reset all less than this % of the commit limit remains free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_commit_free_limit,
-        IF_ARM_ELSE(0, (32 * 1024 * 1024)), /* i#1674: re-enable once ARM bugs fixed */
+        IF_X86_ELSE((32 * 1024 * 1024), 0), /* i#1674: re-enable once ARM bugs fixed */
         "reset all when less then this much free committable memory remains")
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
     OPTION_DEFAULT(uint, reset_every_nth_pending,
-        IF_ARM_ELSE(0, CACHE_RESET_INTERVAL), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
+        IF_X86_ELSE(35, 0), /* i#1674: re-enable on ARM once xl8 bugs are fixed */
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads
@@ -1617,6 +1613,14 @@
     PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
         "Use other parts of the TEB for TLS once out of real TLS slots")
 #endif /* WINDOWS */
+
+    /* i#2089: whether to use a special safe read of a magic field to determine
+     * whether a thread's TLS is initialized yet, on x86.
+     * XXX: we plan to remove this once we're sure it's stable.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, true,
+                            "use a safe read to identify uninit TLS")
+
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
 
 #ifdef PROGRAM_SHEPHERDING
@@ -1975,20 +1979,20 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
     OPTION_DEFAULT(bool, track_module_filenames, true,
         "track module file names by watching section creation")
+#endif
 
-    /* FIXME: since we have dynamic options this option can be false for most of the time,
+    /* XXX: since we have dynamic options this option can be false for most of the time,
      * and the gui should set true only when going to detach to prevent a security risk.
      * The setting should be removed when detach is complete.
      * In vault mode: -no_allow_detach -no_dynamic_options
      */
     DYNAMIC_OPTION_DEFAULT(bool, allow_detach, true, "allow detaching from process")
-#endif
 
     /* turn off critical features, right now for experimentation only */
 #ifdef WINDOWS
     PC_OPTION_INTERNAL(bool, noasynch, "disable asynchronous event interceptions")
 #endif
-    PC_OPTION_DEFAULT_INTERNAL(bool, hw_cache_consistency, IF_ARM_ELSE(false, true),
+    PC_OPTION_DEFAULT_INTERNAL(bool, hw_cache_consistency, IF_X86_ELSE(true, false),
         "keep code cache consistent in face of hardware implicit icache sync")
     OPTION_DEFAULT_INTERNAL(bool, sandbox_writes, true, "check each sandboxed write for selfmod?")
     /* FIXME: off by default until dll load perf issues are solved: case 3559 */
@@ -2220,7 +2224,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * these don't affect pcaches since the trampoline bbs won't be coarse-grain.
       */
     /* XXX i#1582: add ARM support for native_exec */
-    OPTION_DEFAULT(bool, native_exec, IF_ARM_ELSE(false, true),
+    OPTION_DEFAULT(bool, native_exec, IF_X86_ELSE(true, false),
                    "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
      /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM,
       * Symantec JVM, and Panda AV working, but with very limited workload testing so far
@@ -2692,7 +2696,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "if non-0 allows reproducible pseudo random number generator sequences")
 
     /* FIXME PR 215179 on enabling pad_jmps in all builds */
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #else
     /* No need to pad on ARM with fixed-width instructions */

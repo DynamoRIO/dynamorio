@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -687,10 +687,16 @@ GLOBAL_LABEL(FUNCNAME:)
 GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
         push     REG_XAX
+        mov      ax, fs
         mov      WORD [REG_XSP], fs
+#ifdef X64
+        mov      rax, fs
+        /* Having trouble getting the assembler to emit this so going raw: */
+        RAW(48) RAW(8c) RAW(24) RAW(24) /* mov QWORD [REG_XSP], fs */
+#endif
         pop      REG_XAX
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
 END_FILE
-#endif
+#endif /* ASM_CODE_ONLY */

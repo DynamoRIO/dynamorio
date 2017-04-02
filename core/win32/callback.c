@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -136,8 +136,8 @@ static byte *
 emit_takeover_code(byte *pc);
 
 /* For detach */
-bool init_apc_go_native = false;
-bool init_apc_go_native_pause = false;
+volatile bool init_apc_go_native = false;
+volatile bool init_apc_go_native_pause = false;
 
 /* overridden by dr_preinjected, or retakeover_after_native() */
 static retakeover_point_t interception_point = INTERCEPT_PREINJECT;
@@ -1373,7 +1373,8 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     if (push_pc2 != NULL)
         *((ptr_uint_t*)push_pc2) = (ptr_uint_t)no_cleanup;
 
-    ASSERT(pc - start_pc < PAGE_SIZE && "adjust REL32_REACHABLE for alternate_after");
+    ASSERT((size_t)(pc - start_pc) < PAGE_SIZE &&
+           "adjust REL32_REACHABLE for alternate_after");
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
@@ -1895,6 +1896,9 @@ un_intercept_call(byte *our_pc, byte *tgt_pc)
  * and similar apps. Returns true if syscall wrapper required cleaning */
 /* FIXME - use this for our hook conflict squash policy in intercept_syscall_wrapper as
  * this can handle more complicated hooks. */
+/* XXX i#1854: we should try and reduce how fragile we are wrt small
+ * changes in syscall wrapper sequences.
+ */
 static bool
 clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
 {
@@ -1960,15 +1964,34 @@ clean_syscall_wrapper(byte *nt_wrapper, int sys_enum)
      *   mov eax, sysnum       {5 bytes}
      *   syscall               {2 bytes}
      *   ret                   {1 byte}
+     *
+     * win10-TH2(1511) x64:
+     *   4c8bd1          mov     r10,rcx
+     *   b843000000      mov     eax,43h
+     *   f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
+     *   7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+     *   0f05            syscall
+     *   c3              ret
+     *   cd2e            int     2Eh
+     *   c3              ret
      */
 
     /* build correct instr list */
 #define APP(list, inst) instrlist_append((list), (inst))
+#define WIN1511_SHUSRDATA_SYS 0x7ffe0308
+#define WIN1511_JNE_OFFS 0x15
 #ifdef X64
     APP(ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_R10),
                                    opnd_create_reg(REG_RCX)));
     APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EAX),
                                     OPND_CREATE_INT32(sysnum)));
+    if (get_os_version() >= WINDOWS_VERSION_10_1511) {
+        APP(ilist, INSTR_CREATE_test
+            (dcontext, OPND_CREATE_MEM8(DR_REG_NULL, WIN1511_SHUSRDATA_SYS),
+             OPND_CREATE_INT8(1)));
+        APP(ilist, INSTR_CREATE_jcc
+            (dcontext, OP_jne_short, opnd_create_pc(nt_wrapper + WIN1511_JNE_OFFS)));
+    }
     APP(ilist, INSTR_CREATE_syscall(dcontext));
     APP(ilist, INSTR_CREATE_ret(dcontext));
 #else
@@ -2157,6 +2180,9 @@ exit_clean_syscall_wrapper:
  * can be turned into a direct call, which is only safe for XP SP2 if the
  * vsyscall page is not writable, and cannot be made writable, which is what we
  * have observed to be true.
+ *
+ * XXX i#1854: we should try and reduce how fragile we are wrt small
+ * changes in syscall wrapper sequences.
  */
 
 /* Helper function that returns the after-hook pc */
@@ -2344,6 +2370,16 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
     instr = instr_create(dcontext);
     after_hook_target = pc;
     pc = decode(dcontext, pc, instr);
+    /* i#1825: win10 TH2 has a test;jne here */
+    if (instr_get_opcode(instr) == OP_test) {
+        instrlist_append(ilist, instr);
+        instr = instr_create(dcontext);
+        pc = decode(dcontext, pc, instr);
+        ASSERT(instr_get_opcode(instr) == OP_jne_short);
+        instrlist_append(ilist, instr);
+        instr = instr_create(dcontext);
+        pc = decode(dcontext, pc, instr);
+    }
     *ret_pc = pc;
     ASSERT(instr_get_opcode(instr) == OP_syscall);
     instr_destroy(dcontext, instr);
@@ -3030,7 +3066,7 @@ intercept_new_thread(CONTEXT *cxt)
     /* init apc, check init_apc_go_native to sync w/detach */
     if (init_apc_go_native) {
         /* need to wait after checking _go_native to avoid a thread
-         * going native to early because of races between setting
+         * going native too early because of races between setting
          * _go_native and _pause */
         if (init_apc_go_native_pause) {
             /* FIXME : this along with any other logging in this
@@ -3081,7 +3117,7 @@ intercept_new_thread(CONTEXT *cxt)
         if (is_client) {
             ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
             /* PR 210591: hide our threads from DllMain by not executing rest
-             * of Ldr init code and going straight to target.  create_thread()
+             * of Ldr init code and going straight to target.  our_create_thread()
              * already set up the arg in cxt.
              */
             nt_continue(cxt);
@@ -4477,7 +4513,7 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
         TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;
         byte *ymmh_area;
-        for (i=0; i<NUM_XMM_SAVED; i++) {
+        for (i=0; i<NUM_SIMD_SAVED; i++) {
             LOG(file, LOG_ASYNCH, 2, "xmm%d=0x", i);
             /* This would be simpler if we had uint64 fields in dr_xmm_t but
              * that complicates our struct layouts */
@@ -4953,7 +4989,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                  * own gencode.  client_exception_event() won't return if client
                  * wants to re-execute faulting instr.
                  */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, raw_mcontext, NULL);
@@ -5284,7 +5320,7 @@ intercept_exception(app_state_at_intercept_t *state)
         });
 
 #ifdef CLIENT_INTERFACE
-        if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
+        if (CLIENTS_EXIST() &&
             is_in_client_lib(pExcptRec->ExceptionAddress)) {
             /* i#1354: client might fault touching a code page we made read-only.
              * If so, just re-execute post-page-prot-change (MOD_CODE_APP_CXT), if
@@ -5404,7 +5440,7 @@ intercept_exception(app_state_at_intercept_t *state)
             if (!takeover) {
 #ifdef CLIENT_INTERFACE
                 /* -probe_api client should get exception events too */
-                if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+                if (CLIENTS_EXIST()) {
                     /* raw_mcontext equals mcontext */
                     context_to_mcontext(&raw_mcontext, cxt);
                     client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
@@ -5523,7 +5559,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* remember faulting pc */
             faulting_pc = (cache_pc) pExcptRec->ExceptionAddress;
 #ifdef CLIENT_INTERFACE
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* i#182/PR 449996: we provide the pre-translation context */
                 context_to_mcontext(&raw_mcontext, cxt);
             }
@@ -5541,8 +5577,19 @@ intercept_exception(app_state_at_intercept_t *state)
                  * exceptionaddress first since cxt is the one we want for real, we
                  * just want pc for exceptionaddress.
                  */
-                app_pc translated_pc =
-                    recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, f);
+                app_pc translated_pc;
+                if (pExcptRec->ExceptionCode == EXCEPTION_BREAKPOINT &&
+                    cxt->CXT_XIP+1 == (ptr_uint_t)pExcptRec->ExceptionAddress) {
+                    /* i#2126 : In case of an int 2d, the exception address is
+                     * increased by 1 and we make the same.
+                     */
+                    translated_pc =
+                        recreate_app_pc(dcontext, (cache_pc) cxt->CXT_XIP, f) + 1;
+                }
+                else {
+                    translated_pc =
+                        recreate_app_pc(dcontext, pExcptRec->ExceptionAddress, f);
+                }
                 ASSERT(translated_pc != NULL);
                 LOG(THREAD, LOG_ASYNCH, 2, "Translated ExceptionAddress "
                     PFX" to "PFX"\n",
@@ -5646,7 +5693,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
 #ifdef CLIENT_INTERFACE
             /* Inform client of exceptions */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, f);
             }
 #endif
@@ -5680,7 +5727,7 @@ intercept_exception(app_state_at_intercept_t *state)
             });
 #ifdef CLIENT_INTERFACE
             /* Inform client of forged exceptions (i#1775) */
-            if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+            if (CLIENTS_EXIST()) {
                 /* raw_mcontext equals mcontext */
                 context_to_mcontext(&raw_mcontext, cxt);
                 client_exception_event(dcontext, cxt, pExcptRec, &raw_mcontext, NULL);
@@ -5800,6 +5847,12 @@ initialize_exception_record(EXCEPTION_RECORD* rec, app_pc exception_address,
         break;
     case ILLEGAL_INSTRUCTION_EXCEPTION:
         rec->ExceptionCode = EXCEPTION_ILLEGAL_INSTRUCTION;
+        break;
+    case GUARD_PAGE_EXCEPTION:
+        rec->ExceptionCode = STATUS_GUARD_PAGE_VIOLATION;
+        rec->NumberParameters = 2;
+        rec->ExceptionInformation[0] = EXCEPTION_EXECUTE_FAULT /* execution tried */;
+        rec->ExceptionInformation[1] = (ptr_uint_t)exception_address;
         break;
     default:
         ASSERT_NOT_REACHED();
@@ -6612,7 +6665,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
     LOG(GLOBAL, LOG_VMAREAS, 1, "intercept_load_dll: %S\n", name->Buffer);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tpath=%S\n",
         /* win8 LdrLoadDll seems to take small integers instead of paths */
-        ((ptr_int_t)path <= PAGE_SIZE) ? L"NULL" : path);
+        ((ptr_int_t)path <= (ptr_int_t)PAGE_SIZE) ? L"NULL" : path);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\tcharacteristics=%d\n",
         characteristics ? *characteristics : 0);
     ASSERT(should_intercept_LdrLoadDll());
@@ -7622,6 +7675,11 @@ callback_interception_unintercept()
 
     free_intercept_list();
 
+    if (doing_detach) {
+        DEBUG_DECLARE(bool ok =)
+            make_writable(interception_code, INTERCEPTION_CODE_SIZE);
+        ASSERT(ok);
+    }
     DODEBUG(callback_interception_unintercepted = true;);
 }
 
@@ -7982,7 +8040,7 @@ enum {
  *   0:000> dds 12fdb4
  *   0012fdb4  0012fe2c
  *   0012fdb8  77f3b744 KERNEL32!_except_handler3
- *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
+ *   0012fdbc  77f3d308 KERNEL32!ntdll_NULL_THUNK_DATA+0xebc
  *
  *   and the handler is the instr after the push immed:
  *   0:000> dds 77f3d308

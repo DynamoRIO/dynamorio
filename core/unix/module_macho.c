@@ -698,7 +698,11 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
 byte *
 module_dynamorio_lib_base(void)
 {
+# if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST)
+    return (byte *) &_mh_execute_header;
+# else
     return (byte *) &_mh_dylib_header;
+# endif
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -57,7 +57,7 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 2.4)
+cmake_minimum_required (VERSION 2.6)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)
@@ -85,6 +85,9 @@ set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
 set(arg_verbose OFF)  # extra output
+set(arg_32_only OFF)  # do not include 64-bit
+set(arg_64_only OFF)  # do not include 64-bit
+set(arg_build_only OFF) # do not run tests
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -133,6 +136,15 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     # not parallel to include=.  this excludes individual tests.
     string(REGEX REPLACE "^exclude=" "" arg_exclude "${arg}")
   endif (${arg} MATCHES "^exclude=")
+  if (${arg} MATCHES "^32_only")
+    set(arg_32_only ON)
+  endif ()
+  if (${arg} MATCHES "^64_only")
+    set(arg_64_only ON)
+  endif ()
+  if (${arg} MATCHES "^build_only")
+    set(arg_build_only ON)
+  endif ()
 endforeach (arg)
 
 # allow setting the base cache variables via an include file
@@ -279,7 +291,7 @@ set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS 200)
 
 # Detect if the arch is x86
 if (NOT DEFINED ARCH_IS_X86)
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
     set(ARCH_IS_X86 OFF)
   else ()
     set(ARCH_IS_X86 ON)
@@ -307,7 +319,7 @@ if (NOT DEFINED KERNEL_IS_X64)  # Allow variable override.
       RESULT_VARIABLE cmd_result)
     # If for some reason uname fails (not on PATH), assume the kernel is x64
     # anyway.
-    if (cmd_result OR "${machine}" MATCHES "x86_64")
+    if (cmd_result OR "${machine}" MATCHES "x86_64|aarch64")
       set(KERNEL_IS_X64 ON)
     else ()
       set(KERNEL_IS_X64 OFF)
@@ -396,6 +408,17 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
 
   # Skip x64 builds on a true ia32 machine.
   if (is64 AND NOT KERNEL_IS_X64)
+    return()
+  endif ()
+  if (is64 AND arg_32_only)
+    return()
+  endif ()
+  if (NOT is64 AND arg_64_only)
+    return()
+  endif ()
+
+  # Skip 32-bit builds on an AArch64 machine.
+  if (NOT is64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
     return()
   endif ()
 
@@ -582,12 +605,25 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
 
     else (config_success EQUAL 0)
       set(build_success -1)
+      if (optional_cross_compile)
+        # XXX: for platforms requiring special hardware such as ARM, this global indicates
+        # an optional cross-compilation, for use on more common platforms like x86 Unix
+        # (would use a parameter instead of a global, except for backward compatibility)
+        file(GLOB last_config ${CTEST_BINARY_DIRECTORY}/Testing/*/*.xml)
+        if (last_config)
+          file(REMOVE ${last_config})
+        endif (last_config)
+        set(DO_SUBMIT OFF)
+        message("Warning: optional cross-compilation \"${name}\" is not available"
+          "--skipping")
+        file(WRITE ${CTEST_BINARY_DIRECTORY}/Testing/missing-cross-compile "${name}")
+      endif (optional_cross_compile)
     endif (config_success EQUAL 0)
   else (NOT arg_already_built)
     set(build_success 0)
   endif (NOT arg_already_built)
 
-  if (build_success EQUAL 0 AND run_tests)
+  if (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
     if (NOT test_only_in_long OR ${TEST_LONG})
       # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
       #   INCLUDE broadfun
@@ -624,7 +660,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}" ${ctest_test_args})
       endif (RUN_PARALLEL)
     endif (NOT test_only_in_long OR ${TEST_LONG})
-  endif (build_success EQUAL 0 AND run_tests)
+  endif (build_success EQUAL 0 AND run_tests AND NOT arg_build_only)
 
   if (DO_SUBMIT)
     # include any notes via set(CTEST_NOTES_FILES )?

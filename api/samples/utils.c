@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -34,6 +34,10 @@
 
 #include "utils.h"
 #include "drx.h"
+#include <stdio.h>
+#ifdef WINDOWS
+# include <io.h>
+#endif
 
 file_t
 log_file_open(client_id_t id, void *drcontext,
@@ -93,4 +97,23 @@ void
 log_file_close(file_t log)
 {
     dr_close_file(log);
+}
+
+FILE *
+log_stream_from_file(file_t f)
+{
+#ifdef WINDOWS
+    int fd = _open_osfhandle((intptr_t)f, 0);
+    if (fd == -1)
+        return NULL;
+    return _fdopen(fd, "w");
+#else
+    return fdopen(f, "w");
+#endif
+}
+
+void
+log_stream_close(FILE *f)
+{
+    fclose(f); /* closes underlying fd too for all platforms */
 }

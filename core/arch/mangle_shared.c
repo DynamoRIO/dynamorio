@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -168,12 +168,30 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
-
         insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-
+#ifdef AARCH64
+        /* We need an addtional scratch register for saving the SP.
+         * TLS_REG1_SLOT is not safe since it may be used by clients.
+         * Instead we save it to dcontext.mcontext.x0, which is not
+         * used by dr_save_reg (see definition of SPILL_SLOT_MC_REG).
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                               opnd_create_reg(SCRATCH_REG1)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              opnd_create_reg(DR_REG_XSP)));
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_dcontext_field_via_reg_sz
+                                   (dcontext, SCRATCH_REG0,
+                                    XSP_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(SCRATCH_REG1)));
+#else
         PRE(ilist, instr, instr_create_save_to_dc_via_reg
-            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
-
+             (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
+#endif
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  FIXME - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
@@ -192,14 +210,30 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
         }
 #endif
+#ifdef AARCH64
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext,
+                              opnd_create_reg(SCRATCH_REG1),
+                              opnd_create_dcontext_field_via_reg_sz
+                                  (dcontext, SCRATCH_REG0,
+                                   DSTACK_OFFSET, OPSZ_PTR)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_XSP),
+                              opnd_create_reg(SCRATCH_REG1)));
+        /* Restore scratch_reg from dcontext.mcontext.x0. */
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+#else
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
             (dcontext, SCRATCH_REG0, REG_XSP, DSTACK_OFFSET));
-
-        /* restore xax before pushing the context on the dstack */
+#endif
+        /* Restore SCRATCH_REG0 before pushing the context on the dstack. */
         PRE(ilist, instr, instr_create_restore_from_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
+        IF_AARCH64(ASSERT_NOT_REACHED());
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
@@ -226,7 +260,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             insert_out_of_line_context_switch(dcontext, ilist, instr, true);
     } else {
         dstack_offs +=
-            insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
+            insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
                                       OPND_CREATE_INT32(0), REG_NULL);
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
@@ -238,14 +272,14 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * We do not need to preserve DR's Linux errno across app execution.
      */
 
-#if defined(X64) || defined(MACOS)
+#if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: maintain 16-byte rsp alignment.
      * insert_parameter_preparation() currently assumes we leave rsp aligned.
      */
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_aflags)
+        if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
         if ((num_slots % 2) == 1) {
@@ -259,8 +293,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
     }
 #endif
-    ASSERT(cci->skip_save_aflags   ||
-           cci->num_xmms_skip != 0 ||
+    ASSERT(cci->skip_save_flags    ||
+           cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == sizeof(priv_mcontext_t) + clean_call_beyond_mcontext());
     return dstack_offs;
@@ -274,11 +308,11 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     /* saved error code is currently on the top of the stack */
 
-#if defined(X64) || defined(MACOS)
+#if (defined(X86) && defined(X64)) || defined(MACOS)
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
-        if (cci->skip_save_aflags)
+        if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
         if ((num_slots % 2) == 1) {
@@ -296,7 +330,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
-                                 PAGE_SIZE);
+                                 (uint)PAGE_SIZE);
     }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
@@ -319,13 +353,36 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
 #endif
 
+#ifdef AARCH64
+        /* TLS_REG1_SLOT is not safe since it may be used by clients.
+         * We save it to dcontext.mcontext.x0.
+         */
+        PRE(ilist, instr,
+            XINST_CREATE_store(dcontext,
+                               OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                               opnd_create_reg(SCRATCH_REG1)));
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext,
+                              opnd_create_reg(SCRATCH_REG1),
+                               opnd_create_dcontext_field_via_reg_sz
+                                   (dcontext, SCRATCH_REG0,
+                                    XSP_OFFSET, OPSZ_PTR)));
+        PRE(ilist, instr,
+            XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_XSP),
+                              opnd_create_reg(SCRATCH_REG1)));
+        /* Restore scratch_reg from dcontext.mcontext.x0. */
+        PRE(ilist, instr,
+            XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                              OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+#else
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
-            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
-
+             (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
+#endif
         PRE(ilist, instr, instr_create_restore_from_tls
             (dcontext, SCRATCH_REG0, TLS_REG0_SLOT));
     }
     else {
+        IF_AARCH64(ASSERT_NOT_REACHED());
 #ifdef WINDOWS
         if (!cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
@@ -351,35 +408,112 @@ parameters_stack_padded(void)
  */
 bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, bool returns, byte *encode_pc, void *callee,
+                       meta_call_flags_t flags, byte *encode_pc, void *callee,
                        uint num_args, opnd_t *args)
 {
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
     bool direct;
     uint stack_for_params =
         insert_parameter_preparation(dcontext, ilist, instr,
-                                     clean_call, num_args, args);
+                                     TEST(META_CALL_CLEAN, flags), num_args, args);
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
+
+#ifdef CLIENT_INTERFACE
+    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+        if (SCRATCH_ALWAYS_TLS()) {
+            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
+             * which specifies that the caller must save xax (and xcx and xdx)
+             */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+# ifdef AARCH64
+            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+             * We save it to dcontext.mcontext.x0.
+             */
+            PRE(ilist, instr,
+                XINST_CREATE_store(dcontext,
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                                   opnd_create_reg(SCRATCH_REG1)));
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)WHERE_CLEAN_CALLEE,
+                                             opnd_create_reg(SCRATCH_REG1),
+                                             ilist, instr, NULL, NULL);
+            PRE(ilist, instr,
+                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                                                WHEREAMI_OFFSET));
+            /* Restore scratch_reg from dcontext.mcontext.x0. */
+            PRE(ilist, instr,
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+# else
+            PRE(ilist, instr,
+                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
+                                                      WHEREAMI_OFFSET,
+                                                      (uint) WHERE_CLEAN_CALLEE, OPSZ_4));
+# endif
+        } else {
+            PRE(ilist, instr, XINST_CREATE_store(dcontext,
+                opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
+                OPND_CREATE_INT32(WHERE_CLEAN_CALLEE)));
+        }
+    }
+#endif
+
     /* If we need an indirect call, we use r11 as the last of the scratch regs.
      * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
      */
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
-                                  false/*call*/, returns, false/*!precise*/,
-                                  DR_REG_R11, NULL);
+                                  false/*call*/, TEST(META_CALL_RETURNS, flags),
+                                  false/*!precise*/, DR_REG_R11, NULL);
     if (stack_for_params > 0) {
         /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
          */
-#ifdef X86
-        PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
-                             opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                   stack_for_params, OPSZ_lea)));
-#elif defined(ARM)
-        /* FIXME i#1551: NYI on ARM */
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
+        PRE(ilist, instr, XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
+                                           OPND_CREATE_INT32(stack_for_params)));
     }
+
+#ifdef CLIENT_INTERFACE
+    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+        uint whereami;
+
+        if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
+            whereami = (uint) WHERE_APP;
+        else
+            whereami = (uint) WHERE_FCACHE;
+
+        if (SCRATCH_ALWAYS_TLS()) {
+            /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
+# ifdef AARCH64
+            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+             * We save it to dcontext.mcontext.x0.
+             */
+            PRE(ilist, instr,
+                XINST_CREATE_store(dcontext,
+                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
+                                   opnd_create_reg(SCRATCH_REG1)));
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)whereami,
+                                             opnd_create_reg(SCRATCH_REG1),
+                                             ilist, instr, NULL, NULL);
+            PRE(ilist, instr,
+                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                                                WHEREAMI_OFFSET));
+            /* Restore scratch_reg from dcontext.mcontext.x0. */
+            PRE(ilist, instr,
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
+                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+# else
+            PRE(ilist, instr,
+                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
+                                                      WHEREAMI_OFFSET, whereami, OPSZ_4));
+# endif
+        } else {
+            PRE(ilist, instr, XINST_CREATE_store(dcontext,
+                opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
+                OPND_CREATE_INT32(whereami)));
+        }
+    }
+#endif
+
     /* mark it all meta */
     if (in == NULL)
         in = instrlist_first(ilist);
@@ -401,37 +535,37 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 void
 insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, NULL, NULL, val, dst,
-                          ilist, instr, first, second);
+                          ilist, instr, first, last);
 }
 
 void
 insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
                       opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second)
+                      OUT instr_t **first, OUT instr_t **last)
 {
     insert_mov_immed_arch(dcontext, src, encode_estimate, 0, dst,
-                          ilist, instr, first, second);
+                          ilist, instr, first, last);
 }
 
 void
 insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
                         instrlist_t *ilist, instr_t *instr,
-                        instr_t **first, instr_t **second)
+                        OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, NULL, NULL, val,
-                           ilist, instr, first, second);
+                           ilist, instr, first, last);
 }
 
 void
 insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                        instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second)
+                       OUT instr_t **first, OUT instr_t **last)
 {
     insert_push_immed_arch(dcontext, src_inst, encode_estimate, 0,
-                           ilist, instr, first, second);
+                           ilist, instr, first, last);
 }
 
 app_pc
@@ -608,7 +742,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
             return false;
         }
     } while (!instr_is_syscall(&instr));
-    if (skip_pc != NULL) {
+    if (skip_pc == NULL) {
         /* signal happened after skip jmp: nothing we can do here
          *
          * FIXME PR 213040: we should tell caller difference between
@@ -649,12 +783,13 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     /* FIXME : this should work out to just a 1 byte write, but let's make
      * it more clear that this is atomic! */
     if (opnd_get_pc(instr_get_target(&instr)) != target) {
-        DEBUG_DECLARE(byte *nxt_pc;)
+        byte *nxt_pc;
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\tmodifying target of syscall jmp to "PFX"\n", target);
         instr_set_target(&instr, opnd_create_pc(target));
-        DEBUG_DECLARE(nxt_pc = ) instr_encode(dcontext, &instr, skip_pc);
+        nxt_pc = instr_encode(dcontext, &instr, skip_pc);
         ASSERT(nxt_pc != NULL && nxt_pc == cti_pc);
+        machine_cache_sync(skip_pc, nxt_pc, true);
     } else {
         LOG(THREAD, LOG_SYSCALLS, 3,
             "\ttarget of syscall jmp is already "PFX"\n", target);
@@ -758,6 +893,14 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif
 
+#ifdef AARCH64
+        if (instr_is_icache_op(instr) && instr_is_app(instr)) {
+            next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
+                                          get_app_instr_xl8(next_instr));
+            continue;
+        }
+#endif
+
 #if defined(X64) || defined(ARM)
         /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
          * which makes instr point to freed memory.
@@ -765,7 +908,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
          * for exit_cti and syscall.
          * skip the rest of the loop if instr is destroyed.
          */
-        if (instr_has_rel_addr_reference(instr)) {
+        if (instr_has_rel_addr_reference(instr)
+            /* XXX i#1834: it should be up to the app to re-relativize, yet on amd64
+             * our own samples are relying on DR re-relativizing (and we just haven't
+             * run big enough apps to hit reachability problems) so for now we continue
+             * mangling meta instrs for x86 builds.
+             */
+            IF_ARM(&& instr_is_app(instr))) {
             instr_t *res = mangle_rel_addr(dcontext, ilist, instr, next_instr);
             /* Either returns NULL == destroyed "instr", or a new next_instr */
             if (res == NULL)
@@ -775,15 +924,26 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif /* X64 || ARM */
 
-#ifdef ARM
-# ifdef X64
-#  error NYI on AArch64 for writing thread register
-# endif
+#ifdef AARCHXX
         if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist,
                                                       instr, next_instr);
             continue;
         }
+#endif /* ARM || AARCH64 */
+
+#ifdef AARCH64
+        if (!instr_is_meta(instr) && instr_writes_thread_register(instr)) {
+            next_instr = mangle_writes_thread_register(dcontext, ilist,
+                                                       instr, next_instr);
+            continue;
+        }
+
+        if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
+            next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
+#endif /* AARCH64 */
+
+#ifdef ARM
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
          */
@@ -982,6 +1142,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *prev = instr_get_prev(instr);
     /* Allow either eax or rax for x86_64 */
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
+
     if (prev != NULL) {
         prev = instr_get_prev_expanded(dcontext, ilist, instr);
         /* walk backwards looking for "mov imm->xax"
@@ -1068,6 +1229,7 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
 void
 mangle_init(void)
 {
+    mangle_arch_init();
     /* create a default func_info for:
      * 1. clean call callee that cannot be analyzed.
      * 2. variable clean_callees will not be updated during the execution

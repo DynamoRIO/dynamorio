@@ -1,0 +1,89 @@
+/* **********************************************************
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drcovlib Code Coverage Library
+
+\p drcovlib is a DynamoRIO Extension that collects code coverage
+information.  If you are looking for an end-user tool, the DynamoRIO tool
+\ref page_drcov combined with the post-processing tool \ref sec_drcov2lcov
+should be used instead of this library.  \p drcovlib is intended to be used
+to add coverage information to other tools.  The \p drcov client itself
+makes use of \p drcovlib.
+
+ - \ref sec_drcovlib
+ - \ref sec_elision
+ - \ref sec_postproc
+ - \ref sec_modtrack
+
+\section sec_drcovlib The Code Coverage Interface
+
+The \p drcovlib library's basic operation is to capture coverage
+information during execution and write the results to a single log file for
+the whole at the end of execution.  Per-thread coverage information can be
+obtained by running DynamoRIO with thread-private code caches and passing the
+#DRCOVLIB_THREAD_PRIVATE flag to drcovlib_init().
+
+Coverage information is finalized to the log file when drcovlib_exit() is
+called (or for #DRCOVLIB_THREAD_PRIVATE when \p drcovlib's own thread exit
+events are invoked by DynamoRIO).  For processes that are terminated
+without a chance for a clean exit by their parents, the caller may want to
+consider using drx_register_soft_kills() with a soft kill callback that nudges the
+child process and a nudge event callback that invokes dr_exit_process().
+This will ensure that log file are written out.  If this is not sufficient,
+drcovlib_dump() is provided, though it should not be called when normal
+dumping will occur.
+
+\section sec_elision Elision Not Supported
+
+The DynamoRIO runtime options -max_elide_jmp and -max_elide_call must be
+left at their default values of zero.  \p drcovlib does not support setting
+them to non-zero values.
+
+\section sec_postproc Post-Processing
+
+To post-process \p drcovlib's log files and create human-readable output,
+see instructinons for running the \p drcov2lcov utility: \ref sec_drcov2lcov.
+
+\section sec_modtrack Module Tracking Feature
+
+In addition to code coverage, \p drcovlib provides a module (library)
+tracking feature that is useful for using an index and an offset as a
+persistent representation of the location of an application program counter
+for later symbolization.  This feature handles unloaded and reloaded
+libraries and offers fast lookup.  The module information can be written to
+a file and read back in either online or offline using DR's standalone API
+via the drmodtrack_offline_* interface.
+
+*/

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,16 +51,6 @@
         dr_fprintf(STDERR, __VA_ARGS__); \
     } \
 } while (0)
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define UNSUPPORTED_PDB_FLAGS (DRSYM_DEMANGLE_FULL|DRSYM_LEAVE_MANGLED)
 #define UNSUPPORTED_NONPDB_FLAGS (DRSYM_DEMANGLE_PDB_TEMPLATES|DRSYM_FULL_SEARCH)

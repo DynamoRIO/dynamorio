@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,7 +97,8 @@ drvector_set_entry(drvector_t *vec, uint idx, void *data)
     if (idx >= vec->capacity)
         drvector_increase_size(vec, idx * 2);
     vec->array[idx] = data;
-    vec->entries = idx + 1; /* ensure append goes beyond this entry */
+    if (idx >= vec->entries)
+        vec->entries = idx + 1; /* ensure append goes beyond this entry */
     if (vec->synch)
         dr_mutex_unlock(vec->lock);
     return true;

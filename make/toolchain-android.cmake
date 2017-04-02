@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,14 @@ endif ()
 
 # specify the cross compiler
 if (NOT DEFINED ANDROID_TOOLCHAIN)
-  set(toolchain_bin_path "")
+  # Support the bin dir being on the PATH
+  find_program(gcc ${TARGET_ABI}-gcc)
+  if (gcc)
+    get_filename_component(gcc_path ${gcc} PATH)
+    set(toolchain_bin_path "${gcc_path}/")
+  else ()
+    set(toolchain_bin_path "")
+  endif ()
 else ()
   set(toolchain_bin_path "${ANDROID_TOOLCHAIN}/bin/")
 endif ()

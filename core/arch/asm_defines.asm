@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -49,17 +49,24 @@
 # define X86
 #endif
 
-#if (defined(ARM_64) || defined(ARM_32)) && !defined(ARM)
+#if defined(ARM_64) && !defined(AARCH64)
+# define AARCH64
+#endif
+
+#if defined(ARM_32) && !defined(ARM)
 # define ARM
 #endif
 
-#ifdef ARM
-# ifdef X64
-#  error 64-bit ARM is not supported
-# endif
-# ifdef WINDOWS
-#  error ARM on Windows is not supported
-# endif
+#if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
+# define AARCHXX
+#endif
+
+#if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))
+# error ARM is only 32-bit; AARCH64 is 64-bit
+#endif
+
+#if defined(AARCHXX) && defined(WINDOWS)
+# error ARM/AArch64 on Windows is not supported
 #endif
 
 #undef WEAK /* avoid conflict with C define */
@@ -99,7 +106,7 @@
 #  else
 #   define SYMREF(sym) [sym]
 #  endif
-# elif defined(ARM)
+# elif defined(AARCHXX)
 #  define BYTE /* nothing */
 #  define WORD /* nothing */
 #  define DWORD /* nothing */
@@ -235,38 +242,37 @@ ASSUME fs:_DATA @N@\
 /* Macros for writing cross-platform 64-bit + 32-bit code */
 
 /* register set */
-#ifdef ARM
-# ifdef X64
-#  define REG_R0  x0
-#  define REG_R1  x1
-#  define REG_R2  x2
-#  define REG_R3  x3
-#  define REG_R4  x4
-#  define REG_R5  x5
-#  define REG_R6  x6
-#  define REG_R7  x7
-#  define REG_R8  x8
-#  define REG_R9  x9
-#  define REG_R10 x10
-#  define REG_R11 x11
-#  define REG_R12 x12
-/* skip [x16..x30], only available on AArch64 */
-# else /* 32-bit */
-#  define REG_R0  r0
-#  define REG_R1  r1
-#  define REG_R2  r2
-#  define REG_R3  r3
-#  define REG_R4  r4
-#  define REG_R5  r5
-#  define REG_R6  r6
-#  define REG_R7  r7
-#  define REG_R8  r8
-#  define REG_R9  r9
-#  define REG_R10 r10
-#  define REG_R11 r11
-#  define REG_R12 r12
+#if defined(ARM)
+# define REG_SP sp
+# define REG_R0  r0
+# define REG_R1  r1
+# define REG_R2  r2
+# define REG_R3  r3
+# define REG_R4  r4
+# define REG_R5  r5
+# define REG_R6  r6
+# define REG_R7  r7
+# define REG_R8  r8
+# define REG_R9  r9
+# define REG_R10 r10
+# define REG_R11 r11
+# define REG_R12 r12
 /* {r13, r14, r15} are used for {sp, lr, pc} on AArch32 */
-# endif /* 64/32-bit */
+#elif defined(AARCH64)
+# define REG_R0  x0
+# define REG_R1  x1
+# define REG_R2  x2
+# define REG_R3  x3
+# define REG_R4  x4
+# define REG_R5  x5
+# define REG_R6  x6
+# define REG_R7  x7
+# define REG_R8  x8
+# define REG_R9  x9
+# define REG_R10 x10
+# define REG_R11 x11
+# define REG_R12 x12
+/* skip [x13..x30], not available on AArch32 */
 #else /* Intel X86 */
 # ifdef X64
 #  define REG_XAX rax
@@ -278,7 +284,10 @@ ASSUME fs:_DATA @N@\
 #  define REG_XBP rbp
 #  define REG_XSP rsp
 /* skip [r8..r15], only available on AMD64 */
-#  define SEG_TLS gs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+#  define SEG_TLS gs /* keep in sync w/ {unix,win32}/os_exports.h defines */
+#  ifdef UNIX
+#   define LIB_SEG_TLS fs /* keep in sync w/ unix/os_exports.h defines */
+#  endif
 # else /* 32-bit */
 #  define REG_XAX eax
 #  define REG_XBX ebx
@@ -288,7 +297,10 @@ ASSUME fs:_DATA @N@\
 #  define REG_XDI edi
 #  define REG_XBP ebp
 #  define REG_XSP esp
-#  define SEG_TLS fs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+#  define SEG_TLS fs /* keep in sync w/ {unix,win32}/os_exports.h defines */
+#  ifdef UNIX
+#   define LIB_SEG_TLS gs /* keep in sync w/ unix/os_exports.h defines */
+#  endif
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
 
@@ -301,7 +313,7 @@ ASSUME fs:_DATA @N@\
 # define PTRSZ DWORD
 #endif
 
-#ifdef ARM
+#ifdef AARCHXX
 /* ARM AArch64 calling convention:
  * SP:       stack pointer
  * x30(LR):  link register
@@ -333,15 +345,15 @@ ASSUME fs:_DATA @N@\
 #  define ARG7 REG_R6
 #  define ARG8 REG_R7
 /* Arguments are passed on stack right-to-left. */
-#  define ARG9  QWORD [0*ARG_SZ + REG_SP] /* no ret addr */
-#  define ARG10 QWORD [1*ARG_SZ + REG_SP]
+#  define ARG9  QWORD [REG_SP, #(0*ARG_SZ)] /* no ret addr */
+#  define ARG10 QWORD [REG_SP, #(1*ARG_SZ)]
 # else /* 32-bit */
-#  define ARG5  DWORD [0*ARG_SZ + REG_SP] /* no ret addr */
-#  define ARG6  DWORD [1*ARG_SZ + REG_SP]
-#  define ARG7  DWORD [2*ARG_SZ + REG_SP]
-#  define ARG8  DWORD [3*ARG_SZ + REG_SP]
-#  define ARG9  DWORD [4*ARG_SZ + REG_SP]
-#  define ARG10 DWORD [5*ARG_SZ + REG_SP]
+#  define ARG5  DWORD [REG_SP, #(0*ARG_SZ)] /* no ret addr */
+#  define ARG6  DWORD [REG_SP, #(1*ARG_SZ)]
+#  define ARG7  DWORD [REG_SP, #(2*ARG_SZ)]
+#  define ARG8  DWORD [REG_SP, #(3*ARG_SZ)]
+#  define ARG9  DWORD [REG_SP, #(4*ARG_SZ)]
+#  define ARG10 DWORD [REG_SP, #(5*ARG_SZ)]
 # endif /* 64/32-bit */
 # define ARG1_NORETADDR  ARG1
 # define ARG2_NORETADDR  ARG2
@@ -353,6 +365,26 @@ ASSUME fs:_DATA @N@\
 # define ARG8_NORETADDR  ARG8
 # define ARG9_NORETADDR  ARG9
 # define ARG10_NORETADDR ARG10
+
+/* The macros SAVE_PRESERVED_REGS and RESTORE_PRESERVED_REGS save and restore the link
+ * register and REG_PRESERVED_* so must be updated if more REG_PRESERVED_ regs are added.
+ */
+# ifndef AARCH64
+#  define FP r11
+#  define LR r14
+#  define INDJMP bx
+#  define REG_PRESERVED_1 r4
+#  define SAVE_PRESERVED_REGS    push {REG_PRESERVED_1, LR}
+#  define RESTORE_PRESERVED_REGS pop  {REG_PRESERVED_1, LR}
+# else
+#  define FP x29
+#  define LR x30
+#  define INDJMP br
+#  define REG_PRESERVED_1 x19
+#  define SAVE_PRESERVED_REGS    stp REG_PRESERVED_1, LR, [sp, #-16]!
+#  define RESTORE_PRESERVED_REGS ldp REG_PRESERVED_1, LR, [sp], #16
+# endif
+
 #else /* Intel X86 */
 # ifdef X64
 #  ifdef WINDOWS
@@ -472,8 +504,8 @@ ASSUME fs:_DATA @N@\
 #else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
-# ifdef MACOS
-/* Mac requires 32-bit to have 16-byte stack alignment (at call site)
+# if defined(MACOS) || defined(CLANG)
+/* Mac or clang requires 32-bit to have 16-byte stack alignment (at call site)
  * Pass 4 instead of 0 for mod4 to avoid wasting stack space.
  */
 #  define STACK_PAD(tot, gt4, mod4) \
@@ -488,7 +520,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else /* !MACOS */
+# else /* !MACOS && !CLANG */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -503,7 +535,7 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif /* !MACOS */
+# endif /* !MACOS && !CLANG */
 #endif /* 64/32-bit */
 
 /* CALLC* are for C calling convention callees only.
@@ -589,7 +621,29 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 3)
+#elif defined(AARCH64)
+# define CALLC0(callee)    \
+        bl       callee
+# define CALLC1(callee, p1)    \
+        mov      ARG1, p1   @N@\
+        bl       callee
+# define CALLC2(callee, p1, p2)    \
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        bl       callee
+# define CALLC3(callee, p1, p2, p3)    \
+        mov      ARG3, p3   @N@\
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        bl       callee
+# define CALLC4(callee, p1, p2, p3, p4)    \
+        mov      ARG4, p4   @N@\
+        mov      ARG3, p3   @N@\
+        mov      ARG2, p2   @N@\
+        mov      ARG1, p1   @N@\
+        bl       callee
 #elif defined(ARM)
+/* Our assembly is ARM but our C code is Thumb so we use blx */
 # define CALLC0(callee)    \
         blx      callee
 # define CALLC1(callee, p1)    \
@@ -641,12 +695,21 @@ ASSUME fs:_DATA @N@\
 # define RETURN   ret
 # define INC(reg) inc reg
 # define DEC(reg) dec reg
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define REG_SCRATCH0 REG_R0
 # define REG_SCRATCH1 REG_R1
 # define REG_SCRATCH2 REG_R2
 # define JUMP     b
-# define RETURN   bx lr
+# ifdef X64
+#  define RETURN  ret
+# else
+#  define RETURN  bx lr
+# endif
+# ifdef X64
+#  define MOV16   mov
+# else
+#  define MOV16   movw
+# endif
 # define INC(reg) add reg, reg, POUND 1
 # define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */

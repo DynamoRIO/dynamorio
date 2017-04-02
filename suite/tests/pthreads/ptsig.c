@@ -58,14 +58,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 
     switch (sig) {
     case SIGUSR1: {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
-#ifdef ARM
-        void *pc = (void *) sc->arm_pc;
-#elif defined(X64)
-        void *pc = (void *) sc->rip;
-#else
-        void *pc = (void *) sc->eip;
-#endif
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        void *pc = (void *) sc->SC_XIP;
 #if VERBOSE
         print("thread %d got SIGUSR1 @ "PFX"\n", getpid(), pc);
 #endif

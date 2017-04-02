@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -72,8 +72,10 @@ extern size_t wcslen(const wchar_t *str); /* in string.c */
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
 char *ld_library_path = NULL;
-static const char *system_lib_paths[] = {
+static const char *const system_lib_paths[] = {
+#ifdef X86
     "/lib/tls/i686/cmov",
+#endif
     "/usr/lib",
     "/lib",
     "/usr/local/lib",       /* Ubuntu: /etc/ld.so.conf.d/libc.conf */
@@ -95,12 +97,19 @@ static const char *system_lib_paths[] = {
     "/usr/lib/arm-linux-gnueabi",
 # endif
 #else
+    /* 64-bit Ubuntu */
+# ifdef X86
     "/lib64/tls/i686/cmov",
+# endif
     "/usr/lib64",
     "/lib64",
-    /* 64-bit Ubuntu */
+# ifdef X86
     "/lib/x86_64-linux-gnu",     /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
     "/usr/lib/x86_64-linux-gnu", /* /etc/ld.so.conf.d/x86_64-linux-gnu.conf */
+# elif defined(AARCH64)
+    "/lib/aarch64-linux-gnu",
+    "/usr/lib/aarch64-linux-gnu",
+# endif
 #endif
 };
 #define NUM_SYSTEM_LIB_PATHS \
@@ -112,7 +121,6 @@ static const char *system_lib_paths[] = {
 
 static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
-static size_t max_client_tls_size = 2 * PAGE_SIZE;
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -132,6 +140,9 @@ stdfile_t **privmod_stdin;
 #define LIBC_STDOUT_NAME "stdout"
 #define LIBC_STDERR_NAME "stderr"
 #define LIBC_STDIN_NAME  "stdin"
+
+/* We save the original sp from the kernel, for use by TLS setup on Android */
+void *kernel_init_sp;
 
 /* forward decls */
 
@@ -160,7 +171,7 @@ static void
 privload_delete_os_privmod_data(privmod_t *privmod);
 
 #ifdef LINUX
-static void
+void
 privload_mod_tls_init(privmod_t *mod);
 #endif
 
@@ -264,10 +275,15 @@ os_loader_init_prologue(void)
 # if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
     if (DYNAMO_OPTION(early_inject)) {
         /* libdynamorio isn't visible to gdb so add to the cmd list */
+        byte *dr_base = get_dynamorio_dll_start(), *pref_base;
         elf_loader_t dr_ld;
         IF_DEBUG(bool success = )
             elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
         ASSERT(success);
+        module_walk_program_headers(dr_base, get_dynamorio_dll_end() - dr_base,
+                                    false, false, (byte **)&pref_base,
+                                    NULL, NULL, NULL, NULL);
+        dr_ld.load_delta = dr_base - pref_base;
         privload_add_gdb_cmd(&dr_ld, get_dynamorio_library_path(), false/*!reach*/);
         elf_loader_destroy(&dr_ld);
     }
@@ -311,6 +327,13 @@ os_loader_exit(void)
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd,
                        os_privmod_data_t, ACCT_OTHER, PROTECTED);
     }
+
+#if defined(LINUX) && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+    /* Put printed_gdb_commands into its original state for potential
+     * re-attaching and os_loader_init_epilogue().
+     */
+    printed_gdb_commands = false;
+#endif
 }
 
 void
@@ -421,7 +444,7 @@ privload_unload_imports(privmod_t *privmod)
  * which we have to delay at init time at least.
  */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
+privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
 {
 #ifdef LINUX
     map_fn_t map_func;
@@ -430,7 +453,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     app_pc base = NULL;
     elf_loader_t loader;
 
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
      * map_file()
@@ -452,7 +475,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
          */
         ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *) loader.buf;
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *) elf_header;
-        if (elf_header->e_version == 1 &&
+        if (!TEST(MODLOAD_NOT_PRIVLIB, flags) &&
+            elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
             altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3,
@@ -462,13 +486,14 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     }
 
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func,
-                                unmap_func, prot_func, reachable);
+                                unmap_func, prot_func, flags);
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-        privload_add_gdb_cmd(&loader, filename, reachable);
+        if (!TEST(MODLOAD_NOT_PRIVLIB, flags))
+            privload_add_gdb_cmd(&loader, filename, TEST(MODLOAD_REACHABLE, flags));
 #endif
     }
     elf_loader_destroy(&loader);
@@ -500,13 +525,6 @@ privload_process_imports(privmod_t *mod)
             name = strtab + dyn->d_un.d_val;
             LOG(GLOBAL, LOG_LOADER, 2, "%s: %s imports from %s\n",
                 __FUNCTION__, mod->name, name);
-#ifdef ANDROID
-            /* FIXME i#1701: support Android libc, which requires special init
-             * from the loader.
-             */
-            CLIENT_ASSERT(strcmp(name, "libc.so") != 0,
-                          "client using libc not yet supported on Android");
-#endif
             if (privload_lookup(name) == NULL) {
                 privmod_t *impmod = privload_locate_and_load(name, mod,
                                                              false/*client dir=>true*/);
@@ -555,7 +573,11 @@ privload_call_entry(privmod_t *privmod, uint reason)
     }
     if (reason == DLL_PROCESS_INIT) {
         /* calls init and init array */
+        LOG(GLOBAL, LOG_LOADER, 3, "%s: calling init routines of %s\n", __FUNCTION__,
+            privmod->name);
         if (opd->init != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init func "PFX"\n", __FUNCTION__,
+                privmod->name, opd->init);
             privload_call_lib_func(opd->init);
         }
         if (opd->init_array != NULL) {
@@ -563,14 +585,31 @@ privload_call_entry(privmod_t *privmod, uint reason)
             for (i = 0;
                  i < opd->init_arraysz / sizeof(opd->init_array[i]);
                  i++) {
-                if (opd->init_array[i] != NULL) /* be paranoid */
+                if (opd->init_array[i] != NULL) { /* be paranoid */
+                    LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s init array func "PFX"\n",
+                        __FUNCTION__, privmod->name, opd->init_array[i]);
                     privload_call_lib_func(opd->init_array[i]);
+                }
             }
         }
         return true;
     } else if (reason == DLL_PROCESS_EXIT) {
         /* calls fini and fini array */
+#ifdef ANDROID
+        /* i#1701: libdl.so fini routines call into libc somehow, which is
+         * often already unmapped.  We just skip them as a workaround.
+         */
+        if (strcmp(privmod->name, "libdl.so") == 0) {
+            LOG(GLOBAL, LOG_LOADER, 3, "%s: NOT calling fini routines of %s\n",
+                __FUNCTION__, privmod->name);
+            return true;
+        }
+#endif
+        LOG(GLOBAL, LOG_LOADER, 3, "%s: calling fini routines of %s\n", __FUNCTION__,
+            privmod->name);
         if (opd->fini != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini func "PFX"\n", __FUNCTION__,
+                privmod->name, opd->fini);
             privload_call_lib_func(opd->fini);
         }
         if (opd->fini_array != NULL) {
@@ -578,8 +617,11 @@ privload_call_entry(privmod_t *privmod, uint reason)
             for (i = 0;
                  i < opd->fini_arraysz / sizeof(opd->fini_array[0]);
                  i++) {
-                if (opd->fini_array[i] != NULL) /* be paranoid */
+                if (opd->fini_array[i] != NULL) { /* be paranoid */
+                    LOG(GLOBAL, LOG_LOADER, 4, "%s: calling %s fini array func "PFX"\n",
+                        __FUNCTION__, privmod->name, opd->fini_array[i]);
                     privload_call_lib_func(opd->fini_array[i]);
+                }
             }
         }
         return true;
@@ -638,8 +680,9 @@ privload_load_finalized(privmod_t *mod)
     /* nothing further to do */
 }
 
+/* If runpath, then DT_RUNPATH is searched; else, DT_RPATH. */
 static bool
-privload_search_rpath(privmod_t *mod, const char *name,
+privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                       char *filename OUT /* buffer size is MAXIMUM_PATH */)
 {
 #ifdef LINUX
@@ -648,6 +691,11 @@ privload_search_rpath(privmod_t *mod, const char *name,
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
     /* get the loading module's dir for RPATH_ORIGIN */
     opd = (os_privmod_data_t *) mod->os_privmod_data;
+    /* i#460: if DT_RUNPATH exists we must ignore ignore DT_RPATH and
+     * search DT_RUNPATH after LD_LIBRARY_PATH.
+     */
+    if (!runpath && opd->os_data.has_runpath)
+        return false;
     const char *moddir_end = strrchr(mod->path, '/');
     size_t moddir_len = (moddir_end == NULL ? strlen(mod->path) : moddir_end - mod->path);
     const char *strtab;
@@ -656,11 +704,8 @@ privload_search_rpath(privmod_t *mod, const char *name,
     strtab = (char *) opd->os_data.dynstr;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
-        /* FIXME i#460: we should also support DT_RUNPATH: if we see it,
-         * ignore DT_RPATH and search DT_RUNPATH after LD_LIBRARY_PATH.
-         */
-        if (dyn->d_tag == DT_RPATH) {
-            /* DT_RPATH is a colon-separated list of paths */
+        if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
+            /* DT_RPATH and DT_RUNPATH are each a colon-separated list of paths */
             const char *list = strtab + dyn->d_un.d_val;
             const char *sep, *origin;
             size_t len;
@@ -723,7 +768,7 @@ privload_locate(const char *name, privmod_t *dep,
      */
     /* the loader search order: */
     /* 0) DT_RPATH */
-    if (dep != NULL && privload_search_rpath(dep, name, filename))
+    if (dep != NULL && privload_search_rpath(dep, false/*rpath*/, name, filename))
         return true;
 
     /* 1) client lib dir */
@@ -771,7 +816,11 @@ privload_locate(const char *name, privmod_t *dep,
         lib_paths = end;
     }
 
-    /* 4) FIXME: i#460, we use our system paths instead of /etc/ld.so.cache. */
+    /* 4) DT_RUNPATH */
+    if (dep != NULL && privload_search_rpath(dep, true/*runpath*/, name, filename))
+        return true;
+
+    /* 5) FIXME: i#460, we use our system paths instead of /etc/ld.so.cache. */
     for (i = 0; i < NUM_SYSTEM_LIB_PATHS; i++) {
         snprintf(filename, MAXIMUM_PATH, "%s/%s", system_lib_paths[i], name);
         /* NULL_TERMINATE_BUFFER(filename) */
@@ -922,6 +971,7 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
 }
 
 #ifdef LINUX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -934,8 +984,8 @@ privload_report_relocate_error()
      * a char array:
      */
     const char aslr_msg[] = {
-        'E','R','R','O','R',':',' ','f','a','i','l',' ','t','o',' ',
-        'r','e','l','o','c','a','t','e',' ','d','y','n','a','m','o','r','i','o','!',
+        'E','R','R','O','R',':',' ','f','a','i','l','e','d',' ','t','o',' ',
+        'r','e','l','o','c','a','t','e',' ','D','y','n','a','m','o','R','I','O','!',
         '\n',
         'P','l','e','a','s','e',' ','f','i','l','e',' ','a','n',' ','i','s','s','u','e',
         ' ','a','t',' ','h','t','t','p',':','/','/','d','y','n','a','m','o','r','i','o',
@@ -1034,6 +1084,7 @@ privload_early_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         }
     }
 }
+# endif /* !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY) */
 
 /*  This routine is duplicated at privload_early_relocate_os_privmod_data. */
 static void
@@ -1061,7 +1112,7 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
         }
     }
 }
-#endif
+#endif /* LINUX */
 
 static void
 privload_relocate_mod(privmod_t *mod)
@@ -1165,333 +1216,17 @@ privload_fill_os_module_info(app_pc base,
 }
 
 /****************************************************************************
- *                  Thread Local Storage Handling Code                      *
- ****************************************************************************/
-
-/* XXX i#1285: implement TLS for MacOS private loader */
-
-/* The description of Linux Thread Local Storage Implementation on x86 arch
- * Following description is based on the understanding of glibc-2.11.2 code
- */
-/* TLS is achieved via memory reference using segment register on x86.
- * Each thread has its own memory segment whose base is pointed by [%seg:0x0],
- * so different thread can access thread private memory via the same memory
- * reference opnd [%seg:offset].
- */
-/* In Linux, FS and GS are used for TLS reference.
- * In current Linux libc implementation, %gs/%fs is used for TLS access
- * in 32/64-bit x86 architecture, respectively.
- */
-/* TCB (thread control block) is a data structure to describe the thread
- * information. which is actually struct pthread in x86 Linux.
- * In x86 arch, [%seg:0x0] is used as TP (thread pointer) pointing to
- * the TCB. Instead of allocating modules' TLS after TCB,
- * they are put before the TCB, which allows TCB to have any size.
- * Using [%seg:0x0] as the TP, all modules' static TLS are accessed
- * via negative offsets, and TCB fields are accessed via positive offsets.
- */
-/* There are two possible TLS memory, static TLS and dynamic TLS.
- * Static TLS is the memory allocated in the TLS segment, and can be accessed
- * via direct [%seg:offset].
- * Dynamic TLS is the memory allocated dynamically when the process
- * dynamically loads a shared library (e.g. via dl_open), which has its own TLS
- * but cannot fit into the TLS segment created at beginning.
- *
- * DTV (dynamic thread vector) is the data structure used to maintain and
- * reference those modules' TLS.
- * Each module has a id, which is the index into the DTV to check
- * whether its tls is static or dynamic, and where it is.
+ * Function Redirection
  */
 
-/* The maxium number modules that we support to have TLS here.
- * Because any libraries having __thread variable will have tls segment.
- * we pick 64 and hope it is large enough.
- */
-#define MAX_NUM_TLS_MOD 64
-typedef struct _tls_info_t {
-    uint num_mods;
-    int  offset;
-    int  max_align;
-    int  offs[MAX_NUM_TLS_MOD];
-    privmod_t *mods[MAX_NUM_TLS_MOD];
-} tls_info_t;
-static tls_info_t tls_info;
-
-/* The actual tcb size is the size of struct pthread from nptl/descr.h, which is
- * a glibc internal header that we can't include.  We hardcode a guess for the
- * tcb size, and try to recover if we guessed too large.  This value was
- * recalculated by building glibc and printing sizeof(struct pthread) from
- * _dl_start() in elf/rtld.c.  The value can also be determined from the
- * assembly of _dl_allocate_tls_storage() in ld.so:
- * Dump of assembler code for function _dl_allocate_tls_storage:
- *    0x00007ffff7def0a0 <+0>:  push   %r12
- *    0x00007ffff7def0a2 <+2>:  mov    0x20eeb7(%rip),%rdi # _dl_tls_static_align
- *    0x00007ffff7def0a9 <+9>:  push   %rbp
- *    0x00007ffff7def0aa <+10>: push   %rbx
- *    0x00007ffff7def0ab <+11>: mov    0x20ee9e(%rip),%rbx # _dl_tls_static_size
- *    0x00007ffff7def0b2 <+18>: mov    %rbx,%rsi
- *    0x00007ffff7def0b5 <+21>: callq  0x7ffff7ddda88 <__libc_memalign@plt>
- * => 0x00007ffff7def0ba <+26>: test   %rax,%rax
- *    0x00007ffff7def0bd <+29>: mov    %rax,%rbp
- *    0x00007ffff7def0c0 <+32>: je     0x7ffff7def180 <_dl_allocate_tls_storage+224>
- *    0x00007ffff7def0c6 <+38>: lea    -0x900(%rax,%rbx,1),%rbx
- *    0x00007ffff7def0ce <+46>: mov    $0x900,%edx
- * This is typically an allocation larger than 4096 bytes aligned to 64 bytes.
- * The "lea -0x900(%rax,%rbx,1),%rbx" instruction computes the thread pointer to
- * install.  The allocator used by the loader has no headers, so we don't have a
- * good way to guess how big this allocation was.  Instead we use this estimate.
- */
-/* On A32, the pthread is put before tcbhead instead tcbhead being part of pthread */
-static size_t tcb_size = IF_X86_ELSE(IF_X64_ELSE(0x900, 0x490), 0x40);
-
-/* thread contol block header type from
- * - sysdeps/x86_64/nptl/tls.h
- * - sysdeps/i386/nptl/tls.h
- * - sysdeps/arm/nptl/tls.h
- */
-typedef struct _tcb_head_t {
-#ifdef X86
-    void *tcb;
-    void *dtv;
-    void *self;
-    int multithread;
-# ifdef X64
-    int gscope_flag;
-# endif
-    ptr_uint_t sysinfo;
-    /* Later fields are copied verbatim. */
-
-    ptr_uint_t stack_guard;
-    ptr_uint_t pointer_guard;
-#elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
-    void *dtv;
-    void *private;
-    byte  padding[2]; /* make it 16-byte align */
-# endif
-#endif /* X86/ARM */
-} tcb_head_t;
-
-#ifdef X86
-# define TLS_PRE_TCB_SIZE 0
-#elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
-/* Data structure to match libc pthread.
- * GDB reads some slot in TLS, which is pid/tid of pthread, so we must make sure
- * the size and member locations match to avoid gdb crash.
- */
-typedef struct _dr_pthread_t {
-    byte data1[0x68];  /* # of bytes before tid within pthread */
-    process_id_t tid;
-    thread_id_t pid;
-    byte data2[0x450]; /* # of bytes after pid within pthread */
-} dr_pthread_t;
-#  define TLS_PRE_TCB_SIZE sizeof(dr_pthread_t)
-#  define LIBC_PTHREAD_SIZE 0x4c0
-#  define LIBC_PTHREAD_TID_OFFSET 0x68
-# endif
-#endif /* X86/ARM */
-
-#ifdef X86
-/* An estimate of the size of the static TLS data before the thread pointer that
- * we need to copy on behalf of libc.  When loading modules that have variables
- * stored in static TLS space, the loader stores them prior to the thread
- * pointer and lets the app intialize them.  Until we stop using the app's libc
- * (i#46), we need to copy this data from before the thread pointer.
- */
-# define APP_LIBC_TLS_SIZE 0x400
-#elif defined(ARM)
-/* FIXME i#1551: investigate the difference between ARM and X86 on TLS.
- * On ARM, it seems that TLS variables are not put before the thread pointer
- * as they are on X86.
- */
-# define APP_LIBC_TLS_SIZE 0
-#endif
-
-#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-/* FIXME: add description here to talk how TLS is setup. */
-static void
-privload_mod_tls_init(privmod_t *mod)
-{
-    os_privmod_data_t *opd;
-    size_t offset;
-    int first_byte;
-
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    opd = (os_privmod_data_t *) mod->os_privmod_data;
-    ASSERT(opd != NULL && opd->tls_block_size != 0);
-    if (tls_info.num_mods >= MAX_NUM_TLS_MOD) {
-        CLIENT_ASSERT(false, "Max number of modules with tls variables reached");
-        FATAL_USAGE_ERROR(TOO_MANY_TLS_MODS, 2,
-                          get_application_name(), get_application_pid());
-    }
-    tls_info.mods[tls_info.num_mods] = mod;
-    opd->tls_modid = tls_info.num_mods;
-    offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
-    /* decide the offset of each module in the TLS segment from
-     * thread pointer.
-     * Because the tls memory is located before thread pointer, we use
-     * [tp - offset] to get the tls block for each module later.
-     * so the first_byte that obey the alignment is calculated by
-     * -opd->tls_first_byte & (opd->tls_align - 1);
-     */
-    first_byte = -opd->tls_first_byte & (opd->tls_align - 1);
-    /* increase offset size by adding current mod's tls size:
-     * 1. increase the tls_block_size with the right alignment
-     *    using ALIGN_FORWARD()
-     * 2. add first_byte to make the first byte with right alighment.
-     */
-    offset = first_byte +
-        ALIGN_FORWARD(offset + opd->tls_block_size + first_byte,
-                      opd->tls_align);
-    opd->tls_offset = offset;
-    tls_info.offs[tls_info.num_mods] = offset;
-    tls_info.offset = offset;
-    tls_info.num_mods++;
-    if (opd->tls_align > tls_info.max_align) {
-        tls_info.max_align = opd->tls_align;
-    }
-}
-#endif
+#if defined(LINUX) && !defined(ANDROID)
+/* These are not yet supported by Android's Bionic */
+void *
+redirect___tls_get_addr();
 
 void *
-privload_tls_init(void *app_tp)
-{
-    app_pc dr_tp;
-    tcb_head_t *dr_tcb;
-    uint i;
-    size_t tls_bytes_read;
-
-    /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is "PFX"\n",
-        __FUNCTION__, app_tp);
-    dr_tp = heap_mmap(max_client_tls_size);
-    ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= max_client_tls_size);
-#ifdef ARM
-    /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
-     * the size and member locations match to avoid gdb crash.
-     */
-    ASSERT(TLS_PRE_TCB_SIZE == LIBC_PTHREAD_SIZE);
-    ASSERT(LIBC_PTHREAD_TID_OFFSET == offsetof(dr_pthread_t, tid));
+redirect____tls_get_addr();
 #endif
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated %d at "PFX"\n",
-        __FUNCTION__, max_client_tls_size, dr_tp);
-    dr_tp = dr_tp + max_client_tls_size - tcb_size;
-    dr_tcb = (tcb_head_t *) dr_tp;
-    LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to "PFX"\n",
-        __FUNCTION__, dr_tp);
-    /* We copy the whole tcb to avoid initializing it by ourselves.
-     * and update some fields accordingly.
-     */
-    /* DynamoRIO shares the same libc with the application,
-     * so as the tls used by libc. Thus we need duplicate
-     * those tls with the same offset after switch the segment.
-     * This copy can be avoided if we remove the DR's dependency on
-     * libc.
-     */
-    if (app_tp != NULL &&
-        !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
-                      APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size,
-                      dr_tp  - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE,
-                      &tls_bytes_read)) {
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: read failed, tcb was 0x%lx bytes "
-            "instead of 0x%lx\n", __FUNCTION__, tls_bytes_read -
-            APP_LIBC_TLS_SIZE, tcb_size);
-#ifdef ARM
-    } else {
-        dr_pthread_t *dp =
-            (dr_pthread_t *)(dr_tp - APP_LIBC_TLS_SIZE - TLS_PRE_TCB_SIZE);
-        dp->pid = get_process_id();
-        dp->tid = get_sys_thread_id();
-#endif
-    }
-    /* We do not assert or warn on a truncated read as it does happen when TCB
-     * + our over-estimate crosses a page boundary (our estimate is for latest
-     * libc and is larger than on older libc versions): i#855.
-     */
-    ASSERT(tls_info.offset <= max_client_tls_size - TLS_PRE_TCB_SIZE - tcb_size);
-#ifdef X86
-    /* Update two self pointers. */
-    dr_tcb->tcb  = dr_tcb;
-    dr_tcb->self = dr_tcb;
-    /* i#555: replace app's vsyscall with DR's int0x80 syscall */
-    dr_tcb->sysinfo = (ptr_uint_t)client_int_syscall;
-#elif defined(ARM)
-    dr_tcb->dtv = NULL;
-    dr_tcb->private = NULL;
-#endif
-
-    for (i = 0; i < tls_info.num_mods; i++) {
-        os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
-        void *dest;
-        /* now copy the tls memory from the image */
-        dest = dr_tp - tls_info.offs[i];
-        memcpy(dest, opd->tls_image, opd->tls_image_size);
-        /* set all 0 to the rest of memory.
-         * tls_block_size refers to the size in memory, and
-         * tls_image_size refers to the size in file.
-         * We use the same way as libc to name them.
-         */
-        ASSERT(opd->tls_block_size >= opd->tls_image_size);
-        memset(dest + opd->tls_image_size, 0,
-               opd->tls_block_size - opd->tls_image_size);
-    }
-    return dr_tp;
-}
-
-void
-privload_tls_exit(void *dr_tp)
-{
-    if (dr_tp == NULL)
-        return;
-    dr_tp = dr_tp + tcb_size - max_client_tls_size;
-    heap_munmap(dr_tp, max_client_tls_size);
-}
-
-/****************************************************************************
- *                         Function Redirection Code                        *
- ****************************************************************************/
-
-/* We did not create dtv, so we need redirect tls_get_addr */
-typedef struct _tls_index_t {
-  unsigned long int ti_module;
-  unsigned long int ti_offset;
-} tls_index_t;
-
-static void *
-redirect___tls_get_addr(tls_index_t *ti)
-{
-    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
-        ti->ti_module, ti->ti_offset);
-    ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
-            tls_info.offs[ti->ti_module] + ti->ti_offset);
-}
-
-static void *
-redirect____tls_get_addr()
-{
-    tls_index_t *ti;
-    /* XXX: in some version of ___tls_get_addr, ti is passed via xax
-     * How can I generalize it?
-     */
-#ifdef X86
-    asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
-#elif defined(ARM)
-    /* XXX: assuming ti is passed via r0? */
-    asm("str r0, %0" : "=m"((ti)) : : "r0");
-    ASSERT_NOT_REACHED();
-#endif /* X86/ARM */
-    LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
-        ti->ti_module, ti->ti_offset);
-    ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_priv_tls_base(NULL, TLS_REG_LIB) -
-            tls_info.offs[ti->ti_module] + ti->ti_offset);
-}
 
 #ifdef LINUX
 int
@@ -1591,8 +1326,10 @@ static const redirect_import_t redirect_imports[] = {
      * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
      * Any other functions need to be redirected?
      */
+#if defined(LINUX) && !defined(ANDROID)
     {"__tls_get_addr", (app_pc)redirect___tls_get_addr},
     {"___tls_get_addr", (app_pc)redirect____tls_get_addr},
+#endif
 #ifdef LINUX
     /* i#1717: C++ exceptions call this */
     {"dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr},
@@ -1643,6 +1380,7 @@ privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
  */
 
 #ifdef LINUX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* Find the auxiliary vector and adjust it to look as if the kernel had set up
  * the stack for the ELF mapped at map.  The auxiliary vector starts after the
  * terminating NULL pointer in the envp array.
@@ -1788,8 +1526,13 @@ privload_get_os_privmod_data(app_pc base, OUT os_privmod_data_t *opd)
                                              elf_hdr->e_phnum, NULL, &mod_end);
     /* delta from preferred address, used for calcuate real address */
     opd->load_delta = base - mod_base;
-    if (opd->load_delta == 0)
-        return false;
+
+    /* At this point one could consider returning false if the load_delta
+     * is zero. However, this optimisation was found to give only a small
+     * benefit, and is not safe if RELA relocations are in use. In particular,
+     * it did not work on AArch64 when libdynamorio.so was built with the BFD
+     * linker from Debian's binutils 2.26-8.
+     */
 
     /* walk program headers to get dynamic section pointer */
     prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
@@ -1834,9 +1577,10 @@ privload_mem_is_elf_so_header(byte *mem)
     if (elf_hdr->e_type != ET_DYN)
         return false;
     /* ARM or X86 */
-    if (elf_hdr->e_machine != IF_ARM_ELSE(EM_ARM,
-                                          IF_X64_ELSE(EM_X86_64,
-                                                      EM_386)))
+    if (elf_hdr->e_machine != IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                      EM_386),
+                                          IF_X64_ELSE(EM_AARCH64,
+                                                      EM_ARM)))
         return false;
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;
@@ -1846,10 +1590,15 @@ privload_mem_is_elf_so_header(byte *mem)
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
-static void
-relocate_dynamorio(byte *dr_map, size_t dr_size)
+void
+relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
 {
+    ptr_uint_t argc = *(ptr_uint_t *)sp;
+    /* Plus 2 to skip argc and null pointer that terminates argv[]. */
+    const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { {0}};
+
+    os_page_size_init(env);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */
@@ -1905,7 +1654,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file,
-                                  os_unmap_file, os_set_protection, false/*!reachable*/);
+                                  os_unmap_file, os_set_protection, 0/*!reachable*/);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -1938,7 +1687,11 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
 /* Called from _start in x86.asm.  sp is the initial app stack pointer that the
  * kernel set up for us, and it points to the usual argc, argv, envp, and auxv
- * that the kernel puts on the stack.
+ * that the kernel puts on the stack.  The 2nd & 3rd args must be 0 in
+ * the initial call.
+ *
+ * We assume that _start has already called relocate_dynamorio() for us and
+ * that it is now safe to access globals.
  */
 void
 privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
@@ -1957,9 +1710,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     memquery_iter_t iter;
     app_pc interp_map;
 
-    /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address */
-    if (old_libdr_base == NULL)
-        relocate_dynamorio(NULL, 0);
+    kernel_init_sp = (void *)sp;
 
     /* XXX i#47: for Linux, we can't easily have this option on by default as
      * code like get_application_short_name() called from drpreload before
@@ -2018,7 +1769,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                     */
                                    true,
                                    os_map_file,
-                                   os_unmap_file, os_set_protection, false/*!reachable*/);
+                                   os_unmap_file, os_set_protection, 0/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
     ASSERT(is_elf_so_header(exe_map, 0));
@@ -2064,7 +1815,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(&interp_ld, false /* fixed */,
                                           os_map_file, os_unmap_file,
-                                          os_set_protection, false/*!reachable*/);
+                                          os_set_protection, 0/*!reachable*/);
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself
@@ -2108,14 +1859,14 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
          * if the app has been mapped correctly without involving DR's code
          * cache.
          */
-#ifdef X86
+#  ifdef X86
         asm ("mov %0, %%"ASM_XSP"\n\t"
              "jmp *%1\n\t"
              : : "r"(sp), "r"(entry));
-#elif defined(ARM)
+#  elif defined(ARM)
         /* FIXME i#1551: NYI on ARM */
         ASSERT_NOT_REACHED();
-#endif
+#  endif
     }
 
     memset(&mc, 0, sizeof(mc));
@@ -2123,6 +1874,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     mc.pc = entry;
     dynamo_start(&mc);
 }
+# endif /* !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY) */
 #else
 /* XXX i#1285: implement MacOS private loader */
 #endif

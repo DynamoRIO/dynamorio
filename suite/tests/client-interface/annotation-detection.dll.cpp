@@ -46,8 +46,8 @@
 #include <string.h> /* memset */
 
 /* Distinguishes client output from app output */
-#define PRINT(s) dr_fprintf(STDERR, "      <"s">\n");
-#define PRINTF(s, ...) dr_fprintf(STDERR, "      <"s">\n", __VA_ARGS__);
+#define PRINT(s) dr_fprintf(STDERR, "      <" s ">\n");
+#define PRINTF(s, ...) dr_fprintf(STDERR, "      <" s ">\n", __VA_ARGS__);
 
 static client_id_t client_id;
 

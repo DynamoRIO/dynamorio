@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,8 @@
 
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
+#include "drmgr.h"
+#include "drreg.h"
 
 #ifdef WINDOWS
 # define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -60,25 +62,32 @@ typedef struct {
     int num_returns;
 } per_thread_t;
 
+static int tls_idx;
+
 /* keep a global count as well */
 static per_thread_t global_count = {0};
 
 static void event_exit(void);
 static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_instruction(void *drcontext, void *tag, instrlist_t *bb,
+                                         instr_t *instr, bool for_trace,
+                                         bool translating, void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
     dr_set_client_name("DynamoRIO Sample Client 'countcalls'",
                        "http://dynamorio.org/issues");
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
     /* register events */
     dr_register_exit_event(event_exit);
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
-    dr_register_bb_event(event_basic_block);
+    drmgr_register_thread_init_event(event_thread_init);
+    drmgr_register_thread_exit_event(event_thread_exit);
+    drmgr_register_bb_instrumentation_event(NULL, event_instruction, NULL);
+    tls_idx = drmgr_register_tls_field();
 
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'countcalls' initializing\n");
@@ -117,6 +126,12 @@ static void
 event_exit(void)
 {
     display_results(&global_count, "");
+    if (!drmgr_unregister_bb_insertion_event(event_instruction) ||
+        !drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
 static void
@@ -126,7 +141,7 @@ event_thread_init(void *drcontext)
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     /* store it in the slot provided in the drcontext */
-    dr_set_tls_field(drcontext, data);
+    drmgr_set_tls_field(drcontext, tls_idx, data);
     data->num_direct_calls = 0;
     data->num_indirect_calls = 0;
     data->num_returns = 0;
@@ -137,7 +152,7 @@ event_thread_init(void *drcontext)
 static void
 event_thread_exit(void *drcontext)
 {
-    per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     char msg[512];
     int len;
 
@@ -160,11 +175,12 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
      * we have to save them around the inc. We could be more efficient
      * by not bothering to save the overflow flag and constructing our
      * own sequence of instructions to save the other 5 flags (using
-     * lahf) or by doing a liveness analysis on the flags and saving
-     * only if live.
+     * lahf).
      */
-    dr_save_reg(drcontext, bb, where, DR_REG_XAX, SPILL_SLOT_1);
-    dr_save_arith_flags_to_xax(drcontext, bb, where);
+    if (drreg_reserve_aflags(drcontext, bb, where) != DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return;
+    }
 
     /* Increment the global counter using the lock prefix to make it atomic
      * across threads. It would be cheaper to aggregate the thread counters
@@ -176,60 +192,45 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
 
     /* Increment the thread private counter. */
     if (dr_using_all_private_caches()) {
-        per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
+        per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         /* private caches - we can use an absolute address */
         instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc(drcontext,
             OPND_CREATE_ABSMEM(((byte *)&data) + offset, OPSZ_4)));
     } else {
         /* shared caches - we must indirect via thread local storage */
-        /* We spill xbx to use a scratch register (we could do a liveness
-         * analysis to try and find a dead register to use). Note that xax
-         * is currently holding the saved eflags. */
-        dr_save_reg(drcontext, bb, where, DR_REG_XBX, SPILL_SLOT_2);
-        dr_insert_read_tls_field(drcontext, bb, where, DR_REG_XBX);
-        instrlist_meta_preinsert(bb, where,
-            INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM32(DR_REG_XBX, offset)));
-        dr_restore_reg(drcontext, bb, where, DR_REG_XBX, SPILL_SLOT_2);
+        reg_id_t scratch;
+        if (drreg_reserve_register(drcontext, bb, where, NULL, &scratch) != DRREG_SUCCESS)
+            DR_ASSERT(false);
+        drmgr_insert_read_tls_field(drcontext, tls_idx, bb, where, scratch);
+        instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc
+                                 (drcontext, OPND_CREATE_MEM32(scratch, offset)));
+        if (drreg_unreserve_register(drcontext, bb, where, scratch) != DRREG_SUCCESS)
+            DR_ASSERT(false);
     }
 
-    /* Restore flags and xax. */
-    dr_restore_arith_flags_from_xax(drcontext, bb, where);
-    dr_restore_reg(drcontext, bb, where, DR_REG_XAX, SPILL_SLOT_1);
+    if (drreg_unreserve_aflags(drcontext, bb, where) != DRREG_SUCCESS)
+        DR_ASSERT(false); /* cannot recover */
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_instruction(void *drcontext, void *tag, instrlist_t *bb,
+                  instr_t *instr, bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr, *next_instr;
+    /* ignore tool-inserted instrumentation */
+    if (!instr_is_app(instr))
+        return DR_EMIT_DEFAULT;
 
-#ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
-
-    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
-        /* grab next now so we don't go over instructions we insert */
-        next_instr = instr_get_next_app(instr);
-
-        /* instrument calls and returns -- ignore far calls/rets */
-        if (instr_is_call_direct(instr)) {
-            insert_counter_update(drcontext, bb, instr,
-                                  offsetof(per_thread_t, num_direct_calls));
-        } else if (instr_is_call_indirect(instr)) {
-            insert_counter_update(drcontext, bb, instr,
-                                  offsetof(per_thread_t, num_indirect_calls));
-        } else if (instr_is_return(instr)) {
-            insert_counter_update(drcontext, bb, instr,
-                                  offsetof(per_thread_t, num_returns));
-        }
+    /* instrument calls and returns -- ignore far calls/rets */
+    if (instr_is_call_direct(instr)) {
+        insert_counter_update(drcontext, bb, instr,
+                              offsetof(per_thread_t, num_direct_calls));
+    } else if (instr_is_call_indirect(instr)) {
+        insert_counter_update(drcontext, bb, instr,
+                              offsetof(per_thread_t, num_indirect_calls));
+    } else if (instr_is_return(instr)) {
+        insert_counter_update(drcontext, bb, instr,
+                              offsetof(per_thread_t, num_returns));
     }
 
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }

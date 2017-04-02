@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,6 +36,8 @@
 #ifndef _CONTAINERS_PRIVATE_H_
 #define _CONTAINERS_PRIVATE_H_
 
+#include "../ext_utils.h"
+
 #ifdef DEBUG
 # define IF_DEBUG(x) x
 #else
@@ -43,14 +45,5 @@
 #endif
 
 #define MAX(x,y) ((x) >= (y) ? (x) : (y))
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
-
-#define ALIGN_FORWARD(x, alignment) \
-    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((alignment)-1)))
 
 #endif /* _CONTAINERS_PRIVATE_H_ */

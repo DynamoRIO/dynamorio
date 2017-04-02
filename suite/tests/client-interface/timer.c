@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,6 +72,10 @@ main(int argc, char *argv[])
     /* Doing a few more syscalls makes the test more reliable than one long
      * sleep, since we hit dispatch more often.
      */
+    nanosleep(&sleeptime, NULL);
+    nanosleep(&sleeptime, NULL);
+    nanosleep(&sleeptime, NULL);
+    nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,11 +36,34 @@
 #include "droption.h"
 #include "options.h"
 
+droption_t<bool> op_offline
+(DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
+ "By default, traces are processed online, sent over a pipe to a simulator.  "
+ "If this option is enabled, trace data is instead written to files in -outdir "
+ "for later offline analysis.  No simulator is executed.");
+
 droption_t<std::string> op_ipc_name
 (DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
- "Specifies the base name of the named pipe used to communicate between the target "
+ "For online tracing and simulation (the default, unless -offline is requested), "
+ "specifies the base name of the named pipe used to communicate between the target "
  "application processes and the caching device simulator.  A unique name must be chosen "
- "for each instance of the simulator being run at any one time.");
+ "for each instance of the simulator being run at any one time.  On Windows, the name "
+ "is limited to 247 characters.");
+
+droption_t<std::string> op_outdir
+(DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
+ "For the offline analysis mode (when -offline is requested), specifies the path "
+ "to a directory where per-thread trace files will be written.");
+
+droption_t<std::string> op_indir
+(DROPTION_SCOPE_ALL, "indir", "", "Offline directory of raw data for input",
+ "After a trace file is produced via -offline into -outdir, it can be passed to the "
+ "simulator via this flag pointing at the subdirectory created in -outdir.");
+
+droption_t<std::string> op_infile
+(DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
+ "Directs the simulator to use a trace file (not a raw data file from -offline: "
+ "such a file neeeds to be converted via drposttrace or -indir first).");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
@@ -89,6 +112,20 @@ droption_t<unsigned int> op_virt2phys_freq
  "The units are the number of memory accesses per forced access.  A value of 0 "
  "uses the cached values for the entire application execution.");
 
+droption_t<bytesize_t> op_max_trace_size
+(DROPTION_SCOPE_CLIENT, "max_trace_size", 0, "Cap on the raw trace size for each thread",
+ "If non-zero, this sets a maximum size on the amount of raw trace data gathered "
+ "for each thread.  This is not an exact limit: it may be exceeded by the size "
+ "of one internal buffer.  Once reached, instrumentation continues for that thread, "
+ "but no further data is recorded.");
+
+droption_t<bool> op_online_instr_types
+(DROPTION_SCOPE_CLIENT, "online_instr_types", false,
+ "Whether online traces should distinguish instr types",
+ "By default, offline traces include some information on the types of instructions, "
+ "branches in particular.  For online traces, this comes at a performance cost, so "
+ "it is turned off by default.");
+
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
  "Cache replacement policy", "Specifies the replacement policy for caches. "
@@ -130,8 +167,9 @@ droption_t<std::string> op_TLB_replace_policy
 
 droption_t<std::string> op_simulator_type
 (DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
- "Simulator type", "Specifies the type of the simulator. "
- "Supported types: "CPU_CACHE", "TLB".");
+ "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", or " HISTOGRAM").",
+ "Specifies the type of the simulator. "
+ "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", or " HISTOGRAM".");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
@@ -178,3 +216,33 @@ droption_t<bytesize_t> op_sim_refs
  "Specifies the number of memory references simulated. "
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
+
+// XXX: if we separate histogram + reuse_distance we should move this with them.
+droption_t<unsigned int> op_report_top
+(DROPTION_SCOPE_FRONTEND, "report_top", 10,
+ "Number of top results to be reported",
+ "Specifies the number of top results to be reported.");
+
+// XXX: if we separate histogram + reuse_distance we should move these with them.
+droption_t<unsigned int> op_reuse_distance_threshold
+(DROPTION_SCOPE_FRONTEND, "reuse_distance_threshold", 100,
+ "The reuse distance threshold for reporting the distant repeated references.",
+ "Specifies the reuse distance threshold for reporting the distant repeated references. "
+ "A reference is a distant repeated reference if the distance to the previous reference"
+ " on the same cache line exceeds the threshold.");
+droption_t<bool> op_reuse_distance_histogram
+(DROPTION_SCOPE_FRONTEND, "reuse_distance_histogram", false,
+ "Print the entire reuse distance histogram.",
+ "By default only the mean, median, and standard deviation of the reuse distances "
+ "are reported.  This option prints out the full histogram of reuse distances.");
+droption_t<unsigned int> op_reuse_skip_dist
+(DROPTION_SCOPE_FRONTEND, "reuse_skip_dist", 500,
+ "For performance tuning: distance between skip nodes.",
+ "Specifies the distance between nodes in the skip list.  For optimal performance, "
+ "set this to a value close to the estimated average reuse distance of the dataset.");
+droption_t<bool> op_reuse_verify_skip
+(DROPTION_SCOPE_FRONTEND, "reuse_verify_skip", false,
+ "Use full list walks to verify the skip list results.",
+ "Verifies every skip list-calculated reuse distance with a full list walk. "
+ "This incurs significant additional overhead.  This option is only available "
+ "in debug builds.");

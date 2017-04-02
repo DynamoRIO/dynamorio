@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,8 @@
 # define _sntprintf snprintf
 # define _tcstoul strtoul
 # define _TEXT(str) str
+# define _wfopen fopen
+# define _wremove remove
 #endif
 
 #ifdef _UNICODE

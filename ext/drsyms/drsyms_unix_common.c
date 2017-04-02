@@ -487,7 +487,12 @@ sym_lookup_cb(const char *sym, size_t modoffs, void *data INOUT)
           * parameter list starts where our search string ends, we assume the
           * user doesn't care about possible overloads.
           */
-         sym[p->search_sym_len] == '(')) {
+         sym[p->search_sym_len] == '(' ||
+         /* We match the name part of versioned symbols: so "foo" will match
+          * "foo@@GLIBC_2.1".  If there are multiple, a user who wants one in
+          * particular needs to include the version name in the search target.
+          */
+          sym[p->search_sym_len] == '@')) {
         NOTIFY("Looked up symbol: %s %s\n", p->search_sym, sym);
         *p->modoffs = modoffs;
         /* Stop after the first match. */

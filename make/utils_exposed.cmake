@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2014 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@ endfunction (_DR_dirname)
 # the loader will be able to find the libraries.  We assume that the layout
 # is the same in the build and install directories.
 function (DynamoRIO_add_rel_rpaths target)
-  if (UNIX)
+  if (UNIX AND NOT ANDROID) # No DT_RPATH support on Android
     # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
     foreach (lib ${ARGN})
@@ -106,7 +106,7 @@ function (DynamoRIO_add_rel_rpaths target)
         endif ()
       endif ()
     endforeach ()
-  endif (UNIX)
+  endif ()
 endfunction (DynamoRIO_add_rel_rpaths)
 
 # Check if we're using GNU gold.  We use CMAKE_C_COMPILER in
@@ -136,3 +136,57 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
   endif ()
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (_DR_check_if_linker_is_gnu_gold)
+
+function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
+  get_target_property(abspath ${target} LOCATION${location_suffix})
+  if (NOT ${device_base_dir} STREQUAL "")
+    get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+    file(RELATIVE_PATH relpath "${PROJECT_BINARY_DIR}" "${abspath}")
+    set(${out} ${device_base_dir}/${builddir}/${relpath} PARENT_SCOPE)
+  else ()
+    set(${out} ${abspath} PARENT_SCOPE)
+  endif ()
+endfunction (DynamoRIO_get_target_path_for_execution)
+
+function (DynamoRIO_prefix_cmd_if_necessary cmd_out use_ats cmd_in)
+  if (ANDROID)
+    if (use_ats)
+      set(${cmd_out} "adb@shell@${cmd_in}${ARGN}" PARENT_SCOPE)
+    else ()
+      set(${cmd_out} adb shell ${cmd_in} ${ARGN} PARENT_SCOPE)
+    endif ()
+  else ()
+    set(${cmd_out} ${cmd_in} ${ARGN} PARENT_SCOPE)
+  endif ()
+endfunction (DynamoRIO_prefix_cmd_if_necessary)
+
+function (DynamoRIO_copy_target_to_device target device_base_dir)
+  get_target_property(abspath ${target} LOCATION${location_suffix})
+  get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
+  file(RELATIVE_PATH relpath "${PROJECT_BINARY_DIR}" "${abspath}")
+  add_custom_command(TARGET ${target} POST_BUILD
+    COMMAND ${ADB} push ${abspath} ${device_base_dir}/${builddir}/${relpath}
+    VERBATIM)
+endfunction (DynamoRIO_copy_target_to_device)
+
+# On Linux, the individual object files contained by an archive are
+# garbage collected by the linker if they are not referenced.  To avoid
+# this, we have to use the --whole-archive option with ld.
+function(DynamoRIO_force_static_link target lib)
+  if (UNIX)
+    # CMake ignores libraries starting with '-' and preserves the
+    # ordering, so we can pass flags through target_link_libraries, which
+    # ensures we have the right CMake dependencies.
+    target_link_libraries(${target} -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
+  else ()
+    # There is no equivalent for MSVC.  The best we can do is keep a client in place,
+    # for our caller in use_DynamoRIO_static_client().
+    target_link_libraries(${target} ${lib})
+    if (X64)
+      set(incname "dr_client_main")
+    else ()
+      set(incname "_dr_client_main")
+    endif ()
+    append_property_string(TARGET ${target} LINK_FLAGS "/include:${incname}")
+  endif ()
+endfunction(DynamoRIO_force_static_link)

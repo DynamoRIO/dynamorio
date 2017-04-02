@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -66,12 +66,12 @@ The following are part of the DynamoRIO release distribution:
 \endif
 
  - Four different DynamoRIO libraries: debug and release for each of
-   32-bit and 64-bit (for ARM builds, currently only 32-bit is supported
-   and included).
+   32-bit and 64-bit (for ARM or AArch64 builds, only a single bitwidth
+   matching the ISA is provided).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
- - Four different IA-32/AMD64/ARM decoding static libraries: debug and release
-   for each of 32-bit and 64-bit (only 32-bit for ARM).
+ - Four different IA-32/AMD64/ARM/AArch64 decoding static libraries: debug and release
+   for each of 32-bit and 64-bit (only 32-bit for ARM and 64-bit for AArch64).
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - A variety of DynamoRIO Extension libraries that augment the core
@@ -102,8 +102,7 @@ The following are part of the DynamoRIO release distribution:
    sec_standalone).
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
-   page_drcov), a library tracing tool (see \ref page_drltrace),
-   a multi-process cache simulator (see \ref page_drcachesim),
+   page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
    and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
@@ -133,7 +132,123 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 6.0.0 include:
+The changes between version \DR_VERSION and 6.2.0 include the
+following minor compatibility changes:
+
+ - The drltrace tool has been moved to the Dr.Memory Framework.
+ - Changed dr_app_stop() to send all threads native instead of only the
+   calling thread.
+ - Replaced PAGE_SIZE with dr_page_size() and removed PAGE_START from the API.
+   However, clients may set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON), in which
+   case definitions of PAGE_SIZE and PAGE_START using dr_page_size() are
+   provided, though code that uses these macros in a constant expression,
+   such as a static initialiser, will still need to be rewritten.
+   DynamoRIO_PAGE_SIZE_COMPATIBILITY will be set automatically if the
+   client targets version 6.2 or earlier.
+
+Further non-compatibility-affecting changes include:
+
+ - Added preliminary AArch64 ARMv8 support: see \ref sec_limits for a
+   description of what is not yet expected to work.
+ - Added a static library form of DynamoRIO for use either with
+   auto-takeover or the start/stop API.  The configure_DynamoRIO_static()
+   and use_DynamoRIO_static_client() CMake utilities facilitate this.
+ - Enabled \ref page_drcachesim for Windows for single-process applications.
+ - Added a module tracking feature \p drmodtrack for quick identification of which
+   library a program counter belongs to and for persistent labeling of
+   modules for post-processing and across library reloads.  This is part of
+   the \p drcovlib Extension.  See #drmodtrack_init() and related functions.
+ - Added drx_open_unique_appid_dir().
+ - Added #DRX_FILE_SKIP_OPEN.
+ - Added %[] support to dr_sscanf.
+ - Added dr_map_executable_file() and dr_unmap_executable_file().
+ - Added dr_get_microseconds().
+ - Added #DR_CLEANCALL_ALWAYS_OUT_OF_LINE.
+ - Added instr_create_4dst_2src().
+ - Added drreg_restore_app_values().
+ - Added drx_tail_pad_block().
+ - Added XINST_CREATE_load_1byte_zext4().
+ - Added drx_buf_insert_buf_memcpy().
+ - Added thread synchronization events via dr_event_create(), dr_event_destroy(),
+   dr_event_wait(), dr_event_signal(), and dr_event_reset().
+ - Added drmodtrack customization via drmodtrack_add_custom_data() and
+   post-processing support via drmodtrack_offline_write().
+ - Added drcachesim customization via drmemtrace_replace_file_ops(),
+   drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
+ - Added a set_value() function to the \ref page_droption.
+
+**************************************************
+<hr>
+
+Version 6.2.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 6.2.0 and 6.1.0 include:
+
+ - Added support for Windows 10 1607.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1607 to distinguish this major update.
+ - Split the memory trace sample memtrace_x86 into memtrace_x86_text and
+   memtrace_x86_binary to highlight the huge performance difference.
+ - Added instruction trace samples instrace_simple, instrace_x86_text, and
+   instrace_x86_binary.
+ - Added better drreg support for intra-bb control flow by adding
+   drreg_set_bb_properties().
+ - Added priority-controlled drmgr_register_thread_init_event_ex() and
+   drmgr_register_thread_exit_event_ex().
+ - Added \ref sec_drx_buf to drx: drx_buf_create_circular_buffer(),
+   drx_buf_create_trace_buffer(), and more.
+ - Documented that drx_insert_counter_update() does rely on drx_init().
+ - Better international string support for usernames and application
+   paths.
+
+**************************************************
+<hr>
+
+Version 6.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 6.1.0 and 6.0.0 include the
+following minor compatibility changes:
+
+ - Fixed problems with configuration directories on Android.  This involved
+   changing drfront_access() to attempt to create a file by calling a new
+   routine that is also exported, drfront_dir_try_writable().
+ - Fixed several bugs.
+
+**************************************************
+<hr>
+
+Version 6.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 6.1.0 and 6.0.0 include the
+following minor compatibility changes:
+
+ - Changed drreg_aflags_liveness() to take in the target instruction.
+
+Further non-compatibility-affecting changes include:
+
+ - Added support for C++ clients on Android via private loader support for
+   Bionic.
+ - opnd_size_in_bytes() and opnd_size_in_bits() no longer accept DR_REG_
+   constants as input (the caller must first call reg_get_size()).
+   This was true in the 6.0.0 release but the documentation and the
+   routines themselves did not reflect this.
+ - Added drreg_init_and_fill_vector() and drreg_set_vector_entry().
+ - Augmented drx_insert_counter_update() to work with drreg.
+ - Added dr_raw_tls_opnd().
+ - Added drreg_reservation_info().
+ - Added opnd_create_rel_addr() and opnd_is_rel_addr() support for ARM.
+ - Added drreg_is_register_dead() and drreg_reserve_dead_register().
+ - Split out the core functionality of the \ref page_drcov tool into
+   a new Extension \p drcovlib for easier inclusion of coverage output in
+   other tools.
+ - Added support for the Windows 10 TH2 1511 update.  We provide an
+   artificial version identifier #DR_WINDOWS_VERSION_10_1511 to distinguish
+   this major update.
 
 **************************************************
 <hr>
@@ -201,7 +316,7 @@ Further non-compatibility-affecting changes include:
    The \p drreg Extension is still considered experimental and its
    interface is subject to change in the next release.
  - Added easy-to-use option declaration and parsing for C++ clients
-   and standalone applications via a new Extension, \p droption,
+   and standalone applications via a new Extension, the \ref page_droption
    and the #droption_t class.
  - Added a new tool: \ref page_drcachesim, a multi-process cache simulator.
  - Added a new tool: \ref page_drcpusim, a CPU simulator for illegal
@@ -261,6 +376,7 @@ Further non-compatibility-affecting changes include:
  - Added #DR_FILE_WRITE_ONLY.
  - Added dr_get_option_array().
  - Added drwrap_redirect_execution().
+ - Added support for common calling conventions in drwrap.
  - Added a new sample client, named ssljack.
  - Added the -pathmap option to the post-processor for \ref page_drcov.
  - Added instr_is_sse() and instr_is_sse2().
@@ -350,7 +466,7 @@ Further non-compatibility-affecting changes include:
 The changes between version 4.2.0 and 4.1.0 include:
 
  - Added preliminary Windows 8.1 support
- - Added a new \ref page_drltrace
+ - Added a new Library Tracing Tool, drltrace.
  - Re-branded our \ref page_drcov
  - Added an export iterator: dr_symbol_export_iterator_start(),
    dr_symbol_export_iterator_hasnext(), dr_symbol_export_iterator_next(),
@@ -1257,23 +1373,32 @@ not supported.
     stderr and stdout output from DynamoRIO or its clients may not
     be visible.
   - UTF-8 support is not yet present in drinjectlib, drconfiglib,
-    drrun.exe, drconfig.exe, or drdeploy.exe.  It is present in the
+    drrun.exe, drconfig.exe, or drinject.exe.  It is present in the
     core DR API.
   - This release of DynamoRIO has support for most 32-bit and
     64-bit Linux
     distributions running on Intel-compatible hardware, including
     Ubuntu and Fedora.
-  - This release of DynamoRIO supports 32-bit applications running on
-    32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
-  - This release of DynamoRIO has experimental support for 32-bit Android
-    applications running on AArch32 ARMv7 and ARMv8 hardware with C
-    clients (but not yet C++ clients).
   - This release of DynamoRIO has support for running 32-bit
     Linux applications on 64-bit Linux operating systems on
     AMD64-compatible hardware.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
     a 64-bit executable) may stop working if the paths to the
     libdynamorio.so and libdrpreload.so libraries are renamed.
+  - This release of DynamoRIO supports 32-bit applications running on
+    32-bit Linux operating systems on AArch32 ARMv7 and ARMv8 hardware.
+    However, a few features are not yet ported: traces, clean
+    call inlining and other optimizations, and several samples.
+  - This release of DynamoRIO has experimental support for 32-bit Android
+    applications running on AArch32 ARMv7 and ARMv8 hardware.
+    However, a few features are not yet ported: traces, clean
+    call inlining and other optimizations, and several samples.
+  - This release of DynamoRIO has experimental support for 64-bit
+    applications running on 64-bit Linux operating systems on AArch64 ARMv8
+    hardware.  However, floating-point and SIMD instruction operands are
+    not fully decoded or encoded yet, and a few features are not yet
+    ported: traces, clean call inlining and other optimizations, and
+    several samples and provided tools.
 
 \subsection sec_limit_perf Performance Limitations
 
@@ -1360,10 +1485,10 @@ not supported.
     method involving kernel side components that this release has no
     other workaround for.
 \anchor limits_linux_preload
-  - On Linux, the default deployment method (aside
-    from the \ref sec_startstop "app_start() app_stop()" interface, which
-    requires soure code modification) is unable to run binaries with the suid
-    or sgid permission bits set.  One method of running these binaries
+  - On Linux, non-default late injection (requested via \p -late to drrun)
+    is unable to run binaries with the suid or sgid permission bits set.
+    Default injection is capable of executing these binaries, but if late
+    injection is desired, one method of running these binaries
     is to place both libdrpreload.so and libdynamorio's full paths in
     /etc/ld.so.preload.
     You'll need to use a \ref lin_deploy "separate configure step approach".

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,6 +42,7 @@
 #else
 # include <stdlib.h>
 # include <unistd.h>
+# include <time.h>
 #endif
 
 /* check if all bits in mask are set in var */
@@ -54,8 +55,11 @@
 static void test_dr_rename_delete(void);
 static void test_dir(void);
 static void test_relative(void);
+static void test_map_exe(void);
+static void test_times(void);
 
-byte * find_prot_edge(const byte *start, uint prot_flag)
+byte *
+find_prot_edge(const byte *start, uint prot_flag)
 {
     uint prot;
     byte *base = (byte *)start;
@@ -80,17 +84,18 @@ memchk(byte *start, byte value, size_t size)
     return i == size;
 }
 
-const byte read_only_buf[2*PAGE_SIZE] = {0};
+const byte read_only_buf[2*PAGE_SIZE_MAX] = {0};
 
 /* NOTE - we need to initialize the writable buffers to some non-zero value so that they
  * will all be placed in the same memory region (on Linux only the first page is part
  * of the map and the remaining pages are just allocated instead of mapped if these are
  * 0). */
-byte safe_buf[2*PAGE_SIZE+100] = {1};
+byte safe_buf[2*PAGE_SIZE_MAX+100] = {1};
 
-byte writable_buf[2*PAGE_SIZE] = {1};
+byte writable_buf[2*PAGE_SIZE_MAX] = {1};
 
 static file_t file;
+static client_id_t client_id;
 
 bool dummy_func()
 {
@@ -127,6 +132,7 @@ void dr_init(client_id_t id)
     byte *edge, *mbuf;
     bool ok;
     byte *f_map;
+    client_id = id;
 
     /* The Makefile will pass a full absolute path (for Windows and Linux) as the client
      * option to a dummy file in the which we use to exercise the file api routines.
@@ -292,6 +298,10 @@ void dr_init(client_id_t id)
     test_dir();
 
     test_relative();
+
+    test_map_exe();
+
+    test_times();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -438,4 +448,46 @@ test_relative(void)
         dr_fprintf(STDERR, "failed to detect dir abs\n");
     if (!dr_delete_dir("newdir"))
         dr_fprintf(STDERR, "failed to delete newly created dir\n");
+}
+
+static void
+test_map_exe(void)
+{
+    /* Test dr_map_executable_file() */
+    app_pc base_pc;
+    size_t size_full, size_code;
+
+    base_pc = dr_map_executable_file(dr_get_client_path(client_id), 0, &size_full);
+    if (base_pc == NULL || size_full == 0)
+        dr_fprintf(STDERR, "Failed to map exe\n");
+    if (!dr_unmap_executable_file(base_pc, size_full))
+        dr_fprintf(STDERR, "Failed to unmap exe\n");
+
+    base_pc = dr_map_executable_file(dr_get_client_path(client_id),
+                                     DR_MAPEXE_SKIP_WRITABLE, &size_code);
+    if (base_pc == NULL || size_code == 0)
+        dr_fprintf(STDERR, "Failed to map exe just code\n");
+#ifdef LINUX /* on Windows we always map the whole thing */
+    if (size_code >= size_full)
+        dr_fprintf(STDERR, "Failed to avoid mapping the data segment\n");
+#endif
+    if (!dr_unmap_executable_file(base_pc, size_code))
+        dr_fprintf(STDERR, "Failed to unmap exe\n");
+}
+
+static void
+test_times(void)
+{
+    /* Test time functions */
+    uint64 micro = dr_get_microseconds();
+    uint64 milli = dr_get_milliseconds();
+    uint64 micro2 = dr_get_microseconds();
+    dr_time_t drtime;
+    if (micro < milli || micro2 < micro)
+        dr_fprintf(STDERR, "times are way off\n");
+    /* We tried to compare drtime fields with localtime() on UNIX and
+     * GetSystemTime() on Windows but it's just too complex to easily compare
+     * in a non-flaky manner (i#2041) so we just ensure it doesn't crash.
+     */
+    dr_get_time(&drtime);
 }

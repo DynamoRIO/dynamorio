@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +41,18 @@
 
 /* DR_API EXPORT TOFILE dr_ir_macros_x86.h */
 /* DR_API EXPORT BEGIN */
+/**
+ * @file dr_ir_macros_x86.h
+ * @brief AMD64/IA-32 instruction creation convenience macros.
+ *
+ * All macros assume default data and address sizes.  For the most part these
+ * macros do not support building non-default address or data size
+ * versions; for that, simply duplicate the macro's body, replacing the
+ * size and/or hardcoded registers with smaller versions (the IR does
+ * not support cs segments with non-default sizes where the default
+ * size requires instruction prefixes).  For shrinking data sizes, see
+ * the instr_shrink_to_16_bits() routine.
+ */
 
 #include <math.h> /* for floating-point math constants */
 
@@ -153,6 +165,16 @@
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+
+/**
+ * This platform-independent macro creates an instr_t which loads 1 byte
+ * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
+ * destination register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte_zext4(dc, r, m)  INSTR_CREATE_movzx(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -303,7 +325,7 @@
  */
 #define XINST_CREATE_add(dc, d, s) \
   INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(d), \
-    opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 1, \
+    opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 0, \
     opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
 
 /**
@@ -319,7 +341,7 @@
  */
 #define XINST_CREATE_add_2src(dc, d, s1, s2) \
   INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(s1), \
-    opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, 1, \
+    opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, 0, \
     opnd_is_reg(s2) ? 0 : (int)opnd_get_immed_int(s2)))
 
 /**
@@ -350,7 +372,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), OP_subs, (d), (s))
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a bitwise and
@@ -1375,8 +1397,6 @@
   instr_create_1dst_1src((dc), OP_vmovdqa, (d), (s))
 #define INSTR_CREATE_vlddqu(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vlddqu, (d), (s))
-#define INSTR_CREATE_vpshufb(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_vpshufb, (d), (s))
 #define INSTR_CREATE_vpmovsxbw(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovsxbw, (d), (s))
 #define INSTR_CREATE_vpmovsxbd(dc, d, s) \
@@ -1493,6 +1513,14 @@
 /* AVX2 */
 #define INSTR_CREATE_vbroadcasti128(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vbroadcasti128, (d), (s))
+#define INSTR_CREATE_vpbroadcastb(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastb, (d), (s))
+#define INSTR_CREATE_vpbroadcastw(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastw, (d), (s))
+#define INSTR_CREATE_vpbroadcastd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastd, (d), (s))
+#define INSTR_CREATE_vpbroadcastq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpbroadcastq, (d), (s))
 
 /* @} */ /* end doxygen group */
 
@@ -2049,6 +2077,8 @@
   instr_create_1dst_2src((dc), OP_vaddsubpd, (d), (s1), (s2))
 #define INSTR_CREATE_vaddsubps(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vaddsubps, (d), (s1), (s2))
+#define INSTR_CREATE_vpshufb(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshufb, (d), (s1), (s2))
 #define INSTR_CREATE_vphaddw(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vphaddw, (d), (s1), (s2))
 #define INSTR_CREATE_vphaddd(dc, d, s1, s2) \
@@ -3902,9 +3932,10 @@
 
 /* 3 implicit destinations, 1 source */
 #define INSTR_CREATE_cpuid(dc) \
-  instr_create_4dst_1src((dc), OP_cpuid, opnd_create_reg(DR_REG_EAX), \
+  instr_create_4dst_2src((dc), OP_cpuid, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
-    opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
+    opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_ECX))
 /* @} */ /* end doxygen group */
 
 /* 3 implicit destinations, 3 implicit sources */

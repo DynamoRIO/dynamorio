@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -85,8 +85,8 @@ physaddr_t::init()
     // such as Fedora with recent kernels.  We have no choice but to fail there.
     return (fd != -1);
 #else
-    // FIXME i#1727: NYI, but likely not possible.  If it is we may want to split
-    // into physaddr_linux.cpp vs others.
+    // i#1727: we assume this is not possible on Windows.  If it is we
+    // may want to split into physaddr_linux.cpp vs others.
     return false;
 #endif
 }

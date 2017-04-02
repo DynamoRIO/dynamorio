@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -342,9 +342,9 @@ memcache_remove(app_pc start, app_pc end)
     bool ok;
     DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext());
     ok = vmvector_remove(all_memory_areas, start, end);
-    ASSERT(ok);
     LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 3,
-        "remove_from_all_memory_areas: removed: "PFX"-"PFX"\n", start, end);
+        "remove_from_all_memory_areas: %s: "PFX"-"PFX"\n",
+        ok ? "removed" : "not found", start, end);
     return ok;
 }
 
@@ -379,7 +379,10 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                  /* allow maps to have +x (PR 213256)
                   * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
                   */
-                 (from_os_prot & (~MEMPROT_EXEC)) == info->prot) &&
+                 (from_os_prot & (~MEMPROT_EXEC)) == info->prot
+                 /* DrMem#1778, i#1861: we have fake flags */
+                 IF_LINUX(|| (from_os_prot & (~MEMPROT_META_FLAGS)) ==
+                          (info->prot & (~MEMPROT_META_FLAGS)))) &&
                 ((info->type == DR_MEMTYPE_IMAGE &&
                   from_os_base_pc >= start &&
                   from_os_size <= (end - start)) ||
@@ -437,10 +440,20 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
              * are holes in all_memory_areas
              */
             from_os_prot != MEMPROT_NONE) {
-            SYSLOG_INTERNAL_ERROR("all_memory_areas is missing region "PFX"-"PFX"!",
-                                  from_os_base_pc, from_os_base_pc + from_os_size);
+            /* FIXME i#2037: today the start/stop API does not re-scan on start,
+             * so our cache is wrong.  Worse than a false negative here, which we
+             * can handle as lazy lookup, is a false positive: we need to clear the
+             * cache at start.  For now we just quiet the complaints here.
+             */
+            DODEBUG({
+                if (!dr_api_entry) {
+                    SYSLOG_INTERNAL_ERROR
+                        ("all_memory_areas is missing region " PFX"-"PFX"!",
+                         from_os_base_pc, from_os_base_pc + from_os_size);
+                }
+            });
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
-            ASSERT_NOT_REACHED();
+            ASSERT(dr_api_entry);
             /* be paranoid */
             out_info->base_pc = from_os_base_pc;
             out_info->size = from_os_size;

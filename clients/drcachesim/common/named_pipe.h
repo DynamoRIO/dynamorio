@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,17 @@
 #define _NAMED_PIPE_H_ 1
 
 #include <string>
-#include <unistd.h> // for ssize_t
+#ifdef WINDOWS
+# ifdef X64
+typedef __int64 ssize_t;
+# else
+typedef int ssize_t;
+# endif
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+#else
+# include <unistd.h> // for ssize_t
+#endif
 
 #ifndef OUT
 # define OUT // nothing
@@ -62,8 +72,10 @@ class named_pipe_t
     bool create();
     bool destroy();
 
+    // These may block.
     bool open_for_read();
     bool open_for_write();
+
     bool close();
 
     // Increases the pipe's internal buffer to the maximum size.
@@ -77,6 +89,7 @@ class named_pipe_t
     // On success (or partial write) returns number of bytes written.
     ssize_t write(const void *buf IN, size_t sz);
 
+#ifdef UNIX
     // On UNIX, rather than calling open_for_{read,write}, The caller
     // can substitute a custom call to SYS_open if desired, using
     // get_pipe_path() and setting the file descriptor in set_fd().
@@ -84,6 +97,7 @@ class named_pipe_t
     // we should not need this workaround.
     const std::string & get_pipe_path() const;
     bool set_fd(int fd);
+#endif
 
     const ssize_t get_atomic_write_size() const;
 

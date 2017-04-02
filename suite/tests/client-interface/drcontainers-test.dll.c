@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,6 +65,10 @@ test_vector(void)
     CHECK(vec.entries == 6, "should add beyond last-set index");
     CHECK(drvector_get_entry(&vec, 5) == (void *)&vec, "entries not equal");
     CHECK(vec.array[5] == (void *)&vec, "entries not equal");
+
+    /* Test for i#1981 */
+    drvector_set_entry(&vec, 0, NULL);
+    CHECK(drvector_get_entry(&vec, 5) == (void *)&vec, "set messed up later entry");
 
     /* XXX: test other features like free_data_func */
 

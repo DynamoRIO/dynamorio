@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -65,6 +65,7 @@
 #endif
 #include "../perscache.h"
 #include "../native_exec.h"
+#include "../jit_opt.h"
 
 #ifdef CHECK_RETURNS_SSE2
 #include <setjmp.h> /* for warning when see libc setjmp */
@@ -79,6 +80,10 @@
 # ifdef JITOPT
 #  include "../jitopt.h"
 # endif
+#endif
+
+#ifdef AARCH64
+# include "build_ldstex.h"
 #endif
 
 enum { DIRECT_XFER_LENGTH = 5 };
@@ -120,6 +125,10 @@ volatile bool bb_lock_start;
 
 #ifdef INTERNAL
 file_t bbdump_file = INVALID_FILE;
+#endif
+
+#ifdef DEBUG
+DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 #endif
 
 /* initialization */
@@ -385,13 +394,25 @@ reached_image_entry_yet()
  * Whether to inline or elide callees
  */
 
-/* return true if pc is a call target that should NOT be inlined */
-#if defined(DEBUG) || !defined(WINDOWS)
-/* cl.exe non-debug won't let other modules use it if inlined */
-inline
+/* Return true if pc is a call target that should NOT be entered but should
+ * still be mangled.
+ */
+static inline bool
+must_not_be_entered(app_pc pc)
+{
+    return false
+#ifdef DR_APP_EXPORTS
+            /* i#1237: DR will change dr_app_running_under_dynamorio return value
+             * on seeing a bb starting at dr_app_running_under_dynamorio.
+             */
+            || pc == (app_pc) dr_app_running_under_dynamorio
 #endif
-bool
-must_not_be_inlined(app_pc pc)
+        ;
+}
+
+/* Return true if pc is a call target that should NOT be inlined and left native. */
+static inline bool
+leave_call_native(app_pc pc)
 {
     return (
 #ifdef INTERNAL
@@ -418,12 +439,6 @@ must_not_be_inlined(app_pc pc)
              * call whereas we'd need native_exec for the others:
              */
             || pc == (app_pc)global_heap_free
-#endif
-#ifdef DR_APP_EXPORTS
-            /* i#1237: DR will change dr_app_running_under_dynamorio return value
-             * on seeing a bb starting at dr_app_running_under_dynamorio.
-             */
-            || pc == (app_pc) dr_app_running_under_dynamorio
 #endif
         );
 }
@@ -506,13 +521,13 @@ must_escape_from(app_pc pc)
  * execution.  Makes sure its target is reachable from the code cache, which
  * is critical for jmps b/c they're native for our hooks of app code which may
  * not be reachable from the code cache.  Also needed for calls b/c in the future
- * (i#774) the DR lib (and thus our must_not_be_inlined() calls) won't be reachable
+ * (i#774) the DR lib (and thus our leave_call_native() calls) won't be reachable
  * from the cache.
  */
 static void
 bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
 {
-#ifdef X64
+#if defined(X86) && defined(X64)
     /* i#922: we're going to run this jmp from our code cache so we have to
      * make sure it still reaches its target.  We could try to check
      * reachability from the likely code cache slot, but these should be
@@ -549,6 +564,8 @@ bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
         instrlist_remove(bb->ilist, bb->instr);
     instr_destroy(dcontext, bb->instr);
     bb->instr = NULL;
+#elif defined(ARM)
+    ASSERT_NOT_IMPLEMENTED(false); /* i#1582 */
 #else
     if (appended) {
         /* avoid assert about meta w/ translation but no restore_state callback */
@@ -899,6 +916,7 @@ follow_direct_jump(dcontext_t *dcontext, build_bb_t *bb,
                    app_pc target)
 {
     if (bb->follow_direct &&
+        !must_not_be_entered(target) &&
         bb->num_elide_jmp < DYNAMO_OPTION(max_elide_jmp) &&
         (DYNAMO_OPTION(elide_back_jmps) || bb->cur_pc <= target)) {
         if (check_new_page_jmp(dcontext, bb, target)) {
@@ -983,6 +1001,7 @@ bb_process_ubr(dcontext_t *dcontext, build_bb_t *bb)
         return false; /* end bb now */
     } else {
         if (bb->follow_direct &&
+            !must_not_be_entered(tgt) &&
             bb->num_elide_jmp < DYNAMO_OPTION(max_elide_jmp) &&
             (DYNAMO_OPTION(elide_back_jmps) || bb->cur_pc <= tgt)) {
             if (check_new_page_jmp(dcontext, bb, tgt)) {
@@ -1019,6 +1038,7 @@ follow_direct_call(dcontext_t *dcontext, build_bb_t *bb, app_pc callee)
      * and in bb_process_call_direct()
      */
     if (bb->follow_direct &&
+        !must_not_be_entered(callee) &&
         bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
         (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
         if (check_new_page_jmp(dcontext, bb, callee)) {
@@ -1066,8 +1086,8 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
 # endif
     STATS_INC(num_all_calls);
     BBPRINT(bb, 4, "interp: direct call at "PFX"\n", bb->instr_start);
-    if (must_not_be_inlined(callee)) {
-        BBPRINT(bb, 3, "interp: NOT inlining call to "PFX"\n", callee);
+    if (leave_call_native(callee)) {
+        BBPRINT(bb, 3, "interp: NOT inlining or mangling call to "PFX"\n", callee);
         /* Case 8711: coarse-grain can't handle non-exit cti.
          * If we allow this fragment to be coarse we must kill the freeze
          * nudge thread!
@@ -1091,6 +1111,7 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
         }
         /* FIXME: use follow_direct_call() */
         if (bb->follow_direct &&
+            !must_not_be_entered(callee) &&
             bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
             (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
             if (check_new_page_jmp(dcontext, bb, callee)) {
@@ -2221,7 +2242,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
         " indirect call from "PFX" to "PFX"\n",
         bb->instr_start, callee);
 
-    if (must_not_be_inlined(callee)) {
+    if (leave_call_native(callee) || must_not_be_entered(callee)) {
         BBPRINT(bb, 3, "   NOT inlining indirect call to "PFX"\n", callee);
         /* Case 8711: coarse-grain can't handle non-exit cti */
         bb->flags &= ~FRAG_COARSE_GRAIN;
@@ -2232,6 +2253,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     if (bb->follow_direct &&
+        !must_not_be_entered(callee) &&
         bb->num_elide_call < DYNAMO_OPTION(max_elide_call) &&
         (DYNAMO_OPTION(elide_back_calls) || bb->cur_pc <= callee)) {
         /* FIXME This is identical to the code for evaluating a
@@ -2524,8 +2546,8 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
     bb->exit_target = target;
     *elide_continue = false;    /* matching, but should stop bb */
     return true;               /* matching */
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCHXX)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -2577,10 +2599,10 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      * bb_process_call_direct(dcontext, bb)
      */
 
-    if (must_not_be_inlined(target)) {
+    if (leave_call_native(target) || must_not_be_entered(target)) {
         ASSERT_NOT_TESTED();
         BBPRINT(bb, 3,
-                "   NOT inlining indirect call to must_not_be_inlined "PFX"\n", target);
+                "   NOT inlining indirect call to leave_call_native "PFX"\n", target);
         return false; /* do not convert indirect call, stop bb */
     }
 
@@ -2635,8 +2657,8 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      */
     *elide_continue = false;    /* matching, but should stop bb */
     return true;                /* converted indirect to direct */
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCHXX)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #endif /* X86/ARM */
@@ -2669,7 +2691,7 @@ instr_will_be_exit_cti(instr_t *inst)
     return (instr_is_app(inst) &&
             instr_is_cti(inst) &&
             (!instr_is_near_call_direct(inst) ||
-             !must_not_be_inlined(instr_get_branch_target_pc(inst)))
+             !leave_call_native(instr_get_branch_target_pc(inst)))
             /* PR 239470: ignore wow64 syscall, which is an ind call */
             IF_WINDOWS(&& !instr_is_wow64_syscall(inst)));
 }
@@ -3075,7 +3097,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!adjusted_cur_pc) {
             bb->cur_pc = decode_next_pc(dcontext, xl8);
             LOG(THREAD, LOG_INTERP, 3,
-                "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
+                "setting cur_pc (for fall-through) to " PFX"\n", bb->cur_pc);
         }
 
         /* don't set bb->instr if last instr is still syscall/int.
@@ -3136,14 +3158,18 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
         /* i#1237: set return value to be true in dr_app_running_under_dynamorio */
         instr_t *ret = instrlist_last(bb->ilist);
         instr_t *mov = instr_get_prev(ret);
+        LOG(THREAD, LOG_INTERP, 3, "Found dr_app_running_under_dynamorio\n");
         ASSERT(ret != NULL && instr_is_return(ret) &&
                mov != NULL &&
                IF_X86(instr_get_opcode(mov) == OP_mov_imm &&)
                IF_ARM(instr_get_opcode(mov) == OP_mov &&
                       OPND_IS_IMMED_INT(instr_get_src(mov, 0)) &&)
+               IF_AARCH64(instr_get_opcode(mov) == OP_movz &&)
                (bb->start_pc == instr_get_raw_bits(mov) ||
                 /* the translation field might be NULL */
                 bb->start_pc == instr_get_translation(mov)));
+        /* i#1998: ensure the instr is Level 3+ */
+        instr_decode(dcontext, mov);
         instr_set_src(mov, 0, OPND_CREATE_INT32(1));
     }
 }
@@ -3282,7 +3308,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 
     LOG(THREAD, LOG_INTERP, 3, "\ninterp%s: ",
-        IF_X64_ELSE(X64_MODE_DC(dcontext) ? "" : " (x86 mode)", ""));
+        IF_X86_64_ELSE(X64_MODE_DC(dcontext) ? "" : " (x86 mode)", ""));
     BBPRINT(bb, 3, "start_pc = "PFX"\n", bb->start_pc);
 
     DOSTATS({
@@ -3401,13 +3427,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             ASSERT(bb->instr_start >= non_cti_start_pc);
             if (bb->full_decode) {
                 /* only going through this do loop once! */
-                bb->cur_pc = decode(dcontext, bb->cur_pc, bb->instr);
+                bb->cur_pc = IF_AARCH64_ELSE(decode_with_ldstex, decode)
+                    (dcontext, bb->cur_pc, bb->instr);
                 if (bb->record_translation)
                     instr_set_translation(bb->instr, bb->instr_start);
             } else {
                 /* must reset, may go through loop multiple times */
                 instr_reset(dcontext, bb->instr);
-                bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
+                bb->cur_pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                    (dcontext, bb->cur_pc, bb->instr);
 
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
                 /* Quickly check whether this may be a Valgrind annotation. */
@@ -4100,6 +4128,24 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     mangle_pre_client(dcontext, bb);
 #endif /* DR_APP_EXPORTS */
 
+#ifdef DEBUG
+    /* This is a special debugging feature */
+    if (bb->for_cache && INTERNAL_OPTION(go_native_at_bb_count) > 0 &&
+        debug_bb_count++ >= INTERNAL_OPTION(go_native_at_bb_count)) {
+        SYSLOG_INTERNAL_INFO("thread "TIDFMT" is going native @%d bbs to "PFX,
+                             get_thread_id(), debug_bb_count-1, bb->start_pc);
+        /* we leverage the existing native_exec mechanism */
+        dcontext->native_exec_postsyscall = bb->start_pc;
+        dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
+        dynamo_thread_not_under_dynamo(dcontext);
+        /* i#1582: required for now on ARM */
+        IF_UNIX(os_swap_context_go_native(dcontext, DR_STATE_GO_NATIVE));
+        /* i#1921: for now we do not support re-attach, so remove handlers */
+        os_process_not_under_dynamorio(dcontext);
+        bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
+        return;
+    }
+#endif
 #ifdef CLIENT_INTERFACE
     if (!client_process_bb(dcontext, bb)) {
         bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
@@ -4652,7 +4698,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 {
     instr_t *in;
     opnd_t jmp_tgt;
-#ifdef X64
+#if defined(X86) && defined(X64)
     bool reachable = rel32_reachable_from_vmcode(bb->start_pc);
 #endif
     DEBUG_DECLARE(bool ok;)
@@ -4706,21 +4752,21 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      * code.
      */
     if (bb->native_call) {
-        dr_insert_clean_call(dcontext, bb->ilist, NULL,
-                             (void *)call_to_native, false/*!fp*/, 1,
-                             opnd_create_reg(REG_XSP));
+        dr_insert_clean_call_ex(dcontext, bb->ilist, NULL,
+                                (void *)call_to_native, DR_CLEANCALL_RETURNS_TO_NATIVE,
+                                1, opnd_create_reg(REG_XSP));
     } else {
         if (DYNAMO_OPTION(native_exec_opt)) {
             insert_return_to_native(dcontext, bb->ilist, NULL,
                                     REG_NULL /* default */,
                                     SCRATCH_REG0);
         } else {
-            dr_insert_clean_call(dcontext, bb->ilist, NULL,
-                                 (void *) return_to_native, false/*!fp*/, 0);
+            dr_insert_clean_call_ex(dcontext, bb->ilist, NULL, (void *) return_to_native,
+                                    DR_CLEANCALL_RETURNS_TO_NATIVE, 0);
         }
     }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!reachable) {
         /* best to store the target at the end of the bb, to keep it readonly,
          * but that requires a post-pass to patch its value: since native_exec
@@ -4749,11 +4795,15 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
                       SCRATCH_REG0, SCRATCH_REG0_OFFS));
     insert_shared_restore_dcontext_reg(dcontext, bb->ilist, NULL);
 
+#ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#else
     /* this is the jump to native code */
     instrlist_append(bb->ilist,
                      opnd_is_pc(jmp_tgt) ?
                      XINST_CREATE_jump(dcontext, jmp_tgt) :
                      XINST_CREATE_jump_mem(dcontext, jmp_tgt));
+#endif
 
     /* mark all as do-not-mangle, so selfmod, etc. will leave alone (in absence
      * of selfmod only really needed for the jmp to native code)
@@ -4932,7 +4982,8 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                             LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 3,
                                 "native_exec: decoding @"PFX" looking for call\n", pc);
                             instr_reset(dcontext, &instr);
-                            next_pc = decode_cti(dcontext, pc, &instr);
+                            next_pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                                (dcontext, pc, &instr);
                             STATS_INC(num_native_entrance_TOS_decodes);
                             if (next_pc == retaddr && instr_is_call(&instr)) {
                                 native_exec_bb = true;
@@ -5130,14 +5181,12 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
-#ifdef JITOPT
-    // is_jit_managed_area--maybe keep a sorted list of app-managed regions?
-    if (visible && is_jit_managed_area(bb.start_pc)) {
+    if (DYNAMO_OPTION(opt_jit) && visible && is_jit_managed_area(bb.start_pc)) {
+        /* enables a hook in link_fragment_outgoing() for high fan-in avoidance */
         bb.flags |= FRAG_APP_MANAGED;
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
-        add_patchable_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
+        jitopt_add_dgc_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
     }
-#endif
 
     /* emit fragment into fcache */
     KSTART(bb_emit);
@@ -5762,8 +5811,8 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         instr_get_opcode(inst) == OP_jmp
 # endif
         ;
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCHXX)
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif
@@ -5823,7 +5872,7 @@ insert_transparent_comparison(dcontext_t *dcontext, instrlist_t *trace,
     return added_size;
 }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 static int
 mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                        instr_t *targeter, app_pc next_tag)
@@ -7103,10 +7152,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
      * the following conditions are satisfied. */
     bool possible_ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        /* FIXME Traces don't have FRAG_HAS_SYSCALL set so we can't filter on
-         * that flag for all fragments. We should propagate this flag from
-         * a BB to a trace. */
-        (TEST(FRAG_HAS_SYSCALL, f->flags) || TEST(FRAG_IS_TRACE, f->flags));
+        TEST(FRAG_HAS_SYSCALL, f->flags);
 #endif
     instrlist_t intra_ctis;
     coarse_info_t *info = NULL;
@@ -7120,7 +7166,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
      * Thus we currently do not support using decode_fragment with -x86_to_x64,
      * including trace and coarse_units (coarse-grain code cache management)
      */
-    IF_X86_X64(ASSERT(!DYNAMO_OPTION(x86_to_x64)));
+    IF_X86_64(ASSERT(!DYNAMO_OPTION(x86_to_x64)));
 
     instrlist_init(&intra_ctis);
 
@@ -7270,7 +7316,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 }
                 instr_reset(dcontext, instr);
                 prev_pc = pc;
-                pc = decode_cti(dcontext, pc, instr);
+                pc = IF_AARCH64_ELSE(decode_cti_with_ldstex, decode_cti)
+                    (dcontext, pc, instr);
 #ifdef WINDOWS
                 /* Perform fixups for ignorable syscalls on XP & 2003. */
                 if (possible_ignorable_sysenter
@@ -7501,7 +7548,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     cur_buf += (int)(pc - prev_pc);
                     raw_start_pc = pc;
                 }
-#ifdef X64
+#if defined(X86) && defined(X64)
                 else if (instr_has_rel_addr_reference(instr)) {
                     /* We need to re-relativize, which is done automatically only for
                      * level 1 instrs (PR 251479), and only when raw bits point to
@@ -7625,7 +7672,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 l_flags = LINK_INDIRECT;
                 DEBUG_DECLARE(is_ibl = )
                     get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type
-                                            _IF_X64(NULL));
+                                            _IF_X86_64(NULL));
                 ASSERT(is_ibl);
                 l_flags |= ibltype_to_linktype(ibl_type.branch_type);
                 LOG(THREAD, LOG_MONITOR, DF_LOGLEVEL(dcontext)-1,
@@ -8133,7 +8180,7 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
         }
 #ifdef X64
         else if (sz == 8) {
-            if (opc == OP_inc)
+            if (opc == IF_X86_ELSE(OP_inc, OP_add))
                 (*target)++;
             else
                 (*target)--;

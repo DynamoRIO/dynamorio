@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,6 +38,10 @@
 # include <unistd.h>
 # include <sys/syscall.h> /* for SYS_* numbers */
 #endif
+#ifdef MACOS
+# include <mach/mach.h>
+# include <mach/semaphore.h>
+#endif
 
 #define ASSERT_NOT_IMPLEMENTED() do { print("NYI\n"); abort();} while (0)
 
@@ -63,7 +67,13 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            return WINDOWS_VERSION_10;
+            if (GetProcAddress((HMODULE)ntdll_handle,
+                               "NtCreateRegistryTransaction") != NULL)
+                return WINDOWS_VERSION_10_1607;
+            else if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
+                return WINDOWS_VERSION_10_1511;
+            else
+                return WINDOWS_VERSION_10;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {
             return WINDOWS_VERSION_8_1;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2) {
@@ -369,7 +379,13 @@ nolibc_print(const char *str)
 #else
                       SYS_write,
 #endif
-                      3, stderr->_fileno, str, nolibc_strlen(str));
+                      3,
+#if defined(MACOS) || defined(ANDROID)
+                      stderr->_file,
+#else
+                      stderr->_fileno,
+#endif
+                      str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.
@@ -413,7 +429,21 @@ nolibc_print_int(int n)
 void
 nolibc_nanosleep(struct timespec *req)
 {
+#ifdef MACOS
+    /* XXX: share with os_thread_sleep */
+    semaphore_t sem = MACH_PORT_NULL;
+    int res;
+    if (sem == MACH_PORT_NULL) {
+        kern_return_t res =
+            semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
+        assert(res == KERN_SUCCESS);
+    }
+    res = dynamorio_syscall(SYS___semwait_signal_nocancel,
+                            6, sem, MACH_PORT_NULL, 1, 1,
+                            (int64_t)req->tv_sec, (int32_t)req->tv_nsec);
+#else
     dynamorio_syscall(SYS_nanosleep, 2, req, NULL);
+#endif
 }
 
 /* Safe mmap.
@@ -421,7 +451,7 @@ nolibc_nanosleep(struct timespec *req)
 void *
 nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-#ifdef X64
+#if defined(X64) || defined(MACOS)
     int sysnum = SYS_mmap;
 #else
     int sysnum = SYS_mmap2;
@@ -431,10 +461,10 @@ nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset
 
 /* Safe munmap.
  */
-void
+int
 nolibc_munmap(void *addr, size_t length)
 {
-    dynamorio_syscall(SYS_munmap, 2, addr, length);
+    return (int)dynamorio_syscall(SYS_munmap, 2, addr, length);
 }
 
 void
@@ -463,7 +493,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     ASSERT_NOERR(rc);
     act.sa_flags = SA_SIGINFO;
     if (sigstack)
-        act.sa_flags = SA_ONSTACK;
+        act.sa_flags |= SA_ONSTACK;
 
     /* arm the signal */
     rc = sigaction(sig, &act, NULL);
@@ -535,6 +565,24 @@ GLOBAL_LABEL(code_self_mod:)
         bne      repeat1
         mov      r0, r1
         bx       lr
+#elif defined(AARCH64)
+        adr      x1, tomodify
+        ldr      w2, [x1]
+        bfi      w2, w0, #5, #16 /* insert new immediate operand */
+        str      w2, [x1]
+        dc       cvau, x1 /* Data Cache Clean by VA to PoU */
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        ic       ivau, x1 /* Instruction Cache Invalidate by VA to PoU */
+        dsb      ish /* Data Synchronization Barrier, Inner Shareable */
+        isb      /* Instruction Synchronization Barrier */
+      tomodify:
+        movz     w1, #0x1234 /* this instr's immed operand gets overwritten */
+        mov      w0, #0 /* counter for diagnostics */
+      repeat1:
+        add      w0, w0, #1
+        sub      w1, w1, #1
+        cbnz     w1, repeat1
+        ret
 #else
 # error NYI
 #endif
@@ -575,22 +623,55 @@ GLOBAL_LABEL(FUNCNAME:)
         xchg     REG_XAX, ARG1       /* Swap with function pointer in arg1. */
         jmp      REG_XAX             /* Call function, now with &retaddr as arg1. */
 #elif defined(ARM)
-        mov      r1, ARG1
-        mov      r0, lr
-        bx       r1
+        push     {r7, lr}
+        add      r7, sp, #0
+        mov      lr, r0
+        add      r0, sp, #4          /* Make pointer to return address on stack. */
+        blx      lr                  /* Call function, with &retaddr as arg1. */
+        pop      {r7, pc}            /* Return to possibly modified return address. */
+#elif defined(AARCH64)
+        stp      x29, x30, [sp, #-16]!
+        mov      x29, sp
+        mov      x30, x0
+        add      x0, sp, #8          /* Make pointer to return address on stack. */
+        blr      x30                 /* Call function, with &retaddr as arg1. */
+        ldp      x29, x30, [sp], #16
+        ret                          /* Return to possibly modified return address. */
 #else
 # error NYI
 #endif
         END_FUNC(FUNCNAME)
 
-#ifdef ARM
+#undef FUNCNAME
+#define FUNCNAME tailcall_with_retaddr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        mov      REG_XAX, [REG_XSP]  /* Load retaddr. */
+        xchg     REG_XAX, ARG1       /* Swap with function pointer in arg1. */
+        jmp      REG_XAX             /* Call function, now with retaddr as arg1. */
+#elif defined(ARM)
+        mov      r12, r0             /* Move function pointer to scratch register. */
+        mov      r0, r14             /* Replace first argument with return address. */
+        bx       r12                 /* Tailcall to function pointer. */
+#elif defined(AARCH64)
+        mov      x9, x0              /* Move function pointer to scratch register. */
+        mov      x0, x30             /* Replace first argument with return address. */
+        br       x9                  /* Tailcall to function pointer. */
+#else
+# error NYI
+#endif
+        END_FUNC(FUNCNAME)
+
+#ifdef AARCHXX
     /* gcc's __clear_cache is not easily usable: no header, need lib; so we just
      * roll our own.
      */
 # undef FUNCNAME
-# define FUNCNAME flush_icache
+# define FUNCNAME tools_clear_icache
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+# ifndef X64
         push     {r7}
         mov      r2, #0       /* flags: must be 0 */
         movw     r7, #0x0002  /* SYS_cacheflush bottom half */
@@ -598,6 +679,9 @@ GLOBAL_LABEL(FUNCNAME:)
         svc      #0           /* flush icache */
         pop      {r7}
         bx       lr
+# else
+        b        clear_icache
+# endif
         END_FUNC(FUNCNAME)
 #endif
 

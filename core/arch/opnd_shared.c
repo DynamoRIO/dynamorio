@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,9 @@
 #include "opnd.h"
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+#ifndef AARCH64
 #include "x86/decode_private.h"
+#endif
 
 #include <string.h> /* for memcpy */
 
@@ -90,7 +92,7 @@ bool opnd_is_valid      (opnd_t op) { return OPND_IS_VALID(op); }
 #define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
 # undef opnd_is_rel_addr
 bool opnd_is_rel_addr(opnd_t op) { return OPND_IS_REL_ADDR(op); }
 # define opnd_is_rel_addr OPND_IS_REL_ADDR
@@ -133,6 +135,7 @@ reg_is_32bit(reg_id_t reg)
     return (reg >= REG_START_32 && reg <= REG_STOP_32);
 }
 
+#if defined(X86) || defined(AARCH64)
 bool
 opnd_is_reg_64bit(opnd_t opnd)
 {
@@ -146,6 +149,7 @@ reg_is_64bit(reg_id_t reg)
 {
     return (reg >= REG_START_64 && reg <= REG_STOP_64);
 }
+#endif /* !ARM */
 
 bool
 opnd_is_reg_pointer_sized(opnd_t opnd)
@@ -213,8 +217,10 @@ opnd_get_size(opnd_t opnd)
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
     case BASE_DISP_kind:
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
 #endif
     case MEM_INSTR_kind:
@@ -239,8 +245,10 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     switch(opnd->kind) {
     case IMMED_INTEGER_kind:
     case BASE_DISP_kind:
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
 #endif
     case REG_kind:
@@ -502,14 +510,14 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
 static inline void
 opnd_set_disp_helper(opnd_t *opnd, int disp)
 {
-    IF_X86_ELSE({
-        opnd->value.base_disp.disp = disp;
-    }, {
+    IF_ARM_ELSE({
         if (disp < 0) {
             opnd->aux.flags |= DR_OPND_NEGATED;
             opnd->value.base_disp.disp = -disp;
         } else
             opnd->value.base_disp.disp = disp;
+    }, {
+        opnd->value.base_disp.disp = disp;
     });
 }
 
@@ -546,25 +554,29 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
                       "opnd_create_*base_disp*: cannot have both disp and index");
     });
+    opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
-    IF_X86_ELSE({
-        opnd.value.base_disp.scale = (byte) scale;
-    }, {
-        if (scale > 1) {
-            opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
-            opnd.value.base_disp.shift_amount_minus_1 =
-                /* we store the amount minus one */
-                (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
-        } else {
-            opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
-            opnd.value.base_disp.shift_amount_minus_1 = 0;
-        }
-    });
-    opnd_set_disp_helper(&opnd, disp);
+#if defined(ARM)
+    if (scale > 1) {
+        opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
+        opnd.value.base_disp.shift_amount_minus_1 =
+            /* we store the amount minus one */
+            (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
+    } else {
+        opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+        opnd.value.base_disp.shift_amount_minus_1 = 0;
+    }
+#elif defined(AARCH64)
+    opnd.value.base_disp.pre_index = true;
+    opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
+    opnd.value.base_disp.scaled = false;
+#elif defined(X86)
+    opnd.value.base_disp.scale = (byte) scale;
     opnd.value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
     opnd.value.base_disp.force_full_disp = (byte) force_full_disp;
     opnd.value.base_disp.disp_short_addr = (byte) disp_short_addr;
+#endif
     return opnd;
 }
 
@@ -576,6 +588,7 @@ opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, i
                                         false, false, false);
 }
 
+#ifdef ARM
 opnd_t
 opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
                           dr_shift_type_t shift_type, uint shift_amount, int disp,
@@ -601,11 +614,40 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
     opnd.aux.flags = flags;
     if (!opnd_set_index_shift(&opnd, shift_type, shift_amount))
         CLIENT_ASSERT(false, "opnd_create_base_disp_arm: invalid shift type/amount");
-    opnd.value.base_disp.encode_zero_disp = 0;
-    opnd.value.base_disp.force_full_disp = 0;
-    opnd.value.base_disp.disp_short_addr = 0;
     return opnd;
 }
+#endif
+
+#ifdef AARCH64
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = BASE_DISP_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
+    opnd.size = size;
+    CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                  "opnd_create_base_disp_aarch64: cannot have both disp and index");
+    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM,
+                  "opnd_create_base_disp_aarch64: invalid index");
+    /* reg_id_t is now a ushort, but we can only accept low values */
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
+                                    "opnd_create_base_disp_aarch64: invalid base");
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
+                                    "opnd_create_base_disp_aarch64: invalid index");
+    opnd.value.base_disp.base_reg = base_reg;
+    opnd.value.base_disp.index_reg = index_reg;
+    opnd_set_disp_helper(&opnd, disp);
+    opnd.aux.flags = flags;
+    if (!opnd_set_index_extend(&opnd, extend_type, scaled))
+        CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
+    return opnd;
+}
+#endif
 
 #undef opnd_get_base
 #undef opnd_get_disp
@@ -623,19 +665,18 @@ reg_id_t opnd_get_segment(opnd_t opnd) { return OPND_GET_SEGMENT(opnd); }
 #define opnd_get_scale OPND_GET_SCALE
 #define opnd_get_segment OPND_GET_SEGMENT
 
+#ifdef ARM
 dr_shift_type_t
 opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
 {
+    if (amount != NULL)
+        *amount = 0;
     if (!opnd_is_base_disp(opnd)) {
         CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
         return DR_SHIFT_NONE;
     }
-    if (amount != NULL) {
-        if (opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
-            *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
-        else
-            *amount = 0;
-    }
+    if (amount != NULL && opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
+        *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
     return opnd.value.base_disp.shift_type;
 }
 
@@ -690,12 +731,68 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
     opnd->value.base_disp.shift_type = shift;
     return true;
 }
+#endif /* ARM */
+
+#ifdef AARCH64
+static uint
+opnd_size_to_extend_amount(opnd_size_t size)
+{
+    switch (size) {
+    default:
+        ASSERT(false);
+        /* fall-through */
+    case OPSZ_1: return 0;
+    case OPSZ_2: return 1;
+    case OPSZ_4: return 2;
+    case OPSZ_0: /* fall-through */
+    case OPSZ_8: return 3;
+    case OPSZ_16: return 4;
+    }
+}
+
+dr_extend_type_t
+opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
+{
+    dr_extend_type_t extend = DR_EXTEND_UXTX;
+    bool scaled_out = false;
+    uint amount_out = 0;
+    if (!opnd_is_base_disp(opnd))
+        CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
+    else {
+        extend = opnd.value.base_disp.extend_type;
+        scaled_out = opnd.value.base_disp.scaled;
+        if (scaled_out)
+            amount_out = opnd_size_to_extend_amount(opnd_get_size(opnd));
+    }
+    if (scaled != NULL)
+        *scaled = scaled_out;
+    if (amount != NULL)
+        *amount = amount_out;
+    return extend;
+}
+
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+{
+    if (!opnd_is_base_disp(*opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
+        return false;
+    }
+    if (extend < 0 || extend > 7) {
+        CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
+        return false;
+    }
+    opnd->value.base_disp.extend_type = extend;
+    opnd->value.base_disp.scaled = scaled;
+    return true;
+}
+#endif /* AARCH64 */
 
 bool
 opnd_is_disp_encode_zero(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.encode_zero_disp;
+        return IF_X86_ELSE(opnd.value.base_disp.encode_zero_disp, false);
     CLIENT_ASSERT(false, "opnd_is_disp_encode_zero called on invalid opnd type");
     return false;
 }
@@ -704,7 +801,7 @@ bool
 opnd_is_disp_force_full(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.force_full_disp;
+        return IF_X86_ELSE(opnd.value.base_disp.force_full_disp, false);
     CLIENT_ASSERT(false, "opnd_is_disp_force_full called on invalid opnd type");
     return false;
 }
@@ -713,7 +810,7 @@ bool
 opnd_is_disp_short_addr(opnd_t opnd)
 {
     if (opnd_is_base_disp(opnd))
-        return opnd.value.base_disp.disp_short_addr;
+        return IF_X86_ELSE(opnd.value.base_disp.disp_short_addr, false);
     CLIENT_ASSERT(false, "opnd_is_disp_short_addr called on invalid opnd type");
     return false;
 }
@@ -727,6 +824,7 @@ opnd_set_disp(opnd_t *opnd, int disp)
         CLIENT_ASSERT(false, "opnd_set_disp called on invalid opnd type");
 }
 
+#ifdef X86
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,
                  bool disp_short_addr)
@@ -739,6 +837,7 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
     } else
         CLIENT_ASSERT(false, "opnd_set_disp_ex called on invalid opnd type");
 }
+#endif
 
 opnd_t
 opnd_create_abs_addr(void *addr, opnd_size_t data_size)
@@ -810,7 +909,7 @@ opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     opnd.value.addr = addr;
     return opnd;
 }
-#endif /* X64 || ARM */
+#endif /* X64 */
 
 void *
 opnd_get_addr(opnd_t opnd)
@@ -818,8 +917,8 @@ opnd_get_addr(opnd_t opnd)
     /* check base-disp first since opnd_is_abs_addr() says yes for it */
     if (opnd_is_abs_base_disp(opnd))
         return (void *)(ptr_int_t) opnd_get_disp(opnd);
-#ifdef X64
-    if (opnd_is_rel_addr(opnd) || opnd_is_abs_addr(opnd))
+#if defined(X64) || defined(ARM)
+    if (IF_X64(opnd_is_abs_addr(opnd) ||) opnd_is_rel_addr(opnd))
         return opnd.value.addr;
 #endif
     CLIENT_ASSERT(false, "opnd_get_addr called on invalid opnd type");
@@ -830,7 +929,10 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd)
-            IF_X64(|| opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) ||
+            IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
+#if defined(X64) || defined(ARM)
+            opnd_is_rel_addr(opnd) ||
+#endif
             opnd_is_mem_instr(opnd));
 }
 
@@ -846,6 +948,7 @@ opnd_is_near_memory_reference(opnd_t opnd)
 {
     return (opnd_is_near_base_disp(opnd)
             IF_X64(|| opnd_is_near_abs_addr(opnd) || opnd_is_near_rel_addr(opnd)) ||
+            IF_ARM(opnd_is_near_rel_addr(opnd) ||)
             opnd_is_mem_instr(opnd));
 }
 
@@ -871,8 +974,10 @@ opnd_num_regs_used(opnd_t opnd)
                 ((opnd_get_index(opnd)==REG_NULL) ? 0 : 1) +
                 ((opnd_get_segment(opnd)==REG_NULL) ? 0 : 1));
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return ((opnd_get_segment(opnd) == REG_NULL) ? 0 : 1);
 #endif
@@ -923,8 +1028,10 @@ opnd_get_reg_used(opnd_t opnd, int index)
             return REG_NULL;
         }
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (index == 0)
             return opnd_get_segment(opnd);
@@ -954,7 +1061,7 @@ const reg_id_t regparms[] = {
     REGPARM_4, REGPARM_5,
 #  endif
 # endif
-#elif defined(ARM)
+#elif defined(AARCHXX)
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3,
 # ifdef X64
     REGPARM_4, REGPARM_5, REGPARM_6, REGPARM_7,
@@ -994,8 +1101,10 @@ opnd_uses_reg(opnd_t opnd, reg_id_t reg)
                 dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_index(opnd)] ||
                 dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (dr_reg_fixer[reg] == dr_reg_fixer[opnd_get_segment(opnd)]);
 #endif
@@ -1036,19 +1145,29 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             if (old_reg == ob || old_reg == oi || old_reg == os) {
                 reg_id_t b = (old_reg == ob) ? new_reg : ob;
                 reg_id_t i = (old_reg == oi) ? new_reg : oi;
-                reg_id_t s = (old_reg == os) ? new_reg : os;
-                int sc = opnd_get_scale(*opnd);
                 int d = opnd_get_disp(*opnd);
+#if defined(AARCH64)
+                /* FIXME i#1569: Include extension and shift. */
+                *opnd = opnd_create_base_disp(b, i, 0, d, size);
+#elif defined(ARM)
+                uint amount;
+                dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);
+                dr_opnd_flags_t flags = opnd_get_flags(*opnd);
+                *opnd = opnd_create_base_disp_arm(b, i, shift, amount, d, flags, size);
+#elif defined(X86)
+                int sc = opnd_get_scale(*opnd);
+                reg_id_t s = (old_reg == os) ? new_reg : os;
                 *opnd = opnd_create_far_base_disp_ex(s, b, i, sc, d, size,
                                                      opnd_is_disp_encode_zero(*opnd),
                                                      opnd_is_disp_force_full(*opnd),
                                                      opnd_is_disp_short_addr(*opnd));
+#endif
                 return true;
             }
         }
         return false;
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
         if (old_reg == opnd_get_segment(*opnd)) {
             *opnd = opnd_create_far_rel_addr(new_reg, opnd_get_addr(*opnd),
@@ -1056,7 +1175,8 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             return true;
         }
         return false;
-
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (old_reg == opnd_get_segment(*opnd)) {
             *opnd = opnd_create_far_abs_addr(new_reg, opnd_get_addr(*opnd),
@@ -1086,6 +1206,9 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
     if (opnd_get_segment(op1) != opnd_get_segment(op2))
         return false;
     if (opnd_is_base_disp(op1)) {
+#ifdef ARM
+        uint amount1, amount2;
+#endif
         if (!opnd_is_base_disp(op2))
             return false;
         if (opnd_get_base(op1) != opnd_get_base(op2))
@@ -1096,9 +1219,16 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
             return false;
         if (opnd_get_disp(op1) != opnd_get_disp(op2))
             return false;
+#ifdef ARM
+        if (opnd_get_index_shift(op1, &amount1) != opnd_get_index_shift(op2, &amount2) ||
+            amount1 != amount2)
+            return false;
+        if (opnd_get_flags(op1) != opnd_get_flags(op2))
+            return false;
+#endif
     } else {
-#ifdef X64
-        CLIENT_ASSERT(opnd_is_abs_addr(op1) || opnd_is_rel_addr(op1),
+#if defined(X64) || defined(ARM)
+        CLIENT_ASSERT(IF_X64(opnd_is_abs_addr(op1) ||) opnd_is_rel_addr(op1),
                       "internal type error in opnd_same_address");
         if (opnd_get_addr(op1) != opnd_get_addr(op2))
             return false;
@@ -1151,26 +1281,29 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&
                 op1.value.base_disp.index_reg == op2.value.base_disp.index_reg &&
-                IF_X86_ELSE(op1.value.base_disp.scale ==
-                            op2.value.base_disp.scale &&,
-                            op1.value.base_disp.shift_type ==
-                            op2.value.base_disp.shift_type &&
-                            op1.value.base_disp.shift_amount_minus_1 ==
-                            op2.value.base_disp.shift_amount_minus_1 &&)
+                IF_X86(op1.value.base_disp.scale ==
+                       op2.value.base_disp.scale &&)
+                IF_ARM(op1.value.base_disp.shift_type ==
+                       op2.value.base_disp.shift_type &&
+                       op1.value.base_disp.shift_amount_minus_1 ==
+                       op2.value.base_disp.shift_amount_minus_1 &&)
                 op1.value.base_disp.disp == op2.value.base_disp.disp &&
-                op1.value.base_disp.encode_zero_disp ==
-                op2.value.base_disp.encode_zero_disp &&
-                op1.value.base_disp.force_full_disp ==
-                op2.value.base_disp.force_full_disp &&
-                /* disp_short_addr only matters if no registers are set */
-                (((op1.value.base_disp.base_reg != REG_NULL ||
-                   op1.value.base_disp.index_reg != REG_NULL) &&
-                  (op2.value.base_disp.base_reg != REG_NULL ||
-                   op2.value.base_disp.index_reg != REG_NULL)) ||
-                 op1.value.base_disp.disp_short_addr ==
-                 op2.value.base_disp.disp_short_addr));
-#ifdef X64
+                IF_X86(op1.value.base_disp.encode_zero_disp ==
+                       op2.value.base_disp.encode_zero_disp &&
+                       op1.value.base_disp.force_full_disp ==
+                       op2.value.base_disp.force_full_disp &&
+                       /* disp_short_addr only matters if no registers are set */
+                       (((op1.value.base_disp.base_reg != REG_NULL ||
+                          op1.value.base_disp.index_reg != REG_NULL) &&
+                         (op2.value.base_disp.base_reg != REG_NULL ||
+                          op2.value.base_disp.index_reg != REG_NULL)) ||
+                        op1.value.base_disp.disp_short_addr ==
+                        op2.value.base_disp.disp_short_addr) &&)
+                true);
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.addr == op2.value.addr);
@@ -1202,8 +1335,10 @@ bool opnd_share_reg(opnd_t op1, opnd_t op2)
         return (opnd_uses_reg(op2, opnd_get_base(op1)) ||
                 opnd_uses_reg(op2, opnd_get_index(op1)) ||
                 opnd_uses_reg(op2, opnd_get_segment(op1)));
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         return (opnd_uses_reg(op2, opnd_get_segment(op1)));
 #endif
@@ -1247,7 +1382,10 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
         return false;
     case REG_kind:
         return opnd_uses_reg(use, opnd_get_reg(def));
-    case BASE_DISP_kind:
+    case BASE_DISP_kind: {
+#ifdef ARM
+        uint amount1, amount2;
+#endif
         if (!opnd_is_memory_reference(use))
             return false;
 #ifdef X64
@@ -1265,12 +1403,22 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
             return true;
         if (opnd_get_segment(def) != opnd_get_segment(use))
             return true;
+#ifdef ARM
+        if (opnd_get_index_shift(def, &amount1) != opnd_get_index_shift(use, &amount2) ||
+            amount1 != amount2)
+            return true;
+        if (opnd_get_flags(def) != opnd_get_flags(use))
+            return true;
+#endif
         /* everything is identical, now make sure disps don't overlap */
         return range_overlap(opnd_get_disp(def), opnd_get_disp(use),
                              opnd_size_in_bytes(opnd_get_size(def)),
                              opnd_size_in_bytes(opnd_get_size(use)));
-#ifdef X64
+    }
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#endif
+#ifdef X64
     case ABS_ADDR_kind:
         if (!opnd_is_memory_reference(use))
             return false;
@@ -1297,9 +1445,7 @@ bool opnd_defines_use(opnd_t def, opnd_t use)
 uint
 opnd_size_in_bytes(opnd_size_t size)
 {
-    /* allow some REG_ constants, convert them to OPSZ_ constants */
-    if (size < OPSZ_FIRST)
-        size = reg_get_size(size);
+    CLIENT_ASSERT(size >= OPSZ_FIRST, "opnd_size_in_bytes: invalid size");
     switch (size) {
     case OPSZ_0:
         return 0;
@@ -1704,8 +1850,8 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
 # endif
 #endif
     }
-#ifdef X64
-    if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
+#if defined(X64) || defined(ARM)
+    if (IF_X64(opnd_is_abs_addr(opnd) ||) opnd_is_rel_addr(opnd)) {
         return (app_pc) opnd_get_addr(opnd) + (ptr_uint_t) seg_base;
     }
 #endif
@@ -1737,9 +1883,13 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
     ptr_int_t scaled_index = 0;
     if (opnd_is_base_disp(opnd)) {
         reg_id_t index = opnd_get_index(opnd);
-#ifdef X86
+#if defined(X86)
         ptr_int_t scale = opnd_get_scale(opnd);
         scaled_index = scale * reg_get_value_priv(index, mc);
+#elif defined(AARCH64)
+        reg_t index_val = reg_get_value_priv(index, mc);
+        /* FIXME i#1569: Compute extension and shift. */
+        scaled_index = index_val;
 #elif defined(ARM)
         uint amount;
         dr_shift_type_t type = opnd_get_index_shift(opnd, &amount);
@@ -1801,7 +1951,7 @@ reg_32_to_16(reg_id_t reg)
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_16: passed non-32-bit reg");
     return (reg - REG_START_32) + REG_START_16;
-#elif defined(ARM)
+#elif defined(AARCHXX)
     CLIENT_ASSERT(false, "reg_32_to_16 not supported on ARM");
     return REG_NULL;
 #endif
@@ -1823,7 +1973,7 @@ reg_32_to_8(reg_id_t reg)
 # endif
     }
     return r8;
-#elif defined(ARM)
+#elif defined(AARCHXX)
     CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
     return REG_NULL;
 #endif
@@ -1846,6 +1996,7 @@ reg_64_to_32(reg_id_t reg)
     return (reg - REG_START_64) + REG_START_32;
 }
 
+# ifdef X86
 bool
 reg_is_extended(reg_id_t reg)
 {
@@ -1860,6 +2011,7 @@ reg_is_extended(reg_id_t reg)
             (reg >= REG_START_DR+8  && reg <= REG_STOP_DR) ||
             (reg >= REG_START_CR+8  && reg <= REG_STOP_CR));
 }
+# endif
 #endif
 
 reg_id_t
@@ -1871,9 +2023,9 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     if (sz == OPSZ_4)
         return reg;
     else if (sz == OPSZ_2)
-        return IF_ARM_ELSE(reg, reg_32_to_16(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_16(reg));
     else if (sz == OPSZ_1)
-        return IF_ARM_ELSE(reg, reg_32_to_8(reg));
+        return IF_AARCHXX_ELSE(reg, reg_32_to_8(reg));
 #ifdef X64
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);
@@ -2002,7 +2154,7 @@ reg_get_size(reg_id_t reg)
     /* i#176 add reg size handling for floating point registers */
     if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
         return OPSZ_10;
-#elif defined(ARM)
+#elif defined(AARCHXX)
     if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
         return OPSZ_16;
     if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
@@ -2013,14 +2165,16 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
         return OPSZ_1;
+# ifdef ARM
     if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
         return OPSZ_PTR;
     if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
         return OPSZ_4;
+# endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
-# ifdef X64
-#  error FIXME i#1569: NYI on AArch64
+# ifdef AARCH64
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 # endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");

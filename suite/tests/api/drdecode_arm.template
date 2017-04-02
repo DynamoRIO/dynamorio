@@ -1,0 +1,6 @@
+ e100f300   mrs    $0x00000010 -> %pc
+ 00024668   and.eq %r2 %r8 ror $0x0c -> %r4
+ f300 e100  blx    $0x00710204 -> %lr
+ 4668       mov    %sp -> %r0
+ 0002       movs   %r0 -> %r2
+done

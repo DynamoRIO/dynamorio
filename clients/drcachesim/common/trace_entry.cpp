@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,13 @@ const char * const trace_type_names[] = {
     "prefetch_write",
     "prefetch_instr",
     "instr",
+    "direct_jump",
+    "indirect_jump",
+    "conditional_jump",
+    "direct_call",
+    "indirect_call",
+    "return",
+    "instr_bundle",
     "instr_flush",
     "instr_flush_end",
     "data_flush",

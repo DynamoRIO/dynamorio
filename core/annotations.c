@@ -332,6 +332,8 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     bool hint = true;
     byte hint_byte;
 #endif
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext(); /* for TRY_EXCEPT */
 
 #if defined(WINDOWS) && defined(X64)
     if (hint_is_safe) {

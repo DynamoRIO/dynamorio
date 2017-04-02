@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -174,7 +174,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             goto error;
         }
         if (!nt_write_virtual_memory(phandle, load_dynamo_code, buf,
-                                     SIZE_OF_LOAD_DYNAMO, &nbytes)) {
+                                     SIZE_OF_LOAD_DYNAMO, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -190,7 +190,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_entry_esp = cxt->CXT_XSP;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -203,7 +203,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_path_esp = cxt->CXT_XSP;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -246,7 +246,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < NUM_XMM_SLOTS; i++) {
+            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2,4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
@@ -272,7 +272,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         cxt->CXT_XSP = ALIGN_BACKWARD(cxt->CXT_XSP, 16);
 #endif
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     buf, nbytes, &nbytes)) {
+                                     buf, nbytes, NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -291,7 +291,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_getprocaddr;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -310,7 +310,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_loadlibrarya;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -321,7 +321,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         addr = addr_debugbreak;
         cxt->CXT_XSP -= XSP_SZ;
         if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
-                                     &addr, sizeof(addr), &nbytes)) {
+                                     &addr, sizeof(addr), NULL)) {
             display_error("WriteMemory failed");
             goto error;
         }
@@ -1107,8 +1107,8 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, void *hook_locat
     instrlist_t ilist;
     byte *remote_code_buf = NULL, *local_code_buf = NULL, *pc, *remote_data;
     byte *hook_code_buf = NULL;
-    static const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
-    static const size_t code_alloc_sz = PAGE_SIZE;
+    const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
+    const size_t code_alloc_sz = PAGE_SIZE;
     size_t hook_code_sz = PAGE_SIZE;
     void *switch_code_location = hook_location;
 #ifdef X64

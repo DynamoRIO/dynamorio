@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -59,12 +59,6 @@ disable_compiler_warnings()
 # Extensions don't include configure.h so they don't get DR defines
 add_dr_defines()
 
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
 # This lets us share common code among all extensions.  We use a macro to
 # avoid scope issues and avoid having to call configure_DynamoRIO_global().
 macro(configure_extension target is_static)
@@ -97,6 +91,7 @@ macro(configure_extension target is_static)
 
   DR_export_target(${target})
   install_exported_target(${target} ${INSTALL_EXT_LIB})
+  copy_target_to_device(${target})
 endmacro(configure_extension)
 
 macro(install_ext_header header)
@@ -106,8 +101,10 @@ macro(install_ext_header header)
 endmacro()
 
 add_subdirectory(drcontainers)
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT ARM AND NOT AARCH64)
   # XXX i#1701: fails to build on Android.  May not be worth porting.
+  # XXX: fails when cross-compiling for ARM or A64 on a machine with x86 Qt5 installing.
+  # Working around that by just disabling for ARM and A64 completely.
   add_subdirectory(drgui)
 endif ()
 add_subdirectory(drmgr)
@@ -117,6 +114,7 @@ add_subdirectory(drreg)
 add_subdirectory(drsyms)
 add_subdirectory(drutil)
 add_subdirectory(droption)
+add_subdirectory(drcovlib)
 
 # documentation is put into main DR docs/ dir
 

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +32,11 @@
  */
 
 #include "dr_api.h"
-#include <syscall.h>
+#ifdef MACOS
+# include <sys/syscall.h>
+#else
+# include <syscall.h>
+#endif
 
 /* Tests removing a system call. */
 

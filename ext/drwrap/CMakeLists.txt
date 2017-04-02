@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -20,6 +20,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 cmake_minimum_required(VERSION 2.6)
+
+include(../../make/policies.cmake NO_POLICY_SCOPE)
 
 # DynamoRIO Function Wrapping and Replacing Extension
 
@@ -52,6 +54,8 @@ set(asm_flags ${asm_defs} ${DR_DEFINES} -I "${DynamoRIO_DIR}")
 set(asm_deps "${DynamoRIO_DIR}/cpp2asm_defines.h")
 if (ARM)
   set(asm_file "drwrap_asm_arm.asm")
+elseif (AARCH64)
+  set(asm_file "drwrap_asm_aarch64.asm")
 else ()
   set(asm_file "drwrap_asm_x86.asm")
 endif ()
@@ -74,7 +78,7 @@ if (WIN32)
   set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 endif ()
 
-add_library(drwrap ${libtype} ${srcs})
+add_library(drwrap SHARED ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x74000000)
@@ -102,12 +106,10 @@ configure_drwrap_target(drwrap)
 # use this same extension.
 # We do provide the static library for those who are ok w/ the license and who
 # are building an end tool.
-if (NOT STATIC_LIBRARY)
-  add_library(drwrap_static STATIC ${srcs_static})
-  configure_extension(drwrap_static ON)
-  use_DynamoRIO_extension(drwrap_static drmgr_static)
-  use_DynamoRIO_extension(drwrap_static drcontainers)
-  configure_drwrap_target(drwrap_static)
-endif ()
+add_library(drwrap_static STATIC ${srcs_static})
+configure_extension(drwrap_static ON)
+use_DynamoRIO_extension(drwrap_static drmgr_static)
+use_DynamoRIO_extension(drwrap_static drcontainers)
+configure_drwrap_target(drwrap_static)
 
 install_ext_header(drwrap.h)

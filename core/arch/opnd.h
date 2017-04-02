@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -180,8 +180,10 @@ enum {
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 
     /****************************************************************************/
-#elif defined(ARM)
+#elif defined(AARCHXX)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+
+# ifdef AARCH64
     /* 64-bit general purpose */
     DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
     DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
@@ -190,7 +192,9 @@ enum {
     DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,
+    DR_REG_XSP, /* stack pointer: the last GPR */
+    DR_REG_XZR, /* zero register: pseudo-register not included in GPRs */
 
     /* 32-bit general purpose */
     DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
@@ -200,9 +204,10 @@ enum {
     DR_REG_W16, DR_REG_W17,  DR_REG_W18,  DR_REG_W19,
     DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
     DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
-    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
-
-# ifndef X64
+    DR_REG_W28, DR_REG_W29,  DR_REG_W30,
+    DR_REG_WSP, /* bottom half of stack pointer */
+    DR_REG_WZR, /* zero register */
+# else
     /* 32-bit general purpose */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
@@ -257,11 +262,13 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
+# ifndef AARCH64
     /* Coprocessor registers */
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
     DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
+# endif
 
     /* We decided against DR_REG_RN_TH (top half), DR_REG_RN_BH (bottom half
      * for 32-bit as we have the W versions for 64-bit), and DR_REG_RN_BB
@@ -282,7 +289,11 @@ enum {
      * OP_mrs and OP_msr to distinguish them and make things clearer.
      */
 # endif
+# ifdef AARCH64
+    DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
+# else
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
+# endif
 
     /* AArch32 Thread Registers */
     DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
@@ -290,7 +301,7 @@ enum {
 
     /* Aliases below here: */
 
-# ifdef X64
+# ifdef AARCH64
     DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
     DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
     DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
@@ -322,12 +333,8 @@ enum {
     DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
     DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
     DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
-    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
-    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
+    DR_REG_SP  = DR_REG_XSP, /**< The stack pointer register. */
     DR_REG_LR  = DR_REG_X30, /**< The link register. */
-    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
-    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
-    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
 # else
     DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
     DR_REG_LR = DR_REG_R14, /**< The link register. */
@@ -336,8 +343,10 @@ enum {
     DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
     DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+# ifndef AARCH64
     /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
     DR_REG_APSR = DR_REG_CPSR,
+# endif
 
     /* AArch64 Thread Registers */
     /** Thread Pointer/ID Register, EL0. */
@@ -348,27 +357,29 @@ enum {
     DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
     DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
 
-    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
-
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
 
+# ifdef AARCH64
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
-    DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
-# ifdef X64
-    DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
-    DR_REG_STOP_GPR  = DR_REG_X31, /**< End of general register registers */
+    DR_REG_STOP_64   = DR_REG_XSP, /**< End of 64-bit general register enum values */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
-    DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_WSP, /**< End of 32-bit general register enum values */
+    DR_REG_START_GPR = DR_REG_X0,  /**< Start of full-size general-purpose registers */
+    DR_REG_STOP_GPR  = DR_REG_XSP, /**< End of full-size general-purpose registers */
 # else
-    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
-    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
+    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
+    DR_REG_STOP_GPR  = DR_REG_R15, /**< End of general register registers */
 # endif
 
+    DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1,
+
+# ifndef AARCH64
     /** Platform-independent way to refer to stack pointer. */
     DR_REG_XSP       = DR_REG_SP,
+# endif
 
 #endif /* X86/ARM */
 };
@@ -459,7 +470,7 @@ extern const reg_id_t dr_reg_fixer[];
 #ifdef X86
 # define REG_START_SPILL   DR_REG_XAX
 # define REG_STOP_SPILL    DR_REG_XDI
-#elif defined(ARM)
+#elif defined(AARCHXX)
 /* We only normally use r0-r3 but we support more in translation code */
 # define REG_START_SPILL   DR_REG_R0
 # define REG_STOP_SPILL    DR_REG_R10 /* r10 might be used in syscall mangling */
@@ -469,8 +480,10 @@ extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT VERBATIM */
 #define REG_NULL            DR_REG_NULL
 #define REG_INVALID         DR_REG_INVALID
-#define REG_START_64        DR_REG_START_64
-#define REG_STOP_64         DR_REG_STOP_64
+#ifndef ARM
+# define REG_START_64       DR_REG_START_64
+# define REG_STOP_64        DR_REG_STOP_64
+#endif
 #define REG_START_32        DR_REG_START_32
 #define REG_STOP_32         DR_REG_STOP_32
 #define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
@@ -713,6 +726,23 @@ typedef enum _dr_shift_type_t {
 } dr_shift_type_t;
 
 /**
+ * These flags describe how the index register in a memory reference is extended
+ * before being optionally shifted and added to the base register. They also describe
+ * how a general source register is extended before being used in its containing
+ * instruction.
+ */
+typedef enum _dr_extend_type_t {
+    DR_EXTEND_UXTB = 0, /**< Unsigned extend byte. */
+    DR_EXTEND_UXTH,     /**< Unsigned extend halfword. */
+    DR_EXTEND_UXTW,     /**< Unsigned extend word. */
+    DR_EXTEND_UXTX,     /**< Unsigned extend doubleword (a no-op). */
+    DR_EXTEND_SXTB,     /**< Signed extend byte. */
+    DR_EXTEND_SXTH,     /**< Signed extend halfword. */
+    DR_EXTEND_SXTW,     /**< Signed extend word. */
+    DR_EXTEND_SXTX,     /**< Signed extend doubleword (a no-op). */
+} dr_extend_type_t;
+
+/**
  * These flags describe operations performed on the value of a source register
  * before it is combined with other sources as part of the behavior of the
  * containing instruction, or operations performed on an index register or
@@ -738,10 +768,26 @@ typedef enum _dr_opnd_flags_t {
      * low and high parts of a 64-bit value.
      */
     DR_OPND_MULTI_PART = 0x04,
-    /** This immediate integer operand should be interpreted as an ARM shift type. */
+    /**
+     * This immediate integer operand should be interpreted as an ARM/AArch64 shift type.
+     */
     DR_OPND_IS_SHIFT   = 0x08,
     /** A hint indicating that this register operand is part of a register list. */
     DR_OPND_IN_LIST    = 0x10,
+    /**
+     * This register's value is extended prior to use in the containing instruction.
+     * This flag is for informational purposes only and is not guaranteed to
+     * be consistent with the shift type of an index register or displacement
+     * if the latter are set without using opnd_set_index_extend() or if an
+     * instruction is created without using high-level API routines.
+     * This flag is also ignored for encoding and will not apply a shift
+     * on its own.
+     */
+    DR_OPND_EXTENDED   = 0x20,
+    /** This immediate integer operand should be interpreted as an AArch64 extend type. */
+    DR_OPND_IS_EXTEND  = 0x40,
+    /** This immediate integer operand should be interpreted as an AArch64 condition. */
+    DR_OPND_IS_CONDITION = 0x80,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -810,20 +856,27 @@ struct _opnd_t {
             /* to get cl to not align to 4 bytes we can't use uint here
              * when we have reg_id_t elsewhere: it won't combine them
              * (gcc will). alternative is all uint and no reg_id_t.
-             */
-            /* We would use a union and struct to separate the scale from the 2
-             * shift fields as they are mutually exclusive, but that would
-             * require packing the struct or living with a larger size and perf
-             * hit on copying it.  We also have to use byte and not dr_shift_type_t
+             * We also have to use byte and not dr_shift_type_t
              * to get cl to not align.
              */
-            byte/*dr_shift_type_t*/ shift_type : 3; /* ARM-only */
-            byte shift_amount_minus_1 : 5; /* ARM-only, 1..31 so we store (val - 1) */
-            byte scale : SCALE_SPECIFIER_BITS; /* x86-only */
-            /* These 3 are all x86-only: */
+# if defined(AARCH64)
+            /* This is only used to distinguish pre-index from post-index when the
+             * offset is zero, for example: ldr w1,[x2,#0]! from ldr w1,[x0],#0.
+             */
+            byte/*bool*/ pre_index : 1;
+            /* Access this using opnd_get_index_extend and opnd_set_index_extend. */
+            byte/*dr_extend_type_t*/ extend_type : 3;
+            /* Shift register offset left by amount implied by size of memory operand: */
+            byte/*bool*/ scaled : 1;
+# elif defined(ARM)
+            byte/*dr_shift_type_t*/ shift_type : 3;
+            byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
+# elif defined(X86)
+            byte scale : SCALE_SPECIFIER_BITS;
             byte/*bool*/ encode_zero_disp : 1;
             byte/*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
             byte/*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
+# endif
         } base_disp;            /* BASE_DISP_kind */
         void *addr;             /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
@@ -866,7 +919,7 @@ enum {
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
 #if defined(X64) || defined(ARM)
-    REL_ADDR_kind,  /* pc-relative address: 64-bit X86 or ARM only */
+    REL_ADDR_kind,  /* pc-relative address: ARM or 64-bit X86 only */
 #endif
 #ifdef X64
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
@@ -1050,7 +1103,7 @@ DR_API
  * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  *
  * On x86, three boolean parameters give control over encoding optimizations
- * (these are ignored on ARM):
+ * (these are ignored on other architectures):
  * - If \p encode_zero_disp, a zero value for disp will not be omitted;
  * - If \p force_full_disp, a small value for disp will not occupy only one byte.
  * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
@@ -1119,6 +1172,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                              bool encode_zero_disp, bool force_full_disp,
                              bool disp_short_addr);
 
+#ifdef ARM
 DR_API
 /**
  * Returns a memory reference operand that refers to either a base
@@ -1137,11 +1191,38 @@ DR_API
  * value with #DR_OPND_NEGATED set in opnd_get_flags().
  * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
  *
+ * \note ARM-only.
  */
 opnd_t
 opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
                           dr_shift_type_t shift_type, uint shift_amount, int disp,
                           dr_opnd_flags_t flags, opnd_size_t size);
+#endif
+
+#ifdef AARCH64
+DR_API
+/**
+ * Returns a memory reference operand that refers to either a base
+ * register with a constant displacement:
+ * - [base_reg, disp]
+ *
+ * Or a base register plus an optionally extended and shifted index register:
+ * - [base_reg, index_reg, extend_type, shift_amount]
+ *
+ * The shift_amount is zero or, if \p scaled, a value determined by the
+ * size of the operand.
+ *
+ * The resulting operand has data size \p size (must be an OPSZ_ constant).
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
+ * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size);
+#endif
 
 DR_API
 /**
@@ -1191,8 +1272,9 @@ DR_API
 /**
  * Returns a memory reference operand that refers to the address \p
  * addr, but will be encoded as a pc-relative address.  At emit time,
- * if \p addr is out of reach of a 32-bit signed displacement from the
- * next instruction, encoding will fail.
+ * if \p addr is out of reach of the maximum encodable displacement
+ * (signed 32-bit for x86) from the next instruction, encoding will
+ * fail.
  *
  * DR guarantees that all of its code caches, all client libraries and
  * Extensions (though not copies of system libraries), and all client
@@ -1207,16 +1289,23 @@ DR_API
  * runtime option -reachable_heap can be used to guarantee that
  * all memory is reachable.
  *
- * If \p addr is not pc-reachable at encoding time and this operand is
- * used in a load or store to or from the rax (or eax) register, an
- * absolute form will be used (as though opnd_create_abs_addr() had
- * been called).
+ * On x86, if \p addr is not pc-reachable at encoding time and this
+ * operand is used in a load or store to or from the rax (or eax)
+ * register, an absolute form will be used (as though
+ * opnd_create_abs_addr() had been called).
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
  *
  * To represent a 32-bit address (i.e., what an address size prefix
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
+ *
+ * On ARM, the resulting operand will not contain an explicit PC
+ * register, and thus will not return true on queries to whether the
+ * operand reads the PC.  Explicit use of opnd_is_rel_addr() is
+ * required.  However, DR does not decode any PC-using instructions
+ * into this type of relative address operand: decoding will always
+ * produce a regular base + displacement operand.
  *
  * \note For ARM or 64-bit X86 DR builds only.
  */
@@ -1401,13 +1490,12 @@ bool
 opnd_is_far_abs_addr(opnd_t opnd);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
  * Returns true iff \p opnd is a (near or far) pc-relative memory reference operand.
- *
- * \note For 64-bit DR builds only.
+ * Returns true for base-disp operands on ARM that use the PC as the base register.
  */
 bool
 opnd_is_rel_addr(opnd_t opnd);
@@ -1418,7 +1506,7 @@ INSTR_INLINE
  * Returns true iff \p opnd is a near (i.e., default segment) pc-relative memory
  * reference operand.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit x86 DR builds only.  Equivalent to opnd_is_rel_addr() for ARM.
  */
 bool
 opnd_is_near_rel_addr(opnd_t opnd);
@@ -1428,7 +1516,7 @@ INSTR_INLINE
 /**
  * Returns true iff \p opnd is a far pc-relative memory reference operand.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit x86 DR builds only.  Always returns false on ARM.
  */
 bool
 opnd_is_far_rel_addr(opnd_t opnd);
@@ -1648,6 +1736,7 @@ DR_API
 reg_id_t
 opnd_get_segment(opnd_t opnd);
 
+#ifdef ARM
 DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
@@ -1655,6 +1744,7 @@ DR_API
  * Returns the shift type and \p amount if the index register is shifted (this
  * shift will occur prior to being added to or subtracted from the base
  * register).
+ * \note ARM-only.
  */
 dr_shift_type_t
 opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
@@ -1665,11 +1755,36 @@ DR_API
  * Sets the index register to be shifted by \p amount according to \p shift.
  * Returns whether successful.
  * If the shift amount is out of allowed ranges, returns false.
- * \note On non-ARM platforms where shifted index registers do not exist, this
- * routine will always fail.
+ * \note ARM-only.
  */
 bool
 opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount);
+#endif /* ARM */
+
+#ifdef AARCH64
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Returns the extension type, whether the offset is \p scaled, and the shift \p amount.
+ * The register offset will be extended, then shifted, then added to the base register.
+ * If there is no extension and no shift the values returned will be #DR_EXTEND_UXTX,
+ * false, and zero.
+ * \note AArch64-only.
+ */
+dr_extend_type_t
+opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be extended by \p extend and optionally \p scaled.
+ * Returns whether successful. If the offset is scaled the amount it is shifted
+ * by is determined by the size of the memory operand.
+ * \note AArch64-only.
+ */
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled);
+#endif /* AARCH64 */
 
 DR_API
 /**
@@ -1969,23 +2084,23 @@ DR_API
 void
 opnd_set_disp(opnd_t *opnd, int disp);
 
+#ifdef X86
 DR_API
 /**
- * Set the displacement and, on x86, the encoding controls of a memory
- * reference operand (the controls are ignored on ARM):
+ * Set the displacement and the encoding controls of a memory
+ * reference operand:
  * - If \p encode_zero_disp, a zero value for \p disp will not be omitted;
  * - If \p force_full_disp, a small value for \p disp will not occupy only one byte.
  * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
- *    use the desired short registers for base and/or index).  This is only
- *    honored on x86.
- * On ARM, a negative value for \p disp will be converted into a positive
- * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ *    use the desired short registers for base and/or index).
+ * \note x86-only.
  */
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,
                  bool disp_short_addr);
+#endif
 
 DR_API
 /**
@@ -2034,9 +2149,8 @@ opnd_defines_use(opnd_t def, opnd_t use);
 
 DR_API
 /**
- * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
- * On x86, if \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
- * to get a OPSZ_ constant that assumes the entire register is used.
+ * Assumes \p size is an OPSZ_ constant, typically obtained from
+ * opnd_get_size() or reg_get_size().
  * Returns the number of bytes the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
  * which may or may not match the actual size decided up on at
@@ -2047,7 +2161,8 @@ opnd_size_in_bytes(opnd_size_t size);
 
 DR_API
 /**
- * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
+ * Assumes \p size is an OPSZ_ constant, typically obtained from
+ * opnd_get_size() or reg_get_size().
  * Returns the number of bits the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
  * which may or may not match the actual size decided up on at
@@ -2234,7 +2349,7 @@ enum {
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
 #  endif
 # endif /* 64/32 */
-#elif defined(ARM)
+#elif defined(AARCHXX)
     REGPARM_0            = DR_REG_R0,
     REGPARM_1            = DR_REG_R1,
     REGPARM_2            = DR_REG_R2,
@@ -2258,8 +2373,8 @@ extern const reg_id_t regparms[];
 /* arch-specific */
 uint opnd_immed_float_arch(uint opcode);
 
-#ifdef ARM
-# define DR_REG_STOLEN_MIN  DR_REG_R8 /* no syscall regs */
+#ifdef AARCHXX
+# define DR_REG_STOLEN_MIN  IF_X64_ELSE(DR_REG_X9, DR_REG_R8) /* DR_REG_SYSNUM + 1 */
 # define DR_REG_STOLEN_MAX  IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
 /* DR's stolen register for TLS access */
 extern reg_id_t dr_reg_stolen;

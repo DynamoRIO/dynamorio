@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,9 +38,14 @@
 #define _INSTR_CREATE_H_ 1
 
 #include "../instr_create_shared.h"
+#include "instr.h"
 
 /* DR_API EXPORT TOFILE dr_ir_macros_arm.h */
 /* DR_API EXPORT BEGIN */
+/**
+ * @file dr_ir_macros_arm.h
+ * @brief ARM-specific instruction creation convenience macros.
+ */
 
 /**
  * Create an absolute address operand encoded as pc-relative.
@@ -60,13 +65,13 @@
 #define OPND_CREATE_INT(val) OPND_CREATE_INTPTR(val)
 
 /** The immediate opnd_t for use with OP_msr to write the nzcvq status flags. */
-#define OPND_CREATE_INT_MSR_NZCVQ() opnd_create_immed_int(0x8, OPSZ_4b)
+#define OPND_CREATE_INT_MSR_NZCVQ() opnd_create_immed_int(EFLAGS_MSR_NZCVQ, OPSZ_4b)
 
 /** The immediate opnd_t for use with OP_msr to write the apsr_g status flags. */
-#define OPND_CREATE_INT_MSR_G() opnd_create_immed_int(0x4, OPSZ_4b)
+#define OPND_CREATE_INT_MSR_G() opnd_create_immed_int(EFLAGS_MSR_G, OPSZ_4b)
 
 /** The immediate opnd_t for use with OP_msr to write the apsr_nzcvqg status flags. */
-#define OPND_CREATE_INT_MSR_NZCVQG() opnd_create_immed_int(0xc, OPSZ_4b)
+#define OPND_CREATE_INT_MSR_NZCVQG() opnd_create_immed_int(EFLAGS_MSR_NZCVQG, OPSZ_4b)
 
 /** A memory opnd_t that auto-sizes at encode time to match a register list. */
 #define OPND_CREATE_MEMLIST(base) \
@@ -108,6 +113,16 @@
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_ldr((dc), (r), (m))
+
+/**
+ * This platform-independent macro creates an instr_t which loads 1 byte
+ * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
+ * destination register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte_zext4(dc, r, m)  INSTR_CREATE_ldrb((dc), (r), (m))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -187,7 +202,8 @@
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
- * jump through memory instruction.
+ * jump through memory instruction.  For AArch32, the memory address
+ * must be aligned to 4.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The memory opnd holding the target.
  */
@@ -370,7 +386,7 @@
  * This macro creates an instr_t for a push instruction of a single
  * register, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
+ * \param Rt The destination register opnd_t operand.
  */
 #define INSTR_CREATE_push(dc, Rt) \
   INSTR_CREATE_str_wbimm((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, -sizeof(void*)), (Rt), \
@@ -926,6 +942,8 @@
   instr_create_1dst_1src((dc), OP_movt, (Rd), (imm))
 #define INSTR_CREATE_movw(dc, Rd, imm) \
   instr_create_1dst_1src((dc), OP_movw, (Rd), (imm))
+#define INSTR_CREATE_mrs_priv(dc, Rd, imm) \
+  instr_create_1dst_1src((dc), OP_mrs_priv, (Rd), (imm))
 #define INSTR_CREATE_vmrs_imm(dc, Rd, imm) \
   instr_create_1dst_1src((dc), OP_vmrs, (Rd), (imm))
 /* @} */ /* end doxygen group */
@@ -944,6 +962,22 @@
  */
 #define INSTR_CREATE_vmsr_imm(dc, Rt, imm) \
   instr_create_0dst_2src((dc), OP_vmsr, (Rt), (imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (imm, Rm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param imm The integer constant opnd_t operand.
+ * \param Rm The source register opnd_t operand.
+ */
+#define INSTR_CREATE_msr_priv(dc, imm, Rm) \
+  instr_create_0dst_2src((dc), OP_msr_priv, (imm), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (imm, imm2) */
@@ -1264,7 +1298,7 @@
  * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  */
-#define INSTR_CREATE_mrs_priv(dc, Rd, statreg, imm) \
+#define INSTR_CREATE_mrs_priv_spsr(dc, Rd, statreg, imm) \
   instr_create_1dst_2src((dc), OP_mrs_priv, (Rd), (statreg), (imm))
 /* @} */ /* end doxygen group */
 
@@ -1281,7 +1315,7 @@
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
  */
-#define INSTR_CREATE_msr_priv(dc, statreg, imm, Rm) \
+#define INSTR_CREATE_msr_priv_spsr(dc, statreg, imm, Rm) \
   instr_create_1dst_2src((dc), OP_msr_priv, (statreg), (imm), (Rm))
 /* @} */ /* end doxygen group */
 
@@ -4500,7 +4534,6 @@
 #define INSTR_CREATE_vtbx_8(dc, Vd, Vm, list_len, ...) \
   instr_create_Ndst_Msrc_varsrc((dc), OP_vtbx_8, 1, 1, list_len, 0, (Vd), (Vm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
-
 
 /* DR_API EXPORT END */
 

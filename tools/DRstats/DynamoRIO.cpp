@@ -225,10 +225,6 @@ BOOL CDynamoRIOApp::InitInstance()
     // set the string we'll put into the registry key to inject system-wide
     TCHAR data[1024];
     int len = GetEnvironmentVariable(_T("DYNAMORIO_HOME"), m_dynamorio_home, _MAX_DIR);
-#if 1 //NOCHECKIN
-    if (len == 0)
-        m_dynamorio_home[0] = _T('\0');
-#else
     if (len == 0) {
         int res = MessageBox(NULL,
                              _T("DYNAMORIO_HOME environment variable not found.\n")
@@ -243,7 +239,6 @@ BOOL CDynamoRIOApp::InitInstance()
             return FALSE;
         }
     }
-#endif
 
     if (windows_NT) {
         // we don't support systemwide on NT
@@ -258,7 +253,8 @@ BOOL CDynamoRIOApp::InitInstance()
         m_bSystemwideAllowed = FALSE; // so key won't be cleared
         DisableSystemwideInject();
     } else {
-        //NOCHECKIN assert(len > 0 && len < _MAX_DIR && len + _tcslen(L_INJECT_ALL_DLL_SUBPATH) < MAX_PATH);
+        assert(len > 0 && len < _MAX_DIR &&
+               len + _tcslen(L_INJECT_ALL_DLL_SUBPATH) < MAX_PATH);
         _stprintf(data, _T("%s%s"), m_dynamorio_home, L_INJECT_ALL_DLL_SUBPATH);
 
         // make sure it exists

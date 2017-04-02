@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,7 @@
 
 #include "dr_api.h"
 #include "droption.h"
-#include "../drcov.h"
+#include "drcovlib.h"
 #include "drsyms.h"
 #include "hashtable.h"
 #include "dr_frontend.h"
@@ -97,10 +97,13 @@
 # define DR_LIB_NAME "dynamorio.dll"
 # define DR_PRELOAD_NAME "preinject.dll"
 # define DRCOV_LIB_NAME "drcov.dll"
+/* Often combined with Dr. Memory */
+# define DRMEM_LIB_NAME "drmemorylib.dll"
 #else
 # define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
 # define DR_PRELOAD_NAME "libdrpreload."
 # define DRCOV_LIB_NAME "libdrcov."
+# define DRMEM_LIB_NAME "libdrmemorylib."
 #endif
 
 /***************************************************************************
@@ -200,10 +203,10 @@ static file_t set_log = INVALID_FILE;
  * Utility Functions
  */
 
-static inline char *
-move_to_next_line(char *ptr)
+static inline const char *
+move_to_next_line(const char *ptr)
 {
-    char *end = strchr(ptr, '\n');
+    const char *end = strchr(ptr, '\n');
     if (end == NULL) {
         ptr += strlen(ptr);
     } else {
@@ -241,7 +244,7 @@ null_terminate_path(char *path)
 
 #define LINE_HASH_TABLE_BITS   10
 #define LINE_TABLE_INIT_SIZE 1024 /* first chunk holds 1024 lines */
-#define LINE_TABLE_INIT_PRINT_BUF_SIZE (4*PAGE_SIZE)
+#define LINE_TABLE_INIT_PRINT_BUF_SIZE (16*1024)
 #define SOURCE_FILE_START_LINE_SIZE (MAXIMUM_PATH + 10) /* "SF:%s\n" */
 #define SOURCE_FILE_END_LINE_SIZE   20 /* "end_of_record\n" */
 #define MAX_CHAR_PER_LINE 256 /* large enough to hold the test function name */
@@ -402,8 +405,8 @@ line_table_create(const char *file)
     chunk->first_num  = 1;
     chunk->last_num   = chunk->first_num + chunk->num_lines - 1;
     chunk->next       = NULL;
-    PRINT(5, "line table "PFX" added\n", (ptr_uint_t)table);
-    PRINT(7, "Init chunk %u-%u (%u) for "PFX" @"PFX"\n",
+    PRINT(5, "line table " PFX" added\n", (ptr_uint_t)table);
+    PRINT(7, "Init chunk %u-%u (%u) for " PFX" @" PFX"\n",
           chunk->first_num, chunk->last_num, chunk->num_lines,
           (ptr_uint_t)table, (ptr_uint_t)chunk);
     return table;
@@ -414,7 +417,7 @@ line_table_delete(void *p)
 {
     line_table_t *table = (line_table_t *)p;
     line_chunk_t *chunk, *next;
-    PRINT(5, "line table "PFX" delete\n", (ptr_uint_t)table);
+    PRINT(5, "line table " PFX" delete\n", (ptr_uint_t)table);
     for (chunk = table->chunk; chunk != NULL; chunk = next) {
         next = chunk->next;
         line_chunk_free(chunk);
@@ -450,7 +453,7 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
         chunk             = tmp;
         line_table->chunk = chunk;
         line_table->num_chunks++;
-        PRINT(7, "New chunk %u-%u (%u) for "PFX" @"PFX"\n",
+        PRINT(7, "New chunk %u-%u (%u) for " PFX" @" PFX"\n",
               chunk->first_num, chunk->last_num, chunk->num_lines,
               (ptr_uint_t)line_table, (ptr_uint_t)chunk);
     }
@@ -540,7 +543,7 @@ static void
 module_table_delete(void *p)
 {
     module_table_t *table = (module_table_t *)p;
-    PRINT(3, "Delete module table "PFX"\n", (ptr_uint_t)table);
+    PRINT(3, "Delete module table " PFX"\n", (ptr_uint_t)table);
     if (table != MODULE_TABLE_IGNORE) {
         free(table->bb_table.bitmap);
         if (op_test_pattern.specified())
@@ -573,7 +576,7 @@ bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
     if (TEST(BITMAP_MASK(offs), bm[idx]))
         return false;
     /* now we add a new bb */
-    PRINT(6, "Add "PFX"-"PFX" in table "PFX"\n",
+    PRINT(6, "Add " PFX"-" PFX" in table " PFX"\n",
           (ptr_uint_t)entry->start,
           (ptr_uint_t)entry->start + entry->size,
           (ptr_uint_t)table);
@@ -636,7 +639,7 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
 static int
 module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
 {
-    PRINT(5, "lookup "PFX" in module table "PFX"\n",
+    PRINT(5, "lookup " PFX" in module table " PFX"\n",
           (ptr_uint_t)addr, (ptr_uint_t)table);
     /* We see this and it seems to be erroneous data from the pdb,
      * xref drsym_enumerate_lines() from drsyms.
@@ -655,7 +658,7 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
     if (table == MODULE_TABLE_IGNORE)
         return false;
     if (table->size <= entry->start + entry->size) {
-        WARN(3, "Wrong range "PFX"-"PFX" or table size "PFX" for table "PFX"\n",
+        WARN(3, "Wrong range " PFX"-" PFX" or table size " PFX" for table " PFX"\n",
              (ptr_uint_t)entry->start, (ptr_uint_t)entry->start + entry->size,
              (ptr_uint_t)table->size,  (ptr_uint_t)table);
         return false;
@@ -675,7 +678,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         char *name = (char *) malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
-        PRINT(5, "function %s: "PFX"-"PFX"\n",
+        PRINT(5, "function %s: " PFX"-" PFX"\n",
               name, (ptr_uint_t)info->start_offs, (ptr_uint_t)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
@@ -711,7 +714,7 @@ static module_table_t *
 module_table_create(const char *module, size_t size)
 {
     module_table_t *table;
-    ASSERT(ALIGNED(size, PAGE_SIZE), "Module size is not aligned");
+    ASSERT(ALIGNED(size, dr_page_size()), "Module size is not aligned");
 
     table = (module_table_t *) calloc(1, sizeof(*table));
     ASSERT(table != NULL, "Failed to allocate module table");
@@ -742,75 +745,69 @@ module_is_from_tool(const char * path)
 {
     return (strstr(path, DR_LIB_NAME) != NULL ||
             strstr(path, DR_PRELOAD_NAME) != NULL ||
-            strstr(path, DRCOV_LIB_NAME) != NULL);
+            strstr(path, DRCOV_LIB_NAME) != NULL ||
+            strstr(path, DRMEM_LIB_NAME) != NULL);
 }
 
-static char *
-read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
+static const char *
+read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
 {
-    char path[MAXIMUM_PATH];
     const char *modpath;
     char subst[MAXIMUM_PATH];
     uint i;
+    void *handle;
 
     PRINT(3, "Reading module table...\n");
     /* module table header */
-    PRINT(4, "Reading Module Table Header\n");
-    if (dr_sscanf(buf, "Module Table: %d\n", num_mods) != 1) {
+    if (drmodtrack_offline_read(INVALID_FILE, buf, &buf, &handle, num_mods) !=
+        DRCOVLIB_SUCCESS) {
         WARN(2, "Failed to read module table");
         return NULL;
     }
-    buf = move_to_next_line(buf);
 
-    /* module lists */
-    PRINT(4, "Reading Module Lists\n");
     *tables = (module_table_t **) calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
-        uint   mod_id;
-        uint64 mod_size;
         module_table_t *mod_table;
+        drmodtrack_info_t info = {sizeof(info),};
 
-        /* assuming the string is something like:  "0, 2207744, /bin/ls" */
-        /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %"INT64_FORMAT"u, %[^\n\r]", &mod_id, &mod_size, path) != 3)
+        if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
-        buf = move_to_next_line(buf);
-        PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
-        mod_table = (module_table_t *) hashtable_lookup(&module_htable, path);
+        PRINT(5, "Module: %u, " PFX", %s\n", i, (ptr_uint_t)info.size, info.path);
+        mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void*)info.path);
         if (mod_table == NULL) {
-            modpath = path;
-            if (mod_size >= UINT_MAX)
+            modpath = info.path;
+            if (info.size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
             /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
              * so these should be case-insensitive on Windows.
              */
-            if (strstr(path, "<unknown>") != NULL ||
+            if (strstr(info.path, "<unknown>") != NULL ||
                 (op_mod_filter.specified() &&
-                 strstr(path, op_mod_filter.get_value().c_str()) == NULL) ||
+                 strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
                 (op_mod_skip_filter.specified() &&
-                 strstr(path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
-                (!op_include_tool.get_value() && module_is_from_tool(path)))
+                 strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
+                (!op_include_tool.get_value() && module_is_from_tool(info.path)))
                 mod_table = (module_table_t *) MODULE_TABLE_IGNORE;
             else {
                 if (op_pathmap.specified()) {
                     const char *tofind = op_pathmap.get_value().first.c_str();
-                    const char *match = strstr(path, tofind);
+                    const char *match = strstr(info.path, tofind);
                     if (match != NULL) {
                         if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst),
-                                        "%.*s%s%s", match - path, path,
+                                        "%.*s%s%s", match - info.path, info.path,
                                         op_pathmap.get_value().second.c_str(),
                                         match + strlen(tofind)) <= 0) {
-                            WARN(1, "Failed to replace %s in %s\n", tofind, path);
+                            WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
                         } else {
                             NULL_TERMINATE_BUFFER(subst);
-                            PRINT(2, "Substituting |%s| for |%s|\n", subst, path);
+                            PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
                             modpath = subst;
                         }
                     }
                 }
-                mod_table = module_table_create(modpath, (size_t)mod_size);
+                mod_table = module_table_create(modpath, info.size);
             }
-            PRINT(4, "Create module table "PFX" for module %s\n",
+            PRINT(4, "Create module table " PFX" for module %s\n",
                   (ptr_uint_t)mod_table, modpath);
             num_module_htable_entries++;
             if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
@@ -818,11 +815,13 @@ read_module_list(char *buf, module_table_t ***tables, uint *num_mods)
         }
         (*tables)[i] = mod_table;
     }
+    if (drmodtrack_offline_exit(handle) != DRCOVLIB_SUCCESS)
+        ASSERT(false, "failed to clean up module table data");
     return buf;
 }
 
 static bool
-read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
+read_bb_list(const char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
 {
     uint i;
     bb_entry_t *entry;
@@ -836,7 +835,7 @@ read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
         cur_test = non_test;
     }
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
-        PRINT(6, "BB: "PFX", %u, %u\n",
+        PRINT(6, "BB: " PFX", %u, %u\n",
               (ptr_uint_t)entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
@@ -846,14 +845,19 @@ read_bb_list(char *buf, module_table_t **tables, uint num_mods, uint num_bbs)
     return add_new_bb;
 }
 
-static char *
-read_file_header(char *buf)
+static const char *
+read_file_header(const char *buf)
 {
     char  str[MAXIMUM_PATH];
     uint  version;
 
     PRINT(3, "Reading file header...\n");
     /* version number */
+    /* XXX i#1842: we're violating abstraction barriers here with hardcoded
+     * file format strings.  drcovlib should either have a formal file format
+     * description in its header, or it should provide API routines to read
+     * the file fields.
+     */
     PRINT(4, "Reading version number\n");
     if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
         WARN(2, "Failed to read version number");
@@ -868,8 +872,7 @@ read_file_header(char *buf)
 
     /* flavor */
     PRINT(4, "Reading flavor\n");
-    /* XXX i#1143: switch to dr_sscanf once it supports %[] */
-    if (sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
+    if (dr_sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
         WARN(2, "Failed to read version number");
         return NULL;
     }
@@ -883,7 +886,7 @@ read_file_header(char *buf)
 }
 
 static file_t
-open_input_file(const char *fname, char **map_out OUT,
+open_input_file(const char *fname, const char **map_out OUT,
                 size_t *map_size OUT, uint64 *file_sz OUT)
 {
     uint64 file_size;
@@ -920,17 +923,17 @@ open_input_file(const char *fname, char **map_out OUT,
 }
 
 static void
-close_input_file(file_t f, char *map, size_t map_size)
+close_input_file(file_t f, const char *map, size_t map_size)
 {
-    dr_unmap_file(map, map_size);
+    dr_unmap_file((char *)map, map_size);
     dr_close_file(f);
 }
 
 static bool
-read_drcov_file(char *input)
+read_drcov_file(const char *input)
 {
     file_t log;
-    char  *map, *ptr;
+    const char  *map, *ptr;
     size_t map_size;
     module_table_t **tables;
     uint   num_mods, num_bbs;
@@ -1064,7 +1067,7 @@ static bool
 read_drcov_list(void)
 {
     file_t list;
-    char  *map, *ptr;
+    const char  *map, *ptr;
     char   path[MAXIMUM_PATH];
     size_t map_size;
     uint64 file_size;
@@ -1139,10 +1142,10 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         line_table_add(line_table, (uint)info->line,
                        (byte)SOURCE_LINE_STATUS_SKIP, test_info);
     } else {
-        WARN(2, "Invalid bb lookup, Table: "PFX", Addr: "PFX"\n",
+        WARN(2, "Invalid bb lookup, Table: " PFX", Addr: " PFX"\n",
              (ptr_uint_t)table, (ptr_uint_t)info->line);
     }
-    PRINT(5, "%s, %s, %llu, "PFX"\n",
+    PRINT(5, "%s, %s, %llu, " PFX"\n",
           info->cu_name, info->file, (unsigned long long)info->line,
           (ptr_uint_t)info->line_addr);
     return true;

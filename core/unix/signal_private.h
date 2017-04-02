@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,6 +113,17 @@ struct _kernel_sigaction_t {
 #endif
 }; /* typedef in os_private.h */
 
+#ifdef MACOS
+/* i#2105: amazingly, the kernel uses a different layout for returning the prior action.
+ * For simplicity we don't change the signature for the handle_sigaction routines.
+ */
+struct _prev_sigaction_t {
+    handler_t handler;
+    kernel_sigset_t mask;
+    int flags;
+}; /* typedef in os_private.h */
+#endif
+
 #ifdef LINUX
 # define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
 #elif defined(MACOS)
@@ -133,33 +144,46 @@ struct _old_sigaction_t {
  * this is adapted from asm/ucontext.h:
  */
 typedef struct {
+# if defined(X86)
     unsigned long     uc_flags;
     struct ucontext  *uc_link;
     stack_t           uc_stack;
     sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
-# ifdef ARM
+# elif defined(AARCH64)
+    unsigned long     uc_flags;
+    struct ucontext  *uc_link;
+    stack_t           uc_stack;
+    kernel_sigset_t   uc_sigmask;
+    unsigned char     sigset_ex[1024 / 8 - sizeof(kernel_sigset_t)];
+    sigcontext_t      uc_mcontext; /* last for future expansion */
+# elif defined(ARM)
+    unsigned long     uc_flags;
+    struct ucontext  *uc_link;
+    stack_t           uc_stack;
+    sigcontext_t      uc_mcontext;
+    kernel_sigset_t   uc_sigmask;
     int               sigset_ex[32 - (sizeof(kernel_sigset_t)/sizeof(int))];
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
         struct vfp_sigframe uc_vfp;
     } coproc;
+# else
+#  error NYI
 # endif
 } kernel_ucontext_t;
 
-#  define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
-#  define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
+/* SIGCXT_FROM_UCXT is in os_public.h */
+# define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
 
 #elif defined(MACOS)
-#  ifdef X64
+# ifdef X64
 typedef _STRUCT_UCONTEXT64 /* == __darwin_ucontext64 */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext64))
-#  else
+# else
 typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext))
-#  endif
-#  define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
+# endif
+# define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
 #endif
 
 #ifdef LINUX
@@ -230,7 +254,7 @@ typedef struct rt_sigframe {
     char retcode[RETCODE_SIZE];
 #  endif
     /* In 2.6.28+, fpstate/xstate goes here */
-# elif defined(ARM)
+# elif defined(AARCHXX)
     siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
@@ -324,6 +348,18 @@ typedef struct _thread_sig_info_t {
      * have to dynamically allocate app_sigaction array so we can share it.
      */
     kernel_sigaction_t **app_sigaction;
+
+    /* We save the old sigaction across a sigaction syscall so we can return it
+     * in post-syscall handling.
+     */
+    kernel_sigaction_t prior_app_sigaction;
+    bool use_kernel_prior_sigaction;
+    /* We pass this to the kernel in lieu of the app's data struct, so we
+     * can modify it.
+     */
+    kernel_sigaction_t our_sigaction;
+    /* This is the app's sigaction pointer, for restoring post-syscall. */
+    const kernel_sigaction_t *sigaction_param;
 
     /* True after signal_thread_inherit or signal_fork_init are called.  We
      * squash alarm or profiling signals up until this point.

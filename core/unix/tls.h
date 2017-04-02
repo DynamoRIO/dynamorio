@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,13 +45,16 @@
 #define _OS_TLS_H_ 1
 
 #include "os_private.h"  /* ASM_XAX */
+#if defined(ARM) && defined(LINUX)
+# include "include/syscall.h" /* SYS_set_tls */
+#endif
 
 /* We support 3 different methods of creating a segment (see os_tls_init()) */
 typedef enum {
     TLS_TYPE_NONE,
     TLS_TYPE_LDT,
     TLS_TYPE_GDT,
-#ifdef X64
+#if defined(X86) && defined(X64)
     TLS_TYPE_ARCH_PRCTL,
 #endif
     /* Used with stealing a register in code cache, we use a (app/priv) lib TLS
@@ -97,34 +100,33 @@ typedef struct _our_modify_ldt_t {
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
 #ifdef X86
-# define WRITE_DR_SEG(val) \
+# define WRITE_DR_SEG(val) do {                                     \
     ASSERT(sizeof(val) == sizeof(reg_t));                           \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);
-
-# define WRITE_LIB_SEG(val) \
+                 : : "m" ((val)) : ASM_XAX);                        \
+} while (0)
+# define WRITE_LIB_SEG(val) do {                                        \
     ASSERT(sizeof(val) == sizeof(reg_t));                               \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);
-#elif defined(ARM)
-# ifdef X64
-#  error NYI on AArch64
-# else
-#  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
-#  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
-# endif /* 64/32-bit */
+                 : : "m" ((val)) : ASM_XAX);                            \
+} while (0)
+#elif defined(AARCHXX)
+# define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
+# define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 # define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
 #endif /* X86/ARM */
 
-static inline uint
+static inline ptr_uint_t
 read_thread_register(reg_id_t reg)
 {
-    uint sel;
 #ifdef X86
+    uint sel;
     if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
     } else if (reg == SEG_GS) {
         asm volatile("movl %%gs, %0" : "=r"(sel));
+    } else if (reg == SEG_SS) {
+        asm volatile("movl %%ss, %0" : "=r"(sel));
     } else {
         ASSERT_NOT_REACHED();
         return 0;
@@ -135,7 +137,8 @@ read_thread_register(reg_id_t reg)
      * is_segment_register_initialized().
      */
     sel &= 0xffff;
-#elif defined(ARM)
+#elif defined(AARCHXX)
+    ptr_uint_t sel;
     if (reg == DR_REG_TPIDRURO) {
         IF_X64_ELSE({
             asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
@@ -158,11 +161,26 @@ read_thread_register(reg_id_t reg)
         ASSERT_NOT_REACHED();
         return 0;
     }
+#else
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
     return sel;
 }
 
-#if defined(LINUX) && defined(X64) && !defined(ARCH_SET_GS)
+#ifdef AARCHXX
+static inline bool
+write_thread_register(void *val)
+{
+# ifdef AARCH64
+    asm volatile("msr tpidr_el0, %0" : : "r"(val));
+    return true;
+# else
+    return (dynamorio_syscall(SYS_set_tls, 1, val) == 0);
+# endif
+}
+#endif
+
+#if defined(LINUX) && defined(X86) && defined(X64) && !defined(ARCH_SET_GS)
 #  define ARCH_SET_GS 0x1001
 #  define ARCH_SET_FS 0x1002
 #  define ARCH_GET_FS 0x1003
@@ -200,8 +218,17 @@ typedef struct _os_local_state_t {
     /* put state first to ensure that it is cache-line-aligned */
     /* On Linux, we always use the extended structure. */
     local_state_extended_t state;
-    /* linear address of tls page */
+    /* Linear address of tls page. */
     struct _os_local_state_t *self;
+#ifdef X86
+    /* Magic number for is_thread_tls_initialized() (i#2089).
+     * XXX: keep the offset of this consistent with TLS_MAGIC_OFFSET_ASM in x86.asm.
+     */
+#   define TLS_MAGIC_VALID   0x244f4952 /* RIO$ */
+    /* This value is used for os_thread_take_over() re-takeover. */
+#   define TLS_MAGIC_INVALID 0x2d4f4952 /* RIO- */
+    uint magic;
+#endif
     /* store what type of TLS this is so we can clean up properly */
     tls_type_t tls_type;
     /* For pre-SYS_set_thread_area kernels (pre-2.5.32, pre-NPTL), each
@@ -236,7 +263,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment);
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-#ifdef ARM
+#ifdef AARCHXX
 byte **
 get_dr_tls_base_addr(void);
 #endif
@@ -275,6 +302,9 @@ tls_priv_lib_index(void);
 
 bool
 tls_dr_using_msr(void);
+
+bool
+running_on_WSL(void);
 
 void
 tls_initialize_indices(os_local_state_t *os_tls);

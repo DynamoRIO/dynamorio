@@ -63,11 +63,26 @@ my_abort(
 # define IF_UNIX_ELSE(x,y) y
 #endif
 
+static void
+check_inserted_meta(instr_t *first, instr_t *last)
+{
+    if (first == NULL)
+        dr_fprintf(STDERR, "Error: 'first' was NULL\n");
+    else {
+        for (;; first = instr_get_next(first)) {
+            if (!instr_is_meta(first))
+                dr_fprintf(STDERR, "Error: inserted instruction not meta\n");
+            if (last == NULL || first == last)
+                break;
+        }
+    }
+}
+
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool translating)
 {
     instr_t* instr = instrlist_first(bb);
-    instr_t *ins1, *ins2;
+    instr_t *first, *last;
 
     global_var = (ptr_uint_t)INT_MAX + 1;
 
@@ -75,49 +90,28 @@ bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool trans
 
     /* test push_imm */
     instrlist_insert_push_immed_ptrsz(drcontext, (ptr_int_t)1,
-                                      bb, instr, &ins1, &ins2);
-    instr_set_meta(ins1);
-    if (ins2 != NULL) /* ins2 should be NULL */
-        dr_fprintf(STDERR, "Error on push 1\n");
+                                      bb, instr, &first, &last);
+    check_inserted_meta(first, last);
     instrlist_insert_push_immed_ptrsz(drcontext, (ptr_int_t)-1,
-                                      bb, instr, &ins1, &ins2);
-    instr_set_meta(ins1);
-    if (ins2 != NULL) /* ins2 should be NULL */
-        dr_fprintf(STDERR, "Error on push -1\n");
+                                      bb, instr, &first, &last);
+    check_inserted_meta(first, last);
     instrlist_insert_push_immed_ptrsz(drcontext, global_var,
-                                      bb, instr, &ins1, &ins2);
-    instr_set_meta(ins1);
-#ifdef X64
-    if (ins2 == NULL) /* ins2 should not be NULL */
-        dr_fprintf(STDERR, "Error on push tag\n");
-    else
-        instr_set_meta(ins2);
-#endif
+                                      bb, instr, &first, &last);
+    check_inserted_meta(first, last);
 
     /* test mov_imm */
     instrlist_insert_mov_immed_ptrsz(drcontext, global_var,
                                      OPND_CREATE_ABSMEM(&var0, OPSZ_PTR),
-                                     bb, instr,
-                                     &ins1, &ins2);
-    instr_set_meta(ins1);
-#ifdef X64
-    if (ins2 == NULL) /* ins2 should not be NULL */
-        dr_fprintf(STDERR, "Error on mov %p\n", global_var);
-    else
-        instr_set_meta(ins2);
-#endif
+                                     bb, instr, &first, &last);
+    check_inserted_meta(first, last);
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)-1,
                                      OPND_CREATE_ABSMEM(&var1, OPSZ_PTR),
-                                     bb, instr, &ins1, &ins2);
-    instr_set_meta(ins1);
-    if (ins2 != NULL) /* ins2 should be NULL */
-        dr_fprintf(STDERR, "Error on mov -1\n");
+                                     bb, instr, &first, &last);
+    check_inserted_meta(first, last);
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)1,
                                      OPND_CREATE_ABSMEM(&var2, OPSZ_PTR),
-                                     bb, instr, &ins1, &ins2);
-    instr_set_meta(ins1);
-    if (ins2 != NULL) /* ins2 should be NULL */
-        dr_fprintf(STDERR, "Error on mov 1\n");
+                                     bb, instr, &first, &last);
+    check_inserted_meta(first, last);
 
 #if defined(WINDOWS) && defined(X64)
     /* calling convention: 4 stack slots */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,6 +37,8 @@
 
 #ifdef WINDOWS
 # define WIN32_LEAN_AND_MEAN
+# define UNICODE
+# define _UNICODE
 # include <windows.h>
 # include <io.h>
 # include "config.h"
@@ -74,13 +76,7 @@ typedef enum _action_t {
 
 static bool verbose;
 static bool quiet;
-static bool DR_dll_not_needed =
-#ifdef STATIC_LIBRARY
-    true
-#else
-    false
-#endif
-    ;
+static bool DR_dll_not_needed = false;
 static bool nocheck;
 
 #define die() exit(1)
@@ -278,6 +274,9 @@ const char *options_list_str =
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
+    "       -static            Do not inject under the assumption that the application\n"
+    "                          is statically linked with DynamoRIO.  Instead, trigger\n"
+    "                          automated takeover.\n"
 # ifdef UNIX  /* FIXME i#725: Windows attach NYI */
 #  ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
@@ -296,7 +295,7 @@ const char *options_list_str =
     ;
 
 static bool
-file_exists(const char *path)
+does_file_exist(const char *path)
 {
     bool ret = false;
     return (drfront_access(path, DRFRONT_EXIST, &ret) == DRFRONT_SUCCESS && ret);
@@ -335,6 +334,24 @@ get_absolute_path(const char *src, char *buf, size_t buflen/*# elements*/)
         fatal("failed (status=%d) to convert %s to an absolute path", sc, src);
 }
 
+/* Opens a filename and mode that are in utf8 */
+static FILE *
+fopen_utf8(const char *path, const char *mode)
+{
+#ifdef WINDOWS
+    TCHAR wpath[MAXIMUM_PATH];
+    TCHAR wmode[MAXIMUM_PATH];
+    if (drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath)) !=
+        DRFRONT_SUCCESS ||
+        drfront_char_to_tchar(mode, wmode, BUFFER_SIZE_ELEMENTS(wmode)) !=
+        DRFRONT_SUCCESS)
+        return NULL;
+    return _tfopen(wpath, wmode);
+#else
+    return fopen(path, mode);
+#endif
+}
+
 static char tool_list[MAXIMUM_PATH];
 
 static void
@@ -365,8 +382,7 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
     _snprintf(list_file, BUFFER_SIZE_ELEMENTS(list_file),
               "%s/tools/list%s", dr_root, arch);
     NULL_TERMINATE_BUFFER(list_file);
-    /* XXX i#943: we need to use _tfopen() on windows */
-    f = fopen(list_file, "r");
+    f = fopen_utf8(list_file, "r");
     if (f == NULL) {
         /* no visible error: we only expect to have a list for a package build */
         return;
@@ -446,13 +462,10 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64/release/libdrpreload.dylib",
         "lib64/release/libdynamorio.dylib"
 #else /* LINUX */
-        "lib32/debug/libdrpreload.so",
+        /* With early injection the default, we don't require preload to exist. */
         "lib32/debug/libdynamorio.so",
-        "lib32/release/libdrpreload.so",
         "lib32/release/libdynamorio.so",
-        "lib64/debug/libdrpreload.so",
         "lib64/debug/libdynamorio.so",
-        "lib64/release/libdrpreload.so",
         "lib64/release/libdynamorio.so"
 #endif
     };
@@ -473,12 +486,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
      * (warnings can also be suppressed via -quiet)
      */
     _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", dr_root, "CMakeCache.txt");
-    if (file_exists(buf))
+    if (does_file_exist(buf))
         nowarn = true;
 
     for (i=0; i<BUFFER_SIZE_ELEMENTS(checked_files); i++) {
         _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", dr_root, checked_files[i]);
-        if (!file_exists(buf)) {
+        if (!does_file_exist(buf)) {
             ok = false;
             if (!nocheck &&
                 ((preinject && strstr(checked_files[i], "drpreinject")) ||
@@ -516,7 +529,7 @@ bool register_proc(const char *process,
     dr_config_status_t status;
 
     assert(dr_root != NULL);
-    if (!file_exists(dr_root)) {
+    if (!does_file_exist(dr_root)) {
         error("cannot access DynamoRIO root directory %s", dr_root);
         return false;
     }
@@ -561,6 +574,9 @@ bool register_proc(const char *process,
                 dr_get_config_dir(global, true/*tmp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
                 error("process %s registration failed: check config dir %s permissions",
                       process == NULL ? "<null>" : process, buf);
+#ifdef ANDROID
+                error("for Android apps, set TMPDIR to /data/data/com.your.app");
+#endif
             } else {
                 error("process %s registration failed",
                       process == NULL ? "<null>" : process);
@@ -577,7 +593,7 @@ bool register_proc(const char *process,
 /* Check if the specified client library actually exists. */
 void check_client_lib(const char *client_lib)
 {
-    if (!file_exists(client_lib)) {
+    if (!does_file_exist(client_lib)) {
         warn("%s does not exist", client_lib);
     }
 }
@@ -689,7 +705,7 @@ list_process(char *name, bool global, dr_platform_t platform,
 static void
 write_pid_to_file(const char *pidfile, process_id_t pid)
 {
-    FILE *f = fopen(pidfile, "w");
+    FILE *f = fopen_utf8(pidfile, "w");
     if (f == NULL) {
         warn("cannot open %s: %d\n", pidfile, GetLastError());
     } else {
@@ -801,8 +817,7 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
               "%s/tools/%s.drrun%s", dr_root, toolname, arch);
     NULL_TERMINATE_BUFFER(config_file);
     info("reading tool config file %s", config_file);
-    /* XXX i#943: we need to use _tfopen() on windows */
-    f = fopen(config_file, "r");
+    f = fopen_utf8(config_file, "r");
     if (f == NULL) {
         error("cannot find tool config file %s", config_file);
         return false;
@@ -969,7 +984,8 @@ switch_to_native_tool(const char **app_argv, const char *native_tool,
 }
 #endif /* DRRUN */
 
-int main(int argc, char *argv[])
+int
+_tmain(int argc, TCHAR *targv[])
 {
     char *dr_root = NULL;
     char client_paths[MAX_CLIENT_LIBS][MAXIMUM_PATH];
@@ -1012,6 +1028,7 @@ int main(int argc, char *argv[])
     bool syswide_off = false;
 #endif /* WINDOWS */
     bool global = false;
+    int exitcode;
 #if defined(DRRUN) || defined(DRINJECT)
     char *pidfile = NULL;
     bool showstats = false;
@@ -1020,14 +1037,13 @@ int main(int argc, char *argv[])
     bool inject = true;
     int limit = 0; /* in seconds */
     char *drlib_path = NULL;
-    int exitcode;
 # ifdef WINDOWS
     time_t start_time, end_time;
 # else
     bool use_ptrace = false;
     bool kill_group = false;
 # endif
-    char *app_name;
+    char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
     char custom_dll[MAXIMUM_PATH];
@@ -1049,6 +1065,17 @@ int main(int argc, char *argv[])
 #ifdef DRRUN
     void *tofree = NULL;
     bool configure = true;
+#endif
+    char **argv;
+    drfront_status_t sc;
+
+#if defined(WINDOWS) && !defined(_UNICODE)
+# error _UNICODE must be defined
+#else
+    /* Convert to UTF-8 if necessary */
+    sc = drfront_convert_args((const TCHAR **)targv, &argv, argc);
+    if (sc != DRFRONT_SUCCESS)
+        fatal("failed to process args: %d", sc);
 #endif
 
     memset(client_paths, 0, sizeof(client_paths));
@@ -1151,7 +1178,8 @@ int main(int argc, char *argv[])
         }
         else if (strcmp(argv[i], "-no_inject") == 0 ||
                  /* support old drinjectx param name */
-                 strcmp(argv[i], "-noinject") == 0) {
+                 strcmp(argv[i], "-noinject") == 0 ||
+                 strcmp(argv[i], "-static") == 0) {
             DR_dll_not_needed = true;
             inject = false;
             continue;
@@ -1222,7 +1250,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-logdir") == 0) {
             /* Accept this for compatibility with the old drrun shell script. */
             const char *dir = argv[++i];
-            if (!file_exists(dir))
+            if (!does_file_exist(dir))
                 usage(false, "-logdir %s does not exist", dir);
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
                              &extra_ops_sofar, "-logdir `%s`", dir);
@@ -1450,27 +1478,38 @@ int main(int argc, char *argv[])
 #endif
 
 #if defined(DRRUN) || defined(DRINJECT)
-    if (i >= argc)
-        usage(false, "%s", "no app specified");
-    app_name = argv[i++];
-    search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    NULL_TERMINATE_BUFFER(full_app_name);
-    if (full_app_name[0] == '\0') {
-        /* may need to append .exe, FIXME : other executable types */
-        char tmp_buf[MAXIMUM_PATH];
-        _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
-                  "%s%s", app_name, ".exe");
-        NULL_TERMINATE_BUFFER(tmp_buf);
-        search_env(tmp_buf, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
-    }
-    if (full_app_name[0] == '\0') {
-        /* last try */
-        get_absolute_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
+# ifdef DRRUN
+    /* Support no app if the tool has its own frontend, under the assumption
+     * it may have post-processing or other features.
+     */
+    if (i < argc || native_tool[0] == '\0') {
+# endif
+        if (i >= argc)
+            usage(false, "%s", "no app specified");
+        app_name = argv[i++];
+        search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
         NULL_TERMINATE_BUFFER(full_app_name);
+        if (full_app_name[0] == '\0') {
+            /* may need to append .exe, FIXME : other executable types */
+            char tmp_buf[MAXIMUM_PATH];
+            _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
+                      "%s%s", app_name, ".exe");
+            NULL_TERMINATE_BUFFER(tmp_buf);
+            search_env(tmp_buf, "PATH", full_app_name,
+                       BUFFER_SIZE_ELEMENTS(full_app_name));
+        }
+        if (full_app_name[0] == '\0') {
+            /* last try */
+            get_absolute_path(app_name, full_app_name,
+                              BUFFER_SIZE_ELEMENTS(full_app_name));
+            NULL_TERMINATE_BUFFER(full_app_name);
+        }
+        if (full_app_name[0] != '\0')
+            app_name = full_app_name;
+        info("targeting application: \"%s\"", app_name);
+# ifdef DRRUN
     }
-    if (full_app_name[0] != '\0')
-        app_name = full_app_name;
-    info("targeting application: \"%s\"", app_name);
+# endif
 
     /* note that we want target app name as part of cmd line
      * (hence &argv[i - 1])
@@ -1521,6 +1560,10 @@ int main(int argc, char *argv[])
     }
 
 #ifdef DRCONFIG
+    if (verbose) {
+        dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+        info("configuration directory is \"%s\"", buf);
+    }
     if (action == action_register) {
         if (!register_proc(process, 0, global, dr_root, dr_mode,
                            use_debug, dr_platform, extra_ops))
@@ -1618,11 +1661,13 @@ int main(int argc, char *argv[])
         }
     }
 # endif /* WINDOWS */
-    return 0;
+    exitcode = 0;
+    goto cleanup;
 #else /* DRCONFIG */
     if (!global) {
         /* i#939: attempt to work w/o any HOME/USERPROFILE by using a temp dir */
         dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
+        info("configuration directory is \"%s\"", buf);
     }
 # ifdef UNIX
     /* i#1676: detect whether under gdb */
@@ -1736,7 +1781,11 @@ int main(int argc, char *argv[])
 # endif
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
+# ifdef DRRUN
+        error("unable to inject: exec of |%s| failed", drlib_path);
+# else
         error("unable to inject: did you forget to run drconfig first?");
+# endif
         goto error;
     }
 
@@ -1780,13 +1829,7 @@ int main(int argc, char *argv[])
 
     if (exit0)
         exitcode = 0;
-
-    /* FIXME i#840: We can't actually match exit status on Linux perfectly
-     * since the kernel reserves most of the bits for signal codes.  At the
-     * very least, we should ensure if the app exits with a signal we exit
-     * non-zero.
-     */
-    return exitcode;
+    goto cleanup;
 
  error:
     /* we created the process suspended so if we later had an error be sure
@@ -1798,7 +1841,18 @@ int main(int argc, char *argv[])
     if (tofree != NULL)
         free(tofree);
 # endif
-    return 1;
+    exitcode = 1;
 #endif /* !DRCONFIG */
+
+ cleanup:
+    sc = drfront_cleanup_args(argv, argc);
+    if (sc != DRFRONT_SUCCESS)
+        fatal("failed to free memory for args: %d", sc);
+    /* FIXME i#840: We can't actually match exit status on Linux perfectly
+     * since the kernel reserves most of the bits for signal codes.  At the
+     * very least, we should ensure if the app exits with a signal we exit
+     * non-zero.
+     */
+    return exitcode;
 }
 

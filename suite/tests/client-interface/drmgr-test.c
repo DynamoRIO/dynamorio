@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,8 @@ static char table[2] = {'A', 'B'};
 #include <windows.h>
 #include <stdio.h>
 
-static bool thread_ready = false;
-static bool past_crash = false;
+static volatile bool thread_ready = false;
+static volatile bool past_crash = false;
 static uint last_received = 0;
 static HWND hwnd;
 static uint msgdata;

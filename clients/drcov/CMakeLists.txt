@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,32 +33,16 @@ cmake_minimum_required(VERSION 2.6)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-option(CBR_COVERAGE "build with conditional branch coverage checks" OFF)
-if (CBR_COVERAGE)
-  add_definitions(-DCBR_COVERAGE)
-endif(CBR_COVERAGE)
-
 # We do not need libc, and we avoid a 10x size increase in both our
 # dll and pdb (plus we avoid stressing private library isolation) by
 # not using it (i#714).
 set(DynamoRIO_USE_LIBC OFF)
 
 # add drcov client
-if (STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
-add_library(drcov ${libtype}
-  drcov.c
-  ../common/modules.c
-  # add more here
-  )
+add_library(drcov SHARED drcov.c)
 configure_DynamoRIO_client(drcov)
-use_DynamoRIO_extension(drcov drmgr)
+use_DynamoRIO_extension(drcov drcovlib)
 use_DynamoRIO_extension(drcov drx)
-use_DynamoRIO_extension(drcov drcontainers)
 # We keep our shared libs in the lib dir, not the bin dir:
 place_shared_lib_in_lib_dir(drcov)
 
@@ -84,6 +68,7 @@ configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
 use_DynamoRIO_extension(drcov2lcov droption)
+use_DynamoRIO_extension(drcov2lcov drcovlib_static)
 target_link_libraries(drcov2lcov drfrontendlib)
 
 if (ANDROID)
@@ -156,6 +141,12 @@ write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")
+
+# We provide a version of genhtml that has Windows support
+DR_install(FILES "${PROJECT_SOURCE_DIR}/third_party/lcov/genhtml"
+  DESTINATION ${INSTALL_CLIENTS_BIN}
+  PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE)
 
 ##################################################
 # Documentation

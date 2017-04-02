@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 /*
- * os_exports.h - Linux specific exported declarations
+ * os_exports.h - UNIX-specific exported declarations
  */
 
 #ifndef _OS_EXPORTS_H_
@@ -44,11 +44,7 @@
 
 #include <stdarg.h>
 #include "../os_shared.h"
-#ifdef MACOS
-#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
-#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
-#  include <ucontext.h>
-#endif
+#include "os_public.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 # define getpid getpid_forbidden_use_get_process_id
@@ -87,12 +83,18 @@
 #  define LIB_SEG_TLS SEG_GS /* libc+loader tls */
 #  define LIB_ASM_SEG "%gs"
 # endif
-#elif defined(ARM)
+#elif defined(AARCHXX)
+/* The SEG_TLS is not preserved by all kernels (older 32-bit, or all 64-bit), so we
+ * end up having to steal the app library TPID register for priv lib use.
+ * When in DR state, we steal a field inside the priv lib TLS to store the DR base.
+ * When in app state in the code cache, we steal a GPR (r10 by default) to store
+ * the DR base.
+ */
 # ifdef X64
-#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO */
+#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO, but we can't use it */
 #  define LIB_SEG_TLS  DR_REG_TPIDR_EL0   /* DR_REG_TPIDRURW, libc+loader tls */
 # else
-#  define SEG_TLS      DR_REG_TPIDRURW
+#  define SEG_TLS      DR_REG_TPIDRURW /* not restored by older kernel => we can't use */
 #  define LIB_SEG_TLS  DR_REG_TPIDRURO /* libc+loader tls */
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
@@ -100,24 +102,43 @@
 #define TLS_REG_LIB  LIB_SEG_TLS  /* TLS reg commonly used by libraries in Linux */
 #define TLS_REG_ALT  SEG_TLS      /* spare TLS reg, used by DR in X86 Linux */
 
-#define DR_REG_SYSNUM IF_X86_ELSE(REG_EAX/* not XAX */, DR_REG_R7)
+#ifdef X86
+# define DR_REG_SYSNUM REG_EAX /* not XAX */
+#elif defined(ARM)
+# define DR_REG_SYSNUM DR_REG_R7
+#elif defined(AARCH64)
+# define DR_REG_SYSNUM DR_REG_X8
+#else
+# error NYI
+#endif
 
-#ifdef ARM
-# ifdef X64
-#  error NYI on AArch64
-# endif
+#ifdef AARCHXX
+# ifdef ANDROID
+/* We have our own slot at the end of our instance of Android's pthread_internal_t.
+ * However, its offset varies by Android version, requiring indirection through
+ * a variable.
+ */
+#  ifdef AARCH64
+#   error NYI
+#  else
+extern uint android_tls_base_offs;
+#   define DR_TLS_BASE_OFFSET  android_tls_base_offs
+#  endif
+# else
 /* The TLS slot for DR's TLS base.
- * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base.
- * typedef struct
- * {
- *   dtv_t *dtv;
- *   void *private;
- * } tcbhead_t;
- * When using private loader, we control all the TLS allocation and
+ * On ARM, we use the 'private' field of the tcbhead_t to store DR TLS base,
+ * as we can't use the alternate TLS register b/c the kernel doesn't preserve it.
+ *   typedef struct
+ *   {
+ *     dtv_t *dtv;
+ *     void *private;
+ *   } tcbhead_t;
+ * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
  */
-# define DR_TLS_BASE_OFFSET   IF_X64_ELSE(8, 4) /* skip dtv */
+#  define DR_TLS_BASE_OFFSET   IF_X64_ELSE(8, 4) /* skip dtv */
+# endif
 /* opcode for reading usr mode TLS base (user-read-only-thread-ID-register)
  * mrc p15, 0, reg_app, c13, c0, 3
  */
@@ -138,11 +159,14 @@ thread_id_t get_tls_thread_id(void);
 thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
+void os_wait_thread_detached(dcontext_t *dcontext);
+void os_signal_thread_detach(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
 /* XXX: reg_id_t is not defined here, use ushort instead */
 ushort os_get_app_tls_base_offset(ushort/*reg_id_t*/ seg);
 ushort os_get_app_tls_reg_offset(ushort/*reg_id_t*/ seg);
 void *os_get_app_tls_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+void os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 
 #ifdef DEBUG
 void os_enter_dynamorio(void);
@@ -168,7 +192,15 @@ int get_libc_errno(void);
 void set_libc_errno(int val);
 
 /* i#46: Our env manipulation routines. */
+#ifdef STATIC_LIBRARY
+/* For STATIC_LIBRARY, we want to support the app setting DYNAMORIO_OPTIONS
+ * after our constructor ran: thus we do not want to cache the environ pointer.
+ */
+extern char **environ;
+# define our_environ environ
+#else
 extern char **our_environ;
+#endif
 void dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 /* drinjectlib wants the libc version while the core wants the private version */
@@ -202,7 +234,7 @@ bool disable_env(const char *name);
 #  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
-# elif defined(ARM)
+# elif defined(AARCHXX)
 #  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\""); \
      asm(".align 12"); /* 2^12 */
@@ -226,7 +258,7 @@ bool disable_env(const char *name);
      asm(".section .data"); \
      asm(".align 0x1000"); \
      asm(".text");
-# elif defined(ARM)
+# elif defined(AARCHXX)
 #  define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
      asm(".align 12"); \
@@ -256,6 +288,8 @@ extern app_pc vsyscall_page_start;
 extern app_pc vsyscall_syscall_end_pc;
 /* pc where kernel returns control after sysenter vsyscall */
 extern app_pc vsyscall_sysenter_return_pc;
+/* pc where our hook-displaced code was copied */
+extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
 bool is_thread_create_syscall(dcontext_t *dcontext);
@@ -270,9 +304,6 @@ void
 os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
 void init_emulated_brk(app_pc exe_end);
-
-/* in arch.c */
-bool unhook_vsyscall(void);
 
 /***************************************************************************/
 /* in signal.c */
@@ -320,19 +351,6 @@ void receive_pending_signal(dcontext_t *dcontext);
 bool is_signal_restorer_code(byte *pc, size_t *len);
 bool is_currently_on_sigaltstack(dcontext_t *dcontext);
 
-#ifdef MACOS
-/* mcontext_t is a pointer and we want the real thing */
-/* We need room for avx.  If we end up with !YMM_ENABLED() we'll just end
- * up wasting some space in synched thread allocations.
- */
-#  ifdef X64
-typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
-#  else
-typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
-#  endif
-#else
-typedef struct sigcontext sigcontext_t;
-#endif
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
 #define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(sigcontext_t))
 
@@ -345,69 +363,6 @@ typedef struct _sig_full_cxt_t {
     void *fp_simd_state;
 } sig_full_cxt_t;
 
-/* cross-platform sigcontext_t field access */
-#ifdef MACOS
-/* We're using _XOPEN_SOURCE >= 600 so we have __DARWIN_UNIX03 and thus leading __: */
-# define SC_FIELD(name) __ss.__##name
-#else
-# define SC_FIELD(name) name
-#endif
-#ifdef X86
-# ifdef X64
-#  define SC_XIP SC_FIELD(rip)
-#  define SC_XAX SC_FIELD(rax)
-#  define SC_XCX SC_FIELD(rcx)
-#  define SC_XDX SC_FIELD(rdx)
-#  define SC_XBX SC_FIELD(rbx)
-#  define SC_XSP SC_FIELD(rsp)
-#  define SC_XBP SC_FIELD(rbp)
-#  define SC_XSI SC_FIELD(rsi)
-#  define SC_XDI SC_FIELD(rdi)
-#  ifdef MACOS
-#   define SC_XFLAGS SC_FIELD(rflags)
-#  else
-#   define SC_XFLAGS SC_FIELD(eflags)
-#  endif
-# else /* 32-bit */
-#  define SC_XIP SC_FIELD(eip)
-#  define SC_XAX SC_FIELD(eax)
-#  define SC_XCX SC_FIELD(ecx)
-#  define SC_XDX SC_FIELD(edx)
-#  define SC_XBX SC_FIELD(ebx)
-#  define SC_XSP SC_FIELD(esp)
-#  define SC_XBP SC_FIELD(ebp)
-#  define SC_XSI SC_FIELD(esi)
-#  define SC_XDI SC_FIELD(edi)
-#  define SC_XFLAGS SC_FIELD(eflags)
-# endif /* 64/32-bit */
-# define SC_FP SC_XBP
-# define SC_SYSNUM_REG SC_XAX
-#elif defined(ARM)
-# ifdef X64
-   /* FIXME i#1569: NYI */
-#  error 64-bit ARM is not supported
-# else
-#  define SC_XIP SC_FIELD(arm_pc)
-#  define SC_FP  SC_FIELD(arm_fp)
-#  define SC_R0  SC_FIELD(arm_r0)
-#  define SC_R1  SC_FIELD(arm_r1)
-#  define SC_R2  SC_FIELD(arm_r2)
-#  define SC_R3  SC_FIELD(arm_r3)
-#  define SC_R4  SC_FIELD(arm_r4)
-#  define SC_R5  SC_FIELD(arm_r5)
-#  define SC_R6  SC_FIELD(arm_r6)
-#  define SC_R7  SC_FIELD(arm_r7)
-#  define SC_R8  SC_FIELD(arm_r8)
-#  define SC_R9  SC_FIELD(arm_r9)
-#  define SC_R10 SC_FIELD(arm_r10)
-#  define SC_R11 SC_FIELD(arm_fp)
-#  define SC_R12 SC_FIELD(arm_ip)
-#  define SC_XSP SC_FIELD(arm_sp)
-#  define SC_LR  SC_FIELD(arm_lr)
-#  define SC_XFLAGS SC_FIELD(arm_cpsr)
-#  define SC_SYSNUM_REG SC_R7
-# endif /* 64/32-bit */
-#endif /* X86/ARM */
 void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,
@@ -428,12 +383,14 @@ get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
 
-#ifdef ARM
+#ifdef AARCHXX
 reg_t
 get_clone_record_stolen_value(void *record);
 
+# ifndef AARCH64
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
+# endif
 
 void
 set_thread_register_from_clone_record(void *record);
@@ -442,10 +399,17 @@ void
 set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
 
+void
+os_clone_post(dcontext_t *dcontext);
+
 app_pc
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record);
+
 void
 signal_fork_init(dcontext_t *dcontext);
+
+void
+signal_remove_alarm_handlers(dcontext_t *dcontext);
 
 bool
 set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,

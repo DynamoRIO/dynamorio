@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -387,12 +387,18 @@ instr_is_return(instr_t *instr)
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
 bool
-instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
+opc_is_cbr_arch(int opc)
 {
-    int opc = instr->opcode; /* caller ensures opcode is valid */
     return ((opc >= OP_jo && opc <= OP_jnle) ||
             (opc >= OP_jo_short && opc <= OP_jnle_short) ||
             (opc >= OP_loopne && opc <= OP_jecxz));
+}
+
+bool
+instr_is_cbr_arch(instr_t *instr)      /* conditional branch */
+{
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    return opc_is_cbr_arch(opc);
 }
 
 bool
@@ -612,19 +618,30 @@ instr_is_wow64_syscall(instr_t *instr)
         opnd_t tgt;
         app_pc xl8;
         uint imm;
+        byte opbyte;
         /* We can't just compare to wow64_syscall_call_tgt b/c there are copies
          * in {ntdll,kernelbase,kernel32,user32,gdi32}!Wow64SystemServiceCall.
-         * They are all identical and we perform a hardcoded pattern match.
+         * They are all identical and we could perform a hardcoded pattern match,
+         * but that is fragile across updates (it broke in 1511 and again in 1607).
+         * Instead we just look for "mov edx,imm; call edx; ret" and we assume
+         * that will never happen in regular code.
          * XXX: should we instead consider treating the far jmp as the syscall, and
          * putting in hooks on the return paths in wow64cpu!RunSimulatedCode()
          * (might be tricky b/c we'd have to decode 64-bit code), or changing
          * the return addr?
          */
+#ifdef DEBUG
+        /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
             0x64,0x8b,0x15,0x30,0x00,0x00,0x00,  /* mov edx,dword ptr fs:[30h] */
-            0x8b,0x92,0x54,0x02,0x00,0x00        /* mov edx,dword ptr [edx+254h] */
+            /* The offset here varies across updates so we do do not check it */
+            0x8b,0x92,                           /* mov edx,dword ptr [edx+254h] */
+        };
+        static const byte WOW64_SYSSVC_1609[] = {
+            0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
+#endif
         if (instr_get_opcode(instr) != OP_call_ind)
             return false;
         tgt = instr_get_target(instr);
@@ -634,9 +651,30 @@ instr_is_wow64_syscall(instr_t *instr)
         xl8 = get_app_instr_xl8(instr);
         if (xl8 == NULL)
             return false;
-        return (safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
-                safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
-                memcmp(tgt_code, WOW64_SYSSVC, sizeof(tgt_code)) == 0);
+        if (/* Is the "call edx" followed by a "ret"? */
+            safe_read(xl8 + CTI_IND1_LENGTH, sizeof(opbyte), &opbyte) &&
+            (opbyte == RET_NOIMM_OPCODE || opbyte == RET_IMM_OPCODE) &&
+            /* Is the "call edx" preceded by a "mov imm into edx"? */
+            safe_read(xl8 - sizeof(imm) - 1, sizeof(opbyte), &opbyte) &&
+            opbyte == MOV_IMM_EDX_OPCODE) {
+            /* Slightly worried: let's at least have some kind of marker a user
+             * could see to make it easier to diagnose problems.
+             * It's a tradeoff: less likely to break in a future update, but
+             * more likely to mess up an app with unusual code.
+             * We could also check whether in a system dll but we'd need to
+             * cache the bounds of multiple libs.
+             */
+            ASSERT_CURIOSITY(safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
+                             (safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code),
+                                        tgt_code) &&
+                              memcmp(tgt_code, WOW64_SYSSVC, sizeof(tgt_code)) == 0) ||
+                             (safe_read((app_pc)(ptr_uint_t)imm,
+                                        sizeof(WOW64_SYSSVC_1609), tgt_code) &&
+                              memcmp(tgt_code, WOW64_SYSSVC_1609,
+                                     sizeof(WOW64_SYSSVC_1609)) == 0));
+            return true;
+        } else
+            return false;
     }
 # endif /* STANDALONE_DECODER */
 }
@@ -1626,7 +1664,7 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
      * then we'll have to hook into encode's size resolution to resolve all
      * operands with each other's constraints at the instr level before coming here.
      */
-    IF_X86_X64(di.x86_mode = false);
+    IF_X86_64(di.x86_mode = false);
     di.prefixes = 0;
     s1_default = resolve_variable_size(&di, s1, is_reg);
     s2_default = resolve_variable_size(&di, s2, is_reg);

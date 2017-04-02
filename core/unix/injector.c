@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,10 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#if defined(LINUX) && defined(AARCH64)
+# include <linux/ptrace.h> /* for struct user_pt_regs */
+#endif
+#include <sys/uio.h> /* for struct iovec */
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -79,15 +83,27 @@
 # include <crt_externs.h> /* _NSGetEnviron() */
 #endif
 
+/* i#1925: we need to support executing a shell script so we distinguish a
+ * non-image from a not-found or unreadable file.
+ */
+typedef enum {
+    PLATFORM_SUCCESS,
+    PLATFORM_ERROR_CANNOT_OPEN,
+    PLATFORM_UNKNOWN,
+} platform_status_t;
+
 #ifdef MACOS
 /* The type is just "int", and the values are different, so we use the Linux
  * type name to match the Linux constant names.
  */
+# ifndef PT_ATTACHEXC /* New replacement for PT_ATTACH */
+#  define PT_ATTACHEXC PT_ATTACH
+# endif
 enum __ptrace_request {
     PTRACE_TRACEME     = PT_TRACE_ME,
     PTRACE_CONT        = PT_CONTINUE,
     PTRACE_KILL        = PT_KILL,
-    PTRACE_ATTACH      = PT_ATTACH,
+    PTRACE_ATTACH      = PT_ATTACHEXC,
     PTRACE_DETACH      = PT_DETACH,
     PTRACE_SINGLESTEP  = PT_STEP,
 };
@@ -333,9 +349,10 @@ fork_suspended_child(const char *exe, dr_inject_info_t *info, int fds[2])
             pre_execve_early(info, exe);
             real_exe = arg;
         }
-#ifdef STATIC_LIBRARY
+        /* Trigger automated takeover in case DR is statically linked (yes
+         * we blindly do this rather than try to pass in a parameter).
+         */
         setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
         execute_exec(info, real_exe);
         /* If execv returns, there was an error. */
         exit(-1);
@@ -410,14 +427,20 @@ create_inject_info(const char *exe, const char **argv)
     return info;
 }
 
-static bool
+static platform_status_t
 module_get_platform_path(const char *exe_path, dr_platform_t *platform,
                          dr_platform_t *alt_platform)
 {
     file_t fd = os_open(exe_path, OS_OPEN_READ);
-    bool res = false;
-    if (fd != INVALID_FILE) {
-        res = module_get_platform(fd, platform, alt_platform);
+    platform_status_t res = PLATFORM_SUCCESS;
+    if (fd == INVALID_FILE)
+        res = PLATFORM_ERROR_CANNOT_OPEN;
+    else {
+        if (!module_get_platform(fd, platform, alt_platform)) {
+            /* It may be a shell script so we try it. */
+            res = PLATFORM_UNKNOWN;
+            *platform = IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT);
+        }
         os_close(fd);
     }
     return res;
@@ -427,11 +450,12 @@ static bool
 exe_is_right_bitwidth(const char *exe, int *errcode)
 {
     dr_platform_t platform, alt_platform;
-    if (!module_get_platform_path(exe, &platform, &alt_platform)) {
+    if (module_get_platform_path(exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN) {
         *errcode = errno;
         if (*errcode == 0)
             *errcode = ESRCH;
-        return false;
+        return true;//false;
     }
     /* Check if the executable is the right bitwidth and set errcode to be
      * special code WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE if not.
@@ -461,7 +485,8 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
 
 #if defined(MACOS) && !defined(X64)
     dr_platform_t platform, alt_platform;
-    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
+    if (module_get_platform_path(info->exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN)
         return false; /* couldn't read header */
     if (platform == DR_PLATFORM_64BIT) {
         /* The target app is a universal binary and we're on a 64-bit kernel,
@@ -517,9 +542,8 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
     info->method = INJECT_LD_PRELOAD;
-#ifdef STATIC_LIBRARY
+    /* Trigger automated takeover in case DR is statically linked. */
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
-#endif
     return errcode;
 }
 
@@ -597,7 +621,8 @@ dr_inject_process_inject(void *data, bool force_injection,
     char dr_ops[MAX_OPTIONS_STRING];
     dr_platform_t platform, alt_platform;
 
-    if (!module_get_platform_path(info->exe, &platform, &alt_platform))
+    if (module_get_platform_path(info->exe, &platform, &alt_platform) ==
+        PLATFORM_ERROR_CANNOT_OPEN)
         return false; /* couldn't read header */
 
 #if defined(MACOS) && !defined(X64)
@@ -788,7 +813,6 @@ enum { MAX_SHELL_CODE = 4096 };
 # define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
 # define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
 #elif defined(ARM)
-# ifndef X64
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
  * struct user_regs {
  *   unsigned long int uregs[18];
@@ -797,14 +821,16 @@ enum { MAX_SHELL_CODE = 4096 };
  * - uregs[16] is for cpsr,
  * - uregs[17] is for "orig_r0".
  */
-#  define USER_REGS_TYPE user_regs
-#  define REG_PC_FIELD uregs[15] /* r15 in user_regs */
-#  define REG_SP_FIELD uregs[13] /* r13 in user_regs */
+# define USER_REGS_TYPE user_regs
+# define REG_PC_FIELD uregs[15] /* r15 in user_regs */
+# define REG_SP_FIELD uregs[13] /* r13 in user_regs */
 /* On ARM, all reg args are also reg retvals. */
-#  define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
-# else
-#  error AArch64 is not supported
-# endif
+# define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
+#elif defined(AARCH64)
+# define USER_REGS_TYPE user_pt_regs
+# define REG_PC_FIELD pc
+# define REG_SP_FIELD sp
+# define REG_RETVAL_FIELD regs[0] /* x0 in user_regs_struct */
 #endif
 
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
@@ -837,14 +863,18 @@ static const enum_name_pair_t pt_req_map[] = {
     {PTRACE_CONT,           "PTRACE_CONT"},
     {PTRACE_KILL,           "PTRACE_KILL"},
     {PTRACE_SINGLESTEP,     "PTRACE_SINGLESTEP"},
+#ifndef AARCH64
     {PTRACE_GETREGS,        "PTRACE_GETREGS"},
     {PTRACE_SETREGS,        "PTRACE_SETREGS"},
     {PTRACE_GETFPREGS,      "PTRACE_GETFPREGS"},
     {PTRACE_SETFPREGS,      "PTRACE_SETFPREGS"},
+#endif
     {PTRACE_ATTACH,         "PTRACE_ATTACH"},
     {PTRACE_DETACH,         "PTRACE_DETACH"},
+#ifndef AARCH64
     {PTRACE_GETFPXREGS,     "PTRACE_GETFPXREGS"},
     {PTRACE_SETFPXREGS,     "PTRACE_SETFPXREGS"},
+#endif
     {PTRACE_SYSCALL,        "PTRACE_SYSCALL"},
     {PTRACE_SETOPTIONS,     "PTRACE_SETOPTIONS"},
     {PTRACE_GETEVENTMSG,    "PTRACE_GETEVENTMSG"},
@@ -881,6 +911,34 @@ our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
     return r;
 }
 #define ptrace DO_NOT_USE_ptrace_USE_our_ptrace
+
+/* We use these wrappers because PTRACE_GETREGS and PTRACE_SETREGS are not
+ * present on all architectures, while the alternatives, PTRACE_GETREGSET
+ * and PTRACE_SETREGSET, are present only since Linux 2.6.34.
+ * Red Hat Enterprise 6.6 has Linux 2.6.32.
+ */
+
+static long
+our_ptrace_getregs(pid_t pid, struct USER_REGS_TYPE *regs)
+{
+#ifdef AARCH64
+    struct iovec iovec = { regs, sizeof(*regs) };
+    return our_ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
+#else
+    return our_ptrace(PTRACE_GETREGS, pid, NULL, regs);
+#endif
+}
+
+static long
+our_ptrace_setregs(pid_t pid, struct USER_REGS_TYPE *regs)
+{
+#ifdef AARCH64
+    struct iovec iovec = { regs, sizeof(*regs) };
+    return our_ptrace(PTRACE_SETREGSET, pid, (void *)NT_PRSTATUS, &iovec);
+#else
+    return our_ptrace(PTRACE_SETREGS, pid, NULL, regs);
+#endif
+}
 
 /* Copies memory from traced process into parent.
  */
@@ -1043,7 +1101,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     ptr_int_t failure = -EUNATCH;  /* Unlikely to be used by most syscalls. */
 
     /* Get register state before executing the shellcode. */
-    r = our_ptrace(PTRACE_GETREGS, info->pid, NULL, &regs);
+    r = our_ptrace_getregs(info->pid, &regs);
     if (r < 0)
         return r;
 
@@ -1092,7 +1150,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     /* Put back original code and registers. */
     if (!ptrace_write_memory(info->pid, pc, orig_code, code_size))
         return failure;
-    r = our_ptrace(PTRACE_SETREGS, info->pid, NULL, &regs);
+    r = our_ptrace_setregs(info->pid, &regs);
     if (r < 0)
         return r;
 
@@ -1108,11 +1166,18 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
     gen_push_string(dc, ilist, path);
+#ifndef SYS_open
+    args[num_args++] = OPND_CREATE_INTPTR(AT_FDCWD);
+#endif
     args[num_args++] = OPND_CREATE_MEMPTR(REG_XSP, 0);
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
+#ifdef SYS_open
     gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_open), num_args, args);
+#else
+    gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_openat), num_args, args);
+#endif
     return injectee_run_get_retval(info, dc, ilist);
 }
 
@@ -1253,9 +1318,6 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->edi = regs->edi;
 # endif
 #elif defined(ARM)
-# ifdef X64
-#  error AArch64 is not supported
-# else
     mc->r0  = regs->uregs[0];
     mc->r1  = regs->uregs[1];
     mc->r2  = regs->uregs[2];
@@ -1273,7 +1335,8 @@ user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
     mc->r14 = regs->uregs[14];
     mc->r15 = regs->uregs[15];
     mc->cpsr = regs->uregs[16];
-# endif /* 64/32-bit */
+#elif defined(AARCH64)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #endif /* X86/ARM */
 }
 
@@ -1378,7 +1441,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injectee_dr_fd = dr_fd;
     injected_base = elf_loader_map_phdrs(&loader, true/*fixed*/,
                                          injectee_map_file, injectee_unmap,
-                                         injectee_prot, false/*!reachable*/);
+                                         injectee_prot, 0/*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");
@@ -1391,7 +1454,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injected_dr_start = (app_pc) loader.ehdr->e_entry + loader.load_delta;
     elf_loader_destroy(&loader);
 
-    our_ptrace(PTRACE_GETREGS, info->pid, NULL, &regs);
+    our_ptrace_getregs(info->pid, &regs);
 
     /* Create an injection context and "push" it onto the stack of the injectee.
      * If you need to pass more info to the injected child process, this is a
@@ -1408,7 +1471,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#if defined(X86) || defined(ARM)
+#if defined(X86) || defined(AARCHXX)
     regs.REG_SP_FIELD -= REDZONE_SIZE;  /* Need to preserve x64 red zone. */
     regs.REG_SP_FIELD -= sizeof(args);  /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);
@@ -1419,7 +1482,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 #endif
 
     regs.REG_PC_FIELD = (ptr_int_t) injected_dr_start;
-    our_ptrace(PTRACE_SETREGS, info->pid, NULL, &regs);
+    our_ptrace_setregs(info->pid, &regs);
 
     if (op_exec_gdb) {
         detach_and_exec_gdb(info->pid, library_path);

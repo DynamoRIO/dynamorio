@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -381,13 +381,13 @@ enum {
     TYPE_VAR_REGX_EX, /* like TYPE_VAR_REGX but extendable.  used for bswap. */
     TYPE_INDIR_E,
     TYPE_INDIR_REG,
-    TYPE_INDIR_VAR_XREG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_XREG, /* indirected register that only varies by stack segment,
                           * with a base of 32/64 depending on the mode;
                           * indirected size varies with data prefix */
-    TYPE_INDIR_VAR_REG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_REG, /* indirected register that only varies by stack segment,
                          * with a base of 32/64;
                          * indirected size varies with data and rex prefixes */
-    TYPE_INDIR_VAR_XIREG, /* indirected register that varies (by addr prefix),
+    TYPE_INDIR_VAR_XIREG, /* indirected register that only varies by stack segment,
                            * with a base of 32/64 depending on the mode;
                            * indirected size varies w/ data prefix, except 64-bit Intel */
     TYPE_INDIR_VAR_XREG_OFFS_1, /* TYPE_INDIR_VAR_XREG but with an offset of
@@ -438,6 +438,9 @@ opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
 int indir_var_reg_offs_factor(int optype);
 opnd_size_t expand_subreg_size(opnd_size_t sz);
 dr_pred_type_t decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
+
+/* in instr.c, not exported to non-x86 files */
+bool opc_is_cbr_arch(int opc);
 
 /* exported tables */
 extern const instr_info_t first_byte[];

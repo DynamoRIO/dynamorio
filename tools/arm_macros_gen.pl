@@ -447,6 +447,10 @@ foreach my $opc (keys %entry) {
         } elsif ($opc eq 'OP_msr' && $sig =~ /\bimm2$/) {
             # Distinguished by immed
             $name .= "_imm";
+        } elsif (($opc eq 'OP_msr_priv' || $opc eq 'OP_mrs_priv') &&
+                 $sig =~ /\bstatreg\b/) {
+            # Distinguished by immed
+            $name .= "_spsr";
         } elsif ($opc =~ /OP_cpsi/ && $sig =~ /\bimm.*\bimm/) {
             $name .= "_noflags";
         } elsif ($opc =~ /OP_vmov_32$/) {

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,29 @@ function (append_property_list type target name value)
   endif (cur)
   set_property(${type} ${target} PROPERTY ${name} ${value})
 endfunction (append_property_list)
+
+function (get_target_path_for_execution out target)
+  if (ANDROID)
+    DynamoRIO_get_target_path_for_execution(local ${target} ${DR_DEVICE_BASEDIR})
+  else ()
+    DynamoRIO_get_target_path_for_execution(local ${target} "")
+  endif ()
+  set(${out} ${local} PARENT_SCOPE)
+endfunction (get_target_path_for_execution)
+
+function (prefix_cmd_if_necessary cmd_out use_ats cmd_in)
+  DynamoRIO_prefix_cmd_if_necessary(local ${use_ats} ${cmd_in} ${ARGN})
+  set(${cmd_out} ${local} PARENT_SCOPE)
+endfunction (prefix_cmd_if_necessary)
+
+# i#1873: we copy individual targets for speed, using up less space, and to
+# support "make test" as well as a much nicer rebuild-and-rerun dev model,
+# rather than a massive "adb push" at the very end of the build.
+function (copy_target_to_device target)
+  if (DR_COPY_TO_DEVICE)
+    DynamoRIO_copy_target_to_device(${target} ${DR_DEVICE_BASEDIR})
+  endif ()
+endfunction (copy_target_to_device)
 
 function (add_rel_rpaths target)
   DynamoRIO_add_rel_rpaths(${target} ${ARGN})
@@ -140,6 +163,12 @@ if (UNIX)
   # XXX: this is duplicated in DynamoRIOConfig.cmake
 
   function (set_preferred_base_start_and_end target base set_bounds)
+    if (ANDROID)
+      # i#1863: Android's loader doesn't support a non-zero base.
+      # Turning off SET_PREFERRED_BASE is not sufficient as we get
+      # a 0x10000 base.
+      set(base 0)
+    endif ()
     if (APPLE)
       set(ldflags "-image_base ${base}")
     elseif (NOT LINKER_IS_GNU_GOLD)
@@ -178,8 +207,9 @@ if (UNIX)
       endif ()
     endif ()
     if (ARM AND NOT set_bounds) # XXX: don't want for libDR: using "set_bounds" for now
-      # Somehow the entry point gets changed to ARM by using ldscript
-      set(ldflags "${ldflags} -Wl,--thumb-entry -Wl,_start")
+      # Somehow the entry point gets changed to A32 by using ldscript.
+      # Adding --entry causes the linker to set it to either A32 or T32 as appropriate.
+      set(ldflags "${ldflags} -Wl,--entry -Wl,_start")
     endif ()
     append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
   endfunction (set_preferred_base_start_and_end)

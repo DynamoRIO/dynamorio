@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,13 +53,25 @@
 # include <stdlib.h> /* abort */
 # include <errno.h>
 # include <signal.h>
+# ifdef MACOS
+#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
+#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
+# endif
 # include <ucontext.h>
 # include <unistd.h>
+# include "../../core/unix/os_public.h"
 #else
 # include <windows.h>
 # include <process.h> /* _beginthreadex */
+# include "../../core/win32/os_public.h"
 # define NTSTATUS DWORD
 # define NT_SUCCESS(status) (status >= 0)
+#endif
+
+#if defined(AARCH64) && SIGSTKSZ < 16384
+/* SIGSTKSZ was incorrectly defined in Linux releases before 4.3. */
+# undef SIGSTKSZ
+# define SIGSTKSZ 16384
 #endif
 
 #ifdef __cplusplus
@@ -81,9 +93,97 @@ extern "C" {
 # ifndef _DR_API_H_
 #  error "must include dr_api.h before tools.h"
 # endif
-#else
-# define PAGE_SIZE 0x00001000
 #endif
+
+#ifdef UNIX
+/* Forward decl for nanosleep. */
+struct timespec;
+
+bool find_dynamo_library(void);
+
+/* Staticly linked versions of libc routines that don't touch globals or errno.
+ */
+void nolibc_print(const char *str);
+void nolibc_print_int(int d);
+void nolibc_nanosleep(struct timespec *req);
+int  nolibc_strlen(const char *str);
+void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
+                off_t offset);
+int  nolibc_munmap(void *addr, size_t length);
+void nolibc_memset(void *dst, int val, size_t size);
+#endif
+
+/* Ignore any PAGE_SIZE provided by the tool chain. */
+#undef PAGE_SIZE
+#define PAGE_SIZE page_size()
+
+#ifdef UNIX
+/* This is a slightly simplified version of dr_page_size. Performance hardly matters
+ * here. We cannot use dr_page_size as this header is also used without DynamoRIO's API.
+ */
+
+/* Return true if size is a multiple of the page size. */
+static bool
+try_page_size(size_t size)
+{
+    byte *addr = (byte *)nolibc_mmap(NULL, size * 2,
+                                     PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if ((ptr_uint_t)addr >= (ptr_uint_t)-4096) /* mmap failed: should not happen */
+        return false;
+    if (nolibc_munmap(addr + size, size) == 0) {
+        /* munmap of top half succeeded: munmap bottom half and return true */
+        nolibc_munmap(addr, size);
+        return true;
+    }
+    /* munmap of top half failed: munmap whole region and return false */
+    nolibc_munmap(addr, size * 2);
+    return false;
+}
+
+/* Directly determine the granularity of memory allocation using mmap and munmap. */
+static size_t
+find_page_size(void)
+{
+    size_t size = 4096;
+    if (try_page_size(size)) {
+        /* Try smaller sizes. */
+        for (size /= 2; size > 0; size /= 2) {
+            if (!try_page_size(size))
+                return size * 2;
+        }
+    } else {
+        /* Try larger sizes. */
+        for (size *= 2; size * 2 > 0; size *= 2) {
+            if (try_page_size(size))
+                return size;
+        }
+    }
+    /* Something went wrong... */
+    return 4096;
+}
+#endif
+
+static size_t
+page_size(void)
+{
+#ifdef UNIX
+    static size_t cached_page_size = 0;
+    size_t size = cached_page_size; /* atomic read */
+    if (size == 0) {
+        size = find_page_size();
+        cached_page_size = size; /* atomic write */
+    }
+    return size;
+#else
+    /* FIXME i#1680: On Windows determine page size using system call. */
+    return 4096;
+#endif
+}
+
+/* Some tests want to define a static array that contains a whole page. This
+ * should be large enough.
+ */
+#define PAGE_SIZE_MAX (64 * 1024)
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
@@ -136,6 +236,12 @@ typedef enum {
          (~(((ptr_uint_t)alignment)-1)))
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
+#ifdef UNIX
+# ifndef MAP_ANONYMOUS
+#  define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
+# endif
+#endif
+
 #ifndef __cplusplus
 # ifndef true
 #  define true  (1)
@@ -150,44 +256,7 @@ typedef enum {
 static void VERBOSE_PRINT(const char *fmt, ...) {}
 #endif
 
-#ifdef WINDOWS
-/* FIXME: share w/ core/win32/os_exports.h */
-# ifdef X64
-#  define CXT_XIP Rip
-#  define CXT_XAX Rax
-#  define CXT_XCX Rcx
-#  define CXT_XDX Rdx
-#  define CXT_XBX Rbx
-#  define CXT_XSP Rsp
-#  define CXT_XBP Rbp
-#  define CXT_XSI Rsi
-#  define CXT_XDI Rdi
-#  define CXT_XFLAGS EFlags
-# else
-#  define CXT_XIP Eip
-#  define CXT_XAX Eax
-#  define CXT_XCX Ecx
-#  define CXT_XDX Edx
-#  define CXT_XBX Ebx
-#  define CXT_XSP Esp
-#  define CXT_XBP Ebp
-#  define CXT_XSI Esi
-#  define CXT_XDI Edi
-#  define CXT_XFLAGS EFlags
-# endif
-#endif
-
 #ifdef UNIX
-# ifdef ARM
-#  define SC_XIP arm_pc
-# else
-#  ifdef X64
-#   define SC_XIP rip
-#  else
-#   define SC_XIP eip
-#  endif
-# endif
-
 # define ASSERT_NOERR(rc) do {                                 \
     if (rc) {                                                  \
         print("%s:%d rc=%d errno=%d %s\n",                     \
@@ -223,13 +292,18 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 # define NOP asm("nop")
 # define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
 # ifdef X86
-#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
-# elif defined(ARM)
-/* Make sure to mark $lr as clobbered to avoid functions like
+#  ifdef MACOS
+#   define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #tgt)
+#  else
+#   define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+#  endif
+# elif defined(AARCHXX)
+/* Make sure to mark LR/X30 as clobbered to avoid functions like
  * client-interface/call-retarget.c:main() being interpreted as a leaf
- * function that does not need $lr preserved.
+ * function that does not need the link register preserved.
  */
-#  define NOP_NOP_CALL(tgt) asm("nop\n nop\n bl " #tgt : : : "lr")
+#  define NOP_NOP_CALL(tgt) \
+    asm("nop\n nop\n bl " #tgt : : : IF_ARM_ELSE("lr", "x30"))
 # endif
 #endif
 
@@ -250,12 +324,13 @@ int code_self_mod(int iters);
 int code_inc(int foo);
 int code_dec(int foo);
 int dummy(void);
-#ifdef ARM
-void flush_icache(byte *start, byte *end);
+#ifdef AARCHXX
+void tools_clear_icache(void *start, void *end);
 #endif
 
 /* This function implements a trampoline that portably gets its return address
- * and tail calls to its first argument, which is a function pointer.  All
+ * and calls its first argument, which is a function pointer, with a pointer
+ * to the return address substituted for the first argument.  All
  * other parameters are untouched.  It can be used like so:
  *
  * void bar(void);
@@ -270,6 +345,20 @@ void flush_icache(byte *start, byte *end);
  * that want to overwrite their return address.
  */
 int call_with_retaddr(void *func, ...);
+
+/* This function implements a trampoline that portably gets its return address
+ * and tailcalls to its first argument, which is a function pointer, with the
+ * return address substituted for the first argument.  All
+ * other parameters are untouched.  It can be used like so:
+ *
+ * void foo(void *myretaddr, int num) {
+ *     printf("Return address is %p, second arg is %d\n", myretaddr, num);
+ * }
+ * int main(void) {
+ *     tailcall_with_retaddr((void*)foo, 123);
+ * }
+ */
+int tailcall_with_retaddr(void *func, ...);
 
 static size_t
 size(Code_Snippet func)
@@ -361,8 +450,8 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
         len = buf_len;
     }
     memcpy(buf, start, len);
-#if defined(LINUX) && defined(ARM)
-    flush_icache((byte *)buf, (byte *)buf + len);
+#if defined(LINUX) && defined(AARCHXX)
+    tools_clear_icache(buf, buf + len);
 #endif
     if (copied_len != NULL)
         *copied_len = len;
@@ -541,10 +630,12 @@ test_print(void *buf, int n)
     print("%d\n", test(buf, n));
 }
 
+#define INIT() do { assert(page_size() <= PAGE_SIZE_MAX); OS_INIT(); } while (0)
+
 #ifdef UNIX
 # define USE_USER32()
 # ifdef NEED_HANDLER
-#  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
+#  define OS_INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
 
 static void
 signal_handler(int sig)
@@ -557,23 +648,25 @@ signal_handler(int sig)
     exit(-1);
 }
 # else
-#  define INIT()
+#  define OS_INIT()
 # endif /* NEED_HANDLER */
 #else
 #  define USE_USER32() do { if (argc > 5) MessageBeep(0); } while (0)
 
-#  define INIT() set_global_filter()
+#  define OS_INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
-# define WINDOWS_VERSION_10    100
-# define WINDOWS_VERSION_8_1    63
-# define WINDOWS_VERSION_8      62
-# define WINDOWS_VERSION_7      61
-# define WINDOWS_VERSION_VISTA  60
-# define WINDOWS_VERSION_2003   52
-# define WINDOWS_VERSION_XP     51
-# define WINDOWS_VERSION_2000   50
-# define WINDOWS_VERSION_NT     40
+# define WINDOWS_VERSION_10_1607 102
+# define WINDOWS_VERSION_10_1511 101
+# define WINDOWS_VERSION_10      100
+# define WINDOWS_VERSION_8_1      63
+# define WINDOWS_VERSION_8        62
+# define WINDOWS_VERSION_7        61
+# define WINDOWS_VERSION_VISTA    60
+# define WINDOWS_VERSION_2003     52
+# define WINDOWS_VERSION_XP       51
+# define WINDOWS_VERSION_2000     50
+# define WINDOWS_VERSION_NT       40
 
 /* returns 0 on failure */
 int
@@ -676,24 +769,6 @@ __asm {             \
     __asm _emit '$' \
     __asm foo:      \
 }
-#endif
-
-#ifdef UNIX
-/* Forward decl for nanosleep. */
-struct timespec;
-
-bool find_dynamo_library(void);
-
-/* Staticly linked versions of libc routines that don't touch globals or errno.
- */
-void nolibc_print(const char *str);
-void nolibc_print_int(int d);
-void nolibc_nanosleep(struct timespec *req);
-int  nolibc_strlen(const char *str);
-void *nolibc_mmap(void *addr, size_t length, int prot, int flags, int fd,
-                off_t offset);
-void nolibc_munmap(void *addr, size_t length);
-void nolibc_memset(void *dst, int val, size_t size);
 #endif
 
 #ifdef __cplusplus

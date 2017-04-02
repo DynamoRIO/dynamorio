@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,24 +45,35 @@
 #include "instr.h" /* for reg_id_t */
 #include <sys/time.h> /* struct itimerval */
 #include "dr_config.h" /* for dr_platform_t */
+#include "tls.h"
 
 /* for inline asm */
 #ifdef X86
 # ifdef X64
 #  define ASM_XAX "rax"
+#  define ASM_XCX "rcx"
 #  define ASM_XDX "rdx"
 #  define ASM_XBP "rbp"
 #  define ASM_XSP "rsp"
+#  define ASM_XSP "rsp"
 # else
 #  define ASM_XAX "eax"
+#  define ASM_XCX "ecx"
 #  define ASM_XDX "edx"
 #  define ASM_XBP "ebp"
 #  define ASM_XSP "esp"
 # endif /* 64/32-bit */
+#elif defined(AARCH64)
+# define ASM_R0 "x0"
+# define ASM_R1 "x1"
+# define ASM_XSP "sp"
+# define ASM_XSP "sp"
+# define ASM_INDJMP "br"
 #elif defined(ARM)
 # define ASM_R0 "r0"
 # define ASM_R1 "r1"
 # define ASM_XSP "sp"
+# define ASM_INDJMP "bx"
 #endif /* X86/ARM */
 
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
@@ -103,6 +114,8 @@
 
 /* Maximum number of arguments to Linux syscalls. */
 enum { MAX_SYSCALL_ARGS = 6 };
+
+struct _os_local_state_t;
 
 /* thread-local data that's os-private, for modularity */
 typedef struct _os_thread_data_t {
@@ -148,6 +161,9 @@ typedef struct _os_thread_data_t {
      */
     KSYNCH_TYPE terminated;
 
+    KSYNCH_TYPE detached;
+    volatile bool do_detach;
+
     volatile bool retakeover; /* for re-attach */
 
     /* PR 450670: for re-entrant suspend signals */
@@ -162,6 +178,7 @@ typedef struct _os_thread_data_t {
     void *dr_tls_base;
 #ifdef X86
     void *app_thread_areas; /* data structure for app's thread area info */
+    struct _os_local_state_t *clone_tls; /* i#2089: a copy for children to inherit */
 #endif
 } os_thread_data_t;
 
@@ -175,11 +192,14 @@ typedef struct ptrace_stack_args_t {
 } ptrace_stack_args_t;
 
 /* in os.c */
-void os_thread_take_over(priv_mcontext_t *mc);
+void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
-#ifdef ARM
+void
+os_tls_thread_exit(local_state_t *local_state);
+
+#ifdef AARCHXX
 bool
 os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
 #endif
@@ -191,12 +211,18 @@ uint
 memprot_to_osprot(uint prot);
 
 bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf);
+
+bool
 mmap_syscall_succeeded(byte *retval);
 
 bool
 os_files_same(const char *path1, const char *path2);
 
 extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
+
+void
+set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
 
 file_t
 fd_priv_dup(file_t curfd);
@@ -214,25 +240,41 @@ struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
 struct _old_sigaction_t;
 typedef struct _old_sigaction_t old_sigaction_t;
+#ifdef MACOS
+/* i#2105: on Mac the old action for SYS_sigaction is a different type. */
+struct _prev_sigaction_t;
+typedef struct _prev_sigaction_t prev_sigaction_t;
+#else
+typedef kernel_sigaction_t prev_sigaction_t;
+#endif
 
 void signal_init(void);
 void signal_exit(void);
 void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
+bool is_thread_signal_info_initialized(dcontext_t *dcontext);
+void signal_remove_handlers(dcontext_t *dcontext);
+void signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
+void signal_reinstate_alarm_handlers(dcontext_t *dcontext);
 void handle_clone(dcontext_t *dcontext, uint flags);
+/* If returns false to skip the syscall, the result is in "result". */
 bool handle_sigaction(dcontext_t *dcontext, int sig,
                       const kernel_sigaction_t *act,
-                      kernel_sigaction_t *oact, size_t sigsetsize);
-void handle_post_sigaction(dcontext_t *dcontext, int sig,
+                      prev_sigaction_t *oact, size_t sigsetsize,
+                      OUT uint *result);
+/* Returns the desired app return value (caller will negate if nec) */
+uint handle_post_sigaction(dcontext_t *dcontext, bool success, int sig,
                            const kernel_sigaction_t *act,
-                           kernel_sigaction_t *oact, size_t sigsetsize);
+                           prev_sigaction_t *oact, size_t sigsetsize);
 #ifdef LINUX
+/* If returns false to skip the syscall, the result is in "result". */
 bool handle_old_sigaction(dcontext_t *dcontext, int sig,
                           const old_sigaction_t *act,
-                          old_sigaction_t *oact);
-void handle_post_old_sigaction(dcontext_t *dcontext, int sig,
-                           const old_sigaction_t *act,
-                           old_sigaction_t *oact);
+                          old_sigaction_t *oact, OUT uint *result);
+/* Returns the desired app return value (caller will negate if nec) */
+uint handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
+                               const old_sigaction_t *act,
+                               old_sigaction_t *oact);
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 #else
 bool handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
@@ -269,6 +311,9 @@ set_default_signal_action(int sig);
 
 void
 share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc);
+
+void
+signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset);
 
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);
@@ -313,10 +358,24 @@ void os_request_live_coredump(const char *msg);
 /* in loader.c */
 void *privload_tls_init(void *app_tp);
 void  privload_tls_exit(void *dr_tp);
+#ifdef ANDROID
+bool get_kernel_args(int *argc OUT, char ***argv OUT, char ***envp OUT);
+void init_android_version(void);
+#endif
 
 /* in nudgesig.c */
 bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
+
+#ifdef X86
+/* In x86.asm */
+uint safe_read_tls_magic(void);
+void safe_read_tls_magic_recover(void);
+byte *safe_read_tls_self(void);
+void safe_read_tls_self_recover(void);
+byte *safe_read_tls_app_self(void);
+void safe_read_tls_app_self_recover(void);
+#endif
 
 #endif /* _OS_PRIVATE_H_ */

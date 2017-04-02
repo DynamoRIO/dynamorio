@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -129,9 +129,17 @@ DR_EXPORT
  * Inserts into \p ilist prior to \p where meta-instruction(s) to add the
  * constant \p value to the counter located at \p addr.
  * Different DRX_COUNTER_* options can be specified by \p flags.
- * The spill slot \p slot is used for storing arithmetic flags or a scratch
- * register if necessary.
- * The spill slot \p slot2 is used only on ARM for spilling a second scratch
+ *
+ * When used with drmgr, this routine uses the drreg extension.  It must be
+ * called from drmgr's insertion phase.  The drreg extension will be used to
+ * spill the arithmetic flags and any scratch registers needed.  It is up to the
+ * caller to ensure that enough spill slots are available, through drreg's
+ * initialization.  The slot and slot2 parameters must be set to
+ * SPILL_SLOT_MAX+1.
+ *
+ * When used without drmgr, the spill slot \p slot is used for storing
+ * arithmetic flags or a scratch register if necessary.  The spill
+ * slot \p slot2 is used only on ARM for spilling a second scratch
  * register.
  *
  * \return whether successful.
@@ -146,12 +154,10 @@ DR_EXPORT
  * same \p where instruction and no other instructions should be inserted in
  * between. In that case, \p drx will try to merge the instrumentation for
  * better performance.
- *
- * \note May be called without calling drx_init().
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, IF_ARM_(dr_spill_slot_t slot2)
+                          dr_spill_slot_t slot, IF_NOT_X86_(dr_spill_slot_t slot2)
                           void *addr, int value, uint flags);
 
 /***************************************************************************
@@ -213,16 +219,30 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
  * LOGGING
  */
 
+/**
+ * Flag for use with drx_open_unique_file() or drx_open_unique_appid_file()
+ * in \p extra_flags to skip the file open and get the path string only.
+ *
+ * \note This flag value must not conflict with any DR_FILE_* flag value
+ * used by dr_open_file().
+ */
+#define DRX_FILE_SKIP_OPEN  0x8000
+
 DR_EXPORT
 /**
  * Opens a new file with a name constructed from "dir/prefix.xxxx.suffix",
  * where xxxx is a 4-digit number incremented until a unique name is found
  * that does not collide with any existing file.
  *
- * Passes \p extra_flags through to the dr_open_file() call.
+ * Passes \p extra_flags through to the dr_open_file() call if \p extra_flags
+ * is not DRX_FILE_SKIP_OPEN.
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * Skips dr_open_file() if \p extra_flags is DRX_FILE_SKIP_OPEN.
+ * Returns INVALID_FILE and optionally the resulting path in \p result.
+ * Unique name is not guaranteed and xxxx is set randomly.
  *
  * \note May be called without calling drx_init().
  */
@@ -238,10 +258,15 @@ DR_EXPORT
  * from dr_get_application_name().  The id portion of the string is from \p id,
  * which is meant to be either the process id or the thread id.
  *
- * Passes \p extra_flags through to the dr_open_file() call.
+ * Passes \p extra_flags through to the dr_open_file() call if \p extra_flags
+ * is not DRX_FILE_SKIP_OPEN.
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * Skips dr_open_file() if \p extra_flags is DRX_FILE_SKIP_OPEN.
+ * Returns INVALID_FILE and optionally the resulting path in \p result.
+ * Unique name is not guaranteed and xxxx is set randomly.
  *
  * \note May be called without calling drx_init().
  */
@@ -249,6 +274,191 @@ file_t
 drx_open_unique_appid_file(const char *dir, ptr_int_t id,
                            const char *prefix, const char *suffix,
                            uint extra_flags, char *result OUT, size_t result_len);
+
+DR_EXPORT
+/**
+ * Creates a new directory with a name constructed from
+ * "dir/prefix.appname.id.xxxx.suffix",
+ * where xxxx is a 4-digit number incremented until a unique name is found
+ * that does not collide with any existing file.  The appname string comes
+ * from dr_get_application_name().  The id portion of the string is from \p id,
+ * which is meant to be either the process id or the thread id.
+ *
+ * Returns whether successful.
+ * On success, optionally returns the resulting path in \p result.
+ *
+ * \note May be called without calling drx_init().
+ */
+bool
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
+                          const char *prefix, const char *suffix,
+                          char *result OUT, size_t result_len);
+
+/***************************************************************************
+ * BUFFER FILLING LIBRARY
+ */
+
+/**
+ * Callback for \p drx_buf_init_trace_buffer(), called when the buffer has
+ * been filled. The valid buffer data is contained within the interval
+ * [buf_base..buf_base+size).
+ */
+typedef void (*drx_buf_full_cb_t)(void *drcontext, void *buf_base, size_t size);
+
+struct _drx_buf_t;
+
+/** Opaque handle which represents a buffer for use by the drx_buf framework. */
+typedef struct _drx_buf_t drx_buf_t;
+
+enum {
+    /**
+     * Buffer size to be specified in drx_buf_create_circular_buffer() in order
+     * to make use of the fast circular buffer optimization.
+     */
+    DRX_BUF_FAST_CIRCULAR_BUFSZ = (1<<16)
+};
+
+/**
+ * Priorities of drmgr instrumentation passes used by drx_buf. Users
+ * of drx_buf can use the names #DRMGR_PRIORITY_NAME_DRX_BUF_INIT and
+ * #DRMGR_PRIORITY_NAME_DRX_BUF_EXIT in the drmgr_priority_t.before field
+ * or can use these numeric priorities in the drmgr_priority_t.priority
+ * field to ensure proper instrumentation pass ordering.
+ */
+enum {
+    /** Priority of drx_buf thread init event */
+    DRMGR_PRIORITY_THREAD_INIT_DRX_BUF       =  -7500,
+    /** Priority of drx_buf thread exit event */
+    DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF       =  -7500,
+};
+
+/** Name of drx_buf thread init priority for buffer initialization. */
+#define DRMGR_PRIORITY_NAME_DRX_BUF_INIT "drx_buf.init"
+
+/** Name of drx_buf thread exit priority for buffer cleanup and full_cb callback. */
+#define DRMGR_PRIORITY_NAME_DRX_BUF_EXIT "drx_buf.exit"
+
+DR_EXPORT
+/**
+ * Initializes the drx_buf extension with a circular buffer which wraps
+ * around when full.
+ *
+ * \note All buffer sizes are supported. However, a buffer size of
+ * #DRX_BUF_FAST_CIRCULAR_BUFSZ bytes is specially optimized for performance.
+ * This buffer is referred to explicitly in the documentation as the "fast
+ * circular buffer".
+ *
+ * \return NULL if unsuccessful, a valid opaque struct pointer if successful.
+ */
+drx_buf_t *
+drx_buf_create_circular_buffer(size_t buf_size);
+
+DR_EXPORT
+/**
+ * Initializes the drx_buf extension with a buffer; \p full_cb is called
+ * when the buffer becomes full.
+ *
+ * \return NULL if unsuccessful, a valid opaque struct pointer if successful.
+ */
+drx_buf_t *
+drx_buf_create_trace_buffer(size_t buffer_size,
+                            drx_buf_full_cb_t full_cb);
+
+DR_EXPORT
+/** Cleans up the buffer associated with \p buf. \returns whether successful. */
+bool
+drx_buf_free(drx_buf_t *buf);
+
+DR_EXPORT
+/**
+ * Inserts instructions to load the address of the TLS buffer at \p where
+ * into \p buf_ptr.
+ */
+void
+drx_buf_insert_load_buf_ptr(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                            instr_t *where, reg_id_t buf_ptr);
+
+DR_EXPORT
+/**
+ * Inserts instructions to increment the buffer pointer by \p stride to accommodate
+ * the writes that occurred since the last time the base pointer was loaded.
+ *
+ * \note \p scratch is only necessary on ARM, in the case of the fast circular
+ * buffer. On x86 scratch is completely unused.
+ */
+void
+drx_buf_insert_update_buf_ptr(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                              instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
+                              ushort stride);
+
+DR_EXPORT
+/**
+ * Inserts instructions to store \p opsz bytes of \p opnd at \p offset bytes
+ * from \p buf_ptr. \p opnd must be a register or an immediate opnd of some
+ * appropriate size.  \return whether successful.
+ *
+ * \note \p opsz must be either \p OPSZ_1, \p OPSZ_2, \p OPSZ_4 or \p OPSZ_8.
+ *
+ * \note \p scratch is only necessary on ARM when storing an immediate operand.
+ *
+ * \note This method simply wraps a store that also sets an app translation. Make
+ * sure that \p where has a translation set.
+ */
+bool
+drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
+                         opnd_t opnd, opnd_size_t opsz, short offset);
+
+DR_EXPORT
+/**
+ * Retrieves a pointer to the top of the buffer, that is, returns the
+ * same value as would an invocation of drx_buf_insert_load_buf_ptr().
+ */
+void *
+drx_buf_get_buffer_ptr(void *drcontext, drx_buf_t *buf);
+
+DR_EXPORT
+/**
+ * Allows one to set the buffer pointer so that subsequent invocations
+ * of drx_buf_insert_load_buf_ptr() will use this new value instead.
+ */
+void
+drx_buf_set_buffer_ptr(void *drcontext, drx_buf_t *buf, void *new_ptr);
+
+DR_EXPORT
+/** Retrieves a pointer to the base of the buffer. */
+void *
+drx_buf_get_buffer_base(void *drcontext, drx_buf_t *buf);
+
+DR_EXPORT
+/** Retrieves the capacity of the buffer. */
+size_t
+drx_buf_get_buffer_size(void *drcontext, drx_buf_t *buf);
+
+DR_EXPORT
+/**
+ * Pads a basic block with a label at the end for routines which rely on inserting
+ * instrumentation after every instruction. Note that users of this routine must act on
+ * the previous instruction in basic block events before skipping non-app instructions
+ * because the label is not marked as an app instruction.
+ *
+ * \note the padding label is not introduced if the basic block is already branch
+ * terminated.
+ *
+ * \returns whether padding was introduced.
+ */
+bool
+drx_tail_pad_block(void *drcontext, instrlist_t *ilist);
+
+DR_EXPORT
+/**
+ * Constructs a memcpy-like operation that is compatible with drx_buf.
+ *
+ * \note drx_buf_insert_buf_memcpy() will increment the buffer pointer internally.
+ */
+void
+drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
+                          instr_t *where, reg_id_t dst, reg_id_t src, ushort len);
 
 /*@}*/ /* end doxygen group */
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -137,7 +137,7 @@ main(int argc, char *argv[])
      * Make the first one readable and writable,
      * and the second one neither readable nor writable.
      */
-    p = allocate_mem(PAGE_SIZE * 2, ALLOW_READ | ALLOW_WRITE);
+    p = allocate_mem((int)PAGE_SIZE * 2, ALLOW_READ | ALLOW_WRITE);
     if (p == NULL) {
         print("allocate_mem() failed\n");
         abort();

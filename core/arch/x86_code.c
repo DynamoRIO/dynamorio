@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -85,7 +85,25 @@ dynamo_start(priv_mcontext_t *mc)
 {
     priv_mcontext_t *mcontext;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
+    if (dcontext == NULL) {
+        /* This may be an initialized thread that is currently native (which results
+         * in a NULL dcontext via i#2089).
+         */
+        os_thread_re_take_over();
+        dcontext = get_thread_private_dcontext();
+    }
+    if (dcontext == NULL) {
+        /* If dr_app_start is called from a different thread than the one
+         * that called dr_app_setup, we'll need to initialize this thread here.
+         */
+        IF_DEBUG(int r =)
+            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        ASSERT(r == SUCCESS);
+        ASSERT(dr_api_entry);
+        dcontext = get_thread_private_dcontext();
+        ASSERT(dcontext != NULL);
+        os_thread_take_over_secondary(dcontext);
+    }
     thread_starting(dcontext);
 
     /* Signal other threads for take over. */
@@ -111,7 +129,7 @@ dynamo_start(priv_mcontext_t *mc)
     });
 
     /* Swap stacks so dispatch is invoked outside the application. */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
@@ -218,7 +236,7 @@ auto_setup(ptr_uint_t appstack)
      * then.  We do so now.
      */
     IF_WINDOWS(os_swap_context(dcontext, false/*to priv*/, DR_STATE_STACK_BOUNDS));
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -277,7 +295,7 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
-#ifdef ARM
+#ifdef AARCHXX
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
@@ -289,7 +307,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-#ifdef ARM
+#ifdef AARCHXX
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
 #endif
     /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
@@ -303,7 +321,7 @@ new_thread_setup(priv_mcontext_t *mc)
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -353,7 +371,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     *(reg_t*)(mc->xsp + sizeof(reg_t)) = (reg_t) func_arg;
 #  endif
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -400,7 +418,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     /* We came straight from fcache, so swap to priv now (i#25) */
     IF_WINDOWS(swap_peb_pointer(dcontext, true/*to priv*/));
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -443,8 +461,9 @@ safe_read_resume_pc(void)
 #if defined(STANDALONE_UNIT_TEST)
 
 # define CONST_BYTE      0x1f
-# define TEST_STACK_SIZE PAGE_SIZE
-byte test_stack[TEST_STACK_SIZE];
+# define TEST_STACK_SIZE 4096
+/* Align stack to 16 bytes: sufficient for all current architectures. */
+byte ALIGN_VAR(16) test_stack[TEST_STACK_SIZE];
 static dcontext_t *static_dc;
 
 static void
@@ -476,7 +495,7 @@ test_call_switch_stack(dcontext_t *dc)
     static_dc = dc;
     print_file(STDERR, "testing asm call_switch_stack\n");
     memset(test_stack, CONST_BYTE, sizeof(test_stack));
-    call_switch_stack(dc, stack_ptr, test_func,
+    call_switch_stack(dc, stack_ptr, (void(*)(void*))test_func,
                       NULL, true /* should return */);
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,11 @@
 // This is the max size an unprivileged process can request.
 #define PIPE_BUF_MAX_SIZE 1048576
 
+#if defined(LINUX) && !defined(F_SETPIPE_SZ)
+// F_SETPIPE_SZ appeared in Linux 2.6.35.
+# define F_SETPIPE_SZ 1031
+#endif
+
 // Atomic pipe write buffer size
 #ifndef PIPE_BUF
 # ifdef LINUX
@@ -65,7 +70,12 @@ static const char *
 pipe_dir()
 {
     // FIXME i#1703: check TMPDIR, TEMP, and TMP env vars first.
+#ifdef ANDROID
+    // XXX i#1874: it still fails, even for ext4
+    return "/data/local/tmp";
+#else
     return "/tmp";
+#endif
 }
 
 named_pipe_t::named_pipe_t() :

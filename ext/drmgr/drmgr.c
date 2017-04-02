@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -924,15 +924,23 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                            drmgr_priority_t *priority)
 {
     bool ok = true;
-    if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
-        instru2instru_func == NULL)
+    if ((app2app_func == NULL && analysis_func == NULL && insertion_func == NULL &&
+         instru2instru_func == NULL) ||
+        /* can't have insertion but not analysis here b/c of unreg constraints */
+        (analysis_func == NULL && insertion_func != NULL))
         return false; /* invalid params */
-    ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func,
-                         NULL, NULL, priority) && ok;
-    ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func,
-                         NULL, analysis_func, NULL, priority) && ok;
-    ok = drmgr_bb_cb_add(&cblist_instru2instru, NULL, NULL, NULL,
-                         NULL, NULL, instru2instru_func, priority) && ok;
+    if (app2app_func != NULL) {
+        ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func,
+                             NULL, NULL, priority) && ok;
+    }
+    if (analysis_func != NULL) {
+        ok = drmgr_bb_cb_add(&cblist_instrumentation, NULL, NULL, insertion_func,
+                             NULL, analysis_func, NULL, priority) && ok;
+    }
+    if (instru2instru_func != NULL) {
+        ok = drmgr_bb_cb_add(&cblist_instru2instru, NULL, NULL, NULL,
+                             NULL, NULL, instru2instru_func, priority) && ok;
+    }
     return ok;
 }
 
@@ -1055,19 +1063,27 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t instru2instru_func)
 {
     bool ok = true;
-    if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
-        instru2instru_func == NULL)
+    if ((app2app_func == NULL && analysis_func == NULL && insertion_func == NULL &&
+         instru2instru_func == NULL) ||
+        /* can't have insertion but not analysis here b/c of unreg constraints */
+        (analysis_func == NULL && insertion_func != NULL))
         return false; /* invalid params */
-    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func,
-                            NULL, NULL) && ok;
-    /* Although analysis_func and insertion_func are registered together in
-     * drmgr_register_bb_instrumentation_ex_event, drmgr_bb_cb_remove only
-     * checks analysis_func, so we pass NULL instead of insertion_func here.
-     */
-    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
-                            analysis_func, NULL) && ok;
-    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL,
-                            NULL, instru2instru_func) && ok;
+    if (app2app_func != NULL) {
+        ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func,
+                                NULL, NULL) && ok;
+    }
+    if (analysis_func != NULL) {
+        /* Although analysis_func and insertion_func are registered together in
+         * drmgr_register_bb_instrumentation_ex_event, drmgr_bb_cb_remove only
+         * checks analysis_func, so we pass NULL instead of insertion_func here.
+         */
+        ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
+                                analysis_func, NULL) && ok;
+    }
+    if (instru2instru_func != NULL) {
+        ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL,
+                                NULL, instru2instru_func) && ok;
+    }
     return ok;
 }
 
@@ -1075,7 +1091,11 @@ DR_EXPORT
 drmgr_bb_phase_t
 drmgr_current_bb_phase(void *drcontext)
 {
-    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    per_thread_t *pt;
+    /* Support being called w/o being set up, for detection of whether under drmgr */
+    if (drmgr_init_count == 0)
+        return DRMGR_PHASE_NONE;
+    pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
     return pt->cur_phase;
 }
 
@@ -1225,8 +1245,16 @@ DR_EXPORT
 bool
 drmgr_register_thread_init_event(void (*func)(void *drcontext))
 {
+    return drmgr_register_thread_init_event_ex(func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_thread_init_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority)
+{
     return drmgr_generic_event_add(&cb_list_thread_init, thread_event_lock,
-                                   (void (*)(void)) func, NULL);
+                                   (void (*)(void)) func, priority);
 }
 
 DR_EXPORT
@@ -1241,8 +1269,16 @@ DR_EXPORT
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext))
 {
+    return drmgr_register_thread_exit_event_ex(func, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_thread_exit_event_ex(void (*func)(void *drcontext),
+                                    drmgr_priority_t *priority)
+{
     return drmgr_generic_event_add(&cb_list_thread_exit, thread_event_lock,
-                                   (void (*)(void)) func, NULL);
+                                   (void (*)(void)) func, priority);
 }
 
 DR_EXPORT

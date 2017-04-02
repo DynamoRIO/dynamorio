@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,9 +74,16 @@
 # if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
 #  error Target architecture over-specified: must define only one
 # endif
-#elif defined(ARM_32) || defined(ARM_64)
+#elif defined(ARM_32)
 # define ARM
-# if defined(X86_32) || defined(X86_64) || (defined(ARM_64) && defined(ARM_32))
+# define AARCHXX
+# if defined(X86_32) || defined(X86_64) || defined(ARM_64)
+#  error Target architecture over-specified: must define only one
+# endif
+#elif defined(ARM_64)
+# define AARCH64
+# define AARCHXX
+# if defined(X86_32) || defined(X86_64) || defined(ARM_32)
 #  error Target architecture over-specified: must define only one
 # endif
 #else
@@ -162,12 +169,21 @@
 #ifdef AVOID_API_EXPORT
 /* We want a consistent size so we stay away from MAX_PATH.
  * MAX_PATH is 260 on Windows, but 4096 on Linux, should up this.
- * FIXME: should undef MAX_PATH and define it to an error-producing value
+ * XXX: should undef MAX_PATH and define it to an error-producing value
  * and clean up all uses of it
  */
 #endif
-/** Cross-platform maximum file path length. */
-#define MAXIMUM_PATH      260
+/**
+ * Maximum file path length define meant to replace platform-specific defines
+ * such as MAX_PATH and PATH_MAX.
+ * Currently, internal stack size limits prevent this from being much larger
+ * on UNIX.
+ */
+#ifdef WINDOWS
+# define MAXIMUM_PATH      260
+#else
+# define MAXIMUM_PATH      512
+#endif
 
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
@@ -226,6 +242,7 @@ typedef __int64 ssize_t;
 #  else
 typedef int ssize_t;
 #  endif
+#  define _SSIZE_T_DEFINED
 #  define INT64_FORMAT "I64"
 #else /* Linux */
 #  ifdef X64
@@ -618,6 +635,12 @@ typedef struct _instr_t instr_t;
 # define IF_KSTATS(x)
 #endif
 
+#ifdef STATIC_LIBRARY
+# define IF_STATIC_LIBRARY_ELSE(x,y) x
+#else
+# define IF_STATIC_LIBRARY_ELSE(x,y) y
+#endif
+
 #ifdef STANDALONE_UNIT_TEST
 # define IF_UNIT_TEST_ELSE(x,y) x
 #else
@@ -632,23 +655,16 @@ typedef struct _instr_t instr_t;
 # define IF_X86_(x) x,
 # define _IF_X86(x) , x
 # define IF_NOT_X86(x)
+# define IF_NOT_X86_(x)
 # define _IF_NOT_X86(x)
-# ifdef X64
-#  define IF_X86_32(x)
-#  define IF_X86_64(x) x
-# else
-#  define IF_X86_32(x) x
-#  define IF_X86_64(x)
-# endif
 #else
 # define IF_X86(x)
 # define IF_X86_ELSE(x, y) y
 # define IF_X86_(x)
 # define _IF_X86(x)
 # define IF_NOT_X86(x) x
+# define IF_NOT_X86_(x) x,
 # define _IF_NOT_X86(x) , x
-# define IF_X86_32(x)
-# define IF_X86_64(x)
 #endif
 
 #ifdef ARM
@@ -667,6 +683,48 @@ typedef struct _instr_t instr_t;
 # define _IF_NOT_ARM(x) , x
 #endif
 
+#ifdef AARCH64
+# define IF_AARCH64(x) x
+# define IF_AARCH64_ELSE(x, y) x
+# define IF_AARCH64_(x) x,
+# define _IF_AARCH64(x) , x
+# define IF_NOT_AARCH64(x)
+# define _IF_NOT_AARCH64(x)
+#else
+# define IF_AARCH64(x)
+# define IF_AARCH64_ELSE(x, y) y
+# define IF_AARCH64_(x)
+# define _IF_AARCH64(x)
+# define IF_NOT_AARCH64(x) x
+# define _IF_NOT_AARCH64(x) , x
+#endif
+
+#ifdef AARCHXX
+# define IF_AARCHXX(x) x
+# define IF_AARCHXX_ELSE(x, y) x
+# define IF_AARCHXX_(x) x,
+# define _IF_AARCHXX(x) , x
+# define IF_NOT_AARCHXX(x)
+# define _IF_NOT_AARCHXX(x)
+#else
+# define IF_AARCHXX(x)
+# define IF_AARCHXX_ELSE(x, y) y
+# define IF_AARCHXX_(x)
+# define _IF_AARCHXX(x)
+# define IF_NOT_AARCHXX(x) x
+# define _IF_NOT_AARCHXX(x) , x
+#endif
+
+#ifdef ANDROID
+# define IF_ANDROID(x) x
+# define IF_ANDROID_ELSE(x, y) x
+# define IF_NOT_ANDROID(x)
+#else
+# define IF_ANDROID(x)
+# define IF_ANDROID_ELSE(x, y) y
+# define IF_NOT_ANDROID(x) x
+#endif
+
 #ifdef X64
 # define IF_X64(x) x
 # define IF_X64_ELSE(x, y) x
@@ -683,20 +741,26 @@ typedef struct _instr_t instr_t;
 # define _IF_NOT_X64(x) , x
 #endif
 
-#if defined(X86) && defined(X64)
-# define IF_X86_X64(x) x
-# define IF_X86_X64_ELSE(x, y) x
-# define IF_X86_X64_(x) x,
-# define _IF_X86_X64(x) , x
-# define IF_NOT_X86_X64(x)
-# define _IF_NOT_X86_X64(x)
+#if defined(X86) && !defined(X64)
+# define IF_X86_32(x) x
 #else
-# define IF_X86_X64(x)
-# define IF_X86_X64_ELSE(x, y) y
-# define IF_X86_X64_(x)
-# define _IF_X86_X64(x)
-# define IF_NOT_X86_X64(x) x
-# define _IF_NOT_X86_X64(x) , x
+# define IF_X86_32(x)
+#endif
+
+#if defined(X86) && defined(X64)
+# define IF_X86_64(x) x
+# define IF_X86_64_ELSE(x, y) x
+# define IF_X86_64_(x) x,
+# define _IF_X86_64(x) , x
+# define IF_NOT_X86_64(x)
+# define _IF_NOT_X86_64(x)
+#else
+# define IF_X86_64(x)
+# define IF_X86_64_ELSE(x, y) y
+# define IF_X86_64_(x)
+# define _IF_X86_64(x)
+# define IF_NOT_X86_64(x) x
+# define _IF_NOT_X86_64(x) , x
 #endif
 
 #if defined(X64) || defined(ARM)
@@ -860,7 +924,7 @@ typedef int stats_int_t;
  * there and then disallow %x, to try and avoid 64-bit printing bugs,
  * but it wouldn't be a panacea.
  */
-#define L_UINT64_FORMAT_STRING L"%"L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
+#define L_UINT64_FORMAT_STRING L"%" L_EXPAND_LEVEL(UINT64_FORMAT_CODE)
 #ifdef X64
 #  define PFMT ZHEX64_FORMAT_STRING
 #  define PIFMT HEX64_FORMAT_STRING
@@ -876,9 +940,9 @@ typedef int stats_int_t;
 #  define SZFC "u"
 #  define SSZFC "d"
 #endif
-#define L_PFMT L"%016"L_EXPAND_LEVEL(INT64_FORMAT)L"x"
-#define PFX "0x"PFMT
-#define PIFX "0x"PIFMT
+#define L_PFMT L"%016" L_EXPAND_LEVEL(INT64_FORMAT)L"x"
+#define PFX "0x" PFMT
+#define PIFX "0x" PIFMT
 
 /* DR_API EXPORT BEGIN */
 /* printf codes for {thread,process}_id_t */
@@ -980,14 +1044,14 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #define BUG_REPORT_URL "http://dynamorio.org/issues/"
 
 #ifdef BUILD_NUMBER
-#  define BUILD_NUMBER_STRING "build "STRINGIFY(BUILD_NUMBER)
+#  define BUILD_NUMBER_STRING "build " STRINGIFY(BUILD_NUMBER)
 #else
 #  define BUILD_NUMBER_STRING "custom build"
 #  define BUILD_NUMBER (0)
 #endif
 
 #ifdef VERSION_NUMBER
-#  define VERSION_NUMBER_STRING "version "STRINGIFY(VERSION_NUMBER)
+#  define VERSION_NUMBER_STRING "version " STRINGIFY(VERSION_NUMBER)
 #else
 #  define VERSION_NUMBER_STRING "internal version"
 #  define VERSION_NUMBER (0.0)
@@ -1130,7 +1194,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 #  define EVENTLOG_REGISTRY_SUBKEY "System\\CurrentControlSet\\Services\\EventLog"
 #  define L_EVENTLOG_REGISTRY_SUBKEY L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
-#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\"L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
+#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\" L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
 #  define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
@@ -1147,9 +1211,9 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
  * installer doesn't work yet xref case 8482).*/
 #  define L_EVENT_FILE_VALUE_NAME L"File"
 #  define L_EVENT_FILE_NAME_PRE_VISTA \
-       L"%SystemRoot%\\system32\\config\\"L_EXPAND_LEVEL(EVENTLOG_NAME)L".evt"
+       L"%SystemRoot%\\system32\\config\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".evt"
 #  define L_EVENT_FILE_NAME_VISTA \
-       L"%SystemRoot%\\system32\\winevt\\logs\\"L_EXPAND_LEVEL(EVENTLOG_NAME)L".elf"
+       L"%SystemRoot%\\system32\\winevt\\logs\\" L_EXPAND_LEVEL(EVENTLOG_NAME)L".elf"
 #  define L_EVENT_MAX_SIZE_NAME L"MaxSize"
 #  define EVENT_MAX_SIZE 0x500000
 #  define L_EVENT_RETENTION_NAME L"Retention"
@@ -1170,11 +1234,11 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define DYNAMORIO_SHARED_OBJECT_DIRECTORY LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE, "SharedCache")
 
 /* registry */
-#  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\"COMPANY_NAME"\\"PRODUCT_NAME
-#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\" COMPANY_NAME "\\" PRODUCT_NAME
+#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
 #  define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
 #  define DYNAMORIO_REGISTRY_KEY    DYNAMORIO_REGISTRY_BASE_SUBKEY
-#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\"L_EXPAND_LEVEL(COMPANY_NAME)L"\\"L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L"\\" L_EXPAND_LEVEL(PRODUCT_NAME)
 
 #  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
 #  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
@@ -1215,17 +1279,17 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 /* for processview, etc */
 #  define DYNAMORIO_LIBRARY_NAME "dynamorio.dll"
-#  define DLLPATH_RELEASE    "\\lib\\release\\"DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_DEBUG      "\\lib\\debug\\"DYNAMORIO_LIBRARY_NAME
-#  define DLLPATH_PROFILE    "\\lib\\profile\\"DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_RELEASE    "\\lib\\release\\" DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_DEBUG      "\\lib\\debug\\" DYNAMORIO_LIBRARY_NAME
+#  define DLLPATH_PROFILE    "\\lib\\profile\\" DYNAMORIO_LIBRARY_NAME
 
 #  define L_DYNAMORIO_LIBRARY_NAME L_EXPAND_LEVEL(DYNAMORIO_LIBRARY_NAME)
-#  define L_DLLPATH_RELEASE    L"\\lib\\release\\"L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_DEBUG      L"\\lib\\debug\\"L_DYNAMORIO_LIBRARY_NAME
-#  define L_DLLPATH_PROFILE    L"\\lib\\profile\\"L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_RELEASE    L"\\lib\\release\\" L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_DEBUG      L"\\lib\\debug\\" L_DYNAMORIO_LIBRARY_NAME
+#  define L_DLLPATH_PROFILE    L"\\lib\\profile\\" L_DYNAMORIO_LIBRARY_NAME
 
-#  define INJECT_ALL_DLL_SUBPATH   "\\lib\\"INJECT_DLL_8_3_NAME
-#  define L_INJECT_ALL_DLL_SUBPATH   L"\\lib\\"L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
+#  define INJECT_ALL_DLL_SUBPATH   "\\lib\\" INJECT_DLL_8_3_NAME
+#  define L_INJECT_ALL_DLL_SUBPATH   L"\\lib\\" L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME)
 
 enum DLL_TYPE {
         DLL_NONE,
@@ -1737,54 +1801,67 @@ typedef union _dr_ymm_t {
     reg_t  reg[IF_X64_ELSE(4,8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
 
-#ifdef ARM
+#if defined(AARCHXX)
 /**
  * 128-bit ARM SIMD Vn register.
- * We're not using any uint64 fields here to avoid alignment padding in
- * sensitive structs.  We could alternatively use pragam pack.
+ * In AArch64, align to 16 bytes for better performance.
+ * In AArch32, we're not using any uint64 fields here to avoid alignment
+ * padding in sensitive structs. We could alternatively use pragma pack.
  */
-typedef union _dr_simd_t {
 # ifdef X64
+typedef union ALIGN_VAR(16) _dr_simd_t {
     byte   b;      /**< Bottom  8 bits of Vn == Bn. */
     ushort h;      /**< Bottom 16 bits of Vn == Hn. */
     uint   s;      /**< Bottom 32 bits of Vn == Sn. */
     uint   d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
     uint   q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
     uint   u32[4]; /**< The full 128-bit register. */
+} dr_simd_t;
 # else
+typedef union _dr_simd_t {
     uint   s[4];   /**< Representation as 4 32-bit Sn elements. */
     uint   d[4];   /**< Representation as 2 64-bit Dn elements: d[3]:d[2]; d[1]:d[0]. */
     uint   u32[4]; /**< The full 128-bit register. */
-# endif
 } dr_simd_t;
+# endif
 # ifdef X64
 #  define NUM_SIMD_SLOTS 32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
 # else
 #  define NUM_SIMD_SLOTS 16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t */
 # endif
 # define PRE_SIMD_PADDING 0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-#endif /* ARM */
 
-#ifdef AVOID_API_EXPORT
+#elif defined(X86)
+
+# ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_XMM_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
  */
-#endif
-#ifdef X64
-# ifdef WINDOWS
-#  define NUM_XMM_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-5*/
-# else
-#  define NUM_XMM_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-15*/
 # endif
-# define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# ifdef X64
+#  ifdef WINDOWS
+    /*xmm0-5*/
+#   define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  else
+    /*xmm0-15*/
+#   define NUM_SIMD_SLOTS 16 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  endif
+#  define PRE_XMM_PADDING 16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# else
+   /*xmm0-7*/
+#  define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#  define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
+# endif
+
+# define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
 #else
-# define NUM_XMM_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */ /*xmm0-7*/
-# define PRE_XMM_PADDING 24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
-#endif
+# error NYI
+#endif /* AARCHXX/X86 */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1855,10 +1932,10 @@ typedef struct _priv_mcontext_t {
  * have noticable impacts, i.e. pushing bbs over the max size limit,
  * and could have a noticeable performance hit.
  */
-/* We now save everything but we keep separate NUM_XMM_SLOTS vs NUM_XMM_SAVED
+/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
  * in case we go back to not saving some slots in the future: e.g., w/o
  * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
  */
-#define NUM_XMM_SAVED NUM_XMM_SLOTS
+#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
 
 #endif /* ifndef _GLOBALS_SHARED_H_ */

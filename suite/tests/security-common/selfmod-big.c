@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,6 +82,8 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 #define FUNCNAME foo
         DECLARE_FUNC(FUNCNAME)
+DECLARE_GLOBAL(foo_start)
+DECLARE_GLOBAL(foo_end)
 GLOBAL_LABEL(FUNCNAME:)
 ADDRTAKEN_LABEL(foo_start:)
         mov      REG_XCX, ARG1  /* iters */
@@ -94,7 +97,7 @@ ADDRTAKEN_LABEL(foo_start:)
         lea      REG_XAX, SYMREF(foo_start)
         lea      REG_XDX, SYMREF(foo_end)
         sub      REG_XDX, REG_XAX               /* compute precise length */
-        CALLC3(protect_mem, REG_XAX, REG_XDX, HEX(7)/*rwx*/)
+        CALLC3(GLOBAL_REF(protect_mem), REG_XAX, REG_XDX, HEX(7)/*rwx*/)
         mov      REG_XCX, REG_XBX               /* restore iters after call */
 
         lea      REG_XDX, SYMREF(immed_plus_four)
@@ -105,7 +108,7 @@ ADDRTAKEN_LABEL(foo_start:)
         /* now we have as many write instrs as necessary to cause a too-big
          * selfmod fragment.  xref case 7893.
          */
-        mov      REG_XDX, offset big
+        mov      REG_XDX, offset GLOBAL_REF(big)
         mov      DWORD [REG_XDX + 0], ecx
         mov      DWORD [REG_XDX + 1], ecx
         mov      DWORD [REG_XDX + 2], ecx

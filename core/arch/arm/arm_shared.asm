@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -46,19 +46,43 @@ START_FILE
 /* Linux system call on AArch32:
  * - r7: syscall number
  * - r0..r6: syscall arguments
- * so we simply set up all r0..r6 as arguments and ignore the passed in num_args.
+ * We need to not de-ref stack args that weren't passed so we can't ignore num_args.
  */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
-        push     {REG_R4-REG_R8}
-        /* shift r7 pointing to the call args */
-        add      REG_R8, sp, #20         /* size for {r4-r8} */
+        push     {REG_R4-REG_R9}
+        /* Point r8 at the args on the stack */
+        add      REG_R8, sp, #(6*ARG_SZ) /* size for {r4-r9} */
         mov      REG_R7, ARG1            /* sysnum */
         mov      REG_R0, ARG3            /* syscall arg1 */
-        mov      REG_R1, ARG4            /* syscall arg2 */
-        ldmfd    REG_R8, {REG_R2-REG_R6} /* syscall arg3..arg7 */
+        mov      REG_R9, ARG4            /* syscall arg2 */
+        cmp      ARG2, #2
+        blt      syscall_0_or_1arg
+        beq      syscall_2args
+        cmp      ARG2, #3
+        beq      syscall_3args
+        cmp      ARG2, #4
+        beq      syscall_4args
+        cmp      ARG2, #5
+        beq      syscall_5args
+        cmp      ARG2, #6
+        beq      syscall_6args
+syscall_7args:
+        ldr      REG_R6, [REG_R8, #(4*ARG_SZ)]  /* syscall arg7 */
+syscall_6args:
+        ldr      REG_R5, [REG_R8, #(3*ARG_SZ)]  /* syscall arg6 */
+syscall_5args:
+        ldr      REG_R4, [REG_R8, #(2*ARG_SZ)]  /* syscall arg5 */
+syscall_4args:
+        ldr      REG_R3, [REG_R8, #(1*ARG_SZ)]  /* syscall arg4 */
+syscall_3args:
+        ldr      REG_R2, [REG_R8, #(0*ARG_SZ)]  /* syscall arg3 */
+syscall_2args:
+        mov      REG_R1, REG_R9                 /* syscall arg2 */
+syscall_0_or_1arg:
+        /* arg1 is already in place */
         svc      #0
-        pop      {REG_R4-REG_R8}
+        pop      {REG_R4-REG_R9}
         bx       lr
 
 /* FIXME i#1551: just a shell to get things compiling.  We need to fill

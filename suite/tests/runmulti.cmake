@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -33,52 +33,92 @@
 # * cmd = command to run
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * postcmd = post processing command to run
+# * postcmdN (for N=2+) = additional post processing commands to run
 # * cmp = the file containing the expected output
+#
+# A "*" in any command line will be glob-expanded right before running.
+# If the command starts with "foreach@", instead of passing the glob-expansion
+# to the single command, the command will be repeated for each expansion entry,
+# and only one such expansion is supported (and it must be at the end).
+# If the expansion is empty for precmd, the precmd execution is skipped.
 
 # Intra-arg space=@@ and inter-arg space=@.
 # XXX i#1327: now that we have -c and other option passing improvements we
 # should be able to get rid of this @@ stuff.
-string(REGEX REPLACE "@@" " " precmd "${precmd}")
-string(REGEX REPLACE "@" ";" precmd "${precmd}")
-string(REGEX REPLACE "!" "\\\;" precmd "${precmd}")
+macro(process_cmdline line skip_empty err_and_out)
+  string(REGEX REPLACE "@@" " " ${line} "${${line}}")
+  string(REGEX REPLACE "@" ";" ${line} "${${line}}")
+  string(REGEX REPLACE "!" "\\\;" ${line} "${${line}}")
 
-string(REGEX REPLACE "@@" " " cmd "${cmd}")
-string(REGEX REPLACE "@" ";" cmd "${cmd}")
-string(REGEX REPLACE "!" "\\\;" cmd "${cmd}")
+  if (${line} MATCHES "^foreach;")
+    set(each ${${line}})
+    list(REMOVE_AT each 0)
+    list(LENGTH each len)
+    math(EXPR len "${len} - 1")
+    list(REMOVE_AT each ${len})
+  endif ()
 
-string(REGEX REPLACE "@@" " " postcmd "${postcmd}")
-string(REGEX REPLACE "@" ";" postcmd "${postcmd}")
-string(REGEX REPLACE "!" "\\\;" postcmd "${postcmd}")
+  set(globempty OFF)
+  if (${line} MATCHES "\\*")
+    set(newcmd "")
+    foreach (token ${${line}})
+      if (token MATCHES "\\*")
+        file(GLOB expand ${token})
+        if (expand STREQUAL "")
+          set(globempty ON)
+        endif ()
+        if (${line} MATCHES "^foreach;")
+          foreach (item ${expand})
+            message("Running |${each} ${item}|")
+            execute_process(COMMAND ${each} ${item}
+              RESULT_VARIABLE cmd_result
+              ERROR_VARIABLE cmd_err
+              OUTPUT_VARIABLE cmd_out)
+            if (cmd_result)
+              message(FATAL_ERROR
+                "*** ${${line}} failed (${cmd_result}): ${cmd_err}***\n")
+            endif (cmd_result)
+          endforeach ()
+        else ()
+          set(newcmd ${newcmd} ${expand})
+        endif ()
+      else ()
+        set(newcmd ${newcmd} ${token})
+      endif ()
+    endforeach ()
+    set(${line} ${newcmd})
+  endif ()
+  if (NOT ${line} MATCHES "^foreach;")
+    if (NOT ${skip_empty} OR NOT ${line} STREQUAL "" AND NOT globempty)
+      message("Running ${line} |${${line}}|")
+      execute_process(COMMAND ${${line}}
+        RESULT_VARIABLE cmd_result
+        ERROR_VARIABLE cmd_err
+        OUTPUT_VARIABLE cmd_out)
+      if (cmd_result)
+        message(FATAL_ERROR "*** ${line} failed (${cmd_result}): ${cmd_err}***\n")
+      endif (cmd_result)
+    endif ()
+  endif ()
+  set(${err_and_out} "${${err_and_out}}${cmd_err}${cmd_out}")
+endmacro()
 
-execute_process(COMMAND ${precmd}
-  RESULT_VARIABLE cmd_result
-  ERROR_VARIABLE cmd_err
-  OUTPUT_VARIABLE cmd_out)
-if (cmd_result)
-  message(FATAL_ERROR "*** ${precmd} failed (${cmd_result}): ${cmd_err}***\n")
-endif (cmd_result)
+process_cmdline(precmd ON ignore)
 
-execute_process(COMMAND ${cmd}
-  RESULT_VARIABLE cmd_result
-  ERROR_VARIABLE cmd_err
-  OUTPUT_VARIABLE cmd_out
-  )
-if (cmd_result)
-  message(FATAL_ERROR "*** ${cmd} failed (${cmd_result}): ${cmd_err}***\n")
-endif (cmd_result)
-set(tomatch "${cmd_err}${cmd_out}")
+process_cmdline(cmd OFF tomatch)
 
-execute_process(COMMAND ${postcmd}
-  RESULT_VARIABLE cmd_result
-  ERROR_VARIABLE cmd_err
-  OUTPUT_VARIABLE cmd_out)
-if (cmd_result)
-  message(FATAL_ERROR "*** ${postcmd} failed (${cmd_result}): ${cmd_err}***\n")
-endif (cmd_result)
+if (NOT "${postcmd}" STREQUAL "")
+  process_cmdline(postcmd OFF tomatch)
+  set(num 2)
+  while (NOT "${postcmd${num}}" STREQUAL "")
+    process_cmdline(postcmd${num} OFF tomatch)
+    math(EXPR num "${num} + 1")
+  endwhile ()
+endif()
 
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)
 
-if (NOT "${tomatch}" STREQUAL "${str}")
+if (NOT "${tomatch}" MATCHES "${str}")
   message(FATAL_ERROR "output |${tomatch}| failed to match expected output |${str}|")
 endif ()

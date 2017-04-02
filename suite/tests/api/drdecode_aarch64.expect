@@ -1,0 +1,3 @@
+ 0b010000   add    %w0 %w1 lsl $0x00 -> %w0
+ d65f03c0   ret    %x30
+done

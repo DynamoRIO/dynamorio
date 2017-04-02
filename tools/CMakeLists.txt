@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -35,6 +35,7 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
+  copy_target_to_device(runstats)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
@@ -76,18 +77,10 @@ if (UNIX)
   # Set up our debugging support for gdb in the build directory.
   # We need to compute the final path of libdynamorio.so, with version number
   # applied for gdb's script autoloading to work.
-  get_target_property(libdynamorio_so dynamorio LOCATION)
-  get_target_property(soversion dynamorio SOVERSION)
-  set(libdynamorio_so "${libdynamorio_so}.${soversion}")
-  execute_process(COMMAND
-    ${CMAKE_COMMAND} -E create_symlink
-    "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
-    "${libdynamorio_so}-gdb.py"
-    WORKING_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
-    OUTPUT_QUIET)
+  # i#2127: we eliminated soversioning so we do not need to rename or
+  # make a symlink anymore.
   DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
     DESTINATION "${INSTALL_LIB}"
-    RENAME "libdynamorio.so.${soversion}-gdb.py"
     PERMISSIONS ${owner_access} OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
@@ -179,6 +172,7 @@ set_target_properties(drinject PROPERTIES
 set(tgts ${tgts} drconfig drrun drinject)
 
 foreach (deploytgt drconfig drrun drinject)
+  copy_target_to_device(${deploytgt})
   if (WINDOWS)
     target_link_libraries(${deploytgt}
       policy_static user32 advapi32 pdh imagehlp shell32)

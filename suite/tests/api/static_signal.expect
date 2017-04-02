@@ -1,0 +1,19 @@
+Sending SIGUSR1 pre-DR-init
+Got SIGUSR1
+pre-DR init
+in dr_client_main
+Sending SIGUSR1 pre-DR-start
+Got SIGUSR1
+pre-DR start
+Sending SIGUSR1 under DR
+Got SIGUSR1
+pre-raise SIGSEGV under DR
+Got SIGSEGV
+pre-DR stop
+Saw some bb events
+Saw >=2 signals
+Sending SIGUSR1 post-DR-stop
+Got SIGUSR1
+pre-raise SIGSEGV native
+Got SIGSEGV
+all done

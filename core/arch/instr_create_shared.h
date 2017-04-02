@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,15 +41,7 @@
 /* DR_API EXPORT BEGIN */
 /**
  * @file dr_ir_macros.h
- * @brief Instruction creation convenience macros.
- *
- * All macros assume default data and address sizes.  For the most part these
- * macros do not support building non-default address or data size
- * versions; for that, simply duplicate the macro's body, replacing the
- * SIZE and/or hardcoded registers with smaller versions (the IR does
- * not support cs segments with non-default sizes where the default
- * size requires instruction prefixes).  For shrinking data sizes, see
- * the instr_shrink_to_16_bits() routine.
+ * @brief Cross-platform instruction creation convenience macros.
  */
 
 #ifdef AVOID_API_EXPORT
@@ -59,6 +51,8 @@
 #ifdef API_EXPORT_ONLY
 #ifdef X86
 # include "dr_ir_macros_x86.h"
+#elif defined(AARCH64)
+# include "dr_ir_macros_aarch64.h"
 #elif defined(ARM)
 # include "dr_ir_macros_arm.h"
 #endif
@@ -145,16 +139,18 @@
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_32OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
+#define OPND_CREATE_INT_32OR8(val) \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
+        OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
 /**
  * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
  * immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT_16OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
+#define OPND_CREATE_INT_16OR8(val) \
+    ((val) <= SCHAR_MAX && (ptr_int_t)(val) >= SCHAR_MIN ? \
+        OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
 
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -166,6 +166,12 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1607_x64_syscalls[];
+extern SYS_CONST int windows_10_1607_wow64_syscalls[];
+extern SYS_CONST int windows_10_1607_x86_syscalls[];
+extern SYS_CONST int windows_10_1511_x64_syscalls[];
+extern SYS_CONST int windows_10_1511_wow64_syscalls[];
+extern SYS_CONST int windows_10_1511_x86_syscalls[];
 extern SYS_CONST int windows_10_x64_syscalls[];
 extern SYS_CONST int windows_10_wow64_syscalls[];
 extern SYS_CONST int windows_10_x86_syscalls[];
@@ -195,20 +201,18 @@ extern SYS_CONST uint syscall_argsz[];
 
 extern const char * SYS_CONST syscall_names[];
 
-extern bool init_apc_go_native_pause;
-extern bool init_apc_go_native;
-
 #ifdef DEBUG
 void check_syscall_array_sizes(void);
 #endif
 
 bool
-windows_version_init(void);
+windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory);
 
 enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
-                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64)\
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -252,7 +256,11 @@ sys_param_addr(dcontext_t *dcontext, reg_t *param_base, int num)
     /* we force-inline get_mcontext() and so don't take it as a param */
     priv_mcontext_t *mc = get_mcontext(dcontext);
     switch (num) {
-    case 0: return &mc->xcx;
+    /* The first arg was in rcx, but that's clobbered by OP_sysycall, so the wrapper
+     * copies it to r10.  We need to use r10 as our own instru sometimes takes
+     * advantage of the dead rcx and clobbers it inside the wrapper (i#1901).
+     */
+    case 0: return &mc->r10;
     case 1: return &mc->xdx;
     case 2: return &mc->r8;
     case 3: return &mc->r9;
@@ -293,6 +301,12 @@ postsys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 }
 
 void
+syscall_interception_init(void);
+
+void
+syscall_interception_exit(void);
+
+void
 init_syscall_trampolines(void);
 
 void
@@ -315,9 +329,10 @@ os_rename_file_in_directory(IN HANDLE rootdir,
 /* in callback.c ***************************************************/
 
 /* thread-shared only needs 4 pages on 32-bit but -thread_private needs 5
- * in case we hook the image entry on an early cbret
+ * in case we hook the image entry on an early cbret.
+ * i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively.
  */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(8*4096,7*4096)
+#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(9*4096,7*4096)
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
@@ -447,11 +462,11 @@ extern uint context_xstate;
 
 #define XSTATE_HEADER_SIZE 0x40  /* 512 bits */
 #define YMMH_AREA(ymmh_area, i) (((dr_xmm_t*)ymmh_area)[i])
-#define MAX_CONTEXT_64_SIZE     0x680 /* 0x66f from win-7 sp1 */
+#define MAX_CONTEXT_64_SIZE     0x6ef /* as observed on win10-x64 */
 #ifdef X64
 # define MAX_CONTEXT_SIZE       MAX_CONTEXT_64_SIZE
 #else
-# define MAX_CONTEXT_SIZE       0x480 /* 0x463 from win-7 sp1 */
+# define MAX_CONTEXT_SIZE       0x4e3 /* as observed on win10-x64 */
 #endif
 #define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 

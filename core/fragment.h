@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -195,21 +195,24 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
     ASSERT(mode == DR_ISA_IA32);
     return 0;
 # endif
-#elif defined(ARM)
-# ifdef X64
+#elif defined(AARCH64)
     ASSERT(mode == DR_ISA_ARM_A64);
     return 0;
-# else
+#elif defined(ARM)
     if (mode == DR_ISA_ARM_THUMB)
         return FRAG_THUMB;
     ASSERT(mode == DR_ISA_ARM_A32);
     return 0;
-# endif
 #endif
 }
 
 /* to save space size field is a ushort => maximum fragment size */
+#ifndef AARCH64
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
+#else
+/* On AArch64, TBNZ/TBZ has a range of +/- 32 KiB. */
+enum { MAX_FRAGMENT_SIZE = 0x8000 };
+#endif
 
 /* fragment structure used for basic blocks and traces
  * this is the core structure shared by everything
@@ -325,11 +328,6 @@ typedef struct _trace_only_t {
 #ifdef PROFILE_RDTSC
     uint64    count;            /* number of executions of this fragment */
     uint64    total_time;       /* total time ever spent in this fragment */
-#endif
-
-#ifdef SIDELINE_COUNT_STUDY
-    linkcount_type_t count_old_pre;
-    linkcount_type_t count_old_post;
 #endif
 
     /* holds the tags (and other info) for all constituent basic blocks */
@@ -526,11 +524,6 @@ typedef struct _per_thread_t {
      * not used while not flushing.
      */
     bool           at_syscall_at_flush;
-
-#ifdef PROFILE_LINKCOUNT
-    uint tracedump_num_below_threshold;
-    linkcount_type_t tracedump_count_below_threshold;
-#endif
 } per_thread_t;
 
 
@@ -577,6 +570,17 @@ typedef struct _per_thread_t {
 #define FRAGMENT_TRANSLATION_INFO(f) \
   (HAS_STORED_TRANSLATION_INFO(f) ? (*(FRAGMENT_TRANSLATION_INFO_ADDR(f))) : NULL)
 
+static inline const char *
+fragment_type_name(fragment_t *f)
+{
+    if (TEST(FRAG_IS_TRACE_HEAD, f->flags))
+        return "trace head";
+    else if (TEST(FRAG_IS_TRACE, f->flags))
+        return "trace";
+    else
+        return "bb";
+}
+
 /* Returns the end of the fragment body + any local stubs (excluding selfmod copy) */
 cache_pc
 fragment_stubs_end_pc(fragment_t *f);
@@ -606,6 +610,9 @@ fragment_thread_init(dcontext_t *dcontext);
 void
 fragment_thread_exit(dcontext_t *dcontext);
 
+bool
+fragment_thread_exited(dcontext_t *dcontext);
+
 /* re-initializes non-persistent memory */
 void
 fragment_thread_reset_init(dcontext_t *dcontext);
@@ -617,11 +624,6 @@ fragment_thread_reset_free(dcontext_t *dcontext);
 #ifdef UNIX
 void
 fragment_fork_init(dcontext_t *dcontext);
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-linkcount_type_t
-get_total_linkcount(fragment_t *f);
 #endif
 
 fragment_t *
@@ -997,6 +999,18 @@ is_self_allsynch_flushing(void);
 bool
 is_self_couldbelinking(void);
 
+/* The "couldbelinking" status is used for the efficient, lightweight "unlink"
+ * flushing.  Rather than requiring suspension of every thread at a safe spot
+ * from which that thread can be relocated, supporting immediate cache removal,
+ * "unlink" flushing allows delayed removal by unlinking target fragments and
+ * waiting for any threads inside them to come out naturally.  The flusher needs
+ * safe access to unlink fragments belonging or used by other threads.  Any
+ * thread that might change a fragment link status, or allocate memory in the
+ * nonpersistent heap units (i#1791), must first enter a "couldbelinking" state.
+ * The unlink flush process must wait for each target thread to exit this
+ * "couldbelinking" state prior to proceeding with that thread.
+ */
+
 /* N.B.: can only call if target thread is suspended or waiting for flush */
 bool
 is_couldbelinking(dcontext_t *dcontext);
@@ -1031,6 +1045,8 @@ get_at_syscall(dcontext_t *dcontext);
 /****************************************************************************
  * FLUSHING
  *
+ * Option 1
+ * --------
  * Typical use is to flush a memory region in
  * flush_fragments_and_remove_region().  If custom executable areas editing
  * is required, the memory-region-flushing pair
@@ -1038,26 +1054,65 @@ get_at_syscall(dcontext_t *dcontext);
  * should be used (they MUST be used together). If no executable area removal
  * is needed use flush_fragments_from_region().
  *
- * Alternatively, the trio (also not usable individually)
+ * Option 2
+ * --------
+ * The trio (also not usable individually)
  *   1) flush_fragments_synch_unlink_priv
  *   2) flush_fragments_unlink_shared
  *   3) flush_fragments_end_synch
- * provide flushing for non-memory regions via a list of fragments.  The
- * list should be chained by next_vmarea and vm_area_remove_fragment()
- * should already have been called on each fragment in the list.  This
- * usage does not involve the executable_areas lock at all.
+ * provide flushing for non-memory regions via a list of fragments.  For
+ * stage 2, the list of shared fragments should be chained by next_vmarea,
+ * and vm_area_remove_fragment() should already have been called on each
+ * fragment in the list.  This usage does not involve the executable_areas
+ * lock at all.
  *
- * The exec_invalid parameter must be set to indicate whether the
- * executable area is being invalidated as well or this is just a capacity
- * flush (or a flush to change instrumentation).
+ * The exec_invalid parameter must be set to indicate whether
+ * the executable area is being invalidated as well or this is just a
+ * capacity flush (or a flush to change instrumentation).
  *
+ * Option 3
+ * --------
+ * The trio (also not usable individually)
+ *   1) flush_fragments_synch_priv
+ *   2) flush_fragments_unlink_shared
+ *   3) flush_fragments_end_synch
+ * provide flushing for an arbitrary list of fragments without flushing
+ * any vmarea. Stage 1 will synch with each thread and invoke the callback
+ * with its dcontext, allowing the caller to do any per-thread activity.
+ * For stage 2, the list of shared fragments should be chained by
+ * next_vmarea, and vm_area_remove_fragment() should already have been
+ * called on each fragment in the list.  This usage does not involve the
+ * executable_areas lock at all.
+ *
+ * The thread_synch_callback will be invoked after synching with the
+ * thread (per_thread_t.linking_lock is held). If shared syscalls and/or
+ * special IBL transfer are thread-private, they will be unlinked for
+ * each thread prior to invocation of the callback. The return value of
+ * the callback indicates whether to relink these routines (true), or
+ * wait for a later operation (such as vm_area_flush_fragments()) to
+ * relink them later (false).
+ *
+ * All options
+ * -----------
  * Possibly the thread_initexit_lock (if there are fragments to
  * flush), and always executable_areas lock for region flushing, ARE
  * HELD IN BETWEEN the routines, and no thread is could_be_linking()
  * in between.
  * WARNING: case 8572: the caller owning the thread_initexit_lock
  * is incompatible w/ suspend-the-world flushing!
+ *
+ * See the comments above is_couldbelinking() regarding the unlink flush safety
+ * approach.
  */
+/* Always performs synch. Invokes thread_synch_callback per thread. */
+void
+flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
+                           bool own_initexit_lock,
+                           bool (*thread_synch_callback)(dcontext_t *dcontext,
+                                                         int thread_index,
+                                                         dcontext_t *thread_dcontext)
+                           _IF_DGCDIAG(app_pc written_pc));
+
 /* If size>0, returns whether there is an overlap; if not, no synch is done.
  * If size==0, synch is always performed and true is always returned.
  */
@@ -1196,7 +1251,7 @@ get_ibl_per_type_statistics(dcontext_t *dcontext, ibl_branch_type_t branch_type)
      endif
      foreach exit:
        struct _tracedump_stub_data
-       if linkcount_size > 0
+       if linkcount_size > 0 # deprecated
          linkcount_type_t count; # sizeof == linkcount_size
        endif
        if separate from body
@@ -1205,10 +1260,6 @@ get_ibl_per_type_statistics(dcontext_t *dcontext, ibl_branch_type_t branch_type)
        endif
      endfor
      byte code[code_size];
- * if the -tracedump_threshold option (deprecated) was specified:
-     int num_below_treshold
-     linkcount_type_t count_below_threshold
-   endif
 </pre>
  */
 typedef struct _tracedump_file_header_t {

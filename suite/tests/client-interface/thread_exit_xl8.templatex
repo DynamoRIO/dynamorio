@@ -1,0 +1,6 @@
+Hello, world!
+#ifdef DEBUG
+.* DynamoRIO usage error : dr_app_pc_from_cache_pc not supported from the thread exit event.*
+#else
+Client exit
+#endif

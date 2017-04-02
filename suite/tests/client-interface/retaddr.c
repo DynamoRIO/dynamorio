@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -84,7 +84,7 @@ GLOBAL_LABEL(FUNCNAME:)
         PUSH_SEH(REG_XDI)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
-        CALLC0(callee)
+        CALLC0(GLOBAL_REF(callee))
         mov      REG_XAX, PTRSZ [REG_XSP - ARG_SZ]
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         pop      REG_XDI

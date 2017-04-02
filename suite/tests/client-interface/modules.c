@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,7 @@
 #endif
 
 int
-main(void)
+main(int argc, const char *argv[])
 {
 #ifdef WINDOWS
     HMODULE handle;
@@ -50,10 +50,13 @@ main(void)
         print("failed to load comdlg32.dll\n");
     FreeLibrary(handle);
 #else
-    void *hmod = dlopen("libz.so.1", RTLD_LAZY);
+    if (argc < 2)
+        exit(1);
+    void *hmod = dlopen(argv[1], RTLD_LAZY);
     if (hmod == 0)
-        print("failed to load libz.so.1\n");
+        print("failed to load %s\n", argv[1]);
     else
         dlclose(hmod);
 #endif
+    print("all done\n");
 }

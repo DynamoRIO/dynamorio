@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -75,8 +75,9 @@ interface for building dynamic tools for a wide variety of uses: program
 analysis and understanding, profiling, instrumentation, optimization,
 translation, etc. DynamoRIO provides efficient, transparent, and
 comprehensive manipulation of an unmodified application running on a stock
-operating system (Windows or Linux) and commodity IA-32, AMD64, and ARM
-hardware.  See \ref sec_limit_platforms for supported platforms.
+operating system (Windows, Linux, or Android) and commodity IA-32, AMD64,
+ARM, and AArch64 hardware.  See \ref sec_limit_platforms for details of
+which platform combinations are fully supported.
 
 This document describes the DynamoRIO system and the various API's that it
 exports for building custom tools.  It is divided into the following
@@ -102,7 +103,7 @@ sections:
 
 \ifnot vmsafe
 - \subpage page_standalone
-  <br>DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM
+  <br>DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM/AArch64
   disassembly, decoding, encoding, and general instruction manipulation.
   A separate static library is provided for this purpose.
 \endif
@@ -459,7 +460,10 @@ stored in <tt>$DYNAMORIO_CONFIGDIR/.dynamorio/&lt;appname&gt;.config32</tt>
 (or a \p config64 suffix for 64-bit). If <tt>DYNAMORIO_CONFIGDIR</tt> is
 not set, <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> is used;
 if neither is set, a temp directory will be used when creating new
-configuration files for configure-and-run execution.
+configuration files for configure-and-run execution.  On Android, if
+neither <tt>/data/local/tmp</tt> nor the current working directory are
+writable, you will need to specify a writable directory by setting the
+<tt>DYNAMORIO_CONFIGDIR</tt> environment variable.
 
 DynamoRIO also supports global configuration
 files in <tt>/etc/dynamorio/&lt;appname&gt;.config32</tt> when a local
@@ -472,10 +476,6 @@ environment variable, the resulting process will still run under DynamoRIO
 control with the same settings as the parent process.
 Use <tt>DYNAMORIO_CONFIGDIR</tt> or global configuration files to
 specify separate options for such a child process.
-
-If a target application binary has suid or sgid bits set, \p drrun will be
-unable to inject into it.  Please see workaround suggestions in the \ref
-limits_linux_preload "Limitations" section.
 
 When running scripts it is best to explicitly invoke the interpreter rather
 than invoking the script directly:
@@ -500,6 +500,51 @@ client's id defaults to 0.
 An alternative method to run an application under DynamoRIO is the \ref
 sec_startstop "app_start()/app_stop()" interface, which requires modifying
 application source code.
+
+\section android_deploy Android Deployment
+
+Android deployment is generally the same as \ref lin_deploy except for the
+following differences.
+
+For pure native applications, the default configuration file location (if
+<tt>DYNAMORIO_CONFIGDIR</tt> is not explicitly set) is usually (depending
+on whether <tt>$HOME</tt> happens to be writable) <tt>/data/local/tmp</tt>.
+
+For Android applications on recent versions of Android, SELinux prevents
+writing to <tt>/data/local/tmp</tt>.  The application's data directory
+should be pointed at in the \p TMPDIR or <tt>DYNAMORIO_CONFIGDIR</tt>
+environment variables, as shown below in the example wrapper script.  We
+recommend using \p TMPDIR as its value will also be used by tools such as
+Dr. Memory for their log files.
+
+To launch an Android application under DynamoRIO, use a wrapper script and
+point at the script via the \p logwrapper property set on your
+application's name prefixed by \p <tt>wrap.</tt>.  For example, if your
+application's name is <tt>com.myco.appname</tt>, set the property for
+<tt>wrap.com.myco.appname</tt>, truncating to 31 characters:
+
+\code
+setprop wrap.com.myco.appname "logwrapper /system/xbin/wrap.sh"
+\endcode
+
+The wrapper shell script should contain the command line prefix you wish to
+use to launch your application under DynamoRIO:
+
+\code
+#!/system/bin/sh
+export TMPDIR=/data/data/com.myco.appname
+exec /system/xbin/dynamorio/bin32/drrun -- $@
+\endcode
+
+Be sure to place the DynamoRIO binaries and the wrapper script in an
+executable location, such as <tt>/system/xbin</tt>.  Alternatively, disable
+SELinux via <tt>setenforce 0</tt>.
+
+If you run into problems with configuration files being created due to
+SELinux denials (look in the logs for such denials), it may be simplest to
+disable SELinux via <tt>setenforce 0</tt>.  We have attempted to get
+everything to work without this step, but we are not able to test on all
+versions or configurations of Android.
 
 \endif
 
@@ -872,7 +917,7 @@ DynamoRIO's API provides:
 See dr_tools.h and dr_proc.h for specifics of each routine.
 
 Another class of utilities provided by DynamoRIO are structures and
-routines for decoding, encoding, and manipulating IA-32, AMD64, and ARM
+routines for decoding, encoding, and manipulating IA-32, AMD64, ARM, and AArch64
 instructions. These are described in \ref sec_IR.
 
 \anchor subsec_forwards
@@ -1100,7 +1145,7 @@ DynamoRIO header files.  The appropriate library must then be linked
 with.  The define choices are:
 
 -# \p WINDOWS, \p LINUX, or (coming soon) \p MACOS
--# \p X86_32, \p X86_64, \p ARM_32, or (coming soon) \p ARM_64
+-# \p X86_32, \p X86_64, \p ARM_32, or \p ARM_64
 
 Currently we provide a private loader for both Windows and Linux.
 With private loading, clients use a separate copy of each library
@@ -1930,9 +1975,9 @@ https://github.com/DynamoRIO/dynamorio/wiki/Debugging
 ***************************************************************************
 ***************************************************************************
 \ifnot vmsafe
-\page page_standalone IA-32/AMD64/ARM Disassembly Library
+\page page_standalone IA-32/AMD64/ARM/AArch64 Disassembly Library
 
-DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM
+DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM/AArch64
 disassembly, decoding, encoding, and general instruction manipulation,
 independently of controlling a target application.  When used in this way,
 all aspects of DynamoRIO's API routines that apply to instrumentation or

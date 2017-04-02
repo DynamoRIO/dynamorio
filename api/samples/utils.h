@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -33,6 +33,7 @@
  */
 
 #include "dr_api.h" /* for file_t, client_id_t */
+#include <stdio.h>
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
@@ -69,3 +70,13 @@ log_file_open(client_id_t id, void *drcontext,
 /* close a log file opened by log_file_open */
 void
 log_file_close(file_t log);
+
+/* Converts a raw file descriptor into a FILE stream. */
+FILE *
+log_stream_from_file(file_t f);
+
+/* log_file_close does *not* need to be called when calling this on a
+ * stream converted from a file descriptor.
+ */
+void
+log_stream_close(FILE *f);

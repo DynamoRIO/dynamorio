@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,47 +42,7 @@
 #ifndef _OS_EXPORTS_H_
 #define _OS_EXPORTS_H_ 1
 
-/* CONTEXT field name changes: before including arch_exports.h, for cxt_seg_t! */
-#ifdef X64
-typedef ushort cxt_seg_t;
-# define CXT_XIP Rip
-# define CXT_XAX Rax
-# define CXT_XCX Rcx
-# define CXT_XDX Rdx
-# define CXT_XBX Rbx
-# define CXT_XSP Rsp
-# define CXT_XBP Rbp
-# define CXT_XSI Rsi
-# define CXT_XDI Rdi
-/* It looks like both CONTEXT.Xmm0 and CONTEXT.FltSave.XmmRegisters[0] are filled in.
- * We use the latter so that we don't have to hardcode the index.
- */
-# define CXT_XMM(cxt, idx) ((dr_xmm_t*)&((cxt)->FltSave.XmmRegisters[idx]))
-/* FIXME i#437: need CXT_YMM */
-/* they kept the 32-bit EFlags field; sure, the upper 32 bits of Rflags
- * are undefined right now, but doesn't seem very forward-thinking. */
-# define CXT_XFLAGS EFlags
-#else
-typedef DWORD cxt_seg_t;
-# define CXT_XIP Eip
-# define CXT_XAX Eax
-# define CXT_XCX Ecx
-# define CXT_XDX Edx
-# define CXT_XBX Ebx
-# define CXT_XSP Esp
-# define CXT_XBP Ebp
-# define CXT_XSI Esi
-# define CXT_XDI Edi
-# define CXT_XFLAGS EFlags
-/* This is not documented, but CONTEXT.ExtendedRegisters looks like fxsave layout.
- * Presumably there are no processors that have SSE but not FXSR
- * (we ASSERT on that in proc_init()).
- */
-# define FXSAVE_XMM0_OFFSET 160
-# define CXT_XMM(cxt, idx) \
-    ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
-#endif
-
+#include "os_public.h"
 #include "../os_shared.h"
 #include "arch_exports.h"       /* for priv_mcontext_t */
 #include "aslr.h"               /* for aslr_context */
@@ -93,15 +53,17 @@ typedef DWORD cxt_seg_t;
  * get_windows_version() in suite/tests/tools.c, defines in libutil/mfapi.h,
  * and get_platform() in libutil/utils.c.
  */
-#define WINDOWS_VERSION_10    100
-#define WINDOWS_VERSION_8_1    63
-#define WINDOWS_VERSION_8      62
-#define WINDOWS_VERSION_7      61
-#define WINDOWS_VERSION_VISTA  60
-#define WINDOWS_VERSION_2003   52
-#define WINDOWS_VERSION_XP     51
-#define WINDOWS_VERSION_2000   50
-#define WINDOWS_VERSION_NT     40
+#define WINDOWS_VERSION_10_1607 102 /* 10.2 is artificial */
+#define WINDOWS_VERSION_10_1511 101 /* 10.1 is artificial */
+#define WINDOWS_VERSION_10      100
+#define WINDOWS_VERSION_8_1      63
+#define WINDOWS_VERSION_8        62
+#define WINDOWS_VERSION_7        61
+#define WINDOWS_VERSION_VISTA    60
+#define WINDOWS_VERSION_2003     52
+#define WINDOWS_VERSION_XP       51
+#define WINDOWS_VERSION_2000     50
+#define WINDOWS_VERSION_NT       40
 int get_os_version(void);
 void get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
                        uint *service_pack_minor OUT);
@@ -255,6 +217,7 @@ void print_dynamo_regions(void);
 size_t get_allocation_size(byte *pc, byte **base_pc);
 byte *get_allocation_base(byte *pc);
 void mark_page_as_guard(byte *pc);
+bool unmark_page_as_guard(byte *pc, uint prot);
 
 bool
 os_find_free_code_space_in_libs(void **start OUT, void **end OUT);
@@ -266,6 +229,8 @@ bool is_phandle_me(HANDLE phandle);
 
 extern bool intercept_asynch;
 extern bool intercept_callbacks;
+extern volatile bool init_apc_go_native_pause;
+extern volatile bool init_apc_go_native;
 extern process_id_t win32_pid;
 extern void *peb_ptr; /* not exposing type in case not including ntdll.h */
 
@@ -429,13 +394,15 @@ enum {
 /* sets detach in motion and never returns */
 void detach_internal_synch(void);
 void detach_internal(void);
+bool detach_handle_callbacks(int num_threads, thread_record_t **threads,
+                             bool *cleanup_tpc /* array of size num_threads */);
+void detach_remove_image_entry_hook(int num_threads, thread_record_t **threads);
 enum {
     DETACH_NORMAL_TYPE          =  0,
     DETACH_BAD_STATE            = -1,
     DETACH_BAD_STATE_NO_CLEANUP = -2,
 };
 void detach_helper(int detach_type); /* needs to be exported for nudge.c */
-extern bool doing_detach;
 
 void early_inject_init(void);
 bool earliest_inject_init(byte *arg_ptr);

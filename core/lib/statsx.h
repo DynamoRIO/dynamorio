@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -529,6 +529,8 @@
               num_ibt_exit_src_unlinked_frag_deleted)
     STATS_DEF("Extra exits due to src unlinked (shadowed)",
               num_ibt_exit_src_unlinked_shadowed)
+    STATS_DEF("Extra exits due to src unlinked (signal)",
+              num_ibt_exit_src_unlinked_signal)
     STATS_DEF("Extra exits due to shared syscall targetting BB",
               num_ibt_exit_src_trace_shared_syscall)
     STATS_DEF("Extra IBT exits due to -no_link_ibl", num_ibt_exit_nolink)
@@ -701,6 +703,7 @@
     STATS_DEF("Fcache exits, native_exec executions", num_exits_native_exec)
     STATS_DEF("Fcache exits, native_exec syscalls", num_exits_native_exec_syscall)
     STATS_DEF("Fcache exits, proactive reset", num_exits_reset)
+    STATS_DEF("Fcache exits, going native", num_exits_native)
 #ifdef HOT_PATCHING_INTERFACE
     STATS_DEF("Fcache exits, hot patching control flow change", num_exits_hot_patch)
 #endif
@@ -982,9 +985,7 @@
     STATS_DEF("Number of landing pad areas allocated", num_landing_pad_areas)
     STATS_DEF("Total times mutexes acquired", total_acquired)
     STATS_DEF("Total times mutexes contended", total_contended)
-#ifdef WINDOWS
     STATS_DEF("Unable to wait_at_safe_spot cache entries", no_wait_entries)
-#endif
     STATS_DEF("Interoperability fixups for apc_policy", num_used_apc_policy)
     STATS_DEF("Interoperability fixups for thread_policy", num_used_thread_policy)
     STATS_DEF("Number of safe reads", num_safe_reads)
@@ -1198,7 +1199,7 @@
     STATS_DEF("Clean Call analyzed", cleancall_analyzed)
     STATS_DEF("Clean Call inserted", cleancall_inserted)
     STATS_DEF("Clean Call inlined", cleancall_inlined)
-    STATS_DEF("Clean Call xmm skipped", cleancall_xmm_skipped)
+    STATS_DEF("Clean Call xmm skipped", cleancall_simd_skipped)
     STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
     STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
     /* i#107 handle application using same segment register */

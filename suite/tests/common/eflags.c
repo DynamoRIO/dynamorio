@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -93,24 +93,24 @@ GLOBAL_LABEL(FUNCNAME:)
         /* We don't bother w/ SEH64 directives, though we're an illegal leaf routine! */
         mov      REG_XCX, ARG1
         push     REG_XCX /* save */
-        CALLC1(set_flag, REG_XCX)
+        CALLC1(GLOBAL_REF(set_flag), REG_XCX)
         mov      REG_XCX, PTRSZ [REG_XSP]
         PUSHF
         pop      REG_XAX
         /* having DF set messes up printing for x64 */
         push     0
         POPF
-        CALLC3(test_flag, REG_XAX, REG_XCX, 1)
+        CALLC3(GLOBAL_REF(test_flag), REG_XAX, REG_XCX, 1)
 
         mov      REG_XCX, PTRSZ [REG_XSP]
-        CALLC1(clear_flag, REG_XCX)
+        CALLC1(GLOBAL_REF(clear_flag), REG_XCX)
         mov      REG_XCX, PTRSZ [REG_XSP]
         PUSHF
         pop      REG_XAX
         /* having DF set messes up printing for x64 */
         push     0
         POPF
-        CALLC3(test_flag, REG_XAX, REG_XCX, 0)
+        CALLC3(GLOBAL_REF(test_flag), REG_XAX, REG_XCX, 0)
 
         pop      REG_XCX /* clean up */
         ret

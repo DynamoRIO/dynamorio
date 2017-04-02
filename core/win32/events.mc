@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -125,6 +125,15 @@ Language=English
 Detaching from application %1!s! (%2!s!)
 .
 
+;// Info messages
+MessageId =
+Severity = Informational
+Facility = DRCore
+SymbolicName = MSG_INFO_ATTACHED
+Language=English
+Attached to %1!s! threads in application %2!s! (%3!s!)
+.
+
 ;//;;;;;;;;;;;;;;;;;;; Security
 
 MessageId =
@@ -221,6 +230,14 @@ Application %1!s! (%2!s!).  %3!s! %4!s! at PC %5!s!.  Please report this at %6!s
 MessageId =
 Severity = Warning
 Facility = DRCore
+SymbolicName = MSG_INVOKING_APP_HANDLER
+Language=English
+Invoking fault handler for application %1!s! (%2!s!).
+.
+
+MessageId =
+Severity = Warning
+Facility = DRCore
 SymbolicName = MSG_APP_EXCEPTION
 Language=English
 Application %1!s! (%2!s!).  Application exception at PC %3!s!.  %4!s!
@@ -240,6 +257,22 @@ Facility = DRCore
 SymbolicName = MSG_UNSUPPORTED_APPLICATION
 Language=English
 Application %1!s! (%2!s!) is not supported due to dll %3!s!.  Program aborted.
+.
+
+MessageId =
+Severity = Warning
+Facility = DRCore
+SymbolicName = MSG_WSL_UNSUPPORTED
+Language=English
+Application %1!s! (%2!s!).  The Windows Subsystem for Linux is not yet fully supported due to missing kernel features.   Continuing, but may encounter problems.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_WSL_UNSUPPORTED_FATAL
+Language=English
+Application %1!s! (%2!s!).  The Windows Subsystem for Linux is not yet supported due to missing segment support from the kernel.  Program aborted.
 .
 
 MessageId =

@@ -1,11 +1,11 @@
 Sending SIGUSR2
 Sending SIGUSR1
-signal_handler: sig=10
+in signal handler
 Got SIGUSR1
 Sending SIGRTMAX
-signal_handler: sig=64
+in signal handler
 Got SIGRTMAX
 Generating SIGSEGV
-signal_handler: sig=11
+in signal handler
 Got SIGSEGV
 250006.749760

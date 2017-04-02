@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,11 +75,15 @@
  *     Linked, target > 32MB away (or > 1MB for T32 cbr):
  *         b stub
  *       stub:
- *         ldr pc, [pc + 12]
+ *         ldr pc, [pc + 12 or 14]
  *         movw r0, #bottom-half-&linkstub
  *         movt r0, #top-half-&linkstub
  *         ldr pc, [r10, #fcache-return-offs]
  *         <target>
+ *
+ * i#1906: the addresses from which data is loaded into the PC must be
+ * 4-byte-aligned.  We arrange this by padding the body of a Thumb fragment
+ * to ensure the stubs start on a 4-byte alignment.
  *
  * XXX i#1611: improve on this by allowing load-into-PC exit ctis,
  * which would give us back -indirect_stubs and -cbr_single_stub.
@@ -130,6 +134,7 @@ static byte *
 insert_ldr_tls_to_pc(byte *pc, uint frag_flags, uint offs)
 {
     /* ldr pc, [r10, #offs] */
+    ASSERT(ALIGNED(offs, PC_LOAD_ADDR_ALIGN)); /* unpredictable unless aligned: i#1906 */
     if (FRAG_IS_THUMB(frag_flags)) {
         *(ushort*)pc = 0xf8d0 | (dr_reg_stolen - DR_REG_R0);
         pc += THUMB_SHORT_INSTR_SIZE;
@@ -198,33 +203,6 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
         /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
         return TLS_FCACHE_RETURN_SLOT;
     }
-}
-
-size_t
-get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
-{
-    spill_state_t state;
-    byte *local;
-    ibl_type_t ibl_type = {0};
-    /* FIXME i#1551: add Thumb support: ARM vs Thumb gencode */
-    DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, ibl_entry, &ibl_type _IF_X64(NULL));
-    ASSERT(is_ibl);
-    /* FIXME i#1575: coarse-grain NYI on ARM */
-    ASSERT(ibl_type.source_fragment_type != IBL_COARSE_SHARED);
-    if (IS_IBL_TRACE(ibl_type.source_fragment_type)) {
-        if (IS_IBL_LINKED(ibl_type.link_state))
-            local = (byte *) &state.trace_ibl[ibl_type.branch_type].ibl;
-        else
-            local = (byte *) &state.trace_ibl[ibl_type.branch_type].unlinked;
-    } else {
-        ASSERT(IS_IBL_BB(ibl_type.source_fragment_type));
-        if (IS_IBL_LINKED(ibl_type.link_state))
-            local = (byte *) &state.bb_ibl[ibl_type.branch_type].ibl;
-        else
-            local = (byte *) &state.bb_ibl[ibl_type.branch_type].unlinked;
-    }
-    return (local - (byte *) &state);
 }
 
 /* Emit code for the exit stub at stub_pc.  Return the size of the
@@ -317,7 +295,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
      * indirect branch from there:
      *        b stub
      *      stub:
-     *        ldr pc, [pc + 10 or 12]
+     *        ldr pc, [pc + 12 or 14]
      *        movw r0, #bottom-half-&linkstub
      *        movt r0, #top-half-&linkstub
      *        ldr pc, [r10, #fcache-return-offs]
@@ -335,6 +313,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
         cache_pc tgt = stub_pc + DIRECT_EXIT_STUB_INSTR_COUNT * THUMB_LONG_INSTR_SIZE;
         uint offs = tgt - decode_cur_pc(stub_pc, FRAG_ISA_MODE(f->flags), OP_ldr, NULL);
         uint word2 = 0xf000 | offs;
+        ASSERT(ALIGNED(tgt, PC_LOAD_ADDR_ALIGN)); /* unpredictable unless: i#1906 */
         /* We assume this is atomic */
         *(uint*)stub_pc = (word2 << 16) | word1; /* little-endian */
     } else {
@@ -475,7 +454,7 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     cache_pc exit_target;
     ibl_type_t ibl_type = {0};
     DEBUG_DECLARE(bool is_ibl = )
-        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type _IF_X64(NULL));
+        get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
     ASSERT(is_ibl);
     if (IS_IBL_LINKED(ibl_type.link_state))
         exit_target = target_tag;
@@ -613,9 +592,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 /***************************************************************************/
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
-#ifdef X64
-# error NYI on AArch64
-#endif
 
 /* helper functions for emit_fcache_enter_common */
 
@@ -652,12 +628,35 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+#ifdef UNIX
+    instr_t *no_signals = INSTR_CREATE_label(dcontext);
+    /* save callee-saved reg in case we return for a signal */
+    APP(ilist, XINST_CREATE_move(dcontext,
+                                 opnd_create_reg(DR_REG_R1),
+                                 opnd_create_reg(REG_DCXT)));
+#endif
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
     /* grab gen routine's parameter dcontext and put it into REG_DCXT */
     APP(ilist, XINST_CREATE_move(dcontext,
                                  opnd_create_reg(REG_DCXT),
                                  OPND_ARG1/*r0*/));
+#ifdef UNIX
+    APP(ilist, INSTR_CREATE_ldrsb
+        (dcontext, opnd_create_reg(DR_REG_R2),
+         OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(ilist, XINST_CREATE_cmp
+        (dcontext, opnd_create_reg(DR_REG_R2), OPND_CREATE_INT8(0)));
+    APP(ilist, INSTR_PRED(INSTR_CREATE_b(dcontext, opnd_create_instr(no_signals)),
+                          DR_PRED_LE));
+    /* restore callee-saved reg */
+    APP(ilist, XINST_CREATE_move(dcontext,
+                                 opnd_create_reg(REG_DCXT),
+                                 opnd_create_reg(DR_REG_R1)));
+    APP(ilist, INSTR_CREATE_bx(dcontext, opnd_create_reg(DR_REG_LR)));
+    APP(ilist, no_signals);
+#endif
+
     /* set up stolen reg */
     insert_load_dr_tls_base(dcontext, ilist, NULL/*append*/, SCRATCH_REG0);
 }
@@ -841,7 +840,7 @@ append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt))
+                   uint flags, bool tls, bool absolute)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -849,8 +848,7 @@ insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute
-                      _IF_X64(bool x86_to_x64_ibl_opt))
+                      uint flags, bool tls, bool absolute)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);

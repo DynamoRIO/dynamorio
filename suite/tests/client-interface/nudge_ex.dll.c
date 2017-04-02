@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,8 +35,12 @@
 #include "client_tools.h"
 #include <string.h> /* memset */
 #ifdef UNIX
-# include <syscall.h>
-# include <linux/sched.h>     /* for clone and CLONE_ flags */
+# ifdef MACOS
+#  include <sys/syscall.h>
+# else
+#  include <syscall.h>
+#  include <linux/sched.h>     /* for clone and CLONE_ flags */
+# endif
 #endif
 
 static client_id_t client_id = 0;
@@ -134,12 +138,12 @@ event_filter_syscall(void *drcontext, int sysnum)
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
-#ifdef UNIX
+#ifdef LINUX
     if (sysnum == SYS_clone) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, cls_idx);
         data->saved_param = dr_syscall_get_param(drcontext, 0);
     }
-#else
+#elif defined(WINDOWS)
     if (sysnum == sysnum_CreateProcess || sysnum == sysnum_CreateProcessEx ||
         sysnum == sysnum_CreateUserProcess) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, cls_idx);
@@ -155,8 +159,11 @@ event_post_syscall(void *drcontext, int sysnum)
     per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, cls_idx);
     /* XXX i#752: should DR provide a child creation event that gives us the pid? */
 #ifdef UNIX
-    if (sysnum == SYS_fork ||
-        (sysnum == SYS_clone && !TEST(CLONE_VM, data->saved_param))) {
+    if (sysnum == SYS_fork
+# ifdef LINUX
+        || (sysnum == SYS_clone && !TEST(CLONE_VM, data->saved_param))
+# endif
+        ) {
         child_pid = dr_syscall_get_result(drcontext);
         /* we nudge once we see notification from parent, via bb pattern (i#953) */
     }

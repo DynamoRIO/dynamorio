@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2017 Google, Inc.  All rights reserved.
 # Copyright (c) 2009 Derek Bruening    All rights reserved.
 # **********************************************************
 
@@ -28,7 +29,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 find_program(GHOSTSCRIPT_EXECUTABLE
-  NAMES gs gswin32c
+  NAMES gs gswin32c gswin64c
   PATHS
   # implicitly searches in ENV PATH first
   ${CYGWIN_INSTALL_PATH}/bin

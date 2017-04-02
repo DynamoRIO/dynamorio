@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,8 +36,8 @@
 #ifndef _CACHING_DEVICE_BLOCK_H_
 #define _CACHING_DEVICE_BLOCK_H_ 1
 
-#include <inttypes.h>
-#include "memref.h"
+#include <stdint.h>
+#include "../common/memref.h"
 
 // Assuming a block of a caching device represents a memory space of at least 4-byte,
 // e.g., a CPU cache line or a virtual/physical page, we can use special value
@@ -53,12 +53,14 @@ class caching_device_block_t
     // we expect any use of counter to only occur *after* a valid tag is put in place,
     // where for the current replacement code we also set the counter at that time.
     caching_device_block_t() : tag(TAG_INVALID), counter(0) {}
+    // Destructor must be virtual and default is not.
+    virtual ~caching_device_block_t() {}
 
     addr_t tag;
 
     // XXX: using int_least64_t here results in a ~4% slowdown for 32-bit apps.
     // A 32-bit counter should be sufficient but we may want to revisit.
-    // We already have inttypes.h so we can reinstate int_least64_t easily.
+    // We already have stdint.h so we can reinstate int_least64_t easily.
     int counter; // for use by replacement policies
 };
 

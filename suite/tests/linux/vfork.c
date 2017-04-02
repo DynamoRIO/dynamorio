@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,9 @@
  */
 
 #include "tools.h"
-#include "threads.h"
+#ifdef LINUX
+# include "threads.h"
+#endif
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -130,12 +132,16 @@ int main(int argc, char** argv)
      * manually with -loglevel N to trigger this.
      */
     print("trying clone() after vfork()\n");
+#ifdef LINUX
     stack = NULL;
     child = create_thread(run_child, NULL, &stack);
     if (child < 0) {
         perror("ERROR on create_thread");
     }
     delete_thread(child, stack);
+#else
+    print("child thread running"); /* match output */
+#endif
     print("child has exited\n");
 
     return 0;

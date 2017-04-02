@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -32,9 +32,9 @@
  */
 
 /* Code Manipulation API Sample:
- * memtrace-simple.c
+ * memtrace_simple.c
  *
- * Collects the memory reference information and dumps it to a file.
+ * Collects the memory reference information and dumps it to a file as text.
  *
  * (1) It fills a per-thread-buffer with inlined instrumentation.
  * (2) It calls a clean call to dump the buffer into a file.
@@ -52,12 +52,16 @@
  *   the address of each memory reference.
  *
  * This client is a simple implementation of a memory reference tracing tool
- * without instrumentation optimization.
+ * without instrumentation optimization.  Additionally, dumping as
+ * text is much slower than dumping as binary.  See memtrace_x86.c for
+ * a higher-performance sample.
  */
 
+#include <stdio.h>
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drreg.h"
 #include "drutil.h"
 #include "utils.h"
 
@@ -88,6 +92,7 @@ typedef struct {
     byte      *seg_base;
     mem_ref_t *buf_base;
     file_t     log;
+    FILE      *logf;
     uint64     num_refs;
 } per_thread_t;
 
@@ -120,11 +125,15 @@ memtrace(void *drcontext)
      *   0x00007f59c2d002d3:  5, call
      *   0x00007ffeacab0ec8:  8, w
      */
+    /* We use libc's fprintf as it is buffered and much faster than dr_fprintf
+     * for repeated printing that dominates performance, as the printing does here.
+     */
     for (mem_ref = (mem_ref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
-        dr_fprintf(data->log, ""PFX": %2d, %s\n", mem_ref->addr, mem_ref->size,
-                   (mem_ref->type > REF_TYPE_WRITE) ?
-                   decode_opcode_name(mem_ref->type) /* opcode for instr */ :
-                   (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
+        /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
+        fprintf(data->logf, ""PIFX": %2d, %s\n", (ptr_uint_t)mem_ref->addr, mem_ref->size,
+                (mem_ref->type > REF_TYPE_WRITE) ?
+                decode_opcode_name(mem_ref->type) /* opcode for instr */ :
+                (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -194,14 +203,9 @@ static void
 insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                reg_id_t base, reg_id_t scratch, app_pc pc)
 {
-    instr_t *mov1, *mov2;
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)pc,
                                      opnd_create_reg(scratch),
-                                     ilist, where, &mov1, &mov2);
-    DR_ASSERT(mov1 != NULL);
-    instr_set_meta(mov1);
-    if (mov2 != NULL)
-        instr_set_meta(mov2);
+                                     ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(base,
@@ -229,15 +233,15 @@ insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
 static void
 instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
-    reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
-    ushort  slot_ptr = SPILL_SLOT_2;
-    ushort  slot_tmp = SPILL_SLOT_3;
-
     /* We need two scratch registers */
-    dr_save_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_save_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
-
+    reg_id_t reg_ptr, reg_tmp;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return;
+    }
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)instr_get_opcode(where));
@@ -246,9 +250,10 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-    /* restore scratch registers */
-    dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }
 
 /* insert inline code to add a memory reference info entry into the buffer */
@@ -256,15 +261,15 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
                opnd_t ref, bool write)
 {
-    reg_id_t reg_ptr = IF_X86_ELSE(DR_REG_XCX, DR_REG_R1);
-    reg_id_t reg_tmp = IF_X86_ELSE(DR_REG_XBX, DR_REG_R2);
-    ushort  slot_ptr = SPILL_SLOT_2;
-    ushort  slot_tmp = SPILL_SLOT_3;
-
     /* We need two scratch registers */
-    dr_save_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_save_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
-
+    reg_id_t reg_ptr, reg_tmp;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        return;
+    }
     /* save_addr should be called first as reg_ptr or reg_tmp maybe used in ref */
     insert_save_addr(drcontext, ilist, where, ref, reg_ptr, reg_tmp);
     insert_save_type(drcontext, ilist, where, reg_ptr, reg_tmp,
@@ -272,10 +277,10 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                      (ushort)drutil_opnd_mem_size_in_bytes(ref, where));
     insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, sizeof(mem_ref_t));
-
-    /* restore scratch registers */
-    dr_restore_reg(drcontext, ilist, where, reg_ptr, slot_ptr);
-    dr_restore_reg(drcontext, ilist, where, reg_tmp, slot_tmp);
+    /* Restore scratch registers */
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }
 
 /* For each memory reference app instr, we insert inline code to fill the buffer
@@ -308,16 +313,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* insert code to call clean_call for processing the buffer */
-    if (/* XXX i#1702: it is ok to skip a few clean calls on predicated instructions,
+    if (/* XXX i#1702: We cannot insert a clean call inside an IT block.
+         * It is ok to skip a few clean calls on predicated instructions,
          * since the buffer will be dumped later by other clean calls.
          */
-        IF_X86_ELSE(true, !instr_is_predicated(instr))
-        /* FIXME i#1698: there are constraints for code between ldrex/strex pairs,
+        IF_ARM_ELSE(!instr_is_predicated(instr), true)
+        /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
+         * As we're only inserting instrumentation on a memory reference, and the
+         * app should be avoiding memory accesses in between the ldrex...strex,
+         * the only problematic point should be before the strex.
          * However, there is still a chance that the instrumentation code may clear the
          * exclusive monitor state.
+         * Using a fault to handle a full buffer should be more robust, and the
+         * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_ARM(&& !instr_is_exclusive_store(instr)))
+        IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;
@@ -368,17 +379,21 @@ event_thread_init(void *drcontext)
                               DR_FILE_CLOSE_ON_FORK |
 #endif
                               DR_FILE_ALLOW_LARGE);
+    data->logf = log_stream_from_file(data->log);
+    fprintf(data->logf,
+            "Format: <data address>: <data size>, <(r)ead/(w)rite/opcode>\n");
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
+    memtrace(drcontext); /* dump any remaining buffer entries */
     data = drmgr_get_tls_field(drcontext, tls_idx);
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    log_file_close(data->log);
+    log_stream_close(data->logf); /* closes fd too */
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
@@ -394,7 +409,8 @@ event_exit(void)
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         !drmgr_unregister_bb_app2app_event(event_bb_app2app) ||
-        !drmgr_unregister_bb_insertion_event(event_app_instruction))
+        !drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+        drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
 
     dr_mutex_destroy(mutex);
@@ -405,9 +421,11 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || !drutil_init())
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
         DR_ASSERT(false);
 
     /* register events */

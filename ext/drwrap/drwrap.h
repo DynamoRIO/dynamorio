@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -333,9 +333,9 @@ typedef enum {
     /** Provided for convenience when calling drwrap_wrap_ex() with no flags. */
     DRWRAP_FLAGS_NONE             = 0x00,
     /**
-     * If this flag is set, then when a Windows exception occurs, all
+     * When a Windows exception occurs, all
      * post-call callbacks for all live wrapped functions on the wrap
-     * stack for which \p unwind_on_exception is true are called.  If
+     * stack for which this flag is set are called.  If
      * this flag is not set (the default), each post-call callback
      * will still be called if drwrap's heuristics later detect that
      * that particular callback has been bypassed, but those
@@ -343,6 +343,9 @@ typedef enum {
      */
     DRWRAP_UNWIND_ON_EXCEPTION    = 0x01,
 } drwrap_wrap_flags_t;
+
+/* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
+#define DRWRAP_CALLCONV_FLAG_SHIFT 0x18
 
 /**
  * Values to specify the calling convention of the wrapped function. Pass one of
@@ -367,9 +370,12 @@ typedef enum {
     DRWRAP_CALLCONV_FASTCALL       = 0x05000000,
     /** The Microsoft IA-32 thiscall calling convention. */
     DRWRAP_CALLCONV_THISCALL       = 0x06000000,
+    /** The ARM AArch64 calling convention. */
+    DRWRAP_CALLCONV_AARCH64        = 0x07000000,
 #ifdef X64
-# ifdef ARM
-#  error NYI ARM X64
+# ifdef AARCH64
+    /** Default calling convention for the platform. */
+    DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AARCH64,
 # elif defined(UNIX) /* x64 */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AMD64,

@@ -47,18 +47,18 @@
  */
 #ifdef X64
 # ifdef WINDOWS
-#  define NUM_XMM_SLOTS 6 /* xmm0-5 */
+#  define NUM_SIMD_SLOTS 6 /* xmm0-5 */
 # else
-#  define NUM_XMM_SLOTS 16 /* xmm0-15 */
+#  define NUM_SIMD_SLOTS 16 /* xmm0-15 */
 # endif
 # define PRE_XMM_PADDING 16
 #else
-# define NUM_XMM_SLOTS 8 /* xmm0-7 */
+# define NUM_SIMD_SLOTS 8 /* xmm0-7 */
 # define PRE_XMM_PADDING 24
 #endif
 #define XMM_SAVED_REG_SIZE 32 /* for ymm */
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define XMM_SAVED_SIZE ((NUM_XMM_SLOTS)*(XMM_SAVED_REG_SIZE))
+#define XMM_SAVED_SIZE ((NUM_SIMD_SLOTS)*(XMM_SAVED_REG_SIZE))
 
 #ifdef X64
 /* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a

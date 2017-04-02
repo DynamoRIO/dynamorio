@@ -210,7 +210,7 @@ struct _coarse_info_t {
 
 }; /* typedef as "coarse_info_t" is in globals.h */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 # define COARSE_32_FLAG(info) (TEST(PERSCACHE_X86_32, (info)->flags) ? FRAG_32_BIT : 0)
 #else
 # define COARSE_32_FLAG(info) 0

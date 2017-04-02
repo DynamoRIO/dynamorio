@@ -1,0 +1,9 @@
+pre-DR init
+in dr_client_main
+pre-DR start
+pre-DR detach
+Saw some bb events
+re-attach attempt
+in dr_client_main
+Saw some bb events
+all done

@@ -1,0 +1,182 @@
+.*
+    -------------------------------------------------------------------
+     Performance for solving AX=B Linear Equation using Jacobi method
+     Running native
+    \.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.
+.*
+     Matrix Size :  1024
+     Threads     :  4
+.*
+     Started iteration 1 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 2 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 3 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 4 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 5 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 6 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 7 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 8 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 9 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     Started iteration 10 of the computation\.\.\.
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+     Mode . on .
+.*
+     Finished computing current solution distance in mode 0\.
+     Mode . on .
+     Mode changed to 0\.
+.*
+     The Jacobi Method For AX=B \.\.\.\.\.\.\.\.\.DONE
+     Total Number Of iterations   :  10
+    \.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.\.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,6 +66,8 @@ struct instr_info_t;
 #ifdef API_EXPORT_ONLY
 #ifdef X86
 # include "dr_ir_opcodes_x86.h"
+#elif defined(AARCH64)
+# include "dr_ir_opcodes_aarch64.h"
 #elif defined(ARM)
 # include "dr_ir_opcodes_arm.h"
 #endif
@@ -233,8 +235,8 @@ typedef enum _dr_pred_type_t {
 #ifdef X86
     DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
     DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
-    DR_PRED_B,   /**< x86 condition: below (CF=0). */
-    DR_PRED_NB,  /**< x86 condition: not below (CF=1). */
+    DR_PRED_B,   /**< x86 condition: below (CF=1). */
+    DR_PRED_NB,  /**< x86 condition: not below (CF=0). */
     DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
     DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
     DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
@@ -255,7 +257,7 @@ typedef enum _dr_pred_type_t {
      * unconditionally written, unlike regular destination operands.
      */
     DR_PRED_COMPLEX,
-#elif defined(ARM)
+#elif defined(AARCHXX)
     DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
     DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
     DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
@@ -271,7 +273,11 @@ typedef enum _dr_pred_type_t {
     DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
     DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
     DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
+# ifdef AARCH64
+    DR_PRED_NV, /**< ARM condition: 1111 Never, meaning always                     */
+# else
     DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+# endif
     /* Aliases */
     DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
@@ -305,6 +311,9 @@ typedef struct _dr_instr_label_data_t {
  * Bitmask values passed as flags to routines that ask about whether operands
  * and condition codes are read or written.  These flags determine how to treat
  * conditionally executed instructions.
+ * As a special case, the addressing registers inside a destination memory
+ * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+ * DR_QUERY_INCLUDE_COND_DSTS.
  */
 typedef enum _dr_opnd_query_flags_t {
     /**
@@ -313,7 +322,9 @@ typedef enum _dr_opnd_query_flags_t {
      * for an instruction that is predicated and executes conditionally (see
      * instr_is_predicated()).  If this flag is set, a conditionally executed
      * instruction's destinations are included just like any other
-     * instruction's.
+     * instruction's.  As a special case, the addressing registers inside a
+     * destination memory operand are covered by DR_QUERY_INCLUDE_COND_SRCS
+     * rather than this flag.
      */
     DR_QUERY_INCLUDE_COND_DSTS = 0x01,
     /**
@@ -323,6 +334,8 @@ typedef enum _dr_opnd_query_flags_t {
      * instr_is_predicated()), except for predication conditions that involve
      * the source operand values.  If this flag is set, a conditionally executed
      * instruction's sources are included just like any other instruction's.
+     * As a special case, the addressing registers inside a destination memory
+     * operand are covered by this flag rather than DR_QUERY_INCLUDE_COND_DSTS.
      */
     DR_QUERY_INCLUDE_COND_SRCS = 0x02,
     /** The default value that typical liveness analysis would want to use. */
@@ -351,8 +364,8 @@ struct _instr_t {
     uint    flags;
 
     /* raw bits of length length are pointed to by the bytes field */
-    byte    *bytes;
     uint    length;
+    byte    *bytes;
 
     /* translation target for this instr */
     app_pc  translation;
@@ -1001,8 +1014,9 @@ DR_API
  * Returns the eflags usage of instructions with opcode \p opcode,
  * as EFLAGS_ constants (e.g., EFLAGS_READ_CF, EFLAGS_WRITE_OF, etc.) or'ed
  * together.
- * If \p opcode is predicated (see instr_is_predicated()), the eflags may not
- * always be accessed or written.
+ * If \p opcode is predicated (see instr_is_predicated()) or if the set
+ * of flags read or written varies with an operand value, this routine
+ * returns the maximal set that might be accessed or written.
  */
 uint
 instr_get_opcode_eflags(int opcode);
@@ -1475,7 +1489,9 @@ DR_UNS_API
  * from the raw bits pointed to by instr to bring it to that level.
  * Assumes that instr is a single instr (i.e., NOT Level 0).
  *
- * decode_opcode decodes the opcode and eflags usage of the instruction.
+ * decode_opcode decodes the opcode and eflags usage of the instruction
+ * (if the eflags usage varies with operand values, the maximal value
+ * will be set).
  * This corresponds to a Level 2 decoding.
  */
 void
@@ -1623,6 +1639,9 @@ DR_API
  *
  * Which operands are considered to be accessed for conditionally executed
  * instructions are controlled by \p flags.
+ * As a special case, the addressing registers inside a destination memory
+ * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
+ * DR_QUERY_INCLUDE_COND_DSTS.
  */
 bool
 instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
@@ -1679,6 +1698,7 @@ DR_API
 bool
 instr_writes_memory(instr_t *instr);
 
+#ifdef X86
 DR_API
 /**
  * Returns true iff \p instr writes to an xmm register and zeroes the top half
@@ -1688,6 +1708,7 @@ DR_API
  */
 bool
 instr_zeroes_ymmh(instr_t *instr);
+#endif
 
 /* DR_API EXPORT BEGIN */
 #if defined(X64) || defined(ARM)
@@ -2080,6 +2101,11 @@ instr_is_floating(instr_t *instr);
 
 bool
 instr_saves_float_pc(instr_t *instr);
+
+#ifdef AARCH64
+bool
+instr_is_icache_op(instr_t *instr);
+#endif
 
 /* DR_API EXPORT BEGIN */
 /**
@@ -2532,6 +2558,17 @@ DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, four destinations
+ * (\p dst1, \p dst2, \p dst3, \p dst4) and 2 sources (\p src1 and \p src2).
+ */
+instr_t *
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
+                       opnd_t src1, opnd_t src2);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated
+ * on the thread-local heap with opcode \p opcode, four destinations
  * (\p dst1, \p dst2, \p dst3, \p dst4) and four sources
  * (\p src1, \p src2, \p src3, \p src4).
  */
@@ -2663,6 +2700,9 @@ bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_s
                                 dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
                                 OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
 uint instr_branch_type(instr_t *cti_instr);
+#ifdef AARCH64
+const char *get_opcode_name(int opc);
+#endif
 /* these routines can assume that instr's opcode is valid */
 bool instr_is_call_arch(instr_t *instr);
 bool instr_is_cbr_arch(instr_t *instr);
@@ -2671,7 +2711,12 @@ bool instr_is_ubr_arch(instr_t *instr);
 
 /* private routines for spill code */
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
-instr_t * instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t * instr_create_save_immed32_to_dcontext(dcontext_t *dcontext, int immed,
+                                                int offs);
+instr_t * instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed,
+                                                int offs);
+instr_t * instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed,
+                                               int offs);
 instr_t *
 instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
                                       int offs, ptr_int_t immed, opnd_size_t sz);
@@ -2716,6 +2761,11 @@ bool instr_reads_thread_register(instr_t *instr);
 bool instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
+#ifdef AARCH64
+bool instr_reads_thread_register(instr_t *instr);
+bool instr_writes_thread_register(instr_t *instr);
+#endif
+
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
  * then TLS_XAX_SLOT unless the client has specified a slot to use as we let the
  * client use the rest. */
@@ -2739,7 +2789,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
  * EFLAGS/CONDITION CODES
  *
  * The EFLAGS_READ_* and EFLAGS_WRITE_* constants are used by API routines
- * instr_get_eflags(), instr_get_opcode_flags(), and instr_get_arith_flags().
+ * instr_get_eflags(), instr_get_opcode_eflags(), and instr_get_arith_flags().
  */
 #ifdef X86
 /* we only care about these 11 flags, and mostly only about the first 6
@@ -2769,6 +2819,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 # define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
 
 # define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
+# define EFLAGS_READ_NON_PRED EFLAGS_READ_ALL /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
@@ -2789,7 +2840,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
  *   11 10  9  8  7  6  5  4  3  2  1  0
- *   OF DF       SF ZF    AF    PF    CF  </pre>
+ *   OF DF IF TF SF ZF  0 AF  0 PF  1 CF  </pre>
  */
 enum {
     EFLAGS_CF = 0x00000001, /**< The bit in the eflags register of CF (Carry Flag). */
@@ -2799,9 +2850,11 @@ enum {
     EFLAGS_SF = 0x00000080, /**< The bit in the eflags register of SF (Sign Flag). */
     EFLAGS_DF = 0x00000400, /**< The bit in the eflags register of DF (Direction Flag). */
     EFLAGS_OF = 0x00000800, /**< The bit in the eflags register of OF (Overflow Flag). */
+    /** The bits in the eflags register of CF, PF, AF, ZF, SF, OF. */
+    EFLAGS_ARITH = EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|EFLAGS_ZF|EFLAGS_SF|EFLAGS_OF,
 };
 
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define EFLAGS_READ_N      0x00000001 /**< Reads N (negative flag). */
 # define EFLAGS_READ_Z      0x00000002 /**< Reads Z (zero flag). */
 # define EFLAGS_READ_C      0x00000004 /**< Reads C (carry flag). */
@@ -2812,6 +2865,7 @@ enum {
                              EFLAGS_READ_C | EFLAGS_READ_V)
 # define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
 # define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
+# define EFLAGS_READ_NON_PRED EFLAGS_READ_GE /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
@@ -2845,6 +2899,8 @@ enum {
     EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
     EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
     EFLAGS_GE = 0x000f0000, /**< The bits in the CPSR register of GE[3:0]. */
+    /** The bits in the CPSR register of N, Z, C, V, Q, and GE. */
+    EFLAGS_ARITH = EFLAGS_N|EFLAGS_Z|EFLAGS_C|EFLAGS_V|EFLAGS_Q|EFLAGS_GE,
     /**
      * The bit in the CPSR register of T (Thumb mode indicator bit).  This is
      * not readable from user space and should only be examined when looking at
@@ -2867,6 +2923,13 @@ enum {
 
 /** The bits in the CPSR register of the T32 IT block state. */
 # define EFLAGS_IT (EFLAGS_IT_COND | EFLAGS_IT_SIZE)
+
+/** The bit in the 4-bit OP_msr immediate that selects the nzcvq status flags. */
+# define EFLAGS_MSR_NZCVQ 0x8
+/** The bit in the 4-bit OP_msr immediate that selects the apsr_g status flags. */
+# define EFLAGS_MSR_G     0x4
+/** The bits in the 4-bit OP_msr immediate that select the nzcvqg status flags. */
+# define EFLAGS_MSR_NZCVQG (EFLAGS_MSR_NZCVQ|EFLAGS_MSR_G)
 #endif
 /* DR_API EXPORT END */
 

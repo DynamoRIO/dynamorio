@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,12 +70,12 @@ const instr_info_t T32_16_ext_bit_11[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
       {EXT_10_6, 0x0000, "(ext 10:6 0)", xx, xx,    xx,   xx, xx, no,      x,        0},
-      {OP_lsrs,  0x0800, "lsrs",       RZw, xx,    RYw, i5_6, xx, no, fWNZCV, xb7[3][0x00]},
+      {OP_lsrs,  0x0800, "lsrs",       RZw, xx,    RYw, i5_6, xx, no, fRC|fWNZC, xb7[3][0x00]},
     }, { /* 1 */
-      {OP_asrs,  0x1000, "asrs",       RZw, xx,    RYw, i5_6, xx, no, fWNZCV, xb7[5][0x00]},
+      {OP_asrs,  0x1000, "asrs",       RZw, xx,    RYw, i5_6, xx, no, fRC|fWNZC, xb7[5][0x00]},
       {EXT_10_9, 0x1800, "(ext 10:9 0)", xx, xx,    xx,   xx, xx, no,      x,        0},
     }, { /* 2 */
-      {OP_movs,  0x2000, "movs",       RWw, xx,     i8,   xx, xx, no, fWNZCV, xrapc[5][0x01]},
+      {OP_movs,  0x2000, "movs",       RWw, xx,     i8,   xx, xx, no, fRC|fWNZC, xrapc[5][0x01]},
       {OP_cmp,   0x2800, "cmp",        xx,  xx,    RWw,   i8, xx, no, fWNZCV, xrcpc[7][0x01]},
     }, { /* 3 */
       {OP_adds,  0x3000, "adds",       RWw, xx,   RWDw,   i8, xx, no, fWNZCV, xrcpc[6][0x00]},
@@ -172,22 +172,22 @@ const instr_info_t T32_16_ext_bits_11_8[][16] = {
 const instr_info_t T32_16_ext_bits_9_6[][16] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_ands,    0x4000, "ands",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xrcpc[4][0x00]},
-      {OP_eors,    0x4040, "eors",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xrcpc[5][0x00]},
-      {OP_lsls,    0x4080, "lsls",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xi126[2][0x01]},
-      {OP_lsrs,    0x40c0, "lsrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, y11[0][0x01]},
-      {OP_asrs,    0x4100, "asrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, y11[1][0x00]},
+      {OP_ands,    0x4000, "ands",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xrcpc[4][0x00]},
+      {OP_eors,    0x4040, "eors",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xrcpc[5][0x00]},
+      {OP_lsls,    0x4080, "lsls",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xi126[2][0x01]},
+      {OP_lsrs,    0x40c0, "lsrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, y11[0][0x01]},
+      {OP_asrs,    0x4100, "asrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, y11[1][0x00]},
       {OP_adcs,    0x4140, "adcs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x15]},
       {OP_sbcs,    0x4180, "sbcs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x17]},
-      {OP_rors,    0x41c0, "rors",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xi126[3][0x01]},
+      {OP_rors,    0x41c0, "rors",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xi126[3][0x01]},
       {OP_tst,     0x4200, "tst",     xx, xx,  RZw,  RYw, xx, no, fWNZCV, xrcpc[4][0x01]},
       {OP_rsbs,    0x4240, "rsbs",   RZw, xx,  RYw,   k0, xx, no, fWNZCV, xfop8[0][0x1d]},
       {OP_cmp,     0x4280, "cmp",     xx, xx,  RZw,  RYw, xx, no, fWNZCV, y11[2][0x01]},
       {OP_cmn,     0x42c0, "cmn",     xx, xx,  RZw,  RYw, xx, no, fWNZCV, xrcpc[6][0x01]},
-      {OP_orrs,    0x4300, "orrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xrapc[5][0x00]},
-      {OP_muls,    0x4340, "muls",   RZw, xx,  RYw, RZDw, xx, no, fWNZCV, END_LIST},
-      {OP_bics,    0x4380, "bics",   RZw, xx, RZDw,  RYw, xx, no, fWNZCV, xfop8[0][0x03]},
-      {OP_mvns,    0x43c0, "mvns",   RZw, xx,  RYw,  xx, xx, no, fWNZCV, xrapc[7][0x01]},
+      {OP_orrs,    0x4300, "orrs",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xrapc[5][0x00]},
+      {OP_muls,    0x4340, "muls",   RZw, xx,  RYw, RZDw, xx, no, fWNZ, END_LIST},
+      {OP_bics,    0x4380, "bics",   RZw, xx, RZDw,  RYw, xx, no, fWNZC, xfop8[0][0x03]},
+      {OP_mvns,    0x43c0, "mvns",   RZw, xx,  RYw,  xx, xx, no, fWNZC, xrapc[7][0x01]},
     }, { /* 1 */
       {OP_add,     0x4400, "add",    RVw, xx, RVDw, RUw, xx, no,      x, xfop8[0][0x10]},
       {OP_add,     0x4440, "add",    RVw, xx, RVDw, RUw, xx, no,      x, DUP_ENTRY},
@@ -279,8 +279,8 @@ const instr_info_t T32_16_ext_imm_3_0[][2] = {
 const instr_info_t T32_16_ext_imm_10_6[][2] = {
     /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, flags, eflags, code} */
     { /* 0 */
-      {OP_movs,  0x0000, "movs",       RZw, xx, RYw,   xx, xx, no, fWNZCV, y11[2][0x00]},
-      {OP_lsls,  0x0000, "lsls",       RZw, xx, RYw, i5_6, xx, no, fWNZCV, y96[0][0x02]},
+      {OP_movs,  0x0000, "movs",       RZw, xx, RYw,   xx, xx, no, fWNZ, y11[2][0x00]},
+      {OP_lsls,  0x0000, "lsls",       RZw, xx, RYw, i5_6, xx, no, fRC|fWNZC, y96[0][0x02]},
     },
 };
 

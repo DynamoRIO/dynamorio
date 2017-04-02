@@ -77,6 +77,7 @@ thread_routine(void *arg)
     else
         print("got %d bytes == %d %d\n", res, buf[0], buf[1]);
     close(fd);
+    return NULL;
 }
 
 int

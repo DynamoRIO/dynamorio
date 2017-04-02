@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,6 +55,7 @@
 #include "module_shared.h"
 #include "perscache.h"
 #include "translate.h"
+#include "jit_opt.h"
 
 #ifdef WINDOWS
 # include "events.h"             /* event log messages - not supported yet on Linux  */
@@ -143,12 +144,11 @@ enum {
     /* Cache consistency managed by inference: instrumenting DGC to write to a
      * double-mapped page followed by a call to annotation_flush_fragments().
      */
-    VM_JIT_MONITORED = 0X2000,
-    VM_DGC_WRITER = 0x4000,
-#elif defined(JITOPT_ANNOTATION)
-    /* Cache consistency managed by the app via annotations. */
-    VM_APP_MANAGED = 0x2000,
+    VM_JIT_MONITORED       = 0X2000,
+    VM_DGC_WRITER          = 0x4000,
 #endif
+    /* i#1114: for areas containing JIT code flushed via annotation or inference */
+    VM_JIT_MANAGED         = 0x2000,
 };
 
 #ifdef JITOPT_INFERENCE
@@ -1917,6 +1917,10 @@ vm_areas_exit()
 #endif
     vmvector_delete_vector(GLOBAL_DCONTEXT, IAT_areas);
     IAT_areas = NULL;
+
+    tamper_resistant_region_start = NULL;
+    tamper_resistant_region_end = NULL;
+
     return 0;
 }
 
@@ -2829,8 +2833,7 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
             info == NULL
             /* if clients are present, don't load until after they're initialized */
-            IF_CLIENT_INTERFACE(&& (dynamo_initialized ||
-                                    IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)))) {
+            IF_CLIENT_INTERFACE(&& (dynamo_initialized || !CLIENTS_EXIST()))) {
             info = vm_area_load_coarse_unit(&start, &end, vm_flags, frag_flags, false
                                             _IF_DEBUG(comment));
         }
@@ -2929,7 +2932,7 @@ vm_area_delay_load_coarse_units(void)
     ASSERT(!dynamo_initialized);
     if (!DYNAMO_OPTION(use_persisted) ||
         /* we already loaded if there's no client */
-        IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
+        !CLIENTS_EXIST())
         return;
     write_lock(&executable_areas->lock);
     for (i = 0; i < executable_areas->length; i++) {
@@ -4706,7 +4709,7 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
     /* Case 9712: Inform the client of the security violation and
      * give it a chance to modify the action.
      */
-    if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
+    if (CLIENTS_EXIST()) {
         instrument_security_violation(dcontext, addr, violation_type, &action);
     }
 #endif
@@ -6574,6 +6577,44 @@ tamper_resistant_region_overlap(app_pc start, app_pc end)
             start < tamper_resistant_region_end);
 }
 
+bool
+is_jit_managed_area(app_pc addr)
+{
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_JIT_MANAGED, vm_flags);
+    else
+        return false;
+}
+
+void
+set_region_jit_managed(app_pc start, size_t len)
+{
+    vm_area_t *region;
+
+    ASSERT(DYNAMO_OPTION(opt_jit));
+    write_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, start, &region)) {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_jit_managed("PFX" +0x%x)\n", start, len);
+        ASSERT(region->start == start && region->end == (start+len));
+        if (!TEST(VM_JIT_MANAGED, region->vm_flags)) {
+            if (TEST(VM_MADE_READONLY, region->vm_flags))
+               vm_make_writable(region->start, region->end - region->start);
+            region->vm_flags |= VM_JIT_MANAGED;
+            region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+            LOG(GLOBAL, LOG_VMAREAS, 1,
+                "Region ("PFX" +0x%x) no longer 'made readonly'\n", start, len);
+        }
+    } else {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new jit-managed vmarea: "PFX"-"PFX"\n",
+            start, start+len);
+
+        add_vm_area(executable_areas, start, start+len, VM_JIT_MANAGED, 0, NULL
+                    _IF_DEBUG("jit-managed"));
+    }
+    write_unlock(&executable_areas->lock);
+}
+
 /* memory region base:base+size now has privileges prot
  * returns a value from the enum in vmareas->h about whether to perform the
  * system call or not and if not what the return code to the app should be
@@ -7320,12 +7361,9 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
     if (should_finish_flushing) {
         flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
 
-#ifdef JITOPT
-        if (is_jit_managed_area(base))
-            dgc_notify_region_cleared(base, base+size);
-#endif
+        if (DYNAMO_OPTION(opt_jit) && is_jit_managed_area(base))
+            jitopt_clear_span(base, base+size);
     }
-
     return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 }
 
@@ -7671,13 +7709,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         /* ok to hold onto pointer since it's this thread's */
         area = local_area;
     } else {
+        bool is_allocated_mem;
         /* not in this thread's current executable list
          * try the global executable area list
          */
 #ifdef LINUX
         /* i#1760: an app module loaded by custom loader (e.g., bionic libc)
          * might not be detected by DynamoRIO in process_mmap, so we check
-         * whether it is an unsee module here.
+         * whether it is an unseen module here.
          */
         os_check_new_app_module(dcontext, pc);
 #endif
@@ -7759,6 +7798,31 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                       IF_HOTP(&& (!DYNAMO_OPTION(hot_patching) ||
                                   self_owns_write_lock(hotp_get_lock())))));
         ASSERT(!ok || area != NULL);
+        is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
+        /* i#2135 : it can be a guard page if either ok or not ok
+         * so we have to get protection value right now
+         */
+#ifdef WINDOWS
+        if (TEST(DR_MEMPROT_GUARD, prot)) {
+            /* remove protection so as to go on */
+            if (unmark_page_as_guard(pc, prot)) {
+                /* We test that there was still the guard protection to remove.
+                 * Otherwise, there could be a race condition with
+                 * two threads trying to execute from the guarded page
+                 * and we would raise two exceptions instead of one.
+                 */
+                SYSLOG_INTERNAL_WARNING("Application tried to execute "
+                                        "from guard memory "PFX".\n", pc);
+                check_thread_vm_area_cleanup(dcontext, true/*abort*/,
+                                             true/*clean bb*/, data, vmlist,
+                                             own_execareas_writelock,
+                                             caller_execareas_writelock);
+                os_forge_exception(pc, GUARD_PAGE_EXCEPTION);
+                ASSERT_NOT_REACHED();
+            }
+        }
+#endif
+
         if (!ok) {
             /* we no longer allow execution from arbitrary dr mem, our dll is
              * on the executable list and we specifically add the callback
@@ -7769,17 +7833,21 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * unreadable (and so we don't want to follow a direct cti there
              * until the app actually does)
              */
-            bool is_allocated_mem = get_memory_info(pc, &base_pc, &size, &prot);
             bool is_being_unloaded = false;
 
 #ifdef CLIENT_INTERFACE
-            /* clients are allowed to use DR-allocated memory as app code:
-             * we give up some robustness by allowing any DR-allocated memory.
+            /* Clients are allowed to use DR-allocated memory as app code:
+             * we give up some robustness by allowing any DR-allocated memory
+             * outside of the code cache that is marked as +x (we do not allow
+             * -x to avoid a wild jump targeting our own heap and our own cache
+             * cons policy making the heap read-only and causing a DR crash:
+             * xref DrM#1820).
              * XXX i#852: should we instead have some dr_appcode_alloc() or
              * dr_appcode_mark() API?
              */
-            if (is_in_dr && INTERNAL_OPTION(code_api))
-                is_in_dr = false;
+            if (is_in_dr && INTERNAL_OPTION(code_api) &&
+                TEST(MEMPROT_EXEC, prot) && !in_fcache(pc))
+                is_in_dr = false; /* allow it */
 #endif
 
             if (!is_allocated_mem) {
@@ -9355,6 +9423,14 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
         }
 #endif
         /* it's possible for remove_from_lazy_deletion_list to drop the count */
+#ifdef X86
+        DODEBUG({
+            fragment_t *f; /* Raise SIGILL if a deleted fragment gets executed again */
+            for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
+                *(ushort *) f->start_pc = RAW_OPCODE_SIGILL;
+            }
+        });
+#endif
         DODEBUG({
             if (todelete->lazy_delete_count <=
                 DYNAMO_OPTION(lazy_deletion_max_pending)) {
@@ -9520,10 +9596,10 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                 ASSERT(todelete->lazy_delete_list == NULL);
                 todelete->lazy_delete_tail = NULL;
             }
-#ifdef DEBUG
-            /* Raise a SIGILL if this fragment gets executed again! */
-            *f->start_pc = 0x0f;
-            *(f->start_pc + 1) = 0x0b;
+#ifdef X86
+            DODEBUG({ /* Raise SIGILL if a deleted fragment gets executed again */
+                *(ushort *) f->start_pc = RAW_OPCODE_SIGILL;
+            });
 #endif
             fragment_delete(dcontext, f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
@@ -11143,11 +11219,10 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
             DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, GLOBAL); });
             flush_fragments_in_region_finish(dcontext,
                                              false /*don't keep initexit_lock*/);
-#ifdef JITOPT
-            if (!TEST(MEMPROT_WRITE, prot)) {
+            if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot)) {
                 if (is_jit_managed_area((app_pc)tgt_pstart)) {
-                    dgc_notify_region_cleared((app_pc)tgt_pstart,
-                                              (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+                  jitopt_clear_span((app_pc) tgt_pstart,
+                                    (app_pc) (tgt_pend+PAGE_SIZE-tgt_pstart));
 #ifdef JITOPT_INFERENCE
                 } else {
                     notify_exec_invalidation((app_pc)tgt_pstart,
@@ -11156,7 +11231,6 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
                 }
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, " === modified code! (case 1) ===\n");
             }
-#endif
             /* must execute instr_app_pc next, even though that new bb will be
              * useless afterward (will most likely re-enter from bb_start)
              */
@@ -11297,10 +11371,10 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
      * FIXME - Redoing the write would be more efficient then going back to
      * dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
-#ifdef JITOPT
-    if (!TEST(MEMPROT_WRITE, prot)) {
+
+    if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot)) {
         if (is_jit_managed_area(flush_start)) {
-            dgc_notify_region_cleared(flush_start, flush_start+flush_size);
+            jitopt_clear_span(flush_start, flush_start+flush_size);
 # ifdef JITOPT_INFERENCE
         } else {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
@@ -11310,7 +11384,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
 # endif
         }
     }
-#endif
+
     return instr_app_pc;
 }
 
@@ -11524,11 +11598,8 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
 
     flush_fragments_in_region_finish(dcontext,
                                      false /*don't keep initexit_lock*/);
-
-#ifdef JITOPT
-    if (is_jit_managed_area(start))
-        dgc_notify_region_cleared(start, end);
-#endif
+    if (DYNAMO_OPTION(opt_jit) && is_jit_managed_area(start))
+        jitopt_clear_span(start, end);
 
     return true;
 }

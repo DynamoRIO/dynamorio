@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,70 +36,112 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h> /* for supporting 64-bit integers*/
-#include "utils.h"
-#include "memref.h"
-#include "ipc_reader.h"
+#include "../common/memref.h"
+#include "../common/options.h"
+#include "../common/utils.h"
+#include "droption.h"
 #include "tlb_stats.h"
 #include "tlb.h"
-#include "droption.h"
-#include "../common/options.h"
 #include "tlb_simulator.h"
 
-bool
-tlb_simulator_t::init()
+analysis_tool_t *
+tlb_simulator_create(unsigned int num_cores,
+                     uint64_t page_size,
+                     unsigned int TLB_L1I_entries,
+                     unsigned int TLB_L1D_entries,
+                     unsigned int TLB_L1I_assoc,
+                     unsigned int TLB_L1D_assoc,
+                     unsigned int TLB_L2_entries,
+                     unsigned int TLB_L2_assoc,
+                     std::string replace_policy,
+                     uint64_t skip_refs,
+                     uint64_t warmup_refs,
+                     uint64_t sim_refs,
+                     unsigned int verbose)
 {
-    // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_ipc_name.get_value().empty()) {
-        ERROR("Usage error: ipc name is required\nUsage:\n%s",
-              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        return false;
-    }
-    ipc_iter = ipc_reader_t(op_ipc_name.get_value().c_str());
+    return new tlb_simulator_t(num_cores, page_size, TLB_L1I_entries,
+                               TLB_L1D_entries, TLB_L1I_assoc, TLB_L1D_assoc,
+                               TLB_L2_entries, TLB_L2_assoc, replace_policy,
+                               skip_refs,warmup_refs, sim_refs, verbose);
+}
 
-    num_cores = op_num_cores.get_value();
+tlb_simulator_t::tlb_simulator_t(unsigned int num_cores,
+                                 uint64_t page_size,
+                                 unsigned int TLB_L1I_entries,
+                                 unsigned int TLB_L1D_entries,
+                                 unsigned int TLB_L1I_assoc,
+                                 unsigned int TLB_L1D_assoc,
+                                 unsigned int TLB_L2_entries,
+                                 unsigned int TLB_L2_assoc,
+                                 std::string replace_policy,
+                                 uint64_t skip_refs,
+                                 uint64_t warmup_refs,
+                                 uint64_t sim_refs,
+                                 unsigned int verbose) :
+    simulator_t(num_cores, skip_refs,warmup_refs, sim_refs, verbose),
+    knob_page_size(page_size),
+    knob_TLB_L1I_entries(TLB_L1I_entries),
+    knob_TLB_L1D_entries(TLB_L1D_entries),
+    knob_TLB_L1I_assoc(TLB_L1I_assoc),
+    knob_TLB_L1D_assoc(TLB_L1D_assoc),
+    knob_TLB_L2_entries(TLB_L2_entries),
+    knob_TLB_L2_assoc(TLB_L2_assoc),
+    knob_TLB_replace_policy(replace_policy)
+{
+    itlbs = new tlb_t* [knob_num_cores];
+    dtlbs = new tlb_t* [knob_num_cores];
+    lltlbs = new tlb_t* [knob_num_cores];
+    for (int i = 0; i < knob_num_cores; i++) {
+        itlbs[i] = create_tlb(knob_TLB_replace_policy);
+        if (itlbs[i] == NULL) {
+            success = false;
+            return;
+        }
+        dtlbs[i] = create_tlb(knob_TLB_replace_policy);
+        if (dtlbs[i] == NULL) {
+            success = false;
+            return;
+        }
+        lltlbs[i] = create_tlb(knob_TLB_replace_policy);
+        if (lltlbs[i] == NULL) {
+            success = false;
+            return;
+        }
 
-    itlbs = new tlb_t* [num_cores];
-    dtlbs = new tlb_t* [num_cores];
-    lltlbs = new tlb_t* [num_cores];
-    for (int i = 0; i < num_cores; i++) {
-        itlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (itlbs[i] == NULL)
-            return false;
-        dtlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (dtlbs[i] == NULL)
-            return false;
-        lltlbs[i] = create_tlb(op_TLB_replace_policy.get_value());
-        if (lltlbs[i] == NULL)
-            return false;
-
-        if (!itlbs[i]->init(op_TLB_L1I_assoc.get_value(), op_page_size.get_value(),
-                            op_TLB_L1I_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !dtlbs[i]->init(op_TLB_L1D_assoc.get_value(), op_page_size.get_value(),
-                            op_TLB_L1D_entries.get_value(), lltlbs[i], new tlb_stats_t) ||
-            !lltlbs[i]->init(op_TLB_L2_assoc.get_value(), op_page_size.get_value(),
-                             op_TLB_L2_entries.get_value(), NULL, new tlb_stats_t)) {
-            ERROR("Usage error: failed to initialize TLBs. Ensure entry number, "
-                  "page size and associativity are powers of 2.\n");
-            return false;
+        if (!itlbs[i]->init(knob_TLB_L1I_assoc, (int)knob_page_size,
+                            knob_TLB_L1I_entries, lltlbs[i], new tlb_stats_t) ||
+            !dtlbs[i]->init(knob_TLB_L1D_assoc, (int)knob_page_size,
+                            knob_TLB_L1D_entries, lltlbs[i], new tlb_stats_t) ||
+            !lltlbs[i]->init(knob_TLB_L2_assoc, (int)knob_page_size,
+                             knob_TLB_L2_entries, NULL, new tlb_stats_t)) {
+            ERRMSG("Usage error: failed to initialize TLBs. Ensure entry number, "
+                   "page size and associativity are powers of 2.\n");
+            success = false;
+            return;
         }
     }
 
-    thread_counts = new unsigned int[num_cores];
-    memset(thread_counts, 0, sizeof(thread_counts[0])*num_cores);
-    thread_ever_counts = new unsigned int[num_cores];
-    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*num_cores);
-
-    return true;
+    thread_counts = new unsigned int[knob_num_cores];
+    memset(thread_counts, 0, sizeof(thread_counts[0])*knob_num_cores);
+    thread_ever_counts = new unsigned int[knob_num_cores];
+    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*knob_num_cores);
 }
 
 tlb_simulator_t::~tlb_simulator_t()
 {
-    for (int i = 0; i < num_cores; i++) {
+    for (int i = 0; i < knob_num_cores; i++) {
+        // Try to handle failure during construction.
+        if (itlbs[i] == NULL)
+            return;
         delete itlbs[i]->get_stats();
-        delete dtlbs[i]->get_stats();
-        delete lltlbs[i]->get_stats();
         delete itlbs[i];
+        if (dtlbs[i] == NULL)
+            return;
+        delete dtlbs[i]->get_stats();
         delete dtlbs[i];
+        if (lltlbs[i] == NULL)
+            return;
+        delete lltlbs[i]->get_stats();
         delete lltlbs[i];
     }
     delete [] itlbs;
@@ -110,95 +152,79 @@ tlb_simulator_t::~tlb_simulator_t()
 }
 
 bool
-tlb_simulator_t::run()
+tlb_simulator_t::process_memref(const memref_t &memref)
 {
-    if (!ipc_iter.init()) {
-        ERROR("failed to read from pipe %s", op_ipc_name.get_value().c_str());
+    if (knob_skip_refs > 0) {
+        knob_skip_refs--;
+        return true;
+    }
+
+    // The references after warmup and simulated ones are dropped.
+    if (knob_warmup_refs == 0 && knob_sim_refs == 0)
+        return true;
+
+    // Both warmup and simulated references are simulated.
+
+    // We use a static scheduling of threads to cores, as it is
+    // not practical to measure which core each thread actually
+    // ran on for each memref.
+    int core;
+    if (memref.data.tid == last_thread)
+        core = last_core;
+    else {
+        core = core_for_thread(memref.data.tid);
+        last_thread = memref.data.tid;
+        last_core = core;
+    }
+
+    if (type_is_instr(memref.instr.type))
+        itlbs[core]->request(memref);
+    else if (memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE)
+        dtlbs[core]->request(memref);
+    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(memref.exit.tid);
+        last_thread = 0;
+    }
+    else if (type_is_prefetch(memref.data.type) ||
+             memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
+             memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
+      // TLB simulator ignores prefetching and cache flushing
+    } else {
+        ERRMSG("unhandled memref type");
         return false;
     }
-    memref_tid_t last_thread = 0;
-    int last_core = 0;
 
-    uint64_t skip_refs = op_skip_refs.get_value();
-    uint64_t warmup_refs = op_warmup_refs.get_value();
-    uint64_t sim_refs = op_sim_refs.get_value();
+    if (knob_verbose >= 3) {
+        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+            " @" << (void *)memref.data.pc <<
+            " " << trace_type_names[memref.data.type] << " " <<
+            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+    }
 
-    // XXX i#1703: add options to select either ipc_reader_t or
-    // a recorded trace file reader, and use a base class reader_t
-    // here.
-    for (; ipc_iter != ipc_end; ++ipc_iter) {
-        memref_t memref = *ipc_iter;
-        if (skip_refs > 0) {
-            skip_refs--;
-            continue;
-        }
-
-        // the references after warmup and simulated ones are dropped
-        if (warmup_refs == 0 && sim_refs == 0)
-            continue;
-
-        // both warmup and simulated references are simulated
-
-        // We use a static scheduling of threads to cores, as it is
-        // not practical to measure which core each thread actually
-        // ran on for each memref.
-        int core;
-        if (memref.tid == last_thread)
-            core = last_core;
-        else {
-            core = core_for_thread(memref.tid);
-            last_thread = memref.tid;
-            last_core = core;
-        }
-
-        if (memref.type == TRACE_TYPE_INSTR)
-            itlbs[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_READ ||
-                 memref.type == TRACE_TYPE_WRITE)
-            dtlbs[core]->request(memref);
-        else if (memref.type == TRACE_TYPE_THREAD_EXIT) {
-            handle_thread_exit(memref.tid);
-            last_thread = 0;
-        }
-        else if (type_is_prefetch(memref.type) ||
-                 memref.type == TRACE_TYPE_INSTR_FLUSH ||
-                 memref.type == TRACE_TYPE_DATA_FLUSH) {
-            // TLB simulator ignores prefetching and cache flushing
-        } else {
-            ERROR("unhandled memref type");
-            return false;
-        }
-
-        if (op_verbose.get_value() >= 3) {
-            std::cerr << "::" << memref.pid << "." << memref.tid << ":: " <<
-                " @" << (void *)memref.pc <<
-                " " << trace_type_names[memref.type] << " " <<
-                (void *)memref.addr << " x" << memref.size << std::endl;
-        }
-
-        // process counters for warmup and simulated references
-        if (warmup_refs > 0) { // warm tlbs up
-            warmup_refs--;
-            // reset tlb stats when warming up is completed
-            if (warmup_refs == 0) {
-                for (int i = 0; i < num_cores; i++) {
-                    itlbs[i]->get_stats()->reset();
-                    dtlbs[i]->get_stats()->reset();
-                    lltlbs[i]->get_stats()->reset();
-                }
+    // process counters for warmup and simulated references
+    if (knob_warmup_refs > 0) { // warm tlbs up
+        knob_warmup_refs--;
+        // reset tlb stats when warming up is completed
+        if (knob_warmup_refs == 0) {
+            for (int i = 0; i < knob_num_cores; i++) {
+                itlbs[i]->get_stats()->reset();
+                dtlbs[i]->get_stats()->reset();
+                lltlbs[i]->get_stats()->reset();
             }
         }
-        else {
-            sim_refs--;
-        }
+    }
+    else {
+        knob_sim_refs--;
     }
     return true;
 }
 
 bool
-tlb_simulator_t::print_stats()
+tlb_simulator_t::print_results()
 {
-    for (int i = 0; i < num_cores; i++) {
+    std::cerr << "TLB simulation results:\n";
+    for (int i = 0; i < knob_num_cores; i++) {
         unsigned int threads = thread_ever_counts[i];
         std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
         if (threads > 0) {
@@ -225,7 +251,7 @@ tlb_simulator_t::create_tlb(std::string policy)
         return new tlb_t;
 
     // undefined replacement policy
-    ERROR("Usage error: undefined replacement policy. "
-          "Please choose "REPLACE_POLICY_LFU".\n");
+    ERRMSG("Usage error: undefined replacement policy. "
+           "Please choose " REPLACE_POLICY_LFU".\n");
     return NULL;
 }

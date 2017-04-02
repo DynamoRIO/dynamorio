@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -38,6 +38,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drx.h"
 #include <stdlib.h> /* qsort */
 
@@ -64,6 +65,8 @@ enum {
 #elif defined(ARM)
     ISA_ARM_A32,
     ISA_ARM_THUMB,
+#elif defined(AARCH64)
+    ISA_ARM_A64,
 #endif
     NUM_ISA_MODE,
 };
@@ -80,25 +83,31 @@ static uint count[NUM_ISA_MODE][OP_LAST+1];
 #define NUM_COUNT_SHOW 15
 
 static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
+                                             instr_t *instr, bool for_trace,
+                                             bool translating, void *user_data);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'opcodes'",
                        "http://dynamorio.org/issues");
-    /* register events */
-    dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
+    if (!drmgr_init())
+        DR_ASSERT(false);
+    drx_init();
 
-    /* make it easy to tell, by looking at log file, which client executed */
+    /* Register events: */
+    dr_register_exit_event(event_exit);
+    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
+
+    /* Make it easy to tell from the log file which client executed. */
     dr_log(NULL, LOG_ALL, 1, "Client 'opcodes' initializing\n");
 #ifdef SHOW_RESULTS
-    /* also give notification to stderr */
+    /* Also give notification to stderr. */
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
+        /* Ask for best-effort printing to cmd window.  Must be called at init. */
         dr_enable_console_printing();
 # endif
         dr_fprintf(STDERR, "Client opcodes is running\n");
@@ -130,6 +139,8 @@ get_isa_mode_name(uint isa_mode)
     return (isa_mode == ISA_X86_32) ? "32-bit X86" : "64-bit AMD64";
 #elif defined(ARM)
     return (isa_mode == ISA_ARM_A32) ? "32-bit ARM" : "32-bit Thumb";
+#elif defined(AARCH64)
+    return "64-bit AArch64";
 #else
     return "unknown";
 #endif
@@ -171,6 +182,10 @@ event_exit(void)
         DISPLAY_STRING(msg);
     }
 #endif /* SHOW_RESULTS */
+    if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
+        DR_ASSERT(false);
+    drx_exit();
+    drmgr_exit();
 }
 
 static uint
@@ -188,6 +203,9 @@ get_count_isa_idx(void *drcontext)
         break;
     case DR_ISA_ARM_THUMB:
         return ISA_ARM_THUMB;
+#elif defined (AARCH64)
+    case DR_ISA_ARM_A64:
+        return ISA_ARM_A64;
 #endif
     default:
         DR_ASSERT(false); /* NYI */
@@ -195,37 +213,38 @@ get_count_isa_idx(void *drcontext)
     return 0;
 }
 
+/* This is called separately for each instruction in the block. */
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr;
-    instr_t *first = instrlist_first_app(bb);
-    uint isa_idx = get_count_isa_idx(drcontext);
+    if (drmgr_is_first_instr(drcontext, instr)) {
+        instr_t *ins;
+        uint isa_idx = get_count_isa_idx(drcontext);
 
-#ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
-
-    for (instr = instrlist_first_app(bb);
-         instr != NULL;
-         instr = instr_get_next_app(instr)) {
-        /* We insert all increments sequentially up front so that drx can
-         * optimize the spills and restores.
+        /* Normally looking ahead should be performed in the analysis event, but
+         * here that would require storing the counts into an array passed in
+         * user_data.  We avoid that overhead by cheating drmgr's model a little
+         * bit and looking forward.  An alternative approach would be to insert
+         * each counter before its respective instruction and have an
+         * instru2instru pass that pulls the increments together to reduce
+         * overhead.
          */
-        drx_insert_counter_update(drcontext, bb, first,
-                                  SPILL_SLOT_1, IF_ARM_(SPILL_SLOT_2)
-                                  &count[isa_idx][instr_get_opcode(instr)], 1,
-                                  /* DRX_COUNTER_LOCK is not yet supported on ARM */
-                                  IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+        for (ins = instrlist_first_app(bb);
+             ins != NULL;
+             ins = instr_get_next_app(ins)) {
+            /* We insert all increments sequentially up front so that drx can
+             * optimize the spills and restores.
+             */
+            drx_insert_counter_update(drcontext, bb, instr,
+                                      /* We're using drmgr, so these slots
+                                       * here won't be used: drreg's slots will be.
+                                       */
+                                      SPILL_SLOT_MAX+1, IF_AARCHXX_(SPILL_SLOT_MAX+1)
+                                      &count[isa_idx][instr_get_opcode(ins)], 1,
+                                      /* DRX_COUNTER_LOCK is not yet supported on ARM */
+                                      IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+        }
     }
-
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }

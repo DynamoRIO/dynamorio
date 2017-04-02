@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -119,11 +119,17 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
 # ifdef X86
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
+# elif defined(AARCH64)
+    return (instr_get_opcode(inst) == OP_b &&
+            opnd_is_instr(instr_get_target(inst)));
 # elif defined(ARM)
     return ((instr_get_opcode(inst) == OP_b_short ||
              /* A32 uses a regular jump */
              instr_get_opcode(inst) == OP_b) &&
             opnd_is_instr(instr_get_target(inst)));
+# else
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
 # endif /* X86/ARM */
 }
 
@@ -381,12 +387,16 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
         DOCHECK(1, {
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]
+                       /* Register X0 is used for branches on AArch64.
+                        * See mangle_cbr_stolen_reg.
+                        */
+                       IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
                        /* The special stolen register mangling from
                         * mangle_syscall_arch() for a non-restartable syscall ends
                         * up here due to the nop having a xl8 post-syscall.
                         * We do need to restore that spill.
                         */
-                       IF_ARM(|| r == 10));
+                       IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
         });
         return;
     }
@@ -402,12 +412,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk,
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte*)&tdcontext->local_state->spill_space) +
-                                   /* special handling r10, mangle instr inserted
-                                    * in mangle_syscall_arch
-                                    */
-                                   (IF_ARM(reg == DR_REG_R10 ?
-                                           reg_spill_tls_offs(DR_REG_R1) :)
-                                    reg_spill_tls_offs(reg)));
+                                   reg_spill_tls_offs(reg));
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }
@@ -906,15 +911,30 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          /* Check for pointing right at sysenter, for i#1145 */
          mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+        /* If at do_syscall yet not yet in the kernel (or the do_syscall still uses
+         * int: i#2005), we need to translate to vsyscall, for detach (i#95).
+         */
+        if (is_after_main_do_syscall_addr(tdcontext, mcontext->pc)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_sysenter_return_pc);
+            mcontext->pc = vsyscall_sysenter_return_pc;
+        } else if (is_after_main_do_syscall_addr(tdcontext,
+                                                 mcontext->pc + SYSENTER_LENGTH)) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: from do_syscall "PFX" to vsyscall "PFX"\n",
+                mcontext->pc, vsyscall_syscall_end_pc - SYSENTER_LENGTH);
+            mcontext->pc = vsyscall_syscall_end_pc - SYSENTER_LENGTH;
+        } else {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
+                "recreate_app: no PC translation needed (at vsyscall)\n");
+        }
 # ifdef MACOS
         if (!just_pc) {
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");
             mcontext->xdx = tdcontext->app_xdx;
         }
-# else
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
-            "recreate_app no translation needed (at syscall)\n");
 # endif
         return res;
     }
@@ -986,12 +1006,26 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         fragment_t *f = owning_f;
         bool alloc = false, ok;
         dr_isa_mode_t old_mode;
+#ifdef WINDOWS
+        bool swap_peb = false;
+#endif
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
         dr_mcontext_t xl8_mcontext;
         dr_mcontext_t raw_mcontext;
         dr_mcontext_init(&xl8_mcontext);
         dr_mcontext_init(&raw_mcontext);
+#endif
+#ifdef WINDOWS
+        /* i#889: restore private PEB/TEB for faithful recreation */
+        /* i#1832: swap_peb_pointer() calls is_dynamo_address() in debug build, which
+         * acquires dynamo_areas->lock and global_alloc_lock, but this is limited to
+         * in_fcache() and thus we should have no deadlock problems on thread synch.
+         */
+        if (os_using_app_state(tdcontext)) {
+            swap_peb_pointer(tdcontext, true/*to priv*/);
+            swap_peb = true;
+        }
 #endif
 
         /* Rather than storing a mapping table, we re-build the fragment
@@ -1122,7 +1156,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mc->xdi = get_mcontext(tdcontext)->xdi;
         }
 #endif
-#ifdef ARM
+#ifdef AARCHXX
         /* dr_reg_stolen is holding DR's TLS on receiving a signal,
          * so we need put app's reg value into mcontext instead
          */
@@ -1156,6 +1190,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             ASSERT(f != NULL);
             fragment_free(tdcontext, f);
         }
+#ifdef WINDOWS
+        if (swap_peb)
+            swap_peb_pointer(tdcontext, false/*to app*/);
+#endif
         return res;
     } else {
         /* handle any other cases, in DR etc. */
@@ -1188,13 +1226,6 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     priv_mcontext_t mc;
     recreate_success_t res;
 
-#ifdef WINDOWS
-    bool swap_peb = false;
-    if (os_using_app_state(tdcontext)) {
-        swap_peb_pointer(tdcontext, true/*to priv*/);
-        swap_peb = true;
-    }
-#endif
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translating from pc="PFX"\n", pc);
 
@@ -1215,10 +1246,6 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translation is "PFX"\n", mc.pc);
 
-#ifdef WINDOWS
-    if (swap_peb)
-        swap_peb_pointer(tdcontext, false/*to app*/);
-#endif
     return mc.pc;
 }
 
@@ -1263,13 +1290,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                    bool restore_memory, fragment_t *f)
 {
     recreate_success_t res;
-#ifdef WINDOWS
-    bool swap_peb = false;
-    if (os_using_app_state(tdcontext)) {
-        swap_peb_pointer(tdcontext, true/*to priv*/);
-        swap_peb = true;
-    }
-#endif
+
 #ifdef DEBUG
     if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
         LOG(THREAD_GET, LOG_SYNCH, 2,
@@ -1293,10 +1314,6 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
     }
 #endif
 
-#ifdef WINDOWS
-    if (swap_peb)
-        swap_peb_pointer(tdcontext, false/*to app*/);
-#endif
     return res;
 }
 
@@ -1663,8 +1680,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         instrlist_clear_and_destroy(dcontext, ilist);
     }
-# elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+# else
+    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
 # endif /* X86/ARM */
 }

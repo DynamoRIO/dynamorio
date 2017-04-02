@@ -38,7 +38,7 @@
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
-#include "memref.h"
+#include "../common/memref.h"
 
 // Statistics collection is abstracted out into the caching_device_stats_t class.
 

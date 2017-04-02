@@ -1830,7 +1830,8 @@ hotp_module_match(const hotp_module_t *module, const app_pc base,
              * the module wasn't matched;  otherwise this check would be bogus.
              */
             return false;
-        } else if (strncasecmp(module->sig.pe_name, name, MAXIMUM_PATH) == 0) {
+        } else if (IF_UNIX_ELSE(strncmp,strncasecmp)
+                   (module->sig.pe_name, name, MAXIMUM_PATH) == 0) {
             /* FIXME: strcmp() is faster than the ignore case version,
              * but we shouldn't rely on the PE name case to be the
              * same in all versions of Windows.
@@ -3967,7 +3968,7 @@ static void
 patch_cti_tgt(byte *tgt_loc, byte *new_val, bool hot_patch)
 {
 #ifdef X64
-    ATOMIC_8BYTE_WRITE(tgt_loc, new_val, hot_patch);
+    ATOMIC_8BYTE_WRITE(tgt_loc, (int64)new_val, hot_patch);
 #else
     insert_relative_target(tgt_loc, new_val, hot_patch);
 #endif

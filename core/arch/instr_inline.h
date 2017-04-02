@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,9 +135,10 @@ opnd_is_far_base_disp(opnd_t op)
 }
 
 
-#ifdef X64
-# define OPND_IS_REL_ADDR(op)   ((op).kind == REL_ADDR_kind)
-# define opnd_is_rel_addr       OPND_IS_REL_ADDR
+#if defined(X64) || defined(ARM)
+# ifdef X86
+#  define OPND_IS_REL_ADDR(op)   ((op).kind == REL_ADDR_kind)
+#  define opnd_is_rel_addr       OPND_IS_REL_ADDR
 
 INSTR_INLINE
 bool
@@ -153,7 +154,31 @@ opnd_is_far_rel_addr(opnd_t opnd)
     return IF_X86_ELSE(opnd.kind == REL_ADDR_kind && opnd.aux.segment != DR_REG_NULL,
                        false);
 }
-#endif /* X64 */
+# elif defined(AARCHXX)
+#  ifdef ARM
+#   define OPND_IS_REL_ADDR(op) \
+    ((op).kind == REL_ADDR_kind || \
+     (opnd_is_base_disp(op) && opnd_get_base(op) == DR_REG_PC))
+#  else
+#   define OPND_IS_REL_ADDR(op) ((op).kind == REL_ADDR_kind)
+#  endif
+#  define opnd_is_rel_addr       OPND_IS_REL_ADDR
+
+INSTR_INLINE
+bool
+opnd_is_near_rel_addr(opnd_t opnd)
+{
+    return opnd_is_rel_addr(opnd);
+}
+
+INSTR_INLINE
+bool
+opnd_is_far_rel_addr(opnd_t opnd)
+{
+    return false;
+}
+# endif
+#endif /* X64 || ARM */
 
 /* opnd_t constructors */
 
@@ -233,7 +258,7 @@ opnd_create_pc(app_pc pc)
      opnd_is_immed_int(opnd), \
      "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") \
      0)
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define OPND_GET_FLAGS(opnd) \
     (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || \
      opnd_is_immed_int(opnd), \
@@ -253,8 +278,7 @@ opnd_create_pc(app_pc pc)
 #ifdef X86
 # define OPND_GET_SCALE(opnd) (GET_BASE_DISP(opnd).scale)
 #else
-# define OPND_GET_SCALE(opnd) \
-    (CLIENT_ASSERT_(false, "opnd_get_scale not supported on ARM") 0)
+# define OPND_GET_SCALE(opnd) 0
 #endif
 
 #define opnd_get_base OPND_GET_BASE
@@ -269,7 +293,7 @@ opnd_create_pc(app_pc pc)
                            opnd_is_rel_addr(opnd)), \
                     "opnd_get_segment called on invalid opnd type") \
      (opnd).aux.segment)
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define OPND_GET_SEGMENT(opnd) DR_REG_NULL
 #endif
 #define opnd_get_segment OPND_GET_SEGMENT

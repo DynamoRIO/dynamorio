@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,7 +32,11 @@
  */
 
 #include <stdio.h>
-#include <syscall.h>
+#if defined(MACOS) || defined(ANDROID)
+# include <sys/syscall.h>
+#else
+# include <syscall.h>
+#endif
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)

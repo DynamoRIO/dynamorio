@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,7 +36,7 @@
 #include "nudge.h"
 
 #ifdef WINDOWS
-# include "ntdll.h" /* for create_thread(), nt_free_virtual_memory() */
+# include "ntdll.h" /* for our_create_thread(), nt_free_virtual_memory() */
 # include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
 # include "drmarker.h"
 #else
@@ -87,7 +87,7 @@ generic_nudge_target(nudge_arg_t *arg)
     volatile bool nudge_result;
 
     /* needed to make sure dr has a specific target to lookup and avoid
-     * interpreting when taking over new threads; see must_not_be_inlined().
+     * interpreting when taking over new threads; see leave_call_native().
      */
     nudge_result = generic_nudge_handler(arg);
 
@@ -171,7 +171,8 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
                 dcontext->nudge_terminate_process = true;
                 dcontext->nudge_exit_code = exit_code;
             }
-            call_switch_stack(dcontext, dcontext->dstack, nudge_terminate_on_dstack,
+            call_switch_stack(dcontext, dcontext->dstack,
+                              (void(*)(void*))nudge_terminate_on_dstack,
                               NULL /* not on initstack */, false /* don't return */);
         } else {
             /* Already on dstack or nudge creator will free app stack. */
@@ -199,7 +200,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     uint nudge_action_mask = 0;
 
 #ifdef WINDOWS
-    /* this routine is run natively via must_not_be_inlined() so there's no
+    /* this routine is run natively via leave_call_native() so there's no
      * cxt switch that swapped for us
      */
     if (dcontext != NULL)
@@ -514,9 +515,9 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
         nudge_target = marker.dr_generic_nudge_target;
     }
 
-    hthread = create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
-                            NULL, &nudge_arg, sizeof(nudge_arg_t),
-                            15*PAGE_SIZE, 12*PAGE_SIZE, false, NULL);
+    hthread = our_create_thread(hproc, IF_X64_ELSE(true, false), nudge_target,
+                                NULL, &nudge_arg, sizeof(nudge_arg_t),
+                                15*(uint)PAGE_SIZE, 12*(uint)PAGE_SIZE, false, NULL);
     ASSERT(hthread != INVALID_HANDLE_VALUE);
     if (hthread == INVALID_HANDLE_VALUE)
         return DR_FAILURE;

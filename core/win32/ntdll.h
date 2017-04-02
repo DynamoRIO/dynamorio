@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1924,6 +1924,8 @@ query_full_attributes_file(PCWSTR filename,
 /* The NTFS file or directory is not a reparse point. */
 #define STATUS_NOT_A_REPARSE_POINT       ((NTSTATUS)0xC0000275L)
 
+#define STATUS_PIPE_NOT_AVAILABLE        ((NTSTATUS)0xC00000ACL)
+
 /* This is in VS2005 winnt.h but not in SDK winnt.h */
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 # define IMAGE_SIZEOF_BASE_RELOCATION         8
@@ -2049,6 +2051,7 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                    void *output, uint output_size, uint timeout_ms);
 
 #define TIMER_UNITS_PER_MILLISECOND (1000 * 10) /* 100ns intervals */
+#define TIMER_UNITS_PER_MICROSECOND (10) /* 100ns intervals */
 
 wchar_t *
 get_process_param_buf(RTL_USER_PROCESS_PARAMETERS *params, wchar_t *buf);
@@ -2102,14 +2105,15 @@ create_process(wchar_t *exe, wchar_t *cmdline);
 /* NOTE see important usage information in ntdll.c, threads created with this
  * function can NOT return from their start routine */
 HANDLE
-create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
-              void *arg, const void *arg_buf, size_t arg_buf_size,
-              uint stack_reserve, uint stack_commit, bool suspended, thread_id_t *tid);
+our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
+                  void *arg, const void *arg_buf, size_t arg_buf_size,
+                  uint stack_reserve, uint stack_commit, bool suspended,
+                  thread_id_t *tid);
 HANDLE
-create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
-                         void *arg, const void *arg_buf, size_t arg_buf_size,
-                         byte *stack_base, size_t stack_size,
-                         bool suspended, thread_id_t *tid);
+our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
+                             void *arg, const void *arg_buf, size_t arg_buf_size,
+                             byte *stack_base, size_t stack_size,
+                             bool suspended, thread_id_t *tid);
 
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context
@@ -2173,7 +2177,7 @@ bool
 free_library_64(HANDLE lib);
 
 uint64
-get_module_handle_64(wchar_t *name);
+get_module_handle_64(const wchar_t *name);
 
 uint64
 get_proc_address_64(uint64 lib, const char *name);
@@ -2211,7 +2215,7 @@ bool
 free_library(module_handle_t lib);
 
 module_handle_t
-get_module_handle(wchar_t *lib_name);
+get_module_handle(const wchar_t *lib_name);
 
 /* From WINNT.H for .NET 2.0 (Visual Studio.NET VC7)
  * Needed for IMAGE_COR20_HEADER

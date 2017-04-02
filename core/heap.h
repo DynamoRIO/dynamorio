@@ -199,6 +199,7 @@ void print_heap_statistics(void);
 /* FIXME: persistence is yet another dimension here
  * let's clean all these up and have a single alloc routine?
  */
+/* i#1791: nonpersistent heap cannot be used for IR or other client allocations */
 void *nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size
                                HEAPACCT(which_heap_t which));
 void nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
@@ -243,6 +244,7 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
     HEAP_ARRAY_FREE(dc, p, type, 1, which, protected)
 
 /* nonpersistent heap is assumed to be protected */
+/* i#1791: nonpersistent heap cannot be used for IR or other client allocations */
 #define NONPERSISTENT_HEAP_ARRAY_ALLOC(dc, type, num, which) \
     (type *) nonpersistent_heap_alloc(dc, sizeof(type)*(num) HEAPACCT(which))
 #define NONPERSISTENT_HEAP_TYPE_ALLOC(dc, type, which) \
@@ -252,6 +254,8 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
 #define NONPERSISTENT_HEAP_TYPE_FREE(dc, p, type, which) \
     NONPERSISTENT_HEAP_ARRAY_FREE(dc, p, type, 1, which)
 
+#define MIN_VMM_BLOCK_SIZE (16 * 1024)
+
 /* special heap of same-sized blocks that avoids global locks */
 void *special_heap_init(uint block_size, bool use_lock, bool executable,
                         bool persistent);
@@ -260,6 +264,10 @@ void *special_heap_alloc(void *special);
 void *special_heap_calloc(void *special, uint num);
 void special_heap_free(void *special, void *p);
 void special_heap_cfree(void *special, void *p, uint num);
+/* return true if the requested chunk would be fulfilled by special_heap_calloc()
+ * without allocating additional heap units
+ */
+bool special_heap_can_calloc(void *special, uint num);
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
 void special_heap_profile_exit(void);
 #endif

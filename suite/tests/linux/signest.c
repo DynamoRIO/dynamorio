@@ -109,6 +109,12 @@ main(int argc, char **argv)
 
     print("sending 2 signals\n");
     pthread_kill(thread, OURSIG);
+    /* XXX i#1803: DR may incorrectly drop the signal if more than one are delivered
+     * together.  We delay sending the second signal until the first one is delivered
+     * as a temporary workaround.
+     */
+    if (num_received == 0)
+        sched_yield();
     pthread_kill(thread, OURSIG);
 
     if (pthread_join(thread, &retval) != 0)

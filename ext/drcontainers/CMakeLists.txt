@@ -31,6 +31,8 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 # We do not need libc, and we avoid a 10x size increase in both our
 # dll and pdb (plus we avoid stressing private library isolation) by
 # not using it (i#714).

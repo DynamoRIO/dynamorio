@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +67,26 @@
 extern "C" {
 #endif
 
+/* DR_API EXPORT VERBATIM */
+/* Support use independently from dr_api.h */
+#ifndef IN
+# define IN /* marks input param */
+#endif
+#ifndef OUT
+# define OUT /* marks output param */
+#endif
+#ifndef INOUT
+# define INOUT /* marks input+output param */
+#endif
+#if defined(WINDOWS) && !defined(_DR_API_H) && !defined(_SSIZE_T_DEFINED)
+# if defined(_WIN64)
+typedef __int64 ssize_t;
+# else
+typedef int ssize_t;
+# endif
+#endif
+/* DR_API EXPORT END */
+
 #ifdef WINDOWS
 # include <tchar.h>
 #else
@@ -116,7 +136,14 @@ typedef enum {
 } drfront_access_mode_t;
 
 /**
- * Checks \p fname for the permssions specified by \p mode.
+ * Checks \p fname for the permssions specified by \p mode for the
+ * current effective user.  If \p fname is a directory and \p mode includes \p
+ * DRFRONT_WRITE, this function additionally attempts to create a
+ * temporary file (by calling drfront_dir_try_writable()) to ensure
+ * that the filesystem is not mounted read-only.
+ * On Linux or Mac, if the current effective user is 0, this routine assumes
+ * that the user has read and write access to every file and has execute
+ * access to any file with at least one execute bit set.
  *
  * \note DRFRONT_EXEC is ignored on Windows because _waccess doesn't test it.
  *
@@ -155,7 +182,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
  */
 drfront_status_t
 drfront_bufprint(INOUT char *buf, size_t bufsz, INOUT size_t *sofar,
-                 OUT ssize_t *len, char *fmt, ...);
+                 OUT ssize_t *len, const char *fmt, ...);
 
 /**
  * Converts from UTF-16 to UTF-8.
@@ -455,6 +482,16 @@ drfront_remove_dir(const char *dir);
  */
 drfront_status_t
 drfront_dir_exists(const char *path, OUT bool *is_dir);
+
+/**
+ * This routine checks whether a file can be created inside the
+ * directory specified by \p path.
+ *
+ * @param[in]  path         The path to be checked
+ * @param[out] is_writable  Returns whether files can be created in \p path.
+ */
+drfront_status_t
+drfront_dir_try_writable(const char *path, OUT bool *is_writable);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -41,7 +41,10 @@ START_FILE
 DECL_EXTERN(dynamorio_app_take_over_helper)
 #if defined(UNIX)
 DECL_EXTERN(master_signal_handler_C)
+DECL_EXTERN(dr_setjmp_sigmask)
 #endif
+DECL_EXTERN(relocate_dynamorio)
+DECL_EXTERN(privload_early_inject)
 
 DECL_EXTERN(exiting_thread_count)
 DECL_EXTERN(initstack)
@@ -76,41 +79,6 @@ DECL_EXTERN(initstack_mutex)
 # error Non-Unix is not supported
 #endif
 
-#ifdef X64
-#  error AArch64 is not supported
-#endif
-
-#ifdef UNIX
-# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
-        DECLARE_FUNC(_start)
-GLOBAL_LABEL(_start:)
-        eor      r11, r11  /* clear frame ptr for stack trace bottom */
-        mov      r0, sp    /* arg to privload_early_inject */
-        bl       GLOBAL_REF(privload_early_inject)
-        /* shouldn't return */
-        bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(_start)
-# endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
-
-
-/* i#1227: on a conflict with the app we reload ourselves.
- * xfer_to_new_libdr(entry, init_sp, cur_dr_map, cur_dr_size)
- * =>
- * Invokes entry after setting sp to init_sp and placing the current (old)
- * libdr bounds in registers for the new libdr to unmap.
- */
-        DECLARE_FUNC(xfer_to_new_libdr)
-GLOBAL_LABEL(xfer_to_new_libdr:)
-        mov     r5, ARG1
-        /* Restore sp */
-        mov     sp, ARG2
-        /* _start expects these as 2nd & 3rd args */
-        mov     ARG2, ARG3
-        mov     ARG3, ARG4
-        bx      r5
-        END_FUNC(xfer_to_new_libdr)
-#endif /* UNIX */
-
 /* all of the CPUID registers are only accessible in privileged modes */
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)
@@ -118,9 +86,9 @@ GLOBAL_LABEL(cpuid_supported:)
         bx       lr
         END_FUNC(cpuid_supported)
 
-/* void call_switch_stack(dcontext_t *dcontext,       // REG_R0
+/* void call_switch_stack(void *func_arg,             // REG_R0
  *                        byte *stack,                // REG_R1
- *                        void (*func)(dcontext_t *), // REG_R2
+ *                        void (*func)(void *arg),    // REG_R2
  *                        void *mutex_to_free,        // REG_R3
  *                        bool return_on_return)      // [REG_SP]
  */
@@ -153,10 +121,49 @@ call_dispatch_alt_stack_no_free:
 
 
 #ifdef CLIENT_INTERFACE
-/* FIXME i#1551: NYI on ARM */
+/*
+ * Calls the specified function 'func' after switching to the DR stack
+ * for the thread corresponding to 'drcontext'.
+ * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by 'func'.
+ *
+ * void * dr_call_on_clean_stack(void *drcontext,            //
+ *                               void *(*func)(arg1...arg8), // 0*ARG_SZ+r4
+ *                               void *arg1,                 // 1*ARG_SZ+r4
+ *                               void *arg2,                 // 2*ARG_SZ+r4
+ *                               void *arg3,                 // 6*ARG_SZ+r4
+ *                               void *arg4,                 // 7*ARG_SZ+r4
+ *                               void *arg5,                 // 8*ARG_SZ+r4
+ *                               void *arg6,                 // 9*ARG_SZ+r4
+ *                               void *arg7,                 //10*ARG_SZ+r4
+ *                               void *arg8)                 //11*ARG_SZ+r4
+ */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-        bl       GLOBAL_REF(unexpected_return)
+        /* We need a callee-saved reg across the call: we use r4. */
+        push     {REG_R1-REG_R5, lr}
+        mov      REG_R4, REG_SP /* save sp across the call */
+        mov      REG_R5, ARG2 /* save function in non-param reg */
+        /* Swap stacks */
+        RESTORE_FROM_DCONTEXT_VIA_REG(REG_R0, dstack_OFFSET, REG_SP)
+        /* Set up args */
+        sub      REG_SP, #(4*ARG_SZ)
+        ldr      REG_R0, [REG_R4, #(11*ARG_SZ)]
+        str      REG_R0, ARG8
+        ldr      REG_R0, [REG_R4, #(10*ARG_SZ)]
+        str      REG_R0, ARG7
+        ldr      REG_R0, [REG_R4, #(9*ARG_SZ)]
+        str      REG_R0, ARG6
+        ldr      REG_R0, [REG_R4, #(8*ARG_SZ)]
+        str      REG_R0, ARG5
+        ldr      ARG4, [REG_R4, #(7*ARG_SZ)]
+        ldr      ARG3, [REG_R4, #(6*ARG_SZ)]
+        ldr      ARG2, [REG_R4, #(2*ARG_SZ)]
+        ldr      ARG1, [REG_R4, #(1*ARG_SZ)]
+        blx      REG_R5
+        mov      REG_SP, REG_R4
+        pop      {REG_R1-REG_R5, pc} /* don't need r1-r3 values but this is simplest */
         END_FUNC(dr_call_on_clean_stack)
 #endif /* CLIENT_INTERFACE */
 
@@ -211,9 +218,6 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         mrs      REG_R0, cpsr /* r0 is scratch */
         push     {REG_R0}
         /* We can't push all regs w/ writeback */
-#ifdef X64
-# error NYI
-#endif
         stmdb    sp, {REG_R0-r15}
         str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
         /* we need the sp at function entry */
@@ -276,14 +280,14 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to initstack for cleanup of dstack */
-        /* we use r6, r7, and r8 here so that atomic_xchg doesn't clobber them */
+        /* we use r6, r7, and r8 here so that atomic_swap doesn't clobber them */
         mov      REG_R6, #1
         ldr      REG_R8, .Lgot1
         add      REG_R8, REG_R8, pc
         ldr      REG_R7, .Linitstack_mutex
 .LPIC1: ldr      REG_R7, [REG_R7, REG_R8]
 cat_spin:
-        CALLC2(atomic_xchg, REG_R7, REG_R6)
+        CALLC2(atomic_swap, REG_R7, REG_R6)
         cmp      REG_R0, #0
         beq      cat_have_lock
         yield
@@ -350,17 +354,6 @@ GLOBAL_LABEL(atomic_add:)
         bne      1b
         bx       lr
         END_FUNC(atomic_add)
-
-/* Pass in the memory address in ARG1 and register w/ value in ARG2. */
-        DECLARE_FUNC(atomic_xchg)
-GLOBAL_LABEL(atomic_xchg:)
-1:      ldrex    REG_R2, [ARG1]
-        strex    REG_R3, ARG2, [ARG1]
-        cmp      REG_R3, #0
-        bne      1b
-        mov      REG_R0, REG_R2
-        bx       lr
-        END_FUNC(atomic_xchg)
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
@@ -466,34 +459,36 @@ GLOBAL_LABEL(dr_try_start:)
         b        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/* int cdecl dr_setjmp(dr_jmp_buf *buf);
+/* We save only the callee-saved registers: R4-R11, SP, LR, D8-D15:
+ * a total of 26 reg_t (32-bit) slots. See definition of dr_jmp_buf_t.
+ *
+ * int dr_setjmp(dr_jmp_buf_t *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-#ifdef X64
-# error NYI on AArch64
-#endif
-        /* we do not have to save r0 (return value) or r15 (pc) */
-        /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
-        stm      ARG1, {REG_R1-REG_R12, sp, lr}
+        mov      REG_R2, ARG1
+        stm      REG_R2!, {REG_R4-REG_R11, sp, lr}
+        vst1.64  {d8-d11},[REG_R2]!
+        vst1.64  {d12-d15},[REG_R2]!
+        push     {r12,lr} /* save two registers for SP-alignment */
+        CALLC1(GLOBAL_REF(dr_setjmp_sigmask), ARG1)
         mov      REG_R0, #0
-        bx       lr
+        pop      {r12,pc}
         END_FUNC(dr_setjmp)
 
-/* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
+/* int dr_longjmp(dr_jmp_buf *buf, int retval);
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-#ifdef X64
-# error NYI on AArch64
-#endif
         mov      REG_R2, ARG1
         mov      REG_R0, ARG2
-        ldm      REG_R2, {REG_R1-REG_R12, sp, lr}
+        ldm      REG_R2!, {REG_R4-REG_R11, sp, lr}
+        vld1.64  {d8-d11},[REG_R2]!
+        vld1.64  {d12-d15},[REG_R2]!
         bx       lr
         END_FUNC(dr_longjmp)
 
-/* uint atomic_swap(uint *addr, uint value)
+/* int atomic_swap(volatile int *addr, int value)
  * return current contents of addr and replace contents with value.
  */
         DECLARE_FUNC(atomic_swap)
@@ -565,37 +560,11 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
  */
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-#ifdef X64
-# error NYI: i#1569
-#else
         mov      r0, #0 /* exit code: hardcoded */
         mov      r7, #SYS_exit
         svc      0
-#endif
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
-
-
-/* we need to call futex_wakeall without using any stack, to support
- * THREAD_SYNCH_TERMINATED_AND_CLEANED.
- * takes int* futex in r0.
- */
-        DECLARE_FUNC(dynamorio_futex_wake_and_exit)
-GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
-#ifdef X64
-# error NYI: i#1569
-#else
-        mov      r5, #0 /* arg6 */
-        mov      r4, #0 /* arg5 */
-        mov      r3, #0 /* arg4 */
-        mov      r2, #0x7fffffff /* arg3 = INT_MAX */
-        mov      r1, #1 /* arg2 = FUTEX_WAKE */
-        /* arg1 = &futex, already in r0 */
-        mov      r7, #240 /* SYS_futex */
-        svc      0
-#endif
-        b        GLOBAL_REF(dynamorio_sys_exit)
-        END_FUNC(dynamorio_futex_wake_and_exit)
 
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -605,6 +574,10 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
 #endif
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
+        mov      ARG4, sp /* pass as extra arg */
+        /* i#2107: we repeat the mov to work around odd behavior on Android
+         * where sometimes the kernel sends control to the 2nd instruction here.
+         */
         mov      ARG4, sp /* pass as extra arg */
         b        GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */

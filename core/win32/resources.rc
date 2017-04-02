@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -193,6 +193,10 @@
 #elif defined(RC_IS_drreg) || defined(RC_IS_drreg_static)
 # define FILE_NAME "drreg.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " scratch register mediator"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_drcovlib) || defined(RC_IS_drcovlib_static)
+# define FILE_NAME "drcovlib.dll"
+# define FILE_DESCRIPTION PRODUCT_NAME " code coverage library"
 # define FILE_TYPE VFT_DLL
 /* tests */
 #elif defined(RC_IS_TEST)

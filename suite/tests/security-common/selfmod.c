@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,7 +67,7 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGSEGV || sig == SIGILL) {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sig == SIGILL)
             print("Illegal instruction\n");
         print_fault_code((unsigned char *)sc->SC_XIP);
@@ -93,8 +93,6 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 #endif
-
-typedef unsigned char byte;
 
 static byte global_buf[8];
 
@@ -325,7 +323,8 @@ DECL_EXTERN(print_int)
         nop @N@\
         ENDM
 #else
-# error NASM NYI
+# define ALIGN_WITH_NOPS(bytes) ALIGN bytes
+# define FILL_WITH_NOPS(bytes) TIMES bytes nop
 #endif
 
 #if defined(ASSEMBLE_WITH_MASM)

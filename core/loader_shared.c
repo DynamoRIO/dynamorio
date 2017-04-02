@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -277,8 +277,10 @@ unload_private_library(app_pc modbase)
     bool res = false;
     acquire_recursive_lock(&privload_lock);
     mod = privload_lookup_by_base(modbase);
-    if (mod != NULL)
-        res = privload_unload(mod);
+    if (mod != NULL) {
+        res = true; /* don't care if refcount hit 0 or not */
+        privload_unload(mod);
+    }
     release_recursive_lock(&privload_lock);
     return res;
 }
@@ -289,6 +291,25 @@ in_private_library(app_pc pc)
     return vmvector_overlap(modlist_areas, pc, pc+1);
 }
 
+/* Caseless and "separator agnostic" (i#1869) */
+static int
+pathcmp(const char *left, const char *right)
+{
+    size_t i;
+    for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
+        int l = tolower(left[i]);
+        int r = tolower(right[i]);
+        if (l == '/')
+            l = '\\';
+        if (r == '/')
+            r = '\\';
+        if (l < r)
+            return -1;
+        if (l > r)
+            return 1;
+    }
+    return 0;
+}
 
 /* Lookup the private loaded library either by basename or by path */
 privmod_t *
@@ -305,13 +326,13 @@ privload_lookup(const char *name)
         uint i;
         for (i = 0; i < privmod_static_idx; i++) {
             mod = &privmod_static[i];
-            if ((by_path && strcasecmp(name, mod->path) == 0) ||
+            if ((by_path && pathcmp(name, mod->path) == 0) ||
                 (!by_path && strcasecmp(name, mod->name) == 0))
                 return mod;
         }
     } else {
         for (mod = modlist; mod != NULL; mod = mod->next) {
-            if ((by_path && strcasecmp(name, mod->path) == 0) ||
+            if ((by_path && pathcmp(name, mod->path) == 0) ||
                 (!by_path && strcasecmp(name, mod->name) == 0))
                 return mod;
         }
@@ -467,11 +488,13 @@ privload_read_drpath_file(const char *libname)
          */
         file_t f = os_open(path, OS_OPEN_READ);
         char *map;
-        size_t map_size = 0;
+        size_t map_size;
         uint64 file_size;
         if (f != INVALID_FILE &&
             os_get_file_size_by_handle(f, &file_size)) {
             LOG(GLOBAL, LOG_LOADER, 2, "%s: reading %s\n", __FUNCTION__, path);
+            ASSERT_TRUNCATE(map_size, size_t, file_size);
+            map_size = (size_t) file_size;
             map = (char *)
                 os_map_file(f, &map_size, 0, NULL, MEMPROT_READ, 0);
             if (map != NULL && map_size >= file_size) {
@@ -522,7 +545,7 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
 
     LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s\n", __FUNCTION__, filename);
 
-    map = privload_map_and_relocate(filename, &size, client);
+    map = privload_map_and_relocate(filename, &size, client ? MODLOAD_REACHABLE : 0);
     if (map == NULL) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: failed to map %s\n", __FUNCTION__, filename);
         return NULL;

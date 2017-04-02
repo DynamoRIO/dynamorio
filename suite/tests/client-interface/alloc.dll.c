@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
-#ifdef UNIX
+#ifdef LINUX
 # include <sys/personality.h>
 # include <sys/mman.h>
 #endif
@@ -91,7 +91,7 @@ void global_test(void)
 }
 
 #ifdef X64
-# define PREFERRED_ADDR (char *)0x1000000000
+# define PREFERRED_ADDR (byte *)0x1000000000
 #endif
 
 /* Defines the size and alignment of the probe allocation in tests that must probe for
@@ -116,7 +116,7 @@ test_instr_as_immed(void)
     void *drcontext = dr_get_current_drcontext();
     instrlist_t *ilist = instrlist_create(drcontext);
     byte *pc;
-    instr_t *ins0, *ins1, *ins2;
+    instr_t *ins0;
     opnd_t opnd;
     byte *highmem = PREFERRED_ADDR;
     pc = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC,
@@ -127,8 +127,7 @@ test_instr_as_immed(void)
     ins0 = INSTR_CREATE_nop(drcontext);
     instrlist_append(ilist, ins0);
     instrlist_insert_push_instr_addr(drcontext, ins0, highmem,
-                                     ilist, NULL, &ins1, &ins2);
-    ASSERT(ins2 != NULL);
+                                     ilist, NULL, NULL, NULL);
     instrlist_append(ilist, INSTR_CREATE_pop
                      (drcontext, opnd_create_reg(DR_REG_RAX)));
     instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
@@ -144,8 +143,7 @@ test_instr_as_immed(void)
     /* Beyond TOS, but a convenient mem dest */
     opnd = opnd_create_base_disp(DR_REG_RSP, DR_REG_NULL, 0, -8, OPSZ_8);
     instrlist_insert_mov_instr_addr(drcontext, ins0, highmem, opnd,
-                                    ilist, NULL, &ins1, &ins2);
-    ASSERT(ins2 != NULL);
+                                    ilist, NULL, NULL, NULL);
     instrlist_append(ilist, INSTR_CREATE_mov_ld
                      (drcontext, opnd_create_reg(DR_REG_RAX), opnd));
     instrlist_append(ilist, INSTR_CREATE_ret(drcontext));
@@ -677,7 +675,7 @@ void dr_init(client_id_t id)
 
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
 
-#ifdef UNIX
+#ifdef LINUX
     /* i#262: check if READ_IMPLIES_EXEC in personality. If true,
      * we expect the readable memory also has exec right.
      */

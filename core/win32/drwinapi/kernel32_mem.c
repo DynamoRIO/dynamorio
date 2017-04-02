@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -301,7 +301,10 @@ redirect_LocalFree(
     )
 {
     HANDLE heap = redirect_GetProcessHeap();
-    local_header_t *hdr = local_header_from_handle(hMem);
+    local_header_t *hdr;
+    if (hMem == NULL)
+        return NULL;
+    hdr = local_header_from_handle(hMem);
     mutex_lock(&localheap_lock);
     /* XXX: supposed to raise debug msg + bp if freeing locked object */
     if (hdr->alloc != NULL) {
@@ -334,7 +337,8 @@ redirect_LocalReAlloc(
             /* we don't allow turning moveable w/ sep alloc into fixed */
             (!TEST(LMEM_MOVEABLE, uFlags) && hdr->alloc != NULL)) {
             set_last_error(ERROR_INVALID_PARAMETER);
-            return NULL;
+            res = NULL;
+            goto redirect_LocalReAlloc_done;
         }
         hdr->flags = (ushort) uFlags;
         res = hMem;
@@ -351,7 +355,8 @@ redirect_LocalReAlloc(
                                                   uBytes + sizeof(local_header_t));
             if (hdr->alloc == NULL) {
                 set_last_error(ERROR_NOT_ENOUGH_MEMORY);
-                return NULL;
+                res = NULL;
+                goto redirect_LocalReAlloc_done;
             }
             hdr->alloc->flags = LMEM_INVALID_HANDLE; /* mark as sep alloc */
             hdr->alloc->alloc = hdr; /* backpointer */
@@ -366,7 +371,8 @@ redirect_LocalReAlloc(
                                                uBytes + sizeof(local_header_t));
                 if (newmem == NULL) {
                     set_last_error(ERROR_NOT_ENOUGH_MEMORY);
-                    return NULL;
+                    res = NULL;
+                    goto redirect_LocalReAlloc_done;
                 }
                 hdr->alloc = newmem;
                 ASSERT(hdr->alloc->flags == LMEM_INVALID_HANDLE);
@@ -378,12 +384,14 @@ redirect_LocalReAlloc(
                                                uBytes + sizeof(local_header_t));
                 if (newmem == NULL) {
                     set_last_error(ERROR_NOT_ENOUGH_MEMORY);
-                    return NULL;
+                    res = NULL;
+                    goto redirect_LocalReAlloc_done;
                 }
                 res = (HLOCAL) (newmem + 1);
             }
         }
     }
+ redirect_LocalReAlloc_done:
     mutex_unlock(&localheap_lock);
     return res;
 }

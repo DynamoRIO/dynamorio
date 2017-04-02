@@ -72,12 +72,6 @@
 #include "../link.h"
 #include "../fcache.h"
 
-#ifdef SIDELINE_COUNT_STUDY
-# ifndef PROFILE_LINKCOUNT
-# error SIDELINE_COUNT_STUDY requires PROFILE_LINKCOUNT
-# endif
-#endif
-
 #define OPTVERB_3 4
 //#define VERB_3 3
 #define VERB_3 4
@@ -150,9 +144,6 @@ static fragment_t * fragment_now_optimizing;
 
 typedef struct _remember_entry_t {
     fragment_t  *f;
-#ifdef SIDELINE_COUNT_STUDY
-    fragment_t  *replacement;
-#endif
     struct _remember_entry_t * next;
 } remember_entry_t;
 
@@ -201,11 +192,7 @@ static sample_entry_t *update_sample_entry(uint tag);
 static sample_entry_t *find_hottest_entry(void);
 static void remove_sample_entry(uint tag);
 
-static void add_remember_entry(dcontext_t *dcontext, fragment_t *f
-#ifdef SIDELINE_COUNT_STUDY
-                               , fragment_t *new_f
-#endif
-                               );
+static void add_remember_entry(dcontext_t *dcontext, fragment_t *f);
 #ifdef UNIX
 static thread_t create_thread(int (*fcn)(void *), void *arg, void **stack);
 static void delete_thread(thread_t thread, void *stack);
@@ -581,25 +568,11 @@ sideline_optimize(fragment_t *f,
                   void (*optimize_function)(dcontext_t *,fragment_t *,instrlist_t *))
 {
     fragment_t *new_f = NULL;
-#if defined (PROFILE_LINKCOUNT) && defined(SIDELINE_COUNT_STUDY)
-    trace_only_t *new_t;
-#endif
     dcontext_t *dcontext;
     instrlist_t *ilist;
     uint flags;
     void *vmlist = NULL;
     DEBUG_DECLARE(bool ok;)
-
-#ifdef PROFILE_LINKCOUNT
-#ifdef SIDELINE_COUNT_STUDY
-    linkcount_type_t pre_opt_count = get_total_linkcount(f);
-#endif
-    if (stats->loglevel >= VERB_2 && (stats->logmask & LOG_SIDELINE) != 0) {
-        /* print out total count of exit counters */
-        LOG(logfile, LOG_SIDELINE, VERB_2, "\ttotal times F%d executed prior to sideline: "
-            LINKCOUNT_FORMAT_STRING "\n", f->id, get_total_linkcount(f));
-    }
-#endif
 
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nsideline_optimize: F%d\n", f->id);
     ASSERT((f->flags & FRAG_IS_TRACE) != 0);
@@ -708,11 +681,6 @@ sideline_optimize(fragment_t *f,
     new_f = emit_invisible_fragment(dcontext, f->tag, ilist, flags, vmlist);
     fragment_copy_data_fields(dcontext, f, new_f);
 
-#if defined (PROFILE_LINKCOUNT) && defined(SIDELINE_COUNT_STUDY)
-    new_t = TRACE_FIELDS(new_f);
-    new_t->count_old_pre = pre_opt_count;
-#endif
-
     LOG(logfile, LOG_SIDELINE, VERB_3, "emitted invisible fragment F%d\n", new_f->id);
 
     shift_links_to_new_fragment(dcontext, f, new_f);
@@ -723,11 +691,7 @@ sideline_optimize(fragment_t *f,
     fragment_replace(dcontext, f, new_f);
 
     /* remember old fragment so can delete it later */
-    add_remember_entry(dcontext, f
-#ifdef SIDELINE_COUNT_STUDY
-                       , new_f
-#endif
-                       );
+    add_remember_entry(dcontext, f);
 
     /* clean up */
     instrlist_clear_and_destroy(dcontext, ilist);
@@ -772,11 +736,6 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
 {
     remember_list_t *l, *prev_l;
     remember_entry_t *e, *next_e;
-#ifdef PROFILE_LINKCOUNT
-# ifdef SIDELINE_COUNT_STUDY
-    trace_only_t *t;
-# endif
-#endif
 
     /* clear sample entry, it could still contain a pointer to a fragment
      * we're about to delete
@@ -795,20 +754,6 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
                  */
                 LOG(logfile, LOG_SIDELINE, VERB_3, "sideline_cleanup: cleaning up F%d\n",
                     e->f->id);
-
-#ifdef PROFILE_LINKCOUNT
-# ifdef SIDELINE_COUNT_STUDY
-                t = TRACE_FIELDS(e->replacement);
-                t->count_old_post = get_total_linkcount(e->f);
-# endif
-                if (stats->loglevel >= VERB_2 && (stats->logmask & LOG_SIDELINE) != 0) {
-                    /* print out total count of exit counters */
-                    LOG(logfile, LOG_SIDELINE, VERB_2,
-                        "\ttotal times F%d executed prior to cleanup: "
-                        LINKCOUNT_FORMAT_STRING "\n", e->f->id,
-                        get_total_linkcount(e->f));
-                }
-#endif
 
                 fragment_delete(dcontext, e->f, FRAGDEL_NO_OUTPUT |
                                 FRAGDEL_NO_UNLINK | FRAGDEL_NO_HTABLE);
@@ -922,11 +867,7 @@ remove_sample_entry(ptr_uint_t tag)
 }
 
 static void
-add_remember_entry(dcontext_t *dcontext, fragment_t *f
-#ifdef SIDELINE_COUNT_STUDY
-                   , fragment_t *new_f
-#endif
-                   )
+add_remember_entry(dcontext_t *dcontext, fragment_t *f)
 {
     remember_list_t *l;
     remember_entry_t *e;
@@ -935,11 +876,9 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f
     while (l != NULL) {
         if (l->dcontext == dcontext) {
             /* make new entry */
-            e = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t) HEAPACCT(ACCT_SIDELINE));
+            e = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t)
+                                                      HEAPACCT(ACCT_SIDELINE));
             e->f = f;
-#ifdef SIDELINE_COUNT_STUDY
-            e->replacement = new_f;
-#endif
             e->next = l->list;
             l->list = e;
             mutex_unlock(&remember_lock);
@@ -948,13 +887,12 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f
         l = l->next;
     }
     /* make new list */
-    l = (remember_list_t*) global_heap_alloc(sizeof(remember_list_t) HEAPACCT(ACCT_SIDELINE));
+    l = (remember_list_t*) global_heap_alloc(sizeof(remember_list_t)
+                                             HEAPACCT(ACCT_SIDELINE));
     l->dcontext = dcontext;
-    l->list = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t) HEAPACCT(ACCT_SIDELINE));
+    l->list = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t)
+                                                    HEAPACCT(ACCT_SIDELINE));
     l->list->f = f;
-#ifdef SIDELINE_COUNT_STUDY
-    l->list->replacement = new_f;
-#endif
     l->list->next = NULL;
     l->next = remember;
     remember = l;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1254,11 +1254,15 @@ enum {
 /* 1096 */     OP_vpsravd,        /**< IA-32/AMD64 vpsravd opcode. */
 /* 1097 */     OP_vpsrlvd,        /**< IA-32/AMD64 vpsrlvd opcode. */
 /* 1098 */     OP_vpsrlvq,        /**< IA-32/AMD64 vpsrlvq opcode. */
+/* 1099 */     OP_vpbroadcastb,   /**< IA-32/AMD64 vpbroadcastb opcode. */
+/* 1100 */     OP_vpbroadcastw,   /**< IA-32/AMD64 vpbroadcastw opcode. */
+/* 1101 */     OP_vpbroadcastd,   /**< IA-32/AMD64 vpbroadcastd opcode. */
+/* 1102 */     OP_vpbroadcastq,   /**< IA-32/AMD64 vpbroadcastq opcode. */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1099 */     OP_jmpe,       /**< IA-32/AMD64 jmpe opcode. */
-/* 1100 */     OP_jmpe_abs,   /**< IA-32/AMD64 jmpe_abs opcode. */
+/* 1103 */     OP_jmpe,       /**< IA-32/AMD64 jmpe opcode. */
+/* 1104 */     OP_jmpe_abs,   /**< IA-32/AMD64 jmpe_abs opcode. */
 #endif
 
     OP_AFTER_LAST,
@@ -1366,6 +1370,7 @@ enum {
     RAW_OPCODE_loop_start      = 0xe0,
     RAW_OPCODE_loop_end        = 0xe3,
     RAW_OPCODE_lea             = 0x8d,
+    RAW_OPCODE_SIGILL          = 0x0b0f,
     RAW_PREFIX_jcc_not_taken   = 0x2e,
     RAW_PREFIX_jcc_taken       = 0x3e,
     RAW_PREFIX_lock            = 0xf0,
@@ -1417,6 +1422,9 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
     INC_MEM32_OPCODE_1   = 0xff, /* has /0 as well */
     MODRM16_DISP16       = 0x06, /* see vol.2 Table 2-1 for modR/M */
     SIB_DISP32           = 0x25, /* see vol.2 Table 2-1 for modR/M */
+    RET_NOIMM_OPCODE     = 0xc3,
+    RET_IMM_OPCODE       = 0xc2,
+    MOV_IMM_EDX_OPCODE   = 0xba,
 };
 
 #endif /* _OPCODE_H_ */

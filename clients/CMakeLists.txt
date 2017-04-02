@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -54,6 +54,15 @@ set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
 set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
 set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
 set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
+# We install client header files to ext/include
+set(INSTALL_CLIENTS_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
+
+macro(install_client_header header)
+  DR_install(FILES ${header} DESTINATION ${INSTALL_CLIENTS_INCLUDE})
+  # We also need a copy in the build dir for our --build-and-test (i#1586)
+  get_filename_component(file ${header} NAME)
+  configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${file} COPYONLY)
+endmacro()
 
 disable_compiler_warnings()
 # Clients don't include configure.h so they don't get DR defines
@@ -62,15 +71,11 @@ add_dr_defines()
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
-  # FIXME i#1360: add symbol export iterator to Mac and then
-  # enable drltrace for Mac.
-  if (NOT APPLE OR NOT ${dir} MATCHES "drltrace")
-    # FIXME i#1701: C++ clients not supported on Android.
-    if (NOT ANDROID OR NOT ${dir} MATCHES "drcachesim")
-      # FIXME i#1732: drcpusim has no ARM support yet
-      if (NOT ANDROID OR NOT ${dir} MATCHES "drcpusim")
-        add_subdirectory(${dir})
-      endif ()
+  # FIXME i#1874: named pipe not working on Android.
+  if (NOT ANDROID OR NOT ${dir} MATCHES "drcachesim")
+    # FIXME i#1732: drcpusim has no ARM support yet
+    if (NOT ANDROID OR NOT ${dir} MATCHES "drcpusim")
+      add_subdirectory(${dir})
     endif ()
   endif ()
 endforeach (dir)

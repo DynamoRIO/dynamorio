@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -36,25 +36,32 @@
  *
  * Collects the instruction address, data address, and size of every
  * memory reference and dumps the results to a file.
+ * This is an x86-specific implementation of a memory tracing client.
+ * For a simpler (and slower) arch-independent version, please see memtrace_simple.c.
  *
- * Illustrates how to create own code cache and perform lean procedure call.
- * (1) It fills a buffer and dumps the buffer when it is full.
- * (2) It inlines the buffer filling code to avoid full context switch.
- * (3) It uses lean procedure calling clean call to reduce code cache size.
+ * Illustrates how to create generated code in a local code cache and
+ * perform a lean procedure call to that generated code.
+ *
+ * (1) Fills a buffer and dumps the buffer when it is full.
+ * (2) Inlines the buffer filling code to avoid a full context switch.
+ * (3) Uses a lean procedure call for clean calls to reduce code cache size.
  *
  * Illustrates the use of drutil_expand_rep_string() to expand string
  * loops to obtain every memory reference and of
  * drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
  * memory references.
  *
- * This is an x86 specific implementation of memory tracing client sample,
- * xref memtrace_simple.c for a simple arch-independent implementation.
+ * The OUTPUT_TEXT define controls the format of the trace: text or binary.
+ * Creating a text trace file makes the tool an order of magnitude (!) slower
+ * than creating a binary file; thus, the default is binary.
  */
 
+#include <stdio.h>
 #include <string.h> /* for memset */
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drreg.h"
 #include "drutil.h"
 #include "utils.h"
 
@@ -68,8 +75,6 @@ typedef struct _mem_ref_t {
     app_pc pc;
 } mem_ref_t;
 
-/* Control the format of memory trace: readable or hexl */
-#define READABLE_TRACE
 /* Max number of mem_ref a buffer can have */
 #define MAX_NUM_MEM_REFS 8192
 /* The size of memory buffer for holding mem_refs. When it fills up,
@@ -85,9 +90,13 @@ typedef struct {
     ptr_int_t buf_end;
     void   *cache;
     file_t  log;
+#if OUTPUT_TEXT
+    FILE *logf;
+#endif
     uint64  num_refs;
 } per_thread_t;
 
+static size_t page_size;
 static client_id_t client_id;
 static app_pc code_cache;
 static void  *mutex;    /* for multithread support */
@@ -99,10 +108,6 @@ static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
 static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
                                         bool for_trace, bool translating);
-
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
 
 static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
                                        instr_t *instr, bool for_trace, bool translating,
@@ -121,6 +126,8 @@ static void instrument_mem(void        *drcontext,
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
+    drreg_options_t ops = {sizeof(ops), 3, false};
     /* Specify priority relative to other instrumentation operations: */
     drmgr_priority_t priority = {
         sizeof(priority), /* size of struct */
@@ -130,6 +137,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         0};               /* numeric priority */
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
+    page_size = dr_page_size();
     drmgr_init();
     drutil_init();
     client_id = id;
@@ -137,11 +145,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
-        !drmgr_register_bb_app2app_event(event_bb_app2app,
-                                         &priority) ||
-        !drmgr_register_bb_instrumentation_event(event_bb_analysis,
-                                                 event_bb_insert,
-                                                 &priority)) {
+        !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
+        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority) ||
+        drreg_init(&ops) != DRREG_SUCCESS) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -179,7 +185,14 @@ event_exit()
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     code_cache_exit();
-    drmgr_unregister_tls_field(tls_index);
+
+    if (!drmgr_unregister_tls_field(tls_index) ||
+        !drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_bb_insertion_event(event_bb_insert) ||
+        drreg_exit() != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
@@ -216,6 +229,11 @@ event_thread_init(void *drcontext)
                               DR_FILE_CLOSE_ON_FORK |
 #endif
                               DR_FILE_ALLOW_LARGE);
+#if OUTPUT_TEXT
+    data->logf = log_stream_from_file(data->log);
+    fprintf(data->logf,
+            "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
+#endif
 }
 
 
@@ -229,7 +247,11 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
+#ifdef OUTPUT_TEXT
+    log_stream_close(data->logf); /* closes fd too */
+#else
     log_file_close(data->log);
+#endif
     dr_thread_free(drcontext, data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
@@ -246,17 +268,6 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
-    return DR_EMIT_DEFAULT;
-}
-
-/* our operations here only need to see a single-instruction window so
- * we do not need to do any whole-bb analysis
- */
-static dr_emit_flags_t
-event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating,
-                  OUT void **user_data)
-{
     return DR_EMIT_DEFAULT;
 }
 
@@ -294,7 +305,7 @@ memtrace(void *drcontext)
     per_thread_t *data;
     int num_refs;
     mem_ref_t *mem_ref;
-#ifdef READABLE_TRACE
+#ifdef OUTPUT_TEXT
     int i;
 #endif
 
@@ -302,12 +313,15 @@ memtrace(void *drcontext)
     mem_ref   = (mem_ref_t *)data->buf_base;
     num_refs  = (int)((mem_ref_t *)data->buf_ptr - mem_ref);
 
-#ifdef READABLE_TRACE
-    dr_fprintf(data->log,
-               "Format: <instr address>,<(r)ead/(w)rite>,<data size>,<data address>\n");
+#ifdef OUTPUT_TEXT
+    /* We use libc's fprintf as it is buffered and much faster than dr_fprintf
+     * for repeated printing that dominates performance, as the printing does here.
+     */
     for (i = 0; i < num_refs; i++) {
-        dr_fprintf(data->log, PFX",%c,%d,"PFX"\n",
-                   mem_ref->pc, mem_ref->write ? 'w' : 'r', mem_ref->size, mem_ref->addr);
+        /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
+        fprintf(data->logf, PIFX",%c,%d,"PIFX"\n", (ptr_uint_t)mem_ref->pc,
+                mem_ref->write ? 'w' : 'r', (int)mem_ref->size,
+                (ptr_uint_t)mem_ref->addr);
         ++mem_ref;
     }
 #else
@@ -337,7 +351,7 @@ code_cache_init(void)
     byte         *end;
 
     drcontext  = dr_get_current_drcontext();
-    code_cache = dr_nonheap_alloc(PAGE_SIZE,
+    code_cache = dr_nonheap_alloc(page_size,
                                   DR_MEMPROT_READ  |
                                   DR_MEMPROT_WRITE |
                                   DR_MEMPROT_EXEC);
@@ -350,17 +364,17 @@ code_cache_init(void)
     dr_insert_clean_call(drcontext, ilist, where, (void *)clean_call, false, 0);
     /* Encodes the instructions into memory and then cleans up. */
     end = instrlist_encode(drcontext, ilist, code_cache, false);
-    DR_ASSERT((end - code_cache) < PAGE_SIZE);
+    DR_ASSERT((size_t)(end - code_cache) < page_size);
     instrlist_clear_and_destroy(drcontext, ilist);
     /* set the memory as just +rx now */
-    dr_memory_protect(code_cache, PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
+    dr_memory_protect(code_cache, page_size, DR_MEMPROT_READ | DR_MEMPROT_EXEC);
 }
 
 
 static void
 code_cache_exit(void)
 {
-    dr_nonheap_free(code_cache, PAGE_SIZE);
+    dr_nonheap_free(code_cache, page_size);
 }
 
 
@@ -373,21 +387,28 @@ static void
 instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
                int pos, bool write)
 {
-    instr_t *instr, *call, *restore, *first, *second;
+    instr_t *instr, *call, *restore;
     opnd_t   ref, opnd1, opnd2;
-    reg_id_t reg1 = DR_REG_XBX; /* We can optimize it by picking dead reg */
-    reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
+    reg_id_t reg1, reg2;
+    drvector_t allowed;
     per_thread_t *data;
     app_pc pc;
 
     data = drmgr_get_tls_field(drcontext, tls_index);
 
-    /* Steal the register for memory reference address *
-     * We can optimize away the unnecessary register save and restore
-     * by analyzing the code and finding the register is dead.
+    /* Steal two scratch registers.
+     * reg2 must be ECX or RCX for jecxz.
      */
-    dr_save_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
-    dr_save_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, DR_REG_XCX, true);
+    if (drreg_reserve_register(drcontext, ilist, where, &allowed, &reg2) !=
+        DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) != DRREG_SUCCESS) {
+        DR_ASSERT(false); /* cannot recover */
+        drvector_delete(&allowed);
+        return;
+    }
+    drvector_delete(&allowed);
 
     if (write)
        ref = instr_get_dst(where, pos);
@@ -440,10 +461,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
      */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
-                                     ilist, where, &first, &second);
-    instr_set_meta(first);
-    if (second != NULL)
-        instr_set_meta(second);
+                                     ilist, where, NULL, NULL);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
@@ -505,8 +523,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr = INSTR_CREATE_jmp(drcontext, opnd1);
     instrlist_meta_preinsert(ilist, where, instr);
 
-    /* restore %reg */
+    /* Restore scratch registers */
     instrlist_meta_preinsert(ilist, where, restore);
-    dr_restore_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
-    dr_restore_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
+    if (drreg_unreserve_register(drcontext, ilist, where, reg1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg2) != DRREG_SUCCESS)
+        DR_ASSERT(false);
 }

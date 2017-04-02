@@ -37,7 +37,8 @@
 
 /* asm routines */
 void test_asm();
-void test_asm_fault();
+void test_asm_faultA();
+void test_asm_faultB();
 
 static SIGJMP_BUF mark;
 
@@ -47,9 +48,13 @@ static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
-        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -61,6 +66,9 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -80,14 +88,14 @@ main(int argc, const char *argv[])
 
     test_asm();
 
-    /* Test a simple fault */
-    if (SIGSETJMP(mark) == 0) {
-        *(volatile int *)(long)argc = argc;
-    }
-
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_fault();
+        test_asm_faultA();
+    }
+
+    /* Test fault aflags restore */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultB();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -135,6 +143,14 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, REG_XSP
         mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
 
+        jmp      test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        mov      TEST_REG_ASM, DRREG_TEST_4_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_4_ASM
+        setne    TEST_REG_ASM_LSB
+        cmp      TEST_REG_ASM, REG_XSP
+
         jmp      epilog
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -160,14 +176,50 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, sp
         ldr      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
 
+        b        test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        movw     TEST_REG_ASM, DRREG_TEST_4_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_4_ASM
+        sel      TEST_REG_ASM, r0, r0
+        cmp      TEST_REG_ASM, sp
+
         b        epilog
     epilog:
         bx       lr
+#elif defined(AARCH64)
+        b        test1
+        /* Test 1: separate write and read of reserved reg */
+     test1:
+        movz     TEST_REG_ASM, DRREG_TEST_1_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_1_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      x0, PTRSZ [TEST_REG_ASM]
+
+        b        test2
+        /* Test 2: same instr writes and reads reserved reg */
+     test2:
+        movz     TEST_REG_ASM, DRREG_TEST_2_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_2_ASM
+        mov      TEST_REG_ASM, sp
+        ldr      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
+
+        b        test4
+        /* Test 4: read and write of reserved aflags */
+     test4:
+        movz     TEST_REG_ASM, DRREG_TEST_4_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_4_ASM
+        csel     TEST_REG_ASM, x0, x0, gt
+        cmp      TEST_REG_ASM, x0
+
+        b        epilog
+    epilog:
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_fault
+#define FUNCNAME test_asm_faultA
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -207,6 +259,83 @@ GLOBAL_LABEL(FUNCNAME:)
         b        epilog2
     epilog2:
         bx       lr
+#elif defined(AARCH64)
+        b        test3
+        /* Test 3: fault reg restore */
+     test3:
+        movz     TEST_REG_ASM, DRREG_TEST_3_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_3_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog2
+    epilog2:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultB
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        /* push callee-saved registers */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test5
+        /* Test 5: fault aflags restore */
+     test5:
+        mov      TEST_REG_ASM, DRREG_TEST_5_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_5_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
+        jmp      epilog3
+     epilog3:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
+        ret
+#elif defined(ARM)
+        b        test5
+        /* Test 5: fault aflags restore */
+     test5:
+        movw     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_5_ASM
+        /* XXX: also test GE flags */
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+        nop
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog3
+    epilog3:
+        bx       lr
+#elif defined(AARCH64)
+        b        test5
+        /* Test 5: fault aflags restore */
+     test5:
+        movz     TEST_REG_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        movz     xzr, DRREG_TEST_5_ASM
+        movz     xzr, DRREG_TEST_5_ASM
+        msr      nzcv, TEST_REG_ASM
+        nop
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog3
+    epilog3:
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

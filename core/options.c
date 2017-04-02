@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -194,12 +194,47 @@ DECLARE_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(option
 
 /* INITIALIZATION */
 
+static void
+adjust_defaults_for_page_size(options_t *options)
+{
+#ifndef NOT_DYNAMORIO_CORE /* XXX: clumsy fix for Windows */
+    uint page_size = (uint)PAGE_SIZE;
+
+    /* The defaults are known to be appropriate for 4 KiB pages. */
+    if (page_size == 4096)
+        return;
+
+    /* XXX: This approach is not scalable or maintainable as there may in
+     * future be many more options that depend on the page size.
+     */
+
+    /* Some of these are a small multiple of the page size because they include
+     * one or two guard pages.
+     */
+    options->vmm_block_size =
+        ALIGN_FORWARD(options->vmm_block_size, page_size);
+    options->stack_size =
+        MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+    options->initial_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
+            3 * page_size);
+    options->initial_global_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size),
+            3 * page_size);
+    options->heap_commit_increment =
+        ALIGN_FORWARD(options->heap_commit_increment, page_size);
+    options->cache_commit_increment =
+        ALIGN_FORWARD(options->cache_commit_increment, page_size);
+#endif /* !NOT_DYNAMORIO_CORE */
+}
+
 /* sets defaults just like the above initialization */
 CORE_STATIC void
 set_dynamo_options_defaults(options_t *options)
 {
     ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options, &options_lock);
     *options = default_options;
+    adjust_defaults_for_page_size(options);
 }
 #undef OPTION_COMMAND_INTERNAL
 
@@ -745,6 +780,70 @@ update_dynamic_options(options_t *options, options_t *new_options)
      return updated;
 }
 
+#ifdef CLIENT_INTERFACE
+void
+options_enable_code_api_dependences(options_t *options)
+{
+    if (!options->code_api)
+        return;
+
+    /* PR 202669: larger stack size since we're saving a 512-byte
+     * buffer on the stack when saving fp state.
+     * Also, C++ RTL initialization (even when a C++
+     * client does little else) can take a lot of stack space.
+     * Furthermore, dbghelp.dll usage via drsyms has been observed
+     * to require 36KB, which is already beyond the minimum to
+     * share gencode in the same 64K alloc as the stack.
+     *
+     * XXX: if we raise this beyond 56KB we should adjust the
+     * logic in heap_mmap_reserve_post_stack() to handle sharing the
+     * tail end of a multi-64K-region stack.
+     */
+    options->stack_size = MAX(options->stack_size, 56*1024);
+
+    /* For CI builds we'll disable elision by default since we
+     * expect most CI users will prefer a view of the
+     * instruction stream that's as unmodified as possible.
+     * Also xref PR 214169: eliding calls presents a confusing
+     * view of basic blocks since clients see both the call
+     * and the called function in the same block.  TODO PR
+     * 214169: pass both sides to the client and merge
+     * internally to get the best of both worlds.
+     */
+    options->max_elide_jmp = 0;
+    options->max_elide_call = 0;
+
+    /* indcall2direct causes problems with the code manip API,
+     * so disable by default (xref PR 214051 & PR 214169).
+     * Even if we address those issues, we may want to keep
+     * disabled if we expect users will be confused by this
+     * optimization.
+     */
+    options->indcall2direct = false;
+
+    /* To support clients changing syscall numbers we need to
+     * be able to swap ignored for non-ignored (xref PR 307284)
+     */
+    options->inline_ignored_syscalls = false;
+
+    /* Clients usually want to see all the code, regardless of bugs and
+     * perf issues, so we empty the default native exec list when using
+     * -code_api.  The user can override this behavior by passing their
+     * own -native_exec_list.
+     * However the .pexe section thing on Vista is too dangerous so we
+     * leave that on. */
+    memset(options->native_exec_default_list, 0,
+           sizeof(options->native_exec_default_list));
+    options->native_exec_managed_code = false;
+
+    /* Don't randomize dynamorio.dll */
+    IF_WINDOWS(options->aslr_dr = false;)
+
+    /* FIXME PR 215179 on getting rid of this tracing restriction. */
+    options->pad_jmps_mark_no_trace = true;
+}
+#endif
+
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
 /* compare short_name, usually module name, against a list option of the combined
@@ -802,6 +901,12 @@ check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
 #ifdef EXPOSE_INTERNAL_OPTIONS
+    if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
+        USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
+                    DYNAMO_OPTION(vmm_block_size), MIN_VMM_BLOCK_SIZE);
+        dynamo_options.vmm_block_size = MIN_VMM_BLOCK_SIZE;
+        changed_options = true;
+    }
     if (!INTERNAL_OPTION(inline_calls) && !DYNAMO_OPTION(disable_traces)) {
         /* cannot disable inlining of calls and build traces (currently) */
         USAGE_ERROR("-no_inline_calls not compatible with -disable_traces, setting to default");
@@ -867,7 +972,7 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 
-#if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
+#if defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     if (DYNAMO_OPTION(pad_jmps)) {
         USAGE_ERROR("-pad_jmps not supported in this build yet");
     }
@@ -881,14 +986,6 @@ check_option_compatibility_helper(int recurse_count)
 # endif
         ) {
         USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without -pad_jmps_mark_no_trace when traces are enabled");
-    }
-#endif
-
-#ifdef PROFILE_LINKCOUNT
-    if (DYNAMO_OPTION(profile_counts) &&
-        TESTANY(SELFPROT_LOCAL|SELFPROT_GLOBAL, DYNAMO_OPTION(protect_mask))) {
-        /* May not be able to write to some linkstubs! */
-        USAGE_ERROR("-prof_counts incompatible with heap write protection");
     }
 #endif
 
@@ -1238,13 +1335,6 @@ check_option_compatibility_helper(int recurse_count)
             DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED ||
             DYNAMO_OPTION(rct_ind_jump) != OPTION_DISABLED) {
             USAGE_ERROR("C, E, and F policies require -indirect_stubs, enabling");
-            dynamo_options.indirect_stubs = true;
-            changed_options = true;
-        }
-# endif
-# ifdef PROFILE_LINKCOUNT
-        if (INTERNAL_OPTION(profile_counts)) {
-            USAGE_ERROR("-prof_counts require -indirect_stubs, enabling");
             dynamo_options.indirect_stubs = true;
             changed_options = true;
         }
@@ -1871,15 +1961,17 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
 #if defined(UNIX) && defined(CLIENT_INTERFACE)
-# if defined(ARM) || defined(LINUX)
+# if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make
          * the TLS format match what gdb wants to see.
          * On Linux, we just don't want the libdl.so dependence for -early.
          */
-        USAGE_ERROR("-private_loader must be true on ARM or on Linux");
-        dynamo_options.private_loader = true;
-        changed_options = true;
+        if (IF_ARM_ELSE(true, DYNAMO_OPTION(early_inject))) {
+            USAGE_ERROR("-private_loader must be true on ARM or on Linux");
+            dynamo_options.private_loader = true;
+            changed_options = true;
+        }
     }
 # endif
     if (INTERNAL_OPTION(private_loader)) {
@@ -1971,7 +2063,9 @@ check_option_compatibility_helper(int recurse_count)
     changed_options = heap_check_option_compatibility() || changed_options;
 
     changed_options = os_check_option_compatibility() || changed_options;
+# if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     disassemble_options_init();
+# endif
 #endif
 
     if (changed_options) {
@@ -2015,10 +2109,17 @@ options_init()
     write_lock(&options_lock);
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
+    adjust_defaults_for_page_size(&dynamo_options);
     retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, option_string);
+#if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
+    /* For dynamorio_static, we always enable code_api as it's a pain to set
+     * DR runtime options -- unless otherwise requested.
+     */
+    options_enable_code_api_dependences(&dynamo_options);
+#endif
     check_option_compatibility();
     /* options will be protected when DR init is completed */
     write_unlock(&options_lock);

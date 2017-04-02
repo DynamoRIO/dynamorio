@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1104,8 +1104,14 @@ read_instruction(byte *pc, byte *orig_pc,
         if (report_invalid &&
             ((di->rep_prefix &&
               /* case 6861: AMD64 opt: "rep ret" used if br tgt or after cbr */
-              (pc != di->start_pc+2 || *(di->start_pc+1) != RAW_OPCODE_ret))
-             || di->repne_prefix)) {
+              (pc != di->start_pc+2 || *(di->start_pc+1) != RAW_OPCODE_ret)) ||
+             (di->repne_prefix &&
+              /* i#1899: MPX puts repne prior to branches.  We ignore here until we have
+               * full MPX decoding support (i#1312).
+               */
+              info->type != OP_call && info->type != OP_call_ind && info->type != OP_ret &&
+              info->type != OP_jmp && info->type != OP_jmp_short &&
+              !opc_is_cbr_arch(info->type)))) {
             char bytes[17*3];
             int i;
             dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1771,11 +1777,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
          * of this does not have a varying hardcoded reg, fortunately. */
         *opnd = opnd_create_base_disp(opsize, REG_NULL, 0, 0, reg_get_size(opsize));
         return true;
-    case TYPE_INDIR_VAR_XREG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_XREG: /* indirect reg varies by ss only, base is 4x8,
                                * opsize varies by data16 */
-    case TYPE_INDIR_VAR_REG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_REG: /* indirect reg varies by ss only, base is 4x8,
                               * opsize varies by rex and data16 */
-    case TYPE_INDIR_VAR_XIREG: /* indirect reg varies by addr16 not data16, base is 4x8,
+    case TYPE_INDIR_VAR_XIREG: /* indirect reg varies by ss only, base is 4x8,
                                 * opsize varies by data16 except on 64-bit Intel */
     case TYPE_INDIR_VAR_XREG_OFFS_1: /* TYPE_INDIR_VAR_XREG + an offset */
     case TYPE_INDIR_VAR_XREG_OFFS_8: /* TYPE_INDIR_VAR_XREG + an offset + scale */
@@ -1787,7 +1793,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_INDIR_VAR_REG_SIZEx3x5:/* TYPE_INDIR_VAR_REG + scale */
         {
             reg_id_t reg =
-                resolve_var_reg(di, opsize, true/*addr*/, true/*shrinkable*/
+                resolve_var_reg(di, opsize, true/*doesn't matter*/, false/*!shrinkable*/
                                 _IF_X64(true/*d64*/) _IF_X64(false/*!growable*/)
                                 _IF_X64(false/*!extendable*/));
             opnd_size_t sz =

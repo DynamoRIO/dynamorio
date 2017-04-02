@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -47,6 +47,13 @@ typedef union _elf_generic_header_t {
     Elf32_Ehdr elf32;
 } elf_generic_header_t;
 
+#ifndef ANDROID
+struct tlsdesc_t {
+    ptr_int_t (*entry)(struct tlsdesc_t *);
+    void *arg;
+};
+#endif
+
 #ifdef ANDROID
 /* The entries in the .hash table always have a size of 32 bits.  */
 typedef uint32_t Elf_Symndx;
@@ -79,11 +86,21 @@ safe_read(const void *base, size_t size, void *out_buf)
     return true;
 }
 
+bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf)
+{
+    return safe_read(base, size, out_buf);
+}
+
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifdef CLIENT_INTERFACE
-typedef struct _elf_import_iterator_t {
+typedef struct _elf_symbol_iterator_t {
     dr_symbol_import_t symbol_import;   /* symbol import returned by next() */
+    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
+
+    ELF_SYM_TYPE *symbol;               /* safe_cur_sym or NULL */
+    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of current symbol */
 
     /* This data is copied from os_module_data_t so we don't have to hold the
      * module area lock while the client iterates.
@@ -93,35 +110,18 @@ typedef struct _elf_import_iterator_t {
     const char *dynstr;                 /* absolute addr of .dynstr */
     size_t dynstr_size;                 /* size of .dynstr */
 
-    ELF_SYM_TYPE *cur_sym;              /* pointer to next import in .dynsym */
-    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
-    ELF_SYM_TYPE *import_end;           /* end of imports in .dynsym */
-    bool error_occurred;                /* error during iteration */
-} elf_import_iterator_t;
+    /* These are used for iterating through a part of .dynsym. */
+    size_t nohash_count;                /* number of symbols remaining */
+    ELF_SYM_TYPE *cur_sym;              /* pointer to next symbol in .dynsym */
 
-typedef struct _elf_export_iterator_t {
-    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
-
-    /* Just like elf_import_iterator_t, this is copied from os_module_data_t. */
-    bool hash_is_gnu;
-    ELF_SYM_TYPE *dynsym;               /* absolute addr of .dynsym */
-    size_t symentry_size;               /* size of a .dynsym entry */
-    const char *dynstr;                 /* absolute addr of .dynstr */
-    size_t dynstr_size;                 /* size of .dynstr */
-
-    /* For gnu hashtable we have to walk the hashtable. */
+    /* These are used for iterating through a GNU hashtable. */
     Elf_Symndx *buckets;
     size_t num_buckets;
     Elf_Symndx *chain;
     ptr_int_t load_delta;
     Elf_Symndx hidx;
     Elf_Symndx chain_idx;
-
-    ELF_SYM_TYPE *cur_sym;              /* pointer to next export in .dynsym */
-    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
-    ELF_SYM_TYPE *export_end;           /* end of exports in .dynsym */
-    bool valid_entry;                   /* is safe_cur_sym valid */
-} elf_export_iterator_t;
+} elf_symbol_iterator_t;
 #endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
@@ -180,9 +180,14 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         return false;
     }
 
-    /* read the header */
+    /* Read the header.  We used to directly deref if size >= sizeof(ELF_HEADER_TYPE)
+     * but given that we now have safe_read_fast() it's best to always use it and
+     * avoid races (like i#2113).  However, the non-fast version hits deadlock on
+     * memquery during client init, so we use a special routine safe_read_if_fast().
+     */
     if (size >= sizeof(ELF_HEADER_TYPE)) {
-        elf_header = *(ELF_HEADER_TYPE *)base;
+        if (!safe_read_if_fast(base, sizeof(ELF_HEADER_TYPE), &elf_header))
+            return false;
     } else if (size == 0) {
         if (!safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
             return false;
@@ -205,13 +210,17 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * i.e. 32/64-bit libraries.
          * We check again in privload_map_and_relocate() in loader for nice
          * error message.
+         * Xref i#1345 for supporting mixed libs, which makes more sense for
+         * standalone mode tools like those using drsyms (i#1532) or
+         * dr_map_executable_file, but we just don't support that yet until we
+         * remove our hardcoded type defines in module_elf.h.
          */
-        if (INTERNAL_OPTION(private_loader) &&
-            ((elf_header.e_version != 1) ||
-             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
-             (memory && elf_header.e_machine != IF_ARM_ELSE(EM_ARM,
-                                                            IF_X64_ELSE(EM_X86_64,
-                                                                        EM_386)))))
+        if ((elf_header.e_version != 1) ||
+            (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
+            (memory && elf_header.e_machine != IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                                       EM_386),
+                                                           IF_X64_ELSE(EM_AARCH64,
+                                                                       EM_ARM))))
             return false;
 #endif
         /* FIXME - should we add any of these to the check? For real
@@ -221,9 +230,10 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         ASSERT_CURIOSITY(elf_header.e_ident[EI_OSABI] == ELFOSABI_SYSV ||
                          elf_header.e_ident[EI_OSABI] == ELFOSABI_LINUX);
         ASSERT_CURIOSITY(!memory ||
-                         elf_header.e_machine == IF_ARM_ELSE(EM_ARM,
-                                                             IF_X64_ELSE(EM_X86_64,
-                                                                         EM_386)));
+                         elf_header.e_machine == IF_X86_ELSE(IF_X64_ELSE(EM_X86_64,
+                                                                         EM_386),
+                                                             IF_X64_ELSE(EM_AARCH64,
+                                                                         EM_ARM)));
         return true;
     }
     return false;
@@ -283,6 +293,8 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
     first_seg_base = module_vaddr_from_prog_header
         (base + elf_hdr->e_phoff, elf_hdr->e_phnum, NULL, &last_seg_end);
 
+    LOG(GLOBAL, LOG_SYSCALLS, 4, "%s: "PFX" size "PIFX" vs seg "PFX"-"PFX"\n",
+        __FUNCTION__, base, size, first_seg_base, last_seg_end);
     return last_seg_end == NULL ||
            ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
 }
@@ -346,7 +358,7 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* common code to fill os_module_data_t for loader and module_area_t */
-static void
+static bool
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_base,
                     app_pc mod_max_end,
@@ -358,26 +370,40 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     OUT os_module_data_t *out_data)
 {
     /* if at_map use file offset as segments haven't been remapped yet and
-     * the dynamic section isn't usually in the first segment (FIXME in
+     * the dynamic section isn't usually in the first segment (XXX: in
      * theory it's possible to construct a file where the dynamic section
      * isn't mapped in as part of the initial map because large parts of the
      * initial portion of the file aren't part of the in memory image which
      * is fixed up with a PT_LOAD).
      *
      * If not at_map use virtual address adjusted for possible loading not
-     * at base. */
+     * at base.
+     */
+    bool res = true;
     ELF_DYNAMIC_ENTRY_TYPE *dyn = (ELF_DYNAMIC_ENTRY_TYPE *)
         (at_map ? base + prog_hdr->p_offset :
          (app_pc)prog_hdr->p_vaddr + load_delta);
     ASSERT(prog_hdr->p_type == PT_DYNAMIC);
     dcontext_t *dcontext = get_thread_private_dcontext();
+    /* i#489, DT_SONAME is optional, init soname to NULL first */
+    *soname = NULL;
+#ifdef ANDROID
+    /* On Android only the first segment is mapped in and .dynamic is not
+     * accessible.  We try to avoid the cost of the fault.
+     * If we do a query (e.g., via is_readable_without_exception()) we'll get
+     * a curiosity assert b/c the memcache is not yet updated.  Instead, we
+     * assume that only this segment is mapped.
+     * os_module_update_dynamic_info() will be called later when .dynamic is
+     * accessible.
+     */
+    if ((app_pc)dyn > base+view_size)
+        return false;
+#endif
 
     TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
         int soname_index = -1;
         char *dynstr = NULL;
         size_t sz = mod_max_end - mod_base;
-        /* i#489, DT_SONAME is optional, init soname to NULL first */
-        *soname = NULL;
         while (dyn->d_tag != DT_NULL) {
             if (dyn->d_tag == DT_SONAME) {
                 soname_index = dyn->d_un.d_val;
@@ -412,6 +438,8 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     out_data->dynstr_size = (size_t) dyn->d_un.d_val;
                 } else if (dyn->d_tag == DT_SYMENT) {
                     out_data->symentry_size = (size_t) dyn->d_un.d_val;
+                } else if (dyn->d_tag == DT_RUNPATH) {
+                    out_data->has_runpath = true;
 #ifndef ANDROID
                 } else if (dyn->d_tag == DT_CHECKSUM) {
                     out_data->checksum = (size_t) dyn->d_un.d_val;
@@ -450,7 +478,11 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     } , { /* EXCEPT */
         ASSERT_CURIOSITY(false && "crashed while walking dynamic header");
         *soname = NULL;
+        res = false;
     });
+    if (res && out_data != NULL)
+        out_data->have_dynamic_info = true;
+    return res;
 }
 
 /* Returned addresses out_base and out_end are relative to the actual
@@ -516,6 +548,17 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 module_fill_os_data(prog_hdr, mod_base, max_end,
                                     base, view_size, at_map, dyn_reloc, load_delta,
                                     &soname, out_data);
+                DOLOG(LOG_INTERP|LOG_VMAREAS, 2, {
+                    if (out_data != NULL) {
+                        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
+                            "%s "PFX": %s dynamic info\n", __FUNCTION__, base,
+                            out_data->have_dynamic_info ? "have" : "no");
+                        /* i#1860: on Android a later os_module_update_dynamic_info() will
+                         * fill in info once .dynamic is mapped in.
+                         */
+                        IF_NOT_ANDROID(ASSERT(out_data->have_dynamic_info));
+                    }
+                });
             }
         }
     }
@@ -541,6 +584,46 @@ module_num_program_headers(app_pc base)
     return elf_hdr->e_phnum;
 }
 
+/* The Android loader does not map the whole library file up front, so we have to
+ * wait to access .dynamic when it gets mapped in.  We basically try on each ELF
+ * segment until we hit the one with .dynamic.
+ */
+void
+os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
+{
+    module_area_t *ma;
+    os_get_module_info_write_lock();
+    ma = module_pc_lookup(base);
+    if (ma != NULL && !ma->os_data.have_dynamic_info) {
+        uint i;
+        char *soname;
+        ptr_int_t load_delta = ma->start - ma->os_data.base_address;
+        ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) ma->start;
+        ASSERT(base >= ma->start && base + size <= ma->end);
+        if (elf_hdr->e_phoff != 0 &&
+            elf_hdr->e_phoff + elf_hdr->e_phnum * elf_hdr->e_phentsize <=
+            ma->end - ma->start) {
+            for (i = 0; i < elf_hdr->e_phnum; i++) {
+                ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
+                    (ma->start + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
+                if (prog_hdr->p_type == PT_DYNAMIC) {
+                    module_fill_os_data(prog_hdr, ma->os_data.base_address,
+                                        ma->os_data.base_address + (ma->end - ma->start),
+                                        /* Pretend this segment starts from base */
+                                        ma->start, base + size - ma->start,
+                                        false, /* single-segment so no file offsets */
+                                        !at_map, /* i#1589: ld.so relocates .dynamic */
+                                        load_delta, &soname, &ma->os_data);
+                    if (soname != NULL)
+                        ma->names.module_name = dr_strdup(soname HEAPACCT(ACCT_VMAREAS));
+                    LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "%s "PFX": %s dynamic info\n",
+                        __FUNCTION__, base, ma->os_data.have_dynamic_info ? "have" : "no");
+                }
+            }
+        }
+    }
+    os_get_module_info_write_unlock();
+}
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 
@@ -799,6 +882,9 @@ elf_hash_lookup(const char   *name,
             ASSERT(false && "malformed ELF symbol entry");
             continue;
         }
+        /* Keep this consistent with symbol_is_import()  at this file and
+         * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c
+         */
         if (sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS)
             continue; /* no value */
         if (elf_sym_matches(sym, strtab, name, is_indirect_code))
@@ -920,9 +1006,14 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
     ASSERT(offsetof(Elf64_Ehdr, e_machine) ==
            offsetof(Elf32_Ehdr, e_machine));
     switch (elf_header.elf64.e_machine) {
-    case EM_X86_64: *platform = DR_PLATFORM_64BIT; break;
+    case EM_X86_64:
+#ifdef EM_AARCH64
+    case EM_AARCH64:
+#endif
+        *platform = DR_PLATFORM_64BIT; break;
     case EM_386:
-    case EM_ARM:    *platform = DR_PLATFORM_32BIT; break;
+    case EM_ARM:
+        *platform = DR_PLATFORM_32BIT; break;
     default:
         return false;
     }
@@ -1324,268 +1415,267 @@ module_undef_symbols()
 }
 
 #ifdef CLIENT_INTERFACE
-static void
-dynsym_next(elf_import_iterator_t *iter)
+
+static ELF_SYM_TYPE *
+symbol_iterator_cur_symbol(elf_symbol_iterator_t *iter)
 {
-    iter->cur_sym = (ELF_SYM_TYPE *) ((byte *) iter->cur_sym +
-                                      iter->symentry_size);
+    return iter->symbol;
 }
 
-static void
-dynsym_next_import(elf_import_iterator_t *iter)
+static ELF_SYM_TYPE *
+symbol_iterator_next_noread(elf_symbol_iterator_t *iter)
 {
-    /* Imports have zero st_value fields.  Anything else is something else, so
-     * we skip it.  Modules using .gnu.hash symbol lookup tend to have imports
-     * come first, but sysv hash tables don't have any such split.
-     */
-    do {
-        dynsym_next(iter);
-        if (iter->cur_sym >= iter->import_end)
-            return;
-        if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
-            memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-            iter->error_occurred = true;
-            return;
+    if (iter->nohash_count > 0) {
+        --iter->nohash_count;
+        if (iter->nohash_count > 0)  {
+            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym +
+                                             iter->symentry_size);
+            return iter->cur_sym;
         }
-    } while (iter->safe_cur_sym.st_value != 0);
-
-    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
-        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
-        iter->error_occurred = true;
-        return;
     }
+    if (iter->hidx < iter->num_buckets) {
+        /* XXX: perhaps we should safe_read buckets[] and chain[] */
+        if (iter->chain_idx != 0) {
+            if (TEST(1, iter->chain[iter->chain_idx])) {
+                /* LSB being 1 marks end of chain. */
+                iter->chain_idx = 0;
+            } else
+                ++iter->chain_idx;
+        }
+        while (iter->chain_idx == 0 && iter->hidx < iter->num_buckets) {
+            /* Advance to next hash chain */
+            iter->chain_idx = iter->buckets[iter->hidx];
+            ++iter->hidx;
+        }
+        return iter->chain_idx == 0 ? NULL : &iter->dynsym[iter->chain_idx];
+    }
+    return NULL;
 }
 
-dr_symbol_import_iterator_t *
-dr_symbol_import_iterator_start(module_handle_t handle,
-                                dr_module_import_desc_t *from_module)
+static ELF_SYM_TYPE *
+symbol_iterator_next(elf_symbol_iterator_t *iter)
 {
-    module_area_t *ma;
-    elf_import_iterator_t *iter;
-    size_t max_imports;
+    ELF_SYM_TYPE *sym = symbol_iterator_next_noread(iter);
 
-    if (from_module != NULL) {
-        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on "
-                      "Linux");
-        return NULL;
+    if (sym == NULL) {
+        iter->symbol = NULL;
+        return iter->symbol;
+    } else if (sym->st_name >= iter->dynstr_size) {
+        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
+    } else if (SAFE_READ_VAL(iter->safe_cur_sym, sym)) {
+        iter->symbol = &iter->safe_cur_sym;
+        return iter->symbol;
+    } else {
+        ASSERT_CURIOSITY(false && "could not read symbol");
     }
 
-    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    /* Stop the iteration. */
+    iter->nohash_count = 0;
+    iter->hidx = 0;
+    iter->num_buckets = 0;
+    iter->symbol = NULL;
+    return NULL;
+}
+
+static elf_symbol_iterator_t *
+symbol_iterator_start(module_handle_t handle)
+{
+    elf_symbol_iterator_t *iter;
+    module_area_t *ma;
+
+    iter = global_heap_alloc(sizeof(*iter)HEAPACCT(ACCT_CLIENT));
     if (iter == NULL)
         return NULL;
     memset(iter, 0, sizeof(*iter));
 
     os_get_module_info_lock();
-    ma = module_pc_lookup((byte *) handle);
-    if (ma != NULL) {
-        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
-        iter->symentry_size = ma->os_data.symentry_size;
-        iter->dynstr = (const char *) ma->os_data.dynstr;
-        iter->dynstr_size = ma->os_data.dynstr_size;
-        iter->cur_sym = iter->dynsym;
+    ma = module_pc_lookup((byte *)handle);
 
-        /* The length of .dynsym is not available in the mapped image, so we
-         * have to be creative.  The two export hashtables point into dynsym,
-         * though, so they have some info about the length.
-         */
-        if (ma->os_data.hash_is_gnu) {
-            /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-             * "With GNU hash, the dynamic symbol table is divided into two
-             * parts. The first part receives the symbols that can be omitted
-             * from the hash table."
-             * gnu_symbias is the index of the first symbol in the hash table,
-             * so all of the imports are before it.  If we ever want to iterate
-             * all of .dynsym, we will have to look at the contents of the hash
-             * table.
-             */
-            max_imports = ma->os_data.gnu_symbias;
-        } else {
-            /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
-             * "The number of symbol table entries should equal nchain"
-             */
-            max_imports = ma->os_data.num_chain;
-        }
-        iter->import_end = (ELF_SYM_TYPE *)((app_pc)iter->dynsym +
-                                            (max_imports * iter->symentry_size));
+    iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+    iter->symentry_size = ma->os_data.symentry_size;
+    iter->dynstr = (const char *) ma->os_data.dynstr;
+    iter->dynstr_size = ma->os_data.dynstr_size;
+    iter->cur_sym = iter->dynsym;
+    iter->load_delta = ma->start - ma->os_data.base_address;
 
-        /* Set up invariant that cur_sym and safe_cur_sym point to the next
-         * symbol to yield.  This skips the first entry, which is fake according
-         * to the spec.
+    if (ma->os_data.hash_is_gnu) {
+        /* See https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+         * "With GNU hash, the dynamic symbol table is divided into two
+         * parts. The first part receives the symbols that can be omitted
+         * from the hash table."
+         * The division sometimes corresponds, roughly, to imports and
+         * exports, but not reliably.
          */
-        ASSERT_CURIOSITY(iter->cur_sym->st_name == 0);
-        dynsym_next_import(iter);
+        /* First we will step through the unhashed symbols. */
+        iter->nohash_count = ma->os_data.gnu_symbias;
+        /* Then we will walk the hashtable. */
+        iter->buckets = (Elf_Symndx *)ma->os_data.buckets;
+        iter->chain = (Elf_Symndx *)ma->os_data.chain;
+        iter->num_buckets = ma->os_data.num_buckets;
+        iter->hidx = 0;
+        iter->chain_idx = 0;
     } else {
-        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-        iter = NULL;
+        /* See http://www.sco.com/developers/gabi/latest/ch5.dynamic.html#hash
+         * "The number of symbol table entries should equal nchain"
+         */
+        iter->nohash_count = ma->os_data.num_chain;
+        /* There is no GNU hash table. */
+        iter->hidx = 0;
+        iter->num_buckets = 0;
     }
+    ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
+    symbol_iterator_next(iter);
+
     os_get_module_info_unlock();
 
-    return (dr_symbol_import_iterator_t *) iter;
+    return iter;
 }
 
-bool
-dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *dr_iter)
+static void
+symbol_iterator_stop(elf_symbol_iterator_t *iter)
 {
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
-    return (iter != NULL && !iter->error_occurred &&
-            iter->cur_sym < iter->import_end);
-}
-
-dr_symbol_import_t *
-dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
-{
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
-
-    CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    iter->symbol_import.name = iter->dynstr + iter->safe_cur_sym.st_name;
-    iter->symbol_import.modname = NULL;  /* no module for ELFs */
-    iter->symbol_import.delay_load = false;
-
-    dynsym_next_import(iter);
-    return &iter->symbol_import;
-}
-
-void
-dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
-{
-    elf_import_iterator_t *iter = (elf_import_iterator_t *) dr_iter;
     if (iter == NULL)
         return;
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
 static bool
-dynsym_next_export(elf_export_iterator_t *iter)
+symbol_is_import(ELF_SYM_TYPE *sym)
 {
-    if (iter->hash_is_gnu) {
-        /* XXX: perhaps we should safe_read buckets[] and chain[] */
-        do { /* loop over zero entries */
-            if (iter->chain_idx == 0) {
-                /* Advance to next hash chain */
-                do {
-                    if (iter->hidx >= iter->num_buckets)
-                        return false;
-                    iter->chain_idx = iter->buckets[iter->hidx];
-                    iter->hidx++;
-                } while (iter->chain_idx == 0);
-            }
-            /* Walk the hash chain for this bucket value */
-            if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx])) {
-                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-                return false;
-            }
-            /* End of chain is marked by LSB being 1 */
-            if (TEST(1, iter->chain[iter->chain_idx]))
-                iter->chain_idx = 0;
-            else
-                iter->chain_idx++;
-            /* Hashtable should only have non-zero entries, but I see some in
-             * the middle of .dynsym for 32-bit libs.
-             */
-        } while (iter->safe_cur_sym.st_value == 0);
-    } else {
-        do {
-            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym + iter->symentry_size);
-            if (iter->cur_sym >= iter->export_end)
-                return false;
-            if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
-                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-                return false;
-            }
-        } while (iter->safe_cur_sym.st_value == 0);
-    }
+    /* Keep this consistent with elf_hash_lookup() at this file and
+     * drsym_obj_symbol_offs() at ext/drsyms/drsyms_elf.c.
+     * With some older ARM and AArch64 tool chains we have st_shndx == STN_UNDEF
+     * with a non-zero st_value pointing at the PLT. See i#2008.
+     */
+    return ((sym->st_value == 0 && ELF_ST_TYPE(sym->st_info) != STT_TLS) ||
+            sym->st_shndx == STN_UNDEF);
+}
 
-    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
-        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
-        return false;
+static void
+symbol_iterator_next_import(elf_symbol_iterator_t *iter)
+{
+    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
+    while (sym != NULL && !symbol_is_import(sym))
+        sym = symbol_iterator_next(iter);
+}
+
+dr_symbol_import_iterator_t *
+dr_symbol_import_iterator_start(module_handle_t handle,
+                                   dr_module_import_desc_t *from_module)
+{
+    elf_symbol_iterator_t *iter = NULL;
+    if (from_module != NULL) {
+        CLIENT_ASSERT(false, "Cannot iterate imports from a given module on Linux");
+        return NULL;
     }
-    return true;
+    iter = symbol_iterator_start(handle);
+    if (iter != NULL)
+        symbol_iterator_next_import(iter);
+    return (dr_symbol_import_iterator_t *)iter;
+}
+
+bool
+dr_symbol_import_iterator_hasnext(dr_symbol_import_iterator_t *dr_iter)
+{
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    return symbol_iterator_cur_symbol(iter) != NULL;
+}
+
+dr_symbol_import_t *
+dr_symbol_import_iterator_next(dr_symbol_import_iterator_t *dr_iter)
+{
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    ELF_SYM_TYPE *sym;
+
+    CLIENT_ASSERT(iter != NULL, "invalid parameter");
+    sym = symbol_iterator_cur_symbol(iter);
+    CLIENT_ASSERT(sym != NULL, "no next");
+
+    iter->symbol_import.name = iter->dynstr + sym->st_name;
+    iter->symbol_import.modname = NULL;  /* no module for ELFs */
+    iter->symbol_import.delay_load = false;
+
+    symbol_iterator_next(iter);
+    symbol_iterator_next_import(iter);
+    return &iter->symbol_import;
+}
+
+void
+dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
+{
+    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
+}
+
+static void
+symbol_iterator_next_export(elf_symbol_iterator_t *iter)
+{
+    ELF_SYM_TYPE *sym = symbol_iterator_cur_symbol(iter);
+    while (sym != NULL && symbol_is_import(sym))
+        sym = symbol_iterator_next(iter);
 }
 
 dr_symbol_export_iterator_t *
 dr_symbol_export_iterator_start(module_handle_t handle)
 {
-    module_area_t *ma;
-    elf_export_iterator_t *iter;
-
-    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-    if (iter == NULL)
-        return NULL;
-    memset(iter, 0, sizeof(*iter));
-
-    os_get_module_info_lock();
-    ma = module_pc_lookup((byte *) handle);
-    if (ma != NULL) {
-        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
-        iter->symentry_size = ma->os_data.symentry_size;
-        iter->dynstr = (const char *) ma->os_data.dynstr;
-        iter->dynstr_size = ma->os_data.dynstr_size;
-        iter->cur_sym = iter->dynsym;
-        iter->load_delta = ma->start - ma->os_data.base_address;
-
-        /* See dr_symbol_import_iterator_start(): we don't have the length of .dynsym
-         * (we'd have to map the original file).
-         */
-        iter->hash_is_gnu = ma->os_data.hash_is_gnu;
-        if (iter->hash_is_gnu) {
-            /* We have to walk the hashtable */
-            iter->buckets = (Elf_Symndx *) ma->os_data.buckets;
-            iter->chain = (Elf_Symndx *) ma->os_data.chain;
-            iter->num_buckets = ma->os_data.num_buckets;
-            iter->hidx = 0;
-            iter->chain_idx = 0;
-        } else {
-            /* See dr_symbol_import_iterator_start(): num_chain is # of .dynsym entries */
-            iter->export_end = (ELF_SYM_TYPE *)
-                ((app_pc)iter->dynsym + (ma->os_data.num_chain * iter->symentry_size));
-            ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
-        }
-        /* Just like the import iterator, we always point at next */
-        iter->valid_entry = dynsym_next_export(iter);
-    } else {
-        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
-        iter = NULL;
-    }
-    os_get_module_info_unlock();
-
-    return (dr_symbol_export_iterator_t *) iter;
+    elf_symbol_iterator_t *iter = symbol_iterator_start(handle);
+    if (iter != NULL)
+        symbol_iterator_next_export(iter);
+    return (dr_symbol_export_iterator_t *)iter;
 }
 
 bool
 dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
-    return (iter != NULL && iter->valid_entry &&
-            (iter->hash_is_gnu || iter->cur_sym < iter->export_end));
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    return symbol_iterator_cur_symbol(iter) != NULL;
 }
 
 dr_symbol_export_t *
 dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    elf_symbol_iterator_t *iter = (elf_symbol_iterator_t *)dr_iter;
+    ELF_SYM_TYPE *sym;
 
     CLIENT_ASSERT(iter != NULL, "invalid parameter");
-    memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
-    iter->symbol_export.name = iter->dynstr + iter->safe_cur_sym.st_name;
-    iter->symbol_export.is_indirect_code =
-        (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_GNU_IFUNC);
-    iter->symbol_export.is_code = (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_FUNC);
-    iter->symbol_export.addr = (app_pc) (iter->safe_cur_sym.st_value + iter->load_delta);
+    sym = symbol_iterator_cur_symbol(iter);
+    CLIENT_ASSERT(sym != NULL, "no next");
 
-    iter->valid_entry = dynsym_next_export(iter);
+    memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
+    iter->symbol_export.name = iter->dynstr + sym->st_name;
+    iter->symbol_export.is_indirect_code = (ELF_ST_TYPE(sym->st_info) == STT_GNU_IFUNC);
+    iter->symbol_export.is_code = (ELF_ST_TYPE(sym->st_info) == STT_FUNC);
+    iter->symbol_export.addr = (app_pc)(sym->st_value + iter->load_delta);
+
+    symbol_iterator_next(iter);
+    symbol_iterator_next_export(iter);
     return &iter->symbol_export;
 }
 
 void
 dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
 {
-    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
-    if (iter == NULL)
-        return;
-    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
 }
 
 #endif /* CLIENT_INTERFACE */
+
+#ifndef ANDROID
+
+# ifdef AARCH64
+/* Defined in aarch64.asm. */
+ptr_int_t
+tlsdesc_resolver(struct tlsdesc_t *);
+# else
+static ptr_int_t
+tlsdesc_resolver(struct tlsdesc_t *arg)
+{
+    /* FIXME i#1961: TLS descriptors are not implemented on other architectures. */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+}
+# endif
+
+#endif /* !ANDROID */
 
 /* This routine is duplicated in privload_relocate_symbol for relocating
  * dynamorio symbols in a bootstrap stage. Any update here should be also
@@ -1664,10 +1754,17 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
             *r_addr = sym->st_value + addend;
         break;
 #ifndef ANDROID
-    case ELF_R_TLS_DESC:
-        /* FIXME: TLS descriptor, not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+    case ELF_R_TLS_DESC: {
+        /* Provided the client does not invoke dr_load_aux_library after the
+         * app has started and might have called clone, TLS descriptors can be
+         * resolved statically.
+         */
+        struct tlsdesc_t *tlsdesc = (void *)r_addr;
+        ASSERT(is_rela);
+        tlsdesc->entry = tlsdesc_resolver;
+        tlsdesc->arg = (void *)(sym->st_value + addend - pd->tls_offset);
         break;
+    }
 # ifndef X64
     case R_386_TLS_TPOFF32:
         /* offset is positive, backward from the thread pointer */
@@ -1798,18 +1895,20 @@ module_get_text_section(app_pc file_map, size_t file_size)
     return 0;
 }
 
-static bool
+/* Read until EOF or error. Return number of bytes read. */
+static size_t
 os_read_until(file_t fd, void *buf, size_t toread)
 {
+    size_t orig_toread = toread;
     ssize_t nread;
     while (toread > 0) {
         nread = os_read(fd, buf, toread);
-        if (nread < 0)
+        if (nread <= 0)
             break;
         toread -= nread;
         buf = (app_pc)buf + nread;
     }
-    return (toread == 0);
+    return orig_toread - toread;
 }
 
 bool
@@ -1843,9 +1942,10 @@ elf_loader_read_ehdr(elf_loader_t *elf)
         /* The user mapped the entire file up front, so use it. */
         elf->ehdr = (ELF_HEADER_TYPE *) elf->file_map;
     } else {
-        if (!os_read_until(elf->fd, elf->buf, sizeof(elf->buf)))
+        size_t size = os_read_until(elf->fd, elf->buf, sizeof(elf->buf));
+        if (size == 0)
             return NULL;
-        if (!is_elf_so_header(elf->buf, sizeof(elf->buf)))
+        if (!is_elf_so_header(elf->buf, size))
             return NULL;
         elf->ehdr = (ELF_HEADER_TYPE *) elf->buf;
     }
@@ -1912,7 +2012,7 @@ elf_loader_read_headers(elf_loader_t *elf, const char *filename)
 
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
-                     unmap_fn_t unmap_func, prot_fn_t prot_func, bool reachable)
+                     unmap_fn_t unmap_func, prot_fn_t prot_func, modload_flags_t flags)
 {
     app_pc lib_base, lib_end, last_end;
     ELF_HEADER_TYPE *elf_hdr = elf->ehdr;
@@ -1943,7 +2043,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
-    if (INTERNAL_OPTION(separate_private_bss)) {
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
         /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
@@ -1957,7 +2057,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                             * base, in which case the map can be anywhere
                             */
                            ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                           (reachable ? MAP_FILE_REACHABLE : 0));
+                           (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
     if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
@@ -1986,6 +2086,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
         ELF_PROGRAM_HEADER_TYPE *prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)
             ((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_LOAD) {
+            bool do_mmap = true;
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE)
                        + delta;
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
@@ -2000,7 +2101,17 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             }
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs  = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
-            /* FIXME:
+            if (TEST(MODLOAD_SKIP_WRITABLE, flags) &&
+                TEST(MEMPROT_WRITE, seg_prot) &&
+                seg_end == lib_end) {
+                /* We only actually skip if it's the final segment, to allow
+                 * unmapping with a single mmap and not worrying about sthg
+                 * else having been unmapped at the end in the meantime.
+                 */
+                do_mmap = false;
+                elf->image_size = last_end - lib_base;
+            }
+            /* XXX:
              * This function can be called after dynamorio_heap_initialized,
              * and we will use map_file instead of os_map_file.
              * However, map_file does not allow mmap with overlapped memory,
@@ -2010,33 +2121,39 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
              * another thread requests memory via mmap takes the memory here,
              * a racy condition.
              */
-            (*unmap_func)(seg_base, seg_size);
-            map = (*map_func)(elf->fd, &seg_size, pg_offs,
-                              seg_base /* base */,
-                              seg_prot | MEMPROT_WRITE /* prot */,
-                              MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
-                              MAP_FILE_IMAGE |
-                              /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
-                              MAP_FILE_FIXED);
-            ASSERT(map != NULL);
-            /* fill zeros at extend size */
-            file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
-            if (seg_end > file_end + delta) {
+            if (seg_size > 0) { /* i#1872: handle empty segments */
+                (*unmap_func)(seg_base, seg_size);
+                if (do_mmap) {
+                    map = (*map_func)
+                        (elf->fd, &seg_size, pg_offs,
+                         seg_base /* base */,
+                         seg_prot | MEMPROT_WRITE /* prot */,
+                         MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
+                         MAP_FILE_IMAGE |
+                         /* we don't need MAP_FILE_REACHABLE b/c we're fixed */
+                         MAP_FILE_FIXED);
+                    ASSERT(map != NULL);
+                    /* fill zeros at extend size */
+                    file_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_filesz;
+                    if (seg_end > file_end + delta) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-                memset(file_end + delta, 0, seg_end - (file_end + delta));
+                        memset(file_end + delta, 0, seg_end - (file_end + delta));
 #else
-                /* FIXME i#37: use a remote memset to zero out this gap or fix
-                 * it up in the child.  There is typically one RW PT_LOAD
-                 * segment for .data and .bss.  If .data ends and .bss starts
-                 * before filesz bytes, we need to zero the .bss bytes manually.
-                 */
+                        /* FIXME i#37: use a remote memset to zero out this gap or fix
+                         * it up in the child.  There is typically one RW PT_LOAD
+                         * segment for .data and .bss.  If .data ends and .bss starts
+                         * before filesz bytes, we need to zero the .bss bytes manually.
+                         */
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+                    }
+                }
             }
             seg_end  = (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr +
                                              prog_hdr->p_memsz,
                                              PAGE_SIZE) + delta;
             seg_size = seg_end - seg_base;
-            (*prot_func)(seg_base, seg_size, seg_prot);
+            if (seg_size > 0 && do_mmap)
+                (*prot_func)(seg_base, seg_size, seg_prot);
             last_end = seg_end;
         }
     }

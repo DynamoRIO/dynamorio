@@ -140,7 +140,11 @@ fork_syscall(void)
     return fork();
 # endif
 #else
+# ifdef SYS_fork
     return dynamorio_syscall(SYS_fork, 0);
+# else
+    return dynamorio_syscall(SYS_clone, 5, SIGCHLD, NULL, NULL, NULL, NULL);
+# endif
 #endif
 }
 

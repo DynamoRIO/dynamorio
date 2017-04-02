@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -440,7 +440,7 @@ bool
 should_swap_peb_pointer(void)
 {
     return (INTERNAL_OPTION(private_peb) &&
-            !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib));
+            CLIENTS_EXIST());
 }
 
 bool
@@ -511,9 +511,9 @@ is_using_app_peb(dcontext_t *dcontext)
          * not have the app value!
          */
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
-               IS_CLIENT_THREAD(dcontext));
+               IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base-1) ||
-               IS_CLIENT_THREAD(dcontext));
+               IS_CLIENT_THREAD(dcontext) || IS_CLIENT_THREAD_EXITING(dcontext));
         ASSERT(cur_nls_cache == NULL ||
                cur_nls_cache != dcontext->app_nls_cache);
         ASSERT(cur_fls == NULL ||
@@ -602,13 +602,19 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
             if (TEST(DR_STATE_STACK_BOUNDS, flags) &&
                 dynamo_initialized /* on app stack until init finished */) {
                 if (SWAP_TEB_STACKLIMIT() &&
-                    !is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_limit != dcontext->dstack - DYNAMORIO_STACK_SIZE) {
                     dcontext->app_stack_limit = cur_stack_limit;
                     set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
                                   dcontext->dstack - DYNAMORIO_STACK_SIZE);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    !is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_base != dcontext->dstack) {
                     dcontext->app_stack_base = cur_stack_base;
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET, dcontext->dstack);
                 }
@@ -636,12 +642,18 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
         } else {
             if (TEST(DR_STATE_STACK_BOUNDS, flags)) {
                 if (SWAP_TEB_STACKLIMIT() &&
-                    is_dynamo_address(cur_stack_limit)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_limit == dcontext->dstack - DYNAMORIO_STACK_SIZE) {
                     set_teb_field(dcontext, BASE_STACK_TIB_OFFSET,
                                   dcontext->app_stack_limit);
                 }
                 if (SWAP_TEB_STACKBASE() &&
-                    is_dynamo_address(cur_stack_base-1)) { /* handle two in a row */
+                    /* Handle two in a row, using an exact cmp b/c
+                     * is_dynamo_address() is slow and needs locks (i#1832).
+                     */
+                    cur_stack_base == dcontext->dstack) {
                     set_teb_field(dcontext, TOP_STACK_TIB_OFFSET,
                                   dcontext->app_stack_base);
                 }
@@ -863,7 +875,7 @@ privload_unload_imports(privmod_t *mod)
 
 /* if anything fails, undoes the mapping and returns NULL */
 app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
+privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_t flags)
 {
     file_t fd;
     app_pc map;
@@ -871,7 +883,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     byte *(*map_func)(file_t, size_t *, uint64, app_pc, uint, map_flags_t);
     bool (*unmap_func)(file_t, size_t);
     ASSERT(size != NULL);
-    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
 
     /* On win32 OS_EXECUTE is required to create a section w/ rwx
      * permissions, which is in turn required to map a view w/ rwx
@@ -903,7 +915,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
         unmap_func = os_unmap_file;
     }
     /* On Windows, SEC_IMAGE => the kernel sets up the different segments w/
-     * proper protections for us, all on this single map syscall
+     * proper protections for us, all on this single map syscall.
+     * Thus, we ignore MODLOAD_SKIP_*.
      */
     /* First map: let kernel pick base.
      * Even for a lib that needs to be reachable, we'd need to read or map
@@ -926,7 +939,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
         return NULL;
     }
 #ifdef X64
-    if (reachable) {
+    if (TEST(MODLOAD_REACHABLE, flags)) {
         bool reloc = module_file_relocatable(map);
         (*unmap_func)(map, *size);
         map = NULL;
@@ -1250,10 +1263,13 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
             (forwmodpath, last_forwmod == NULL ? mod : last_forwmod,
              mod, false/*!inc refcnt*/, false/*=> true if in client/ext dir*/);
         if (forwmod == NULL) {
-            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forworder for %s\n"
+            LOG(GLOBAL, LOG_LOADER, 1, "%s: unable to load forwarder for %s\n"
                 __FUNCTION__, forwarder);
             return false;
         }
+        /* XXX i#1870: we've seen ordinals listed as "libname.#nnn",
+         * e.g. "SHUNIMPL.#210".  We should add support for that.
+         */
         /* should be listed as import; don't want to inc ref count on each forw */
         func = get_proc_address_ex(forwmod->base, forwfunc, &forwarder);
     }
@@ -1305,7 +1321,6 @@ privload_call_entry(privmod_t *privmod, uint reason)
         });
 
         if (!res && get_os_version() >= WINDOWS_VERSION_7 &&
-            str_case_prefix(privmod->name, "kernel")) {
             /* i#364: win7 _BaseDllInitialize fails to initialize a new console
              * (0xc0000041 (3221225537) - The NtConnectPort request is refused)
              * which we ignore for now.  DR always had trouble writing to the
@@ -1313,8 +1328,13 @@ privload_call_entry(privmod_t *privmod, uint reason)
              * Update: for i#440, this should now succeed, but we leave this
              * in place just in case.
              */
+            (str_case_prefix(privmod->name, "kernel") ||
+             /* i#2221: combase's entry fails on win10.  So far ignoring it
+              * hasn't cause any problems with simple clients.
+              */
+             str_case_prefix(privmod->name, "combase"))) {
             LOG(GLOBAL, LOG_LOADER, 1,
-                "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
+                "%s: ignoring failure of %s entry\n", __FUNCTION__, privmod->name);
             res = TRUE;
         }
         return CAST_TO_bool(res);
@@ -1354,7 +1374,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
          * from kernelbase to avoid infinite loop.  XXX: what does apisetschema say?
          * dependent on what's imported?
          */
-        if (str_case_prefix(dependent->name, "kernel32"))
+        if (dependent != NULL && str_case_prefix(dependent->name, "kernel32"))
             return "kernelbase.dll";
         else
             return "kernel32.dll";
@@ -1390,14 +1410,15 @@ map_api_set_dll(const char *name, privmod_t *dependent)
          * from kernelbase to avoid infinite loop.  XXX: see above: seeming
          * more and more like it depends on what's imported.
          */
-        if (str_case_prefix(dependent->name, "kernel32"))
+        if (dependent != NULL && str_case_prefix(dependent->name, "kernel32"))
             return "kernelbase.dll";
         else
             return "kernel32.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-Profile-L1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-RTLSupport-L1")) {
-        if (get_os_version() >= WINDOWS_VERSION_8)
+        if (get_os_version() >= WINDOWS_VERSION_8 ||
+            (dependent != NULL && str_case_prefix(dependent->name, "kernel")))
             return "ntdll.dll";
         else
             return "kernel32.dll";
@@ -1431,42 +1452,35 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     /* Added in Win8 */
     else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Legacy-L1"))
         return "kernel32.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
+    else if (str_case_prefix(name, "API-MS-Win-Core-Appcompat-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-Private-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Namespace-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Normalization-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-Ansi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psapi-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Realtime-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SideBySide-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SystemTopology-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Threadpool-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Localization-Private-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-WOW64-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Realtime-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-SystemTopology-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Namespace-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Normalization-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-SideBySide-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Appcompat-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-WindowsErrorReporting-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Psapi-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Psapi-Ansi-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Psapi-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Timezone-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Threadpool-Legacy-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Base-Private-L1-1"))
         return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
+        return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
         return "msvcrt.dll";
@@ -1489,15 +1503,38 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
         return "advapi32.dll";
     /**************************************************/
-    /* Added in Win10 */
-    else if (str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
+    /* Added in Win10 (some may be 8.1 too) */
+    else if (str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-3") ||
+             str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Quirks-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-RegistryUserSpecific-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-2") ||
+             str_case_prefix(name, "API-MS-Win-Core-String-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-StringAnsi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-URL-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Version-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-VersionAnsi-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1"))
         return "kernelbase.dll";
-    else {
+    else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1"))
+        return "kernel32.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
+        return "combase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
+        /* We've seen many different GDI-* */
+        return "gdi32full.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-CRT-")) {
+        /* We've seen CRT-{String,Runtime,Private} */
+        return "ucrtbase.dll";
+    } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
         return "kernelbase.dll";
@@ -1812,6 +1849,30 @@ privload_disable_console_init(privmod_t *mod)
     return success;
 }
 
+/* GUI apps are initialized without a console. To enable writing to the console
+ * we attach to the parent's console.
+ * XXX: if an app attempts to create/attach to a console w/o first freeing itself
+ * from this console, it will fail since a process can only associate w/ one console.
+ * The solution here would be to monitor such attempts by the app and free the console
+ * that is setup here.
+ */
+typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
+static kernel32_AttachConsole_t kernel32_AttachConsole;
+
+bool
+privload_attach_parent_console(app_pc app_kernel32)
+{
+    ASSERT(app_kernel32 != NULL);
+    if (kernel32_AttachConsole == NULL)
+        kernel32_AttachConsole = (kernel32_AttachConsole_t)
+            get_proc_address(app_kernel32, "AttachConsole");
+    if (kernel32_AttachConsole != NULL) {
+        if (kernel32_AttachConsole(ATTACH_PARENT_PROCESS) != 0)
+            return true;
+    }
+    return false;
+}
+
 /* i#556: A process can be associated with only one console, which is why the call to
  * ConnectConsoleInternal is nop'd out for win7. With the call disabled priv kernel32
  * does not initialize globals needed for console support. This routine will share the
@@ -1819,8 +1880,8 @@ privload_disable_console_init(privmod_t *mod)
  * with private kernel32. This will enable console support for 32-bit kernel and
  * 64-bit apps.
  */
-typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
-static kernel32_AttachConsole_t kernel32_AttachConsole;
+typedef BOOL (WINAPI *kernel32_FreeConsole_t) (VOID);
+static kernel32_FreeConsole_t kernel32_FreeConsole;
 
 bool
 privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
@@ -1836,22 +1897,22 @@ privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
     static const uint MAX_DECODE = 1024;
 
     ASSERT(app_kernel32 != NULL);
-    /* GUI apps are initialized without a console. To enable writing to the console
-     * we attach to the parent's console.
-     * XXX: if an app attempts to create/attach to a console w/o first freeing itself
-     * from this console, it will fail since a process can only associate w/ one console.
-     * The solution here would be to monitor such attempts by the app and free the console
-     * that is setup here.
-     */
     if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
-        kernel32_AttachConsole = (kernel32_AttachConsole_t)
-            get_proc_address(app_kernel32, "AttachConsole");
-        if (kernel32_AttachConsole == NULL)
-            return false;
-        status = kernel32_AttachConsole(ATTACH_PARENT_PROCESS);
-        if (status == 0) {
-            return false;
+        /* On win8+, if private kernelbase is loaded after calling dr_using_console, its
+         * init routine will call ConsoleInitalize and check if the app is a console. If
+         * it's not a console, it will close all handles with ConsoleCloseIfConsoleHandle.
+         * To enable console printing for gui apps, we simply detach and reattach.
+         */
+        if (get_os_version() >= WINDOWS_VERSION_8) {
+            kernel32_FreeConsole = (kernel32_FreeConsole_t)
+                get_proc_address(app_kernel32, "FreeConsole");
+            if (kernel32_FreeConsole != NULL) {
+                if (kernel32_FreeConsole() == 0)
+                    return false;
+            }
         }
+        if (privload_attach_parent_console(app_kernel32) == false)
+            return false;
     }
     /* xref i#440: Noping out the call to ConsoleConnectInternal is enough to get console
      * support for wow64. We have this check after in case of GUI app.

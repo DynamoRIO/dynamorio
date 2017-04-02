@@ -1,5 +1,5 @@
 # ***************************************************************************
-# Copyright (c) 2014 Google, Inc.  All rights reserved.
+# Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
 # Copyright (c) 2013 Branden Clark  All rights reserved.
 # ***************************************************************************
 
@@ -46,6 +46,7 @@ elseif ("${CMAKE_VERSION}" VERSION_LESS "2.8.10")
 else () # Qt5 and CMake 2.8.10+
   # Build Qt Visualizer
   cmake_minimum_required(VERSION 2.8.10)
+
   message(STATUS "Found Qt 5: DrGUI will be built")
 
   include(../../make/policies.cmake NO_POLICY_SCOPE)
@@ -89,6 +90,9 @@ else () # Qt5 and CMake 2.8.10+
   # Ignore windows specific Qt warnings
   if (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4127 -wd4512 -wd4189 -wd4481")
+  else ()
+    # Work around signed-unsigned cmp in Qt5's qvector.h (i#1797)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-overflow")
   endif (WIN32)
   add_executable(drgui ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
   qt5_use_modules(drgui Widgets)

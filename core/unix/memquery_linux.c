@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -229,8 +229,11 @@ memquery_iterator_next(memquery_iter_t *iter)
         "\nget_memory_info_from_os: newline=[%s]\n",
         mi->newline ? mi->newline : "(null)");
 
-    /* buffer is big enough to hold at least one line */
-    ASSERT(mi->newline != NULL);
+    /* Buffer is big enough to hold at least one line: if not, the file changed
+     * underneath us after we hit the end.  Just bail.
+     */
+    if (mi->newline == NULL)
+        return false;
     *mi->newline = '\0';
     LOG(GLOBAL, LOG_VMAREAS, 6,
         "\nget_memory_info_from_os: line=[%s]\n", line);
@@ -290,6 +293,11 @@ memquery_iterator_next(memquery_iter_t *iter)
     if (len<6)
         mi->comment_buffer[0]='\0';
     iter->prot = permstr_to_memprot(perm);
+#ifdef ANDROID
+    /* i#1861: the Android kernel supports custom comments which can't merge */
+    if (iter->comment[0] != '\0')
+        iter->prot |= MEMPROT_HAS_COMMENT;
+#endif
     return true;
 }
 
@@ -338,7 +346,12 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
                  * permissions.
                  */
                 ASSERT(iter.vm_start == vsyscall_page_start);
-                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE);
+                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
+                       /* i386 Ubuntu 14.04:
+                        * 0xb77bc000-0xb77be000   0x2000    0x0 [vvar]
+                        * 0xb77be000-0xb77c0000   0x2000    0x0 [vdso]
+                        */
+                       iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
                 info->prot = (MEMPROT_READ|MEMPROT_EXEC|MEMPROT_VDSO);
             } else if (strcmp(iter.comment, "[vvar]") == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until

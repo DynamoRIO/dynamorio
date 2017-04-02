@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,34 +42,32 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "utils.h"
 
-client_id_t client_id;
+static client_id_t client_id;
+
+static int tls_idx;
 
 /* Clean call for the cbr */
 static void
 at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken, void *bb_addr)
 {
     void *drcontext = dr_get_current_drcontext();
-    file_t log = (file_t)(ptr_uint_t)dr_get_tls_field(drcontext);
+    file_t log = (file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx);
     dr_fprintf(log, ""PFX" ["PFX", "PFX", "PFX"] => "PFX"\n",
                bb_addr, inst_addr, fall_addr, targ_addr,
                taken == 0 ? fall_addr : targ_addr);
 }
 
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                      bool for_trace, bool translating, void *user_data)
 {
-    instr_t *instr;
-    for (instr  = instrlist_first_app(bb);
-         instr != NULL;
-         instr  = instr_get_next_app(instr)) {
-        if (instr_is_cbr(instr)) {
-            dr_insert_cbr_instrumentation_ex
-                (drcontext, bb, instr, (void *)at_cbr,
-                 OPND_CREATE_INTPTR(dr_fragment_app_pc(tag)));
-        }
+    if (instr_is_cbr(instr)) {
+        dr_insert_cbr_instrumentation_ex
+            (drcontext, bb, instr, (void *)at_cbr,
+             OPND_CREATE_INTPTR(dr_fragment_app_pc(tag)));
     }
     return DR_EMIT_DEFAULT;
 }
@@ -85,13 +83,13 @@ event_thread_init(void *drcontext)
 #endif
                         DR_FILE_ALLOW_LARGE);
     DR_ASSERT(log != INVALID_FILE);
-    dr_set_tls_field(drcontext, (void *)(ptr_uint_t)log);
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)(ptr_uint_t)log);
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
-    log_file_close((file_t)(ptr_uint_t)dr_get_tls_field(drcontext));
+    log_file_close((file_t)(ptr_uint_t)drmgr_get_tls_field(drcontext, tls_idx));
 }
 
 static void
@@ -102,6 +100,10 @@ event_exit(void)
     if (dr_is_notify_on())
         dr_fprintf(STDERR, "Client 'cbrtrace' exiting\n");
 #endif
+    if (!drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+        !drmgr_unregister_tls_field(tls_idx))
+        DR_ASSERT(false);
+    drmgr_exit();
 }
 
 DR_EXPORT
@@ -111,11 +113,16 @@ void dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' initializing");
 
+    drmgr_init();
+
     client_id = id;
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
-    dr_register_bb_event(event_basic_block);
+    tls_idx = drmgr_register_tls_field();
+
     dr_register_exit_event(event_exit);
+    if (!drmgr_register_thread_init_event(event_thread_init) ||
+        !drmgr_register_thread_exit_event(event_thread_exit) ||
+        !drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+        DR_ASSERT(false);
 
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,7 +115,7 @@ typedef struct _section_to_file_t {
 } section_to_file_t;
 
 static void
-section_to_file_free(section_to_file_t *s2f)
+section_to_file_free(dcontext_t *dcontext, section_to_file_t *s2f)
 {
     dr_strfree(s2f->file_path HEAPACCT(ACCT_VMAREAS));
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, s2f, section_to_file_t, ACCT_VMAREAS, PROTECTED);
@@ -1429,7 +1429,7 @@ get_image_section_size(IMAGE_SECTION_HEADER *sec, IMAGE_NT_HEADERS *nt)
     /* Xref case 9797, drivers (which we've seen mapped in on Vista) don't
      * usually use page size section alignment (use 0x80 alignment instead). */
     size_t unpadded_size = get_image_section_unpadded_size(sec _IF_DEBUG(nt));
-    uint alignment = MIN(PAGE_SIZE, nt->OptionalHeader.SectionAlignment);
+    uint alignment = MIN((uint)PAGE_SIZE, nt->OptionalHeader.SectionAlignment);
     return ALIGN_FORWARD(unpadded_size, alignment);
 }
 
@@ -2061,14 +2061,26 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                 ma->full_path = dr_strdup(file_path HEAPACCT(which));
         } else if (!dynamo_initialized) {
             const char *path = buf;
+            buf[0] = '\0';
             get_module_name(base, buf, BUFFER_SIZE_ELEMENTS(buf));
             if (buf[0] == '\0' && is_in_dynamo_dll(base))
                 path = get_dynamorio_library_path();
             IF_CLIENT_INTERFACE({
                 if (path[0] == '\0' && is_in_client_lib(base))
                     path = get_client_path_from_addr(base);
+                if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
+                    privmod_t *privmod;
+                    acquire_recursive_lock(&privload_lock);
+                    privmod = privload_lookup_by_base(base);
+                    if (privmod != NULL) {
+                        dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", privmod->path);
+                        path = buf;
+                    }
+                    release_recursive_lock(&privload_lock);
+                }
             });
-            name = get_short_name(path);
+            if (path[0] != '\0')
+                name = get_short_name(path);
             /* Set the path too.  We could avoid a strdup by sharing the
              * same alloc w/ the short name, but simpler to separate.
              */
@@ -3838,14 +3850,16 @@ os_modules_init(void)
                             INIT_HTABLE_SIZE_SECTION,
                             80 /* load factor: not perf-critical */,
                             HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
-                            (void(*)(void*)) section_to_file_free
+                            (void(*)(dcontext_t*, void*)) section_to_file_free
                             _IF_DEBUG("section-to-file table"));
 
+#ifndef STATIC_LIBRARY
     if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {
         /* retrieve path before hiding, since this is called before os_init() */
         get_dynamorio_library_path();
         hide_from_module_lists();
     }
+#endif
 }
 
 void
@@ -5954,11 +5968,13 @@ read_version_struct_header(byte *start, byte *valid_start, size_t valid_size,
 
     ASSERT(head != NULL && ((key_ref == NULL && match == NULL) ||
                             (key_ref != NULL && match != NULL)));
-
     if (key_ref != NULL) {
         key_length = sizeof(wchar_t)*(wcslen(key_ref) + 1);
         space_needed += key_length;
     }
+    /* i#1853: on win10 we see final entries with just 2 zero fields and no
+     * further space.  We return NULL for those.
+     */
     if (!CHECK_SAFE_READ(cur, space_needed, valid_start, valid_size))
         return NULL;
     cur_u = (ushort *)cur;
@@ -6072,7 +6088,13 @@ read_string_or_var_info(void *string_or_var_info, void *version_info,
     cur = read_version_struct_header(cur, (byte *)version_info, version_info_size,
                                      &head, L"StringFileInfo", &match);
     if (cur == NULL) {
-        ASSERT_CURIOSITY(false && "read off end of rsrc version");
+        /* i#1853: on Win10 we see final entries with just 2 zero fields */
+        ASSERT_CURIOSITY((byte *)string_or_var_info >= (byte *)version_info &&
+                         (byte *)string_or_var_info + sizeof(uint) <=
+                         (byte *)version_info + version_info_size &&
+                         /* we read 2 ushort fields at once */
+                         *(uint *)string_or_var_info == 0 &&
+                         "read off end of rsrc version");
         return NULL;
     }
     if (!match) {

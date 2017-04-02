@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -29,6 +29,7 @@
 #include "drmgr.h"
 #include "hashtable.h"
 #include "drvector.h"
+#include "../ext_utils.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
 #include <limits.h> /* USHRT_MAX */
@@ -43,13 +44,6 @@
 # define ASSERT(x, msg) /* nothing */
 # define DODEBUG(statement)
 #endif
-
-/* check if all bits in mask are set in var */
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-/* check if any bit in mask is set in var */
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-/* check if a single bit is set in var */
-#define TEST TESTANY
 
 #define EXCLUDE_CALLCONV(flags) ((flags) & ~(DRWRAP_CALLCONV_MASK))
 #define EXTRACT_CALLCONV(flags) ((drwrap_callconv_t) ((flags) & (DRWRAP_CALLCONV_MASK)))
@@ -102,7 +96,7 @@ replace_native_ret_imms(void);
 void
 replace_native_ret_imms_end(void);
 
-#ifdef ARM
+#ifdef AARCHXX
 byte *
 get_cur_xsp(void);
 #endif
@@ -239,10 +233,7 @@ fast_safe_read(void *base, size_t size, void *out_buf)
     });
     return res;
 #else
-    /* dr_safe_read() uses try/except */
-    size_t bytes_read = 0;
-    return (dr_safe_read(base, size, out_buf, &bytes_read) &&
-            bytes_read == size);
+    return dr_safe_read(base, size, out_buf, NULL);
 #endif
 }
 
@@ -565,7 +556,7 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
                  * trap flag or other flags so instead of zeroing we copy cur flags
                  * (xref i#806).
                  */
-#ifdef ARM
+#ifdef AARCHXX
                 wrapcxt->mc->xflags = 0; /*0 is fine for ARM */
 #else
 # ifdef WINDOWS
@@ -631,7 +622,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER); /* already have xsp */
 
     switch (wrapcxt->callconv) {
-#ifdef ARM /* registers are platform-exclusive */
+#if defined(ARM)
     case DRWRAP_CALLCONV_ARM:
         switch (arg) {
         case 0: return &wrapcxt->mc->r0;
@@ -639,6 +630,19 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         case 2: return &wrapcxt->mc->r2;
         case 3: return &wrapcxt->mc->r3;
         default: return drwrap_stack_arg_addr(wrapcxt, arg, 4, 0);
+        }
+#elif defined(AARCH64)
+    case DRWRAP_CALLCONV_AARCH64:
+        switch (arg) {
+        case 0: return &wrapcxt->mc->r0;
+        case 1: return &wrapcxt->mc->r1;
+        case 2: return &wrapcxt->mc->r2;
+        case 3: return &wrapcxt->mc->r3;
+        case 4: return &wrapcxt->mc->r4;
+        case 5: return &wrapcxt->mc->r5;
+        case 6: return &wrapcxt->mc->r6;
+        case 7: return &wrapcxt->mc->r7;
+        default: return drwrap_stack_arg_addr(wrapcxt, arg, 8, 0);
         }
 #else /* Intel x86 or x64 */
 # ifdef X64 /* registers are platform-exclusive */
@@ -717,9 +721,7 @@ drwrap_set_arg(void *wrapcxt_opaque, int arg, void *val)
         if (!in_memory)
             wrapcxt->mc_modified = true;
         if (in_memory && TEST(DRWRAP_SAFE_READ_ARGS, global_flags)) {
-            size_t written;
-            if (!dr_safe_write((void *)addr, sizeof(val), val, &written) ||
-                written != sizeof(val))
+            if (!dr_safe_write((void *)addr, sizeof(val), val, NULL))
                 return false;
         } else
             *addr = (reg_t) val;
@@ -1196,7 +1198,7 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
     replace_native_t *rn;
     if (stack_adjust > max_stack_adjust ||
         !ALIGNED(stack_adjust, sizeof(void*))
-        IF_ARM(|| stack_adjust != 0))
+        IF_NOT_X86(|| stack_adjust != 0))
         return false;
     if (replacement == NULL)
         rn = NULL;
@@ -1239,7 +1241,7 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
                   app_pc pc, app_pc replace)
 {
 #if defined(ARM) || defined(X64)
-    instr_t *mov1, *mov2;
+    instr_t *first, *last;
 #endif
     /* remove the rest of the bb and replace w/ jmp to target.
      * with i#427 we'd call instrlist_clear(drcontext, bb)
@@ -1255,12 +1257,12 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
      */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)replace,
                                      opnd_create_reg(CALL_POINT_SCRATCH_REG),
-                                     bb, NULL, &mov1, &mov2);
-    instr_set_app(mov1);
-    instr_set_translation(mov1, pc);
-    if (mov2 != NULL) {
-        instr_set_app(mov2);
-        instr_set_translation(mov2, pc);
+                                     bb, NULL, &first, &last);
+    for (;; first = instr_get_next(first)) {
+        instr_set_app(first);
+        instr_set_translation(first, pc);
+        if (last == NULL || first == last)
+            break;
     }
     instrlist_append(bb, INSTR_XL8
                      (XINST_CREATE_jump_reg
@@ -1274,17 +1276,17 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 static void
 drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    ptr_int_t pushval, opnd_size_t stacksz
-                                   _IF_X86_X64(bool x86))
+                                   _IF_X86_64(bool x86))
 {
-#ifdef ARM
-    instr_t *mov1, *mov2;
+#ifdef AARCHXX
+    instr_t *first, *last;
     instrlist_insert_mov_immed_ptrsz(drcontext, pushval, opnd_create_reg(DR_REG_LR),
-                                     bb, NULL, &mov1, &mov2);
-    instr_set_app(mov1);
-    instr_set_translation(mov1, pc);
-    if (mov2 != NULL) {
-        instr_set_app(mov2);
-        instr_set_translation(mov2, pc);
+                                     bb, NULL, &first, &last);
+    for (;; first = instr_get_next(first)) {
+        instr_set_app(first);
+        instr_set_translation(first, pc);
+        if (last == NULL || first == last)
+            break;
     }
 #else
     if (stacksz == OPSZ_4 IF_X64(&& x86)) {
@@ -1389,14 +1391,21 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 
     if (topush != NULL) {
         drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
-                                           stacksz _IF_X86_X64(x86));
+                                           stacksz _IF_X86_64(x86));
     }
+#ifdef AARCH64
+    /* We clobber CALL_POINT_SCRATCH_REG, which is scratch in most call conventions. */
+    instrlist_meta_append(bb, XINST_CREATE_move
+                          (drcontext, opnd_create_reg(CALL_POINT_SCRATCH_REG),
+                           opnd_create_reg(DR_REG_XSP)));
+#endif
     instrlist_meta_append(bb, XINST_CREATE_store
                           (drcontext, dr_reg_spill_slot_opnd
                            (drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT),
-                           opnd_create_reg(DR_REG_XSP)));
+                           opnd_create_reg(IF_AARCH64_ELSE(CALL_POINT_SCRATCH_REG,
+                                                           DR_REG_XSP))));
     /* We go ahead and use the 3rd fast spill slot for storage */
-#ifdef ARM
+#ifdef AARCHXX
     /* We don't support non-zero stack_adjust, so we use the slot to store LR. */
     instrlist_meta_append(bb, XINST_CREATE_store
                           (drcontext, dr_reg_spill_slot_opnd
@@ -1522,7 +1531,7 @@ replace_native_xfer_target(void)
 {
     /* Retrieve the data stored in the bb and in fini */
     void *drcontext = dr_get_current_drcontext();
-#ifdef ARM
+#ifdef AARCHXX
     byte *target = replace_native_ret_stub(0);
 #else
     uint stack_adjust = (uint)
@@ -1558,11 +1567,11 @@ drwrap_replace_native_fini(void *drcontext)
      */
     volatile app_pc app_retaddr;
     byte *xsp = (byte *) dr_read_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT);
-#ifdef ARM
+#ifdef AARCHXX
     byte *cur_xsp = get_cur_xsp();
 #endif
     ASSERT(xsp != NULL, "did client clobber TLS slot?");
-#ifdef ARM
+#ifdef AARCHXX
     app_retaddr = (app_pc) dr_read_saved_reg(drcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT);
 #else
     app_retaddr = *(app_pc *)xsp;
@@ -1571,15 +1580,16 @@ drwrap_replace_native_fini(void *drcontext)
     dr_write_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT, (reg_t)app_retaddr);
 
     /* Redirect */
-#ifdef ARM
+#ifdef AARCHXX
     /* We assume the replacement routine pushed LR on the stack.
      * We need to scan the stack until we find app_retaddr and then overwrite
      * that slot.
      * XXX: what if there are multiple copies?  What if the retaddr is left in
      * LR and never pushed on the stack?
      */
-    while (xsp > cur_xsp && *(app_pc*)xsp != app_retaddr)
-        xsp -= sizeof(app_pc);
+    for (xsp -= sizeof(app_pc); xsp > cur_xsp && *(app_pc*)xsp != app_retaddr;
+         xsp -= sizeof(app_pc))
+        ; /* empty body */
     /* XXX: what can we do if we hit cur xsp?  We'll lose control. */
     ASSERT(xsp > cur_xsp, "did not find return address: going to lose control");
     *(app_pc *)xsp = (app_pc) replace_native_xfer;
@@ -1624,8 +1634,8 @@ get_retaddr_at_entry(reg_t xsp)
 
 /* may not return */
 static void
-drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wrapcxt,
-                               bool enabled)
+drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
+                               drwrap_context_t *wrapcxt, bool enabled)
 {
     post_call_entry_t *e;
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
@@ -1687,7 +1697,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
              */
             /* ensure we have DR_MC_ALL */
             drwrap_get_mcontext_internal((void*)wrapcxt, DR_MC_ALL);
-            wrapcxt->mc->pc = pc;
+            wrapcxt->mc->pc = decorated_pc;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
         }
@@ -1717,9 +1727,10 @@ wrap_table_lookup_normalized_pc(app_pc pc)
  */
 static inline void
 drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
-                       drwrap_context_t *wrapcxt, app_pc pc)
+                       drwrap_context_t *wrapcxt, app_pc decorated_pc)
 {
     app_pc retaddr = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, wrapcxt->retaddr);
+    app_pc plain_pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, decorated_pc);
     int i;
     /* avoid lock and hashtable lookup by caching prior retaddrs */
     for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -1745,18 +1756,18 @@ drwrap_ensure_postcall(void *drcontext, wrap_entry_t *wrap,
         dr_rwlock_write_unlock(post_call_rwlock);
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
-        drwrap_mark_retaddr_for_instru(drcontext, pc, wrapcxt, enabled);
+        drwrap_mark_retaddr_for_instru(drcontext, decorated_pc, wrapcxt, enabled);
         /* if we come back, re-lookup */
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
-        wrap = wrap_table_lookup_normalized_pc(pc);
+        wrap = wrap_table_lookup_normalized_pc(plain_pc);
     } else
         dr_rwlock_write_unlock(post_call_rwlock);
 }
 
 /* called via clean call at the top of callee */
 static void
-drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
+drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
 {
     void *drcontext = dr_get_current_drcontext();
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -1773,7 +1784,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
     mc.size = sizeof(mc);
     /* we use a passed-in xsp to avoid dr_get_mcontext */
     mc.xsp = xsp;
-#ifdef ARM
+#ifdef AARCHXX
     /* ditto */
     mc.lr = lr;
 #endif
@@ -1791,7 +1802,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
     NOTIFY(2, "%s: level %d function "PFX"\n", __FUNCTION__, pt->wrap_level+1, pc);
 
     drwrap_context_init(drcontext, &wrapcxt, pc, &mc, DRWRAP_WHERE_PRE_FUNC,
-                        IF_ARM_ELSE((app_pc)lr, get_retaddr_at_entry(xsp)));
+                        IF_X86_ELSE(get_retaddr_at_entry(xsp), (app_pc)lr));
 
     drwrap_in_callee_check_unwind(drcontext, pt, &mc);
 
@@ -1814,7 +1825,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_ARM(reg_t lr))
             }
         }
         if (intercept_post && wrapcxt.retaddr != NULL)
-            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, pc);
+            drwrap_ensure_postcall(drcontext, wrap, &wrapcxt, decorated_pc);
     }
 
     pt->wrap_level++;
@@ -2176,7 +2187,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
                                 OPND_CREATE_INTPTR((ptr_int_t)arg1),
                                 /* pass in xsp to avoid dr_get_mcontext */
                                 opnd_create_reg(DR_REG_XSP)
-                                _IF_ARM(opnd_create_reg(DR_REG_LR)));
+                                _IF_NOT_X86(opnd_create_reg(DR_REG_LR)));
     }
     dr_recurlock_unlock(wrap_lock);
 

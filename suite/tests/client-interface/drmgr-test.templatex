@@ -1,3 +1,5 @@
+in event_thread_init_ex
+in event_thread_init
 in pre_sys_B
 in pre_sys_A
 /* B is here with late injection */
@@ -21,4 +23,6 @@ All done
 #else
 Estimation of pi is 3.142425985001098
 #endif
+saw event_thread_exit
+saw event_thread_exit_ex
 all done

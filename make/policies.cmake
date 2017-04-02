@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,12 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.3" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.3")
+  # XXX i#1955: update our code to satisfy the changes in 3.3
+  cmake_policy(SET CMP0058 OLD)
+endif ()
+
 if ("${CMAKE_VERSION}" VERSION_EQUAL "3.1" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.1")
   # XXX i#1557: update our code to satisfy the changes in 3.x
@@ -38,6 +44,9 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.0")
   # XXX i#1557: update our code to satisfy the changes in 3.x
   cmake_policy(SET CMP0026 OLD)
+  # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
+  # Mac stuff and this policy, right?
+  cmake_policy(SET CMP0042 OLD)
 endif ()
 
 if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR

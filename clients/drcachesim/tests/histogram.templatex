@@ -1,0 +1,9 @@
+Hello, world!
+---- <application exited with code 0> ----
+Cache line histogram tool results:
+icache: [0-9]+ unique cache lines
+dcache: [0-9]+ unique cache lines
+icache top 20
+.*
+dcache top 20
+.*

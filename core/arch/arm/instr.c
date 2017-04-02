@@ -39,9 +39,6 @@
 bool
 instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
 {
-#ifdef X64
-    return (mode == DR_ISA_ARM_A64);
-#else
     if (mode == DR_ISA_ARM_THUMB)
         instr->flags |= INSTR_THUMB_MODE;
     else if (mode == DR_ISA_ARM_A32)
@@ -49,17 +46,12 @@ instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
     else
         return false;
     return true;
-#endif
 }
 
 dr_isa_mode_t
 instr_get_isa_mode(instr_t *instr)
 {
-#ifdef X64
-    return DR_ISA_ARM_A64;
-#else
     return TEST(INSTR_THUMB_MODE, instr->flags) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
-#endif
 }
 
 int
@@ -413,9 +405,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
             return true;
         } else
             return false;
-    } else if (opc == OP_mov || opc == OP_movs || opc == OP_movw ||
-               /* We include movt even though it only writes the top half */
-               opc == OP_movt) {
+    } else if (opc == OP_mov || opc == OP_movs || opc == OP_movw) {
         opnd_t op = instr_get_src(instr, 0);
         if (opnd_is_immed_int(op)) {
             *value = opnd_get_immed_int(op);
@@ -703,13 +693,13 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    return pred != DR_PRED_NONE && pred != DR_PRED_AL;
+    return pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP;
 }
 
 bool
 reg_is_gpr(reg_id_t reg)
 {
-    return (reg >= DR_REG_X0 && reg < DR_REG_Q0);
+    return (DR_REG_R0 <= reg && reg <= DR_REG_R15);
 }
 
 bool
@@ -775,9 +765,6 @@ instr_reads_thread_register(instr_t *instr)
 {
     opnd_t opnd;
 
-#ifdef X64
-# error NYI on AArch64
-#else
     /* mrc p15, 0, reg_base, c13, c0, 3 */
     if (instr_get_opcode(instr) != OP_mrc)
         return false;
@@ -797,7 +784,6 @@ instr_reads_thread_register(instr_t *instr)
     opnd = instr_get_src(instr, 4);
     if (!opnd_is_immed_int(opnd) || opnd_get_immed_int(opnd) != USR_TLS_REG_OPCODE)
         return false;
-#endif /* 64/32 */
     return true;
 }
 

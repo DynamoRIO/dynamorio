@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -488,6 +488,19 @@ extern vm_area_vector_t *modlist_areas;
  * Public functions
  */
 
+/* Flags for use with privload_map_and_relocate() */
+typedef enum {
+    MODLOAD_REACHABLE             = 0x0001,
+    /* These are for use with dr_map_executable_file(): */
+    MODLOAD_NOT_PRIVLIB           = 0x0002,
+    MODLOAD_SKIP_WRITABLE         = 0x0004, /* ignored on Windows */
+} modload_flags_t;
+
+/* This function is used for loading non-private libs as well as private. */
+app_pc
+privload_map_and_relocate(const char *filename, size_t *size OUT,
+                          modload_flags_t flags);
+
 /* returns whether they all fit */
 bool
 privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *sofar);
@@ -530,9 +543,6 @@ privload_redirect_setup(privmod_t *mod);
 
 void
 privload_os_finalize(privmod_t *privmod_t);
-
-app_pc
-privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable);
 
 bool
 privload_call_entry(privmod_t *privmod, uint reason);
@@ -607,6 +617,9 @@ privload_load_finalized(privmod_t *mod);
 #ifdef WINDOWS
 bool
 privload_console_share(app_pc priv_kernel32, app_pc app_kernel32);
+
+bool
+privload_attach_parent_console(app_pc app_kernel32);
 #endif
 
 #endif /* MODULE_LIST_H */

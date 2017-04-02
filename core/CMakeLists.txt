@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,7 +32,7 @@
 include(../make/policies.cmake NO_POLICY_SCOPE)
 
 ###########################################################################
-# sources and targets
+# Sources and targets
 
 # we have no exe's here, and we want our dll's in the lib dir
 # (could use MODULE instead of SHARED if it would let us link)
@@ -65,6 +65,11 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
+if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
+  add_asm_target(arch/${ARCH_NAME_SHARED}/${ARCH_NAME_SHARED}.asm
+    archshared_core_asm_src archshared_core_asm_tgt
+    "_core" "" "${asm_deps}")
+endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
@@ -118,8 +123,7 @@ set(CORE_SRCS
   lib/instrument.c
   translate.c
   annotations.c
-  jitopt.c
-  asmtable.c
+  jit_opt.c
   )
 
 if (UNIX)
@@ -169,7 +173,7 @@ endif (WIN32 AND NOT X64)
 
 set(DECODER_SRCS
   arch/opnd_shared.c
-  arch/${ARCH_NAME}/opnd.c
+  arch/${ARCH_NAME_SHARED}/opnd.c
   arch/instr_shared.c
   arch/${ARCH_NAME}/instr.c
   arch/instrlist.c
@@ -184,7 +188,7 @@ if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/decode_table.c
     arch/${ARCH_NAME}/decode_fast.c)
-else ()
+elseif (ARM)
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/table_a32_pred.c
     arch/${ARCH_NAME}/table_a32_unpred.c
@@ -193,6 +197,10 @@ else ()
     arch/${ARCH_NAME}/table_t32_coproc.c
     arch/${ARCH_NAME}/table_t32_16.c
     arch/${ARCH_NAME}/table_t32_16_it.c)
+elseif (AARCH64)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/codec.c
+    arch/${ARCH_NAME}/build_ldstex.c)
 endif ()
 
 set(ARCH_SRCS
@@ -204,19 +212,21 @@ set(ARCH_SRCS
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
-  arch/${ARCH_NAME}/mangle.c
+  arch/${ARCH_NAME_SHARED}/mangle.c
+  arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
+  ${archshared_core_asm_src}
   arch/${ARCH_NAME}/optimize.c
   arch/sideline.c
   arch/retcheck.c
   )
 
-if (X64)
+if (X86 AND X64)
   set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
-endif (X64)
+endif (X86 AND X64)
 
 if (WIN32)
   # i#894: Win8 WDK ntdll.lib does not list Ki routines so we make our own .lib.
@@ -246,6 +256,16 @@ if (WIN32)
   install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
 endif (WIN32)
 
+if (WIN32)
+  if (DEBUG)
+    set(WIN32_C_LIB libcmtd)
+  else (DEBUG)
+    set(WIN32_C_LIB libcmt)
+  endif (DEBUG)
+
+  set(NOLIBC_DLL_ENTRY /entry:DllMain)
+endif ()
+
 if (UNIX)
   set(OSNAME unix)
   set(OS_SRCS
@@ -258,18 +278,24 @@ if (UNIX)
     unix/loader.c
     )
   if (LINUX)
+    if (ANDROID)
+      set(OS_SRCS ${OS_SRCS} unix/loader_android.c)
+    else ()
+      set(OS_SRCS ${OS_SRCS} unix/loader_linux.c)
+    endif ()
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
     set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
-    set(OS_SRCS ${OS_SRCS} unix/tls_linux_${ARCH_NAME}.c)
+    set(OS_SRCS ${OS_SRCS} unix/tls_linux_${ARCH_NAME_SHARED}.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux_${ARCH_NAME}.c)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
   elseif (APPLE)
+    set(OS_SRCS ${OS_SRCS} unix/loader_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/module_macho.c)
@@ -371,13 +397,134 @@ else (UNIX)
     win32/early_inject_helper1.c
     win32/resources.rc
     )
+  set_target_properties(drearlyhelp1 PROPERTIES
+    COMPILE_FLAGS "-DRC_IS_EARLY1")
+  # base = (release base - 64k)
+  set_target_properties(drearlyhelp1 PROPERTIES
+    # not bothering with map files
+    LINK_FLAGS "${LD_FLAGS} /dll /NODEFAULTLIB /base:0x70FF0000 ${NOLIBC_DLL_ENTRY}")
+  target_link_libraries(drearlyhelp1 drearlyhelp2)
+
   add_library(drearlyhelp2 SHARED
     win32/early_inject_helper2.c
     win32/resources.rc
     )
+  set_target_properties(drearlyhelp2 PROPERTIES
+    COMPILE_FLAGS "-DRC_IS_EARLY2")
+  # base = (helper1 base - 64k)
+  set_target_properties(drearlyhelp2 PROPERTIES
+    # not bothering with map files
+    LINK_FLAGS "${LD_FLAGS} /dll /NODEFAULTLIB /base:0x71110000 ${NOLIBC_DLL_ENTRY}")
 endif (UNIX)
 
-add_library(dynamorio ${SHARED_OR_STATIC}
+###########################################################################
+# DynamoRIO core library shared configuration
+
+function (configure_core_lib target)
+  set_target_properties(${target} PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+    RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
+    ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+  add_gen_events_deps(${target})
+  if (WIN32)
+    # Since we're forced to use link-line flags instead of target_link_libraries
+    # for dynamorio, we have to add a real target dependence here for correct
+    # parallel builds (i#1616: ninja also needs explicit dependency on ntdll_imports).
+    add_dependencies(${target} ntdll_imports)
+  endif ()
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # For VS generators, we also need one for our asm custom commands.
+    add_dependencies(${target} ${arch_core_asm_tgt} ${archshared_core_asm_tgt})
+  endif ()
+
+  target_link_libraries(${target} drhelper)
+  copy_target_to_device(${target})
+
+  # rather than a separate BUILD_INCLUDES option we always build
+  # include headers if building core (or if building docs or samples as
+  # they have real dependencies)
+  if (CLIENT_INTERFACE OR APP_EXPORTS)
+    add_dependencies(${target} api_headers)
+  endif ()
+
+  if (UNIX)
+    set(dynamorio_link_flags "")
+
+    # Do non-lazy runtime binding
+    if (APPLE)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -bind_at_load")
+    else (APPLE)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -z -Xlinker now")
+    endif (APPLE)
+
+    if (APPLE AND NOT X64)
+      # XXX i#1322: get the asm code PIC.  Until then we have to suppress the
+      # error from ld about text relocs.
+      set(dynamorio_link_flags "-read_only_relocs suppress")
+    endif ()
+
+    # Bind global symbols internally to avoid interposing
+    if (APPLE)
+      # Looks like -interposable is off by default
+    else (APPLE)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -Bsymbolic")
+    endif (APPLE)
+
+    set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
+
+    if (APPLE)
+      # Needs explicit -init (regardless of name: _init, init, etc.)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -init __init")
+    endif (APPLE)
+
+    set_target_properties(${target} PROPERTIES
+      LINK_FLAGS "${dynamorio_link_flags}"
+      # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
+      # rpath: until then we add @rpath ourselves.  The downside is that
+      # everyone who uses this lib has to have the rpath set and can't
+      # just copy the lib to the local dir (should we document that?
+      # DynamoRIO_RPATH is only on for standalone by default).
+      INSTALL_NAME_DIR "@rpath")
+
+    # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
+
+    string(REGEX REPLACE
+      "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
+    # We only set the version/soversion on Windows to avoid many negatives
+    # (i#1374, i#2127, Android "adb push" not supporting symlinks, etc.) and
+    # very few positives on UNIX platforms.  Our loader does its own version
+    # checks for client compatibility.
+    if (WINDOWS)
+      set_target_properties(${target} PROPERTIES
+        VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
+    endif ()
+
+  else (UNIX)
+    set_target_properties(${target} PROPERTIES
+      # Set define parameters for resources.rc.
+      # Since it's hard to pass spaces in defines (I can get a " through using
+      # \\\\\\\" but no spaces) we put strings in resources.rc and select
+      # using RC_ defines.
+      COMPILE_DEFINITIONS "RC_IS_CORE;INCLUDE_EVENTS"
+      # i#921: we do not want a __chkstk function comparing our stack to
+      # TEB.StackLimit, esp on win8 where the stack is high, so we disable
+      # compiler-inserted stack probes globally in DR itself.
+      COMPILE_FLAGS "/Gs65536")
+
+    if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND
+        "${CMAKE_VERSION}" VERSION_LESS "2.8.9.20120822")
+      # cmake bug http://www.cmake.org/Bug/view.php?id=13486 causes rc.exe to
+      # fail b/c it's passed COMPILE_FLAGS
+      message(FATAL_ERROR "cmake at least version 2.8.9.20120822 is required for Ninja")
+    endif ()
+  endif (UNIX)
+
+endfunction (configure_core_lib)
+
+###########################################################################
+# DynamoRIO shared core library
+
+add_library(dynamorio SHARED
   ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS}
   # FIXME: any other way to add a dependence?  this is for export_list,
   # where the PRE_LINK custom command doesn't support DEPENDS.
@@ -387,111 +534,12 @@ add_library(dynamorio ${SHARED_OR_STATIC}
   # ditto: adding here for dependence
   ${PROJECT_SOURCE_DIR}/make/ldscript.cmake
   )
-set_target_properties(dynamorio PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
-  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
-  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
-add_gen_events_deps(dynamorio)
-if (WIN32)
-  # Since we're forced to use link-line flags instead of target_link_libraries
-  # for dynamorio, we have to add a real target dependence here for correct
-  # parallel builds (i#1616: ninja also needs explicit dependency on ntdll_imports).
-  add_dependencies(dynamorio ntdll_imports)
-endif ()
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # For VS generators, we also need one for our asm custom commands.
-  add_dependencies(dynamorio ${arch_core_asm_tgt})
-endif ()
 
-target_link_libraries(dynamorio drhelper)
-
-# rather than a separate BUILD_INCLUDES option we always build
-# include headers if building core (or if building docs or samples as
-# they have real dependencies)
-if (CLIENT_INTERFACE OR APP_EXPORTS)
-  add_dependencies(dynamorio api_headers)
-endif ()
-
-add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
-# We do not issue:
-#   target_link_libraries(${PRELOAD_NAME} dynamorio)
-# b/c preload dynamically loads dynamorio by name and does not have a
-# static dependence.  Plus, by having a static dependence we hit issues
-# like PR 258636.  We also don't set rpath b/c that only applies to executables.
-if (UNIX)
-  # we keep in {debug,release} subdir
-  set(preload_dest "${DR_LIBRARY_OUTPUT_DIRECTORY}")
-else (UNIX)
-  # we keep in lib{32,64} base dir
-  set(preload_dest "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-endif (UNIX)
-set_target_properties(${PRELOAD_NAME} PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
-  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
-  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
-add_gen_events_deps(${PRELOAD_NAME})
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
-endif ()
-target_link_libraries(${PRELOAD_NAME} drhelper)
-
-# static decoding library
-add_library(drdecode
-  ${DECODER_SRCS}
-  arch/${ARCH_NAME}/mangle.c
-  arch/decodelib.c
-  )
-set_target_properties(drdecode PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
-if (UNIX)
-  append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
-endif (UNIX)
-add_gen_events_deps(drdecode)
-target_link_libraries(drdecode drhelper)
-
-###########################################################################
-# linux build customization
+configure_core_lib(dynamorio)
 
 if (UNIX)
-  # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
-  set_target_properties(${PRELOAD_NAME} PROPERTIES
-    LINK_FLAGS "-nostartfiles")
-
-  set(dynamorio_link_flags "")
-
-  # Do non-lazy runtime binding
-  if (APPLE)
-    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -bind_at_load")
-  else (APPLE)
-    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -z -Xlinker now")
-  endif (APPLE)
-
-  if (APPLE AND NOT X64)
-    # XXX i#1322: get the asm code PIC.  Until then we have to suppress the
-    # error from ld about text relocs.
-    set(dynamorio_link_flags "-read_only_relocs suppress")
-  endif ()
-
-  # Bind global symbols internally to avoid interposing
-  if (APPLE)
-    # Looks like -interposable is off by default
-  else (APPLE)
-    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -Bsymbolic")
-  endif (APPLE)
-
-  set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
-
-  if (STATIC_LIBRARY)
-    # We build static DR as PIC in case we're linked into a .so or a PIE.
-    append_property_string(TARGET dynamorio COMPILE_FLAGS "-fPIC")
-  else ()
-    # i#47: set the ELF header entry point to _start for early injection.
-    if (APPLE)
-      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,-e,_start")
-    else (APPLE)
-      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
-    endif (APPLE)
-  endif ()
+  # i#47: set the ELF header entry point to _start for early injection.
+  append_property_string(TARGET dynamorio LINK_FLAGS "-Wl,${ld_entry_flag},_start")
 
   if (NOT HAVE_FVISIBILITY)
     set(export_list ${CMAKE_CURRENT_BINARY_DIR}/exportlist)
@@ -504,112 +552,16 @@ if (UNIX)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM # recommended: p260
       )
-    set(dynamorio_link_flags
-      "${dynamorio_link_flags} -Xlinker --version-script -Xlinker ${export_list}")
+    append_property_string(TARGET dynamorio LINK_FLAGS
+      "-Xlinker --version-script -Xlinker ${export_list}")
   endif (NOT HAVE_FVISIBILITY)
-
-  if (APPLE)
-    # Needs explicit -init (regardless of name: _init, init, etc.)
-    set(dynamorio_link_flags "${dynamorio_link_flags} -init __init")
-  endif (APPLE)
-
-  set_target_properties(dynamorio PROPERTIES
-    LINK_FLAGS "${dynamorio_link_flags}"
-    # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
-    # rpath: until then we add @rpath ourselves.  The downside is that
-    # everyone who uses this lib has to have the rpath set and can't
-    # just copy the lib to the local dir (should we document that?
-    # DynamoRIO_RPATH is only on for standalone by default).
-    INSTALL_NAME_DIR "@rpath")
 
   # This appends to LINK_FLAGS, so do it after we set them above.
   set_preferred_base_start_and_end(dynamorio ${preferred_base} ON)
 
-  if (APPLE OR STATIC_LIBRARY)
-    # Static library build uses libdl.  MacOS has no private loader yet.
+  if (APPLE) # MacOS has no private loader yet.
     target_link_libraries(dynamorio dl)
   endif ()
-  # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
-
-  # We need to do extra work to hide symbols in the static library build.
-  # First we do a partial link with ld -r, which makes a single libdynamorio.o
-  # object file.  Then we use objcopy --localize-hidden to hide all
-  # non-exported symbols.
-  if (STATIC_LIBRARY)
-    if (NOT EXISTS ${CMAKE_OBJCOPY})
-      message(FATAL_ERROR "STATIC_LIBRARY requires objcopy")
-    endif ()
-    get_target_property(dynamorio_dot_a dynamorio LOCATION)
-    string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
-    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
-    set (globalize_pic_thunks)
-    if (NOT X64)
-      # Localizing PIC thunks on ia32 creates references to discarded sections.
-      # XXX: Hardcoding this list of symbols is fragile.  It is known to work
-      # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
-      set (globalize_pic_thunks ${CMAKE_OBJCOPY}
-        --globalize-symbol=__i686.get_pc_thunk.bx
-        --globalize-symbol=__i686.get_pc_thunk.cx
-        --globalize-symbol=__x86.get_pc_thunk.bx
-        --globalize-symbol=__x86.get_pc_thunk.cx
-        "${dynamorio_dot_o}" &&
-        )
-    endif ()
-    add_custom_command(TARGET dynamorio POST_BUILD
-      COMMAND
-      ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-        -nostartfiles -nodefaultlibs -r
-        -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
-        -o "${dynamorio_dot_o}" &&
-      ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
-      ${globalize_pic_thunks}
-      rm -f "${dynamorio_dot_a}" &&
-      ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
-      ${CMAKE_RANLIB} "${dynamorio_dot_a}"
-      WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-      VERBATIM)
-  endif ()
-
-  # We use .so versioning via symlinks.
-  # We do not version the preload lib as it does not expose an API,
-  # and drconfig is Windows-only.
-  # Our releases match our API so we use major.minor as our soversion.
-  # That allows both forward and backward compatibility, but means that
-  # we need to provide symlinks for all backward compatible versions.
-  # In the future CMake is expected to add explicit support for this.
-
-  function (generate_soversions verstart verstop)
-    while (${verstart} LESS ${verstop})
-      math(EXPR COMPAT_MAJOR "${verstart} / 100")
-      math(EXPR COMPAT_MINOR "${verstart} % 100")
-      get_target_property(curver_base dynamorio LOCATION)
-      get_filename_component(curver_path "${curver_base}" PATH)
-      get_filename_component(curver_base "${curver_base}" NAME)
-      get_target_property(curver_sover dynamorio SOVERSION)
-      set(curver "${curver_base}.${curver_sover}")
-      string(REGEX REPLACE "so.${VERSION_MAJOR_MINOR}"
-        "so.${COMPAT_MAJOR}.${COMPAT_MINOR}" oldver "${curver}")
-      set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} ${curver_path}/${oldver})
-      add_custom_command(TARGET dynamorio POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink ${curver} ${oldver}
-        WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-        VERBATIM)
-      math(EXPR verstart "${verstart} + 1")
-    endwhile ()
-    set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} PARENT_SCOPE)
-  endfunction (generate_soversions)
-
-  string(REGEX REPLACE
-    "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
-  if (NOT APPLE) # FIXME i#1374: versioning causing problems
-    set_target_properties(dynamorio PROPERTIES
-      VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
-    if (NOT STATIC_LIBRARY)
-      # We assume OLDEST_COMPATIBLE_VERSION and cur ver have the same major #.
-      # If they don't we need additional calls here.
-      generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
-    endif ()
-  endif (NOT APPLE)
 
   if (LINUX) # No checks for MacOS
     # Note that we can't locate readelf inside CMake_readelf.cmake as that
@@ -626,14 +578,12 @@ if (UNIX)
     endif (APPLE)
     find_program(READELF_EXECUTABLE ${readelf_name} HINTS "${binutils_path}"
       DOC "path to readelf")
-    if (STATIC_LIBRARY)
-      # Skipping readelf check for STATIC_LIBRARY.
-    elseif (NOT READELF_EXECUTABLE)
+    if (NOT READELF_EXECUTABLE)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       get_target_property(lib_to_check dynamorio LOCATION)
       set(check_deps OFF)
-      if (NOT STATIC_LIBRARY AND NOT APPLE)
+      if (NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
         # for MacOS where privlib is NYI (i#1285) and static lib.
         if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
@@ -647,18 +597,7 @@ if (UNIX)
         ARGS -D lib=${lib_to_check}
              -D check_deps=${check_deps}
              -D check_libc=OFF
-             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
-             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
-        VERBATIM # recommended: p260
-        )
-      get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
-      add_custom_command(TARGET ${PRELOAD_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND}
-        # to work around i#84 be sure to put a space after -D for 1st arg at least
-        ARGS -D lib=${lib_to_check}
-             -D check_deps=OFF
-             -D check_libc=ON
+             -D check_interp=ON
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
         VERBATIM # recommended: p260
@@ -668,40 +607,7 @@ if (UNIX)
 
   # we used to run size on libdynamorio.so for info purposes
 
-  set_target_properties(${PRELOAD_NAME} PROPERTIES
-    COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
-
-  if (APPLE)
-    # Linker complains about unresolved symbols.
-    # This means we can't use preload by itself -- but these days we never do that.
-    target_link_libraries(${PRELOAD_NAME} dynamorio)
-    # Needs explicit -init (regardless of name: _init, init, etc.)
-    append_property_string(TARGET ${PRELOAD_NAME} LINK_FLAGS "-init __init")
-  endif (APPLE)
-
 else (UNIX)
-###########################################################################
-# windows build customization
-
-  set_target_properties(dynamorio PROPERTIES
-    # Set define parameters for resources.rc.
-    # Since it's hard to pass spaces in defines (I can get a " through using
-    # \\\\\\\" but no spaces) we put strings in resources.rc and select
-    # using RC_ defines.
-    COMPILE_DEFINITIONS "RC_IS_CORE;INCLUDE_EVENTS"
-    # i#921: we do not want a __chkstk function comparing our stack to
-    # TEB.StackLimit, esp on win8 where the stack is high, so we disable
-    # compiler-inserted stack probes globally in DR itself.
-    COMPILE_FLAGS "/Gs65536")
-
-  if ("${CMAKE_GENERATOR}" MATCHES "Ninja" AND
-      "${CMAKE_VERSION}" VERSION_LESS "2.8.9.20120822")
-    # cmake bug http://www.cmake.org/Bug/view.php?id=13486 causes rc.exe to
-    # fail b/c it's passed COMPILE_FLAGS
-    message(FATAL_ERROR "cmake at least version 2.8.9.20120822 is required for Ninja")
-  endif ()
-
-  set(NOLIBC_DLL_ENTRY /entry:DllMain)
 
   # Set up .def file.  Since there's only one and it does not depend on the
   # sources we can do this at configure time and not require a separate script.
@@ -792,37 +698,155 @@ else (UNIX)
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
 
-  if (DEBUG)
-    set(WIN32_C_LIB libcmtd)
-  else (DEBUG)
-    set(WIN32_C_LIB libcmt)
-  endif (DEBUG)
-
-  if (NOT STATIC_LIBRARY)
-    # ensure there are no dependencies other than ntdll
-    find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
-    if (DUMPBIN_EXECUTABLE)
-      add_custom_command(TARGET dynamorio POST_BUILD
-        COMMAND ${CMAKE_COMMAND}
+  # ensure there are no dependencies other than ntdll
+  find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
+  if (DUMPBIN_EXECUTABLE)
+    add_custom_command(TARGET dynamorio POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
         ARGS -D lib=${drout}
              -D DUMPBIN_EXECUTABLE=${DUMPBIN_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_checkdeps.cmake
         VERBATIM)
-    else ()
-      message(STATUS "Cannot find dumpbin so not performing dependence check")
-    endif ()
   else ()
-    # i#975: if we're building static, none of those link flags above are going
+    message(STATUS "Cannot find dumpbin so not performing dependence check")
+  endif ()
+endif (UNIX)
+
+###########################################################################
+# DynamoRIO static core library
+
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  add_library(dynamorio_static STATIC
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+
+  configure_core_lib(dynamorio_static)
+
+  append_property_list(TARGET dynamorio_static COMPILE_DEFINITIONS "STATIC_LIBRARY")
+
+  if (UNIX)
+    # We build static DR as PIC in case we're linked into a .so or a PIE.
+    append_property_string(TARGET dynamorio_static COMPILE_FLAGS "-fPIC")
+    target_link_libraries(dynamorio_static dl)
+
+    # We need to do extra work to hide symbols in the static library build.
+    # First we do a partial link with ld -r, which makes a single libdynamorio.o
+    # object file.  Then we use objcopy --localize-hidden to hide all
+    # non-exported symbols.
+    if (NOT EXISTS ${CMAKE_OBJCOPY})
+      message( "dynamorio_static requires objcopy")
+    endif ()
+    get_target_property(dynamorio_dot_a dynamorio_static LOCATION)
+    string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
+    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
+    set (globalize_pic_thunks)
+    if (NOT X64)
+      # Localizing PIC thunks on ia32 creates references to discarded sections.
+      # XXX: Hardcoding this list of symbols is fragile.  It is known to work
+      # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
+      set (globalize_pic_thunks ${CMAKE_OBJCOPY}
+        --globalize-symbol=__i686.get_pc_thunk.bx
+        --globalize-symbol=__i686.get_pc_thunk.cx
+        --globalize-symbol=__x86.get_pc_thunk.ax
+        --globalize-symbol=__x86.get_pc_thunk.bx
+        --globalize-symbol=__x86.get_pc_thunk.cx
+        --globalize-symbol=__x86.get_pc_thunk.dx
+        --globalize-symbol=__x86.get_pc_thunk.di
+        --globalize-symbol=__x86.get_pc_thunk.si
+        "${dynamorio_dot_o}" &&
+        )
+    endif ()
+    set(disable_pie_flag)
+    # Older versions of GCC do not understand "-no-pie". See i#2083.
+    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+    if (no_pie_avail)
+      # If the compiler's default is "-pie", we must specify "-no-pie" when using "-r"
+      # to avoid the error "-r and -pie may not be used together". See i#2083.
+      set(disable_pie_flag "-no-pie")
+    endif ()
+    add_custom_command(TARGET dynamorio_static POST_BUILD
+      COMMAND
+      ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
+        -nostartfiles -nodefaultlibs -Wl,-r ${disable_pie_flag}
+        -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
+        -o "${dynamorio_dot_o}" &&
+      ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
+      ${globalize_pic_thunks}
+      rm -f "${dynamorio_dot_a}" &&
+      ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
+      ${CMAKE_RANLIB} "${dynamorio_dot_a}"
+      WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
+      VERBATIM)
+
+  else (UNIX)
+
+    # i#975: if we're building static, none of the shared lib link flags are going
     # to make it through.  But target_link_libraries will.  We name a C library
     # here to make sure things get linked in the right order to avoid duplicate
     # definitions.  See the case 4125 msvcrt comment above about why we need a C
     # library.
-    target_link_libraries(dynamorio ${WIN32_C_LIB} ntdll_imports)
-  endif ()
+    target_link_libraries(dynamorio_static ${WIN32_C_LIB} ntdll_imports)
 
+  endif (UNIX)
+endif (NOT APPLE)
 
+###########################################################################
+# Preload library
+
+add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
+# We do not issue:
+#   target_link_libraries(${PRELOAD_NAME} dynamorio)
+# b/c preload dynamically loads dynamorio by name and does not have a
+# static dependence.  Plus, by having a static dependence we hit issues
+# like PR 258636.  We also don't set rpath b/c that only applies to executables.
+if (UNIX)
+  # we keep in {debug,release} subdir
+  set(preload_dest "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+else (UNIX)
+  # we keep in lib{32,64} base dir
+  set(preload_dest "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+endif (UNIX)
+set_target_properties(${PRELOAD_NAME} PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
+  ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
+add_gen_events_deps(${PRELOAD_NAME})
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
+endif ()
+target_link_libraries(${PRELOAD_NAME} drhelper)
+copy_target_to_device(${PRELOAD_NAME})
+
+set_target_properties(${PRELOAD_NAME} PROPERTIES
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
+
+if (UNIX)
+  # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
   set_target_properties(${PRELOAD_NAME} PROPERTIES
-    COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
+    LINK_FLAGS "-nostartfiles")
+  if (APPLE)
+    # Linker complains about unresolved symbols.
+    # This means we can't use preload by itself -- but these days we never do that.
+    target_link_libraries(${PRELOAD_NAME} dynamorio)
+    # Needs explicit -init (regardless of name: _init, init, etc.)
+    append_property_string(TARGET ${PRELOAD_NAME} LINK_FLAGS "-init __init")
+  endif (APPLE)
+  if (LINUX AND READELF_EXECUTABLE)
+    get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
+    add_custom_command(TARGET ${PRELOAD_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      # to work around i#84 be sure to put a space after -D for 1st arg at least
+      ARGS -D lib=${lib_to_check}
+           -D check_deps=OFF
+           -D check_libc=ON
+           -D check_interp=ON
+           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
+      VERBATIM # recommended: p260
+      )
+  endif ()
+else (UNIX)
   set(pre_link_flags
     # preinjector requires no C library for its unload-self method
     # not bothering with map files
@@ -830,24 +854,27 @@ else (UNIX)
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
   target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
-
-
-  set_target_properties(drearlyhelp1 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY1")
-  # base = (release base - 64k)
-  set_target_properties(drearlyhelp1 PROPERTIES
-    # not bothering with map files
-    LINK_FLAGS "${LD_FLAGS} /dll /NODEFAULTLIB /base:0x70FF0000 ${NOLIBC_DLL_ENTRY}")
-  target_link_libraries(drearlyhelp1 drearlyhelp2)
-
-  set_target_properties(drearlyhelp2 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY2")
-  # base = (helper1 base - 64k)
-  set_target_properties(drearlyhelp2 PROPERTIES
-    # not bothering with map files
-    LINK_FLAGS "${LD_FLAGS} /dll /NODEFAULTLIB /base:0x71110000 ${NOLIBC_DLL_ENTRY}")
-
 endif (UNIX)
+
+###########################################################################
+# Decoding library
+
+# static decoding library
+add_library(drdecode
+  ${DECODER_SRCS}
+  arch/${ARCH_NAME_SHARED}/mangle.c
+  arch/decodelib.c
+  )
+set_target_properties(drdecode PROPERTIES
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+if (UNIX)
+  append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
+endif (UNIX)
+add_gen_events_deps(drdecode)
+target_link_libraries(drdecode drhelper)
+
+###########################################################################
+# Injection library
 
 # drinjectlib
 # i#1737: we used to have drconfiglib as a shared library, but that led to a
@@ -887,6 +914,9 @@ if (WIN32)
     "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
 endif (WIN32)
 
+###########################################################################
+# Annotations
+
 if (ANNOTATIONS)
   set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotations")
   set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotations" PARENT_SCOPE)
@@ -907,23 +937,36 @@ if (ANNOTATIONS)
   include_directories("${BUILD_ANNOTATION}")
 endif ()
 
+###########################################################################
+# Unit tests
+
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${arch_core_asm_tgt} ntdll_imports)
+    add_dependencies(unit_tests ${arch_core_asm_tgt} ${archshared_core_asm_tgt}
+      ntdll_imports)
+  endif ()
+  set(unit_tests_extra_flags "")
+  if (UNIX AND NOT DEBUG)
+    # -Wno-array-bounds to work around compiler bug (i#1796)
+    set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
   endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
+    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
-    # i#1228 make sure entry point of the elf binary pointing to _start.
-    # Otherwise, the entry point will point to the start of .text section,
-    # which might not be _start.
-    append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
-    target_link_libraries(unit_tests c dl m pthread)
+    if (NOT APPLE)
+      # i#1228 make sure entry point of the elf binary pointing to _start.
+      # Otherwise, the entry point will point to the start of .text section,
+      # which might not be _start.
+      append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,${ld_entry_flag},_start")
+    endif ()
+    if (NOT ANDROID) # everything is inside Bionic on Android
+      target_link_libraries(unit_tests c dl m pthread)
+    endif ()
     set_preferred_base_start_and_end(unit_tests ${preferred_base} ON)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntdll
@@ -932,7 +975,13 @@ if (BUILD_TESTS)
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
   target_link_libraries(unit_tests drhelper)
-  add_test(unit_tests "${EXECUTABLE_OUTPUT_DIRECTORY}/unit_tests")
+  get_target_path_for_execution(unit_relpath unit_tests)
+  prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
+  add_test(unit_tests ${unit_relpath})
+  if (APPLE)
+    set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+  endif ()
+  copy_target_to_device(unit_tests)
 endif (BUILD_TESTS)
 
 ###########################################################################
@@ -958,8 +1007,15 @@ set_target_properties(dynamorio PROPERTIES
   IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
 install_exported_target(dynamorio ${INSTALL_LIB}
   # CMake doesn't set +x on shared libraries, so we have to ask for it.
-  PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
+  PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 DR_export_target(dynamorio)
+
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  install_exported_target(dynamorio_static ${INSTALL_LIB})
+  DR_export_target(dynamorio_static)
+endif ()
+
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)
 if (UNIX)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,14 +52,6 @@
  * @brief Utility routines for identifying features of the processor.
  */
 
-/* page size is 4K on all DR-supported platforms */
-#ifndef PAGE_SIZE /* defined on Mac and Android */
-# define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
-#endif
-
-/**< Convenience macro to align to the start of a page of memory. */
-#define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
-
 /**
  * The maximum possible required size of floating point state buffer for
  * processors with different features (i.e., the processors with the FXSR
@@ -70,15 +62,18 @@
  */
 #ifdef X86
 # define DR_FPSTATE_BUF_SIZE 512
-#elif defined(ARM)
-# define DR_FPSTATE_BUF_SIZE (32*64)
+#elif defined(ARM) || defined(AARCH64)
+/* On ARM/AArch64 proc_save_fpstate saves nothing, so use the smallest
+ * legal size for an array.
+ */
+# define DR_FPSTATE_BUF_SIZE 1
 #endif
 
 /** The alignment requirements of floating point state buffer. */
-#ifdef X86
+#if defined(X86) || defined(AARCH64)
 # define DR_FPSTATE_ALIGN  16
 #elif defined(ARM)
-# define DR_FPSTATE_ALIGN  4
+# define DR_FPSTATE_ALIGN  1
 #endif
 /** Constants returned by proc_get_vendor(). */
 enum {
@@ -466,8 +461,8 @@ DR_API
  * On x86, the buffer must be 16-byte-aligned, and it must be
  * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
- * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
- * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be saved as the
+ * SIMD/FP registers are saved together with the general-purpose registers.
  *
  * \note proc_fpstate_save_size() can be used to determine the particular
  * size needed.
@@ -478,10 +473,10 @@ DR_API
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
  *
- * DR does NOT save the application's floating-point, MMX, or SSE state
+ * DR does NOT save the application's floating-point or MMX state
  * on context switches!  Thus if a client performs any floating-point
  * operations in its main routines called by DR, the client must save
- * and restore the floating-point/MMX/SSE state.
+ * and restore the floating-point/MMX state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
  * Returns number of bytes written.
@@ -495,8 +490,8 @@ DR_API
  * On x86, the buffer must be 16-byte-aligned, and it must be
  * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
- * 16-bit operand sizing).  On ARM, the buffer must be 4-byte-aligned and
- * it must be 2048 (DR_FPSTATE_BUF_SIZE) bytes.
+ * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be restored as the
+ * SIMD/FP registers are restored together with the general-purpose registers.
  *
  * \note proc_fpstate_save_size() can be used to determine the particular
  * size needed.

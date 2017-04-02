@@ -191,6 +191,7 @@ opnd_size_suffix_dr(opnd_t opnd)
     switch (sz) {
     case 1: return "1byte";
     case 2: return "2byte";
+    case 3: return "3byte";
     case 4: return "4byte";
     case 6: return "6byte";
     case 8: return "8byte";
@@ -293,10 +294,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
     if (disp != 0 || (base == REG_NULL && index == REG_NULL) ||
         opnd_is_disp_encode_zero(opnd)) {
         if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
-            /* Always negating for ARM.  I would do the same for x86 but I don't
-             * want to break any existing scripts.
+            /* Always negating for ARM and AArch64.  I would do the same for x86 but
+             * I don't want to break any existing scripts.
              */
-            IF_ARM(|| true)) {
+            IF_NOT_X86(|| true)) {
             /* windbg negates if top byte is 0xff
              * for x64 udis86 negates if at all negative
              */
@@ -314,10 +315,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
         }
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
-        else if (disp >= INT8_MIN && disp <= INT8_MAX &&
-            !opnd_is_disp_force_full(opnd))
+        else if ((unsigned)disp <= 0xff && !opnd_is_disp_force_full(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
-        else if (opnd_is_disp_short_addr(opnd))
+        else if ((unsigned)disp <= 0xffff
+                 IF_X86(&& opnd_is_disp_short_addr(opnd)))
             print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
@@ -402,11 +403,11 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
                             target, ibl_name, ibl_brtype);
             printed = true;
         } else if (SHARED_FRAGMENTS_ENABLED() && target ==
-                   fcache_return_shared_routine(IF_X64(GENCODE_X64)))
+                   fcache_return_shared_routine(IF_X86_64(GENCODE_X64)))
             gencode_routine = "fcache_return";
 # ifdef X64
         else if (SHARED_FRAGMENTS_ENABLED() && target ==
-                 fcache_return_shared_routine(IF_X64(GENCODE_X86)))
+                 fcache_return_shared_routine(IF_X86_64(GENCODE_X86)))
             gencode_routine = "x86_fcache_return";
 # endif
         else if (dcontext != GLOBAL_DCONTEXT &&
@@ -414,19 +415,19 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
             gencode_routine = "fcache_return";
         else if (DYNAMO_OPTION(coarse_units)) {
             if (target == fcache_return_coarse_prefix(target, NULL) ||
-                target == fcache_return_coarse_routine(IF_X64(GENCODE_X64)))
+                target == fcache_return_coarse_routine(IF_X86_64(GENCODE_X64)))
                 gencode_routine = "fcache_return_coarse";
             else if (target == trace_head_return_coarse_prefix(target, NULL) ||
                      target == trace_head_return_coarse_routine
-                     (IF_X64(GENCODE_X64)))
+                     (IF_X86_64(GENCODE_X64)))
                 gencode_routine = "trace_head_return_coarse";
 # ifdef X64
             else if (target == fcache_return_coarse_prefix(target, NULL) ||
-                     target == fcache_return_coarse_routine(IF_X64(GENCODE_X86)))
+                     target == fcache_return_coarse_routine(IF_X86_64(GENCODE_X86)))
                 gencode_routine = "x86_fcache_return_coarse";
             else if (target == trace_head_return_coarse_prefix(target, NULL) ||
                      target == trace_head_return_coarse_routine
-                     (IF_X64(GENCODE_X86)))
+                     (IF_X86_64(GENCODE_X86)))
                 gencode_routine = "x86_trace_head_return_coarse";
 # endif
         }
@@ -985,6 +986,14 @@ sign_extend_immed(instr_t *instr, int srcnum, opnd_t *src)
 {
     opnd_size_t opsz = OPSZ_NA;
     bool resize = true;
+
+#if !defined(X86) && !defined(ARM)
+    /* Automatic sign extension is probably only useful on Intel but
+     * is left enabled on ARM (AArch32) as it is what some tests expect.
+     */
+    return;
+#endif
+
     if (opnd_is_immed_int(*src)) {
         /* PR 327775: force operand to sign-extend if all other operands
          * are of a larger and identical-to-each-other size (since we
@@ -1049,8 +1058,14 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "<label>");
         return;
     } else if (instr_opcode_valid(instr)) {
+#ifdef AARCH64
+        /* We do not use instr_info_t encoding info on AArch64. */
+        info = NULL;
+        name = get_opcode_name(instr_get_opcode(instr));
+#else
         info = instr_get_instr_info(instr);
         name = info->name;
+#endif
     } else
         name = "<RAW>";
 
@@ -1449,7 +1464,7 @@ instrlist_disassemble(dcontext_t *dcontext,
                 level = 3;
             else if (instr_opcode_valid(instr))
                 level = 2;
-            else if (decode_sizeof(dcontext, addr, NULL _IF_X64(NULL)) == len)
+            else if (decode_sizeof(dcontext, addr, NULL _IF_X86_64(NULL)) == len)
                 level = 1;
             else
                 level = 0;

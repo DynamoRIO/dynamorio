@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,12 +59,12 @@
 # define XMM_REG_SIZE  16
 # define YMM_REG_SIZE  32
 # define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
-# define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
-# define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
+# define XMM_SLOTS_SIZE  (NUM_SIMD_SLOTS*XMM_SAVED_REG_SIZE)
+# define XMM_SAVED_SIZE  (NUM_SIMD_SAVED*XMM_SAVED_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 # define YMM_ENABLED() (proc_avx_enabled())
 # define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
-# define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
+# define YMMH_SAVED_SIZE (NUM_SIMD_SLOTS*YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
@@ -127,7 +127,7 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-#ifdef ARM
+#ifdef AARCHXX
 typedef struct _ibl_entry_pc_t {
     byte *ibl;
     byte *unlinked;
@@ -142,13 +142,17 @@ typedef struct _spill_state_t {
     /* Four registers are used in the indirect branch lookup routines */
 #ifdef X86
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
-#elif defined (ARM)
+#elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
+# ifdef X64
+    /* These are needed for icache_op_ic_ivau_asm. */
+    reg_t r4, r5;
+# endif
     reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#ifdef ARM
+#ifdef AARCHXX
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
@@ -191,21 +195,30 @@ typedef struct _local_state_extended_t {
 # define SCRATCH_REG1             DR_REG_XBX
 # define SCRATCH_REG2             DR_REG_XCX
 # define SCRATCH_REG3             DR_REG_XDX
-#elif defined(ARM)
+#elif defined(AARCHXX)
 # define TLS_REG0_SLOT            ((ushort)offsetof(spill_state_t, r0))
 # define TLS_REG1_SLOT            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_REG2_SLOT            ((ushort)offsetof(spill_state_t, r2))
 # define TLS_REG3_SLOT            ((ushort)offsetof(spill_state_t, r3))
+# ifdef AARCH64
+#  define TLS_REG4_SLOT           ((ushort)offsetof(spill_state_t, r4))
+#  define TLS_REG5_SLOT           ((ushort)offsetof(spill_state_t, r5))
+# endif
 # define TLS_REG_STOLEN_SLOT      ((ushort)offsetof(spill_state_t, reg_stolen))
 # define SCRATCH_REG0             DR_REG_R0
 # define SCRATCH_REG1             DR_REG_R1
 # define SCRATCH_REG2             DR_REG_R2
 # define SCRATCH_REG3             DR_REG_R3
+# ifdef AARCH64
+#  define SCRATCH_REG4            DR_REG_R4
+#  define SCRATCH_REG5            DR_REG_R5
+# endif
+# define SCRATCH_REG_LAST         IF_X64_ELSE(SCRATCH_REG5, SCRATCH_REG3)
 #endif /* X86/ARM */
 #define IBL_TARGET_REG           SCRATCH_REG2
 #define IBL_TARGET_SLOT          TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
-#ifdef ARM
+#ifdef AARCHXX
 # define TLS_FCACHE_RETURN_SLOT  ((ushort)offsetof(spill_state_t, fcache_return))
 #endif
 
@@ -413,30 +426,38 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
  * if target is within cache line.
  */
 #  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     /* allow a constant to be passed in by supplying our own lvalue */ \
+     int _myval = value;                                          \
      ASSERT(sizeof(value) == 4);                                      \
      /* test that we aren't crossing a cache line boundary */         \
      CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);                \
      /* we use xchgl instead of mov for non-4-byte-aligned writes */  \
-     __asm__ __volatile__("xchgl (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+     /* i#1805: both operands must be outputs to ensure proper compiler behavior */ \
+     __asm__ __volatile__("xchgl %0, %1" : "+m"(*(int*)(target)), "+r"(_myval) : ); \
    } while (0)
 #  ifdef X64
 #   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
+      /* allow a constant to be passed in by supplying our own lvalue */ \
+      int64 _myval = value;                                       \
       ASSERT(sizeof(value) == 8);                                     \
       /* Not currently used to write code */                          \
       ASSERT_CURIOSITY(!hot_patch);                                   \
       /* test that we aren't crossing a cache line boundary */        \
       CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
-      __asm__ __volatile__("xchgq (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+      /* i#1805: both operands must be outputs to ensure proper compiler behavior */ \
+      __asm__ __volatile__("xchgq %0, %1" : "+m"(*(int64*)(target)), "+r"(_myval) : ); \
     } while (0)
 #  endif /* X64 */
 #  define ATOMIC_INC_suffix(suffix, var) \
      __asm__ __volatile__("lock inc" suffix " %0" : "=m" (var) : : "memory")
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
 #  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #  define ATOMIC_DEC_suffix(suffix, var) \
      __asm__ __volatile__("lock dec" suffix " %0" : "=m" (var) : : "memory")
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 /* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
  * and then complain that "lock addq" can't take %eax!
  * so we use "ri":
@@ -446,6 +467,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
                          : "=m" (var) : "ri" (value) : "memory")
 #  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
 #  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result) \
     __asm__ __volatile__("lock xadd" suffix " %1, %0"            \
@@ -491,7 +513,152 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 #  define SET_FLAG(cc, flag) __asm__ __volatile__("set"#cc " %0" :"=qm" (flag) )
 #  define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #  define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
-# else /* ARM */
+
+# elif defined(AARCH64)
+
+#  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 4);                                      \
+     /* Not currently used to write code */                           \
+     ASSERT_CURIOSITY(!hot_patch);                                    \
+     /* Aligned load/store instructions are atomic on AArch64. */     \
+     ASSERT(ALIGNED(target, 4));                                      \
+     __asm__ __volatile__("str %0, [%1]"                              \
+                          : : "r"  (value), "r" (target) : "memory"); \
+   } while (0)
+#  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 8);                                      \
+     /* Not currently used to write code */                           \
+     ASSERT_CURIOSITY(!hot_patch);                                    \
+     /* Aligned load/store instructions are atomic on AArch64. */     \
+     ASSERT(ALIGNED(target, 8));                                      \
+     __asm__ __volatile__("str %0, [%1]"                              \
+                          : : "r"  (value), "r" (target) : "memory"); \
+   } while (0)
+
+#  define DEF_ATOMIC_incdec(fname, type, r, op)                       \
+static inline void fname(volatile type *var)                          \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    __asm__ __volatile__(                                             \
+      "1: ldxr  %"r"0, [%x2]           \n\t"                          \
+      "  "op"   %"r"0, %"r"0, #1       \n\t"                          \
+      "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2)                                    \
+      : "r" (var));                                                   \
+}
+DEF_ATOMIC_incdec(ATOMIC_INC_int  , int  , "w", "add")
+DEF_ATOMIC_incdec(ATOMIC_INC_int64, int64, "x", "add")
+DEF_ATOMIC_incdec(ATOMIC_DEC_int  , int  , "w", "sub")
+DEF_ATOMIC_incdec(ATOMIC_DEC_int64, int64, "x", "sub")
+#  undef DEF_ATOMIC_incdec
+
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(&var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(&var)
+
+#  define DEF_ATOMIC_ADD(fname, type, r)                              \
+static inline void fname(volatile type *var, type val)                \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    __asm__ __volatile__(                                             \
+      "1: ldxr  %"r"0, [%x2]           \n\t"                          \
+      "   add   %"r"0, %"r"0, %"r"3    \n\t"                          \
+      "   stxr  %w1, %"r"0, [%x2]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2)                                    \
+      : "r" (var), "r" (val));                                        \
+}
+DEF_ATOMIC_ADD(ATOMIC_ADD_int  , int  , "w")
+DEF_ATOMIC_ADD(ATOMIC_ADD_int64, int64, "x")
+#  undef DEF_ATOMIC_ADD
+
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(&var, val)
+
+#  define DEF_ATOMIC_ADD_EXCHANGE(fname, type, reg)                   \
+static inline type fname(volatile type *var, type val)                \
+{                                                                     \
+    type ret;                                                         \
+    int tmp;                                                          \
+    __asm__ __volatile__(                                             \
+      "1: ldxr  %"reg"1, [%x2]             \n\t"                      \
+      "   add   %"reg"1, %"reg"1, %"reg"3  \n\t"                      \
+      "   stxr  %w0, %"reg"1, [%x2]        \n\t"                      \
+      "   cbnz  %w0, 1b                    \n\t"                      \
+      : "=&r" (tmp), "=&r" (ret)                                      \
+      : "r" (var), "r" (val));                                        \
+    return ret;                                                       \
+}
+DEF_ATOMIC_ADD_EXCHANGE(atomic_add_exchange_int  , int  , "w")
+DEF_ATOMIC_ADD_EXCHANGE(atomic_add_exchange_int64, int64, "x")
+#  undef DEF_ATOMIC_ADD_EXCHANGE
+
+#  define atomic_add_exchange atomic_add_exchange_int
+
+#  define DEF_atomic_compare_exchange(fname, type, r)                 \
+static inline bool fname(volatile type *var,                          \
+                         type compare, type exchange)                 \
+{                                                                     \
+    type tmp1;                                                        \
+    int tmp2;                                                         \
+    bool ret;                                                         \
+    __asm__ __volatile__(                                             \
+      "1: ldxr  %"r"0, [%x3]           \n\t"                          \
+      "   cmp   %"r"0, %"r"4           \n\t"                          \
+      "   b.ne  2f                     \n\t"                          \
+      "   stxr  %w1, %"r"5, [%x3]      \n\t"                          \
+      "   cbnz  %w1, 1b                \n\t"                          \
+      "   cmp   %"r"0, %"r"4           \n\t"                          \
+      "2: clrex                        \n\t"                          \
+      "   cset  %w2, eq                \n\t"                          \
+      : "=&r" (tmp1), "=&r" (tmp2), "=r" (ret)                        \
+      : "r" (var), "r" (compare), "r" (exchange));                    \
+    return ret;                                                       \
+}
+DEF_atomic_compare_exchange(atomic_compare_exchange_int  , int  , "w")
+DEF_atomic_compare_exchange(atomic_compare_exchange_int64, int64, "x")
+#  undef DEF_atomic_compare_exchange
+
+static inline int
+atomic_exchange_int(volatile int *var, int newval)
+{
+    int tmp, ret;
+    __asm__ __volatile__(
+      "1: ldxr  %w0, [%x2]             \n\t"
+      "   stxr  %w1, %w3, [%x2]        \n\t"
+      "   cbnz  %w1, 1b                \n\t"
+      : "=&r" (ret), "=&r" (tmp)
+      : "r" (var), "r" (newval));
+    return ret;
+}
+
+#  define SPINLOCK_PAUSE() \
+    do { __asm__ __volatile__("wfi"); } while (0) /* wait for interrupt */
+
+uint64 proc_get_timestamp(void);
+#  define RDTSC_LL(llval) do { (llval) = proc_get_timestamp(); } while (0)
+
+#  define GET_FRAME_PTR(var) __asm__ __volatile__("mov %0, x29" : "=r"(var))
+#  define GET_STACK_PTR(var) __asm__ __volatile__("mov %0, sp" : "=r"(var))
+
+static inline bool atomic_inc_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, 1) == 0;
+}
+
+static inline bool atomic_dec_and_test(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == -1;
+}
+
+static inline bool atomic_dec_becomes_zero(volatile int *var)
+{
+    return atomic_add_exchange_int(var, -1) == 0;
+}
+
+# elif defined(ARM)
+
 #  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
      ASSERT(sizeof(value) == 4);                                      \
      /* Load and store instructions are atomic on ARM if aligned. */  \
@@ -501,21 +668,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
                           : : "r"  (value), "r" (target)              \
                           : "memory");                                \
    } while (0)
-#  ifdef X64
-#   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {          \
-      ASSERT(sizeof(value) == 8);                                     \
-      /* Not currently used to write code */                          \
-      ASSERT_CURIOSITY(!hot_patch);                                   \
-      /* test that we aren't crossing a cache line boundary */        \
-      CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
-      /* Load and store instructions are atomic on ARM if aligned */  \
-     /* FIXME i#1551: we need patch the whole instruction instead. */ \
-     ASSERT(ALIGNED(target, 4));                                      \
-      __asm__ __volatile__("strd %0, [%1]"                            \
-                           : : "r" (value), "r" (target)              \
-                           : "memory");                               \
-    } while (0)
-#  endif /* X64 */
+
 /* OP_swp is deprecated and OP_ldrex and OP_strex are introduced in
  * ARMv6 for ARM synchronization primitives
  */
@@ -536,6 +689,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
 #  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
+#  define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #  define ATOMIC_DEC_suffix(suffix, var)                              \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \
@@ -548,6 +702,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
 #  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
+#  define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 #  define ATOMIC_ADD_suffix(suffix, var, value)                       \
      __asm__ __volatile__(                                            \
        "1: ldrex" suffix " r2, %0         \n\t"                       \
@@ -561,6 +716,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        : "cc", "memory", "r2", "r3");
 #  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("", var, val)
 #  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+#  define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result)      \
      __asm__ __volatile__(                                            \
@@ -627,9 +783,6 @@ uint64 proc_get_timestamp(void);
 #  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
 # endif /* X86/ARM */
 
-# define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
-# define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
-# define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 # ifdef X64
 #  define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int64(var, val)
 # else
@@ -642,6 +795,7 @@ uint64 proc_get_timestamp(void);
 #  define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 # endif
 
+# ifndef AARCH64
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */
@@ -687,7 +841,6 @@ static inline bool atomic_dec_becomes_zero(volatile int *var)
     return c == 0;
 }
 
-
 /* returns true if var was equal to compare, and now is equal to exchange,
    otherwise returns false
  */
@@ -713,7 +866,7 @@ atomic_exchange_int(volatile int *var, int newval)
     return result;
 }
 
-#ifdef X64
+#  ifdef X64
 /* returns true if var was equal to compare, and now is equal to exchange,
    otherwise returns false
  */
@@ -730,7 +883,7 @@ static inline bool atomic_compare_exchange_int64(volatile int64 *var,
        although we could put the return value in EAX ourselves */
     return c == 0;
 }
-#endif
+#  endif
 
 /* atomically adds value to memory location var and returns the sum */
 static inline int atomic_add_exchange_int(volatile int *var, int value)
@@ -745,11 +898,11 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value)
     ATOMIC_ADD_EXCHANGE_int64(var, value, temp);
     return (temp + value);
 }
-# define atomic_add_exchange atomic_add_exchange_int
-# undef ATOMIC_ADD_EXCHANGE_suffix
-# undef ATOMIC_ADD_EXCHANGE_int
-# undef ATOMIC_ADD_EXCHANGE_int64
-
+#  define atomic_add_exchange atomic_add_exchange_int
+#  undef ATOMIC_ADD_EXCHANGE_suffix
+#  undef ATOMIC_ADD_EXCHANGE_int
+#  undef ATOMIC_ADD_EXCHANGE_int64
+# endif /* !AARCH64 */
 
 #endif /* UNIX */
 
@@ -831,7 +984,7 @@ void arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callb
 void arch_thread_profile_exit(dcontext_t *dcontext);
 void arch_profile_exit(void);
 #endif
-#ifdef ARM
+#ifdef AARCHXX
 void arch_reset_stolen_reg(void);
 void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
 #endif
@@ -849,7 +1002,7 @@ priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
 priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
-#ifdef ARM
+#ifdef AARCHXX
 reg_t get_stolen_reg_val(priv_mcontext_t *context);
 void set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval);
 #endif
@@ -866,6 +1019,7 @@ cache_pc get_reset_exit_stub(dcontext_t *dcontext);
 
 typedef linkstub_t * (* fcache_enter_func_t) (dcontext_t *dcontext);
 fcache_enter_func_t get_fcache_enter_private_routine(dcontext_t *dcontext);
+fcache_enter_func_t get_fcache_enter_gonative_routine(dcontext_t *dcontext);
 
 cache_pc get_unlinked_entry(dcontext_t *dcontext, cache_pc linked_entry);
 cache_pc get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry);
@@ -951,6 +1105,8 @@ void set_syscall_method(int method);
 #ifdef LINUX
 bool should_syscall_method_be_sysenter(void);
 #endif
+bool hook_vsyscall(dcontext_t *dcontext, bool method_changing);
+bool unhook_vsyscall(void);
 /* returns the address of the first app syscall instruction we saw (see hack
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void);
@@ -958,12 +1114,12 @@ byte *get_app_sysenter_addr(void);
 /* in [x86/arm].asm */
 /* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
  * currently on the initstack 'mutex_to_free' should be passed so we release the
- * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
+ * initstack lock.  The supplied 'func_arg' will be passed as an argument to 'func'.
  * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
  * return to the caller.  If not set then it's assumed that func wasn't supposed to
  * return and we go to an error routine unexpected_return() below.
  */
-void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
+void call_switch_stack(void *func_arg, byte *stack, void (*func) (void *arg),
                        void *mutex_to_free, bool return_on_return);
 # if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64
@@ -1017,16 +1173,12 @@ void dynamorio_earliest_init_takeover(void);
 void client_int_syscall(void);
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
-# ifdef MACOS
-void dynamorio_semaphore_signal_all(KSYNCH_TYPE *ksynch/*in xax*/);
-# endif
+void dynamorio_condvar_wake_and_jmp(KSYNCH_TYPE *ksynch/*in xax/r0*/,
+                                    byte *jmp_tgt/*in xcx/r1*/);
 # ifdef LINUX
-void dynamorio_futex_wake_and_exit(volatile int *futex/* in xax*/);
 #  ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 #  endif
-# endif
-# ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
 void xfer_to_new_libdr(app_pc entry, void **init_sp, byte *cur_dr_map,
@@ -1037,7 +1189,7 @@ void new_bsdthread_intercept(void);
 # endif
 #endif
 void back_from_native(void);
-/* These two are labels, not functions. */
+/* The _end is a label, not a function. */
 void back_from_native_retstubs(void);
 void back_from_native_retstubs_end(void);
 /* Each stub should be 4 bytes: push imm8 + jmp rel8 */
@@ -1190,7 +1342,7 @@ typedef enum _dr_isa_mode_t {
 #ifdef ARM
 # define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(ALIGN_BACKWARD(pc, THUMB_SHORT_INSTR_SIZE)))
 #else
-# define ENTRY_PC_TO_DECODE_PC(pc) pc
+# define ENTRY_PC_TO_DECODE_PC(pc) ((app_pc)(pc))
 #endif
 
 DR_API
@@ -1329,7 +1481,7 @@ decode_init(void);
 # define MAX_PAD_SIZE 3
 
 /****************************************************************************/
-#elif defined(ARM)
+#elif defined(AARCHXX)
 
 # ifdef X64
 #  define FRAG_IS_THUMB(flags) false
@@ -1344,22 +1496,29 @@ decode_init(void);
 # define PC_AS_LOAD_TGT(isa_mode, pc) \
     ((isa_mode) == DR_ISA_ARM_THUMB ? (app_pc)(((ptr_uint_t)pc) & ~0x1) : pc)
 
-# define FRAGMENT_BASE_PREFIX_SIZE(flags) \
+# ifdef AARCH64
+#  define AARCH64_INSTR_SIZE 4
+#  define FRAGMENT_BASE_PREFIX_SIZE(flags) AARCH64_INSTR_SIZE
+#  define DIRECT_EXIT_STUB_SIZE(flags) \
+    (7 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+#  define DIRECT_EXIT_STUB_DATA_SZ 0
+# else
+#  define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)
-
 /* exported for DYNAMO_OPTION(separate_private_stubs) */
-# define ARM_INSTR_SIZE 4
-# define THUMB_SHORT_INSTR_SIZE 2
-# define THUMB_LONG_INSTR_SIZE 4
-# define DIRECT_EXIT_STUB_INSTR_COUNT 4
+#  define ARM_INSTR_SIZE 4
+#  define THUMB_SHORT_INSTR_SIZE 2
+#  define THUMB_LONG_INSTR_SIZE 4
+#  define DIRECT_EXIT_STUB_INSTR_COUNT 4
 /* for far linking we need a target stored in the stub */
-# define DIRECT_EXIT_STUB_DATA_SZ sizeof(app_pc)
+#  define DIRECT_EXIT_STUB_DATA_SZ sizeof(app_pc)
 /* all instrs are wide in the Thumb version */
-# define DIRECT_EXIT_STUB_SIZE(flags) \
+#  define DIRECT_EXIT_STUB_SIZE(flags) \
     ((FRAG_IS_THUMB(flags) ?                                \
       (DIRECT_EXIT_STUB_INSTR_COUNT*THUMB_LONG_INSTR_SIZE) : \
       (DIRECT_EXIT_STUB_INSTR_COUNT*ARM_INSTR_SIZE)) + \
      DIRECT_EXIT_STUB_DATA_SZ)
+# endif
 
 /* FIXME i#1575: implement coarse-grain support */
 # define STUB_COARSE_DIRECT_SIZE(flags) \
@@ -1390,6 +1549,9 @@ bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /* the most bytes we'll need to shift a patchable location for -pad_jmps */
 # define MAX_PAD_SIZE 0
+
+/* i#1906: alignment needed for the source address of data to load into the PC */
+# define PC_LOAD_ADDR_ALIGN 4
 
 #endif /* ARM */
 /****************************************************************************/
@@ -1496,6 +1658,8 @@ int decode_syscall_num(dcontext_t *dcontext, byte *entry);
 void link_shared_syscall(dcontext_t *dcontext);
 void unlink_shared_syscall(dcontext_t *dcontext);
 #endif
+size_t syscall_instr_length(dr_isa_mode_t mode);
+bool is_syscall_at_pc(dcontext_t *dcontext, app_pc pc);
 
 /* Coarse-grain fragment support */
 cache_pc
@@ -1582,6 +1746,19 @@ enum {
     CTI_IAT_LENGTH     = 6, /* FF 15 38 10 80 7C call dword ptr ds:[7C801038h] */
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
+#elif defined(AARCH64)
+    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
+     * up to 16 real instructions. The longest such block seen so far in real
+     * code had 7 instructions so this is likely to be enough. With the current
+     * implementation, a larger value would significantly slow down the search
+     * for such blocks in the decoder: see decode_ldstex().
+     */
+    MAX_INSTR_LENGTH = 64,
+    CBR_LONG_LENGTH  = 4,
+    JMP_LONG_LENGTH  = 4,
+    JMP_SHORT_LENGTH = 4,
+    CBR_SHORT_REWRITE_LENGTH = 4,
+    SVC_LENGTH = 4,
 #elif defined(ARM)
     MAX_INSTR_LENGTH = ARM_INSTR_SIZE,
     CBR_LONG_LENGTH  = ARM_INSTR_SIZE,
@@ -1593,9 +1770,15 @@ enum {
 #endif
 
     /* Not under defines so we can have code that is less cluttered */
+#ifdef AARCH64
+    INT_LENGTH = 4,
+    SYSCALL_LENGTH = 4,
+    SYSENTER_LENGTH = 4,
+#else
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
     SYSENTER_LENGTH = 2,
+#endif
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)
@@ -1955,8 +2138,12 @@ typedef struct dr_jmp_buf_t {
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
 # endif
 #elif defined(ARM) /* for arm.asm */
-    reg_t regs[IF_X64_ELSE(32, 16)/*DR_NUM_GPR_REGS*/];
-#endif /* X86/ARM */
+# define       REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
+#elif defined(AARCH64) /* for aarch64.asm */
+# define       REGS_IN_JMP_BUF 22 /* See dr_setjmp and dr_longjmp. */
+    reg_t regs[REGS_IN_JMP_BUF];
+#endif /* X86/AARCH64/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
@@ -2073,7 +2260,7 @@ void *_dynamorio_runtime_resolve(void);
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, r7))
+#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, IF_ARM_ELSE(r7, r8)))
 #define MCXT_FIRST_REG_FIELD(mc)  ((mc)->IF_X86_ELSE(xdi, r0))
 
 static inline
@@ -2088,19 +2275,17 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
         reg = mc->xbp;
         break;
 #elif defined(ARM)
-# ifdef X64
-    case DR_ISA_ARM_A64:
-        reg = mc->r29;
-        break;
-# else
     case DR_ISA_ARM_THUMB:
         reg = mc->r7;
         break;
     case DR_ISA_ARM_A32:
         reg = mc->r11;
         break;
-# endif /* 64/32-bit */
-#endif /* X86/ARM */
+#elif defined(AARCH64)
+    case DR_ISA_ARM_A64:
+        reg = mc->r29;
+        break;
+#endif /* X86/ARM/AARCH64 */
     default:
         ASSERT_NOT_REACHED();
         reg = 0;
