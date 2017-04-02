@@ -194,8 +194,14 @@ typedef struct _generic_entry_t {
 #define NAME_KEY generic
 #define ENTRY_TYPE generic_entry_t *
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define CUSTOM_FIELDS \
+#ifdef JITOPT
+# define CUSTOM_FIELDS \
+    void (*free_payload_func)(dcontext_t*, void*); \
+    void (*resize_callback_func)(void);
+#else
+# define CUSTOM_FIELDS \
     void (*free_payload_func)(dcontext_t*, void*);
+#endif
 #define HASHTABLEX_HEADER 1
 #include "hashtablex.h"
 #undef HASHTABLEX_HEADER
@@ -242,9 +248,11 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
 void
 generic_hash_set_resize_scale(generic_table_t *htable, uint scale);
 
+#ifdef JITOPT
 void
 generic_hash_set_resize_callback(generic_table_t *htable,
                                  void (*resize_callback_func)(void));
+#endif
 
 void
 generic_hash_set_hash_func(generic_table_t *htable, hash_function_t hash_func);

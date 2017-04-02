@@ -661,7 +661,6 @@ enum {
     /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
     ENTRY_PC_SPILL_SLOT         = TLS_REG1_SLOT,
 #endif
-};
 
 #ifdef AARCH64
 /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */

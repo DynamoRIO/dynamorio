@@ -104,8 +104,6 @@ static void reset_trace_state(dcontext_t *dcontext, bool grab_link_lock);
 /* synchronization of shared traces */
 DECLARE_CXTSWPROT_VAR(mutex_t trace_building_lock, INIT_LOCK_FREE(trace_building_lock));
 
-DECLARE_NEVERPROT_VAR(static uint thcounter_resize_scale, 1);
-
 /* For clearing counters on trace deletion we follow a lazy strategy
  * using a sentinel value to determine whether we've built a trace or not
  */
@@ -285,30 +283,6 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 }
 #endif
 
-static void
-thcounter_init(dcontext_t *dcontext)
-{
-    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-
-    /* FIXME : we should gather statistics on the hash table */
-    /* trace head counters are thread-private and must be kept in a
-     * separate table and not in the fragment_t structure.
-     */
-    md->thead_table.hash_mask = HASH_MASK(md->thead_table.hash_bits);
-    md->thead_table.hash_mask_offset = 0;
-    md->thead_table.hash_func = (hash_function_t)INTERNAL_OPTION(alt_hash_func);
-    md->thead_table.capacity = HASHTABLE_SIZE(md->thead_table.hash_bits);
-    md->thead_table.entries = 0;
-    md->thead_table.load_factor_percent = COUNTER_TABLE_LOAD;
-    md->thead_table.resize_threshold =
-        md->thead_table.capacity * md->thead_table.load_factor_percent / 100;
-    md->thead_table.counter_table = (trace_head_counter_t **)
-        COUNTER_ALLOC(dcontext, md->thead_table.capacity*sizeof(trace_head_counter_t*)
-                      HEAPACCT(ACCT_THCOUNTER));
-    memset(md->thead_table.counter_table, 0, md->thead_table.capacity*
-           sizeof(trace_head_counter_t*));
-}
-
 bool
 mangle_trace_at_end(void)
 {
@@ -439,46 +413,6 @@ thcounter_lookup(dcontext_t *dcontext, app_pc tag)
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     return (trace_head_counter_t *) generic_hash_lookup(dcontext, md->thead_table,
                                                         (ptr_uint_t) tag);
-}
-
-static void
-thcounter_insert(trace_head_table_t *t, trace_head_counter_t *e)
-{
-    uint hindex;
-    hindex = HASH_FUNC((ptr_uint_t)e->tag, t);
-    e->next = t->counter_table[hindex];
-    t->counter_table[hindex] = e;
-    t->entries++;
-}
-
-static void
-thcounter_resize(dcontext_t *dcontext, trace_head_table_t *t)
-{
-    trace_head_counter_t *e, *prev_e, *next_e;
-    trace_head_counter_t **old_counter_table = t->counter_table;
-    uint old_capacity = t->capacity;
-    uint i;
-
-    /* ensure no synch needed */
-    ASSERT(dcontext == get_thread_private_dcontext() ||
-           is_self_flushing() || is_self_allsynch_flushing());
-
-    t->hash_bits += thcounter_resize_scale;
-    thcounter_init(dcontext);
-
-    for (i = 0; i < old_capacity; i++) {
-        for (e = old_counter_table[i], prev_e = NULL; e != NULL; e = next_e) {
-            next_e = e->next;
-            thcounter_insert(t, e);
-        }
-    }
-
-    COUNTER_FREE(dcontext, old_counter_table, old_capacity*sizeof(trace_head_counter_t*)
-                 HEAPACCT(ACCT_THCOUNTER));
-
-    RELEASE_LOG(THREAD, LOG_MONITOR, 1,
-                "Trace head table resized to capacity 0x%x on dc "PFX"\n",
-                t->capacity, dcontext);
 }
 
 static trace_head_counter_t *
@@ -1262,8 +1196,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     instrlist_t *trace = &md->trace;
     fragment_t *trace_f;
     trace_only_t *trace_tr;
-    fragment_t wrapper;
     bool replace_trace_head = false;
+    fragment_t wrapper;
     uint i;
 #if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* was the trace passed through optimizations or the client interface? */

@@ -6240,7 +6240,7 @@ flush_fragments_relink_thread_syscalls(dcontext_t *dcontext, dcontext_t *tgt_dco
 
 static bool
 flush_fragments_thread_unlink(dcontext_t *dcontext, int thread_index,
-                                  dcontext_t *tgt_dcontext)
+                              dcontext_t *tgt_dcontext)
 {
     per_thread_t *tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
 
