@@ -339,7 +339,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         }
 #endif
         /* Single step mangling adds a nop. */
-        else if (instr_is_nop(tdcontext, inst)) {
+        else if (instr_is_nop(inst)) {
             /* nothing to do */
         }
         else if (instr_is_app(inst)) {
