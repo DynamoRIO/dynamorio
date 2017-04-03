@@ -742,6 +742,8 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
          !cci->skip_save_flags) ||
         always_out_of_line)
         cci->out_of_line_swap = true;
+#elif defined(AARCH64)
+        cci->out_of_line_swap = true;
 # endif
 
     return should_inline;
