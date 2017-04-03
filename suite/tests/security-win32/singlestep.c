@@ -76,24 +76,15 @@ DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         xor      eax, eax
 /* push flags on the stack */
-#ifdef X64
-        pushfq
-        or       qword ptr [esp], HEX(100)
-#else
-        pushfd
-        or       dword ptr [esp], HEX(100)
-#endif
+        PUSHF
+        or       PTRSZ [REG_XSP], HEX(100)
 /* Setting the trap flag to 1 on top of the stack */
         jnz      flag_set
         ret
     flag_set:
         inc      eax
 /* popping flags from top of the stack */
-#ifdef X64
-        popfq
-#else
-        popfd
-#endif
+        POPF
 /* single step exception should be triggered on this jump instruction */
         jmp      single_step
         ret

@@ -1965,6 +1965,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_set_src(popf, 1, memop);
             PRE(ilist, instr, popf);
         }
+        /* Mangles single step exception after a popf. */
+        mangle_single_step(dcontext, ilist, popf);
 
 #ifdef X64
         /* In x64 mode, iret additionally does pop->RSP and pop->ss. */
@@ -2403,7 +2405,11 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
      * FIXME i#2144 : to be absolutely transparent, we should translate the
      * exception address as if we did not insert this nop.
      */
-    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+    instr_t* next = instr_get_next_app(instr);
+    /* Assumes popf cannot end a basic block. */
+    ASSERT(next);
+    /* Next app instruction gives a correct translation to this nop. */
+    PRE(ilist, next, INSTR_CREATE_nop(dcontext));
 }
 
 /***************************************************************************
