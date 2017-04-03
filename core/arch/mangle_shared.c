@@ -61,7 +61,12 @@ callee_info_t default_callee_info;
 int
 get_clean_call_switch_stack_size(void)
 {
+#ifdef AARCHXX
+    /* Stack size needs to be 16 byte aligned on ARM */
+    return ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
+#else
     return sizeof(priv_mcontext_t);
+#endif
 }
 
 /* extra temporarily-used stack usage beyond
@@ -256,9 +261,16 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         dstack_offs +=
             insert_out_of_line_context_switch(dcontext, ilist, instr, true);
     } else {
+#ifdef AARCHXX
+        dstack_offs +=
+            insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
+                                      OPND_CREATE_INT32(0), REG_NULL, false);
+#else
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
                                       OPND_CREATE_INT32(0), REG_NULL);
+#endif
+
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
     }
@@ -325,9 +337,15 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         insert_out_of_line_context_switch(dcontext, ilist, instr, false);
     } else {
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
+#ifdef AARCH64
+        insert_pop_all_registers(dcontext, cci, ilist, instr,
+                                 /* see notes in prepare_for_clean_call() */
+                                 (uint)PAGE_SIZE, false);
+#else
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
                                  (uint)PAGE_SIZE);
+#endif
     }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
