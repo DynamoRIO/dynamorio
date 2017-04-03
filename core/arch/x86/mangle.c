@@ -2408,8 +2408,14 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t* next = instr_get_next_app(instr);
     /* Assumes popf cannot end a basic block. */
     ASSERT(next);
-    /* Next app instruction gives a correct translation to this nop. */
-    PRE(ilist, next, INSTR_CREATE_nop(dcontext));
+    /*
+     * The single step exception is only a problem on a control transfer
+     * because the ExceptionAddress should be the jump target.
+     */
+    if (instr_is_cti(next)) {
+        /* Next app instruction gives a correct translation to this nop. */
+        PRE(ilist, next, INSTR_CREATE_nop(dcontext));
+    }
 }
 
 /***************************************************************************
