@@ -43,16 +43,17 @@ droption_t<bool> op_offline
  "for later offline analysis.  No simulator is executed.");
 
 droption_t<unsigned int> op_num_threads
-(DROPTION_SCOPE_CLIENT, "num_threads", 0, "(NYI) Number of threads for writing traces",
+(DROPTION_SCOPE_CLIENT, "num_threads", 0, "Number of sideline threads for writing traces",
  "For the offline analysis mode (when -offline is requested), specifies the number "
  "of sideline threads to be used to write trace files out.  "
- "0 means synchronized write without any sideline threads.");
+ "Only 0 and 1 is currently supported.  "
+ "0 means synchronized write without any sideline threads.  ");
 
 droption_t<bytesize_t> op_queue_size
 (DROPTION_SCOPE_CLIENT, "queue_size", bytesize_t(8*1024*1024),
- "(NYI) The maximum size of the queue for traces before they are written out",
- "For the offline analysis mode (when -offline is requested), specifies the maximum "
- "size (number of bytes) of the queue for traces before they are written out "
+ "The approximate maximum size of the queue for traces before they are written out",
+ "For the offline analysis mode (when -offline is requested), specifies the approximate "
+ "maximum size (number of bytes) of the queue for traces before they are written out "
  "by sideline threads.");
 
 droption_t<std::string> op_ipc_name
