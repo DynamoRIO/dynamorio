@@ -462,7 +462,7 @@ signal_thread_init(dcontext_t *dcontext)
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
         IF_LINUX(IF_X86(- sizeof(struct _xstate)));
-    IF_X86(ASSERT(ALIGNED(pend_unit_size, AVX_ALIGNMENT)));
+    IF_LINUX(IF_X86(ASSERT(ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
 
     /* all fields want to be initialized to 0 */
     memset(info, 0, sizeof(thread_sig_info_t));

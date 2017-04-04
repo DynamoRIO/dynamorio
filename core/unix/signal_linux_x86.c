@@ -208,7 +208,16 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* A processor w/o xsave but w/ extra xstate fields should not exist. */
         ASSERT(proc_has_feature(FEATURE_XSAVE));
         /* XXX i#1312: use xsaveopt if available (need to add FEATURE_XSAVEOPT) */
-        asm volatile(IF_X64_ELSE("xsave64","xsave") " %0" : "=m" (*xstate));
+#ifdef X64
+        /* Some assemblers, including on Travis, don't know "xsave64", so we
+         * have to use raw bytes for:
+         *    48 0f ae 20  xsave64 (%rax)
+         */
+        asm volatile("mov %0, %%rax; .byte 0x48; .byte 0x0f; .byte 0xae; .byte 0x20"
+                     : "=m" (xstate) : : "rax");
+#else
+        asm volatile("xsave %0" : "=m" (*xstate));
+#endif
     }
     if (YMM_ENABLED()) {
         /* all ymm regs are in our mcontext.  the only other thing
