@@ -1,4 +1,3 @@
-
 /* ******************************************************************************
  * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
@@ -2400,21 +2399,20 @@ void
 mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
     /*
-     * Simply inserts a nop so as that next instruction where a single step
+     * Simply inserts a nop so that next instruction where a single step
      * exception might occur is not in a different basic block.
-     * FIXME i#2144 : to be absolutely transparent, we should translate the
-     * exception address as if we did not insert this nop.
      */
-    instr_t* next = instr_get_next_app(instr);
-    /* Assumes popf cannot end a basic block. */
-    ASSERT(next);
-    /*
-     * The single step exception is only a problem on a control transfer
-     * because the ExceptionAddress should be the jump target.
-     */
-    if (instr_is_cti(next)) {
-        /* Next app instruction gives a correct translation to this nop. */
-        PRE(ilist, next, INSTR_CREATE_nop(dcontext));
+    instr_t *next = instr_get_next_app(instr);
+
+    if (next) {
+        /*
+         * The single step exception is only a problem on a control transfer
+         * because the ExceptionAddress should be the jump target.
+         */
+        if (instr_is_cti(next)) {
+            /* Next app instruction gives a correct translation to this nop. */
+            PRE(ilist, next, INSTR_CREATE_nop(dcontext));
+        }
     }
 }
 

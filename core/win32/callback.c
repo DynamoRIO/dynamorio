@@ -5386,6 +5386,16 @@ intercept_exception(app_state_at_intercept_t *state)
             /* now handle the fault just like RaiseException */
             DODEBUG({ known_source = true; });
         }
+#if 0
+        /*
+         * FIXME i#2144 : to be absolutely transparent, we should translate the
+         * exception address in the case we inserted a nop.
+         */
+        if (pExcptRec->ExceptionCode == EXCEPTION_SINGLE_STEP) {
+            pExcptRec->ExceptionAddress = (PVOID) TODO;
+            cxt->CXT_XIP = (ptr_uint_t) TODO;
+        }
+#endif
 
         check_internal_exception(dcontext, cxt, pExcptRec, forged_exception_addr
                                  _IF_CLIENT(&raw_mcontext));

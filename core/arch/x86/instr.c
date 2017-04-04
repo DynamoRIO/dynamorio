@@ -963,9 +963,6 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 bool
 instr_can_set_single_step(instr_t *instr)
 {
-    /*
-     * FIXME i#2144 : should also include iret
-     */
     return (instr_get_opcode(instr) == OP_popf);
 }
 
