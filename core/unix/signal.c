@@ -152,34 +152,6 @@ sig_is_alarm_signal(int sig)
 #define APP_HAS_SIGSTACK(info) \
   ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
-/* Extra space needed to put the signal frame on the app stack.  We include the
- * size of the extra padding potentially needed to align these structs.  We
- * assume the stack pointer is 4-aligned already, so we over estimate padding
- * size by the alignment minus 4.
- */
-#ifdef LINUX
-/* An extra 4 for trailing FP_XSTATE_MAGIC2 */
-#  define AVX_FRAME_EXTRA (sizeof(struct _xstate) + AVX_ALIGNMENT - 4 + 4)
-#  define FPSTATE_FRAME_EXTRA (sizeof(struct _fpstate) + FPSTATE_ALIGNMENT - 4)
-#  define XSTATE_FRAME_EXTRA (YMM_ENABLED() ? AVX_FRAME_EXTRA : FPSTATE_FRAME_EXTRA)
-
-#  define AVX_DATA_SIZE (sizeof(struct _xstate) + 4)
-#  define FPSTATE_DATA_SIZE (sizeof(struct _fpstate))
-#  define XSTATE_DATA_SIZE (YMM_ENABLED() ? AVX_DATA_SIZE : FPSTATE_DATA_SIZE)
-
-#elif defined(MACOS)
-/* Currently assuming __darwin_mcontext_avx{32,64} is always used in the
- * frame.  If instead __darwin_mcontext{32,64} is used (w/ just float and no AVX)
- * on, say, older machines or OSX versions, we'll have to revisit this.
- */
-#  define AVX_FRAME_EXTRA 0
-#  define FPSTATE_FRAME_EXTRA 0
-#  define XSTATE_FRAME_EXTRA 0
-#  define AVX_DATA_SIZE 0
-#  define FPSTATE_DATA_SIZE 0
-#  define XSTATE_DATA_SIZE 0
-#endif
-
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
  * quite yet: PR 297033, hence the need for this macro) we emulate the mask for
@@ -296,7 +268,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 static bool
 is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info);
 
-static inline int
+int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 {
 #if defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
@@ -432,7 +404,7 @@ os_itimers_thread_shared(void)
 }
 
 void
-signal_init()
+signal_init(void)
 {
     IF_LINUX(IF_X86_64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
     IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
@@ -453,6 +425,7 @@ signal_init()
     unblock_all_signals(&init_sigmask);
 
     IF_LINUX(signalfd_init());
+    signal_arch_init();
 }
 
 void
@@ -484,6 +457,12 @@ signal_thread_init(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
                                               ACCT_OTHER, PROTECTED);
+    size_t pend_unit_size = sizeof(sigpending_t) +
+        /* include alignment for xsave on xstate */
+        signal_frame_extra_size(true)
+        /* sigpending_t has xstate inside it already */
+        IF_LINUX(IF_X86(- sizeof(struct _xstate)));
+    IF_LINUX(IF_X86(ASSERT(ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
 
     /* all fields want to be initialized to 0 */
     memset(info, 0, sizeof(thread_sig_info_t));
@@ -496,10 +475,12 @@ signal_thread_init(dcontext_t *dcontext)
      * but if we need a new unit that will grab a lock: we try to
      * avoid that by limiting the # of pending alarm signals (PR 596768).
      */
-    info->sigheap = special_heap_init(sizeof(sigpending_t),
-                                      false /* cannot have any locking */,
-                                      false /* -x */,
-                                      true /* persistent */);
+    info->sigheap =
+        special_heap_init_aligned(pend_unit_size,
+                                  IF_X86_ELSE(AVX_ALIGNMENT, 0),
+                                  false /* cannot have any locking */,
+                                  false /* -x */,
+                                  true /* persistent */);
 
 #ifdef HAVE_SIGALTSTACK
     /* set up alternate stack
@@ -1154,6 +1135,23 @@ sigsegv_handler_is_ours(void)
 }
 #endif /* DEBUG */
 
+#if defined(X86) && defined(LINUX)
+static byte *
+get_xstate_buffer(dcontext_t *dcontext)
+{
+    /* See thread_sig_info_t.xstate_buf comments for why this is in TLS. */
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    if (info->xstate_buf == NULL) {
+        info->xstate_alloc =
+            heap_alloc(dcontext, signal_frame_extra_size(true) HEAPACCT(ACCT_OTHER));
+        info->xstate_buf = (byte *) ALIGN_FORWARD(info->xstate_alloc, XSTATE_ALIGNMENT);
+        ASSERT(info->xstate_alloc + signal_frame_extra_size(true) >=
+               info->xstate_buf + signal_frame_extra_size(false));
+    }
+    return info->xstate_buf;
+}
+#endif
+
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread)
 {
@@ -1176,6 +1174,13 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         for (i = 0; i < NUM_ITIMERS; i++)
             set_actual_itimer(dcontext, i, info, false/*disable*/);
     }
+
+#if defined(X86) && defined(LINUX)
+    if (info->xstate_alloc != NULL) {
+        heap_free(dcontext, info->xstate_alloc, signal_frame_extra_size(true)
+                  HEAPACCT(ACCT_OTHER));
+    }
+#endif
 
     /* FIXME: w/ shared handlers, if parent (the owner here) dies,
      * can children keep living w/ a copy of the handlers?
@@ -1291,13 +1296,13 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
 #endif
 }
 
-static void
-set_our_handler_sigact(kernel_sigaction_t *act, int sig)
+void
+set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler)
 {
-    act->handler = (handler_t) master_signal_handler;
+    act->handler = handler;
 #ifdef MACOS
     /* This is the real target */
-    act->tramp = (tramp_t) master_signal_handler;
+    act->tramp = (tramp_t) handler;
 #endif
 
     act->flags = SA_SIGINFO; /* send 3 args to handler */
@@ -1331,6 +1336,12 @@ set_our_handler_sigact(kernel_sigaction_t *act, int sig)
     IF_DEBUG(uint32 *mask_sig = (uint32*)&act->mask.sig[0]);
     LOG(THREAD_GET, LOG_ASYNCH, 3,
         "mask for our handler is "PFX" "PFX"\n", mask_sig[0], mask_sig[1]);
+}
+
+static void
+set_our_handler_sigact(kernel_sigaction_t *act, int sig)
+{
+    set_handler_sigact(act, sig, (handler_t) master_signal_handler);
 }
 
 static void
@@ -2433,13 +2444,8 @@ thread_set_self_context(void *cxt)
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
 # ifdef X86
-    /* We need room for full xstate if nec (this is x86=944, x64=832 bytes).
-     * A real signal frame would be var-sized but we don't want to dynamically
-     * allocate, and only the kernel looks at this, so no risk of some
-     * app seeing a weird frame size.
-     */
-    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
-    frame.uc.uc_mcontext.fpstate = &xstate.fpstate;
+    byte *xstate = get_xstate_buffer(dcontext);
+    frame.uc.uc_mcontext.fpstate = &((struct _xstate *)xstate)->fpstate;
 # endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
@@ -2698,7 +2704,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
          * kernel does, but we're not tracking app actions to know whether
          * we can skip lazy fpstate on the delay
          */
-        sp -= XSTATE_FRAME_EXTRA;
+        sp -= signal_frame_extra_size(true);
     } else {
         if (sc->fpstate != NULL) {
             /* The kernel doesn't seem to lazily include avx, so we don't either,
@@ -2706,11 +2712,12 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
              * fpstate pointer is non-NULL, then we assume there's space for
              * full xstate
              */
-            sp -= XSTATE_FRAME_EXTRA;
+            sp -= signal_frame_extra_size(true);
             DOCHECK(1, {
                 if (YMM_ENABLED()) {
                     ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
-                    ASSERT(sc->fpstate->sw_reserved.extended_size <= XSTATE_FRAME_EXTRA);
+                    ASSERT(sc->fpstate->sw_reserved.extended_size <=
+                           signal_frame_extra_size(true));
                 }
             });
         }
@@ -2743,7 +2750,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         /* up to caller to include enough space for fpstate at end */
         byte *new_fpstate = (byte *)
             ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
-        memcpy(new_fpstate, sc_old->fpstate, XSTATE_DATA_SIZE);
+        memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
         f_new->sc.fpstate = (struct _fpstate *) new_fpstate;
     }
     f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
@@ -2768,10 +2775,16 @@ convert_frame_to_nonrt_partial(dcontext_t *dcontext, int sig, sigframe_rt_t *f_o
                                sigframe_plain_t *f_new, size_t size)
 {
 # ifdef X86
-    char frame_plus_xstate[sizeof(sigframe_plain_t) + AVX_FRAME_EXTRA];
-    sigframe_plain_t *f_plain = (sigframe_plain_t *) frame_plus_xstate;
+    /* We create a full-size buffer for conversion and then copy the partial amount. */
+    byte *frame_and_xstate =
+        heap_alloc(dcontext, sizeof(sigframe_plain_t) + signal_frame_extra_size(true)
+                   HEAPACCT(ACCT_OTHER));
+    sigframe_plain_t *f_plain = (sigframe_plain_t *) frame_and_xstate;
+    ASSERT_NOT_TESTED(); /* XXX: we have no test of this for change to heap_alloc */
     convert_frame_to_nonrt(dcontext, sig, f_old, f_plain);
     memcpy(f_new, f_plain, size);
+    heap_free(dcontext, frame_and_xstate, sizeof(sigframe_plain_t) +
+              signal_frame_extra_size(true) HEAPACCT(ACCT_OTHER));
 # elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -2836,7 +2849,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
         byte *tgt = (byte *) ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
-        ASSERT(tgt - frame_end <= XSTATE_FRAME_EXTRA);
+        ASSERT(tgt - frame_end <= signal_frame_extra_size(true));
         memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
         f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
         if (YMM_ENABLED()) {
@@ -2918,7 +2931,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     uint size = frame_size;
 #if defined(LINUX) && defined(X86)
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-    size += (sc->fpstate == NULL ? 0 : XSTATE_FRAME_EXTRA);
+    size += (sc->fpstate == NULL ? 0 : signal_frame_extra_size(true));
 #endif /* LINUX && X86 */
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
@@ -3066,7 +3079,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     if (frame->uc.uc_mcontext.fpstate != NULL) {
         memcpy(&info->sigpending[sig]->xstate, frame->uc.uc_mcontext.fpstate,
                /* XXX: assuming full xstate if avx is enabled */
-               XSTATE_DATA_SIZE);
+               signal_frame_extra_size(false));
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
     dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;
@@ -4339,7 +4352,7 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
          */
         args->stack = dcontext->dstack;
         /* leave room for fpstate */
-        args->stack -= XSTATE_FRAME_EXTRA;
+        args->stack -= signal_frame_extra_size(true);
         args->stack = (byte *) ALIGN_BACKWARD(args->stack, XSTATE_ALIGNMENT);
         args->tos = (byte *) sc->SC_XSP;
         return true;
@@ -5812,8 +5825,8 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #if defined(LINUX) && defined(X86)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
 #endif
-    char frame_plus_xstate[sizeof(sigframe_rt_t)IF_X86( + AVX_FRAME_EXTRA)];
-    sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
+    char frame_no_xstate[sizeof(sigframe_rt_t)];
+    sigframe_rt_t *frame = (sigframe_rt_t *) frame_no_xstate;
     int sig;
     where_am_i_t cur_whereami = dcontext->whereami;
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
@@ -5838,9 +5851,9 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     frame->puc = (void *) &frame->uc;
 #endif
 #if defined(LINUX) && defined(X86)
-    sc->fpstate = (struct _fpstate *)
-        ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
-#endif /* LINUX && X86 */
+    /* We use a TLS buffer to avoid too much stack space here. */
+    sc->fpstate = (struct _fpstate *) get_xstate_buffer(dcontext);
+#endif
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
     /* We'll fill in fpstate at delivery time.

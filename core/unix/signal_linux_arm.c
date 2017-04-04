@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -99,4 +99,16 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     vfp->magic = VFP_MAGIC;
     vfp->size = sizeof(struct vfp_sigframe);
     memcpy(&vfp->ufp.fpregs[0], &mc->simd[0], sizeof(vfp->ufp.fpregs));
+}
+
+size_t
+signal_frame_extra_size(bool include_alignment)
+{
+    return 0;
+}
+
+void
+signal_arch_init(void)
+{
+    /* Nothing. */
 }
