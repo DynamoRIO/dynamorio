@@ -237,7 +237,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 {
     uint dstack_offs = 0;
 #ifdef AARCH64
-    uint i, max_offs;
+    uint i, max_offs, reg1 = UINT_MAX;
 #endif
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -255,14 +255,29 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                        OPND_CREATE_INT16(max_offs)));
 
     /* Save general-purpose registers first. */
-    for (i = 0; i < 30; i += 2) {
-        /* stp x(i), x(i+1), [sp, #xi_offset] */
+    for (i = 0; i < 30; i += 1) {
+        if (cci->reg_skip[i])
+            continue;
+
+        if (reg1 == UINT_MAX)
+            reg1 = i;
+        else {
+            /* stp x(reg1), x(i), [sp, #reg1_offset] */
+            PRE(ilist, instr,
+                INSTR_CREATE_stp(dcontext,
+                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                       REG_OFFSET(DR_REG_X0 + reg1), OPSZ_16),
+                                 opnd_create_reg(DR_REG_X0 + reg1),
+                                 opnd_create_reg(DR_REG_X0 + i)));
+            reg1 = UINT_MAX;
+        }
+    }
+    if (reg1 != UINT_MAX) {
         PRE(ilist, instr,
-            INSTR_CREATE_stp(dcontext,
+            INSTR_CREATE_str(dcontext,
                              opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X0 + i), OPSZ_16),
-                             opnd_create_reg(DR_REG_X0 + i),
-                             opnd_create_reg(DR_REG_X0 + i + 1)));
+                                                   REG_OFFSET(DR_REG_X0 + reg1), OPSZ_8),
+                             opnd_create_reg(DR_REG_X0 + reg1)));
     }
 
     dstack_offs += 32 * XSP_SZ;
@@ -448,7 +463,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          uint alignment)
 {
 #ifdef AARCH64
-    uint i, current_offs;
+    uint i, current_offs, reg1 = UINT_MAX;
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                                         opnd_create_reg(DR_REG_SP)));
@@ -508,15 +523,30 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              opnd_create_reg(DR_REG_X3)));
     }
 
-    /* Pop all GPRs */
-    for (i = 0; i < 30; i+= 2) {
-        /* ldp x(i), x(i+1), [sp, #xi_offset] */
-        PRE(ilist, instr,
-            INSTR_CREATE_ldp(dcontext,
-                             opnd_create_reg(DR_REG_X0 + i),
-                             opnd_create_reg(DR_REG_X0 + i + 1),
+    /* Pop GPRs */
+    for (i = 0; i < 30; i+= 1) {
+        if (cci->reg_skip[i])
+            continue;
+
+        if (reg1 == UINT_MAX)
+            reg1 = i;
+        else {
+            /* ldp x(reg1), x(i), [sp, #reg1_offset] */
+            PRE(ilist, instr,
+                INSTR_CREATE_ldp(dcontext,
+                                 opnd_create_reg(DR_REG_X0 + reg1),
+                                 opnd_create_reg(DR_REG_X0 + i),
+                                 opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                       REG_OFFSET(DR_REG_X0 + reg1), OPSZ_16)));
+            reg1 = UINT_MAX;
+        }
+    }
+    if (reg1 != UINT_MAX) {
+       PRE(ilist, instr,
+            INSTR_CREATE_ldr(dcontext,
+                             opnd_create_reg(DR_REG_X0 + reg1),
                              opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X0 + i), OPSZ_16)));
+                                                   REG_OFFSET(DR_REG_X0 + reg1), OPSZ_8)));
     }
 
     /* Recover x30 */
