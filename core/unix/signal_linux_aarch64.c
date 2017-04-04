@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -90,4 +91,16 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     memcpy(&fpc->vregs, &mc->simd, sizeof(fpc->vregs));
     next->magic = 0;
     next->size = 0;
+}
+
+size_t
+signal_frame_extra_size(bool include_alignment)
+{
+    return 0;
+}
+
+void
+signal_arch_init(void)
+{
+    /* Nothing. */
 }
