@@ -219,6 +219,85 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
      */
 }
 
+#ifdef AARCH64
+/* Use first register to determine if we are dealing with GPRs or SIMD registers */
+#define IF_GPR_ELSE(first_reg, then, else_)  (first_reg == DR_REG_X0 ? then : else_)
+
+/* Creates a memory reference for registers pushed/popped to memory. */
+static opnd_t
+create_base_disp_for_push_pop(uint base_reg, uint first_reg, uint reg1, uint opsz)
+{
+    uint offset = first_reg == DR_REG_X0 ? REG_OFFSET(first_reg + reg1) : reg1 * 16;
+    return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
+}
+
+/* Creates code to push or pop GPR or SIMD registers to memory starting at
+ * base_reg. Uses stp/ldp to push/pop as many register pairs to memory as possible
+ * and uses a single str/ldp for the last register in case the number of registers
+ * is uneven. Optionally takes reg_skip into account.
+ */
+static void
+insert_push_or_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                             bool push)
+{
+    uint i, reg1 = UINT_MAX;
+    instr_t *new_instr;
+
+    /* Use stp/ldp to push/pop as many register pairs to memory, skipping
+     * registers according to reg_skip.
+     */
+    for (i = 0; i < IF_GPR_ELSE(first_reg, 30, 32); i += 1) {
+        if (reg_skip != NULL && reg_skip[i])
+            continue;
+
+        if (reg1 == UINT_MAX)
+            reg1 = i;
+        else {
+            opnd_t mem = create_base_disp_for_push_pop(base_reg, first_reg, reg1,
+                                                       IF_GPR_ELSE(first_reg, OPSZ_16, OPSZ_32));
+            if (push) {
+                new_instr = INSTR_CREATE_stp(dcontext, mem,
+                                             opnd_create_reg(first_reg + reg1),
+                                             opnd_create_reg(first_reg + i));
+            } else {
+                new_instr = INSTR_CREATE_ldp(dcontext, opnd_create_reg(first_reg + reg1),
+                                             opnd_create_reg(first_reg + i), mem);
+            }
+            PRE(ilist, instr, new_instr);
+            reg1 = UINT_MAX;
+        }
+    }
+
+    /* Use str/ldr to push/pop last single register to memory in case the number
+     * of registers to push/pop is uneven.
+     */
+    if (reg1 != UINT_MAX) {
+        opnd_t mem = create_base_disp_for_push_pop(base_reg, first_reg, reg1,
+                                                   IF_GPR_ELSE(first_reg, OPSZ_8, OPSZ_16));
+        if (push)
+            new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
+        else
+            new_instr = INSTR_CREATE_ldr(dcontext, opnd_create_reg(first_reg + reg1), mem);
+        PRE(ilist, instr, new_instr);
+    }
+}
+
+static void
+insert_push_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
+    insert_push_or_pop_registers(dcontext, ilist, instr, reg_skip, base_reg,
+                                 first_reg, true);
+}
+
+static void
+insert_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
+    insert_push_or_pop_registers(dcontext, ilist, instr, reg_skip, base_reg,
+                                 first_reg, false);
+}
+#endif
+
 /* Pushes not only the GPRs but also simd regs, xip, and xflags, in
  * priv_mcontext_t order.
  * The current stack pointer alignment should be passed.  Use 1 if
@@ -237,7 +316,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 {
     uint dstack_offs = 0;
 #ifdef AARCH64
-    uint i, max_offs;
+    uint max_offs;
 #endif
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -254,16 +333,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                                        OPND_CREATE_INT16(max_offs)));
 
-    /* Save general-purpose registers first. */
-    for (i = 0; i < 30; i += 2) {
-        /* stp x(i), x(i+1), [sp, #xi_offset] */
-        PRE(ilist, instr,
-            INSTR_CREATE_stp(dcontext,
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X0 + i), OPSZ_16),
-                             opnd_create_reg(DR_REG_X0 + i),
-                             opnd_create_reg(DR_REG_X0 + i + 1)));
-    }
+    insert_push_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
 
     dstack_offs += 32 * XSP_SZ;
 
@@ -337,16 +407,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
-    /* Save all SIMD registers. */
-    for (i = 0; i < 32; i += 2) {
-        /* stp q(i), q(i + 1), [x0, #(i * 16)] */
-        PRE(ilist, instr,
-            INSTR_CREATE_stp(dcontext,
-                             opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0,
-                                                   i * 16, OPSZ_32),
-                             opnd_create_reg(DR_REG_Q0 + i),
-                             opnd_create_reg(DR_REG_Q0 + i + 1)));
-    }
+
+
+    insert_push_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
 
@@ -438,6 +501,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     return dstack_offs;
 }
 
+
 /* User should pass the alignment from insert_push_all_registers: i.e., the
  * alignment at the end of all the popping, not the alignment prior to
  * the popping.
@@ -448,7 +512,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          uint alignment)
 {
 #ifdef AARCH64
-    uint i, current_offs;
+    uint current_offs;
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                                         opnd_create_reg(DR_REG_SP)));
@@ -461,15 +525,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT32(current_offs)));
 
-    for (i = 0; i < 32; i += 2) {
-        /* ldp q(i), q(i + 1), [x0, #(i * 16)] */
-        PRE(ilist, instr,
-            INSTR_CREATE_ldp(dcontext,
-                             opnd_create_reg(DR_REG_Q0 + i),
-                             opnd_create_reg(DR_REG_Q0 + i + 1),
-                             opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0,
-                                                   i * 16, OPSZ_32)));
-    }
+    insert_pop_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
@@ -508,16 +564,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              opnd_create_reg(DR_REG_X3)));
     }
 
-    /* Pop all GPRs */
-    for (i = 0; i < 30; i+= 2) {
-        /* ldp x(i), x(i+1), [sp, #xi_offset] */
-        PRE(ilist, instr,
-            INSTR_CREATE_ldp(dcontext,
-                             opnd_create_reg(DR_REG_X0 + i),
-                             opnd_create_reg(DR_REG_X0 + i + 1),
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X0 + i), OPSZ_16)));
-    }
+    /* Pop GPRs */
+    insert_pop_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
 
     /* Recover x30 */
     /* ldr w3, [x0, #16] */
