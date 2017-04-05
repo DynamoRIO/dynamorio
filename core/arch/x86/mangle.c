@@ -3858,10 +3858,14 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
                                  OPND_CREATE_INTPTR(end_pc - (start_pc + 1))));
         PRE(ilist, instr,
             INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_instr(forward)));
+        /*
+         * i#2155: We start at end_pc - 1 the comparison.
+         * Current basic block is [start_pc:end_pc[ = [start_pc:end_pc-1].
+         */
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDI),
                                  /* will become copy end */
-                                 OPND_CREATE_INTPTR(end_pc)));
+                                 OPND_CREATE_INTPTR(end_pc - 1)));
         if (patchlist != NULL) {
             ASSERT(copy_end_loc != NULL);
             add_patch_marker(patchlist, instr_get_prev(instr), PATCH_ASSEMBLE_ABSOLUTE,
@@ -3869,7 +3873,8 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
         }
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XSI),
-                                 OPND_CREATE_INTPTR(end_pc)));
+                                 OPND_CREATE_INTPTR(end_pc - 1)));
+
         PRE(ilist, instr, forward);
         PRE(ilist, instr, INSTR_CREATE_rep_cmps_1(dcontext));
     }
@@ -4120,7 +4125,8 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
     if (FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) > 1) {
         pc = FCACHE_ENTRY_PC(f) + selfmod_copy_end_offs[i][j]IF_X64([k]);
         /* subtract the size itself, stored at the end of the copy */
-        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f));
+        /* i#2155: -1 is to start comparison in the copy. */
+        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
     } /* else, no 2nd patch point */
 }
 
