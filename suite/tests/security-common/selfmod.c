@@ -559,6 +559,11 @@ loop_orig_target3:
 #undef FUNCNAME
 
 
+/* First we do a self modification to have basic blocks in sandboxing mode.
+ * Then we set the direction flag.
+ * Then we enter a new basic block.
+ * Hence we test sandboxing code with direction flag set.
+ */
 #define FUNCNAME sandbox_direction_flag
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)

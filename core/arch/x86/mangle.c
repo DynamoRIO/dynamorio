@@ -3858,9 +3858,10 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
                                  OPND_CREATE_INTPTR(end_pc - (start_pc + 1))));
         PRE(ilist, instr,
             INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_instr(forward)));
-        /*
-         * i#2155: We start at end_pc - 1 the comparison.
+        /* i#2155: We start at end_pc - 1 the comparison.
          * Current basic block is [start_pc:end_pc[ = [start_pc:end_pc-1].
+         * This means that end_pc is not included in the basic block.
+         * Hence it must not be compared here.
          */
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDI),
