@@ -1138,6 +1138,7 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
 {
     int num_threads;
     thread_record_t **threads;
+    DEBUG_DECLARE(bool ok;)
     /* if we fail to suspend a thread (e.g., privilege
      * problems) ignore it. FIXME: retry instead?
      */
@@ -1146,7 +1147,6 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
         /* i#297: we only synch client thread after process exit event. */
         flags |= THREAD_SYNCH_SKIP_CLIENT_THREAD;
     }
-    DEBUG_DECLARE(bool ok;)
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
         get_num_threads());
@@ -2372,9 +2372,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     bool on_dstack = !other_thread && is_currently_on_dstack(dcontext);
     /* cache this now for use after freeing dcontext */
     local_state_t *local_state = dcontext->local_state;
-#ifdef HAVE_TLS
     bool is_client_thread = IS_CLIENT_THREAD(dcontext);
-#endif
 
     if (INTERNAL_OPTION(nullcalls) || dcontext == NULL)
         return SUCCESS;
