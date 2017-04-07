@@ -2404,15 +2404,14 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
      */
     instr_t *next = instr_get_next_app(instr);
 
-    if (next) {
+    if (!next || instr_is_cti(next)) {
         /*
          * The single step exception is only a problem on a control transfer
-         * because the ExceptionAddress should be the jump target.
+         * because the ExceptionAddress should be the next EIP.
          */
-        if (instr_is_cti(next)) {
-            /* Next app instruction gives a correct translation to this nop. */
-            PRE(ilist, next, INSTR_CREATE_nop(dcontext));
-        }
+        POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+        /* Inserting 2 nops to get ExceptionAddress on the second one. */
+        POST(ilist, instr, INSTR_CREATE_nop(dcontext));
     }
 }
 

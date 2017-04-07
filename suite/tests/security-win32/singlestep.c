@@ -38,13 +38,22 @@
 static int count = 0;
 int foo();
 
+void single_step_addr(void);
+
 /* top-level exception handler */
 static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
-        count++;
         print("single step exception\n");
+        if (pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr) {
+            count++;
+        }
+        else {
+            print("got address "PFX", expected "PFX"\n",
+                  pExceptionInfo->ExceptionRecord->ExceptionAddress,
+                  single_step_addr);
+        }
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
@@ -89,6 +98,8 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      single_step
         ret
     single_step:
+DECLARE_GLOBAL(single_step_addr)
+ADDRTAKEN_LABEL(single_step_addr:)
         inc      eax
         ret
 END_FUNC(FUNCNAME)

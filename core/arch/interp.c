@@ -817,6 +817,18 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 }
 
 static inline void
+bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
+{
+    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
+    instrlist_append(bb->ilist, bb->instr);
+
+    /* Mark instruction as special exit. */
+    instr_branch_set_special_exit(bb->instr, true);
+    /* Gives exit reason. */
+    dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SINGLE_STEP;
+}
+
+static inline void
 bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
 {
 
@@ -3682,6 +3694,12 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 # endif /* X86 */
 #endif /* WINDOWS */
+
+        if (dcontext->forged_exception_addr == bb->start_pc) {
+            bb_process_single_step(dcontext, bb);
+            /* Stops basic block right now. */
+            break;
+        }
 
         /* far direct is treated as indirect (i#823) */
         if (instr_is_near_ubr(bb->instr)) {

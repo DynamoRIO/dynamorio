@@ -920,6 +920,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 STATS_INC(float_pc_from_dispatch);
                 /* Restore */
                 dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
+            } else if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_SINGLE_STEP) {
+                os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
+                ASSERT_NOT_REACHED();
             } else {
                 /* When adding any new reason, be sure to clear exit_reason,
                  * as selfmod exits do not bother to set the reason field to

@@ -641,6 +641,7 @@ enum {
     /* Additional types of system call gateways. */
     EXIT_REASON_NI_SYSCALL_INT_0x81,
     EXIT_REASON_NI_SYSCALL_INT_0x82,
+    EXIT_REASON_SINGLE_STEP
 };
 
 /* Number of nested calls into native modules that we support.  This number
