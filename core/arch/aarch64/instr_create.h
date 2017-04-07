@@ -279,8 +279,7 @@
   instr_create_0dst_1src((dc), OP_b, (pc))
 
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
+ * This macro creates an instr_t for a BL (branch and link) instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param pc The opnd_t target operand containing the program counter to jump to.
  */
