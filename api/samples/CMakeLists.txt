@@ -116,7 +116,7 @@ else (WIN32)
 endif (WIN32)
 
 if (DEBUG)
-  set(OPT_CFLAGS "-DDEBUG")
+  set(OPT_CFLAGS "${OPT_CFLAGS} -DDEBUG")
 endif (DEBUG)
 
 # For C clients that only rely on the DR API and not on any 3rd party
