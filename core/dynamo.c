@@ -263,6 +263,13 @@ DECLARE_CXTSWPROT_VAR(mutex_t thread_initexit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t thread_in_DR_exclusion,
                       INIT_RECURSIVE_LOCK(thread_in_DR_exclusion));
 
+
+static thread_synch_state_t
+exit_synch_state(void);
+
+static void
+synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit);
+
 /****************************************************************************/
 #ifdef DEBUG
 
@@ -952,8 +959,6 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
         global_unprotected_heap_free(protect_info, sizeof(protect_info_t) HEAPACCT(ACCT_OTHER));
     }
 
-    dynamo_exited_and_cleaned = true;
-
     /* call all component exit routines (CAUTION: order is important here) */
 
     DELETE_RECURSIVE_LOCK(thread_in_DR_exclusion);
@@ -979,6 +984,9 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      */
     instrument_exit();
 #endif
+    synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+
+    dynamo_exited_and_cleaned = true;
 
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
@@ -1126,10 +1134,18 @@ dynamorio_app_exit(void)
  * does not resume the threads but does release the thread_initexit_lock.
  */
 static void
-synch_with_threads_at_exit(thread_synch_state_t synch_res)
+synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
 {
     int num_threads;
     thread_record_t **threads;
+    /* if we fail to suspend a thread (e.g., privilege
+     * problems) ignore it. FIXME: retry instead?
+     */
+    uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
+    if (pre_exit) {
+        /* i#297: we only synch client thread after process exit event. */
+        flags |= THREAD_SYNCH_SKIP_CLIENT_THREAD;
+    }
     DEBUG_DECLARE(bool ok;)
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
@@ -1161,10 +1177,7 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res)
                                 * only care about threads carrying fcache
                                 * state can ignore us
                                 */
-                               THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                               /* if we fail to suspend a thread (e.g., privilege
-                                * problems) ignore it. FIXME: retry instead? */
-                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+                               THREAD_SYNCH_NO_LOCKS_NO_XFER, flags);
     ASSERT(ok);
     ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
     /* the synch_with_all_threads function grabbed the
@@ -1236,7 +1249,7 @@ dynamo_process_exit_cleanup(void)
          * we don't check control_all_threads b/c we're just killing
          * the threads we know about here
          */
-        synch_with_threads_at_exit(exit_synch_state());
+        synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in
@@ -1373,7 +1386,7 @@ dynamo_process_exit(void)
         /* needed primarily for CLIENT_INTERFACE but technically all configurations
          * can have racy crashes at exit time (xref PR 470957)
          */
-        synch_with_threads_at_exit(exit_synch_state());
+        synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
     } else
         dynamo_exited = true;
 
@@ -1443,15 +1456,15 @@ dynamo_process_exit(void)
          * with the client trying to use api routines that depend on fragment state.
          */
         instrument_exit();
-
-# ifdef CLIENT_INTERFACE
+#endif /* CLIENT_INTERFACE */
+        synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+#ifdef CLIENT_INTERFACE
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
          */
         if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
             loader_thread_exit(get_thread_private_dcontext());
         loader_exit();
-# endif
 
         /* for -private_loader we do this here to catch more exit-time crashes */
 # ifdef WINDOWS
@@ -2359,6 +2372,9 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     bool on_dstack = !other_thread && is_currently_on_dstack(dcontext);
     /* cache this now for use after freeing dcontext */
     local_state_t *local_state = dcontext->local_state;
+#ifdef HAVE_TLS
+    bool is_client_thread = IS_CLIENT_THREAD(dcontext);
+#endif
 
     if (INTERNAL_OPTION(nullcalls) || dcontext == NULL)
         return SUCCESS;
@@ -2537,7 +2553,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #else /* UNIX */
     delete_dynamo_context(dcontext_tmp, !on_dstack/*do not free own stack*/);
 #endif /* UNIX */
-    os_tls_exit(local_state, other_thread);
+    os_tls_exit(local_state, other_thread, is_client_thread);
 
 #ifdef SIDELINE
     /* see notes above -- we can now wake up sideline thread */

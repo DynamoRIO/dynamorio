@@ -6598,7 +6598,7 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 
     /* Restore app segment registers. */
     os_thread_not_under_dynamo(dcontext);
-    os_tls_thread_exit(dcontext->local_state);
+    os_tls_thread_exit(dcontext->local_state, false);
 
 #ifdef HAVE_SIGALTSTACK
     /* We can't restore the app's sigstack here as that will invalidate the

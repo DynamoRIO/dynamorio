@@ -1985,7 +1985,7 @@ should_zero_tls_at_thread_exit()
 
 /* TLS exit for the current thread who must own local_state. */
 void
-os_tls_thread_exit(local_state_t *local_state)
+os_tls_thread_exit(local_state_t *local_state, bool client_thread)
 {
 #ifdef HAVE_TLS
     /* We assume (assert below) that local_state_t's start == local_state_extended_t */
@@ -2012,7 +2012,7 @@ os_tls_thread_exit(local_state_t *local_state)
 
     /* We already set TLS to &uninit_tls in os_thread_exit() */
 
-    if (dynamo_exited && !last_thread_tls_exited) {
+    if (!client_thread && dynamo_exited && !last_thread_tls_exited) {
         last_thread_tls_exited = true;
         first_thread_tls_initialized = false; /* for possible re-attach */
     }
@@ -2024,7 +2024,7 @@ os_tls_thread_exit(local_state_t *local_state)
  * thread; if other_thread then that may not be possible.
  */
 void
-os_tls_exit(local_state_t *local_state, bool other_thread)
+os_tls_exit(local_state_t *local_state, bool other_thread, bool client_thread)
 {
 #ifdef HAVE_TLS
 # ifdef X86
@@ -2049,7 +2049,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
      * but for detach (i#95) we get the other thread to run this code.
      */
     if (!other_thread)
-        os_tls_thread_exit(local_state);
+        os_tls_thread_exit(local_state, client_thread);
 
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
     heap_munmap(os_tls->self, PAGE_SIZE);

@@ -56,7 +56,8 @@ void os_tls_init(void);
  * !other_thread) then also frees kernel resources for the calling
  * thread; if other_thread then that may not be possible.
  */
-void os_tls_exit(struct _local_state_t *local_state, bool other_thread);
+void os_tls_exit(struct _local_state_t *local_state, bool other_thread,
+                 bool client_thread);
 void os_thread_init(dcontext_t *dcontext);
 void os_thread_exit(dcontext_t *dcontext, bool other_thread);
 
