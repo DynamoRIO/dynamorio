@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -259,6 +259,8 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
 /* special heap of same-sized blocks that avoids global locks */
 void *special_heap_init(uint block_size, bool use_lock, bool executable,
                         bool persistent);
+void *special_heap_init_aligned(uint block_size, uint alignment, bool use_lock,
+                                bool executable, bool persistent);
 void special_heap_exit(void *special);
 void *special_heap_alloc(void *special);
 void *special_heap_calloc(void *special, uint num);

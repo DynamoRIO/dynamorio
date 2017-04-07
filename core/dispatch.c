@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -710,7 +710,18 @@ dispatch_enter_native(dcontext_t *dcontext)
     }
     set_fcache_target(dcontext, dcontext->next_tag);
     dcontext->whereami = WHERE_APP;
+#ifdef UNIX
+    do {
+        (*go_native)(dcontext);
+        /* If fcache_enter returns, there's a pending signal.  It must
+         * be an alarm signal so we drop it as the simplest solution.
+         */
+        ASSERT(dcontext->signals_pending);
+        dcontext->signals_pending = false;
+    } while (true);
+#else
     (*go_native)(dcontext);
+#endif
     ASSERT_NOT_REACHED();
 }
 

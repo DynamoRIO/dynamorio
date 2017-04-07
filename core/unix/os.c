@@ -3298,7 +3298,7 @@ os_thread_yield()
 #endif
 }
 
-static bool
+bool
 thread_signal(process_id_t pid, thread_id_t tid, int signum)
 {
 #ifdef MACOS
