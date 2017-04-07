@@ -347,7 +347,6 @@ parse_option_array(client_id_t client_id, const char *opstr,
     *argv = a;
 }
 
-#ifdef DEBUG
 static bool
 free_option_array(int argc, const char **argv)
 {
@@ -358,7 +357,6 @@ free_option_array(int argc, const char **argv)
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, argv, char *, argc, ACCT_CLIENT, UNPROTECTED);
     return true;
 }
-#endif
 
 static void
 add_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
@@ -715,7 +713,6 @@ instrument_init(void)
     }
 }
 
-#ifdef DEBUG
 void
 free_callback_list(callback_list_t *vec)
 {
@@ -768,12 +765,10 @@ void free_all_callback_lists()
     free_callback_list(&resurrect_rw_callbacks);
     free_callback_list(&persist_patch_callbacks);
 }
-#endif /* DEBUG */
 
 void
 instrument_exit(void)
 {
-    DEBUG_DECLARE(size_t i);
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     /* support dr_get_mcontext() from the exit event */
@@ -784,17 +779,17 @@ instrument_exit(void)
               * to the call_all macro.  Bogus NULL arg */
              NULL);
 
-#ifdef DEBUG
-    /* Unload all client libs and free any allocated storage */
-    for (i=0; i<num_client_libs; i++) {
-        free_callback_list(&client_libs[i].nudge_callbacks);
-        unload_shared_library(client_libs[i].lib);
-        if (client_libs[i].argv != NULL)
-            free_option_array(client_libs[i].argc, client_libs[i].argv);
+    if (IF_DEBUG_ELSE(true, doing_detach)) {
+        /* Unload all client libs and free any allocated storage */
+        size_t i;
+        for (i=0; i<num_client_libs; i++) {
+            free_callback_list(&client_libs[i].nudge_callbacks);
+            unload_shared_library(client_libs[i].lib);
+            if (client_libs[i].argv != NULL)
+                free_option_array(client_libs[i].argc, client_libs[i].argv);
+        }
+        free_all_callback_lists();
     }
-
-    free_all_callback_lists();
-#endif
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;

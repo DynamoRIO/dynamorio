@@ -318,6 +318,9 @@ signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset);
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);
 
+bool
+thread_signal(process_id_t pid, thread_id_t tid, int signum);
+
 void start_itimer(dcontext_t *dcontext);
 void stop_itimer(dcontext_t *dcontext);
 

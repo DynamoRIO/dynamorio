@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,6 +50,12 @@
 #endif
 
 #include "arch.h"
+
+/* We have to dynamically size struct _xstate to account for kernel changes over time. */
+static size_t xstate_size;
+static bool xstate_has_extra_fields;
+
+#define XSTATE_QUERY_SIG SIGILL
 
 /**** floating point support ********************************************/
 
@@ -182,12 +188,37 @@ convert_fxsave_to_fpstate(struct _fpstate *fpstate,
 static void
 save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 {
-    /* see comments at call site: can't just do xsave */
+    /* The app's xmm registers may be saved away in priv_mcontext_t, in which
+     * case we need to copy those values instead of using what was in
+     * the physical xmm registers.
+     * Because of this, we can't just execute "xsave".  We still need to
+     * execute xgetbv though.  Xsave is very expensive so not worth doing
+     * when xgetbv is all we need, so we avoid it unless there are extra fields.
+     */
     int i;
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     struct _xstate *xstate = (struct _xstate *) sc->fpstate;
     if (!preserve_xmm_caller_saved())
         return;
+    if (xstate_has_extra_fields) {
+        /* Fill in the extra fields first and then clobber xmm+ymm below.
+         * We assume that DR's code does not touch this extra state.
+         */
+        ASSERT(ALIGNED(xstate, AVX_ALIGNMENT));
+        /* A processor w/o xsave but w/ extra xstate fields should not exist. */
+        ASSERT(proc_has_feature(FEATURE_XSAVE));
+        /* XXX i#1312: use xsaveopt if available (need to add FEATURE_XSAVEOPT) */
+#ifdef X64
+        /* Some assemblers, including on Travis, don't know "xsave64", so we
+         * have to use raw bytes for:
+         *    48 0f ae 20  xsave64 (%rax)
+         */
+        asm volatile("mov %0, %%rax; .byte 0x48; .byte 0x0f; .byte 0xae; .byte 0x20"
+                     : "=m" (xstate) : : "rax");
+#else
+        asm volatile("xsave %0" : "=m" (*xstate));
+#endif
+    }
     if (YMM_ENABLED()) {
         /* all ymm regs are in our mcontext.  the only other thing
          * in xstate is the xgetbv.
@@ -273,15 +304,6 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         memcpy(sc->fpstate, &temp->fsave, sizeof(struct i387_fsave_struct));
     }
 
-    /* the app's xmm registers may be saved away in priv_mcontext_t, in which
-     * case we need to copy those values instead of using what was in
-     * the physical xmm registers.
-     * because of this, we can't just execute "xsave".  we still need to
-     * execute xgetbv though.  xsave is very expensive so not worth doing
-     * when xgetbv is all we need; if in the future they add status words,
-     * etc. we can't get any other way then we'll have to do it, but best
-     * to avoid for now.
-     */
     save_xmm(dcontext, frame);
 }
 
@@ -469,5 +491,65 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                 }
             }
         }
+    }
+}
+
+size_t
+signal_frame_extra_size(bool include_alignment)
+{
+    /* Extra space needed to put the signal frame on the app stack.  We include the
+     * size of the extra padding potentially needed to align these structs.  We
+     * assume the stack pointer is 4-aligned already, so we over estimate padding
+     * size by the alignment minus 4.
+     */
+    size_t size = YMM_ENABLED() ? xstate_size : sizeof(struct _fpstate);
+    if (include_alignment)
+        size += (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT) - 4;
+    return size;
+}
+
+/* To handle varying xstate sizes as kernels add more state over time, we query
+ * the size by sending ourselves a signal at init time and reading what the
+ * kernel saved.  We assume that DR's own code does not touch this state, so
+ * that we can update it to the app's latest at delivery time by executing
+ * xsave in save_xmm().
+ *
+ * XXX: If the kernel ever does lazy state saving for any part of the new state
+ * and that affects the size, like it does with fpstate, this initial signal
+ * state may not match later state.
+ */
+static void
+xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+{
+    ASSERT_CURIOSITY(sig == XSTATE_QUERY_SIG);
+    if (sig == XSTATE_QUERY_SIG) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (YMM_ENABLED()) {
+            ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
+            LOG(GLOBAL, LOG_ASYNCH, 1, "orig xstate size = " SZFMT"\n", xstate_size);
+            if (sc->fpstate->sw_reserved.extended_size != xstate_size) {
+                xstate_size = sc->fpstate->sw_reserved.extended_size;
+                xstate_has_extra_fields = true;
+            }
+            LOG(GLOBAL, LOG_ASYNCH, 1, "new xstate size = " SZFMT"\n", xstate_size);
+        }
+    }
+}
+
+void
+signal_arch_init(void)
+{
+    xstate_size = sizeof(struct _xstate) + 4 /* trailing FP_XSTATE_MAGIC2 */;
+    if (YMM_ENABLED()) {
+        kernel_sigaction_t act, oldact;
+        int rc;
+        memset(&act, 0, sizeof(act));
+        set_handler_sigact(&act, XSTATE_QUERY_SIG,
+                           (handler_t) xstate_query_signal_handler);
+        rc = sigaction_syscall(XSTATE_QUERY_SIG, &act, &oldact);
+        ASSERT(rc == 0);
+        thread_signal(get_process_id(), get_sys_thread_id(), XSTATE_QUERY_SIG);
+        rc = sigaction_syscall(XSTATE_QUERY_SIG, &oldact, NULL);
+        ASSERT(rc == 0);
     }
 }
