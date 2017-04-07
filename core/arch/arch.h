@@ -481,7 +481,8 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr);
 #ifdef X86
 void
-mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                   instr_t *next_instr);
 #endif
 instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,

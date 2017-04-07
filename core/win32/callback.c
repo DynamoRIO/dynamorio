@@ -5685,6 +5685,12 @@ intercept_exception(app_state_at_intercept_t *state)
                         ASSERT_NOT_REACHED();
                     }
                 }
+#if 0
+                /* FIXME i#2144 : needs to handle single step exception from
+                 * popf mangling from iret */
+                else if (instr_get_opcode(&instr) == OP_iret) {
+                }
+#endif
             }
 
             /* PR 306410: if exception while on dstack but going to app,

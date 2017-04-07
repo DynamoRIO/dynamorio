@@ -1965,7 +1965,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr, popf);
         }
         /* Mangles single step exception after a popf. */
-        mangle_single_step(dcontext, ilist, popf);
+        mangle_single_step(dcontext, ilist, popf, instr);
 
 #ifdef X64
         /* In x64 mode, iret additionally does pop->RSP and pop->ss. */
@@ -2396,21 +2396,18 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * Single step exceptions generation
  */
 void
-mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                   instr_t *next_instr)
 {
-    /*
-     * Simply inserts a nop so that next instruction where a single step
+    /* Simply inserts two nops so that next instruction where a single step
      * exception might occur is not in a different basic block.
      */
-    instr_t *next = instr_get_next_app(instr);
-
-    if (!next || instr_is_cti(next)) {
-        /*
-         * The single step exception is only a problem on a control transfer
+    if (!next_instr || instr_is_cti(next_instr)) {
+        /* The single step exception is only a problem on a control transfer
          * because the ExceptionAddress should be the next EIP.
          */
         POST(ilist, instr, INSTR_CREATE_nop(dcontext));
-        /* Inserting 2 nops to get ExceptionAddress on the second one. */
+        /* Inserting two nops to get ExceptionAddress on the second one. */
         POST(ilist, instr, INSTR_CREATE_nop(dcontext));
     }
 }
