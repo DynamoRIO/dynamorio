@@ -2012,7 +2012,12 @@ os_tls_thread_exit(local_state_t *local_state, bool client_thread)
 
     /* We already set TLS to &uninit_tls in os_thread_exit() */
 
-    if (!client_thread && dynamo_exited && !last_thread_tls_exited) {
+    /* Do not set last_thread_tls_exited if a client_thread is exiting.
+     * If set, get_thread_private_dcontext() returns NULL, which may cause
+     * other thread fault on using dcontext.
+     */
+    if ((!client_thread IF_CLIENT_INTERFACE(|| client_requested_exit)) &&
+        dynamo_exited && !last_thread_tls_exited) {
         last_thread_tls_exited = true;
         first_thread_tls_initialized = false; /* for possible re-attach */
     }

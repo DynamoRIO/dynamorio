@@ -179,8 +179,8 @@ void exit_event(void)
     bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
     ASSERT(success);
     ASSERT(num_lea > 0);
-    dr_event_signal(child_continue);
     dr_fprintf(STDERR, "process is exiting\n");
+    dr_event_signal(child_continue);
     dr_event_wait(child_dead);
     /* DR should have terminated the client thread for us */
     dr_event_destroy(child_alive);

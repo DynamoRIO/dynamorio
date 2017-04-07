@@ -983,9 +983,17 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      * client trying to use api routines that depend on fragment state.
      */
     instrument_exit();
-#endif
+# ifdef CLIENT_SIDELINE
+    /* We only need do a second synch-all if there are sideline client threads. */
     synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+# endif /* CLIENT_SIDELINE */
+#endif /* CLIENTER_INTERFACE */
 
+    /* The dynamo_exited_and_cleaned should be set after the second synch-all.
+     * If it is set earlier after the first synch-all, some client thread may
+     * have memory leak due to dynamo_thread_exit_pre_client being skipped in
+     * dynamo_thread_exit_common called from exiting client threads.
+     */
     dynamo_exited_and_cleaned = true;
 
     /* we want dcontext around for loader_exit() */
@@ -1139,8 +1147,8 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
     int num_threads;
     thread_record_t **threads;
     DEBUG_DECLARE(bool ok;)
-    /* if we fail to suspend a thread (e.g., privilege
-     * problems) ignore it. FIXME: retry instead?
+    /* If we fail to suspend a thread (e.g., privilege
+     * problems) ignore it. XXX: retry instead?
      */
     uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
     if (pre_exit) {
@@ -1456,9 +1464,12 @@ dynamo_process_exit(void)
          * with the client trying to use api routines that depend on fragment state.
          */
         instrument_exit();
-#endif /* CLIENT_INTERFACE */
+
+# ifdef CLIENT_SIDELINE
+        /* We only need do a second synch-all if there are sideline client threads. */
         synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
-#ifdef CLIENT_INTERFACE
+# endif
+
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
          */
@@ -1473,7 +1484,7 @@ dynamo_process_exit(void)
             callback_interception_unintercept();
 # endif
     }
-#endif
+#endif /* CLIENT_INTERFACE */
 
 #ifdef CALL_PROFILE
     profile_callers_exit();
