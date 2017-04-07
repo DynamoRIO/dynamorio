@@ -1354,6 +1354,10 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     if (byte0 == 0x9d) {
         instr_set_opcode(instr, OP_popf);
         instr_set_raw_bits(instr, start_pc, sz);
+        instr_set_num_opnds(dcontext, instr, 1, 2);
+        instr_set_src(instr, 0, opnd_create_reg(REG_XSP));
+        instr_set_src(instr, 1, opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_4));
+        instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (pc + 1);
     }
