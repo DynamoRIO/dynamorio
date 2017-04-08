@@ -987,6 +987,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     /* We only need do a second synch-all if there are sideline client threads. */
     synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
 # endif /* CLIENT_SIDELINE */
+    /* Some lock can only be deleted if only one thread left. */
+    instrument_delete_locks();
 #endif /* CLIENTER_INTERFACE */
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
@@ -1469,6 +1471,8 @@ dynamo_process_exit(void)
         /* We only need do a second synch-all if there are sideline client threads. */
         synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
 # endif
+        /* Some lock can only be deleted if one thread left. */
+        instrument_delete_locks();
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
