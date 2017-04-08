@@ -3596,6 +3596,11 @@ client_thread_run(void)
         get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
+    /* signal_thread_inherit() no longer sets up handlers: we have to
+     * explicitly do that.
+     */
+    signal_reinstate_handlers(dcontext, false/*alarm too*/);
+
     void *arg = (void *) get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
 
