@@ -419,11 +419,18 @@ unset_initial_crash_handlers(dcontext_t *dcontext)
     ASSERT(init_info.app_sigaction != NULL);
     signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info,
                                false/*!other_thread*/);
+    /* Undo the unblock-all */
+    sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 2, "initial app signal mask:\n");
+        dump_sigset(dcontext, &init_sigmask);
+    });
 }
 
 void
 signal_init(void)
 {
+    kernel_sigset_t set;
     IF_LINUX(IF_X86_64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
     IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
     os_itimers_thread_shared();
@@ -440,7 +447,10 @@ signal_init(void)
     signal_info_init_sigaction(GLOBAL_DCONTEXT, &init_info);
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGSEGV);
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGBUS);
-    unblock_all_signals(&init_sigmask);
+    kernel_sigemptyset(&set);
+    kernel_sigaddset(&set, SIGSEGV);
+    kernel_sigaddset(&set, SIGBUS);
+    sigprocmask_syscall(SIG_UNBLOCK, &set, &init_sigmask, sizeof(set));
 
     IF_LINUX(signalfd_init());
     signal_arch_init();
@@ -928,14 +938,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 #endif
     } else {
         /* Initialize in isolation */
-        if (!dynamo_initialized) {
-            /* Undo the unblock-all */
-            sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
-            DOLOG(2, LOG_ASYNCH, {
-                LOG(THREAD, LOG_ASYNCH, 2, "initial app signal mask:\n");
-                dump_sigset(dcontext, &init_sigmask);
-            });
-        }
 
         if (APP_HAS_SIGSTACK(info)) {
             /* parent was NOT under our control, so the real sigstack we see is
@@ -951,7 +953,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         info->shared_itimer = false; /* we'll set to true if a child is created */
         init_itimer(dcontext, true/*first*/);
 
-        /* We split init vs start for the signal handlers.  We do not
+        /* We split init vs start for the signal handlers and mask.  We do not
          * install ours until we start running the app, to avoid races like
          * i#2335.  We'll set them up when os_process_under_dynamorio_*() invokes
          * signal_reinstate_handlers().  All we do now is mark which signals we
@@ -1007,13 +1009,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         /* FIXME: any way to recover if not 1st thread? */
         res = NULL;
     }
-
-    unblock_all_signals(&info->app_sigblocked);
-    DOLOG(2, LOG_ASYNCH, {
-        LOG(THREAD, LOG_ASYNCH, 2, "thread %d's initial app signal mask:\n",
-            get_thread_id());
-        dump_sigset(dcontext, &info->app_sigblocked);
-    });
 
     /* only when SIGVTALRM handler is in place should we start itimer (PR 537743) */
     if (INTERNAL_OPTION(profile_pcs)) {
@@ -1233,6 +1228,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
             special_heap_free(info->sigheap, temp);
         }
     }
+    signal_swap_mask(dcontext, true/*to_app*/);
 #ifdef HAVE_SIGALTSTACK
     /* Remove our sigstack and restore the app sigstack if it had one.  */
     if (!other_thread) {
@@ -1939,6 +1935,30 @@ void
 signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset)
 {
     set_blocked(dcontext, sigset, true/*absolute*/);
+}
+
+void
+signal_swap_mask(dcontext_t *dcontext, bool to_app)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    if (to_app) {
+        if (init_info.app_sigaction != NULL) {
+            /* This is the first execution of the app.
+             * We need to remove our own init-time handler and mask.
+             */
+            unset_initial_crash_handlers(dcontext);
+            return;
+        }
+        sigprocmask_syscall(SIG_SETMASK, &info->app_sigblocked, NULL,
+                            sizeof(info->app_sigblocked));
+    } else {
+        unblock_all_signals(&info->app_sigblocked);
+        DOLOG(2, LOG_ASYNCH, {
+            LOG(THREAD, LOG_ASYNCH, 2, "thread %d's initial app signal mask:\n",
+                get_thread_id());
+            dump_sigset(dcontext, &info->app_sigblocked);
+        });
+    }
 }
 
 /* Scans over info->sigpending to see if there are any unblocked, pending
@@ -6369,12 +6389,6 @@ stop_itimer(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     ASSERT(info != NULL && info->itimer != NULL);
     bool stop = false;
-    if (init_info.app_sigaction != NULL) {
-        /* This is the first execution of the app.
-         * We need to remove our own init-time handler.
-         */
-        unset_initial_crash_handlers(dcontext);
-    }
     if (info->shared_itimer) {
         acquire_recursive_lock(info->shared_itimer_lock);
         ASSERT(*info->shared_itimer_underDR > 0);
