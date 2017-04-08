@@ -2615,11 +2615,14 @@ dr_app_setup(void)
     dcontext_t *dcontext;
     dr_api_entry = true;
     res = dynamorio_app_init();
-    /* It would be more efficient to avoid setting up signal handlers and
-     * avoid hooking vsyscall during init, but the code is simpler this way.
+    /* For dr_api_entry, we do not install signal handlers during init (to avoid
+     * races: i#2335): we delay until dr_app_start().  Plus the vsyscall hook is
+     * not set up until we find out the syscall method.  Thus we're already
+     * "os_process_not_under_dynamorio".
+     * We can't as easily avoid initializing the thread TLS and then dropping
+     * it, however, as parts of init assume we have TLS.
      */
     dcontext = get_thread_private_dcontext();
-    os_process_not_under_dynamorio(dcontext);
     dynamo_thread_not_under_dynamo(dcontext);
     return res;
 }

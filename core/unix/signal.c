@@ -215,6 +215,10 @@ void
 master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
+set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                           kernel_sigaction_t *act);
+
+static void
 intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig);
 
 static void
@@ -280,6 +284,12 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 #endif
     return dynamorio_syscall(IF_MACOS_ELSE(SYS_sigaction,SYS_rt_sigaction),
                              4, sig, act, oact, sizeof(kernel_sigset_t));
+}
+
+static inline bool
+signal_is_interceptable(int sig)
+{
+    return (sig != SIGKILL && sig != SIGSTOP);
 }
 
 static inline int
@@ -401,6 +411,14 @@ os_itimers_thread_shared(void)
             itimers_shared ? "thread-shared" : "thread-private");
     }
     return itimers_shared;
+}
+
+static void
+unset_initial_crash_handlers(dcontext_t *dcontext)
+{
+    ASSERT(init_info.app_sigaction != NULL);
+    signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info,
+                               false/*!other_thread*/);
 }
 
 void
@@ -781,7 +799,9 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     }
     handler_free(dcontext, info->app_sigaction,
                  SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
+    info->app_sigaction = NULL;
     handler_free(dcontext, info->we_intercept, SIGARRAY_SIZE * sizeof(bool));
+    info->we_intercept = NULL;
 }
 
 /* Called once a new thread's dcontext is created.
@@ -794,8 +814,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
     app_pc res = NULL;
     clone_record_t *record = (clone_record_t *) clone_record;
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    kernel_sigaction_t oldact;
-    int i, rc;
+    int i;
     if (record != NULL) {
         app_pc continuation_pc = record->continuation_pc;
         LOG(THREAD, LOG_ASYNCH, 1,
@@ -908,11 +927,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         }
 #endif
     } else {
-        /* initialize in isolation */
+        /* Initialize in isolation */
         if (!dynamo_initialized) {
-            /* Undo the early-init handler */
-            signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info,
-                                       false/*!other_thread*/);
             /* Undo the unblock-all */
             sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
             DOLOG(2, LOG_ASYNCH, {
@@ -935,6 +951,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         info->shared_itimer = false; /* we'll set to true if a child is created */
         init_itimer(dcontext, true/*first*/);
 
+        /* We split init vs start for the signal handlers.  We do not
+         * install ours until we start running the app, to avoid races like
+         * i#2335.  We'll set them up when os_process_under_dynamorio_*() invokes
+         * signal_reinstate_handlers().  All we do now is mark which signals we
+         * want to intercept.
+         */
         if (DYNAMO_OPTION(intercept_all_signals)) {
             /* PR 304708: to support client signal handlers without
              * the complexity of per-thread and per-signal callbacks
@@ -943,64 +965,40 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
                 /* cannot intercept KILL or STOP */
-                if (i != SIGKILL && i != SIGSTOP &&
+                if (signal_is_interceptable(i) &&
                     /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
                      * DEFAULT_CONTINUE signals.  Once add support, update
                      * dr_register_signal_event() comments.
                      */
                     default_action[i] != DEFAULT_STOP &&
                     default_action[i] != DEFAULT_CONTINUE)
-                    intercept_signal(dcontext, info, i);
+                    info->we_intercept[i] = true;
             }
         } else {
             /* we intercept the following signals ourselves: */
-            intercept_signal(dcontext, info, SIGSEGV);
+            info->we_intercept[SIGSEGV] = true;
             /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
-            intercept_signal(dcontext, info, SIGBUS);
+            info->we_intercept[SIGBUS] = true;
             /* PR 212090: the signal we use to suspend threads */
-            intercept_signal(dcontext, info, SUSPEND_SIGNAL);
+            info->we_intercept[SUSPEND_SIGNAL] = true;
 #ifdef PAPI
             /* use SIGPROF for updating gui so it can be distinguished from SIGVTALRM */
-            intercept_signal(dcontext, info, SIGPROF);
+            info->we_intercept[SIGPROF] = true;
 #endif
             /* vtalarm only used with pc profiling.  it interferes w/ PAPI
              * so arm this signal only if necessary
              */
             if (INTERNAL_OPTION(profile_pcs)) {
-                intercept_signal(dcontext, info, SIGVTALRM);
+                info->we_intercept[SIGVTALRM] = true;
             }
 #ifdef CLIENT_INTERFACE
-            intercept_signal(dcontext, info, SIGALRM);
+            info->we_intercept[SIGALRM] = true;
 #endif
 #ifdef SIDELINE
-            intercept_signal(dcontext, info, SIGCHLD);
+            info->we_intercept[SIGCHLD] = true;
 #endif
             /* i#61/PR 211530: the signal we use for nudges */
-            intercept_signal(dcontext, info, NUDGESIG_SIGNUM);
-
-            /* process any handlers app registered before our init */
-            for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i]) {
-                    /* intercept_signal already stored pre-existing handler */
-                    continue;
-                }
-                rc = sigaction_syscall(i, NULL, &oldact);
-                ASSERT(rc == 0
-                       /* Workaround for PR 223720, which was fixed in ESX4.0 but
-                        * is present in ESX3.5 and earlier: vmkernel treats
-                        * 63 and 64 as invalid signal numbers.
-                        */
-                       IF_VMX86(|| (i >= 63 && rc == -EINVAL))
-                       );
-                if (rc == 0 &&
-                    oldact.handler != (handler_t) SIG_DFL &&
-                    oldact.handler != (handler_t) master_signal_handler) {
-                    /* could be master_ if inherited */
-                    /* FIXME: if app removes handler, we'll never remove ours */
-                    intercept_signal(dcontext, info, i);
-                    info->we_intercept[i] = false;
-                }
-            }
+            info->we_intercept[NUDGESIG_SIGNUM] = true;
         }
 
         /* should be 1st thread */
@@ -1396,7 +1394,6 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
 #endif
     }
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
-    info->we_intercept[sig] = true;
 }
 
 /* Set up master_signal_handler as the handler for signal "sig",
@@ -1477,8 +1474,10 @@ signal_remove_alarm_handlers(dcontext_t *dcontext)
     }
 }
 
-/* We assume regular POSIX with handlers global to just one thread group in the
- * process.
+/* For attaching mid-run, we assume regular POSIX with handlers global to just one
+ * thread group in the process.
+ * We also use this routine for the initial setup of our handlers, which we
+ * split from signal_thread_inherit() to support start/stop.
  */
 void
 signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
@@ -1486,7 +1485,25 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!info->we_intercept[i])
+        bool skip = false;
+        if (!info->we_intercept[i]) {
+            skip = true;
+            if (signal_is_interceptable(i)) {
+                /* We do have to intercept everything the app does.
+                 * If the app removes its handler, we'll never remove ours, which we
+                 * can live with.
+                 */
+                kernel_sigaction_t oldact;
+                int rc = sigaction_syscall(i, NULL, &oldact);
+                ASSERT(rc == 0);
+                if (rc == 0 &&
+                    oldact.handler != (handler_t) SIG_DFL &&
+                    oldact.handler != (handler_t) master_signal_handler) {
+                    skip = false;
+                }
+            }
+        }
+        if (skip)
             continue;
         if (sig_is_alarm_signal(i) && ignore_alarm) {
             LOG(THREAD, LOG_ASYNCH, 2, "\tignoring %d initially\n", i);
@@ -1609,7 +1626,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     }
     /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
     if (sig <= 0 || sig > MAX_SIGNUM ||
-        (act != NULL && (sig == SIGKILL || sig == SIGSTOP))) {
+        (act != NULL && !signal_is_interceptable(sig))) {
         *result = EINVAL;
         return false;
     }
@@ -3314,6 +3331,9 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc,
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     uint orig_dumpcore_flag = dumpcore_flag;
+    if (init_info.app_sigaction != NULL)
+        info = &init_info; /* use init-time handler */
+    ASSERT(info->app_sigaction != NULL);
 #endif
     const char *fmt =
         "%s %s at PC "PFX"\n"
@@ -4536,7 +4556,7 @@ master_signal_handler_C(byte *xsp)
     }
     /* i#1921: For proper native execution with re-takeover we need to propagate
      * signals to app handlers while native.  For now we do not support re-takeover
-     * and we give up our handles via signal_remove_handlers().
+     * and we give up our handlers via signal_remove_handlers().
      */
     ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
 
@@ -5229,7 +5249,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
 {
-    if (sig != SIGKILL && sig != SIGSTOP) {
+    if (signal_is_interceptable(sig)) {
         DEBUG_DECLARE(bool res =)
             set_default_signal_action(sig);
         ASSERT(res);
@@ -6349,6 +6369,12 @@ stop_itimer(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     ASSERT(info != NULL && info->itimer != NULL);
     bool stop = false;
+    if (init_info.app_sigaction != NULL) {
+        /* This is the first execution of the app.
+         * We need to remove our own init-time handler.
+         */
+        unset_initial_crash_handlers(dcontext);
+    }
     if (info->shared_itimer) {
         acquire_recursive_lock(info->shared_itimer_lock);
         ASSERT(*info->shared_itimer_underDR > 0);
