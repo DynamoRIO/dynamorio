@@ -286,6 +286,12 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
                              4, sig, act, oact, sizeof(kernel_sigset_t));
 }
 
+static inline bool
+signal_is_interceptable(int sig)
+{
+    return (sig != SIGKILL && sig != SIGSTOP);
+}
+
 static inline int
 sigaltstack_syscall(const stack_t *newstack, stack_t *oldstack)
 {
@@ -959,7 +965,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
                 /* cannot intercept KILL or STOP */
-                if (i != SIGKILL && i != SIGSTOP &&
+                if (signal_is_interceptable(i) &&
                     /* FIXME PR 297033: we don't support intercepting DEFAULT_STOP /
                      * DEFAULT_CONTINUE signals.  Once add support, update
                      * dr_register_signal_event() comments.
@@ -1481,19 +1487,20 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
     for (i = 1; i <= MAX_SIGNUM; i++) {
         bool skip = false;
         if (!info->we_intercept[i]) {
-            int rc;
-            kernel_sigaction_t oldact;
             skip = true;
-            /* We do have to intercept everything the app does.
-             * If the app removes its handler, we'll never remove ours, which we
-             * can live with.
-             */
-            rc = sigaction_syscall(i, NULL, &oldact);
-            ASSERT(rc == 0);
-            if (rc == 0 &&
-                oldact.handler != (handler_t) SIG_DFL &&
-                oldact.handler != (handler_t) master_signal_handler) {
-                skip = false;
+            if (signal_is_interceptable(i)) {
+                /* We do have to intercept everything the app does.
+                 * If the app removes its handler, we'll never remove ours, which we
+                 * can live with.
+                 */
+                kernel_sigaction_t oldact;
+                int rc = sigaction_syscall(i, NULL, &oldact);
+                ASSERT(rc == 0);
+                if (rc == 0 &&
+                    oldact.handler != (handler_t) SIG_DFL &&
+                    oldact.handler != (handler_t) master_signal_handler) {
+                    skip = false;
+                }
             }
         }
         if (skip)
@@ -1619,7 +1626,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     }
     /* i#1135: app may pass invalid signum to find MAX_SIGNUM */
     if (sig <= 0 || sig > MAX_SIGNUM ||
-        (act != NULL && (sig == SIGKILL || sig == SIGSTOP))) {
+        (act != NULL && !signal_is_interceptable(sig))) {
         *result = EINVAL;
         return false;
     }
@@ -5242,7 +5249,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
 {
-    if (sig != SIGKILL && sig != SIGSTOP) {
+    if (signal_is_interceptable(sig)) {
         DEBUG_DECLARE(bool res =)
             set_default_signal_action(sig);
         ASSERT(res);
