@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,6 +64,7 @@
  * thread.
  */
 /* We could generate this via macros but that gets pretty obtuse */
+#define NUM_FUNCS 10
 NOINLINE void func_0(void) { }
 NOINLINE void func_1(void) { }
 NOINLINE void func_2(void) { }
@@ -86,7 +87,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     int i;
     app_pc pc = instr_get_app_pc(instrlist_first(bb));
     for (i = 0; i < NUM_THREADS; i++) {
-        if (pc == (app_pc)funcs[i])
+        if (pc == (app_pc)funcs[i % NUM_FUNCS])
             took_over_thread[i] = true;
     }
     return DR_EMIT_DEFAULT;
@@ -105,7 +106,7 @@ void *
 sideline_spinner(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
-    void_func_t sideline_func = funcs[idx];
+    void_func_t sideline_func = funcs[idx % NUM_FUNCS];
     if (dr_app_running_under_dynamorio())
         print("ERROR: thread %d should NOT be under DynamoRIO\n", idx);
     VPRINT("%d signaling sideline_ready\n", idx);
