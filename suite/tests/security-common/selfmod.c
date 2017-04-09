@@ -114,6 +114,9 @@ sandbox_illegal_instr(int i);
 void
 sandbox_cti_tgt(void);
 
+void
+sandbox_direction_flag(void);
+
 /* These *_no_ilt variants of the prototypes avoid indirection through the
  * Incremental Linking Table (ILT).  With inremental linking on Windows, all
  * functions are directed through a jump table at the beginning of .text.  Those
@@ -130,6 +133,7 @@ void sandbox_cross_page_no_ilt(void);
 void last_byte_jmp_no_ilt(void);
 void sandbox_fault_no_ilt(void);
 void sandbox_illegal_no_ilt(void);
+void sandbox_direction_flag_no_ilt(void);
 
 #ifdef X64
 /* Reduced from V8, which uses x64 absolute addresses in code which ends up
@@ -273,6 +277,15 @@ test_sandbox_cti_tgt(void)
     print("end selfmod loop test\n");
 }
 
+static void
+test_sandbox_direction_flag(void)
+{
+    /* i#2155: test sandboxing with direction flag set */
+    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    sandbox_direction_flag();
+    print("end selfmod direction flag test\n");
+}
+
 int
 main(void)
 {
@@ -298,6 +311,8 @@ main(void)
     test_sandbox_fault();
 
     test_sandbox_cti_tgt();
+
+    test_sandbox_direction_flag();
     return 0;
 }
 
@@ -543,6 +558,32 @@ loop_orig_target3:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+
+/* First we do a self modification to have basic blocks in sandboxing mode.
+ * Then we set the direction flag.
+ * Then we enter a new basic block.
+ * Hence we test sandboxing code with direction flag set.
+ */
+#define FUNCNAME sandbox_direction_flag
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+DECLARE_GLOBAL(sandbox_direction_flag_no_ilt)
+ADDRTAKEN_LABEL(sandbox_direction_flag_no_ilt:)
+        mov      REG_XAX, HEX(1)
+        lea      REG_XDX, SYMREF(direction_flag_immediate_addr_plus_four - 4)
+        mov      DWORD [REG_XDX], eax        /* selfmod write */
+        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
+ADDRTAKEN_LABEL(direction_flag_immediate_addr_plus_four:)
+
+        std                                  /* set direction flag */
+        jmp      direction_flag_afterstd     /* jump begin a new basic block */
+
+direction_flag_afterstd:
+        nop                                  /* an unmodified basic block */
+        cld                                  /* clearing direction flag */
+        ret
+END_FUNC(FUNCNAME)
+#undef FUNCNAME
 
 END_FILE
 
