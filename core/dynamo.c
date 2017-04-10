@@ -1157,17 +1157,12 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
      */
     uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
     if (pre_exit) {
-        /* i#297: we only synch client thread after process exit event. */
+        /* i#297: we only synch client threads after process exit event. */
         flags |= THREAD_SYNCH_SKIP_CLIENT_THREAD;
     }
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
         get_num_threads());
-
-#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
-    /* make sure client nudges are finished */
-    wait_for_outstanding_nudges();
-#endif
 
     /* xref case 8747, requesting suspended is preferable to terminated and it
      * doesn't make a difference here which we use (since the process is about
