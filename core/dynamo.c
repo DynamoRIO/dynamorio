@@ -121,6 +121,7 @@ bool    dr_preinjected = false;
 static bool dynamo_exiting = false;
 #endif
 bool    dynamo_exited = false;
+bool    dynamo_exited_synched = false;
 bool    dynamo_exited_and_cleaned = false;
 #ifdef DEBUG
 bool    dynamo_exited_log_and_stats = false;
@@ -986,6 +987,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 # ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+    /* only current thread left */
+    dynamo_exited_synched = true;
 # endif /* CLIENT_SIDELINE */
     /* Some lock can only be deleted if only one thread left. */
     instrument_delete_locks();
@@ -1260,6 +1263,10 @@ dynamo_process_exit_cleanup(void)
          * the threads we know about here
          */
         synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
+#ifndef CLIENT_SIDELINE
+        /* no sideline thread, syncall done */
+        dynamo_exited_synched = true;
+#endif
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in
@@ -1397,6 +1404,9 @@ dynamo_process_exit(void)
          * can have racy crashes at exit time (xref PR 470957)
          */
         synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
+# ifndef CLIENT_SIDELINE
+        dynamo_exited_synched = true;
+# endif
     } else
         dynamo_exited = true;
 
@@ -1470,6 +1480,7 @@ dynamo_process_exit(void)
 # ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
         synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+        dynamo_exited_synched = true;
 # endif
         /* Some lock can only be deleted if one thread left. */
         instrument_delete_locks();
@@ -2387,7 +2398,6 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     bool on_dstack = !other_thread && is_currently_on_dstack(dcontext);
     /* cache this now for use after freeing dcontext */
     local_state_t *local_state = dcontext->local_state;
-    bool is_client_thread = IS_CLIENT_THREAD(dcontext);
 
     if (INTERNAL_OPTION(nullcalls) || dcontext == NULL)
         return SUCCESS;
@@ -2566,7 +2576,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #else /* UNIX */
     delete_dynamo_context(dcontext_tmp, !on_dstack/*do not free own stack*/);
 #endif /* UNIX */
-    os_tls_exit(local_state, other_thread, is_client_thread);
+    os_tls_exit(local_state, other_thread);
 
 #ifdef SIDELINE
     /* see notes above -- we can now wake up sideline thread */

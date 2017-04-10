@@ -197,7 +197,7 @@ void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
 void
-os_tls_thread_exit(local_state_t *local_state, bool client_thread);
+os_tls_thread_exit(local_state_t *local_state);
 
 #ifdef AARCHXX
 bool

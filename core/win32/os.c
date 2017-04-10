@@ -1546,7 +1546,7 @@ os_tls_init()
 }
 
 void
-os_tls_exit(local_state_t *local_state, bool other_thread, bool client_thread)
+os_tls_exit(local_state_t *local_state, bool other_thread)
 {
     /* not needed for windows, everything is done is os_slow_exit including zeroing
      * the freed TEB tls slots */
