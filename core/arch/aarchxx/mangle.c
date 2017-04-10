@@ -525,6 +525,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT32(current_offs)));
 
+    /* Pop SIMD registers. */
     insert_pop_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     /* mov x0, sp */
