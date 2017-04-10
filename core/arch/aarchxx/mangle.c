@@ -333,6 +333,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                                        OPND_CREATE_INT16(max_offs)));
 
+    /* Push GPRs. */
     insert_push_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
 
     dstack_offs += 32 * XSP_SZ;
@@ -408,7 +409,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
 
-
+    /* Push SIMD registers. */
     insert_push_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
@@ -500,7 +501,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
     return dstack_offs;
 }
-
 
 /* User should pass the alignment from insert_push_all_registers: i.e., the
  * alignment at the end of all the popping, not the alignment prior to
