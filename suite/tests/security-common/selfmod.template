@@ -48,3 +48,4 @@ Illegal instruction
 fault bytes are 0f 0b preceded by c6 41 fb 05
 end fault test
 end selfmod loop test
+end selfmod direction flag test
