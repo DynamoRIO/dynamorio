@@ -280,7 +280,7 @@
 #define INSTR_CREATE_br(dc, xn) \
   instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn) \
-  instr_create_0dst_1src((dc), OP_blr, (xn))
+  instr_create_1dst_1src((dc), OP_blr, opnd_create_reg(DR_REG_X30), (xn))
 #define INSTR_CREATE_brk(dc, imm) \
   instr_create_0dst_1src((dc), OP_brk, (imm))
 #define INSTR_CREATE_cbnz(dc, pc, reg) \

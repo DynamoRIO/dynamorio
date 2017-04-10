@@ -2321,6 +2321,24 @@ encode_opnd_x5sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, true, 5, opnd, enc_out);
 }
 
+/* implX30: Implicit X30 operand, used by BLR. */
+
+static inline bool
+decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_X30);
+    return true;
+}
+
+static inline bool
+encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_X30)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
 /*******************************************************************************
  * Pairs of functions for decoding and encoding opndsets, as listed in "codec.txt".
  * Currently all branch instructions are handled in this way.
@@ -2332,7 +2350,11 @@ static inline bool
 decode_opnds_b(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
     instr_set_opcode(instr, opcode);
-    instr_set_num_opnds(dcontext, instr, 0, 1);
+    if (opcode == OP_bl) {
+        instr_set_num_opnds(dcontext, instr, 1, 1);
+        instr_set_dst(instr, 0, opnd_create_reg(DR_REG_X30));
+    } else
+        instr_set_num_opnds(dcontext, instr, 0, 1);
     instr_set_src(instr, 0, opnd_create_pc(pc + extract_int(enc, 0, 26) * 4));
     return true;
 }
@@ -2341,7 +2363,8 @@ static inline uint
 encode_opnds_b(byte *pc, instr_t *instr, uint enc)
 {
     uint off;
-    if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 1 &&
+    if (((instr_get_opcode(instr) == OP_bl && instr_num_dsts(instr) == 1) ||
+        instr_num_dsts(instr) == 0) && instr_num_srcs(instr) == 1 &&
         encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0)))
         return (enc | off);
     return ENCFAIL;
