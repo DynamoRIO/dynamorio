@@ -1194,6 +1194,24 @@ encode_opnd_imms(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_imm_bf(10, enc, opnd, enc_out);
 }
 
+/* impx30: implicit X30 operand, used by BLR. */
+
+static inline bool
+decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_X30);
+    return true;
+}
+
+static inline bool
+encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_X30)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
 /* index0: index of B subreg in Q register: 0-15 */
 
 static inline bool
@@ -2319,24 +2337,6 @@ static inline bool
 encode_opnd_x5sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, true, 5, opnd, enc_out);
-}
-
-/* impx30: Implicit X30 operand, used by BLR. */
-
-static inline bool
-decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    *opnd = opnd_create_reg(DR_REG_X30);
-    return true;
-}
-
-static inline bool
-encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_X30)
-        return false;
-    *enc_out = 0;
-    return true;
 }
 
 /*******************************************************************************
