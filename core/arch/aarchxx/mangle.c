@@ -223,28 +223,29 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 /* Use first register to determine if we are dealing with GPRs or SIMD registers */
 #define IF_GPR_ELSE(first_reg, then, else_)  (first_reg == DR_REG_X0 ? then : else_)
 
-/* Creates a memory reference for registers pushed/popped to memory. */
+/* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
-create_base_disp_for_push_pop(uint base_reg, uint first_reg, uint reg1, uint opsz)
+create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg1, uint opsz)
 {
-    uint offset = first_reg == DR_REG_X0 ? REG_OFFSET(first_reg + reg1) : reg1 * 16;
+    uint offset = IF_GPR_ELSE(first_reg, REG_OFFSET(first_reg + reg1),
+                              reg1 * sizeof(dr_simd_t));
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
 }
 
-/* Creates code to push or pop GPR or SIMD registers to memory starting at
- * base_reg. Uses stp/ldp to push/pop as many register pairs to memory as possible
+/* Creates code to save or restore GPR or SIMD registers to memory starting at
+ * base_reg. Uses stp/ldp to save/restore as many register pairs to memory as possible
  * and uses a single str/ldp for the last register in case the number of registers
  * is uneven. Optionally takes reg_skip into account.
  */
 static void
-insert_push_or_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                             bool push)
+                             bool save)
 {
     uint i, reg1 = UINT_MAX;
     instr_t *new_instr;
 
-    /* Use stp/ldp to push/pop as many register pairs to memory, skipping
+    /* Use stp/ldp to save/restore as many register pairs to memory, skipping
      * registers according to reg_skip.
      */
     for (i = 0; i < IF_GPR_ELSE(first_reg, 30, 32); i += 1) {
@@ -254,9 +255,9 @@ insert_push_or_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         if (reg1 == UINT_MAX)
             reg1 = i;
         else {
-            opnd_t mem = create_base_disp_for_push_pop(base_reg, first_reg, reg1,
+            opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
                                                        IF_GPR_ELSE(first_reg, OPSZ_16, OPSZ_32));
-            if (push) {
+            if (save) {
                 new_instr = INSTR_CREATE_stp(dcontext, mem,
                                              opnd_create_reg(first_reg + reg1),
                                              opnd_create_reg(first_reg + i));
@@ -269,13 +270,13 @@ insert_push_or_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         }
     }
 
-    /* Use str/ldr to push/pop last single register to memory in case the number
-     * of registers to push/pop is uneven.
+    /* Use str/ldr to save/restore last single register to memory if the number
+     * of registers to save/restore is uneven.
      */
     if (reg1 != UINT_MAX) {
-        opnd_t mem = create_base_disp_for_push_pop(base_reg, first_reg, reg1,
+        opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
                                                    IF_GPR_ELSE(first_reg, OPSZ_8, OPSZ_16));
-        if (push)
+        if (save)
             new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
         else
             new_instr = INSTR_CREATE_ldr(dcontext, opnd_create_reg(first_reg + reg1), mem);
@@ -284,16 +285,16 @@ insert_push_or_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 }
 
 static void
-insert_push_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
-    insert_push_or_pop_registers(dcontext, ilist, instr, reg_skip, base_reg,
+    insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                  first_reg, true);
 }
 
 static void
-insert_pop_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
-    insert_push_or_pop_registers(dcontext, ilist, instr, reg_skip, base_reg,
+    insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                  first_reg, false);
 }
 #endif
@@ -334,7 +335,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                        OPND_CREATE_INT16(max_offs)));
 
     /* Push GPRs. */
-    insert_push_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
+    insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
 
     dstack_offs += 32 * XSP_SZ;
 
@@ -410,7 +411,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
 
     /* Push SIMD registers. */
-    insert_push_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
+    insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
 
@@ -526,7 +527,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT32(current_offs)));
 
     /* Pop SIMD registers. */
-    insert_pop_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
+    insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
 
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
@@ -566,7 +567,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     /* Pop GPRs */
-    insert_pop_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
+    insert_restore_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
 
     /* Recover x30 */
     /* ldr w3, [x0, #16] */
