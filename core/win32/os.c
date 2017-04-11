@@ -8371,8 +8371,6 @@ reset_event(event_t e)
 void
 wait_for_event(event_t e)
 {
-    LOG(THREAD, LOG_THREADS, 3, "thread "TIDFMT" waiting for event "PFX"\n",
-        get_thread_id(), e);
     os_wait_event(e _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
 }
 
