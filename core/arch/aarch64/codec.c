@@ -2321,7 +2321,7 @@ encode_opnd_x5sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, true, 5, opnd, enc_out);
 }
 
-/* implX30: Implicit X30 operand, used by BLR. */
+/* impx30: Implicit X30 operand, used by BLR. */
 
 static inline bool
 decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
