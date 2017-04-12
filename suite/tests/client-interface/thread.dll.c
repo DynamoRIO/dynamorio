@@ -179,9 +179,12 @@ void exit_event(void)
     bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
     ASSERT(success);
     ASSERT(num_lea > 0);
+#ifdef UNIX
+    /* i#2346: delay client threads termination on Windows. */
     dr_fprintf(STDERR, "process is exiting\n");
     dr_event_signal(child_continue);
     dr_event_wait(child_dead);
+#endif
     /* DR should have terminated the client thread for us */
     dr_event_destroy(child_alive);
     dr_event_destroy(child_continue);

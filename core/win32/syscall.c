@@ -1727,6 +1727,9 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
          * the syscall, safest to do syscall right here rather than going
          * back to handle_system_call()
          */
+        /* i#2346: delay client threads termination by using synch-all instead of
+         * NtTerminateProcess syscall to tmerinate appication threads only.
+         */
         return_val = nt_terminate_process_for_app(process_handle, exit_status);
         SET_RETURN_VAL(dcontext, return_val);
         LOG(THREAD, LOG_SYSCALLS, 2,

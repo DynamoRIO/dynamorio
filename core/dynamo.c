@@ -987,7 +987,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 # ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
-    /* only current thread left */
+    /* only current thread is alive */
     dynamo_exited_synched = true;
 # endif /* CLIENT_SIDELINE */
     /* Some lock can only be deleted if only one thread left. */
