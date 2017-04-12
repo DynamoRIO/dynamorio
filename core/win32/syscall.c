@@ -1710,11 +1710,11 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
                                    THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                                    /* if we fail to suspend a thread (e.g., privilege
                                     * problems) ignore it. FIXME: retry instead? */
-                                   THREAD_SYNCH_SUSPEND_FAILURE_IGNORE
                                    /* FIXME i#2345: add THREAD_SYNCH_SKIP_CLIENT_THREAD
                                     * to synch and kill application threads only.
                                     */
-                                   THREAD_SYNCH_SKIP_CLIENT_THREAD);
+                                   THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+
         ASSERT(ok);
         ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
         copy_mcontext(&mcontext, mc);
