@@ -416,6 +416,8 @@ locks_not_closed()
             /* i#1058: curiosities during exit re-acquire these locks. */
             ignored++;
         } else {
+            print_file(STDERR, "missing DELETE_LOCK on lock "PFX" %s\n",
+                       cur_lock, cur_lock->name);
             LOG(GLOBAL, LOG_STATS, 1, "missing DELETE_LOCK on lock "PFX" %s\n",
                 cur_lock, cur_lock->name);
             forgotten++;
@@ -423,6 +425,8 @@ locks_not_closed()
         cur_lock = cur_lock->next_process_lock;
     }
     mutex_unlock(&innermost_lock);
+    print_file(STDERR, "locks_not_closed= %d remaining, %d ignored\n",
+               forgotten, ignored);
     LOG(GLOBAL, LOG_STATS, 3, "locks_not_closed= %d remaining, %d ignored\n",
         forgotten, ignored);
     return forgotten;
