@@ -31,12 +31,16 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+  set(DEBUG ON)
+endif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+
 # To match Makefiles and have just one build type per configured build
 # dir, we collapse VS generator configs to a single choice.
 # This must be done prior to the project() command and the var
 # must be set in the cache.
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+  if (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
   else ()
     # Go w/ debug info (i#1392)
@@ -116,7 +120,7 @@ else (WIN32)
 endif (WIN32)
 
 if (DEBUG)
-  set(OPT_CFLAGS "-DDEBUG")
+  set(OPT_CFLAGS "${OPT_CFLAGS} -DDEBUG")
 endif (DEBUG)
 
 # For C clients that only rely on the DR API and not on any 3rd party
