@@ -209,13 +209,13 @@ static volatile uint queue_front = 0;
 static volatile uint queue_tail = 0;
 static void *sideline_exit_event;
 struct buf_entry_t {
-    int     file;  // file descriptor, 0 means the end of profiling.
+    file_t  file;  // file descriptor, 0 means the end of profiling.
     void   *data;  // output data pointer, NULL means the end of data for this file.
     ssize_t size;  // output data size.
 };
 
 static inline void
-trace_buf_enqueue(int file, void *data, ssize_t size)
+trace_buf_enqueue(file_t file, void *data, ssize_t size)
 {
     bool done = false;
     buf_entry_t *entry = (buf_entry_t *)dr_global_alloc(sizeof(*entry));
@@ -966,7 +966,7 @@ event_exit(void)
 
     if (op_offline.get_value()) {
         if (op_num_threads.get_value() > 0) {
-            trace_buf_enqueue(0, NULL, 0);  // end of profiles
+            trace_buf_enqueue((file_t)0, NULL, 0);  // end of profiles
             dr_event_wait(sideline_exit_event);
             dr_event_destroy(sideline_exit_event);
             drvector_delete(&buf_queue);
