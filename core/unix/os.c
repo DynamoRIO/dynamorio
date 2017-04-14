@@ -2012,7 +2012,11 @@ os_tls_thread_exit(local_state_t *local_state)
 
     /* We already set TLS to &uninit_tls in os_thread_exit() */
 
-    if (dynamo_exited && !last_thread_tls_exited) {
+    /* Do not set last_thread_tls_exited if a client_thread is exiting.
+     * If set, get_thread_private_dcontext() returns NULL, which may cause
+     * other thread fault on using dcontext.
+     */
+    if (dynamo_exited_all_other_threads && !last_thread_tls_exited) {
         last_thread_tls_exited = true;
         first_thread_tls_initialized = false; /* for possible re-attach */
     }
@@ -2528,6 +2532,7 @@ void
 os_thread_under_dynamo(dcontext_t *dcontext)
 {
     os_swap_context(dcontext, false/*to dr*/, DR_STATE_GO_NATIVE);
+    signal_swap_mask(dcontext, false/*to dr*/);
     start_itimer(dcontext);
 }
 
@@ -2535,6 +2540,7 @@ void
 os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     stop_itimer(dcontext);
+    signal_swap_mask(dcontext, true/*to app*/);
     os_swap_context(dcontext, true/*to app*/, DR_STATE_GO_NATIVE);
 }
 
@@ -3298,7 +3304,7 @@ os_thread_yield()
 #endif
 }
 
-static bool
+bool
 thread_signal(process_id_t pid, thread_id_t tid, int signum)
 {
 #ifdef MACOS
@@ -3596,6 +3602,12 @@ client_thread_run(void)
         get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
+    /* signal_thread_inherit() no longer sets up handlers or masks: we have to
+     * explicitly do that.
+     */
+    signal_reinstate_handlers(dcontext, false/*alarm too*/);
+    signal_swap_mask(dcontext, false/*to DR*/);
+
     void *arg = (void *) get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
 
@@ -9789,6 +9801,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
         ASSERT(dcontext != NULL);
     }
     signal_set_mask(dcontext, sigset);
+    signal_swap_mask(dcontext, true/*to app*/);
     dynamo_thread_under_dynamo(dcontext);
     dc_mc = get_mcontext(dcontext);
     *dc_mc = *mc;

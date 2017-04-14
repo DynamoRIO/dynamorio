@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -76,12 +76,12 @@ enum {
     DEFAULT_CONTINUE,
 };
 
-/* even though we don't execute xsave ourselves, kernel will do xrestore on sigreturn
- * so we have to obey alignment for avx
- */
-#define AVX_ALIGNMENT 64
-#define FPSTATE_ALIGNMENT 16
 #ifdef X86
+/* Even though we don't always execute xsave ourselves, kernel will do
+ * xrestore on sigreturn so we have to obey alignment for avx.
+ */
+# define AVX_ALIGNMENT 64
+# define FPSTATE_ALIGNMENT 16
 # define XSTATE_ALIGNMENT (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT)
 #else
 # define XSTATE_ALIGNMENT REGPARM_END_ALIGN /* actually 4 is prob enough */
@@ -292,13 +292,6 @@ typedef struct rt_sigframe {
  */
 typedef struct _sigpending_t {
     sigframe_rt_t rt_frame;
-#if defined(LINUX) && defined(X86)
-    /* fpstate is no longer kept inside the frame, and is not always present.
-     * if we delay we need to ensure we have room for it.
-     * we statically keep room for full xstate in case we need it.
-     */
-    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
-#endif /* LINUX && X86 */
 #ifdef CLIENT_INTERFACE
     /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
     byte *access_address;
@@ -308,7 +301,19 @@ typedef struct _sigpending_t {
     /* was this unblocked at receive time? */
     bool unblocked;
     struct _sigpending_t *next;
+#if defined(LINUX) && defined(X86)
+    /* fpstate is no longer kept inside the frame, and is not always present.
+     * if we delay we need to ensure we have room for it.
+     * we statically keep room for full xstate in case we need it.
+     */
+    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
+    /* The xstate struct grows and we have to allow for variable sizing,
+     * which we handle here by placing it last.
+     */
+#endif /* LINUX && X86 */
 } sigpending_t;
+
+size_t signal_frame_extra_size(bool include_alignment);
 
 /***************************************************************************
  * PER-THREAD DATA
@@ -424,6 +429,15 @@ typedef struct _thread_sig_info_t {
     fragment_t *interrupted; /* frag we unlinked for delaying signal */
     cache_pc interrupted_pc; /* pc within frag we unlinked for delaying signal */
 
+#if defined(X86) && defined(LINUX)
+    /* As the xstate buffer varies dynamically and gets large (with avx512
+     * it is over 2K) we use a copy on the heap.  There are paths where we
+     * can't easily free it locally so we keep a pointer in the TLS.
+     */
+    byte *xstate_buf;   /* xstate_alloc aligned */
+    byte *xstate_alloc; /* unaligned */
+#endif
+
 #ifdef RETURN_AFTER_CALL
     app_pc signal_restorer_retaddr;     /* last signal restorer, known ret exception */
 #endif
@@ -532,9 +546,18 @@ copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
     }
 }
 
+int
+sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact);
+
+void
+set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler);
+
 /***************************************************************************
  * OS-SPECIFIC ROUTINES (in signal_<os>.c)
  */
+
+void
+signal_arch_init(void);
 
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);

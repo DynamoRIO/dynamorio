@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -267,4 +267,20 @@ send_nudge_signal(process_id_t pid, uint action_mask,
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1286: MacOS nudges NYI */
     return false;
+}
+
+size_t
+signal_frame_extra_size(bool include_alignment)
+{
+    /* Currently assuming __darwin_mcontext_avx{32,64} is always used in the
+     * frame.  If instead __darwin_mcontext{32,64} is used (w/ just float and no AVX)
+     * on, say, older machines or OSX versions, we'll have to revisit this.
+     */
+    return 0;
+}
+
+void
+signal_arch_init(void)
+{
+    /* Nothing. */
 }
