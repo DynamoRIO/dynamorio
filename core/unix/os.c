@@ -2016,7 +2016,7 @@ os_tls_thread_exit(local_state_t *local_state)
      * If set, get_thread_private_dcontext() returns NULL, which may cause
      * other thread fault on using dcontext.
      */
-    if (dynamo_exited && dynamo_exited_synched && !last_thread_tls_exited) {
+    if (dynamo_exited_all_other_threads && !last_thread_tls_exited) {
         last_thread_tls_exited = true;
         first_thread_tls_initialized = false; /* for possible re-attach */
     }

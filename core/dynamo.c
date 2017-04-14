@@ -121,7 +121,7 @@ bool    dr_preinjected = false;
 static bool dynamo_exiting = false;
 #endif
 bool    dynamo_exited = false;
-bool    dynamo_exited_synched = false;
+bool    dynamo_exited_all_other_threads = false;
 bool    dynamo_exited_and_cleaned = false;
 #ifdef DEBUG
 bool    dynamo_exited_log_and_stats = false;
@@ -263,7 +263,6 @@ DECLARE_CXTSWPROT_VAR(mutex_t thread_initexit_lock,
 /* recursive to handle signals/exceptions while in DR code */
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t thread_in_DR_exclusion,
                       INIT_RECURSIVE_LOCK(thread_in_DR_exclusion));
-
 
 static thread_synch_state_t
 exit_synch_state(void);
@@ -986,13 +985,14 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     instrument_exit();
 # ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
-    synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+    if (get_num_threads() > 1)
+        synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
     /* only current thread is alive */
-    dynamo_exited_synched = true;
+    dynamo_exited_all_other_threads = true;
 # endif /* CLIENT_SIDELINE */
     /* Some lock can only be deleted if only one thread left. */
-    instrument_delete_locks();
-#endif /* CLIENTER_INTERFACE */
+    instrument_exit_post_sideline();
+#endif /* CLIENT_INTERFACE */
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
      * If it is set earlier after the first synch-all, some client thread may
@@ -1152,17 +1152,22 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
     int num_threads;
     thread_record_t **threads;
     DEBUG_DECLARE(bool ok;)
-    /* If we fail to suspend a thread (e.g., privilege
-     * problems) ignore it. XXX: retry instead?
+    /* if we fail to suspend a thread (e.g., privilege
+     * problems) ignore it. FIXME: retry instead?
      */
     uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
     if (pre_exit) {
-        /* i#297: we only synch client threads after process exit event. */
+        /* i#297: we only synch client thread after process exit event. */
         flags |= THREAD_SYNCH_SKIP_CLIENT_THREAD;
     }
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
         get_num_threads());
+
+#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+    /* make sure client nudges are finished */
+    wait_for_outstanding_nudges();
+#endif
 
     /* xref case 8747, requesting suspended is preferable to terminated and it
      * doesn't make a difference here which we use (since the process is about
@@ -1259,8 +1264,8 @@ dynamo_process_exit_cleanup(void)
          */
         synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
 #ifndef CLIENT_SIDELINE
-        /* no sideline thread, syncall done */
-        dynamo_exited_synched = true;
+        /* no sideline thread, synchall done */
+        dynamo_exited_all_other_threads = true;
 #endif
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
@@ -1400,7 +1405,7 @@ dynamo_process_exit(void)
          */
         synch_with_threads_at_exit(exit_synch_state(), true/*pre-exit*/);
 # ifndef CLIENT_SIDELINE
-        dynamo_exited_synched = true;
+        dynamo_exited_all_other_threads = true;
 # endif
     } else
         dynamo_exited = true;
@@ -1474,11 +1479,12 @@ dynamo_process_exit(void)
 
 # ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
-        synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
-        dynamo_exited_synched = true;
+        if (get_num_threads() > 1)
+            synch_with_threads_at_exit(exit_synch_state(), false/*post-exit*/);
+        dynamo_exited_all_other_threads = true;
 # endif
         /* Some lock can only be deleted if one thread left. */
-        instrument_delete_locks();
+        instrument_exit_post_sideline();
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
@@ -1494,7 +1500,7 @@ dynamo_process_exit(void)
             callback_interception_unintercept();
 # endif
     }
-#endif /* CLIENT_INTERFACE */
+#endif
 
 #ifdef CALL_PROFILE
     profile_callers_exit();
@@ -2649,11 +2655,14 @@ dr_app_setup(void)
     dcontext_t *dcontext;
     dr_api_entry = true;
     res = dynamorio_app_init();
-    /* It would be more efficient to avoid setting up signal handlers and
-     * avoid hooking vsyscall during init, but the code is simpler this way.
+    /* For dr_api_entry, we do not install signal handlers during init (to avoid
+     * races: i#2335): we delay until dr_app_start().  Plus the vsyscall hook is
+     * not set up until we find out the syscall method.  Thus we're already
+     * "os_process_not_under_dynamorio".
+     * We can't as easily avoid initializing the thread TLS and then dropping
+     * it, however, as parts of init assume we have TLS.
      */
     dcontext = get_thread_private_dcontext();
-    os_process_not_under_dynamorio(dcontext);
     dynamo_thread_not_under_dynamo(dcontext);
     return res;
 }

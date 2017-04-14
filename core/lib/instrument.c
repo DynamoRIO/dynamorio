@@ -767,7 +767,7 @@ void free_all_callback_lists()
 }
 
 void
-instrument_delete_locks(void)
+instrument_exit_post_sideline(void)
 {
 #if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
