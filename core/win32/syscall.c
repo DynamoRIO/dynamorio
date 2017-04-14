@@ -1710,6 +1710,9 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
                                    THREAD_SYNCH_VALID_MCONTEXT_NO_XFER,
                                    /* if we fail to suspend a thread (e.g., privilege
                                     * problems) ignore it. FIXME: retry instead? */
+                                   /* XXX i#2345: add THREAD_SYNCH_SKIP_CLIENT_THREAD
+                                    * to synch all application threads only.
+                                    */
                                    THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
         ASSERT(ok);
         ASSERT(threads == NULL && num_threads == 0); /* We asked for CLEANED */
@@ -1722,6 +1725,10 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
          * syscall comes in! (==case 4243) So, we hold the lock to issue
          * the syscall, safest to do syscall right here rather than going
          * back to handle_system_call()
+         */
+        /* XXX i#2346: instead of NtTerminateProcess syscall, which terminates all
+         * threads, we should use synch-all to terminate app threads only and
+         * delay client sideline threads termination.
          */
         return_val = nt_terminate_process_for_app(process_handle, exit_status);
         SET_RETURN_VAL(dcontext, return_val);
