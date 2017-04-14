@@ -1152,12 +1152,12 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
     int num_threads;
     thread_record_t **threads;
     DEBUG_DECLARE(bool ok;)
-    /* if we fail to suspend a thread (e.g., privilege
-     * problems) ignore it. FIXME: retry instead?
+    /* If we fail to suspend a thread (e.g., privilege
+     * problems) ignore it. XXX: retry instead?
      */
     uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
     if (pre_exit) {
-        /* i#297: we only synch client thread after process exit event. */
+        /* i#297: we only synch client threads after process exit event. */
         flags |= THREAD_SYNCH_SKIP_CLIENT_THREAD;
     }
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
@@ -1500,7 +1500,7 @@ dynamo_process_exit(void)
             callback_interception_unintercept();
 # endif
     }
-#endif
+#endif /* CLIENT_INTERFACE */
 
 #ifdef CALL_PROFILE
     profile_callers_exit();
@@ -2655,14 +2655,11 @@ dr_app_setup(void)
     dcontext_t *dcontext;
     dr_api_entry = true;
     res = dynamorio_app_init();
-    /* For dr_api_entry, we do not install signal handlers during init (to avoid
-     * races: i#2335): we delay until dr_app_start().  Plus the vsyscall hook is
-     * not set up until we find out the syscall method.  Thus we're already
-     * "os_process_not_under_dynamorio".
-     * We can't as easily avoid initializing the thread TLS and then dropping
-     * it, however, as parts of init assume we have TLS.
+    /* It would be more efficient to avoid setting up signal handlers and
+     * avoid hooking vsyscall during init, but the code is simpler this way.
      */
     dcontext = get_thread_private_dcontext();
+    os_process_not_under_dynamorio(dcontext);
     dynamo_thread_not_under_dynamo(dcontext);
     return res;
 }
