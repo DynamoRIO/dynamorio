@@ -112,6 +112,9 @@ enum {
 
     /* specifies a much smaller loop max */
     THREAD_SYNCH_SMALL_LOOP_MAX         = 0x00000008,
+
+    /* specifies whether we should terminate client threads */
+    THREAD_SYNCH_SKIP_CLIENT_THREAD     = 0x00000010,
 };
 
 /* convenience macros */
