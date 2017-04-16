@@ -154,6 +154,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
+
+        /* test aflags */
+        res = drreg_reserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_unreserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
     } else if (subtest == DRREG_TEST_1_C ||
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {

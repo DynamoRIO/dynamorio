@@ -1179,8 +1179,12 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where, release);
     }
     if (TEST(EFLAGS_READ_OF, aflags)) {
-        PRE(ilist, where, INSTR_CREATE_add
-            (drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7f)));
+        /* i#2351: DR's "add 0x7f, %al" is destructive.  Instead we use a
+         * cmp so we can avoid messing up the value in al, which is
+         * required for keeping the flags in xax.
+         */
+        PRE(ilist, where, INSTR_CREATE_cmp
+            (drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8((char)0x81)));
     }
     PRE(ilist, where, INSTR_CREATE_sahf(drcontext));
     if (pt->aflags.xchg == DR_REG_XAX) {
