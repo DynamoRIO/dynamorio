@@ -406,8 +406,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
           aflags != 0 /*0 means everything is dead*/))) {
         /* Restore aflags to app value */
-        LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX" aflags=0x%x: lazily restoring aflags\n",
-            __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), aflags);
+        LOG(drcontext, LOG_ALL, 3,
+            "%s @%d."PFX" aflags=0x%x use=%d: lazily restoring aflags\n",
+            __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), aflags,
+            pt->aflags.in_use);
         res = drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/);
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore flags before app read");
@@ -591,6 +593,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             ASSERT(pt->reg[GPR_IDX(reg)].native, "user failed to unreserve a register");
         }
         for (i = 0; i < MAX_SPILLS; i++) {
+            if (pt->slot_use[i] != DR_REG_NULL)
             ASSERT(pt->slot_use[i] == DR_REG_NULL, "user failed to unreserve a register");
         }
     }
@@ -1063,7 +1066,7 @@ drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
 #ifdef X86
     if (pt->aflags.in_use) {
         LOG(drcontext, LOG_ALL, 3,
-            "%s @%d."PFX": moving aflags from xax to slot for app xax\n", __FUNCTION__,
+            "%s @%d."PFX": moving aflags from xax to slot\n", __FUNCTION__,
             pt->live_idx, instr_get_app_pc(where));
         spill_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where);
     } else if (!pt->aflags.native) {
@@ -1107,6 +1110,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
         /* XXX i#511: pick an unreserved reg, spill it, and put xax there
          * temporarily.  Store aflags in our dedicated aflags tls slot.
          */
+        LOG(drcontext, LOG_ALL, 3, "  xax is in use!\n");
         return DRREG_ERROR_REG_CONFLICT;
     }
     if (!pt->reg[DR_REG_XAX-DR_REG_START_GPR].native) {
@@ -1334,6 +1338,19 @@ drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead)
         return DRREG_ERROR_INVALID_PARAMETER;
     *dead = !TESTANY(EFLAGS_READ_ARITH, flags);
     return DRREG_SUCCESS;
+}
+
+drreg_status_t
+drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
+{
+    per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    drreg_status_t res = DRREG_SUCCESS;
+    if (!pt->aflags.native) {
+        LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": restoring app aflags as requested\n",
+            __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
+        res = drreg_restore_aflags(drcontext, ilist, where, pt, false/*keep slot*/);
+    }
+    return res;
 }
 
 /***************************************************************************
