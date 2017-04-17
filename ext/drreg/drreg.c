@@ -181,6 +181,9 @@ static void
 spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
           instrlist_t *ilist, instr_t *where)
 {
+    LOG(drcontext, LOG_ALL, 3,
+        "%s @%d."PFX" %s %d\n", __FUNCTION__, pt->live_idx, instr_get_app_pc(where),
+        get_register_name(reg), slot);
     ASSERT(pt->slot_use[slot] == DR_REG_NULL ||
            pt->slot_use[slot] == reg, "internal tracking error");
     pt->slot_use[slot] = reg;
@@ -202,6 +205,9 @@ static void
 restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
             instrlist_t *ilist, instr_t *where, bool release)
 {
+    LOG(drcontext, LOG_ALL, 3,
+        "%s @%d."PFX" %s %d\n", __FUNCTION__, pt->live_idx, instr_get_app_pc(where),
+        get_register_name(reg), slot);
     ASSERT(pt->slot_use[slot] == reg ||
            /* aflags can be saved and restored using different regs */
            (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
@@ -492,11 +498,18 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 drreg_report_error(res, "failed to spill aflags after app write");
             }
             pt->aflags.native = false;
-        } else if (!pt->aflags.native || pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL) {
+        } else if (!pt->aflags.native || pt->slot_use[AFLAGS_SLOT] != DR_REG_NULL
+                   IF_X86(|| (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
+                              pt->aflags.xchg == DR_REG_XAX))) {
             /* give up slot */
             LOG(drcontext, LOG_ALL, 3,
                 "%s @%d."PFX": giving up aflags slot after app write\n",
                 __FUNCTION__, pt->live_idx, instr_get_app_pc(inst));
+#ifdef X86
+            if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
+                pt->aflags.xchg == DR_REG_XAX)
+                drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
+#endif
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
             pt->aflags.native = true;
         }
@@ -1078,11 +1091,8 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
 {
 #ifdef X86
     uint aflags = (uint)(ptr_uint_t) drvector_get_entry(&pt->aflags.live, pt->live_idx);
-    uint temp_slot = find_free_slot(pt);
     LOG(drcontext, LOG_ALL, 3,
         "%s @%d."PFX"\n", __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
-    if (temp_slot == MAX_SPILLS)
-        return DRREG_ERROR_OUT_OF_SLOTS;
     /* It may be in-use for ourselves, storing the flags in xax. */
     if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use && pt->aflags.xchg != DR_REG_XAX) {
         /* No way to tell whoever is using xax that we need it */
@@ -1091,11 +1101,24 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
          */
         return DRREG_ERROR_REG_CONFLICT;
     }
-    if (pt->aflags.xchg != DR_REG_XAX &&
-        (ops.conservative ||
-         drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx) ==
-         REG_LIVE))
-        spill_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where);
+    if (!pt->reg[DR_REG_XAX-DR_REG_START_GPR].native) {
+        /* xax is unreserved but not restored */
+        ASSERT(pt->slot_use[pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot] == DR_REG_XAX,
+               "xax tracking error");
+        LOG(drcontext, LOG_ALL, 3, "  using un-restored xax in slot %d\n",
+            pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot);
+    } else {
+        uint xax_slot = find_free_slot(pt);
+        if (xax_slot == MAX_SPILLS)
+            return DRREG_ERROR_OUT_OF_SLOTS;
+        if (pt->aflags.xchg != DR_REG_XAX &&
+            (ops.conservative ||
+             drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live,
+                                pt->live_idx) == REG_LIVE))
+            spill_reg(drcontext, pt, DR_REG_XAX, xax_slot, ilist, where);
+        if (pt->aflags.xchg != DR_REG_XAX)
+            pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot = xax_slot;
+    }
     PRE(ilist, where, INSTR_CREATE_lahf(drcontext));
     if (TEST(EFLAGS_READ_OF, aflags)) {
         PRE(ilist, where,
@@ -1109,8 +1132,6 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
     pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = true;
     pt->reg[DR_REG_XAX-DR_REG_START_GPR].native = false;
     pt->reg[DR_REG_XAX-DR_REG_START_GPR].ever_spilled = true;
-    if (pt->aflags.xchg != DR_REG_XAX)
-        pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot = temp_slot;
     pt->aflags.xchg = DR_REG_XAX;
 
 #elif defined(AARCHXX)
