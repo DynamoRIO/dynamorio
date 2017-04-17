@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -157,11 +157,7 @@ static
 #endif
        const linkstub_t linkstub_selfmod     = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_ibl_deleted = { LINK_FAKE, 0 };
-#ifdef UNIX
-static const linkstub_t linkstub_sigreturn   = { LINK_FAKE, 0 };
-#else /* WINDOWS */
 static const linkstub_t linkstub_asynch      = { LINK_FAKE, 0 };
-#endif
 static const linkstub_t linkstub_native_exec = { LINK_FAKE, 0 };
 /* this one we give the flag LINK_NI_SYSCALL for executing a syscall in dispatch() */
 static const linkstub_t linkstub_native_exec_syscall =
@@ -746,19 +742,11 @@ get_ibl_deleted_linkstub()
     return &linkstub_ibl_deleted;
 }
 
-#ifdef UNIX
-const linkstub_t *
-get_sigreturn_linkstub()
-{
-    return &linkstub_sigreturn;
-}
-#else /* WINDOWS */
 const linkstub_t *
 get_asynch_linkstub()
 {
     return &linkstub_asynch;
 }
-#endif
 
 const linkstub_t *
 get_native_exec_linkstub()
