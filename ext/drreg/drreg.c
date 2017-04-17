@@ -1184,7 +1184,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
          * required for keeping the flags in xax.
          */
         PRE(ilist, where, INSTR_CREATE_cmp
-            (drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8((char)0x81)));
+            (drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(-127)));
     }
     PRE(ilist, where, INSTR_CREATE_sahf(drcontext));
     if (pt->aflags.xchg == DR_REG_XAX) {
