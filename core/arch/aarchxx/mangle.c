@@ -349,7 +349,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* Push GPRs. */
     insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
-                           true /* is_gpr */);
+                          true /* is_gpr */);
 
     dstack_offs += 32 * XSP_SZ;
 
