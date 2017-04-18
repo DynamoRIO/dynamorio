@@ -220,15 +220,25 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 }
 
 #ifdef AARCH64
-/* Use first register to determine if we are dealing with GPRs or SIMD registers */
-#define IF_GPR_ELSE(first_reg, then, else_)  (first_reg == DR_REG_X0 ? then : else_)
-
 /* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
-create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg1, uint opsz)
+create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
+                                  bool is_single_reg, bool is_gpr)
 {
-    uint offset = IF_GPR_ELSE(first_reg, REG_OFFSET(first_reg + reg1),
-                              reg1 * sizeof(dr_simd_t));
+
+    uint opsz;
+    if (is_gpr)
+        if (is_single_reg)
+            opsz = OPSZ_8;
+        else
+            opsz = OPSZ_16;
+    else
+        if (is_single_reg)
+            opsz = OPSZ_16;
+        else
+            opsz = OPSZ_32;
+
+    uint offset = is_gpr ? REG_OFFSET(DR_REG_X0 + reg) : reg * sizeof(dr_simd_t);
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
 }
 
@@ -239,16 +249,15 @@ create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg1, uint
  */
 static void
 insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                             bool save)
+                                 bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                                 bool save, bool is_gpr)
 {
-    uint i, reg1 = UINT_MAX;
+    uint i, reg1 = UINT_MAX, num_regs = is_gpr ? 30 : 32;
     instr_t *new_instr;
-
     /* Use stp/ldp to save/restore as many register pairs to memory, skipping
      * registers according to reg_skip.
      */
-    for (i = 0; i < IF_GPR_ELSE(first_reg, 30, 32); i += 1) {
+    for (i = 0; i < num_regs; i += 1) {
         if (reg_skip != NULL && reg_skip[i])
             continue;
 
@@ -256,7 +265,8 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
             reg1 = i;
         else {
             opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
-                                                       IF_GPR_ELSE(first_reg, OPSZ_16, OPSZ_32));
+                                                           false /* is_single_reg */, 
+                                                           is_gpr);
             if (save) {
                 new_instr = INSTR_CREATE_stp(dcontext, mem,
                                              opnd_create_reg(first_reg + reg1),
@@ -275,7 +285,8 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      */
     if (reg1 != UINT_MAX) {
         opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
-                                                   IF_GPR_ELSE(first_reg, OPSZ_8, OPSZ_16));
+                                                       false /* is_single_reg */, 
+                                                       is_gpr);
         if (save)
             new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
         else
@@ -286,16 +297,18 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
 
 static void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
+                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                      bool is_gpr) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                 first_reg, true);
+                                     first_reg, true /* save */, is_gpr);
 }
 
 static void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg) {
+                         bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                         bool is_gpr) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                 first_reg, false);
+                                     first_reg, false /* save */, is_gpr);
 }
 #endif
 
@@ -335,7 +348,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                        OPND_CREATE_INT16(max_offs)));
 
     /* Push GPRs. */
-    insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
+    insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
+                           true /* is_gpr */);
 
     dstack_offs += 32 * XSP_SZ;
 
@@ -411,7 +425,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
 
     /* Push SIMD registers. */
-    insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
+    insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
+                          false /* is_gpr */);
 
     dstack_offs += (NUM_SIMD_SLOTS * sizeof(dr_simd_t));
 
@@ -527,7 +542,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT32(current_offs)));
 
     /* Pop SIMD registers. */
-    insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0);
+    insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
+                             false /* is_gpr */);
 
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
@@ -567,7 +583,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     /* Pop GPRs */
-    insert_restore_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0);
+    insert_restore_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
+                             true /* is_gpr */);
 
     /* Recover x30 */
     /* ldr w3, [x0, #16] */
