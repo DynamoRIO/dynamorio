@@ -1300,14 +1300,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;
     }
-# ifdef UNIX
-    else if (dcontext->last_exit == get_sigreturn_linkstub()) {
-        LOG(THREAD, LOG_DISPATCH, 2, "Exit from sigreturn, or os_forge_exception\n");
-        STATS_INC(num_exits_sigreturn);
-        KSTOP_NOT_MATCHING_NOT_PROPAGATED(syscall_fcache);
-        return;
-    }
-# else /* WINDOWS */
     else if (dcontext->last_exit == get_asynch_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from asynch event\n");
         STATS_INC(num_exits_asynch);
@@ -1315,7 +1307,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         KSTOP_NOT_MATCHING_NOT_PROPAGATED(syscall_fcache);
         return;
     }
-# endif
     else if (dcontext->last_exit == get_native_exec_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from native_exec execution\n");
         STATS_INC(num_exits_native_exec);

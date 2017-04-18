@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -482,11 +482,8 @@ const linkstub_t * get_selfmod_linkstub(void);
 extern const linkstub_t linkstub_selfmod;
 #endif
 const linkstub_t * get_ibl_deleted_linkstub(void);
-#ifdef UNIX
-const linkstub_t * get_sigreturn_linkstub(void);
-#else /* WINDOWS */
+/* This is used for Windows APC, callback, etc. and Linux sigreturn, forge fault, etc. */
 const linkstub_t * get_asynch_linkstub(void);
-#endif
 const linkstub_t * get_native_exec_linkstub(void);
 const linkstub_t * get_native_exec_syscall_linkstub(void);
 #ifdef HOT_PATCHING_INTERFACE
