@@ -49,7 +49,7 @@
 
 extern droption_t<bool> op_offline;
 extern droption_t<unsigned int> op_num_threads;
-extern droption_t<bytesize_t> op_queue_size;
+extern droption_t<bytesize_t> op_queue_capacity;
 extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
 extern droption_t<std::string> op_infile;

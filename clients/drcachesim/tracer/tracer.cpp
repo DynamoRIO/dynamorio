@@ -201,85 +201,110 @@ drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
         return DRMEMTRACE_ERROR;
 }
 
-/* sideline */
-static drvector_t buf_queue;
+/* sideline threading pool */
+/* We use a circular buffer to implement a producer-consumer queue.
+ * The tracer puts traces from application threads into the queue,
+ * and the sideline threads consume traces the queue and write them into files.
+ */
+static drvector_t circular_buf_queue;
+/* The number of traces can be cached in the queue (vector length), must be power of 2. */
 static uint queue_size = 0;
+/* queue_size - 1, for fast circular buffer index computation */
 static uint queue_size_mask = 0;
-static volatile uint queue_front = 0;
-static volatile uint queue_tail = 0;
-static void *sideline_exit_event;
+/* The index for the first entry to be written. */
+static volatile uint queue_put = 0;
+/* The index for the first entry to be read. */
+static volatile uint queue_get = 0;
+static void **sideline_exit_events;
 struct buf_entry_t {
-    file_t  file;  // file descriptor, 0 means the end of profiling.
     void   *data;  // output data pointer, NULL means the end of data for this file.
     ssize_t size;  // output data size.
 };
+struct sideline_arg_t {
+    ptr_int_t id;    // sideline thread id
+    file_t    file;  // file used by sideline thread
+};
+static sideline_arg_t *sideline_args;
 
 static inline void
-trace_buf_enqueue(file_t file, void *data, ssize_t size)
+init_buf_entry(buf_entry_t *entry)
+{
+    entry->data = NULL;
+    entry->size = 0;
+}
+
+static void
+free_buf_entry(void *entry)
+{
+    dr_global_free(entry, sizeof(buf_entry_t));
+}
+
+static inline void
+circular_buf_enqueue(void *data, ssize_t size)
 {
     bool done = false;
-    buf_entry_t *entry = (buf_entry_t *)dr_global_alloc(sizeof(*entry));
-    entry->file = file;
-    entry->data = data;
-    entry->size = size;
+    buf_entry_t *entry;
     do {
         /* quick racy check without locking */
-        while (((queue_front + 1) & queue_size_mask) == queue_tail) {
+        while (((queue_put + 1) & queue_size_mask) == queue_get) {
             /* the queue is full, waiting */;
             dr_thread_yield();
         }
-        drvector_lock(&buf_queue);
-        if (((queue_front + 1) & queue_size_mask) != queue_tail) {
-            drvector_set_entry(&buf_queue, queue_front, entry);
-            queue_front = (queue_front + 1) & queue_size_mask;
+        drvector_lock(&circular_buf_queue);
+        if (((queue_put + 1) & queue_size_mask) != queue_get) {
+            /* queue_put pointing to the first empty entry for write */
+            entry = (buf_entry_t *)drvector_get_entry(&circular_buf_queue, queue_put);
+            DR_ASSERT(entry->data == NULL && entry->size == 0);
+            entry->data = data;
+            entry->size = size;
+            drvector_set_entry(&circular_buf_queue, queue_put, entry);
+            queue_put = (queue_put + 1) & queue_size_mask;
             done = true;
         }
-        drvector_unlock(&buf_queue);
+        drvector_unlock(&circular_buf_queue);
     } while (!done);
 }
 
-static inline buf_entry_t *
-trace_buf_dequeue()
+static inline bool
+circular_buf_dequeue(buf_entry_t *entry)
 {
-    buf_entry_t *entry = NULL;
-    drvector_lock(&buf_queue);
-    if (queue_tail != queue_front) {
-        entry = (buf_entry_t *)drvector_get_entry(&buf_queue, queue_tail);
-        queue_tail = (queue_tail + 1) & queue_size_mask;
+    bool get = false;
+    drvector_lock(&circular_buf_queue);
+    if (queue_get != queue_put) {
+        buf_entry_t *tmp;
+        tmp = (buf_entry_t *)drvector_get_entry(&circular_buf_queue, queue_get);
+        *entry = *tmp;
+        init_buf_entry(tmp);
+        queue_get = (queue_get + 1) & queue_size_mask;
+        get = true;
     }
-    drvector_unlock(&buf_queue);
-    return entry;
+    drvector_unlock(&circular_buf_queue);
+    return get;
 }
 
 static void
 sideline_run(void *arg)
 {
-    buf_entry_t *entry;
+    sideline_arg_t *sa = (sideline_arg_t *)arg;
+    buf_entry_t entry;
     bool profiling = true;
     do {
         /* quick racy check without locking */
-        while (queue_tail == queue_front) {
+        while (queue_get == queue_put) {
             /* the queue is empty, waiting */
             dr_thread_yield();
         }
-        entry = trace_buf_dequeue();
-        if (entry == NULL)
+        if (!circular_buf_dequeue(&entry))
             continue;
-        if (entry->data != NULL) {
-            file_ops_func.write_file(entry->file, entry->data, entry->size);
-            dr_raw_mem_free(entry->data, max_buf_size);
-        } else if (entry->file != 0) {
-            /* XXX: we cannot simply close the file if we have more than one
-             * sideline thread, because there might be some sideline thread
-             * writing to this file.
-             */
-            file_ops_func.close_file(entry->file);
+        if (entry.data != NULL) {
+            file_ops_func.write_file(sa->file, entry.data, entry.size);
+            dr_raw_mem_free(entry.data, max_buf_size);
         } else {
+            DR_ASSERT(entry.size == 0);
             profiling = false;
         }
-        dr_global_free(entry, sizeof(*entry));
     } while (profiling);
-    dr_event_signal(sideline_exit_event);
+    dr_event_signal(sideline_exit_events[sa->id]);
 }
 
 /* Allocated TLS slot offsets */
@@ -351,12 +376,14 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 static inline byte *
 write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
 {
+    if (op_num_threads.get_value() > 0) {
+        circular_buf_enqueue(towrite_start, towrite_end - towrite_start);
+        return towrite_start;
+    }
     if (op_offline.get_value()) {
         per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
-        if (op_num_threads.get_value()) {
-            trace_buf_enqueue(data->file, towrite_start, size);
-        } else if (file_ops_func.handoff_buf != NULL) {
+        if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
                                            max_buf_size)) {
                 NOTIFY(0, "Fatal error: failed to hand off trace\n");
@@ -852,10 +879,52 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+static inline file_t
+create_thread_file(ptr_int_t id)
+{
+    /* We do not need to call drx_init before using drx_open_unique_appid_file.
+     * Since we're now in a subdir we could make the name simpler but this
+     * seems nice and complete.
+     */
+    int i;
+    file_t file;
+    char buf[MAXIMUM_PATH];
+    const int NUM_OF_TRIES = 10000;
+    uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |)
+        DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
+    /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
+     * file name for creation.  Retry if the same name file already exists.
+     * Abort if we fail too many times.
+     */
+    for (i = 0; i < NUM_OF_TRIES; i++) {
+        drx_open_unique_appid_file(logsubdir, id,
+                                   OUTFILE_PREFIX, OUTFILE_SUFFIX,
+                                   DRX_FILE_SKIP_OPEN,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf));
+        NULL_TERMINATE_BUFFER(buf);
+        file = file_ops_func.open_file(buf, flags);
+        if (file != INVALID_FILE)
+            break;
+    }
+    if (i == NUM_OF_TRIES) {
+        NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
+        dr_abort();
+    }
+    NOTIFY(2, "Created thread trace file %s\n", buf);
+    return file;
+}
+
+static void
+close_thread_file(file_t file)
+{
+    if (!op_offline.get_value())
+        return;
+    file_ops_func.close_file(file);
+}
+
 static void
 event_thread_init(void *drcontext)
 {
-    char buf[MAXIMUM_PATH];
     byte *proc_info;
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
@@ -871,35 +940,10 @@ event_thread_init(void *drcontext)
     create_buffer(data);
 
     if (op_offline.get_value()) {
-        /* We do not need to call drx_init before using drx_open_unique_appid_file.
-         * Since we're now in a subdir we could make the name simpler but this
-         * seems nice and complete.
-         */
-        int i;
-        const int NUM_OF_TRIES = 10000;
-        uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |)
-            DR_FILE_ALLOW_LARGE | DR_FILE_WRITE_REQUIRE_NEW;
-        /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
-         * file name for creation.  Retry if the same name file already exists.
-         * Abort if we fail too many times.
-         */
-        for (i = 0; i < NUM_OF_TRIES; i++) {
-            drx_open_unique_appid_file(logsubdir,
-                                       dr_get_thread_id(drcontext),
-                                       OUTFILE_PREFIX, OUTFILE_SUFFIX,
-                                       DRX_FILE_SKIP_OPEN,
-                                       buf, BUFFER_SIZE_ELEMENTS(buf));
-            NULL_TERMINATE_BUFFER(buf);
-            data->file = file_ops_func.open_file(buf, flags);
-            if (data->file != INVALID_FILE)
-                break;
-        }
-        if (i == NUM_OF_TRIES) {
-            NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
-            dr_abort();
-        }
-        NOTIFY(2, "Created thread trace file %s\n", buf);
-
+        if (op_num_threads.get_value() == 0)
+            data->file = create_thread_file(dr_get_thread_id(drcontext));
+        else
+            data->file = INVALID_FILE;
         /* Write initial headers at the top of the first buffer. */
         data->init_header_size =
             instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
@@ -910,12 +954,14 @@ event_thread_init(void *drcontext)
             instru->append_pid(BUF_PTR(data->seg_base), dr_get_process_id());
     } else {
         /* pass pid and tid to the simulator to register current thread */
-        proc_info = (byte *)buf;
-        DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
+        byte *buf = (byte *)
+            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        proc_info = buf;
+        DR_ASSERT(max_buf_size >= 3*instru->sizeof_entry());
         proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
         proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
         proc_info += instru->append_pid(proc_info, dr_get_process_id());
-        write_trace_data(drcontext, (byte *)buf, proc_info);
+        write_trace_data(drcontext, buf, proc_info);
 
         /* put buf_base to TLS plus header slots as starting buf_ptr */
         BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
@@ -939,19 +985,13 @@ event_thread_exit(void *drcontext)
 
     memtrace(drcontext, true);
 
-    if (op_offline.get_value()) {
-        if (op_num_threads.get_value() > 0) {
-            // We cannot close the file now, push to queue for closing later.
-            trace_buf_enqueue(data->file, NULL, 0);
-        } else {
-            file_ops_func.close_file(data->file);
-        }
+    if (op_offline.get_value() && op_num_threads.get_value() == 0) {
+        file_ops_func.close_file(data->file);
     }
 
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    dr_raw_mem_free(data->buf_base, max_buf_size);
     if (data->reserve_buf != NULL)
         dr_raw_mem_free(data->reserve_buf, max_buf_size);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
@@ -960,28 +1000,40 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
+    uint i;
     dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
     NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " SZFMT" references.\n",
            dr_get_process_id(), num_refs);
 
-    if (op_offline.get_value()) {
-        if (op_num_threads.get_value() > 0) {
-            trace_buf_enqueue((file_t)0, NULL, 0);  // end of profiles
-            dr_event_wait(sideline_exit_event);
-            dr_event_destroy(sideline_exit_event);
-            drvector_delete(&buf_queue);
-        }
-        /* We cannot call ~instru_t before sidline thread exit because
-         * it may cause write conflict with the sideline thread.
+    for (i = 0; i < op_num_threads.get_value(); i++) {
+        /* Enqueue empty entries to indicate the end of profiling,
+         * one entry per sideline thread.
          */
-        /* we use placement new for better isolation */
-        instru->~instru_t();
+        circular_buf_enqueue(NULL, 0);
+    }
+    for (i = 0; i < op_num_threads.get_value(); i++) {
+        dr_event_wait(sideline_exit_events[i]);
+        dr_event_destroy(sideline_exit_events[i]);
+        close_thread_file(sideline_args[i].file);
+    }
+    if (op_num_threads.get_value() > 0) {
+        drvector_delete(&circular_buf_queue);
+        dr_global_free(sideline_args,
+                       op_num_threads.get_value() * sizeof(sideline_args[0]));
+        dr_global_free(sideline_exit_events,
+                       op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
+    }
+
+    /* ~instru_t writes to module_file, we assume that it will not be affected the
+     * sideline threads.
+     */
+    /* we use placement new for better isolation */
+    instru->~instru_t();
+    if (op_offline.get_value()) {
         /* ~instru_t writes to module_file, so we close module_file after. */
         file_ops_func.close_file(module_file);
     } else {
         ipc_pipe.close();
-        /* we use placement new for better isolation */
-        instru->~instru_t();
     }
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
@@ -1055,19 +1107,72 @@ init_offline_dir(void)
     return (module_file != INVALID_FILE);
 }
 
-static inline void
-get_queue_size(void)
+static bool
+init_online_pipe(void)
+{
+    DR_ASSERT(!op_offline.get_value());
+    if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str())) {
+        DR_ASSERT(false);
+        return false;
+    }
+#ifdef UNIX
+    /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
+    int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
+    DR_ASSERT(fd != INVALID_FILE);
+    if (!ipc_pipe.set_fd(fd)) {
+        DR_ASSERT(false);
+        return false;
+    }
+#else
+    if (!ipc_pipe.open_for_write()) {
+        if (GetLastError() == ERROR_PIPE_BUSY) {
+            // FIXME i#1727: add multi-process support to Windows named_pipe_t.
+            NOTIFY(0, "Fatal error: multi-process applications not yet supported "
+                   "for drcachesim on Windows\n");
+        } else {
+            NOTIFY(0, "Fatal error: Failed to open pipe %s.\n",
+                   op_ipc_name.get_value().c_str());
+        }
+        return false;
+    }
+#endif
+    if (!ipc_pipe.maximize_buffer())
+        NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
+    return true;
+}
+
+static bool
+init_thread_pool(void)
 {
     uint i;
-    queue_size = op_queue_size.get_value() / max_buf_size;
+
+    queue_size = (unsigned int)op_queue_capacity.get_value() / max_buf_size;
     // We round up queue_size to the nearest power of 2.
-    for (i = 1; i <= queue_size; i <<= 1) /*do nothing*/;
+    for (i = 1; i <= queue_size; i <<= 1)
+        /*do nothing*/;
     queue_size = i;
     if (queue_size < 2) {
-        NOTIFY(0, "Usage error: queue size too small\n");
-        DR_ASSERT(false);
+        NOTIFY(1, "Usage error: queue size too small\n");
+        return false;
     }
     queue_size_mask = queue_size - 1;
+    drvector_init(&circular_buf_queue, queue_size, false, free_buf_entry);
+    for (i = 0; i < queue_size; i++) {
+        buf_entry_t *entry = (buf_entry_t *)dr_global_alloc(sizeof(*entry));
+        init_buf_entry(entry);
+        drvector_set_entry(&circular_buf_queue, i, entry);
+    }
+    sideline_args = (sideline_arg_t *)
+        dr_global_alloc(op_num_threads.get_value() * sizeof(sideline_args[0]));
+    sideline_exit_events = (void **)
+        dr_global_alloc(op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
+    for (i = 0; i < op_num_threads.get_value(); i++) {
+        sideline_args[i].id   = i;
+        sideline_args[i].file = create_thread_file((ptr_int_t)i);
+        dr_create_client_thread(sideline_run, &sideline_args[i]);
+        sideline_exit_events[i] = dr_event_create();
+    }
+    return true;
 }
 
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
@@ -1090,11 +1195,18 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
     }
-    if (!op_offline.get_value() && op_ipc_name.get_value().empty()) {
-        NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
-    } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
+    if (!op_offline.get_value()) {
+        if (op_ipc_name.get_value().empty()) {
+            NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
+                   droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+            dr_abort();
+        }
+        if (op_num_threads.get_value() > 1) {
+            NOTIFY(0, "Usage error: only one sideline thread is supported "
+                   "for online simulation\n");
+            dr_abort();
+        }
+    } else if (op_outdir.get_value().empty()) {
         NOTIFY(0, "Usage error: outdir is required\nUsage:\n%s",
                droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
         dr_abort();
@@ -1114,33 +1226,14 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                                            module_file);
     } else {
         void *buf;
+        if (!init_online_pipe()) {
+            NOTIFY(0, "Failed to setup pipe for online simulation\n");
+            dr_abort();
+        }
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         buf = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new(buf) online_instru_t(insert_load_buf_ptr);
-        if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
-            DR_ASSERT(false);
-#ifdef UNIX
-        /* we want an isolated fd so we don't use ipc_pipe.open_for_write() */
-        int fd = dr_open_file(ipc_pipe.get_pipe_path().c_str(), DR_FILE_WRITE_ONLY);
-        DR_ASSERT(fd != INVALID_FILE);
-        if (!ipc_pipe.set_fd(fd))
-            DR_ASSERT(false);
-#else
-        if (!ipc_pipe.open_for_write()) {
-            if (GetLastError() == ERROR_PIPE_BUSY) {
-                // FIXME i#1727: add multi-process support to Windows named_pipe_t.
-                NOTIFY(0, "Fatal error: multi-process applications not yet supported "
-                       "for drcachesim on Windows\n");
-            } else {
-                NOTIFY(0, "Fatal error: Failed to open pipe %s.\n",
-                       op_ipc_name.get_value().c_str());
-            }
-            dr_abort();
-        }
-#endif
-        if (!ipc_pipe.maximize_buffer())
-            NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
     }
 
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
@@ -1163,17 +1256,10 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     max_buf_size = trace_buf_size + redzone_size;
     buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
 
-    /* setup sideline thread and queue */
-    if (op_offline.get_value() && op_num_threads.get_value() > 0) {
-        /* XXX support thread pool with more than one threads */
-        if (op_num_threads.get_value() > 1) {
-            NOTIFY(0, "Usage error: only one sideline thread is supported");
-            DR_ASSERT(false);
-        }
-        get_queue_size();
-        drvector_init(&buf_queue, queue_size, false, NULL);
-        dr_create_client_thread(sideline_run, NULL);
-        sideline_exit_event = dr_event_create();
+    /* setup sideline threads and queue */
+    if (op_num_threads.get_value() > 0 && !init_thread_pool()) {
+        NOTIFY(0, "Failed to setup threading pool\n");
+        dr_abort();
     }
 
     client_id = id;
