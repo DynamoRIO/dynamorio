@@ -995,7 +995,9 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         /*
          * i#2144 : We look for single step exceptions generation.
          */
-        else if (instr_can_set_single_step(instr)) {
+        else if (instr_can_set_single_step(instr) &&
+                 instr_get_opcode(instr) != OP_iret) {
+            /* iret is handled in mangle_return. */
             mangle_single_step(dcontext, ilist, instr, next_instr);
             continue;
         }

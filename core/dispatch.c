@@ -921,6 +921,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 /* Restore */
                 dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
             } else if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_SINGLE_STEP) {
+                /* Delete basic block to generate only one single step exception. */
+                fragment_delete(dcontext, dcontext->last_fragment, FRAGDEL_ALL);
+                /* Forge single step exception with right address. */
                 os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
                 ASSERT_NOT_REACHED();
             } else {

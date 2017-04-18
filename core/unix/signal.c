@@ -5902,6 +5902,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
+    case SINGLE_STEP_EXCEPTION: ASSERT_NOT_IMPLEMENTED(); /* cf i#2144 */
     case IN_PAGE_ERROR_EXCEPTION: /* fall-through: Windows only */
     default: ASSERT_NOT_REACHED(); sig = SIGSEGV; break;
     }

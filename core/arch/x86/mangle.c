@@ -2400,16 +2400,15 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr)
 {
     /* Simply inserts two nops so that next instruction where a single step
-     * exception might occur is not in a different basic block.
+     * exception might occur is in the same basic block and so that the
+     * translation of a single step exception points back to the instruction
+     * which set the trap flag.
+     * The single step exception is a problem because
+     * the ExceptionAddress should be the next EIP.
      */
-    if (!next_instr || instr_is_cti(next_instr)) {
-        /* The single step exception is only a problem on a control transfer
-         * because the ExceptionAddress should be the next EIP.
-         */
-        POST(ilist, instr, INSTR_CREATE_nop(dcontext));
-        /* Inserting two nops to get ExceptionAddress on the second one. */
-        POST(ilist, instr, INSTR_CREATE_nop(dcontext));
-    }
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+    /* Inserting two nops to get ExceptionAddress on the second one. */
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
 }
 
 /***************************************************************************

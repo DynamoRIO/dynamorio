@@ -963,7 +963,8 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 bool
 instr_can_set_single_step(instr_t *instr)
 {
-    return (instr_get_opcode(instr) == OP_popf);
+    return (instr_get_opcode(instr) == OP_popf ||
+            instr_get_opcode(instr) == OP_iret);
 }
 
 bool

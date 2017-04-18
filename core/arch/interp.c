@@ -821,11 +821,20 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
 {
     LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
     instrlist_append(bb->ilist, bb->instr);
+    /* Sets exit reason dynamically. */
+    instrlist_preinsert(bb->ilist, bb->instr,
+                        instr_create_save_immed16_to_dcontext(dcontext, EXIT_REASON_SINGLE_STEP,
+                                                              EXIT_REASON_OFFSET));
 
     /* Mark instruction as special exit. */
     instr_branch_set_special_exit(bb->instr, true);
-    /* Gives exit reason. */
-    dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SINGLE_STEP;
+    bb->exit_type |= LINK_SPECIAL_EXIT;
+
+    /* Make this bb thread-private and a trace barrier. */
+    bb->flags &= ~FRAG_SHARED;
+    bb->flags |= FRAG_CANNOT_BE_TRACE;
+    /* So that the fragment does not get shared. */
+    bb->flags |= FRAG_TEMP_PRIVATE;
 }
 
 static inline void
@@ -3697,6 +3706,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
         if (dcontext->forged_exception_addr == bb->start_pc) {
             bb_process_single_step(dcontext, bb);
+            dcontext->forged_exception_addr = NULL;
             /* Stops basic block right now. */
             break;
         }
@@ -4213,6 +4223,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                    "BB not shared for unknown reason");
         }
 #endif
+    }
+    /* Basic block for single step exception must not be shared. */
+    else if (TEST(FRAG_TEMP_PRIVATE, bb->flags) &&
+             TEST(LINK_SPECIAL_EXIT, bb->exit_type)) {
+        bb->flags &= ~FRAG_TEMP_PRIVATE;
     }
 
     if (TEST(FRAG_COARSE_GRAIN, bb->flags) &&

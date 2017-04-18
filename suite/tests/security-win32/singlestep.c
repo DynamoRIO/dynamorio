@@ -78,7 +78,7 @@ main(void)
 START_FILE
 
 /* int foo()
- *   Generates a single step execution on jump and should return 2.
+ *   Generates a single step execution on jump and should return 1.
  */
 #define FUNCNAME foo
 DECLARE_FUNC(FUNCNAME)
@@ -86,12 +86,8 @@ GLOBAL_LABEL(FUNCNAME:)
         xor      eax, eax
 /* push flags on the stack */
         PUSHF
-        or       PTRSZ [REG_XSP], HEX(100)
 /* Setting the trap flag to 1 on top of the stack */
-        jnz      flag_set
-        ret
-    flag_set:
-        inc      eax
+        or       PTRSZ [REG_XSP], HEX(100)
 /* popping flags from top of the stack */
         POPF
 /* single step exception should be triggered on this jump instruction */
