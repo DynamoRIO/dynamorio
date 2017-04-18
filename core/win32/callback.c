@@ -5692,11 +5692,15 @@ intercept_exception(app_state_at_intercept_t *state)
                              * for x64 and nothing for x86.
                              */
 #ifdef X64
-                            /* FIXME i#2144 : handle if the pop rsp fails */
-                            state->mc.xsp = *((byte **)state->mc.xsp);
-                            state->mc.xsp += XSP_SZ;
+                            /* Emulates iret's pop rsp. */
+                            if (dr_safe_read(mcontext.xsp, XSP_SZ, &mcontext.xsp, NULL)) {
+                                mcontext.xsp += XSP_SZ;
+                            }
+                            else {
+                                /* FIXME i#2144 : handle if the pop rsp fails */
+                                ASSERT_NOT_IMPLEMENTED(false);
+                            }
                             /* FIXME i#2144 : handle if pop into ss faults. */
-                            ASSERT_NOT_IMPLEMENTED();
 #endif
                         }
                         instr_free(dcontext, &instr);
