@@ -156,12 +156,18 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
 
         /* test aflags */
+        /* FIXME i#2360: ARM's arith flags are inconsistent */
+        /* FIXME i#2263: AArch64 fails to mark what flags are used in the IR, breaking
+         * use of aflags in instrumentation.
+         */
+#ifndef AARCHXX
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
         res = drreg_restore_app_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+#endif
     } else if (subtest == DRREG_TEST_1_C ||
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
