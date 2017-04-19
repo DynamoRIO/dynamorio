@@ -67,8 +67,41 @@ byte *
 decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
                     dr_opnd_query_flags_t flags)
 {
-    *usage = 0; /* FIXME i#1569 */
-    return pc + 4;
+    uint res = 0;
+    instr_t instr;
+    int opc;
+    /* XXX: We should perhaps add flag information in codec.txt rather than list
+     * all the opcodes here, although the list is short and unlikely to change.
+     */
+    instr_init(dcontext, &instr);
+    pc = decode_common(dcontext, pc, pc, &instr);
+    opc = instr_get_opcode(&instr);
+    if ((opc == OP_mrs &&
+         opnd_is_reg(instr_get_src(&instr, 0)) &&
+         opnd_get_reg(instr_get_src(&instr, 0)) == DR_REG_NZCV) ||
+        opc == OP_bcond ||
+        opc == OP_adc || opc == OP_adcs || opc == OP_sbc || opc == OP_sbcs ||
+        opc == OP_csel || opc == OP_csinc || opc == OP_csinv || opc == OP_csneg ||
+        opc == OP_ccmn || opc == OP_ccmp) {
+        /* FIXME i#1569: When handled by decoder, add:
+         * opc == OP_fcsel
+         */
+        res |= EFLAGS_READ_NZCV;
+    }
+    if ((opc == OP_msr &&
+         opnd_is_reg(instr_get_dst(&instr, 0)) &&
+         opnd_get_reg(instr_get_dst(&instr, 0)) == DR_REG_NZCV) ||
+        opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
+        opc == OP_ands || opc == OP_bics ||
+        opc == OP_ccmn || opc == OP_ccmp) {
+        /* FIXME i#1569: When handled by decoder, add:
+         * opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe
+         */
+        res |= EFLAGS_WRITE_NZCV;
+    }
+    instr_free(dcontext, &instr);
+    *usage = res;
+    return pc;
 }
 
 byte *
