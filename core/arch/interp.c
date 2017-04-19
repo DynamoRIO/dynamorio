@@ -822,9 +822,10 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
     LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
     instrlist_append(bb->ilist, bb->instr);
     /* Sets exit reason dynamically. */
-    instrlist_preinsert(bb->ilist, bb->instr,
-                        instr_create_save_immed16_to_dcontext(dcontext, EXIT_REASON_SINGLE_STEP,
-                                                              EXIT_REASON_OFFSET));
+    instrlist_meta_preinsert(bb->ilist, bb->instr,
+                             instr_create_save_immed16_to_dcontext(dcontext,
+                                                                   EXIT_REASON_SINGLE_STEP,
+                                                                   EXIT_REASON_OFFSET));
 
     /* Mark instruction as special exit. */
     instr_branch_set_special_exit(bb->instr, true);
@@ -833,8 +834,6 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
     /* Make this bb thread-private and a trace barrier. */
     bb->flags &= ~FRAG_SHARED;
     bb->flags |= FRAG_CANNOT_BE_TRACE;
-    /* So that the fragment does not get shared. */
-    bb->flags |= FRAG_TEMP_PRIVATE;
 }
 
 static inline void
@@ -3706,7 +3705,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
         if (dcontext->forged_exception_addr == bb->start_pc) {
             bb_process_single_step(dcontext, bb);
-            dcontext->forged_exception_addr = NULL;
             /* Stops basic block right now. */
             break;
         }
@@ -4195,6 +4193,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
+        && dcontext->forged_exception_addr != bb->start_pc
        ) {
         /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
@@ -4224,10 +4223,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
     }
-    /* Basic block for single step exception must not be shared. */
-    else if (TEST(FRAG_TEMP_PRIVATE, bb->flags) &&
-             TEST(LINK_SPECIAL_EXIT, bb->exit_type)) {
-        bb->flags &= ~FRAG_TEMP_PRIVATE;
+    else if (dcontext->forged_exception_addr == bb->start_pc) {
+        /* Resets to generate single step exception only once. */
+        dcontext->forged_exception_addr = NULL;
     }
 
     if (TEST(FRAG_COARSE_GRAIN, bb->flags) &&
