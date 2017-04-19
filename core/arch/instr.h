@@ -2863,8 +2863,9 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
-# define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
-# define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
+/** Platform-independent macro for reads all arithmetic flags. */
+# define EFLAGS_READ_ARITH  (EFLAGS_READ_NZCV | EFLAGS_READ_Q | EFLAGS_READ_GE)
+# define EFLAGS_READ_ALL    (EFLAGS_READ_ARITH) /**< Reads all flags. */
 # define EFLAGS_READ_NON_PRED EFLAGS_READ_GE /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
@@ -2874,13 +2875,9 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
-# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_NZCV /**< Reads all arithmetic flags. */
-# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_GE) /**< Reads all flags. */
-
-/** Platform-independent macro for reads all arithmetic flags. */
-# define EFLAGS_READ_ARITH   EFLAGS_READ_NZCV
-/** Platform-independent macor for writes all arithmetic flags. */
-# define EFLAGS_WRITE_ARITH  EFLAGS_WRITE_NZCV
+/** Platform-independent macro for writes all arithmetic flags. */
+# define EFLAGS_WRITE_ARITH (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_Q | EFLAGS_WRITE_GE)
+# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_ARITH) /**< Writes all flags. */
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
 # define EFLAGS_WRITE_TO_READ(x) ((x) >> 6)
