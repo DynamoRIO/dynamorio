@@ -5693,7 +5693,7 @@ intercept_exception(app_state_at_intercept_t *state)
                              */
 #ifdef X64
                             /* Emulates iret's pop rsp. */
-                            if (dr_safe_read(mcontext.xsp, XSP_SZ, &mcontext.xsp, NULL)) {
+                            if (dr_safe_read((byte *) mcontext.xsp, XSP_SZ, &mcontext.xsp, NULL)) {
                                 mcontext.xsp += XSP_SZ;
                             }
                             else {
