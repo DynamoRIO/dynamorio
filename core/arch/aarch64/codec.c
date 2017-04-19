@@ -2364,7 +2364,8 @@ encode_opnds_b(byte *pc, instr_t *instr, uint enc)
 {
     uint off;
     if (((instr_get_opcode(instr) == OP_bl && instr_num_dsts(instr) == 1) ||
-        instr_num_dsts(instr) == 0) && instr_num_srcs(instr) == 1 &&
+         instr_num_dsts(instr) == 0) &&
+        instr_num_srcs(instr) == 1 &&
         encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0)))
         return (enc | off);
     return ENCFAIL;
