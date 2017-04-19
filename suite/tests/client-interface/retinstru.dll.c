@@ -32,8 +32,10 @@
 
 #include "dr_api.h"
 
+uint num_ret = 0;
+
 static void mbr_instru(app_pc instr_addr, app_pc target_addr) {
-    dr_fprintf(STDERR, "instrumentation for return\n");
+    num_ret++;
 }
 
 static dr_emit_flags_t
@@ -47,9 +49,21 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     return DR_EMIT_DEFAULT;
 }
 
+void exit_event(void)
+{
+    /* We assume returns are executed at least twice. */
+    if (num_ret > 1) {
+        dr_fprintf(STDERR, "instrumentation for return ok\n");
+    }
+    else {
+        dr_fprintf(STDERR, "FAIL no instrumentated returns\n");
+    }
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);
+    dr_register_exit_event(exit_event);
 }
