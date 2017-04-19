@@ -4224,6 +4224,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
     }
     else if (dcontext->forged_exception_addr == bb->start_pc) {
+        /* Might have been cleared by client_process_bb. */
+        bb->exit_type |= LINK_SPECIAL_EXIT;
         /* Resets to generate single step exception only once. */
         dcontext->forged_exception_addr = NULL;
     }

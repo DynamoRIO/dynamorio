@@ -5642,10 +5642,6 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
             LOG(THREAD, LOG_ASYNCH, 2, "Translated cxt->Xip "PFX" to "PFX"\n",
                 cxt->CXT_XIP, mcontext.pc);
-            /* cxt came from the kernel, so it should already have ss and cs
-             * initialized. Thus there's no need to get them again.
-             */
-            mcontext_to_context(cxt, &mcontext, false /* !set_cur_seg */);
 
             /*
              * i#2144 : we check if this is a single step exception
@@ -5670,7 +5666,8 @@ intercept_exception(app_state_at_intercept_t *state)
                             dcontext->next_tag = mcontext.pc + POPF_LENGTH;
                         }
                         else {
-                            dcontext->next_tag = mcontext.pc + IRET_LENGTH;
+                            /* We get the return address which was poped into ecx. */
+                            dcontext->next_tag = (app_pc) cxt->CXT_XCX;
                         }
                         /* Deletes fragment starting at single step exception
                          * if it exists.
@@ -5710,6 +5707,11 @@ intercept_exception(app_state_at_intercept_t *state)
                 }
                 instr_free(dcontext, &instr);
             }
+
+            /* cxt came from the kernel, so it should already have ss and cs
+             * initialized. Thus there's no need to get them again.
+             */
+            mcontext_to_context(cxt, &mcontext, false /* !set_cur_seg */);
 
             /* PR 306410: if exception while on dstack but going to app,
              * copy SEH frame over to app stack and update handler xsp.
