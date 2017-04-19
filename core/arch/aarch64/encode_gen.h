@@ -5986,6 +5986,24 @@ encode_opndsgen_d61f0000(byte *pc, instr_t *instr, uint enc)
 }
 
 static uint
+encode_opndsgen_d63f0000(byte *pc, instr_t *instr, uint enc)
+{
+    int opcode = instr->opcode;
+    uint dst0, src0;
+    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
+        encode_opnd_impx30(enc & 0xfffffc1f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
+        encode_opnd_x5(enc & 0xffffffff, opcode, pc, instr_get_src(instr, 0), &src0)) {
+        ASSERT((dst0 & 0xffffffff) == 0);
+        ASSERT((src0 & 0xfffffc1f) == 0);
+        enc |= dst0 | src0;
+        if (dst0 == (enc & 0x00000000) &&
+            src0 == (enc & 0x000003e0))
+            return enc;
+    }
+    return ENCFAIL;
+}
+
+static uint
 encode_opndsgen_d8000000(byte *pc, instr_t *instr, uint enc)
 {
     int opcode = instr->opcode;
@@ -6526,7 +6544,7 @@ encoder(byte *pc, instr_t *instr)
     case OP_bl:
         return encode_opnds_b(pc, instr, 0x94000000);
     case OP_blr:
-        return encode_opndsgen_d61f0000(pc, instr, 0xd63f0000);
+        return encode_opndsgen_d63f0000(pc, instr, 0xd63f0000);
     case OP_br:
         return encode_opndsgen_d61f0000(pc, instr, 0xd61f0000);
     case OP_brk:
