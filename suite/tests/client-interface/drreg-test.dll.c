@@ -154,6 +154,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
+
+        /* test aflags */
+        /* FIXME i#2263: AArch64 fails to mark what flags are used in the IR, breaking
+         * use of aflags in instrumentation.
+         */
+#ifndef AARCH64
+        res = drreg_reserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_restore_app_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
+        res = drreg_unreserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+#endif
     } else if (subtest == DRREG_TEST_1_C ||
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
@@ -229,8 +242,11 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
 
     res = drreg_reserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+    res = drreg_restore_app_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
     res = drreg_unreserve_aflags(drcontext, bb, inst);
     CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
+
     res = drreg_aflags_liveness(drcontext, inst, &flags);
     CHECK(res == DRREG_SUCCESS, "query of aflags should work");
     res = drreg_are_aflags_dead(drcontext, inst, &dead);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -88,8 +88,8 @@ test_pred(void *dc)
          (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
           opnd_create_reg(DR_REG_R1)),
          DR_PRED_EQ);
-    ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_ALL);
-    ASSERT(instr_get_eflags(inst, 0) == EFLAGS_READ_ARITH);
+    ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_ARITH);
+    ASSERT(instr_get_eflags(inst, 0) == (EFLAGS_READ_ARITH & (~EFLAGS_READ_GE)));
     instr_free(dc, inst);
     inst = INSTR_CREATE_sel
         (dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),

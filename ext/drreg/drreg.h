@@ -263,6 +263,22 @@ DR_EXPORT
 drreg_status_t
 drreg_are_aflags_dead(void *drcontext, instr_t *inst, bool *dead);
 
+DR_EXPORT
+/**
+ * This routine ensures that the application's value for the arithmetic flags is
+ * in place prior to \p where.  This is automatically done when the flags are
+ * reserved prior to an application instruction, but sometimes instrumentation
+ * needs to read the value of the flags.  This is intended as a convenience
+ * barrier for lazy restores performed by drreg.
+ *
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where);
+
 /***************************************************************************
  * SCRATCH REGISTERS
  */
