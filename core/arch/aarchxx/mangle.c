@@ -225,18 +225,21 @@ static opnd_t
 create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
                                   bool is_single_reg, bool is_gpr)
 {
-
+    /* opzs depends on the kind of register and whether a single register or
+     * a pair of registers is saved/restored using stp/ldp.
+     */
     uint opsz;
-    if (is_gpr)
+    if (is_gpr) {
         if (is_single_reg)
             opsz = OPSZ_8;
         else
             opsz = OPSZ_16;
-    else
+    } else {
         if (is_single_reg)
             opsz = OPSZ_16;
         else
             opsz = OPSZ_32;
+    }
 
     uint offset = is_gpr ? REG_OFFSET(DR_REG_X0 + reg) : reg * sizeof(dr_simd_t);
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
@@ -245,7 +248,7 @@ create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
 /* Creates code to save or restore GPR or SIMD registers to memory starting at
  * base_reg. Uses stp/ldp to save/restore as many register pairs to memory as possible
  * and uses a single str/ldp for the last register in case the number of registers
- * is uneven. Optionally takes reg_skip into account.
+ * is odd. Optionally takes reg_skip into account.
  */
 static void
 insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -281,7 +284,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
     }
 
     /* Use str/ldr to save/restore last single register to memory if the number
-     * of registers to save/restore is uneven.
+     * of registers to save/restore is odd.
      */
     if (reg1 != UINT_MAX) {
         opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
@@ -308,7 +311,7 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                          bool is_gpr) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                     first_reg, false /* save */, is_gpr);
+                                     first_reg, false /* restore */, is_gpr);
 }
 #endif
 
