@@ -767,6 +767,14 @@ void free_all_callback_lists()
 }
 
 void
+instrument_exit_post_sideline(void)
+{
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
+#endif
+}
+
+void
 instrument_exit(void)
 {
     /* Note - currently own initexit lock when this is called (see PR 227619). */
@@ -796,9 +804,6 @@ instrument_exit(void)
     num_client_libs = 0;
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
-#endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
 #endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }

@@ -165,7 +165,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_get_microseconds().
  - Added #DR_CLEANCALL_ALWAYS_OUT_OF_LINE.
  - Added instr_create_4dst_2src().
- - Added drreg_restore_app_values().
+ - Added drreg_restore_app_values() and drreg_restore_app_aflags().
  - Added drx_tail_pad_block().
  - Added XINST_CREATE_load_1byte_zext4().
  - Added drx_buf_insert_buf_memcpy().

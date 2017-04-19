@@ -104,6 +104,8 @@ void instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool instrument_invoke_another_syscall(dcontext_t *dcontext);
 
 void instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
+/* post instrument_event() cleanup */
+void instrument_exit_post_sideline(void);
 # ifdef WINDOWS
 bool instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
 void wait_for_outstanding_nudges(void);
