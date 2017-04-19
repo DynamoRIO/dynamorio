@@ -133,16 +133,26 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_thread_file_header(byte *buf_ptr)
 {
     // The caller separately calls append_tid for us which is all we need.
+    append_pid(buf_ptr, dr_get_process_id());
+    return 0;
+}
+
+int
+online_instru_t::append_timestamp(byte *buf_ptr)
+{
+    /* we do not need timestamp for online simulation */
     return 0;
 }
 
 int
 online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
-    return append_tid(buf_ptr, tid);
+    int size = append_timestamp(buf_ptr);
+    size += append_tid(buf_ptr + size, tid);
+    return size;
 }
 
 void

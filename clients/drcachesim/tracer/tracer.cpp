@@ -93,14 +93,9 @@ static size_t max_buf_size;
 typedef struct {
     byte *seg_base;
     byte *buf_base;
-    uint64 num_refs;
     uint64 bytes_written;
     /* For offline traces */
     file_t file;
-    size_t init_header_size;
-    /* For file_ops_func.handoff_buf */
-    uint num_buffers;
-    byte *reserve_buf;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -122,7 +117,7 @@ static instru_t *instru;
 
 static client_id_t client_id;
 static void  *mutex;    /* for multithread support */
-static uint64 num_refs; /* keep a global memory reference count */
+static uint64 num_bytes; /* keep a global memory reference count */
 
 /* virtual to physical translation */
 static bool have_phys;
@@ -135,9 +130,6 @@ struct file_ops_func_t {
     drmemtrace_write_file_func_t write_file;
     drmemtrace_close_file_func_t close_file;
     drmemtrace_create_dir_func_t create_dir;
-    drmemtrace_handoff_func_t handoff_buf;
-    drmemtrace_exit_func_t exit_cb;
-    void *exit_arg;
 };
 static struct file_ops_func_t file_ops_func = {
     dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
@@ -161,18 +153,6 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
         file_ops_func.create_dir = create_dir_func;
-    return DRMEMTRACE_SUCCESS;
-}
-
-drmemtrace_status_t
-drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
-                          drmemtrace_exit_func_t exit_func,
-                          void *exit_func_arg)
-{
-    /* We don't check op_offline b/c option parsing may not have happened yet. */
-    file_ops_func.handoff_buf = handoff_func;
-    file_ops_func.exit_cb = exit_func;
-    file_ops_func.exit_arg = exit_func_arg;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -219,6 +199,7 @@ static void **sideline_exit_events;
 struct buf_entry_t {
     void   *data;  // output data pointer, NULL means the end of data for this file.
     ssize_t size;  // output data size.
+    thread_id_t tid;
 };
 struct sideline_arg_t {
     ptr_int_t id;    // sideline thread id
@@ -226,11 +207,28 @@ struct sideline_arg_t {
 };
 static sideline_arg_t *sideline_args;
 
+/* Allocated TLS slot offsets */
+enum {
+    MEMTRACE_TLS_OFFS_BUF_PTR,
+    MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
+};
+static reg_id_t tls_seg;
+static uint     tls_offs;
+static int      tls_idx;
+#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
+#define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
+/* We leave some space at the start so we can easily insert a header entry */
+static size_t buf_hdr_slots_size;
+
+static inline byte *
+atomic_pipe_write(thread_id_t tid, byte *pipe_start, byte *pipe_end);
+
 static inline void
 init_buf_entry(buf_entry_t *entry)
 {
     entry->data = NULL;
     entry->size = 0;
+    entry->tid  = 0;
 }
 
 static void
@@ -240,7 +238,7 @@ free_buf_entry(void *entry)
 }
 
 static inline void
-circular_buf_enqueue(void *data, ssize_t size)
+circular_buf_enqueue(void *data, ssize_t size, thread_id_t tid)
 {
     bool done = false;
     buf_entry_t *entry;
@@ -255,8 +253,15 @@ circular_buf_enqueue(void *data, ssize_t size)
             /* queue_put pointing to the first empty entry for write */
             entry = (buf_entry_t *)drvector_get_entry(&circular_buf_queue, queue_put);
             DR_ASSERT(entry->data == NULL && entry->size == 0);
+            if (data != NULL) {  /* not special END entry */
+                /* Update the timestamp to the enqueue time to make sure
+                 * that the timestamp changes monotonically.
+                 */
+                instru->append_timestamp((byte *)data);
+            }
             entry->data = data;
             entry->size = size;
+            entry->tid = tid;
             drvector_set_entry(&circular_buf_queue, queue_put, entry);
             queue_put = (queue_put + 1) & queue_size_mask;
             done = true;
@@ -283,11 +288,70 @@ circular_buf_dequeue(buf_entry_t *entry)
 }
 
 static void
+trace_traverse(byte *buf_base, ssize_t size,
+               bool vaddr2paddr, bool do_write, thread_id_t tid)
+{
+    byte *mem_ref, *buf_ptr;
+    byte *pipe_start, *pipe_end;
+    pipe_start = buf_base;
+    pipe_end = pipe_start;
+    buf_ptr = buf_base + size;
+    for (mem_ref  = buf_base + buf_hdr_slots_size;
+         mem_ref  < buf_ptr;
+         mem_ref += instru->sizeof_entry()) {
+        if (vaddr2paddr) {
+            trace_type_t type = instru->get_entry_type(mem_ref);
+            if (type != TRACE_TYPE_THREAD &&
+                type != TRACE_TYPE_THREAD_EXIT &&
+                type != TRACE_TYPE_PID) {
+                addr_t virt = instru->get_entry_addr(mem_ref);
+                addr_t phys = physaddr.virtual2physical(virt);
+                DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
+                if (phys != 0)
+                    instru->set_entry_addr(mem_ref, phys);
+                else {
+                    // XXX i#1735: use virtual address and continue?
+                    // There are cases the xl8 fail, e.g.,:
+                    // - vsyscall/kernel page,
+                    // - wild access (NULL or very large bogus address) by app
+                    NOTIFY(1, "virtual2physical translation failure for "
+                           "<%2d, %2d, " PFX">\n",
+                           type, instru->get_entry_size(mem_ref), virt);
+                }
+            }
+        }
+        if (do_write) {
+            // Split up the buffer into multiple writes to ensure
+            // atomic pipe writes.
+            // We can only split before TRACE_TYPE_INSTR, assuming only a few
+            // data entries in between instr entries.
+            if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
+                if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
+                    pipe_start = atomic_pipe_write(tid, pipe_start, pipe_end);
+                // Advance pipe_end pointer
+                pipe_end = mem_ref;
+            }
+        }
+    }
+    if (do_write) {
+        // Write the rest to pipe
+        // The last few entries (e.g., instr + refs) may exceed the atomic write size,
+        // so we may need two writes.
+        if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
+            pipe_start = atomic_pipe_write(tid, pipe_start, pipe_end);
+        if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
+            atomic_pipe_write(tid, pipe_start, buf_ptr);
+    }
+}
+
+static void
 sideline_run(void *arg)
 {
     sideline_arg_t *sa = (sideline_arg_t *)arg;
     buf_entry_t entry;
     bool profiling = true;
+    bool offline = op_offline.get_value();
+    /* consume the queue and write data to file */
     do {
         /* quick racy check without locking */
         while (queue_get == queue_put) {
@@ -297,69 +361,43 @@ sideline_run(void *arg)
         if (!circular_buf_dequeue(&entry))
             continue;
         if (entry.data != NULL) {
-            file_ops_func.write_file(sa->file, entry.data, entry.size);
+            if (offline)
+                file_ops_func.write_file(sa->file, entry.data, entry.size);
+            else {
+                DR_ASSERT(op_num_threads.get_value() == 1);
+                trace_traverse((byte *)entry.data, entry.size,
+                               false, /* !vaddr2paddr */
+                               true, /* do_write */
+                               entry.tid);
+            }
             dr_raw_mem_free(entry.data, max_buf_size);
         } else {
             DR_ASSERT(entry.size == 0);
             profiling = false;
         }
     } while (profiling);
+
+    dr_mutex_lock(mutex);
+    dr_mutex_unlock(mutex);
     dr_event_signal(sideline_exit_events[sa->id]);
 }
-
-/* Allocated TLS slot offsets */
-enum {
-    MEMTRACE_TLS_OFFS_BUF_PTR,
-    MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
-};
-static reg_id_t tls_seg;
-static uint     tls_offs;
-static int      tls_idx;
-#define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
-#define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
-/* We leave a slot at the start so we can easily insert a header entry */
-#define BUF_HDR_SLOTS 1
-static size_t buf_hdr_slots_size;
-
 
 static void
 create_buffer(per_thread_t *data)
 {
     data->buf_base = (byte *)
         dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-    /* For file_ops_func.handoff_buf we have to handle failure as OOM is not unlikely. */
     if (data->buf_base == NULL) {
-        /* Switch to "reserve" buffer. */
-        if (data->reserve_buf == NULL) {
-            NOTIFY(0, "Fatal error: out of memory and cannot recover.\n");
-            dr_abort();
-        }
         NOTIFY(0, "Out of memory: truncating further tracing.\n");
-        data->buf_base = data->reserve_buf;
-        /* Avoid future buffer output. */
-        op_max_trace_size.set_value(data->bytes_written - 1);
-        return;
+        dr_abort();
     }
     /* dr_raw_mem_alloc guarantees to give us zeroed memory, so no need for a memset */
     /* set sentinel (non-zero) value in redzone */
     memset(data->buf_base + trace_buf_size, -1, redzone_size);
-    data->num_buffers++;
-    if (data->num_buffers == 2) {
-        /* Create a "reserve" buffer so we can continue after hitting OOM later.
-         * It is much simpler to keep running the same instru that writes to a
-         * buffer and just never write it out, similarly to how we handle
-         * -max_trace_size.  This costs us some memory (not for idle threads: that's
-         * why we wait for the 2nd buffer) but we gain simplicity.
-         */
-        data->reserve_buf = (byte *)
-            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        if (data->reserve_buf != NULL)
-            memset(data->reserve_buf + trace_buf_size, -1, redzone_size);
-    }
 }
 
 static inline byte *
-atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
+atomic_pipe_write(thread_id_t tid, byte *pipe_start, byte *pipe_end)
 {
     ssize_t towrite = pipe_end - pipe_start;
     DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
@@ -369,7 +407,7 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     // Re-emit thread entry header
     DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
     pipe_start = pipe_end - buf_hdr_slots_size;
-    instru->append_tid(pipe_start, dr_get_thread_id(drcontext));
+    instru->append_tid(pipe_start, tid);
     return pipe_start;
 }
 
@@ -377,45 +415,33 @@ static inline byte *
 write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
 {
     if (op_num_threads.get_value() > 0) {
-        circular_buf_enqueue(towrite_start, towrite_end - towrite_start);
+        circular_buf_enqueue(towrite_start, towrite_end - towrite_start,
+                             dr_get_thread_id(drcontext));
         return towrite_start;
     }
     if (op_offline.get_value()) {
         per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
         ssize_t size = towrite_end - towrite_start;
-        if (file_ops_func.handoff_buf != NULL) {
-            if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
-                                           max_buf_size)) {
-                NOTIFY(0, "Fatal error: failed to hand off trace\n");
-                dr_abort();
-            }
-        } else if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
+        if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
             NOTIFY(0, "Fatal error: failed to write trace\n");
             dr_abort();
         }
         return towrite_start;
     } else
-        return atomic_pipe_write(drcontext, towrite_start, towrite_end);
+        return atomic_pipe_write(dr_get_thread_id(drcontext), towrite_start, towrite_end);
 }
 
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    byte *mem_ref, *buf_ptr;
+    byte *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
-    size_t header_size = buf_hdr_slots_size;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    /* The initial slot is left empty for the header entry, which we add here,
-     * unless this is the very first buffer for this thread, in which case it
-     * already has a header.
-     */
-    if (data->num_refs == 0 && op_offline.get_value())
-        header_size = data->init_header_size;
-    else
-        instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
+    /* The initial slot is left empty for the header entry, which we add here. */
+    instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
@@ -429,60 +455,25 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
-             mem_ref += instru->sizeof_entry()) {
-            data->num_refs++;
-            if (have_phys && op_use_physical.get_value()) {
-                trace_type_t type = instru->get_entry_type(mem_ref);
-                if (type != TRACE_TYPE_THREAD &&
-                    type != TRACE_TYPE_THREAD_EXIT &&
-                    type != TRACE_TYPE_PID) {
-                    addr_t virt = instru->get_entry_addr(mem_ref);
-                    addr_t phys = physaddr.virtual2physical(virt);
-                    DR_ASSERT(type != TRACE_TYPE_INSTR_BUNDLE);
-                    if (phys != 0)
-                        instru->set_entry_addr(mem_ref, phys);
-                    else {
-                        // XXX i#1735: use virtual address and continue?
-                        // There are cases the xl8 fail, e.g.,:
-                        // - vsyscall/kernel page,
-                        // - wild access (NULL or very large bogus address) by app
-                        NOTIFY(1, "virtual2physical translation failure for "
-                               "<%2d, %2d, " PFX">\n",
-                               type, instru->get_entry_size(mem_ref), virt);
-                    }
-                }
-            }
-            if (!op_offline.get_value()) {
-                // Split up the buffer into multiple writes to ensure atomic pipe writes.
-                // We can only split before TRACE_TYPE_INSTR, assuming only a few data
-                // entries in between instr entries.
-                if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
-                    if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
-                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-                    // Advance pipe_end pointer
-                    pipe_end = mem_ref;
-                }
-            }
+        /* We only need walk the trace if we need convert vaddr to paddr
+         * or synchronized online simulation with atomic pipe write.
+         */
+        if ((have_phys && op_use_physical.get_value()) /* need convert addr */||
+            (!op_offline.get_value() && op_num_threads.get_value() == 0)) {
+            trace_traverse(data->buf_base,
+                           buf_ptr - data->buf_base,
+                           have_phys && op_use_physical.get_value(),
+                           !op_offline.get_value() &&
+                           op_num_threads.get_value() == 0,
+                           dr_get_thread_id(drcontext));
         }
-        if (op_offline.get_value()) {
+        if (op_num_threads.get_value() > 0) {
             write_trace_data(drcontext, pipe_start, buf_ptr);
-        } else {
-            // Write the rest to pipe
-            // The last few entries (e.g., instr + refs) may exceed the atomic write size,
-            // so we may need two writes.
-            if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
-                pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-            if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
-                atomic_pipe_write(drcontext, pipe_start, buf_ptr);
+            // The buf is in the queue, and we get a new one.
+            create_buffer(data);
         }
     }
-
-    if (do_write &&
-        (file_ops_func.handoff_buf != NULL || op_num_threads.get_value() > 0)) {
-        // The owner of the handoff callback now owns the buffer, and we get a new one.
-        create_buffer(data);
-    } else {
+    if (!do_write || op_num_threads.get_value() == 0) {
         // Our instrumentation reads from buffer and skips the clean call if the
         // content is 0, so we need set zero in the trace buffer and set non-zero
         // in redzone.
@@ -874,8 +865,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    if (file_ops_func.handoff_buf == NULL)
-        memtrace(drcontext, false);
+    memtrace(drcontext, false);
     return true;
 }
 
@@ -886,7 +876,7 @@ create_thread_file(ptr_int_t id)
      * Since we're now in a subdir we could make the name simpler but this
      * seems nice and complete.
      */
-    int i;
+    int i, size;
     file_t file;
     char buf[MAXIMUM_PATH];
     const int NUM_OF_TRIES = 10000;
@@ -911,6 +901,11 @@ create_thread_file(ptr_int_t id)
         dr_abort();
     }
     NOTIFY(2, "Created thread trace file %s\n", buf);
+    /* write file header */
+    size  = instru->append_thread_file_header((byte *)buf);
+
+    DR_ASSERT(size > 0 && size < MAXIMUM_PATH);
+    file_ops_func.write_file(file, buf, size);
     return file;
 }
 
@@ -925,7 +920,6 @@ close_thread_file(file_t file)
 static void
 event_thread_init(void *drcontext)
 {
-    byte *proc_info;
     per_thread_t *data = (per_thread_t *)
         dr_thread_alloc(drcontext, sizeof(per_thread_t));
     DR_ASSERT(data != NULL);
@@ -944,28 +938,16 @@ event_thread_init(void *drcontext)
             data->file = create_thread_file(dr_get_thread_id(drcontext));
         else
             data->file = INVALID_FILE;
-        /* Write initial headers at the top of the first buffer. */
-        data->init_header_size =
-            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
-        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
-        BUF_PTR(data->seg_base) +=
-            instru->append_tid(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-        BUF_PTR(data->seg_base) +=
-            instru->append_pid(BUF_PTR(data->seg_base), dr_get_process_id());
     } else {
         /* pass pid and tid to the simulator to register current thread */
         byte *buf = (byte *)
             dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        proc_info = buf;
-        DR_ASSERT(max_buf_size >= 3*instru->sizeof_entry());
-        proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
-        proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
-        proc_info += instru->append_pid(proc_info, dr_get_process_id());
-        write_trace_data(drcontext, buf, proc_info);
-
-        /* put buf_base to TLS plus header slots as starting buf_ptr */
-        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+        int size = instru->append_thread_file_header(buf);
+        DR_ASSERT(max_buf_size > (uint)size);
+        write_trace_data(drcontext, buf, buf + size);
     }
+    /* put buf_base to TLS plus header slots as starting buf_ptr */
+    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
 
     // XXX i#1729: gather and store an initial callstack for the thread.
 }
@@ -990,10 +972,8 @@ event_thread_exit(void *drcontext)
     }
 
     dr_mutex_lock(mutex);
-    num_refs += data->num_refs;
+    num_bytes += data->bytes_written;
     dr_mutex_unlock(mutex);
-    if (data->reserve_buf != NULL)
-        dr_raw_mem_free(data->reserve_buf, max_buf_size);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
@@ -1001,20 +981,22 @@ static void
 event_exit(void)
 {
     uint i;
-    dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " SZFMT"\n", num_refs);
-    NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " SZFMT" references.\n",
-           dr_get_process_id(), num_refs);
+    dr_log(NULL, LOG_ALL, 1, "drcachesim profile size: " SZFMT" bytes\n", num_bytes);
+    NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " SZFMT" bytes.\n",
+           dr_get_process_id(), num_bytes);
+
 
     for (i = 0; i < op_num_threads.get_value(); i++) {
         /* Enqueue empty entries to indicate the end of profiling,
          * one entry per sideline thread.
          */
-        circular_buf_enqueue(NULL, 0);
+        circular_buf_enqueue(NULL, 0, 0);
     }
     for (i = 0; i < op_num_threads.get_value(); i++) {
         dr_event_wait(sideline_exit_events[i]);
         dr_event_destroy(sideline_exit_events[i]);
-        close_thread_file(sideline_args[i].file);
+        if (op_offline.get_value())
+            close_thread_file(sideline_args[i].file);
     }
     if (op_num_threads.get_value() > 0) {
         drvector_delete(&circular_buf_queue);
@@ -1036,9 +1018,6 @@ event_exit(void)
         ipc_pipe.close();
     }
     dr_global_free(instru, MAX_INSTRU_SIZE);
-
-    if (file_ops_func.exit_cb != NULL)
-        (*file_ops_func.exit_cb)(file_ops_func.exit_arg);
 
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
@@ -1146,6 +1125,8 @@ init_thread_pool(void)
 {
     uint i;
 
+    queue_put = 0;
+    queue_get = 0;
     queue_size = (unsigned int)op_queue_capacity.get_value() / max_buf_size;
     // We round up queue_size to the nearest power of 2.
     for (i = 1; i <= queue_size; i <<= 1)
@@ -1167,12 +1148,42 @@ init_thread_pool(void)
     sideline_exit_events = (void **)
         dr_global_alloc(op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
     for (i = 0; i < op_num_threads.get_value(); i++) {
-        sideline_args[i].id   = i;
-        sideline_args[i].file = create_thread_file((ptr_int_t)i);
-        dr_create_client_thread(sideline_run, &sideline_args[i]);
         sideline_exit_events[i] = dr_event_create();
+        sideline_args[i].id   = i;
+        if (op_offline.get_value())
+            sideline_args[i].file = create_thread_file((ptr_int_t)i);
+        dr_create_client_thread(sideline_run, &sideline_args[i]);
     }
     return true;
+}
+
+static void
+circular_buf_reset()
+{
+    uint i = 0;
+    DR_ASSERT(op_num_threads.get_value() > 0);
+    for (i = 0; i < queue_size; i++) {
+        buf_entry_t *entry = (buf_entry_t *)drvector_get_entry(&circular_buf_queue, i);
+        dr_raw_mem_free(entry->data, max_buf_size);
+        init_buf_entry(entry);
+    }
+    dr_global_free(sideline_exit_events,
+                   op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
+}
+
+void event_fork_init(void *drcontext)
+{
+    uint i;
+    /* clear the queue */
+    if (op_num_threads.get_value() > 0) {
+        circular_buf_reset();
+    }
+    /* recreate sideline threads */
+    for (i = 0; i < op_num_threads.get_value(); i++) {
+        if (op_offline.get_value())
+            sideline_args[i].file = create_thread_file((ptr_int_t)i);
+        dr_create_client_thread(sideline_run, &sideline_args[i]);
+    }
 }
 
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
@@ -1182,6 +1193,7 @@ init_thread_pool(void)
 DR_EXPORT void
 drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 {
+    char buf[16];
     /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
     drreg_options_t ops = {sizeof(ops), 3, false};
 
@@ -1254,12 +1266,17 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
     redzone_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
     max_buf_size = trace_buf_size + redzone_size;
-    buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
+    /* get the header size by faking an unit header write */
+    buf_hdr_slots_size = instru->append_unit_header((byte *)buf, 0);
+    DR_ASSERT(buf_hdr_slots_size <= 16);
 
     /* setup sideline threads and queue */
-    if (op_num_threads.get_value() > 0 && !init_thread_pool()) {
-        NOTIFY(0, "Failed to setup threading pool\n");
-        dr_abort();
+    if (op_num_threads.get_value() > 0) {
+        if (!init_thread_pool()) {
+            NOTIFY(0, "Failed to setup threading pool\n");
+            dr_abort();
+        }
+        dr_register_fork_init_event(event_fork_init);
     }
 
     client_id = id;

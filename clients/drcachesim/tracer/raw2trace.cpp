@@ -465,11 +465,6 @@ raw2trace_t::merge_and_process_thread_files()
         }
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
-                // Push forward to EOF.
-                offline_entry_t entry;
-                if (thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
-                    !thread_files[tidx]->eof())
-                    FATAL_ERROR("Footer is not the final entry");
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
                 size += instru.append_thread_exit(buf, tids[tidx]);

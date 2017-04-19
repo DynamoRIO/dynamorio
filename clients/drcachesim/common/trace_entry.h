@@ -207,7 +207,7 @@ typedef enum {
     OFFLINE_EXT_TYPE_FOOTER,
 } offline_ext_type_t;
 
-#define OFFLINE_FILE_VERSION 1
+#define OFFLINE_FILE_VERSION 2
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
