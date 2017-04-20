@@ -1350,7 +1350,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             }
         }
 
-        if (loop_count >= max_loops)
+        if (loop_count++ >= max_loops)
             break;
         /* We test the exiting thread count to avoid races between exit
          * process (current thread, though we could be here for detach or other
