@@ -3686,9 +3686,9 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
      *   endif
      *     mov copy_size-1, xcx # -1 b/c we already checked 1st byte
      *     jge forward
-     *     mov copy_end_pc, xdi
+     *     mov copy_end_pc - 1, xdi # -1 b/c it is the end of this basic block
      *         # => patch point 2
-     *     mov end_pc, xsi
+     *     mov end_pc - 1, xsi
      *   forward:
      *     repe cmpsb
      * endif # copy_size > 1
@@ -3856,20 +3856,30 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
                                  OPND_CREATE_INTPTR(end_pc - (start_pc + 1))));
+        /* i#2155: In the case where the direction flag is set, xsi will be lesser
+         * than start_pc after cmps, and the jump branch will not be taken.
+         */
         PRE(ilist, instr,
             INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_instr(forward)));
+        /* i#2155: The immediate value is only psychological
+         * since it will be modified in finalize_selfmod_sandbox.
+         */
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDI),
                                  /* will become copy end */
-                                 OPND_CREATE_INTPTR(end_pc)));
+                                 OPND_CREATE_INTPTR(end_pc - 1)));
         if (patchlist != NULL) {
             ASSERT(copy_end_loc != NULL);
             add_patch_marker(patchlist, instr_get_prev(instr), PATCH_ASSEMBLE_ABSOLUTE,
                              -(short)sizeof(cache_pc), (ptr_uint_t*)copy_end_loc);
         }
+        /* i#2155: The next rep cmps comparison will be done backward,
+         * and thus it should be started at end_pc - 1
+         * because current basic block is [start_pc:end_pc-1].
+         */
         PRE(ilist, instr,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XSI),
-                                 OPND_CREATE_INTPTR(end_pc)));
+                                 OPND_CREATE_INTPTR(end_pc - 1)));
         PRE(ilist, instr, forward);
         PRE(ilist, instr, INSTR_CREATE_rep_cmps_1(dcontext));
     }
@@ -4116,11 +4126,15 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
     j = (TEST(FRAG_WRITES_EFLAGS_6, f->flags) ? 0 :
          (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j]IF_X64([k]);
+    /* The copy start gets updated after sandbox_top_of_bb. */
     *((cache_pc*)pc) = copy_pc;
     if (FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) > 1) {
         pc = FCACHE_ENTRY_PC(f) + selfmod_copy_end_offs[i][j]IF_X64([k]);
-        /* subtract the size itself, stored at the end of the copy */
-        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f));
+        /* i#2155: The copy end gets updated.
+         * This value will be used in the case where the direction flag is set.
+         * It will then be the starting point for the backward repe cmps.
+         */
+        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) - 1);
     } /* else, no 2nd patch point */
 }
 
