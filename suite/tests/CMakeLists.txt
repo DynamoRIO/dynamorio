@@ -627,6 +627,13 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     # a single one, "simple_app".
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${source})
       add_exe(${test} ${source})
+      if (AARCH64)
+        set(arch_cflags "-DARM_64")
+      else (AARCH64)
+        set(arch_cflags "")
+      endif(AARCH64)
+      set_target_properties(${test} PROPERTIES COMPILE_FLAGS
+                            "${COMPILE_FLAGS} ${arch_cflags}")
       # Make sure to avoid using the modified flags which can break msbuild (i#1748).
       # On Linux this results in some build issues which I did not want to track
       # down, so we do this only on Windows.
@@ -1898,8 +1905,10 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
     endif (NOT ARM)
-    if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+    if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+    endif (X86 OR AARCH64)
+    if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
