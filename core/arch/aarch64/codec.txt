@@ -47,6 +47,7 @@
 # In register operands (e.g. w10) the number refers to the position of the lowest bit.
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
+--------------------------------  impx30     # Implicit X30 operand
 --------------------------------  lsl        # LSL for ADD/MOV (immediate)
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
@@ -257,7 +258,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 ## Unconditional branch (register)
 
 1101011000011111000000xxxxx00000  br     : x5
-1101011000111111000000xxxxx00000  blr    : x5
+1101011000111111000000xxxxx00000  blr    impx30: x5
 1101011001011111000000xxxxx00000  ret    : x5
 
 # Loads and Stores

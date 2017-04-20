@@ -2233,6 +2233,9 @@ if (CLIENT_INTERFACE)
       # i#2119: test invoking the app's handler on a DR fault.
       tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
       target_link_libraries(api.static_crash ${libmath})
+      # XXX i#2346: add delayed sideline thread exit on Windows
+      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON)
+      target_link_libraries(api.static_sideline ${libmath} ${libpthread})
     endif ()
   endif ()
 

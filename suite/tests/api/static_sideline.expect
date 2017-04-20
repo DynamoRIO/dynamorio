@@ -1,0 +1,17 @@
+pre-DR init
+in dr_client_main
+pre-DR start
+client thread is alive
+client thread is alive
+client thread is alive
+client thread is alive
+Saw some bb events
+post-DR detach
+re-attach attempt
+in dr_client_main
+client thread is alive
+client thread is alive
+client thread is alive
+client thread is alive
+Saw some bb events
+all done

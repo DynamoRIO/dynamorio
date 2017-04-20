@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,25 +34,74 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "../clean_call_opt.h"
 
 #ifdef CLIENT_INTERFACE
 
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    instrlist_t *ilist = ci->ilist;
+    instr_t *instr;
+    uint i, num_regparm;
+
+    /* XXX implement bitset for optimisation */
+    memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
+    /* Scratch registers used for setting up the jump to the clean callee. */
+    ci->reg_used[SCRATCH_REG0] = true;
+    ci->reg_used[SCRATCH_REG1] = true;
+    ci->reg_used[DR_REG_X11 - DR_REG_START_GPR] = true;
+
+    for (instr  = instrlist_first(ilist);
+         instr != NULL;
+         instr  = instr_get_next(instr)) {
+
+        /* General purpose registers */
+        for (i = 0; i < NUM_GP_REGS; i++) {
+            reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
+            if (!ci->reg_used[i] &&
+                instr_uses_reg(instr, reg)) {
+                LOG(THREAD, LOG_CLEANCALL, 2,
+                    "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n",
+                    ci->start, reg_names[reg],
+                    instr_get_app_pc(instr));
+                ci->reg_used[i] = true;
+                callee_info_reserve_slot(ci, SLOT_REG, reg);
+            }
+        }
+    }
+
+    num_regparm = MIN(ci->num_args, NUM_REGPARM);
+    for (i = 0; i < num_regparm; i++) {
+        reg_id_t reg = regparms[i];
+        if (!ci->reg_used[reg - DR_REG_START_GPR]) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n",
+                ci->start, reg_names[reg]);
+            ci->reg_used[reg - DR_REG_START_GPR] = true;
+            callee_info_reserve_slot(ci, SLOT_REG, reg);
+        }
+    }
+    /* FIXME i#1621: the following checks are still missing:
+     *    - analysis of SIMD registers
+     *    - analysis of eflags (depends on i#2263)
+     */
 }
 
 void
 analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    /* FIXME i#1621: NYI on AArch64
+     * Non-essential for cleancall_opt=1 optimizations.
+     */
 }
 
 void
 analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    /* FIXME i#1621: NYI on AArch64
+     * Non-essential for cleancall_opt=1 optimizations.
+     */
 }
 
 app_pc
@@ -74,7 +123,9 @@ void
 analyze_clean_call_aflags(dcontext_t *dcontext,
                           clean_call_info_t *cci, instr_t *where)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    /* FIXME i#1621: NYI on AArch64
+     * Non-essential for cleancall_opt=1 optimizations.
+     */
 }
 
 void

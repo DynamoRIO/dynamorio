@@ -3299,7 +3299,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
          */
         ucontext_to_mcontext(get_mcontext(dcontext), uc);
         transfer_from_sig_handler_to_fcache_return(dcontext, sc, (app_pc) sc->SC_XIP,
-                                  (linkstub_t *) get_sigreturn_linkstub());
+                                  (linkstub_t *) get_asynch_linkstub());
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
@@ -5000,7 +5000,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         (dcontext, sc,
          /* Make sure handler is next thing we execute */
          (app_pc) SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]),
-         (linkstub_t *) get_sigreturn_linkstub());
+         (linkstub_t *) get_asynch_linkstub());
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
@@ -5758,7 +5758,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     /* HACK to get eax put into mcontext AFTER do_syscall */
     dcontext->next_tag = (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0);
     /* use special linkstub so we know why we came out of the cache */
-    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) get_sigreturn_linkstub();
+    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) get_asynch_linkstub();
 
     /* set our sigreturn context to point to fcache_return */
     /* We don't need PC_AS_JMP_TGT b/c the kernel uses EFLAGS_T for the mode */
@@ -5928,8 +5928,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     /* tell dispatch() why we're coming there */
     dcontext->whereami = WHERE_TRAMPOLINE;
     KSTART(dispatch_num_exits);
-    /* we overload the meaning of the sigreturn linkstub */
-    set_last_exit(dcontext, (linkstub_t *) get_sigreturn_linkstub());
+    set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
     if (is_couldbelinking(dcontext))
         enter_nolinking(dcontext, NULL, false);
     transfer_to_dispatch(dcontext, get_mcontext(dcontext),

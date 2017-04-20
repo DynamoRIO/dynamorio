@@ -948,9 +948,9 @@
 937fffff : asr    xzr, xzr, #63           : sbfm   %xzr $0x3f $0x3f -> %xzr
 93c31041 : extr   x1, x2, x3, #4          : extr   %x2 %x3 $0x04 -> %x1
 93dfffff : ror    xzr, xzr, #63           : extr   %xzr %xzr $0x3f -> %xzr
-94081041 : bl     10204104                : bl     $0x0000000010204104
-96000000 : bl     8000000                 : bl     $0x0000000008000000
-97ffffff : bl     ffffffc                 : bl     $0x000000000ffffffc
+94081041 : bl     10204104                : bl     $0x0000000010204104 -> %x30
+96000000 : bl     8000000                 : bl     $0x0000000008000000 -> %x30
+97ffffff : bl     ffffffc                 : bl     $0x000000000ffffffc -> %x30
 98081041 : ldrsw  x1, 10010208            : ldrsw  <rel> 0x0000000010010208[4byte] -> %x1
 987fffff : ldrsw  xzr, 100ffffc           : ldrsw  <rel> 0x00000000100ffffc[4byte] -> %xzr
 98800000 : ldrsw  x0, ff00000             : ldrsw  <rel> 0x000000000ff00000[4byte] -> %x0
@@ -1322,9 +1322,9 @@ d53fffff : mrs    xzr, s3_7_c15_c15_7     : mrs    $0x7fff -> %xzr
 d61f0000 : br     x0                      : br     %x0
 d61f0040 : br     x2                      : br     %x2
 d61f03e0 : br     xzr                     : br     %xzr
-d63f0000 : blr    x0                      : blr    %x0
-d63f0040 : blr    x2                      : blr    %x2
-d63f03e0 : blr    xzr                     : blr    %xzr
+d63f0000 : blr    x0                      : blr    %x0 -> %x30
+d63f0040 : blr    x2                      : blr    %x2 -> %x30
+d63f03e0 : blr    xzr                     : blr    %xzr -> %x30
 d65f0000 : ret    x0                      : ret    %x0
 d65f0040 : ret    x2                      : ret    %x2
 d65f03e0 : ret    xzr                     : ret    %xzr

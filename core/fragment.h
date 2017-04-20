@@ -596,6 +596,9 @@ void
 fragment_exit(void);
 
 void
+fragment_exit_post_sideline(void);
+
+void
 fragment_reset_init(void);
 
 void
