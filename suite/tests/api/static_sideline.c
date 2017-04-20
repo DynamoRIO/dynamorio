@@ -42,25 +42,30 @@
  */
 
 
+#define NUM_APP_THREADS 4
 #define NUM_SIDELINE_THREADS 4
+
+static bool finished[NUM_APP_THREADS];
 static void *child_events[NUM_SIDELINE_THREADS];
-static bool first_exit = true;
+/* We test client sideline threads with synched exit in the first detachment
+ * and non-synched exit in the second detachment.
+ */
+volatile static bool first_detach = true;
+static int num_bbs;
 
 static void
 sideline_run(void *arg)
 {
     dr_fprintf(STDERR, "client thread is alive\n");
-    if (first_exit)
+    if (first_detach)
         dr_event_wait(arg);
 }
-
-static int num_bbs;
 
 static dr_emit_flags_t
 event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
          bool translating)
 {
-    num_bbs++;
+    num_bbs++;  /* racy update, but it is ok */
     return DR_EMIT_DEFAULT;
 }
 
@@ -69,12 +74,12 @@ event_exit(void)
 {
     int i;
     for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
-        if (first_exit)
+        if (first_detach)
             dr_event_signal(child_events[i]);
         dr_event_destroy(child_events[i]);
     }
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-    first_exit = false;
+    first_detach = false;
 }
 
 DR_EXPORT void
@@ -90,9 +95,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
     /* XXX i#975: add some more thorough tests of different events */
 }
-
-#define NUM_APP_THREADS 4
-static bool finished[NUM_APP_THREADS];
 
 static int
 do_some_work(void)
@@ -113,6 +115,7 @@ thread_func(void *arg)
     if (do_some_work() < 0)
         print("error in computation\n");
     finished[idx] = true;
+    return NULL;
 }
 
 int

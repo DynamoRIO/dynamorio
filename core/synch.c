@@ -1212,9 +1212,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
      */
-    while (threads_are_stale ||
-           ((!all_synched || exiting_thread_count > expect_exiting)
-            && loop_count++ < max_loops)) {
+    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting) {
         if (threads != NULL){
             /* Case 8941: must free here rather than when yield (below) since
              * termination condition can change between there and here
@@ -1351,6 +1349,9 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     "Skipping synch with thread "TIDFMT"\n", thread_ids_temp[i]);
             }
         }
+
+        if (loop_count >= max_loops)
+            break;
         /* We test the exiting thread count to avoid races between exit
          * process (current thread, though we could be here for detach or other
          * reasons) and an exiting thread (who might no longer be on the all
@@ -1853,7 +1854,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 #endif
     DEBUG_DECLARE(bool ok;)
     DEBUG_DECLARE(int exit_res;)
-    /* sycnh-all flags: if we fail to suspend a thread (e.g., privilege
+    /* synch-all flags: if we fail to suspend a thread (e.g., privilege
      * problems) ignore it.  XXX Should we retry instead?
      */
     /* i#297: we only synch client threads after process exit event. */
