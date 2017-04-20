@@ -100,9 +100,15 @@ is_dr_native_pc(app_pc pc)
 bool
 is_native_pc(app_pc pc)
 {
+    return vmvector_overlap(native_exec_areas, pc, pc+1);
+}
+
+bool
+is_stay_native_pc(app_pc pc)
+{
     /* only used for native exec */
     ASSERT(DYNAMO_OPTION(native_exec) && !vmvector_empty(native_exec_areas));
-    return (is_dr_native_pc(pc) || vmvector_overlap(native_exec_areas, pc, pc+1));
+    return (is_dr_native_pc(pc) || is_native_pc(pc));
 }
 
 static bool
@@ -336,6 +342,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     /* asynch back on */
     set_asynch_interception(dcontext->owning_thread, true);
 #endif
+    os_thread_under_dynamo(dcontext);
     /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = true;
 
