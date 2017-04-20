@@ -337,7 +337,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         insert_out_of_line_context_switch(dcontext, ilist, instr, false);
     } else {
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
-#ifdef AARCH64
+#ifdef AARCHXX
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
                                  (uint)PAGE_SIZE, false);

@@ -288,7 +288,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      */
     if (reg1 != UINT_MAX) {
         opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
-                                                       false /* is_single_reg */,
+                                                       true /* is_single_reg */,
                                                        is_gpr);
         if (save)
             new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
