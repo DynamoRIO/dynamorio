@@ -1,0 +1,4 @@
+global log file fd=2
+DynamoRIO version .*
+Running:.*broadfun
+DynamoRIO built with:.*
