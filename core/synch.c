@@ -1296,8 +1296,9 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     continue; /* skip this thread for now till non-client are finished */
                 }
                 if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
-                    !should_suspend_client_thread(threads[i]->dcontext,
-                                                  desired_synch_state)) {
+                    (TEST(flags, THREAD_SYNCH_SKIP_CLIENT_THREAD) ||
+                     !should_suspend_client_thread(threads[i]->dcontext,
+                                                   desired_synch_state))) {
                     /* PR 609569: do not suspend this thread.
                      * Avoid races between resume_all_threads() and
                      * dr_client_thread_set_suspendable() by storing the fact.
