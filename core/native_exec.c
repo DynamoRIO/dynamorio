@@ -342,7 +342,6 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     /* asynch back on */
     set_asynch_interception(dcontext->owning_thread, true);
 #endif
-    os_thread_under_dynamo(dcontext);
     /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = true;
 
