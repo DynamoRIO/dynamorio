@@ -1552,7 +1552,9 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # combination now (i#1793).
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
-  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID)
+  # FIXME i#1799: clang does not support "asm goto".
+  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID
+      AND ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
