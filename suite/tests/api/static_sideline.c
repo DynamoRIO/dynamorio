@@ -46,7 +46,8 @@
 #define NUM_SIDELINE_THREADS 4
 
 static bool finished[NUM_APP_THREADS];
-static void *child_events[NUM_SIDELINE_THREADS];
+static void *child_alive[NUM_SIDELINE_THREADS];
+static void *child_exit[NUM_SIDELINE_THREADS];
 /* We test client sideline threads with synched exit in the first detachment
  * and non-synched exit in the second detachment.
  */
@@ -56,9 +57,13 @@ static int num_bbs;
 static void
 sideline_run(void *arg)
 {
-    dr_fprintf(STDERR, "client thread is alive\n");
-    if (first_detach)
-        dr_event_wait(arg);
+    int i = (int)(ptr_int_t)(arg);
+    dr_fprintf(STDERR, "client thread %d is alive\n", i);
+    dr_event_signal(child_alive[i]);
+    if (first_detach) {
+        /* wait till event_exit in the first detachment */
+        dr_event_wait(child_exit[i]);
+    }
 }
 
 static dr_emit_flags_t
@@ -74,9 +79,12 @@ event_exit(void)
 {
     int i;
     for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
-        if (first_detach)
-            dr_event_signal(child_events[i]);
-        dr_event_destroy(child_events[i]);
+        if (first_detach) {
+            /* let child threads exit in the first detachment */
+            dr_event_signal(child_exit[i]);
+        }
+        dr_event_destroy(child_exit[i]);
+        dr_event_destroy(child_alive[i]);
     }
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
     first_detach = false;
@@ -90,8 +98,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_bb_event(event_bb);
     dr_register_exit_event(event_exit);
     for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
-        child_events[i] = dr_event_create();
-        dr_create_client_thread(sideline_run, child_events[i]);
+        child_alive[i] = dr_event_create();
+        child_exit[i] = dr_event_create();
+        dr_create_client_thread(sideline_run, (void *)(ptr_int_t)i);
+        dr_event_wait(child_alive[i]);
     }
     /* XXX i#975: add some more thorough tests of different events */
 }

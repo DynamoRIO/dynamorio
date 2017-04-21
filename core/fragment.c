@@ -1711,6 +1711,7 @@ fragment_exit()
                                   false /* no flush */);
     DELETE_LOCK(client_flush_request_lock);
 #endif
+    return;
 }
 
 void
