@@ -329,8 +329,8 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/,
-                          bool out_of_line)
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/
+                          _IF_AARCH64(bool out_of_line))
 {
     uint dstack_offs = 0;
 #ifdef AARCH64
@@ -541,7 +541,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
-                         uint alignment, bool out_of_line)
+                         uint alignment _IF_AARCH64(bool out_of_line))
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -616,7 +616,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
        PRE(ilist, instr,
             XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
-
     }
 
  #else

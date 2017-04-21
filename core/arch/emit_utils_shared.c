@@ -4979,23 +4979,13 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * new_thread_setup() will restore real app xsp.
      * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
-#ifdef AARCHXX
     offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL,
                                        IF_X64_ELSE(16, 4), opnd_create_reg(SCRATCH_REG0),
                                        /* we have to pass in scratch to prevent
                                         * use of the stolen reg, which would be
                                         * a race w/ the parent's use of it!
                                         */
-                                       SCRATCH_REG0, false);
-#else
-    offset = insert_push_all_registers(dcontext, NULL, &ilist, NULL,
-                                       IF_X64_ELSE(16, 4), opnd_create_reg(SCRATCH_REG0),
-                                       /* we have to pass in scratch to prevent
-                                        * use of the stolen reg, which would be
-                                        * a race w/ the parent's use of it!
-                                        */
-                                       SCRATCH_REG0);
-#endif
+                                       SCRATCH_REG0 _IF_AARCH64(false));
 #ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
