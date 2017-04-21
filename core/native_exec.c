@@ -223,7 +223,7 @@ entering_native(dcontext_t *dcontext)
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */
     if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))
-        os_thread_not_under_dynamo(dcontext);
+        dynamo_thread_not_under_dynamo(dcontext);
     /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = false;
 
@@ -344,7 +344,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */
     if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))
-        os_thread_under_dynamo(dcontext);
+        dynamo_thread_under_dynamo(dcontext);
     /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = true;
 
