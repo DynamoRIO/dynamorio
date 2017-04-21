@@ -566,7 +566,12 @@ endfunction(tobuild)
 
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
-  add_exe(${test} ${source})
+  set(srcs ${source})
+  # XXX: add this _use_annotations to other to* routine if necessary.
+  if (${test}_use_annotations)
+    use_DynamoRIO_annotations(${test} srcs)
+  endif ()
+  add_exe(${test} ${srcs})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
@@ -1553,6 +1558,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     get_target_property(native_dll_name common.nativeexec.appdll
       LOCATION${location_suffix})
     get_filename_component(native_dll_name "${native_dll_name}" NAME)
+    set(common.nativeexec_use_annotations ON)
     tobuild_ops(common.nativeexec common/nativeexec.c
       "-no_early_inject -native_exec_list ${native_dll_name}" "")
     target_link_libraries(common.nativeexec common.nativeexec.appdll)
@@ -1563,9 +1569,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover"
         "")
-      torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_exe common.nativeexec
+        common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover" "")
-      torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover"
         "-bind_now")
       # XXX: the next 3 tests, and perhaps all of these native_exec tests,
@@ -1577,9 +1584,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
       # No swap TLS and no kstats for optimized native_exec
-      torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
-      torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_bindnow_opt common.nativeexec
+        common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
     endif ()
   endif ()

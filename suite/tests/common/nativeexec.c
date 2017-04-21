@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,6 +37,7 @@
  * different call* constructions
  */
 #include "tools.h"
+#include "dr_annotations.h"
 
 #include <setjmp.h>
 
@@ -120,6 +122,9 @@ main(int argc, char **argv)
 
     INIT();
 
+    if (!DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Not under DR!\n");
+
     if (argc > 2 && strcmp("-bind_now", argv[1])) {
 #ifdef WINDOWS
         print("-bind_now is Linux-only\n");
@@ -183,6 +188,9 @@ main(int argc, char **argv)
     print("calling loop_test\n");
     loop_test();
 
+    /* i#2372: make sure to verify we did not lose control! */
+    if (!DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Not under DR!\n");
     print("all done\n");
 
     return 0;
