@@ -2594,8 +2594,9 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
     }
 
-    /* XXX: We should perhaps add flag information in codec.txt rather than list
-     * all the opcodes here, although the list is short and unlikely to change.
+    /* XXX i#2374: This determination of flag usage should be separate from the decoding
+     * of operands. Also, we should perhaps add flag information in codec.txt instead of
+     * listing all the opcodes, although the list is short and unlikely to change.
      */
     opc = instr_get_opcode(instr);
     if ((opc == OP_mrs && instr_num_srcs(instr) == 1 &&
