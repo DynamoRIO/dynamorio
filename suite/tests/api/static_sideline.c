@@ -47,6 +47,7 @@
 
 static bool finished[NUM_APP_THREADS];
 static void *child_alive[NUM_SIDELINE_THREADS];
+static void *child_continue[NUM_SIDELINE_THREADS];
 static void *child_exit[NUM_SIDELINE_THREADS];
 /* We test client sideline threads with synched exit in the first detachment
  * and non-synched exit in the second detachment.
@@ -62,7 +63,8 @@ sideline_run(void *arg)
     dr_event_signal(child_alive[i]);
     if (first_detach) {
         /* wait till event_exit in the first detachment */
-        dr_event_wait(child_exit[i]);
+        dr_event_wait(child_continue[i]);
+        dr_event_signal(child_exit[i]);
     }
 }
 
@@ -81,9 +83,11 @@ event_exit(void)
     for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
         if (first_detach) {
             /* let child threads exit in the first detachment */
-            dr_event_signal(child_exit[i]);
+            dr_event_signal(child_continue[i]);
+            dr_event_wait(child_exit[i]);
+            dr_event_destroy(child_continue[i]);
+            dr_event_destroy(child_exit[i]);
         }
-        dr_event_destroy(child_exit[i]);
         dr_event_destroy(child_alive[i]);
     }
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
@@ -99,7 +103,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
     for (i = 0; i < NUM_SIDELINE_THREADS; i++) {
         child_alive[i] = dr_event_create();
-        child_exit[i] = dr_event_create();
+        if (first_detach) {
+            child_continue[i] = dr_event_create();
+            child_exit[i] = dr_event_create();
+        }
         dr_create_client_thread(sideline_run, (void *)(ptr_int_t)i);
         dr_event_wait(child_alive[i]);
     }
