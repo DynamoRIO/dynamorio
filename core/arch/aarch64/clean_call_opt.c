@@ -47,10 +47,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
     /* XXX implement bitset for optimisation */
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
-    /* Scratch registers used for setting up the jump to the clean callee. */
-    ci->reg_used[SCRATCH_REG0] = true;
-    ci->reg_used[SCRATCH_REG1] = true;
-    ci->reg_used[DR_REG_X11 - DR_REG_START_GPR] = true;
 
     for (instr  = instrlist_first(ilist);
          instr != NULL;

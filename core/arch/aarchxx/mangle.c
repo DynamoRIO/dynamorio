@@ -343,6 +343,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 
 #ifdef AARCH64
+    /* X1 and X2 are used to save and restore the status and control registers. */
+    cci->reg_skip[DR_REG_X1 - DR_REG_START_GPR] = false;
+    cci->reg_skip[DR_REG_X2 - DR_REG_START_GPR] = false;
+    /* X11 is used to calculate the target address of the clean call. */
+    cci->reg_skip[DR_REG_X11 - DR_REG_START_GPR] = false;
 
     max_offs = ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
 
@@ -396,25 +401,26 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /* Move flag values into x1, x2, x3. */
+    /* Save flag values using x1, x2. */
     /* mrs x1, nzcv */
     PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
                                        opnd_create_reg(DR_REG_NZCV)));
     /* mrs x2, fpcr */
     PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
                                        opnd_create_reg(DR_REG_FPCR)));
-    /* mrs x3, fpsr */
-    PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X3),
-                                       opnd_create_reg(DR_REG_FPSR)));
     /* stp w1, w2, [x0, #8] */
     PRE(ilist, instr,
         INSTR_CREATE_stp(dcontext, OPND_CREATE_MEM64(DR_REG_X0, 8),
                          opnd_create_reg(DR_REG_W1), opnd_create_reg(DR_REG_W2)));
-    /* str w3, [x0, #16] */
+
+    /* mrs x1, fpsr */
+    PRE(ilist, instr, INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
+                                       opnd_create_reg(DR_REG_FPSR)));
+    /* str w1, [x0, #16] */
     PRE(ilist, instr,
         INSTR_CREATE_str(dcontext,
                          OPND_CREATE_MEM32(DR_REG_X0, 16),
-                         opnd_create_reg(DR_REG_W3)));
+                         opnd_create_reg(DR_REG_W1)));
 
     /* The three flag registers take 12 bytes. */
     dstack_offs += 12;
@@ -439,13 +445,12 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         INSTR_CREATE_ldp(dcontext,
                          opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
                          opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_16)));
-    /* ldp x2, x3, [sp, #x2_offset] */
+    /* ldr x2, [sp, #x2_offset] */
     PRE(ilist, instr,
-        INSTR_CREATE_ldp(dcontext,
-                         opnd_create_reg(DR_REG_X2), opnd_create_reg(DR_REG_X3),
+        INSTR_CREATE_ldr(dcontext,
+                         opnd_create_reg(DR_REG_X2),
                          opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                               REG_OFFSET(DR_REG_X2), OPSZ_16)));
-
+                                               REG_OFFSET(DR_REG_X2), OPSZ_8)));
 #else
 
     /* vstmdb always does writeback */
@@ -567,10 +572,6 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             INSTR_CREATE_ldp(dcontext,
                              opnd_create_reg(DR_REG_W1), opnd_create_reg(DR_REG_W2),
                              OPND_CREATE_MEM64(DR_REG_X0, 8)));
-        /* ldr w3, [x0, #16] */
-        PRE(ilist, instr,
-            INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_W3),
-                             OPND_CREATE_MEM32(DR_REG_X0,16)));
         /* msr nzcv, w1 */
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
@@ -579,10 +580,16 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
                              opnd_create_reg(DR_REG_X2)));
-        /* msr fpsr, w3 */
+
+        /* ldr w1, [x0, #16] */
+        PRE(ilist, instr,
+            INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_W1),
+                             OPND_CREATE_MEM32(DR_REG_X0,16)));
+
+        /* msr fpsr, w1 */
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
-                             opnd_create_reg(DR_REG_X3)));
+                             opnd_create_reg(DR_REG_X1)));
     }
 
     /* Pop GPRs */
