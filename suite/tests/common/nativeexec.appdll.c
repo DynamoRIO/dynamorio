@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,19 +72,22 @@ void tail_caller(int_fn_t fn, int x);
 void EXPORT
 import_me1(int x)
 {
-    print("nativeexec.dll:import_me1(%d)\n", x);
+    print("nativeexec.dll:import_me1(%d) %sunder DR\n", x,
+          dr_app_running_under_dynamorio() ? "" : "not ");
 }
 
 void EXPORT
 import_me2(int x)
 {
-    print("nativeexec.dll:import_me2(%d)\n", x);
+    print("nativeexec.dll:import_me2(%d) %sunder DR\n", x,
+          dr_app_running_under_dynamorio() ? "" : "not ");
 }
 
 void EXPORT
 import_me3(int x)
 {
-    print("nativeexec.dll:import_me3(%d)\n", x);
+    print("nativeexec.dll:import_me3(%d) %sunder DR\n", x,
+          dr_app_running_under_dynamorio() ? "" : "not ");
 }
 
 void EXPORT

@@ -567,8 +567,9 @@ endfunction(tobuild)
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
   set(srcs ${source})
-  # XXX: add this _use_annotations to other to* routine if necessary.
-  if (${test}_use_annotations)
+  get_filename_component(abs ${source} ABSOLUTE)
+  file(READ ${abs} srccode)
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
     use_DynamoRIO_annotations(${test} srcs)
   endif ()
   add_exe(${test} ${srcs})
@@ -1558,7 +1559,6 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     get_target_property(native_dll_name common.nativeexec.appdll
       LOCATION${location_suffix})
     get_filename_component(native_dll_name "${native_dll_name}" NAME)
-    set(common.nativeexec_use_annotations ON)
     tobuild_ops(common.nativeexec common/nativeexec.c
       "-no_early_inject -native_exec_list ${native_dll_name}" "")
     target_link_libraries(common.nativeexec common.nativeexec.appdll)

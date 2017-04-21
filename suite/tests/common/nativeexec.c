@@ -70,7 +70,8 @@ int call_ret_imm(int2_fn_t fn);
 void
 print_int(int x)
 {
-    print("nativeexec.exe:print_int(%d)\n", x);
+    print("nativeexec.exe:print_int(%d) %sunder DR\n", x,
+          DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() ? "" : "not ");
 }
 
 static jmp_buf jump_buf;
@@ -122,8 +123,10 @@ main(int argc, char **argv)
 
     INIT();
 
-    if (!DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
-        print("Not under DR!\n");
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Running under DR\n");
+    else
+        print("Not running under DR\n");
 
     if (argc > 2 && strcmp("-bind_now", argv[1])) {
 #ifdef WINDOWS
@@ -189,8 +192,10 @@ main(int argc, char **argv)
     loop_test();
 
     /* i#2372: make sure to verify we did not lose control! */
-    if (!DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
-        print("Not under DR!\n");
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Running under DR\n");
+    else
+        print("Not running under DR\n");
     print("all done\n");
 
     return 0;
