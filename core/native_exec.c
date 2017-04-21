@@ -100,9 +100,15 @@ is_dr_native_pc(app_pc pc)
 bool
 is_native_pc(app_pc pc)
 {
+    return vmvector_overlap(native_exec_areas, pc, pc+1);
+}
+
+bool
+is_stay_native_pc(app_pc pc)
+{
     /* only used for native exec */
     ASSERT(DYNAMO_OPTION(native_exec) && !vmvector_empty(native_exec_areas));
-    return (is_dr_native_pc(pc) || vmvector_overlap(native_exec_areas, pc, pc+1));
+    return (is_dr_native_pc(pc) || is_native_pc(pc));
 }
 
 static bool
