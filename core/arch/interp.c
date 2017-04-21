@@ -4861,32 +4861,6 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                 });
             }
         }
-        /* Is this a return from a non-native module into a native module? */
-        else if (DYNAMO_OPTION(native_exec_retakeover) &&
-                 LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
-                 TEST(LINK_RETURN, dcontext->last_exit->flags)) {
-            if (is_native_pc(start)) {
-                /* XXX: check that this is the return address of a known native
-                 * callsite where we took over on a module transition.
-                 */
-                STATS_INC(num_native_module_entrances_ret);
-                native_exec_bb = true;
-                *is_call = false;
-            }
-        }
-#ifdef UNIX
-        /* Is this the entry point of a native ELF executable?  The entry point
-         * (usually _start) cannot return as there is no retaddr.
-         */
-        else if (DYNAMO_OPTION(native_exec_retakeover) &&
-                 LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
-                 start == get_image_entry()) {
-            if (is_native_pc(start)) {
-                native_exec_bb = true;
-                *is_call = false;
-            }
-        }
-#endif
         /* can we GUESS that we came from an indirect call? */
         else if (DYNAMO_OPTION(native_exec_guess_calls) &&
                  (/* FIXME: require jmp* be in separate module? */
@@ -4957,6 +4931,37 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                 });
             }
         }
+        /* i#2381: Only now can we check things that might preempt the
+         * "guess" code above.
+         */
+        /* Is this a return from a non-native module into a native module? */
+        if (!native_exec_bb &&
+            DYNAMO_OPTION(native_exec_retakeover) &&
+            LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
+            TEST(LINK_RETURN, dcontext->last_exit->flags)) {
+            if (is_native_pc(start)) {
+                /* XXX: check that this is the return address of a known native
+                 * callsite where we took over on a module transition.
+                 */
+                STATS_INC(num_native_module_entrances_ret);
+                native_exec_bb = true;
+                *is_call = false;
+            }
+        }
+#ifdef UNIX
+        /* Is this the entry point of a native ELF executable?  The entry point
+         * (usually _start) cannot return as there is no retaddr.
+         */
+        else if (!native_exec_bb &&
+                 DYNAMO_OPTION(native_exec_retakeover) &&
+                 LINKSTUB_INDIRECT(dcontext->last_exit->flags) &&
+                 start == get_image_entry()) {
+            if (is_native_pc(start)) {
+                native_exec_bb = true;
+                *is_call = false;
+            }
+        }
+#endif
 
         DOSTATS({
             /* did we reach a native dll w/o going through an ind call caught above? */
