@@ -242,7 +242,7 @@ prepare_return_from_native_via_stub(dcontext_t *dcontext, app_pc *app_sp)
 {
 #ifdef UNIX
     app_pc stub_pc;
-    ASSERT(DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp));
+    ASSERT(!is_native_pc(*app_sp));
     /* i#1238-c#4: the inline asm stub does not support kstats, so we
      * only support it when native_exec_opt is on, which turns kstats off.
      */
@@ -261,7 +261,7 @@ static void
 prepare_return_from_native_via_stack(dcontext_t *dcontext, app_pc *app_sp)
 {
     uint i;
-    ASSERT(DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp));
+    ASSERT(!is_native_pc(*app_sp));
     /* Push the retaddr and stack location onto our stack.  The current entry
      * should be free and we should have enough space.
      * XXX: it would be nice to abort in a release build, but this can be perf
@@ -296,7 +296,7 @@ call_to_native(app_pc *app_sp)
      * - native ret                     # should stay native
      * XXX: Doing a vmvector binary search on every call to native is expensive.
      */
-    if (DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp)) {
+    if (!is_native_pc(*app_sp)) {
         /* We try to use stub for fast return-from-native handling, if fails
          * (e.g., on Windows or optimization disabled), fall back to use the stack.
          */

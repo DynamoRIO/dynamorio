@@ -566,7 +566,13 @@ endfunction(tobuild)
 
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
-  add_exe(${test} ${source})
+  set(srcs ${source})
+  get_filename_component(abs ${source} ABSOLUTE)
+  file(READ ${abs} srccode)
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+    use_DynamoRIO_annotations(${test} srcs)
+  endif ()
+  add_exe(${test} ${srcs})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
@@ -1546,7 +1552,9 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # combination now (i#1793).
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
-  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID)
+  # FIXME i#1799: clang does not support "asm goto".
+  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID
+      AND ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
@@ -1563,9 +1571,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover"
         "")
-      torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_exe common.nativeexec
+        common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover" "")
-      torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover"
         "-bind_now")
       # XXX: the next 3 tests, and perhaps all of these native_exec tests,
@@ -1577,9 +1586,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
         "-no_early_inject -native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats" "")
       # No swap TLS and no kstats for optimized native_exec
-      torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "")
-      torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
+      torunonly(common.nativeexec_bindnow_opt common.nativeexec
+        common/nativeexec_exenative.c
         "-no_early_inject -native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats" "-bind_now")
     endif ()
   endif ()
