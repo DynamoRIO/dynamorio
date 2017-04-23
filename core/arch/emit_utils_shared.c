@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5564,6 +5564,9 @@ static void
 insert_entering_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_dc, reg_id_t reg_scratch)
 {
+    /* FIXME i#2375: for UNIX we need to do what os_thread_not_under_dynamo() does:
+     * set the signal mask and clear the TLS.
+     */
 #ifdef WINDOWS
     /* FIXME i#1238-c#1: we did not turn off asynch interception in windows */
     /* skip C equivalent:
@@ -5642,6 +5645,10 @@ static void
 insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            reg_id_t reg_dc, reg_id_t reg_scratch)
 {
+    /* FIXME i#2375: for UNIX we need to do what os_thread_re_take_over() and
+     * os_thread_under_dynamo() do: reinstate the TLS and restore the signal mask.
+     */
+
     /* C equivalent:
      *   dcontext->thread_record->under_dynamo_control = true
      */
