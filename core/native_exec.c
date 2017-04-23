@@ -207,7 +207,8 @@ native_exec_module_unload(module_area_t *ma)
 static void
 entering_native(dcontext_t *dcontext)
 {
-#ifdef WINDOWS
+    /* we need to match dr_app_stop() so we pop the kstack */
+    KSTOP_NOT_MATCHING(dispatch_num_exits);
     /* turn off asynch interception for this thread while native
      * FIXME: what if callbacks and apcs are destined for other modules?
      * should instead run dispatcher under DR every time, if going to native dll
@@ -218,15 +219,16 @@ entering_native(dcontext_t *dcontext)
      * We can't revert memory prots, since other threads are under DR
      * control, but we do handle our-fault write faults in native threads.
      */
-    set_asynch_interception(dcontext->owning_thread, false);
-#endif
-    /* FIXME: setting same var that set_asynch_interception is! */
+    /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
+     * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
+     */
+    if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))
+        dynamo_thread_not_under_dynamo(dcontext);
+    /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = false;
 
     ASSERT(!is_building_trace(dcontext));
     set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
-    /* we need to match dr_app_stop() so we pop the kstack */
-    KSTOP_NOT_MATCHING(dispatch_num_exits);
     /* now we're in app! */
     dcontext->whereami = WHERE_APP;
     SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively");
@@ -338,10 +340,11 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     dcontext->next_tag = target;
     /* tell dispatch() why we're coming there */
     dcontext->whereami = WHERE_FCACHE;
-#ifdef WINDOWS
-    /* asynch back on */
-    set_asynch_interception(dcontext->owning_thread, true);
-#endif
+    /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
+     * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
+     */
+    if (IF_WINDOWS_ELSE(true, !DYNAMO_OPTION(native_exec_opt)))
+        dynamo_thread_under_dynamo(dcontext);
     /* XXX: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = true;
 
@@ -397,6 +400,10 @@ return_from_native(priv_mcontext_t *mc)
     int retidx;
     ENTERING_DR();
     dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL) {
+        os_thread_re_take_over();
+        dcontext = get_thread_private_dcontext();
+    }
     ASSERT(dcontext != NULL);
     SYSLOG_INTERNAL_WARNING_ONCE("returned from at least one native module");
     retidx = native_get_retstack_idx(mc);
@@ -418,6 +425,10 @@ native_module_callout(priv_mcontext_t *mc, app_pc target)
     dcontext_t *dcontext;
     ENTERING_DR();
     dcontext = get_thread_private_dcontext();
+    if (dcontext == NULL) {
+        os_thread_re_take_over();
+        dcontext = get_thread_private_dcontext();
+    }
     ASSERT(dcontext != NULL);
     ASSERT(DYNAMO_OPTION(native_exec_retakeover));
     LOG(THREAD, LOG_ASYNCH, 4, "%s: cross-module call to %p\n",
