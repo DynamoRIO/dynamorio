@@ -1514,6 +1514,10 @@ endfunction(optimize)
 message(STATUS "Processing tests and generating expected output patterns")
 
 tobuild(common.broadfun common/broadfun.c)
+if (DEBUG)
+  torunonly(common.logstderr common.broadfun common/logstderr.c
+    "-log_to_stderr -loglevel 1 -logmask 2" "")
+endif ()
 if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
   tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 endif ()
