@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,6 +37,7 @@
  * different call* constructions
  */
 #include "tools.h"
+#include "dr_annotations.h"
 
 #include <setjmp.h>
 
@@ -68,7 +70,8 @@ int call_ret_imm(int2_fn_t fn);
 void
 print_int(int x)
 {
-    print("nativeexec.exe:print_int(%d)\n", x);
+    print("nativeexec.exe:print_int(%d) %sunder DR\n", x,
+          DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() ? "" : "not ");
 }
 
 static jmp_buf jump_buf;
@@ -119,6 +122,11 @@ main(int argc, char **argv)
     int x;
 
     INIT();
+
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Running under DR\n");
+    else
+        print("Not running under DR\n");
 
     if (argc > 2 && strcmp("-bind_now", argv[1])) {
 #ifdef WINDOWS
@@ -183,6 +191,11 @@ main(int argc, char **argv)
     print("calling loop_test\n");
     loop_test();
 
+    /* i#2372: make sure to verify we did not lose control! */
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+        print("Running under DR\n");
+    else
+        print("Not running under DR\n");
     print("all done\n");
 
     return 0;
