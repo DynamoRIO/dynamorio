@@ -993,6 +993,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     /* Some lock can only be deleted if only one thread left. */
     instrument_exit_post_sideline();
 #endif /* CLIENT_INTERFACE */
+    fragment_exit_post_sideline();
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
      * If it is set earlier after the first synch-all, some client thread may
@@ -1501,6 +1502,7 @@ dynamo_process_exit(void)
 # endif
     }
 #endif /* CLIENT_INTERFACE */
+    fragment_exit_post_sideline();
 
 #ifdef CALL_PROFILE
     profile_callers_exit();
@@ -1533,6 +1535,7 @@ dynamo_exit_post_detach(void)
     dynamo_exiting = false;
 #endif
     dynamo_exited = false;
+    dynamo_exited_all_other_threads = false;
     dynamo_exited_and_cleaned = false;
 #ifdef DEBUG
     dynamo_exited_log_and_stats = false;

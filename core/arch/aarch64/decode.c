@@ -67,8 +67,14 @@ byte *
 decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
                     dr_opnd_query_flags_t flags)
 {
-    *usage = 0; /* FIXME i#1569 */
-    return pc + 4;
+    /* XXX i#2374: Performing full decode here is inefficient. */
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    pc = decode_common(dcontext, pc, pc, &instr);
+    ASSERT(instr_eflags_valid(&instr));
+    *usage = instr.eflags;
+    instr_free(dcontext, &instr);
+    return pc;
 }
 
 byte *

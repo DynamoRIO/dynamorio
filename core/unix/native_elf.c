@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -396,7 +396,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
              * Either way we ignore it.
              */
             /* We also ignore it if the PLT target is in a native module */
-            if (!module_contains_addr(ma, gotval) && !is_native_pc(gotval)) {
+            if (!module_contains_addr(ma, gotval) && !is_stay_native_pc(gotval)) {
                 LOG(THREAD_GET, LOG_LOADER, 4,
                     "%s: hooking cross-module PLT entry to "PFX"\n",
                     __FUNCTION__, gotval);
@@ -529,7 +529,7 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
             __FUNCTION__, reloc_arg, res);
     });
     /* the target is in a native module, so no need to change */
-    if (is_native_pc(res))
+    if (is_stay_native_pc(res))
         return res;
     app_pc stub = create_plt_stub(res);
     rel = find_plt_reloc(l_map, reloc_arg);
@@ -762,7 +762,7 @@ dr_app_handle_mbr_target(void *target)
     void *stub;
     if (!DYNAMO_OPTION(native_exec) || !DYNAMO_OPTION(native_exec_retakeover))
         return target;
-    if (is_native_pc(target))
+    if (is_stay_native_pc(target))
         return target;
     stub = create_plt_stub(target);
     return native_module_htable_add(native_mbr_table, plt_stub_heap,
@@ -797,7 +797,7 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
         ASSERT(false && "fail to read app stack!\n");
         return;
     }
-    if (is_native_pc(call_tgt) && !is_native_pc(ret_tgt)) {
+    if (is_stay_native_pc(call_tgt) && !is_stay_native_pc(ret_tgt)) {
         /* replace the return target for regaining control later */
         dcontext_t *dcontext = get_thread_private_dcontext();
         app_pc stub_pc = native_module_get_ret_stub(dcontext, ret_tgt);
