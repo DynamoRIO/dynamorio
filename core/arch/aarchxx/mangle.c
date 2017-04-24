@@ -945,11 +945,12 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                              opnd_create_reg(DR_REG_X30)));
     }
 
+    insert_mov_immed_ptrsz(dcontext,
+                           (long) (save ? get_clean_call_save(dcontext) :
+                                          get_clean_call_restore(dcontext)),
+                           opnd_create_reg(DR_REG_X30), ilist, instr, NULL, NULL);
     PRE(ilist, instr,
-        INSTR_CREATE_bl
-        (dcontext, save ?
-         opnd_create_pc(get_clean_call_save(dcontext)) :
-         opnd_create_pc(get_clean_call_restore(dcontext))));
+        INSTR_CREATE_blr(dcontext, opnd_create_reg(DR_REG_X30)));
 
    /* Restore original value of X30, which was changed by BL.
     *
