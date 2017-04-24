@@ -936,12 +936,11 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
             XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
 
-        /* stp x30, x30, [sp, #x30_offset] */
+        /* stp x30, [sp, #x30_offset] */
         PRE(ilist, instr,
-            INSTR_CREATE_stp(dcontext,
+            INSTR_CREATE_str(dcontext,
                              opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X30), OPSZ_16),
-                             opnd_create_reg(DR_REG_X30),
+                                                   REG_OFFSET(DR_REG_X30), OPSZ_8),
                              opnd_create_reg(DR_REG_X30)));
     }
 
