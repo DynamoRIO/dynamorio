@@ -38,6 +38,117 @@
 
 #ifdef CLIENT_INTERFACE
 
+/* For fast recognition we do not check the instructions operand by operand.
+ * Instead we test the encoding directly.
+ */
+
+/* remove variable bits in the encoding */
+#define STP_LDP_ENC_MASK 0x7fc07fff
+#define STR_LDR_ENC_MASK 0xbfc003ff
+#define MOV_STK_ENC_MASK 0x7f0003ff
+#define STP_LDP_REG_MASK 0xffff83e0
+#define STR_LDR_REG_MASK 0xffffffe0
+
+/* stp x29, x30, [sp, #frame_size]! */
+#define PUSH_FP_LR_ENC 0x29807bfd
+/* ldp x29, x30, [sp], #frame_size */
+#define POP_FP_LR_ENC 0x28c07bfd
+/* add sp, sp, #frame_size */
+#define ADD_SP_ENC 0x110003ff
+/* sub sp, sp, #frame_size */
+#define SUB_SP_ENC 0x510003ff
+/* mov x29, sp */
+#define MOV_X29_SP_ENC 0x910003fd
+/* stp xx, xx, [sp, #offset] */
+#define STP_SP_ENC 0x290003e0
+/* ldp xx, xx, [sp, #offset] */
+#define LDP_SP_ENC 0x294003e0
+/* str xx, [sp, #offset] */
+#define STR_SP_ENC 0xb90003e0
+/* ldr xx, [sp, #offset] */
+#define LDR_SP_ENC 0xb94003e0
+
+static inline bool
+instr_is_push_fp_and_lr(instr_t *instr)
+{
+    uint enc = *(uint *)instr->bytes;
+    return (enc & STP_LDP_ENC_MASK) == PUSH_FP_LR_ENC;
+}
+
+static inline bool
+instr_is_pop_fp_and_lr(instr_t *instr)
+{
+    uint enc = *(uint *)instr->bytes;
+    return (enc & STP_LDP_ENC_MASK) == POP_FP_LR_ENC;
+}
+
+static inline bool
+instr_is_move_frame_ptr(instr_t *instr)
+{
+    uint enc = *(uint *)instr->bytes;
+    return enc == MOV_X29_SP_ENC;
+}
+
+static inline bool
+instr_is_add_stk_ptr(instr_t *instr)
+{
+    uint enc = *(uint *)instr->bytes;
+    return (enc & MOV_STK_ENC_MASK) == ADD_SP_ENC;
+}
+
+static inline bool
+instr_is_sub_stk_ptr(instr_t *instr)
+{
+    uint enc = *(uint *)instr->bytes;
+    return (enc & MOV_STK_ENC_MASK) == SUB_SP_ENC;
+}
+
+static inline bool
+instr_is_push_reg_pair(instr_t *instr, reg_id_t *reg1, reg_id_t *reg2)
+{
+    uint enc = *(uint *)instr->bytes;
+    enc = enc & STP_LDP_ENC_MASK;
+    if ((enc & STP_LDP_REG_MASK) != STP_SP_ENC)
+        return false;
+    *reg1 = (reg_id_t)(enc & 31) + DR_REG_START_GPR;
+    *reg2 = (reg_id_t)(enc >> 10 & 31) + DR_REG_START_GPR;
+    return true;
+}
+
+static inline bool
+instr_is_pop_reg_pair(instr_t *instr, reg_id_t *reg1, reg_id_t *reg2)
+{
+    uint enc = *(uint *)instr->bytes;
+    enc = enc & STP_LDP_ENC_MASK;
+    if ((enc & STP_LDP_REG_MASK) != LDP_SP_ENC)
+        return false;
+    *reg1 = (reg_id_t)(enc & 31) + DR_REG_START_GPR;
+    *reg2 = (reg_id_t)(enc >> 10 & 31) + DR_REG_START_GPR;
+    return true;
+}
+
+static inline bool
+instr_is_push_reg(instr_t *instr, reg_id_t *reg)
+{
+    uint enc = *(uint *)instr->bytes;
+    enc = enc & STR_LDR_ENC_MASK;
+    if ((enc & STR_LDR_REG_MASK) != STR_SP_ENC)
+        return false;
+    *reg = (reg_id_t)(enc & 31) + DR_REG_START_GPR;
+    return true;
+}
+
+static inline bool
+instr_is_pop_reg(instr_t *instr, reg_id_t *reg)
+{
+    uint enc = *(uint *)instr->bytes;
+    enc = enc & STR_LDR_ENC_MASK;
+    if ((enc & STR_LDR_REG_MASK) != LDR_SP_ENC)
+        return false;
+    *reg = (reg_id_t)(enc & 31) + DR_REG_START_GPR;
+    return true;
+}
+
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
@@ -101,12 +212,156 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
      */
 }
 
+/* We use stp/ldp/str/ldr [sp, #imm] pattern to detect callee saved registers,
+ * and assume that the code later won't change those saved value
+ * on the stack.
+ */
 void
 analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
 {
-    /* FIXME i#1621: NYI on AArch64
-     * Non-essential for cleancall_opt=1 optimizations.
+    instrlist_t *ilist = ci->ilist;
+    instr_t *top, *bot, *instr;
+    reg_id_t reg1, reg2;
+    bool not_found;
+    /* pointers to instructions of interest */
+    instr_t *enter = NULL, *leave = NULL;
+
+    ci->num_callee_save_regs = 0;
+    top = instrlist_first(ilist);
+    bot = instrlist_last(ilist);
+
+    /* zero or one instruction only, no callee save */
+    if (top == bot)
+        return;
+
+    /* Stack frame analysis
+     * A typical function (fewer than 8 arguments) has the following form:
+     * (a) stp x29, x30, [sp, #-frame_size]!
+     * (b) mov x29, sp
+     * (c) stp x19, x20, [sp, #callee_save_offset]
+     * (c) str x21, [sp, #callee_save_offset+8]
+     * ...
+     * (c) ldp x19, x20, [sp, #callee_save_offset]
+     * (c) ldr x21, [sp, #callee_save_offset+8]
+     * (a) ldp x29, x30, [sp], #frame_size
+     *     ret
+     * Pair (a) appears when the callee calls another function.
+     * If the callee is a leaf function, pair (a) typically has the following form:
+     * (a) sub, sp, sp, #frame_size
+     * (a) add, sp, sp, #frame_size
+     * If (b) is found, x29 is used as the frame pointer.
+     * Pair (c) may have two forms, using stp/ldp for register pairs
+     * or str/ldr for a single callee-saved register.
      */
+     /* Check for pair (a) */
+    for (instr = top; instr != bot; instr = instr_get_next(instr)) {
+        if (instr->bytes == NULL)
+            continue;
+        if (instr_is_push_fp_and_lr(instr) ||
+            instr_is_sub_stk_ptr(instr)) {
+            enter = instr;
+            break;
+        }
+    }
+    if (enter != NULL) {
+        for (instr = bot; instr != enter; instr = instr_get_prev(instr)) {
+            if (!instr->bytes)
+                continue;
+            if (instr_is_pop_fp_and_lr(instr) ||
+                instr_is_add_stk_ptr(instr)) {
+                leave = instr;
+                break;
+            }
+        }
+    }
+    /* Check for (b) */
+    ci->standard_fp = false;
+    if (enter != NULL && leave != NULL &&
+        (ci->bwd_tgt == NULL || instr_get_app_pc(enter) <  ci->bwd_tgt) &&
+        (ci->fwd_tgt == NULL || instr_get_app_pc(leave) >= ci->fwd_tgt)) {
+        for (instr = instr_get_next(enter);
+             instr != leave;
+             instr = instr_get_next(instr)) {
+            if (instr_is_move_frame_ptr(instr)) {
+                ci->standard_fp = true;
+                /* Remove this instruction. */
+                instrlist_remove(ilist, instr);
+                instr_destroy(GLOBAL_DCONTEXT, instr);
+                break;
+            }
+        }
+        if (ci->standard_fp) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" use X29 as frame pointer\n", ci->start);
+        }
+        /* remove pair (a) */
+        instrlist_remove(ilist, enter);
+        instrlist_remove(ilist, leave);
+        instr_destroy(GLOBAL_DCONTEXT, enter);
+        instr_destroy(GLOBAL_DCONTEXT, leave);
+        top = instrlist_first(ilist);
+        bot = instrlist_last(ilist);
+    }
+    /* Check for (c): callee-saved registers */
+    while (top != NULL && bot != NULL) {
+        /* if not in the first/last bb, break */
+        if ((ci->bwd_tgt != NULL && instr_get_app_pc(top) >= ci->bwd_tgt) ||
+            (ci->fwd_tgt != NULL && instr_get_app_pc(bot) <  ci->fwd_tgt) ||
+            instr_is_cti(top) || instr_is_cti(bot))
+            break;
+        if (instr_is_push_reg_pair(top, &reg1, &reg2)) {
+            not_found = true;
+            /* If a save reg pair is found and the register,
+             * search from the bottom for restore.
+             */
+            for (instr = bot; !instr_is_cti(instr); instr = instr_get_prev(instr)) {
+                reg_id_t reg1_c, reg2_c;
+                if (instr_is_pop_reg_pair(instr, &reg1_c, &reg2_c) &&
+                    reg1 == reg1_c &&
+                    reg2 == reg2_c) {
+                    /* found a save/restore pair */
+                    ci->callee_save_regs[reg1] = true;
+                    ci->callee_save_regs[reg2] = true;
+                    ci->num_callee_save_regs += 2;
+                    /* remove & destroy the pairs */
+                    instrlist_remove(ilist, top);
+                    instr_destroy(GLOBAL_DCONTEXT, top);
+                    instrlist_remove(ilist, instr);
+                    instr_destroy(GLOBAL_DCONTEXT, instr);
+                    /* get next pair */
+                    top = instrlist_first(ilist);
+                    bot = instrlist_last(ilist);
+                    not_found = false;
+                }
+            }
+            if (not_found)
+                break;
+        } else if (instr_is_push_reg(top, &reg1)) {
+            not_found = true;
+            /* If a save reg is found, search from the bottom for restore. */
+            for (instr = bot; instr != top; instr = instr_get_prev(instr)) {
+                reg_id_t reg1_c;
+                if (instr_is_pop_reg(instr, &reg1_c) &&
+                    reg1 == reg1_c) {
+                    /* found a save/restore pair */
+                    ci->callee_save_regs[reg1] = true;
+                    ci->num_callee_save_regs += 1;
+                    /* remove & destroy the pairs */
+                    instrlist_remove(ilist, top);
+                    instr_destroy(GLOBAL_DCONTEXT, top);
+                    instrlist_remove(ilist, instr);
+                    instr_destroy(GLOBAL_DCONTEXT, instr);
+                    /* get next pair */
+                    top = instrlist_first(ilist);
+                    bot = instrlist_last(ilist);
+                    break;
+                }
+            }
+            if (not_found)
+                break;
+        } else
+            break;
+    }
 }
 
 void
