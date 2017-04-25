@@ -905,7 +905,7 @@ create_thread_file(ptr_int_t id)
     size  = instru->append_thread_file_header((byte *)buf);
 
     DR_ASSERT(size > 0 && size < MAXIMUM_PATH);
-    file_ops_func.write_file(file, buf, (size_t)size);
+    file_ops_func.write_file(file, (const void *)buf, (size_t)(ptr_int_t)size);
     return file;
 }
 
@@ -1127,7 +1127,7 @@ init_thread_pool(void)
 
     queue_put = 0;
     queue_get = 0;
-    queue_size = (unsigned int)op_queue_capacity.get_value() / max_buf_size;
+    queue_size = (uint)(ptr_uint_t)op_queue_capacity.get_value() / max_buf_size;
     // We round up queue_size to the nearest power of 2.
     for (i = 1; i <= queue_size; i <<= 1)
         /*do nothing*/;
@@ -1157,6 +1157,7 @@ init_thread_pool(void)
     return true;
 }
 
+#ifdef UNIX
 static void
 circular_buf_reset()
 {
@@ -1180,6 +1181,7 @@ void event_fork_init(void *drcontext)
     if (op_num_threads.get_value() > 0) {
         circular_buf_reset();
     }
+    event_thread_init(drcontext);
     /* recreate sideline threads */
     for (i = 0; i < op_num_threads.get_value(); i++) {
         if (op_offline.get_value())
@@ -1187,6 +1189,7 @@ void event_fork_init(void *drcontext)
         dr_create_client_thread(sideline_run, &sideline_args[i]);
     }
 }
+#endif
 
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
  * drmemtrace client by calling drmemtrace_client_main in a statically linked
@@ -1264,6 +1267,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                                                     event_bb_instru2instru,
                                                     NULL))
         DR_ASSERT(false);
+#ifdef UNIX
+    dr_register_fork_init_event(event_fork_init);
+#endif
 
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
     redzone_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
@@ -1278,7 +1284,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
             NOTIFY(0, "Failed to setup threading pool\n");
             dr_abort();
         }
-        dr_register_fork_init_event(event_fork_init);
     }
 
     client_id = id;
