@@ -47,6 +47,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
     /* XXX implement bitset for optimisation */
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
+    ci->num_simd_used = 0;
+    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
     /* Scratch registers used for setting up the jump to the clean callee. */
     ci->reg_used[SCRATCH_REG0] = true;
     ci->reg_used[SCRATCH_REG1] = true;
@@ -69,6 +71,18 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 callee_info_reserve_slot(ci, SLOT_REG, reg);
             }
         }
+
+        /* SIMD register usage */
+        for (i=0; i<NUM_SIMD_REGS; i++) {
+            if (!ci->simd_used[i] &&
+                instr_uses_reg(instr, (DR_REG_Q0 + (reg_id_t)i))) {
+                LOG(THREAD, LOG_CLEANCALL, 2,
+                    "CLEANCALL: callee "PFX" uses VREG%d at "PFX"\n",
+                    ci->start, i, instr_get_app_pc(instr));
+                ci->simd_used[i] = true;
+                ci->num_simd_used++;
+            }
+        }
     }
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -83,7 +97,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
     }
     /* FIXME i#1621: the following checks are still missing:
-     *    - analysis of SIMD registers
      *    - analysis of eflags (depends on i#2263)
      */
 }
