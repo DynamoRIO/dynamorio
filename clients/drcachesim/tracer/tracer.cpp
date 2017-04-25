@@ -905,7 +905,7 @@ create_thread_file(ptr_int_t id)
     size  = instru->append_thread_file_header((byte *)buf);
 
     DR_ASSERT(size > 0 && size < MAXIMUM_PATH);
-    file_ops_func.write_file(file, buf, size);
+    file_ops_func.write_file(file, buf, (size_t)size);
     return file;
 }
 
