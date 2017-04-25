@@ -998,8 +998,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         else if (instr_can_set_single_step(instr) &&
                  instr_get_opcode(instr) != OP_iret) {
             /* iret is handled in mangle_return. */
-            mangle_single_step(dcontext, ilist, instr, next_instr);
+            mangle_possible_single_step(dcontext, ilist, instr);
             continue;
+        }
+        else if (dcontext->single_step_addr == instr->translation) {
+            mangle_single_step(dcontext, ilist, instr);
+            /* Resets to generate single step exception only once. */
+            dcontext->single_step_addr = NULL;
         }
 #endif
 #ifdef FOOL_CPUID

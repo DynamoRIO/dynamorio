@@ -1965,7 +1965,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr, popf);
         }
         /* Mangles single step exception after a popf. */
-        mangle_single_step(dcontext, ilist, popf, instr);
+        mangle_possible_single_step(dcontext, ilist, popf);
 
 #ifdef X64
         /* In x64 mode, iret additionally does pop->RSP and pop->ss. */
@@ -2393,11 +2393,11 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 
 /***************************************************************************
- * Single step exceptions generation
+ * Single step exceptions catching
  */
 void
-mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                   instr_t *next_instr)
+mangle_possible_single_step(dcontext_t *dcontext, instrlist_t *ilist,
+                            instr_t *instr)
 {
     /* Simply inserts two nops so that next instruction where a single step
      * exception might occur is in the same basic block and so that the
@@ -2409,6 +2409,19 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     POST(ilist, instr, INSTR_CREATE_nop(dcontext));
     /* Inserting two nops to get ExceptionAddress on the second one. */
     POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+}
+
+/***************************************************************************
+ * Single step exceptions generation
+ */
+void
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    /* Sets exit reason dynamically. */
+    PRE(ilist, instr,
+        instr_create_save_immed16_to_dcontext(dcontext,
+                                              EXIT_REASON_SINGLE_STEP,
+                                              EXIT_REASON_OFFSET));
 }
 
 /***************************************************************************

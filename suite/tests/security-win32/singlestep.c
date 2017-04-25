@@ -86,7 +86,7 @@ GLOBAL_LABEL(FUNCNAME:)
         xor      eax, eax
 /* push flags on the stack */
         PUSHF
-/* Setting the trap flag to 1 on top of the stack */
+/* setting the trap flag to 1 on top of the stack */
         or       PTRSZ [REG_XSP], HEX(100)
 /* popping flags from top of the stack */
         POPF

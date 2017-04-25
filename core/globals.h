@@ -962,6 +962,10 @@ struct _dcontext_t {
     /* DR sets this field to indicate that it's forging an exception that
      * may appear to originate in DR but should be passed on to the app. */
     app_pc         forged_exception_addr;
+
+    /* DR sets this field to indicate that it should forge a single
+     * step exception when app comes to that address. */
+    app_pc         single_step_addr;
 #ifdef HOT_PATCHING_INTERFACE
     /* Fix for case 5367. */
     bool           nudge_thread;    /* True only if this is a nudge thread. */
