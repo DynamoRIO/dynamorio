@@ -877,7 +877,7 @@ create_thread_file(ptr_int_t id)
      * seems nice and complete.
      */
     int i, size;
-    file_t file;
+    file_t file = INVALID_FILE;
     char buf[MAXIMUM_PATH];
     const int NUM_OF_TRIES = 10000;
     uint flags = IF_UNIX(DR_FILE_CLOSE_ON_FORK |)
@@ -896,7 +896,7 @@ create_thread_file(ptr_int_t id)
         if (file != INVALID_FILE)
             break;
     }
-    if (i == NUM_OF_TRIES) {
+    if (i == NUM_OF_TRIES || file == INVALID_FILE) {
         NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
         dr_abort();
     }
@@ -905,7 +905,7 @@ create_thread_file(ptr_int_t id)
     size  = instru->append_thread_file_header((byte *)buf);
 
     DR_ASSERT(size > 0 && size < MAXIMUM_PATH);
-    file_ops_func.write_file(file, (const void *)buf, (size_t)(ptr_int_t)size);
+    file_ops_func.write_file(file, (void *)buf, (size_t)size);
     return file;
 }
 
@@ -944,7 +944,8 @@ event_thread_init(void *drcontext)
             dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
         int size = instru->append_thread_file_header(buf);
         DR_ASSERT(max_buf_size > (uint)size);
-        write_trace_data(drcontext, buf, buf + size);
+        if (size != 0)
+            write_trace_data(drcontext, buf, buf + size);
     }
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;

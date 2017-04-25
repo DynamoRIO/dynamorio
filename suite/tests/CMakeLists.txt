@@ -2440,7 +2440,7 @@ if (CLIENT_INTERFACE)
 
       torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
         "reuse_distance.c" # for templatex basename
-        "-ipc_name drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
+        "-ipc_name drtestpipe6 -num_threads 0 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
       set(tool.reuse_toolname "drcachesim")
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
