@@ -1169,6 +1169,8 @@ circular_buf_reset()
     }
     dr_global_free(sideline_exit_events,
                    op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
+    queue_put = 0;
+    queue_get = 0;
 }
 
 void event_fork_init(void *drcontext)
