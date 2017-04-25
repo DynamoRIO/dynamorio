@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,14 @@
 #  include "dr_api.h"
 #endif /* USE_DYNAMO */
 
+#ifdef WINDOWS
+/* importing from DR causes trouble injecting */
+# include "dr_annotations.h"
+# define IS_UNDER_DR() DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()
+#else
+# define IS_UNDER_DR() dr_app_running_under_dynamorio()
+#endif
+
 /* nativeexec.appdll.dll
  * nativeexec.exe calls routines here w/ different call* constructions
  */
@@ -72,19 +80,22 @@ void tail_caller(int_fn_t fn, int x);
 void EXPORT
 import_me1(int x)
 {
-    print("nativeexec.dll:import_me1(%d)\n", x);
+    print("nativeexec.dll:import_me1(%d) %sunder DR\n", x,
+          IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
 import_me2(int x)
 {
-    print("nativeexec.dll:import_me2(%d)\n", x);
+    print("nativeexec.dll:import_me2(%d) %sunder DR\n", x,
+          IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
 import_me3(int x)
 {
-    print("nativeexec.dll:import_me3(%d)\n", x);
+    print("nativeexec.dll:import_me3(%d) %sunder DR\n", x,
+          IS_UNDER_DR() ? "" : "not ");
 }
 
 void EXPORT
