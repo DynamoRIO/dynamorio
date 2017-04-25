@@ -2462,55 +2462,47 @@ if (CLIENT_INTERFACE)
       get_target_path_for_execution(drcachesim_path drcachesim)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      macro (torunonly_drcacheoff testname exetgt sideline)
-        if (${sideline})
-          set(tname "${testname}-sideline")
-          torunonly_ci(tool.drcacheoff.${tname} ${exetgt} drcachesim
-            "offline-${testname}.c" # for templatex basename
-            "-offline -num_threads 1" "" "")
-        else ()
-          set(tname "${testname}")
-          torunonly_ci(tool.drcacheoff.${tname} ${exetgt} drcachesim
-            "offline-${testname}.c" # for templatex basename
-            "-offline" "" "")
-        endif ()
-        set(tool.drcacheoff.${tname}_toolname "drcachesim")
-        set(tool.drcacheoff.${tname}_basedir
+      macro (torunonly_drcacheoff testestname exetgt)
+        torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
+          "offline-${testestname}.c" # for templatex basename
+          "-offline" "" "")
+        set(tool.drcacheoff.${testname}_toolname "drcachesim")
+        set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcacheoff.${tname}_rawtemp ON) # no preprocessor
-        set(tool.drcacheoff.${tname}_runcmp
+        set(tool.drcacheoff.${testname}_rawtemp ON) # no preprocessor
+        set(tool.drcacheoff.${testname}_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-        set(tool.drcacheoff.${tname}_precmd
+        set(tool.drcacheoff.${testname}_precmd
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
-        set(tool.drcacheoff.${tname}_postcmd
+        set(tool.drcacheoff.${testname}_postcmd
           "${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir")
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
-      torunonly_drcacheoff(simple ${ci_shared_app} OFF)
+      torunonly_drcacheoff(simple ${ci_shared_app})
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static OFF)
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
         set(tool.drcacheoff.burst_static_nodr ON)
 
-        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace OFF)
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
         set(tool.drcacheoff.burst_replace_nodr ON)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads OFF)
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
-          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client OFF)
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client)
           set(tool.drcacheoff.burst_client_nodr ON)
 
           # FIXME i#2346: add sideline support on Windows
-          torunonly_drcacheoff(simple ${ci_shared_app} ON)
+          torunonly_drcacheoff(simple ${ci_shared_app})
         endif ()
       endif ()
 
