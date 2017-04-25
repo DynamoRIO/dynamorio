@@ -267,7 +267,8 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
         (ci->bwd_tgt == NULL || instr_get_app_pc(enter) <  ci->bwd_tgt) &&
         (ci->fwd_tgt == NULL || instr_get_app_pc(leave) >= ci->fwd_tgt)) {
         for (instr = instr_get_next(enter);
-             instr != leave; instr = instr_get_next(instr)) {
+             instr != leave;
+             instr = instr_get_next(instr)) {
             if (instr_is_move_frame_ptr(instr)) {
                 ci->standard_fp = true;
                 /* Remove this instruction. */
