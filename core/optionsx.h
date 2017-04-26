@@ -259,6 +259,7 @@
         if (stats != NULL && for_this_process)
             stats->loglevel = options->stats_loglevel;
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
+    OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
     OPTION_INTERNAL(uint, log_at_fragment_count,
         "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
     /* For debugging purposes.  The bb count is distinct from the fragment count. */
