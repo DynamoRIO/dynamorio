@@ -2351,6 +2351,26 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
 
+      # i#2346 add delayed sideline thread exit on Windows
+      # On Windows, the default is -num_thread 0.
+      if (NOT WIN32)
+        torunonly_ci(tool.drcachesim.simple.sync ${ci_shared_app} drcachesim
+          "drcachesim-simple.c" # for templatex basename
+          "-ipc_name drtestpipe7 -num_threads 0" "" "")
+        set(tool.drcachesim.simple.sync_toolname "drcachesim")
+        set(tool.drcachesim.simple.sync_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.simple.sync_rawtemp ON) # no preprocessor
+
+        torunonly_ci(tool.drcachesim.simple.2thds ${ci_shared_app} drcachesim
+          "drcachesim-simple.c" # for templatex basename
+          "-ipc_name drtestpipe8 -num_threads 2" "" "")
+        set(tool.drcachesim.simple.2thds_toolname "drcachesim")
+        set(tool.drcachesim.simple.2thds_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.simple.2thds_rawtemp ON) # no preprocessor
+      endif()
+
       # TLB simulator's single-thread sanity check
       torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
         "drcachesim-TLB-simple.c" # for templatex basename
@@ -2454,7 +2474,7 @@ if (CLIENT_INTERFACE)
 
       torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
         "reuse_distance.c" # for templatex basename
-        "-ipc_name drtestpipe6 -num_threads 0 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
+        "-ipc_name drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
       set(tool.reuse_toolname "drcachesim")
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")

@@ -36,6 +36,12 @@
 #include "droption.h"
 #include "options.h"
 
+#ifdef WINDOWS
+# define IF_WINDOWS_ELSE(x, y) (x)
+#else
+# define IF_WINDOWS_ELSE(x, y) (y)
+#endif
+
 droption_t<bool> op_offline
 (DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
  "By default, traces are processed online, sent over a pipe to a simulator.  "
@@ -43,7 +49,8 @@ droption_t<bool> op_offline
  "for later offline analysis.  No simulator is executed.");
 
 droption_t<unsigned int> op_num_threads
-(DROPTION_SCOPE_CLIENT, "num_threads", 1, "Number of sideline threads for writing traces",
+(DROPTION_SCOPE_CLIENT, "num_threads", IF_WINDOWS_ELSE(0, 1),
+ "Number of sideline threads for writing traces",
  "Specifies the number of sideline threads to be used to write trace files out.  "
  "For the default online analysis mode, only 1 thread is supported.  "
  "0 means synchronized write without any sideline threads.");

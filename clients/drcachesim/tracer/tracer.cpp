@@ -197,10 +197,6 @@ static uint queue_size_mask = 0;
 static volatile uint queue_put = 0;
 /* The index for the first entry to be read. */
 static volatile uint queue_get = 0;
-/* queue is ready for put */
-static void *queue_put_event;
-/* queue is ready for get */
-static void *queue_get_event;
 static void **sideline_exit_events;
 struct buf_entry_t {
     void *data;       // output data pointer, NULL means the end of data for this file
@@ -251,8 +247,9 @@ circular_buf_enqueue(void *data, ssize_t size, thread_id_t tid)
     do {
         /* quick racy check without locking */
         while (((queue_put + 1) & queue_size_mask) == queue_get) {
-            /* the queue is full, waiting for */;
-            dr_event_wait(queue_put_event);
+            /* XXX: use futex/semaphore for better performance. */
+            /* the queue is full, waiting */
+            dr_thread_yield();
         }
         drvector_lock(&circular_buf_queue);
         if (((queue_put + 1) & queue_size_mask) != queue_get) {
@@ -274,7 +271,6 @@ circular_buf_enqueue(void *data, ssize_t size, thread_id_t tid)
             done = true;
         }
         drvector_unlock(&circular_buf_queue);
-        dr_event_signal(queue_get_event);
     } while (!done);
 }
 
@@ -371,17 +367,16 @@ sideline_run(void *arg)
     do {
         /* quick racy check without locking */
         while (queue_get == queue_put) {
+            /* XXX: use futex/semaphore for better performance. */
             /* the queue is empty, waiting */
-            dr_event_wait(queue_get_event);
+            dr_thread_yield();
         }
         if (!circular_buf_dequeue(&entry))
             continue;
-        dr_event_signal(queue_put_event);
         if (entry.data != NULL) {
             if (offline)
                 write_trace_data(sa->file, entry.data, entry.size);
             else {
-                DR_ASSERT(op_num_threads.get_value() == 1);
                 trace_traverse((byte *)entry.data, entry.size,
                                false, /* !vaddr2paddr */
                                true, /* do_write */
@@ -437,35 +432,15 @@ static inline byte *
 atomic_pipe_write(thread_id_t tid, byte *pipe_start, byte *pipe_end)
 {
     ssize_t towrite = pipe_end - pipe_start;
-    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
-              towrite > (ssize_t)buf_hdr_slots_size);
+    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
     if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite)
         DR_ASSERT(false);
-    // Re-emit thread entry header
-    DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
-    pipe_start = pipe_end - buf_hdr_slots_size;
-    instru->append_tid(pipe_start, tid);
-    return pipe_start;
-}
-
-static inline byte *
-process_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
-{
-    if (op_num_threads.get_value() > 0) {
-        circular_buf_enqueue(towrite_start, towrite_end - towrite_start,
-                             dr_get_thread_id(drcontext));
-        return towrite_start;
+    // Re-emit thread entry header if needed
+    if (pipe_end - buf_hdr_slots_size > pipe_start) {
+        pipe_start = pipe_end - buf_hdr_slots_size;
+        instru->append_tid(pipe_start, tid);
     }
-    if (op_offline.get_value()) {
-        per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-        ssize_t size = towrite_end - towrite_start;
-        if (write_trace_data(data->file, towrite_start, size) < size) {
-            NOTIFY(0, "Fatal error: failed to write trace\n");
-            dr_abort();
-        }
-        return towrite_start;
-    } else
-        return atomic_pipe_write(dr_get_thread_id(drcontext), towrite_start, towrite_end);
+    return pipe_start;
 }
 
 static void
@@ -977,15 +952,12 @@ event_thread_init(void *drcontext)
         else
             data->file = INVALID_FILE;
     } else {
-        /* pass pid and tid to the simulator to register current thread */
-        byte *buf = (byte *)
-            dr_raw_mem_alloc(max_buf_size, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+        /* pass file header to the simulator to register current thread */
+        byte buf[16];
         int size = instru->append_file_header(buf);
-        DR_ASSERT(max_buf_size > (uint)size);
-        if (size != 0)
-            process_trace_data(drcontext, buf, buf + size);
-        else
-            dr_raw_mem_free(buf, max_buf_size);
+        DR_ASSERT(size <= 16 && size > 0);
+        if (atomic_pipe_write(dr_get_thread_id(drcontext), buf, buf + size) != buf)
+            DR_ASSERT(false);
     }
     /* put buf_base to TLS plus header slots as starting buf_ptr */
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
@@ -1015,6 +987,9 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_bytes += data->bytes_written;
     dr_mutex_unlock(mutex);
+    dr_raw_mem_free(data->buf_base, max_buf_size);
+    if (data->reserve_buf != NULL)
+        dr_raw_mem_free(data->reserve_buf, max_buf_size);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
 
@@ -1045,8 +1020,6 @@ event_exit(void)
         dr_global_free(sideline_exit_events,
                        op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
     }
-    dr_event_destroy(queue_put_event);
-    dr_event_destroy(queue_get_event);
 
     /* ~instru_t writes to module_file, we assume that it will not be affected the
      * sideline threads.
@@ -1185,8 +1158,6 @@ init_thread_pool(void)
         init_buf_entry(entry);
         drvector_set_entry(&circular_buf_queue, i, entry);
     }
-    queue_put_event = dr_event_create();
-    queue_get_event = dr_event_create();
     sideline_args = (sideline_arg_t *)
         dr_global_alloc(op_num_threads.get_value() * sizeof(sideline_args[0]));
     sideline_exit_events = (void **)
@@ -1210,15 +1181,12 @@ circular_buf_reset()
 {
     uint i = 0;
     DR_ASSERT(op_num_threads.get_value() > 0);
-    dr_event_reset(queue_put_event);
-    dr_event_reset(queue_get_event);
     for (i = 0; i < queue_size; i++) {
         buf_entry_t *entry = (buf_entry_t *)drvector_get_entry(&circular_buf_queue, i);
-        dr_raw_mem_free(entry->data, max_buf_size);
+        if (entry->data != NULL)
+            dr_raw_mem_free(entry->data, max_buf_size);
         init_buf_entry(entry);
     }
-    dr_global_free(sideline_exit_events,
-                   op_num_threads.get_value() * sizeof(sideline_exit_events[0]));
     queue_put = 0;
     queue_get = 0;
 }
@@ -1227,15 +1195,27 @@ static void
 event_fork_init(void *drcontext)
 {
     uint i;
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    DR_ASSERT(data != NULL);
     /* clear the queue */
     if (op_num_threads.get_value() > 0) {
         circular_buf_reset();
     }
-    event_thread_init(drcontext);
+    if (op_offline.get_value() && op_num_threads.get_value() == 0)
+        data->file = create_thread_file(dr_get_thread_id(drcontext));
+    else {
+        /* pass file header to the simulator to register current thread */
+        byte buf[16];
+        int size = instru->append_file_header(buf);
+        DR_ASSERT(size <= 16 && size > 0);
+        if (atomic_pipe_write(dr_get_thread_id(drcontext), buf, buf + size) != buf)
+            DR_ASSERT(false);
+    }
     /* recreate sideline threads */
     for (i = 0; i < op_num_threads.get_value(); i++) {
         if (op_offline.get_value())
             sideline_args[i].file = create_thread_file((ptr_int_t)i);
+        dr_event_reset(sideline_exit_events[i]);
         dr_create_client_thread(sideline_run, &sideline_args[i]);
     }
 }
@@ -1266,14 +1246,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         if (op_ipc_name.get_value().empty()) {
             NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
                    droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-            dr_abort();
-        }
-        if (op_num_threads.get_value() > 1) {
-            /* We only support one thread for online simulation since
-             * only one named pipe is used.
-             */
-            NOTIFY(0, "Usage error: only one sideline thread is supported "
-                   "for online simulation\n");
             dr_abort();
         }
     } else if (op_outdir.get_value().empty()) {

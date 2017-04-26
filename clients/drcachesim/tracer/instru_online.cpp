@@ -135,8 +135,7 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 int
 online_instru_t::append_file_header(byte *buf_ptr)
 {
-    append_pid(buf_ptr, dr_get_process_id());
-    return 0;
+    return append_pid(buf_ptr, dr_get_process_id());
 }
 
 int
