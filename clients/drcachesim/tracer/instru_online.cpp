@@ -133,9 +133,8 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_thread_file_header(byte *buf_ptr)
+online_instru_t::append_file_header(byte *buf_ptr)
 {
-    // The caller separately calls append_tid for us which is all we need.
     append_pid(buf_ptr, dr_get_process_id());
     return 0;
 }

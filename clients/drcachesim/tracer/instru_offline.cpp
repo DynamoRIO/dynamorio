@@ -175,7 +175,7 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-offline_instru_t::append_thread_file_header(byte *buf_ptr)
+offline_instru_t::append_file_header(byte *buf_ptr)
 {
     int size = sizeof(offline_entry_t);
     offline_entry_t *entry = (offline_entry_t *) (buf_ptr);

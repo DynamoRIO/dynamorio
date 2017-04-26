@@ -2462,9 +2462,9 @@ if (CLIENT_INTERFACE)
       get_target_path_for_execution(drcachesim_path drcachesim)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      macro (torunonly_drcacheoff testestname exetgt)
+      macro (torunonly_drcacheoff testname exetgt)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
-          "offline-${testestname}.c" # for templatex basename
+          "offline-${testname}.c" # for templatex basename
           "-offline" "" "")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
@@ -2500,9 +2500,6 @@ if (CLIENT_INTERFACE)
           # FIXME i#2099: the weak symbol is not supported not work on Windows
           torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client)
           set(tool.drcacheoff.burst_client_nodr ON)
-
-          # FIXME i#2346: add sideline support on Windows
-          torunonly_drcacheoff(simple ${ci_shared_app})
         endif ()
       endif ()
 

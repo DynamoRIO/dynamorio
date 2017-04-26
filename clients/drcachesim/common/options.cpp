@@ -44,9 +44,9 @@ droption_t<bool> op_offline
 
 droption_t<unsigned int> op_num_threads
 (DROPTION_SCOPE_CLIENT, "num_threads", 1, "Number of sideline threads for writing traces",
- "For the offline analysis mode (when -offline is requested), specifies the number "
- "of sideline threads to be used to write trace files out.  "
- "0 means synchronized write without any sideline threads.  ");
+ "Specifies the number of sideline threads to be used to write trace files out.  "
+ "For the default online analysis mode, only 1 thread is supported.  "
+ "0 means synchronized write without any sideline threads.");
 
 droption_t<bytesize_t> op_queue_capacity
 (DROPTION_SCOPE_CLIENT, "queue_capacity", bytesize_t(8*1024*1024),

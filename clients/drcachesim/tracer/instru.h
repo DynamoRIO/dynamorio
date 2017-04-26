@@ -66,8 +66,8 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
-    // This is a per-thread-file-writeout header.
-    virtual int append_thread_file_header(byte *buf_ptr) = 0;
+    // This is a per-profile-file header.
+    virtual int append_file_header(byte *buf_ptr) = 0;
     // This is a per-buffer-writeout header.
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
 
@@ -117,7 +117,7 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_file_header(byte *buf_ptr);
+    virtual int append_file_header(byte *buf_ptr);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -167,7 +167,7 @@ public:
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_file_header(byte *buf_ptr);
+    virtual int append_file_header(byte *buf_ptr);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
