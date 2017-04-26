@@ -1001,7 +1001,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             mangle_possible_single_step(dcontext, ilist, instr);
             continue;
         }
-        else if (dcontext->single_step_addr == instr->translation) {
+        else if (dcontext->single_step_addr != NULL &&
+                 dcontext->single_step_addr == instr->translation) {
             mangle_single_step(dcontext, ilist, instr);
             /* Resets to generate single step exception only once. */
             dcontext->single_step_addr = NULL;

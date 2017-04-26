@@ -3242,6 +3242,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      */
     int total_branches = 0;
     uint total_instrs = 0;
+    /* maximum number of instructions for current basic block */
+    uint cur_max_bb_instrs = DYNAMO_OPTION(max_bb_instrs);
     uint total_writes = 0; /* only used for selfmod */
     instr_t *non_cti;              /* used if !full_decode */
     byte *non_cti_start_pc; /* used if !full_decode */
@@ -3370,6 +3372,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags)) {
         bb->full_decode = true;
         bb->record_translation = true;
+    }
+    if (dcontext->single_step_addr == bb->start_pc) {
+        /* Decodes only one instruction because of single step exception. */
+        cur_max_bb_instrs = 1;
     }
 
     KSTART(bb_decoding);
@@ -3531,7 +3537,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * so instr_opcode_valid(bb->instr) is true, and terminates the loop.
              */
         } while (!instr_opcode_valid(bb->instr) &&
-                 total_instrs <= DYNAMO_OPTION(max_bb_instrs));
+                 total_instrs <= cur_max_bb_instrs);
 
         if (bb->cur_pc == NULL) {
             /* invalid instr or vmarea change: reset bb->cur_pc, will end bb
