@@ -34,7 +34,8 @@
 
 uint num_ret = 0;
 
-static void mbr_instru(app_pc instr_addr, app_pc target_addr) {
+static void
+mbr_instru(app_pc instr_addr, app_pc target_addr) {
     num_ret++;
 }
 
@@ -53,14 +54,15 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     return DR_EMIT_DEFAULT;
 }
 
-void exit_event(void)
+static void
+exit_event(void)
 {
     /* We assume returns are executed at least twice. */
     if (num_ret > 1) {
         dr_fprintf(STDERR, "instrumentation for return ok\n");
     }
     else {
-        dr_fprintf(STDERR, "FAIL no instrumentated returns\n");
+        dr_fprintf(STDERR, "FAIL no instrumented returns\n");
     }
 }
 
