@@ -35,7 +35,8 @@
 uint num_ret = 0;
 
 static void
-mbr_instru(app_pc instr_addr, app_pc target_addr) {
+mbr_instru(app_pc instr_addr, app_pc target_addr)
+{
     num_ret++;
 }
 
