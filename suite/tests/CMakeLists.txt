@@ -2400,23 +2400,25 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
           "drcachesim-threads.c" # for templatex basename
-          "-ipc_name drtestpipe2" "" "${annotation_test_args}")
+          # XXX: the threading pool seems slower than synched write-out
+          "-ipc_name drtestpipe2 -num_threads 0" "" "${annotation_test_args}")
         set(tool.drcachesim.threads_toolname "drcachesim")
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
-        set(tool.drcachesim.threads_timeout 150) # This test is long.
+        set(tool.drcachesim.threads_timeout 200) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
           "drcachesim-TLB-threads.c" # for templatex basename
-          "-ipc_name drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
+          # XXX: the threading pool seems slower than synched write-out
+          "-ipc_name drtesttlbpipe2 -num_threads 0 -simulator_type TLB" "" "${annotation_test_args}")
         set(tool.drcachesim.TLB-threads_toolname "drcachesim")
         set(tool.drcachesim.TLB-threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.TLB-threads_rawtemp ON) # no preprocessor
         # i#2063: this test can time out.
-        set(tool.drcachesim.TLB-threads_timeout 150)
+        set(tool.drcachesim.TLB-threads_timeout 200)
       endif ()
 
       if (ARM)
