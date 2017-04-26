@@ -1194,6 +1194,24 @@ encode_opnd_imms(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_imm_bf(10, enc, opnd, enc_out);
 }
 
+/* impx30: implicit X30 operand, used by BLR. */
+
+static inline bool
+decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_X30);
+    return true;
+}
+
+static inline bool
+encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_X30)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
 /* index0: index of B subreg in Q register: 0-15 */
 
 static inline bool
@@ -2332,7 +2350,11 @@ static inline bool
 decode_opnds_b(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
     instr_set_opcode(instr, opcode);
-    instr_set_num_opnds(dcontext, instr, 0, 1);
+    if (opcode == OP_bl) {
+        instr_set_num_opnds(dcontext, instr, 1, 1);
+        instr_set_dst(instr, 0, opnd_create_reg(DR_REG_X30));
+    } else
+        instr_set_num_opnds(dcontext, instr, 0, 1);
     instr_set_src(instr, 0, opnd_create_pc(pc + extract_int(enc, 0, 26) * 4));
     return true;
 }
@@ -2341,7 +2363,9 @@ static inline uint
 encode_opnds_b(byte *pc, instr_t *instr, uint enc)
 {
     uint off;
-    if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 1 &&
+    if (((instr_get_opcode(instr) == OP_bl && instr_num_dsts(instr) == 1) ||
+         instr_num_dsts(instr) == 0) &&
+        instr_num_srcs(instr) == 1 &&
         encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0)))
         return (enc | off);
     return ENCFAIL;
@@ -2542,6 +2566,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
     byte *next_pc = pc + 4;
     uint enc = *(uint *)pc;
+    uint eflags = 0;
+    int opc;
 
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
@@ -2567,6 +2593,37 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         instr->srcs[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
         instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
     }
+
+    /* XXX i#2374: This determination of flag usage should be separate from the decoding
+     * of operands. Also, we should perhaps add flag information in codec.txt instead of
+     * listing all the opcodes, although the list is short and unlikely to change.
+     */
+    opc = instr_get_opcode(instr);
+    if ((opc == OP_mrs && instr_num_srcs(instr) == 1 &&
+         opnd_is_reg(instr_get_src(instr, 0)) &&
+         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) ||
+        opc == OP_bcond ||
+        opc == OP_adc || opc == OP_adcs || opc == OP_sbc || opc == OP_sbcs ||
+        opc == OP_csel || opc == OP_csinc || opc == OP_csinv || opc == OP_csneg ||
+        opc == OP_ccmn || opc == OP_ccmp) {
+        /* FIXME i#1569: When handled by decoder, add:
+         * opc == OP_fcsel
+         */
+        eflags |= EFLAGS_READ_NZCV;
+    }
+    if ((opc == OP_msr && instr_num_dsts(instr) == 1 &&
+         opnd_is_reg(instr_get_dst(instr, 0)) &&
+         opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) ||
+        opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
+        opc == OP_ands || opc == OP_bics ||
+        opc == OP_ccmn || opc == OP_ccmp) {
+        /* FIXME i#1569: When handled by decoder, add:
+         * opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe
+         */
+        eflags |= EFLAGS_WRITE_NZCV;
+    }
+    instr->eflags = eflags;
+    instr_set_eflags_valid(instr, true);
 
     instr_set_operands_valid(instr, true);
 

@@ -185,7 +185,10 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         "%s @%d."PFX" %s %d\n", __FUNCTION__, pt->live_idx, instr_get_app_pc(where),
         get_register_name(reg), slot);
     ASSERT(pt->slot_use[slot] == DR_REG_NULL ||
-           pt->slot_use[slot] == reg, "internal tracking error");
+           pt->slot_use[slot] == reg ||
+           /* aflags can be saved and restored using different regs */
+           slot == AFLAGS_SLOT,
+           "internal tracking error");
     pt->slot_use[slot] = reg;
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,

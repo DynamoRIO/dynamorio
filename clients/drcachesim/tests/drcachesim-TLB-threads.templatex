@@ -69,7 +69,7 @@ Core #0 \([0-9]* thread\(s\)\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
-    Miss rate:                        0[\.,]..%
+    Miss rate:                        [0-4][\.,]..%
   L1D stats:
     Hits:                      *[0-9,\.]*
     Misses:                    *[0-9,\.]*
@@ -79,12 +79,12 @@ Core #0 \([0-9]* thread\(s\)\)
     Misses:                    *[0-9,\.]*
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[\.,]..%
+    Total miss rate:                  [0-4][\.,]..%
 Core #1 \([0-9]* thread\(s\)\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
-    Miss rate:                        0[\.,]..%
+    Miss rate:                        [0-4][\.,]..%
   L1D stats:
     Hits:                      *[0-9,\.]*
     Misses:                    *[0-9,\.]*
@@ -94,12 +94,12 @@ Core #1 \([0-9]* thread\(s\)\)
     Misses:                    *[0-9,\.]*
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[\.,]..%
+    Total miss rate:                  [0-4][\.,]..%
 Core #2 \([0-9]* thread\(s\)\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
-    Miss rate:                        0[\.,]..%
+    Miss rate:                        [0-4][\.,]..%
   L1D stats:
     Hits:                      *[0-9,\.]*
     Misses:                    *[0-9,\.]*
@@ -109,12 +109,12 @@ Core #2 \([0-9]* thread\(s\)\)
     Misses:                    *[0-9,\.]*
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[\.,]..%
+    Total miss rate:                  [0-4][\.,]..%
 Core #3 \([0-9]* thread\(s\)\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
-    Miss rate:                        0[\.,]..%
+    Miss rate:                        [0-4][\.,]..%
   L1D stats:
     Hits:                      *[0-9,\.]*
     Misses:                    *[0-9,\.]*
@@ -124,4 +124,4 @@ Core #3 \([0-9]* thread\(s\)\)
     Misses:                    *[0-9,\.]*
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
-    Total miss rate:                  0[\.,]..%
+    Total miss rate:                  [0-4][\.,]..%

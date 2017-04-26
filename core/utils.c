@@ -2909,6 +2909,11 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     uint flags = OS_OPEN_WRITE|OS_OPEN_ALLOW_LARGE|OS_OPEN_CLOSE_ON_FORK;
     name[0] = '\0';
 
+    DODEBUG({
+        if (INTERNAL_OPTION(log_to_stderr))
+            return STDERR;
+    });
+
     if (!get_log_dir(PROCESS_DIR, name, &name_size)) {
         create_log_dir(PROCESS_DIR);
         if (!get_log_dir(PROCESS_DIR, name, &name_size)) {

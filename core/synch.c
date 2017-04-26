@@ -1089,6 +1089,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* Case 8815: we cannot use the OUT params themselves internally as they
      * may be volatile, so we need our own values until we're ready to return
      */
+    bool threads_are_stale = true;
     thread_record_t **threads = NULL;
     int num_threads = 0;
     /* we record ids from before we gave up thread_initexit_lock */
@@ -1211,8 +1212,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
      */
-    while ((!all_synched || exiting_thread_count > expect_exiting)
-           && loop_count++ < max_loops) {
+    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting) {
         if (threads != NULL){
             /* Case 8941: must free here rather than when yield (below) since
              * termination condition can change between there and here
@@ -1225,6 +1225,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             num_threads = 0;
         }
         get_list_of_threads(&threads, &num_threads);
+        threads_are_stale = false;
         synch_array = (uint *)global_heap_alloc(num_threads * sizeof(uint)
                                                 HEAPACCT(ACCT_THREAD_MGT));
         for (i = 0; i < num_threads; i++) {
@@ -1348,6 +1349,9 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     "Skipping synch with thread "TIDFMT"\n", thread_ids_temp[i]);
             }
         }
+
+        if (loop_count++ >= max_loops)
+            break;
         /* We test the exiting thread count to avoid races between exit
          * process (current thread, though we could be here for detach or other
          * reasons) and an exiting thread (who might no longer be on the all
@@ -1376,6 +1380,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             if (INTERNAL_OPTION(single_thread_in_DR))
                 ENTERING_DR(); /* re-gain DR exclusion lock */
             mutex_lock(&thread_initexit_lock);
+            /* We unlock and lock the thread_initexit_lock, so threads might be stale. */
+            threads_are_stale = true;
         }
     }
     /* case 9392: callers passing in ABORT expect a return value of failure
@@ -1848,6 +1854,11 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 #endif
     DEBUG_DECLARE(bool ok;)
     DEBUG_DECLARE(int exit_res;)
+    /* synch-all flags: if we fail to suspend a thread (e.g., privilege
+     * problems) ignore it.  XXX Should we retry instead?
+     */
+    /* i#297: we only synch client threads after process exit event. */
+    uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE | THREAD_SYNCH_SKIP_CLIENT_THREAD;
 
     ENTERING_DR();
 
@@ -1917,11 +1928,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
                                 * beat us to not wait on us.  We still have a problem
                                 * if we go first since we must xfer other threads.
                                 */
-                               &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
-                               /* If we fail to suspend a thread (e.g., privilege
-                                * problems) ignore it.  Should we retry instead?
-                                */
-                               THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
+                               &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER, flags);
     ASSERT(ok);
     /* Now we own the thread_initexit_lock.  We'll release the locks grabbed in
      * synch_with_all_threads below after cleaning up all the threads in case we
@@ -1993,16 +2000,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
             my_tr = threads[i];
             continue;
         } else if (IS_CLIENT_THREAD(threads[i]->dcontext)) {
-            /* If this is a client-owned thread then there is no app state to return
-             * it to so we kill it here.  Note - we won't kill threads that have
-             * returned from the client nudge routine, but the exit path there
-             * doesn't do anything that would interfere with rest of the detach
-             * cleanup.
+            /* i#297 we will kill client-owned threads later after app exit events
+             * in dynamo_shared_exit().
              */
-            /* FIXME i#95: should we raise the client exit event before this?! */
-            DEBUG_DECLARE(bool terminated =)
-                os_thread_terminate(threads[i]);
-            ASSERT(terminated); /* Should always be able to terminate. */
             continue;
         } else if (detach_do_not_translate(threads[i])) {
             LOG(GLOBAL, LOG_ALL, 2, "Detach: not translating "TIDFMT"\n", threads[i]->id);
@@ -2079,7 +2079,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      * region.
      */
     for (i = 0; i < num_threads; i++) {
-        if (i != my_idx) {
+        if (i != my_idx && !IS_CLIENT_THREAD(threads[i]->dcontext)) {
             LOG(GLOBAL, LOG_ALL, 1,
                 "Detach: cleaning up thread "TIDFMT" %s\n", threads[i]->id,
                 IF_WINDOWS_ELSE(cleanup_tpc[i] ? "and its TPC" : "", ""));

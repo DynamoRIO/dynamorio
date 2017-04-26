@@ -259,6 +259,7 @@
         if (stats != NULL && for_this_process)
             stats->loglevel = options->stats_loglevel;
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
+    OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
     OPTION_INTERNAL(uint, log_at_fragment_count,
         "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
     /* For debugging purposes.  The bb count is distinct from the fragment count. */
@@ -474,8 +475,8 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, 0),
+    /* FIXME i#1621: NYI on ARM, partly implemented on AArch64 */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, IF_AARCH64_ELSE(1, 0)),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags

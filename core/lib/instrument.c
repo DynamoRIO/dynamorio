@@ -1252,6 +1252,7 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
         dcontext->thread_record->under_dynamo_control = false;
         dcontext->client_data->is_client_thread = true;
+        dcontext->client_data->suspendable = true;
     }
 #endif /* CLIENT_SIDELINE */
 }
