@@ -139,6 +139,13 @@ online_instru_t::append_file_header(byte *buf_ptr)
 }
 
 int
+online_instru_t::append_file_footer(byte *buf_ptr)
+{
+    /* do nothing */
+    return 0;
+}
+
+int
 online_instru_t::append_timestamp(byte *buf_ptr)
 {
     /* we do not need timestamp for online simulation */

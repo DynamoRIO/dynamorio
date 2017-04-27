@@ -205,6 +205,7 @@ typedef enum {
     // The initial entry in the file.  The value field holds the version.
     OFFLINE_EXT_TYPE_HEADER,
     OFFLINE_EXT_TYPE_FOOTER,
+    OFFLINE_EXT_TYPE_THREAD_EXIT,
 } offline_ext_type_t;
 
 #define OFFLINE_FILE_VERSION 2

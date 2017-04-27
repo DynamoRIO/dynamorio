@@ -247,7 +247,10 @@ circular_buf_enqueue(void *data, ssize_t size, thread_id_t tid)
     do {
         /* quick racy check without locking */
         while (((queue_put + 1) & queue_size_mask) == queue_get) {
-            /* XXX: use futex/semaphore for better performance. */
+            /* XXX: there is a big slowdown for the online simulation
+             * with threading pool, we should use futex/semaphore for
+             * better performance.
+             */
             /* the queue is full, waiting */
             dr_thread_yield();
         }
@@ -352,7 +355,10 @@ static inline ssize_t
 write_trace_data(file_t file, void *data, ssize_t size)
 {
     ssize_t written = file_ops_func.write_file(file, data, size);
-    DR_ASSERT(written == size);
+    if (written != size) {
+        NOTIFY(0, "Fatal error: failed to write trace\n");
+        dr_abort();
+    }
     return written;
 }
 
@@ -367,8 +373,10 @@ sideline_run(void *arg)
     do {
         /* quick racy check without locking */
         while (queue_get == queue_put) {
-            /* XXX: use futex/semaphore for better performance. */
-            /* the queue is empty, waiting */
+            /* XXX: there is a big slowdown for the online simulation
+             * with threading pool, we should use futex/semaphore for
+             * better performance.
+             */
             dr_thread_yield();
         }
         if (!circular_buf_dequeue(&entry))
@@ -928,8 +936,13 @@ create_thread_file(ptr_int_t id)
 static void
 close_thread_file(file_t file)
 {
+    byte buf[8];
+    int size;
     if (!op_offline.get_value())
         return;
+    size = instru->append_file_footer(buf);
+    DR_ASSERT(size <= 8);
+    write_trace_data(file, (void *)buf, (size_t)size);
     file_ops_func.close_file(file);
 }
 
@@ -984,7 +997,7 @@ event_thread_exit(void *drcontext)
     memtrace(drcontext, true);
 
     if (op_offline.get_value() && op_num_threads.get_value() == 0) {
-        file_ops_func.close_file(data->file);
+        close_thread_file(data->file);
     }
 
     dr_mutex_lock(mutex);

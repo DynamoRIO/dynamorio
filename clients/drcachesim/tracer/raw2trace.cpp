@@ -45,6 +45,7 @@
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
 #include <fstream>
+#include <set>
 #include <vector>
 
 #ifdef UNIX
@@ -400,7 +401,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
 void
 raw2trace_t::merge_and_process_thread_files()
 {
-    // The current thread we're processing is tidx.  If it's set to thread_files.size()
+    // The current file we're processing is tidx.  If it's set to thread_files.size()
     // that means we need to pick a new thread.
     uint tidx = (uint)thread_files.size();
     uint file_count = (uint)thread_files.size();
@@ -410,6 +411,8 @@ raw2trace_t::merge_and_process_thread_files()
     std::vector<uint64> times(thread_files.size(), 0);
     byte buf_base[MAX_COMBINED_ENTRIES * sizeof(trace_entry_t)];
     thread_id_t tid = INVALID_THREAD_ID;
+    std::set<thread_id_t> tid_set;
+    std::set<thread_id_t> tid_exit_set;
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
@@ -439,6 +442,8 @@ raw2trace_t::merge_and_process_thread_files()
                     next_tidx = i;
                 }
             }
+            VPRINT(2, "Next file in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
+                   "\n", next_tidx, times[next_tidx]);
             tidx = next_tidx;
             // We have to write this now before we append any bb entries.
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
@@ -451,21 +456,33 @@ raw2trace_t::merge_and_process_thread_files()
                tidx, (int)thread_files[tidx]->tellg());
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
-                VPRINT(2, "Finish read file %d\n", tidx);
-                times[tidx] = 0;  // Do not read from this file.
-                tidx = (uint)thread_files.size(); // Request thread scan.
-                --file_count;
-                continue;
+                // Rather than a FATAL_ERROR we try to continue to provide partial
+                // results in case the disk was full or there was some other issue.
+                WARN("Input file %d is truncated", tidx);
+                in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
+                in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
             } else
                 FATAL_ERROR("Failed to read from file %d", tidx);
         }
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
+                VPRINT(2, "Finish reading file %d at pos %u\n",
+                       tidx, (int)thread_files[tidx]->tellg());
+                // We need do another failed read to make ->eof() return true.
+                if (thread_files[tidx]->read((char*)&in_entry, 1)) {
+                    FATAL_ERROR("More content after the EoF footer for file %d", tidx);
+                }
+                times[tidx] = 0;  // Do not read from this file.
+                tidx = (uint)thread_files.size(); // Request thread scan.
+                --file_count;
+            } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_THREAD_EXIT) {
                 CHECK(tid != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %u exit\n", (uint)tid);
                 size += instru.append_thread_exit(buf, tid);
                 buf += size;
                 tidx = (uint)thread_files.size(); // Request thread scan.
+                tid_exit_set.insert(tid);
+                tid = INVALID_THREAD_ID;
             } else
                 FATAL_ERROR("Invalid extension type %d", (int)in_entry.extended.ext);
         } else if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
@@ -498,6 +515,7 @@ raw2trace_t::merge_and_process_thread_files()
             size += instru.append_tid(buf, in_entry.tid.tid);
             tid = in_entry.tid.tid;
             buf += size;
+            tid_set.insert(tid);
         } else if (in_entry.pid.type == OFFLINE_TYPE_PID) {
             VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
             size += instru.append_pid(buf, in_entry.pid.pid);
@@ -510,6 +528,13 @@ raw2trace_t::merge_and_process_thread_files()
                 FATAL_ERROR("Failed to write to output file");
         }
     } while (file_count > 0);
+    // If we used threading pool during profiling, the trace for a thread may be
+    // seen after the thread exit entry, so we can only check whether the unique
+    // tid and tid exit matches.
+    VPRINT(1, "%u thread(s) are seen\n", (uint)tid_set.size());
+    if (tid_set != tid_exit_set) {
+        WARN("Profile might be corrupted.");
+    }
 }
 
 void

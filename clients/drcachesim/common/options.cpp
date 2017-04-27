@@ -48,8 +48,14 @@ droption_t<bool> op_offline
  "If this option is enabled, trace data is instead written to files in -outdir "
  "for later offline analysis.  No simulator is executed.");
 
+/* We set the default value as 0 for the following reasons:
+ * - FIXME i#2346: add delayed sideline thread exit support on Windows,
+ * - XXX: we need more experiments to decide the right default configuration,
+ *   It may be affected by many factors, e.g., online vs offline,
+ *   how many CPUs, and how many application threads, etc..
+ */
 droption_t<unsigned int> op_num_threads
-(DROPTION_SCOPE_CLIENT, "num_threads", IF_WINDOWS_ELSE(0, 1),
+(DROPTION_SCOPE_CLIENT, "num_threads", 0,
  "Number of sideline threads for writing traces",
  "Specifies the number of sideline threads to be used to write trace files out.  "
  "For the default online analysis mode, only 1 thread is supported.  "

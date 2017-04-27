@@ -157,7 +157,7 @@ offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 {
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
-    entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+    entry->extended.ext = OFFLINE_EXT_TYPE_THREAD_EXIT;
     entry->extended.value = 0;
     return sizeof(offline_entry_t);
 }
@@ -185,6 +185,16 @@ offline_instru_t::append_file_header(byte *buf_ptr)
     size += append_timestamp(buf_ptr + size);
     size += append_pid(buf_ptr + size, dr_get_process_id());
     return size;
+}
+
+int
+offline_instru_t::append_file_footer(byte *buf_ptr)
+{
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+    entry->extended.value = 0;
+    return sizeof(offline_entry_t);
 }
 
 int
