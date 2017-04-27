@@ -1145,7 +1145,7 @@ init_thread_pool(void)
 
     queue_put = 0;
     queue_get = 0;
-    queue_size = (uint)(ptr_uint_t)op_queue_capacity.get_value() / max_buf_size;
+    queue_size = (uint)(ptr_uint_t)(op_queue_capacity.get_value() / max_buf_size);
     // We round up queue_size to the nearest power of 2.
     for (i = 1; i <= queue_size; i <<= 1)
         /*do nothing*/;
