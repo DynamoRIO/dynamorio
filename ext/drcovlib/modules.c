@@ -129,7 +129,6 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
     module_entry_t *entry = NULL;
     module_data_t  *mod;
     int i;
-    bool found = false;
     /* Some apps repeatedly unload and reload the same module,
      * so we will try to re-use the old one.
      */
@@ -142,6 +141,8 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry = drvector_get_entry(&module_table.vector, i);
         mod   = entry->data;
         if (entry->unload &&
+            /* looks for the first module entry instead of its sub-entries */
+            entry->id == entry->containing_id &&
             /* If the same module is re-loaded at the same address,
              * we will try to use the existing entry.
              */
@@ -160,7 +161,6 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             strcmp(dr_module_preferred_name(data),
                    dr_module_preferred_name(mod)) == 0) {
             entry->unload = false;
-            found = true;
 #ifndef WINDOWS
             if (!mod->contiguous) {
                 int j;
@@ -176,12 +176,11 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
                 }
             }
 #endif
-            /* We may just see a sub module, so we cannot stop here. We need iterate
-             * all entries to update all sub modules of the reloaded module.
-             */
+            break;
         }
+        entry = NULL;
     }
-    if (!found) {
+    if (entry == NULL) {
         entry = dr_global_alloc(sizeof(*entry));
         entry->id = module_table.vector.entries;
         entry->containing_id = entry->id;
