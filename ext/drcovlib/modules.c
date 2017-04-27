@@ -141,7 +141,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry = drvector_get_entry(&module_table.vector, i);
         mod   = entry->data;
         if (entry->unload &&
-            /* look for the first module entry instead of its sub-entries */
+            /* only check the main (containing) module */
             entry->id == entry->containing_id &&
             /* If the same module is re-loaded at the same address,
              * we will try to use the existing entry.
@@ -236,7 +236,7 @@ static inline void
 lookup_helper_set_fields(module_entry_t *entry, OUT uint *mod_index, OUT app_pc *mod_base)
 {
     if (mod_index != NULL)
-        *mod_index = entry->id;
+        *mod_index = entry->containing_id; /* Yes, the main (containing) module. */
     if (mod_base != NULL)
         *mod_base = entry->data->start; /* Yes, absolute base, not segment base. */
 }
@@ -299,7 +299,8 @@ event_module_unload(void *drcontext, const module_data_t *data)
     for (i = module_table.vector.entries - 1; i >= 0; i--) {
         entry = drvector_get_entry(&module_table.vector, i);
         ASSERT(entry != NULL, "fail to get module entry");
-        if (pc_is_in_module(entry, data->start))
+        /* only check the main (containing) module */
+        if (entry->id == entry->containing_id && pc_is_in_module(entry, data->start))
             break;
         entry = NULL;
     }
