@@ -403,13 +403,13 @@ raw2trace_t::merge_and_process_thread_files()
     // The current thread we're processing is tidx.  If it's set to thread_files.size()
     // that means we need to pick a new thread.
     uint tidx = (uint)thread_files.size();
-    uint thread_count = (uint)thread_files.size();
+    uint file_count = (uint)thread_files.size();
     offline_entry_t in_entry;
     online_instru_t instru(NULL);
     bool last_bb_handled = true;
-    std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
     std::vector<uint64> times(thread_files.size(), 0);
     byte buf_base[MAX_COMBINED_ENTRIES * sizeof(trace_entry_t)];
+    thread_id_t tid = INVALID_THREAD_ID;
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
@@ -431,19 +431,15 @@ raw2trace_t::merge_and_process_thread_files()
                     if (entry.timestamp.type != OFFLINE_TYPE_TIMESTAMP)
                         FATAL_ERROR("Missing timestamp entry");
                     times[i] = entry.timestamp.usec;
-                    VPRINT(3, "Thread %u timestamp is @0x" ZHEX64_FORMAT_STRING
-                           "\n", (uint)tids[i], times[i]);
+                    VPRINT(3, "File %u timestamp is @0x" ZHEX64_FORMAT_STRING
+                           "\n", i, times[i]);
                 }
                 if (times[i] != 0 && times[i] < min_time) {
                     min_time = times[i];
                     next_tidx = i;
                 }
             }
-            VPRINT(2, "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
-                   "\n", (uint)tids[next_tidx], times[next_tidx]);
             tidx = next_tidx;
-            times[tidx] = 0; // Read from file for this thread's next timestamp.
-            size += instru.append_tid(buf, tids[tidx]);
             // We have to write this now before we append any bb entries.
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
             if (!out_file.write((char*)buf_base, size))
@@ -451,31 +447,30 @@ raw2trace_t::merge_and_process_thread_files()
             buf = buf_base;
             size = 0;
         }
-        VPRINT(4, "About to read thread %d at pos %d\n",
-               (uint)tids[tidx], (int)thread_files[tidx]->tellg());
+        VPRINT(4, "About to read file %d at pos %u\n",
+               tidx, (int)thread_files[tidx]->tellg());
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
-                // Rather than a FATAL_ERROR we try to continue to provide partial
-                // results in case the disk was full or there was some other issue.
-                WARN("Input file for thread %d is truncated", (uint)tids[tidx]);
-                in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
-                in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+                VPRINT(2, "Finish read file %d\n", tidx);
+                times[tidx] = 0;  // Do not read from this file.
+                tidx = (uint)thread_files.size(); // Request thread scan.
+                --file_count;
+                continue;
             } else
-                FATAL_ERROR("Failed to read from file for thread %d", (uint)tids[tidx]);
+                FATAL_ERROR("Failed to read from file %d", tidx);
         }
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
-                CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
-                VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
-                size += instru.append_thread_exit(buf, tids[tidx]);
+                CHECK(tid != INVALID_THREAD_ID, "Missing thread id");
+                VPRINT(2, "Thread %u exit\n", (uint)tid);
+                size += instru.append_thread_exit(buf, tid);
                 buf += size;
-                --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
             } else
                 FATAL_ERROR("Invalid extension type %d", (int)in_entry.extended.ext);
         } else if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   (uint)tids[tidx], in_entry.timestamp.usec);
+            VPRINT(2, "File %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+                   tidx, in_entry.timestamp.usec);
             times[tidx] = in_entry.timestamp.usec;
             tidx = (uint)thread_files.size(); // Request thread scan.
         } else if (in_entry.addr.type == OFFLINE_TYPE_MEMREF ||
@@ -498,10 +493,10 @@ raw2trace_t::merge_and_process_thread_files()
         } else if (in_entry.pc.type == OFFLINE_TYPE_PC) {
             last_bb_handled = append_bb_entries(tidx, &in_entry);
         } else if (in_entry.tid.type == OFFLINE_TYPE_THREAD) {
-            VPRINT(2, "Thread %u entry\n", (uint)in_entry.tid.tid);
-            if (tids[tidx] == INVALID_THREAD_ID)
-                tids[tidx] = in_entry.tid.tid;
+            VPRINT(2, "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
+                   "\n", (uint)in_entry.tid.tid, times[tidx]);
             size += instru.append_tid(buf, in_entry.tid.tid);
+            tid = in_entry.tid.tid;
             buf += size;
         } else if (in_entry.pid.type == OFFLINE_TYPE_PID) {
             VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
@@ -514,7 +509,7 @@ raw2trace_t::merge_and_process_thread_files()
             if (!out_file.write((char*)buf_base, size))
                 FATAL_ERROR("Failed to write to output file");
         }
-    } while (thread_count > 0);
+    } while (file_count > 0);
 }
 
 void

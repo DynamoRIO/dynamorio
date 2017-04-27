@@ -2362,11 +2362,11 @@ if (CLIENT_INTERFACE)
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.simple.sync_rawtemp ON) # no preprocessor
 
-        torunonly_ci(tool.drcachesim.simple.2thds ${ci_shared_app} drcachesim
+        torunonly_ci(tool.drcachesim.simple.2thd ${ci_shared_app} drcachesim
           "drcachesim-simple.c" # for templatex basename
           "-ipc_name drtestpipe8 -num_threads 2" "" "")
-        set(tool.drcachesim.simple.2thds_toolname "drcachesim")
-        set(tool.drcachesim.simple.2thds_basedir
+        set(tool.drcachesim.simple.2thd_toolname "drcachesim")
+        set(tool.drcachesim.simple.2thd_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.simple.2thds_rawtemp ON) # no preprocessor
       endif()
