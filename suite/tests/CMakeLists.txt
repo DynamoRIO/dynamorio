@@ -627,13 +627,6 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     # a single one, "simple_app".
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${source})
       add_exe(${test} ${source})
-      if (AARCH64)
-        set(arch_cflags "-DARM_64")
-      else (AARCH64)
-        set(arch_cflags "")
-      endif(AARCH64)
-      set_target_properties(${test} PROPERTIES COMPILE_FLAGS
-                            "${COMPILE_FLAGS} ${arch_cflags}")
       # Make sure to avoid using the modified flags which can break msbuild (i#1748).
       # On Linux this results in some build issues which I did not want to track
       # down, so we do this only on Windows.

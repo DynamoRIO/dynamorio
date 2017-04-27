@@ -38,7 +38,7 @@
 # include <syscall.h>
 #endif
 
-#include "dr_defines.h"
+#include "configure.h"
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
@@ -55,11 +55,11 @@ int main()
     /* we don't want vsyscall since we rely on mov immed, eax being in same bb.
      * plus, libc getpid might cache the pid value.
      */
-    asm("mov $" STRINGIFY(SYS_getpid) ", %eax;"
+    asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
         "syscall;"
         "mov %%eax, %0" : "=m"(pid));
 #else
-    asm("mov $" STRINGIFY(SYS_getpid) ", %eax;"
+    asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
         "int $0x80;"
         "mov %%eax, %0" : "=m"(pid));
 #endif
