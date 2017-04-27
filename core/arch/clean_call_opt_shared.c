@@ -743,9 +743,8 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         always_out_of_line)
 #elif defined(AARCH64)
     /* Use out-of-line calls unless the majority of the registers are saved. */
-    if ((cci->num_simd_skip < 20 /* save majority of simd registers*/ &&
-         cci->num_regs_skip < 20 /* save majority of gprs */ &&
-         !cci->skip_save_flags) ||
+    if (cci->num_simd_skip < 20 /* save majority of simd registers*/ ||
+        cci->num_regs_skip < 20 /* save majority of gprs */ ||
         always_out_of_line)
 # endif
         cci->out_of_line_swap = true;
