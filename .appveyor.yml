@@ -59,7 +59,7 @@ build:
   verbosity: detailed
 
 configuration:
-#  - 2010
+  - 2010
   - 2013
 
 install:
