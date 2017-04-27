@@ -2499,9 +2499,18 @@ if (CLIENT_INTERFACE)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
       macro (torunonly_drcacheoff testname exetgt)
+        set(toolops "-offline")
+        string(FIND "${testname}" "0thd" find0thd)
+        if (NOT ${find0thd} EQUAL -1)
+          set(toolops "${toolops} -num_threads 0")
+        endif ()
+        string(FIND "${testname}" "2thd" find2thd)
+        if (NOT ${find2thd} EQUAL -1)
+          set(toolops "${toolops} -num_threads 2")
+        endif ()
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline" "" "")
+          "${toolops}" "" "")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2517,6 +2526,10 @@ if (CLIENT_INTERFACE)
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
       torunonly_drcacheoff(simple ${ci_shared_app})
+      if (NOT WIN32)
+        torunonly_drcacheoff(simple.0thd ${ci_shared_app})
+        torunonly_drcacheoff(simple.2thd ${ci_shared_app})
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM

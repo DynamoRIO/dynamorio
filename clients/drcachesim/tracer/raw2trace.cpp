@@ -420,7 +420,7 @@ raw2trace_t::merge_and_process_thread_files()
         int size = 0;
         byte *buf = buf_base;
         if (tidx >= thread_files.size()) {
-            // Pick the next thread by looking for the smallest timestamp.
+            // Pick the next file by looking for the smallest timestamp.
             uint64 min_time = 0xffffffffffffffff;
             uint next_tidx = 0;
             for (uint i=0; i<times.size(); ++i) {

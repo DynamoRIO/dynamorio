@@ -474,9 +474,9 @@ memtrace(void *drcontext, bool skip_size_cap)
             (!op_offline.get_value() && op_num_threads.get_value() == 0)) {
             trace_traverse(data->buf_base,
                            buf_ptr - data->buf_base,
-                           have_phys && op_use_physical.get_value(),
+                           have_phys && op_use_physical.get_value(), /* vaddr2paddr */
                            !op_offline.get_value() &&
-                           op_num_threads.get_value() == 0,
+                           op_num_threads.get_value() == 0, /* online synch-ed sim */
                            dr_get_thread_id(drcontext));
         }
         if (op_num_threads.get_value() > 0) {
@@ -484,6 +484,9 @@ memtrace(void *drcontext, bool skip_size_cap)
                                  dr_get_thread_id(drcontext));
             // The buf is in the queue, and we get a new one.
             create_buffer(data);
+        } else if (op_offline.get_value()) {
+            /* offline synch-ed write out */
+            write_trace_data(data->file, pipe_start, buf_ptr - pipe_start);
         }
     }
     if (!do_write || op_num_threads.get_value() == 0) {
