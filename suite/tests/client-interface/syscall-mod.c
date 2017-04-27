@@ -31,14 +31,14 @@
  * DAMAGE.
  */
 
+#include "configure.h"
+
 #include <stdio.h>
 #if defined(MACOS) || defined(ANDROID)
 # include <sys/syscall.h>
 #else
 # include <syscall.h>
 #endif
-
-#include "configure.h"
 
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
