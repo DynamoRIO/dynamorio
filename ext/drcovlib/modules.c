@@ -141,7 +141,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry = drvector_get_entry(&module_table.vector, i);
         mod   = entry->data;
         if (entry->unload &&
-            /* looks for the first module entry instead of its sub-entries */
+            /* look for the first module entry instead of its sub-entries */
             entry->id == entry->containing_id &&
             /* If the same module is re-loaded at the same address,
              * we will try to use the existing entry.
