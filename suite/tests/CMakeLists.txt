@@ -1972,7 +1972,9 @@ if (CLIENT_INTERFACE)
       optimize(client.inline.dll)
     endif ()
   endif (X86)
-
+  if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
+    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
+  endif (NOT ARM)
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
     tobuild_appdll(client.null_instrument client-interface/null_instrument.c)
