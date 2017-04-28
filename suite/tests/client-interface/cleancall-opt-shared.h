@@ -480,8 +480,8 @@ save_current_pc(void *dc, instrlist_t *ilist, instr_t *where, app_pc *ptr, instr
 static void
 before_callee(app_pc func, const char *func_name)
 {
-#ifdef TEST_INLINE
     void *dc;
+#ifdef TEST_INLINE
     instrlist_t *ilist;
     byte *end_pc;
     opnd_t scratch_reg = opnd_create_reg(IF_X86_ELSE(DR_REG_XAX, DR_REG_X0));
@@ -490,11 +490,11 @@ before_callee(app_pc func, const char *func_name)
     if (func_name != NULL)
         dr_fprintf(STDERR, "Calling func %s...\n", func_name);
 
-#ifdef TEST_INLINE
     /* Save mcontext before call. */
     dc = dr_get_current_drcontext();
     dr_get_mcontext(dc, &before_mcontext);
 
+#ifdef TEST_INLINE
     /* If this is compiler_inscount, we need to unprotect our own text section
      * so we can make this code modification.
      */
