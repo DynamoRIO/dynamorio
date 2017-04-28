@@ -413,6 +413,7 @@ raw2trace_t::merge_and_process_thread_files()
     thread_id_t tid = INVALID_THREAD_ID;
     std::set<thread_id_t> tid_set;
     std::set<thread_id_t> tid_exit_set;
+    std::set<int>::iterator it;
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
@@ -466,12 +467,12 @@ raw2trace_t::merge_and_process_thread_files()
         }
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
-                VPRINT(2, "Finish reading file %d at pos %u\n",
-                       tidx, (int)thread_files[tidx]->tellg());
-                // We need do another failed read to make ->eof() return true.
-                if (thread_files[tidx]->read((char*)&in_entry, 1)) {
-                    FATAL_ERROR("More content after the EoF footer for file %d", tidx);
-                }
+                // Push forward to EOF.
+                offline_entry_t entry;
+                if (thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+                    !thread_files[tidx]->eof())
+                    FATAL_ERROR("Footer is not the final entry");
+                VPRINT(2, "Finish reading file %d\n", tidx);
                 times[tidx] = 0;  // Do not read from this file.
                 tidx = (uint)thread_files.size(); // Request thread scan.
                 --file_count;
@@ -528,12 +529,13 @@ raw2trace_t::merge_and_process_thread_files()
                 FATAL_ERROR("Failed to write to output file");
         }
     } while (file_count > 0);
-    // If we used threading pool during profiling, the trace for a thread may be
-    // seen after the thread exit entry, so we can only check whether the unique
-    // tid and tid exit matches.
     VPRINT(1, "%u thread(s) are seen\n", (uint)tid_set.size());
-    if (tid_set != tid_exit_set) {
-        WARN("Profile might be corrupted.");
+    VPRINT(2, "Iterating threads:\n");
+    for (it = tid_set.begin(); it != tid_set.end(); ++it) {
+        VPRINT(2, " thread %d\n", *it);
+        if (tid_exit_set.find(*it) == tid_exit_set.end()) {
+            WARN("Trace for thread %d is truncated.", *it);
+        }
     }
 }
 
