@@ -74,6 +74,7 @@ native_exec_init(void)
         ASSERT(retstub_end == local_start +
                MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
     });
+    native_exec_os_init();
 }
 
 void

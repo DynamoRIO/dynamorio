@@ -63,6 +63,7 @@
 #include <fcntl.h>
 #include "../globals.h"
 #include "../hashtable.h"
+#include "../native_exec.h"
 #include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
@@ -285,6 +286,9 @@ static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               uint old_prot, uint old_type);
 static void handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
                            byte *old_brk, byte *new_brk);
+static void restartable_region_init(void);
+static bool handle_restartable_region_syscall_pre(dcontext_t *dcontext);
+static void handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success);
 #endif
 
 /* full path to our own library, used for execve */
@@ -7533,12 +7537,16 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
     default: {
+#ifdef LINUX
+        execute_syscall = handle_restartable_region_syscall_pre(dcontext);
+#endif
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(dcontext->sys_num)) {
             execute_syscall = vmkuw_pre_system_call(dcontext);
             break;
         }
 #endif
+        break;
     }
 
     } /* end switch */
@@ -8528,13 +8536,17 @@ post_system_call(dcontext_t *dcontext)
         break;
 #endif
 
-#ifdef VMX86_SERVER
     default:
+#ifdef LINUX
+        handle_restartable_region_syscall_post(dcontext, success);
+#endif
+#ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(sysnum)) {
             vmkuw_post_system_call(dcontext);
             break;
         }
 #endif
+        break;
 
     } /* switch */
 
@@ -10126,6 +10138,134 @@ __umoddi3(uint64 dividend, uint64 divisor)
  * We link with __aeabi routines from libgcc via third_party/libgcc.
  */
 #endif /* X86_32 */
+
+/****************************************************************************
+ * Kernel-restartable sequences
+ */
+
+#ifdef LINUX
+/* Support for Linux kernel extensions for per-cpu critical regions.
+ * Xref https://lwn.net/Articles/649288/
+ * Some of this may vary on different kernels.
+ * The way it works is that the app tells the kernel the bounds of a
+ * code region within which a context switch should restart the code.
+ *
+ * As these sequences are complex to handle (it would be much simpler
+ * if they used existing mechanisms like signals!), we start out by
+ * running their code natively.  We assume it is "well-behaved" and
+ * we'll get control back.  These code sequences will be invisible to
+ * tools: we'll live with the lack of instrumentation for now as a
+ * tradeoff for getting correct app execution.
+ *
+ * Unfortunately we can't easily have a regression test in the main
+ * repository as mainstream kernels do not have this feature.
+ */
+
+/* We support a syscall of this form, with number DYNAMO_OPTION(rseq_sysnum):
+ *   SYSCALL_DEFINE4(rseq, int, op, long, val1, long, val2, long, val3)
+ */
+/* Set operation: app_pc start, app_pc end, app_pc restart */
+# define RSEQ_SET_CRITICAL 1
+/* Get operation: app_pc *start, app_pc *end, app_pc *restart */
+# define RSEQ_GET_CRITICAL 3
+
+static app_pc app_restart_region_start;
+static app_pc app_restart_region_end;
+
+static void
+restartable_region_init(void)
+{
+    int res;
+    app_pc restart_handler;
+    if (DYNAMO_OPTION(rseq_sysnum) == 0)
+        return;
+    res = dynamorio_syscall(DYNAMO_OPTION(rseq_sysnum), 4, RSEQ_GET_CRITICAL,
+                            &app_restart_region_start,
+                            &app_restart_region_end,
+                            &restart_handler);
+    if (res != 0) {
+        ASSERT(res == -ENOSYS);
+        LOG(GLOBAL, LOG_TOP, 1, "No restartable region at init\n");
+        app_restart_region_start = NULL;
+        app_restart_region_end = NULL;
+    } else {
+        LOG(GLOBAL, LOG_TOP, 1, "Restartable region at init: " PFX"-" PFX" @" PFX"\n",
+            app_restart_region_start, app_restart_region_end, restart_handler);
+        if (app_restart_region_start != NULL &&
+            app_restart_region_end > app_restart_region_start) {
+            vmvector_add(native_exec_areas, app_restart_region_start,
+                         app_restart_region_end, NULL);
+        }
+    }
+}
+
+static bool
+handle_restartable_region_syscall_pre(dcontext_t *dcontext)
+{
+    if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
+        dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum))
+        return true;
+    /* We do the work in post */
+    dcontext->sys_param0 = sys_param(dcontext, 0);
+    dcontext->sys_param1 = sys_param(dcontext, 1);
+    return true;
+}
+
+/* Though there is a race, it is hard to imagine the app executing correctly
+ * without first checking the return value of the syscall.  Thus we handle
+ * rseq in post and avoid having to emulate the kernel's argument checking.
+ */
+static void
+handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success)
+{
+    int op;
+    if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
+        dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum) ||
+        !success)
+        return;
+    op = (int) sys_param(dcontext, 0);
+    if (op == RSEQ_SET_CRITICAL) {
+        app_pc start = (app_pc) dcontext->sys_param0;
+        app_pc end = (app_pc) dcontext->sys_param1;
+        LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 2,
+            "syscall: set rseq region to " PFX"-" PFX"\n", start, end);
+        /* An unlink flush should be good enough: we simply don't support
+         * suddenly setting an rseq region for some fallthrough code after the
+         * syscall.
+         */
+        if (app_restart_region_start != NULL &&
+            app_restart_region_end > app_restart_region_start) {
+            vmvector_remove(native_exec_areas, app_restart_region_start,
+                            app_restart_region_end);
+            /* Flush existing code so it no longer goes native. */
+            flush_fragments_from_region(dcontext, app_restart_region_start,
+                                        app_restart_region_end - app_restart_region_start,
+                                        false/*don't force synchall*/);
+        }
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+        app_restart_region_start = start;
+        app_restart_region_end = end;
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        if (app_restart_region_start != NULL &&
+            app_restart_region_end > app_restart_region_start) {
+            vmvector_add(native_exec_areas, app_restart_region_start,
+                         app_restart_region_end, NULL);
+            /* We have to flush any existing code in the region. */
+            flush_fragments_from_region(dcontext, app_restart_region_start,
+                                        app_restart_region_end - app_restart_region_start,
+                                        false/*don't force synchall*/);
+        }
+    }
+}
+#endif /* LINUX */
+
+void
+native_exec_os_init(void)
+{
+#ifdef LINUX
+    restartable_region_init();
+#endif
+}
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
