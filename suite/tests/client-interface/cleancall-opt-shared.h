@@ -482,8 +482,8 @@ before_callee(app_pc func, const char *func_name)
 {
     void *dc;
     instrlist_t *ilist;
-    byte *end_pc;
 #ifdef TEST_INLINE
+    byte *end_pc;
     opnd_t scratch_reg = opnd_create_reg(IF_X86_ELSE(DR_REG_XAX, DR_REG_X0));
 #endif
 

@@ -140,7 +140,7 @@ codegen_modify_gprs(void *dc)
         if (reg == DR_REG_XSP || reg == IF_X86_ELSE(DR_REG_XBP, DR_REG_LR))
             continue;
         APP(ilist, XINST_CREATE_load_int(dc, opnd_create_reg(reg),
-                                         OPND_CREATE_INT16(0xf1f1)));
+                                         OPND_CREATE_INTPTR(0xf1f1)));
     }
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
