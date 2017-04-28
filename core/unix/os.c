@@ -286,10 +286,10 @@ static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               uint old_prot, uint old_type);
 static void handle_app_brk(dcontext_t *dcontext, byte *lowest_brk/*if known*/,
                            byte *old_brk, byte *new_brk);
-#endif
 static void restartable_region_init(void);
 static bool handle_restartable_region_syscall_pre(dcontext_t *dcontext);
 static void handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success);
+#endif
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH]; /* just dir */
@@ -7537,13 +7537,16 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
     default: {
+#ifdef LINUX
         execute_syscall = handle_restartable_region_syscall_pre(dcontext);
+#endif
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(dcontext->sys_num)) {
             execute_syscall = vmkuw_pre_system_call(dcontext);
             break;
         }
 #endif
+        break;
     }
 
     } /* end switch */
@@ -8534,13 +8537,16 @@ post_system_call(dcontext_t *dcontext)
 #endif
 
     default:
+#ifdef LINUX
         handle_restartable_region_syscall_post(dcontext, success);
+#endif
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(sysnum)) {
             vmkuw_post_system_call(dcontext);
             break;
         }
 #endif
+        break;
 
     } /* switch */
 
@@ -10137,6 +10143,7 @@ __umoddi3(uint64 dividend, uint64 divisor)
  * Kernel-restartable sequences
  */
 
+#ifdef LINUX
 /* Support for Linux kernel extensions for per-cpu critical regions.
  * Xref https://lwn.net/Articles/649288/
  * Some of this may vary on different kernels.
@@ -10158,9 +10165,9 @@ __umoddi3(uint64 dividend, uint64 divisor)
  *   SYSCALL_DEFINE4(rseq, int, op, long, val1, long, val2, long, val3)
  */
 /* Set operation: app_pc start, app_pc end, app_pc restart */
-#define RSEQ_SET_CRITICAL 1
+# define RSEQ_SET_CRITICAL 1
 /* Get operation: app_pc *start, app_pc *end, app_pc *restart */
-#define RSEQ_GET_CRITICAL 3
+# define RSEQ_GET_CRITICAL 3
 
 static app_pc app_restart_region_start;
 static app_pc app_restart_region_end;
@@ -10168,7 +10175,6 @@ static app_pc app_restart_region_end;
 static void
 restartable_region_init(void)
 {
-#ifdef LINUX
     int res;
     app_pc restart_handler;
     if (DYNAMO_OPTION(rseq_sysnum) == 0)
@@ -10191,21 +10197,11 @@ restartable_region_init(void)
                          app_restart_region_end, NULL);
         }
     }
-#endif
-}
-
-void
-native_exec_os_init(void)
-{
-    restartable_region_init();
 }
 
 static bool
 handle_restartable_region_syscall_pre(dcontext_t *dcontext)
 {
-#ifndef LINUX
-    return true;
-#endif
     if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
         dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum))
         return true;
@@ -10223,9 +10219,6 @@ static void
 handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success)
 {
     int op;
-#ifndef LINUX
-    return;
-#endif
     if (DYNAMO_OPTION(rseq_sysnum) == 0 ||
         dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum) ||
         !success)
@@ -10263,6 +10256,15 @@ handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success)
                                         false/*don't force synchall*/);
         }
     }
+}
+#endif /* LINUX */
+
+void
+native_exec_os_init(void)
+{
+#ifdef LINUX
+    restartable_region_init();
+#endif
 }
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
