@@ -413,7 +413,7 @@ raw2trace_t::merge_and_process_thread_files()
     thread_id_t tid = INVALID_THREAD_ID;
     std::set<thread_id_t> tid_set;
     std::set<thread_id_t> tid_exit_set;
-    std::set<int>::iterator it;
+    std::set<thread_id_t>::iterator it;
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
