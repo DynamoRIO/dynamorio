@@ -131,30 +131,25 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
 static instrlist_t *
 codegen_modify_gprs(void *dc)
 {
-    instrlist_t *ilist = instrlist_create(dc);
     uint i;
+    instrlist_t *ilist = instrlist_create(dc);
 
     codegen_prologue(dc, ilist);
-#ifdef X86
     for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
-        if (reg == DR_REG_XSP || reg == DR_REG_XBP)
+        if (reg == DR_REG_XSP || reg == IF_X86_ELSE(DR_REG_XBP, DR_REG_LR))
             continue;
-        APP(ilist, INSTR_CREATE_mov_imm(dc, opnd_create_reg(reg),
-                                        OPND_CREATE_INT32(0x11)));
+        APP(ilist, XINST_CREATE_load_int(dc, opnd_create_reg(reg),
+                                         OPND_CREATE_INT16(0xf1f1)));
     }
+    /* FIXME i#1569: FMOV support is NYI on AArch64 */
+#ifdef X86
     for (i = 0; i < NUM_SIMD_SLOTS; i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
         APP(ilist, INSTR_CREATE_movd(dc, opnd_create_reg(reg),
                                      opnd_create_reg(DR_REG_START_GPR)));
     }
-#else
-    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
-        APP(ilist, INSTR_CREATE_movk(dc, opnd_create_reg(DR_REG_START_GPR + (reg_id_t)i),
-                                     OPND_CREATE_INT16(0x11), OPND_CREATE_INT8(0)));
-    }
 #endif
-
     codegen_epilogue(dc, ilist);
     return ilist;
 }
