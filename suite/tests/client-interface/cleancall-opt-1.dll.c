@@ -35,7 +35,11 @@
 
 #include "dr_api.h"
 
+#ifdef WINDOWS
+#define BINARY_NAME "client.cleancall-opt-1.exe"
+#else
 #define BINARY_NAME "client.cleancall-opt-1"
+#endif
 
 /* List of instrumentation functions. */
 #define FUNCTIONS() \
