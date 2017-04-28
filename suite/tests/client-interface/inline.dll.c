@@ -59,12 +59,14 @@
         LAST_FUNCTION()
 
 #define TEST_INLINE 1
+static void compiler_inscount(ptr_uint_t count);
 #include "cleancall-opt-shared.h"
 
 static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
-static void test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx);
+static void test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where,
+                                   int fn_idx);
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -76,6 +78,10 @@ dr_init(client_id_t id)
     /* Lookup pcs. */
     lookup_pcs();
     codegen_instrumentation_funcs();
+   /* For compiler_inscount, we don't use generated code, we just point
+    * straight at the compiled code.
+    */
+    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
 }
 
 static void

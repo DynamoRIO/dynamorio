@@ -495,6 +495,25 @@ before_callee(app_pc func, const char *func_name)
     dr_get_mcontext(dc, &before_mcontext);
 
 #ifdef TEST_INLINE
+    /* If this is compiler_inscount, we need to unprotect our own text section
+     * so we can make this code modification.
+     */
+    if (func == (app_pc)compiler_inscount) {
+        app_pc start_pc = (app_pc)ALIGN_BACKWARD(func, PAGE_SIZE);
+        app_pc end_pc = func;
+        instr_t instr;
+        instr_init(dc, &instr);
+        do {
+            instr_reset(dc, &instr);
+            end_pc = decode(dc, end_pc, &instr);
+        } while (!instr_is_return(&instr));
+        end_pc += instr_length(dc, &instr);
+        instr_reset(dc, &instr);
+        end_pc = (app_pc)ALIGN_FORWARD(end_pc, PAGE_SIZE);
+        dr_memory_protect(start_pc, (size_t)(end_pc - start_pc),
+                          DR_MEMPROT_EXEC|DR_MEMPROT_READ|DR_MEMPROT_WRITE);
+    }
+
     ilist = instrlist_create(dc);
 #ifdef X86
     /* Patch the callee to be:
