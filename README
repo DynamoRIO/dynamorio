@@ -47,6 +47,56 @@ The DynamoRIO home page:
   http://dynamorio.org/
 
 ************************************************************
+Branch Notes: Experimental JIT Optimization
+
+This branch was developed during a Google Summer of Code project in 2015 to
+address i#1114. For a detailed description of the implementation, see:
+
+    http://dl.acm.org/citation.cfm?id=2738610
+
+For a quick overview of the changes on this branch, use command:
+
+    git diff master --stat
+
+The special handling of DGC appears in the 3 files with the largest change sets:
+
+    * core/jitopt.c
+      - manages double-mapped pages
+      - maintains bookkeeping of DGC fragments in a bucket/hashtable
+      - selectively flushes fragments as requested by JIT writers
+    * core/arch/x86/mangle.c
+      - instruments JIT writer instrs to selectively flush fragments as necessary
+    * core/vmareas.c:
+      - integrates JIT code regions into the vmarea accounting structures
+      - synchronizes double-mappings with any changes to corresponding vmarea
+
+In core/jitopt.c, the bucket/hashtable was an experimental approach that we
+found too difficult to maintain, particularly because the remove operation is
+too complicated. The advantage of this structure is that it can easily be read
+from the code cache, but we found it unnecessary to do so--in the Octane
+benchmarks, it is sufficient to detect page-level overlap from the cache, and
+check for exact fragment overlap after exiting to DR. So the page hashtable will
+be kept, but the bucket/hashtable will be replaced by a red/black tree, which
+has already been implemented in core/jit_opt.c.
+
+The workflow for this branch is to progressively implement features as
+individual commits on the project-optimize-jit branch. Code in core/jitopt.c
+will be selectively migrated into core/jit_opt.c, and the experimental file
+core/jitopt.c will eventually be deleted.
+
+It is important to keep in mind that the developer who wrote all of the code in
+this branch had only been programming in C for 2 years, and DynamoRIO is the
+only C project he had ever worked on (all of his experience was in Java, not
+even C++). the code is functionally correct, though may exhibit some unusual
+structure, and certain annotative elements like const may be used incorrectly.
+There are also a few fragments of commented code, along with extensive "release
+logging", most of which should probably not be committed to master in any form.
+If the logging is useful, it should be converted to use the standard DR logging
+mechanism, with a more formal provision for logging in release mode if necessary
+(since the Octane benchmarks take multiple days to run in a debug build of DR).
+
+
+************************************************************
 Quickstart instructions for running DynamoRIO:
 
 --------------------------------------------------
