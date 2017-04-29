@@ -16,6 +16,14 @@ transparent, and comprehensive manipulation of unmodified applications
 running on stock operating systems (Windows, Linux, or Android) and commodity
 IA-32, AMD64, ARM, and AArch64 hardware.  Mac OSX support is in progress.
 
+## Branch Notes: Experimental JIT Optimization
+
+This branch was developed during a Google Summer of Code project in 2015 to
+address [i#1114](https://github.com/DynamoRIO/dynamorio/issues/1114).
+Details can be found in the
+[design document](https://github.com/DynamoRIO/dynamorio/wiki/JIT-Optimization)
+on the DynamoRIO wiki.
+
 ## Existing DynamoRIO-based tools
 
 Tools built on DynamoRIO include:
