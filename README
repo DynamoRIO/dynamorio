@@ -47,6 +47,14 @@ The DynamoRIO home page:
   http://dynamorio.org/
 
 ************************************************************
+Branch Notes: Project JIT Optimization
+
+This is the feature branch for merging experimental code from
+experimental-optimize-jit. Details can be found on the DynamoRIO wiki:
+
+    https://github.com/DynamoRIO/dynamorio/wiki/JIT-Optimization
+
+************************************************************
 Quickstart instructions for running DynamoRIO:
 
 --------------------------------------------------

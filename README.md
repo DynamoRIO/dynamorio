@@ -16,6 +16,14 @@ transparent, and comprehensive manipulation of unmodified applications
 running on stock operating systems (Windows, Linux, or Android) and commodity
 IA-32, AMD64, ARM, and AArch64 hardware.  Mac OSX support is in progress.
 
+## Branch Notes: Project Optimize JIT
+
+This is the feature branch for merging experimental code from
+[experimental-optimize-jit](https://github.com/DynamoRIO/dynamorio/tree/experimental-optimize-jit).
+Details can be found in the
+[design document](https://github.com/DynamoRIO/dynamorio/wiki/JIT-Optimization)
+on the DynamoRIO wiki.
+
 ## Existing DynamoRIO-based tools
 
 Tools built on DynamoRIO include:
