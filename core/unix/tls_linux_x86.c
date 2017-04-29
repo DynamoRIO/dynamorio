@@ -390,6 +390,11 @@ choose_gdt_slots(os_local_state_t *os_tls)
             }
         }
         lib_tls_gdt_index = index;
+    } else {
+        /* For no private loader, e.g., app statically linked with DR,
+         * we use app's lib tls gdt index.
+         */
+        lib_tls_gdt_index = SELECTOR_INDEX(os_tls->app_lib_tls_reg);
     }
 #endif
 }

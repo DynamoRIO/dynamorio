@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -718,7 +718,18 @@ dispatch_enter_native(dcontext_t *dcontext)
     }
     set_fcache_target(dcontext, dcontext->next_tag);
     dcontext->whereami = WHERE_APP;
+#ifdef UNIX
+    do {
+        (*go_native)(dcontext);
+        /* If fcache_enter returns, there's a pending signal.  It must
+         * be an alarm signal so we drop it as the simplest solution.
+         */
+        ASSERT(dcontext->signals_pending);
+        dcontext->signals_pending = false;
+    } while (true);
+#else
     (*go_native)(dcontext);
+#endif
     ASSERT_NOT_REACHED();
 }
 
@@ -1297,14 +1308,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;
     }
-# ifdef UNIX
-    else if (dcontext->last_exit == get_sigreturn_linkstub()) {
-        LOG(THREAD, LOG_DISPATCH, 2, "Exit from sigreturn, or os_forge_exception\n");
-        STATS_INC(num_exits_sigreturn);
-        KSTOP_NOT_MATCHING_NOT_PROPAGATED(syscall_fcache);
-        return;
-    }
-# else /* WINDOWS */
     else if (dcontext->last_exit == get_asynch_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from asynch event\n");
         STATS_INC(num_exits_asynch);
@@ -1312,7 +1315,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         KSTOP_NOT_MATCHING_NOT_PROPAGATED(syscall_fcache);
         return;
     }
-# endif
     else if (dcontext->last_exit == get_native_exec_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from native_exec execution\n");
         STATS_INC(num_exits_native_exec);

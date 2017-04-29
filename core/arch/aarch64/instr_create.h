@@ -277,10 +277,19 @@
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
+
+/**
+ * This macro creates an instr_t for a BL (branch and link) instruction.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The opnd_t target operand containing the program counter to jump to.
+ */
+#define INSTR_CREATE_bl(dc, pc) \
+  instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
+
 #define INSTR_CREATE_br(dc, xn) \
   instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn) \
-  instr_create_0dst_1src((dc), OP_blr, (xn))
+  instr_create_1dst_1src((dc), OP_blr, opnd_create_reg(DR_REG_X30), (xn))
 #define INSTR_CREATE_brk(dc, imm) \
   instr_create_0dst_1src((dc), OP_brk, (imm))
 #define INSTR_CREATE_cbnz(dc, pc, reg) \
@@ -334,6 +343,10 @@
   instr_create_1dst_4src((dc), OP_sub, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_svc(dc, imm) \
   instr_create_0dst_1src((dc), OP_svc, (imm))
+#define INSTR_CREATE_adr(dc, rt, imm) \
+  instr_create_1dst_1src(dc, OP_adr, rt, imm)
+#define INSTR_CREATE_adrp(dc, rt, imm) \
+  instr_create_1dst_1src(dc, OP_adrp, rt, imm)
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \

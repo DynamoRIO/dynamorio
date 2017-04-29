@@ -1950,8 +1950,8 @@ instr_is_return(instr_t *instr);
 
 DR_API
 /**
- * Returns true iff \p instr is a control transfer instruction of any kind
- * This includes OP_jcc, OP_jcc_short, OP_loop*, OP_jecxz, OP_call*, and OP_jmp*.
+ * Returns true iff \p instr is a control transfer instruction of any
+ * kind, whether direct, indirect, conditional, or unconditional.
  */
 bool
 instr_is_cti(instr_t *instr);
@@ -1972,7 +1972,7 @@ bool
 instr_is_cti_short(instr_t *instr);
 
 DR_API
-/** Returns true iff \p instr is one of OP_loop* or OP_jecxz. */
+/** Returns true iff \p instr is one of OP_loop* or OP_jecxz on x86. */
 bool
 instr_is_cti_loop(instr_t *instr);
 
@@ -2037,7 +2037,7 @@ instr_is_near_ubr(instr_t *instr);
 DR_API
 /**
  * Returns true iff \p instr is a far control transfer instruction: OP_jmp_far,
- * OP_call_far, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or OP_iret.
+ * OP_call_far, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or OP_iret, on x86.
  */
 bool
 instr_is_far_cti(instr_t *instr);
@@ -2863,8 +2863,9 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
-# define EFLAGS_READ_ARITH  EFLAGS_READ_NZCV /**< Reads all arithmetic flags. */
-# define EFLAGS_READ_ALL    (EFLAGS_READ_NZCV | EFLAGS_READ_GE) /**< Reads all flags. */
+/** Platform-independent macro for reads all arithmetic flags. */
+# define EFLAGS_READ_ARITH  (EFLAGS_READ_NZCV | EFLAGS_READ_Q | EFLAGS_READ_GE)
+# define EFLAGS_READ_ALL    (EFLAGS_READ_ARITH) /**< Reads all flags. */
 # define EFLAGS_READ_NON_PRED EFLAGS_READ_GE /**< Flags not read by predicates. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
@@ -2874,13 +2875,9 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
-# define EFLAGS_WRITE_ARITH EFLAGS_WRITE_NZCV /**< Reads all arithmetic flags. */
-# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_GE) /**< Reads all flags. */
-
-/** Platform-independent macro for reads all arithmetic flags. */
-# define EFLAGS_READ_ARITH   EFLAGS_READ_NZCV
-/** Platform-independent macor for writes all arithmetic flags. */
-# define EFLAGS_WRITE_ARITH  EFLAGS_WRITE_NZCV
+/** Platform-independent macro for writes all arithmetic flags. */
+# define EFLAGS_WRITE_ARITH (EFLAGS_WRITE_NZCV | EFLAGS_WRITE_Q | EFLAGS_WRITE_GE)
+# define EFLAGS_WRITE_ALL   (EFLAGS_WRITE_ARITH) /**< Writes all flags. */
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
 # define EFLAGS_WRITE_TO_READ(x) ((x) >> 6)

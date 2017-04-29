@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -266,6 +266,7 @@
         if (stats != NULL && for_this_process)
             stats->loglevel = options->stats_loglevel;
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
+    OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
     OPTION_INTERNAL(uint, log_at_fragment_count,
         "start execution at loglevel 1 and raise to the specified -loglevel at this fragment count")
     /* For debugging purposes.  The bb count is distinct from the fragment count. */
@@ -481,8 +482,8 @@
      * All the optimizations assume that clean callee will not be changed
      * later.
      */
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, 0),
+    /* FIXME i#1621: NYI on ARM, partly implemented on AArch64 */
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, IF_AARCH64_ELSE(1, 0)),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags
@@ -1563,6 +1564,14 @@
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
+    /* i#2350: we support restartable sequence ("rseq") Linux kernel extensions,
+     * but as they are not in the mainline kernel we need the number to be passed
+     * in.  If left as 0 the support is disabled.
+     * Current support is preliminary: we execute them natively.
+     */
+    /* XXX: I'd prefer -1 to disable but there's no signed option type. */
+    OPTION_DEFAULT(uint, rseq_sysnum, 0,
+                   "system call number for restartable sequences; 0 disables")
 #endif
 #ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,

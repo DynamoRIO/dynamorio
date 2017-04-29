@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -695,11 +695,7 @@
     STATS_DEF("Fcache exits, system call executions", num_exits_syscalls)
     STATS_DEF("Fcache exits, flushed due to code mod", num_exits_code_mod_flush)
     STATS_DEF("Fcache exits, deleted but hit in ibl", num_exits_ibl_deleted)
-#ifdef UNIX
-    STATS_DEF("Fcache exits, sigreturn", num_exits_sigreturn)
-#else /* WINDOWS */
     STATS_DEF("Fcache exits, asynch", num_exits_asynch)
-#endif
     STATS_DEF("Fcache exits, native_exec executions", num_exits_native_exec)
     STATS_DEF("Fcache exits, native_exec syscalls", num_exits_native_exec_syscall)
     STATS_DEF("Fcache exits, proactive reset", num_exits_reset)

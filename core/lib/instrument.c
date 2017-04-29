@@ -347,7 +347,6 @@ parse_option_array(client_id_t client_id, const char *opstr,
     *argv = a;
 }
 
-#ifdef DEBUG
 static bool
 free_option_array(int argc, const char **argv)
 {
@@ -358,7 +357,6 @@ free_option_array(int argc, const char **argv)
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, argv, char *, argc, ACCT_CLIENT, UNPROTECTED);
     return true;
 }
-#endif
 
 static void
 add_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
@@ -715,7 +713,6 @@ instrument_init(void)
     }
 }
 
-#ifdef DEBUG
 void
 free_callback_list(callback_list_t *vec)
 {
@@ -768,12 +765,18 @@ void free_all_callback_lists()
     free_callback_list(&resurrect_rw_callbacks);
     free_callback_list(&persist_patch_callbacks);
 }
-#endif /* DEBUG */
+
+void
+instrument_exit_post_sideline(void)
+{
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
+#endif
+}
 
 void
 instrument_exit(void)
 {
-    DEBUG_DECLARE(size_t i);
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     /* support dr_get_mcontext() from the exit event */
@@ -784,26 +787,23 @@ instrument_exit(void)
               * to the call_all macro.  Bogus NULL arg */
              NULL);
 
-#ifdef DEBUG
-    /* Unload all client libs and free any allocated storage */
-    for (i=0; i<num_client_libs; i++) {
-        free_callback_list(&client_libs[i].nudge_callbacks);
-        unload_shared_library(client_libs[i].lib);
-        if (client_libs[i].argv != NULL)
-            free_option_array(client_libs[i].argc, client_libs[i].argv);
+    if (IF_DEBUG_ELSE(true, doing_detach)) {
+        /* Unload all client libs and free any allocated storage */
+        size_t i;
+        for (i=0; i<num_client_libs; i++) {
+            free_callback_list(&client_libs[i].nudge_callbacks);
+            unload_shared_library(client_libs[i].lib);
+            if (client_libs[i].argv != NULL)
+                free_option_array(client_libs[i].argc, client_libs[i].argv);
+        }
+        free_all_callback_lists();
     }
-
-    free_all_callback_lists();
-#endif
 
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;
     num_client_libs = 0;
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
-#endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
 #endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
@@ -1252,6 +1252,7 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
         dcontext->thread_record->under_dynamo_control = false;
         dcontext->client_data->is_client_thread = true;
+        dcontext->client_data->suspendable = true;
     }
 #endif /* CLIENT_SIDELINE */
 }
@@ -5920,7 +5921,11 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         /* the retaddr operand is always the final source for all OP_ret* instrs */
         opnd_t retaddr = instr_get_src(instr, instr_num_srcs(instr) - 1);
         opnd_size_t sz = opnd_get_size(retaddr);
-        /* even for far ret and iret, retaddr is at TOS */
+        /* Even for far ret and iret, retaddr is at TOS
+         * but operand size needs to be set to stack size
+         * since iret pops more than return address.
+         */
+        opnd_set_size(&retaddr, OPSZ_STACK);
         newinst = instr_create_1dst_1src(dcontext, sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
                                          opnd_create_reg(reg_target), retaddr);
     } else {

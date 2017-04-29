@@ -253,6 +253,7 @@ void signal_exit(void);
 void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 bool is_thread_signal_info_initialized(dcontext_t *dcontext);
+void signal_swap_mask(dcontext_t *dcontext, bool to_app);
 void signal_remove_handlers(dcontext_t *dcontext);
 void signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
 void signal_reinstate_alarm_handlers(dcontext_t *dcontext);
@@ -317,6 +318,9 @@ signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset);
 
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);
+
+bool
+thread_signal(process_id_t pid, thread_id_t tid, int signum);
 
 void start_itimer(dcontext_t *dcontext);
 void stop_itimer(dcontext_t *dcontext);

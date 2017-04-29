@@ -3960,6 +3960,7 @@ typedef struct _special_units_t {
     special_heap_unit_t *top_unit; /* start of linked list of heap units */
     special_heap_unit_t *cur_unit; /* current unit in heap list */
     uint block_size;    /* all blocks are this size */
+    uint block_alignment;
     heap_pc free_list;
     cfree_header_t *cfree_list;
 #ifdef DEBUG
@@ -4056,7 +4057,7 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         u->alloc_pc = pc;
         commit_size = size;
         /* caller should arrange alignment */
-        ASSERT(!IS_POWER_OF_2(su->block_size) || ALIGNED(u->start_pc, su->block_size));
+        ASSERT(su->block_alignment == 0 || ALIGNED(u->start_pc, su->block_alignment));
     } else {
         commit_size = DYNAMO_OPTION(heap_commit_increment);
         ASSERT(commit_size <= size);
@@ -4077,12 +4078,11 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         u->alloc_pc = (heap_pc) u;
         /* u is kept at top of unit itself, so displace start pc */
         u->start_pc = (heap_pc) (((ptr_uint_t)u) + sizeof(special_heap_unit_t));
-        /* some users expect alignment; not much of a space loss for those who don't */
-        if (IS_POWER_OF_2(su->block_size)) {
+        if (su->block_alignment != 0) {
             STATS_ADD(heap_special_align,
-                      ALIGN_FORWARD(u->start_pc, su->block_size) -
+                      ALIGN_FORWARD(u->start_pc, su->block_alignment) -
                       (ptr_uint_t)u->start_pc);
-            u->start_pc = (heap_pc) ALIGN_FORWARD(u->start_pc, su->block_size);
+            u->start_pc = (heap_pc) ALIGN_FORWARD(u->start_pc, su->block_alignment);
         }
     }
     u->end_pc = u->alloc_pc + commit_size;
@@ -4131,7 +4131,8 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
 
 /* caller must store the special_units_t *, which is opaque */
 static void *
-special_heap_init_internal(uint block_size, bool use_lock, bool executable,
+special_heap_init_internal(uint block_size, uint block_alignment,
+                           bool use_lock, bool executable,
                            bool persistent, vm_area_vector_t *vector, void *vector_data,
                            byte *heap_region, size_t heap_size, bool unit_full)
 {
@@ -4156,6 +4157,7 @@ special_heap_init_internal(uint block_size, bool use_lock, bool executable,
     ASSERT(block_size >= sizeof(heap_pc *) + sizeof(uint) &&
            "need room for cfree list ptrs");
     su->block_size = block_size;
+    su->block_alignment = block_alignment;
     su->executable = executable;
     su->persistent = persistent;
     su->writable = true;
@@ -4202,7 +4204,22 @@ special_heap_init_internal(uint block_size, bool use_lock, bool executable,
 void *
 special_heap_init(uint block_size, bool use_lock, bool executable, bool persistent)
 {
-    return special_heap_init_internal(block_size, use_lock, executable,
+    uint alignment = 0;
+    /* Some users expect alignment; not much of a space loss for those who don't.
+     * XXX: find those users and have them call special_heap_init_aligned()
+     * and removed this.
+     */
+    if (IS_POWER_OF_2(block_size))
+        alignment = block_size;
+    return special_heap_init_internal(block_size, alignment, use_lock, executable,
+                                      persistent, NULL, NULL, NULL, 0, false);
+}
+
+void *
+special_heap_init_aligned(uint block_size, uint alignment, bool use_lock,
+                          bool executable, bool persistent)
+{
+    return special_heap_init_internal(block_size, alignment, use_lock, executable,
                                       persistent, NULL, NULL, NULL, 0, false);
 }
 
@@ -4213,9 +4230,13 @@ special_heap_pclookup_init(uint block_size, bool use_lock, bool executable,
                            bool persistent, vm_area_vector_t *vector, void *vector_data,
                            byte *heap_region, size_t heap_size, bool unit_full)
 {
-    return special_heap_init_internal(block_size, use_lock, executable, persistent,
-                                      vector, vector_data, heap_region, heap_size,
-                                      unit_full);
+    uint alignment = 0;
+    /* XXX: see comment in special_heap_init() */
+    if (IS_POWER_OF_2(block_size))
+        alignment = block_size;
+    return special_heap_init_internal(block_size, alignment, use_lock, executable,
+                                      persistent, vector, vector_data, heap_region,
+                                      heap_size, unit_full);
 }
 
 /* Sets the vector data for the lookup vector used by the special heap */
