@@ -382,7 +382,6 @@ enum {
 
     LOCK_RANK(change_linking_lock), /* < shared_vm_areas, < all heap locks */
 
-    LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
 #if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
@@ -409,6 +408,7 @@ enum {
     LOCK_RANK(hotp_vul_table_lock), /* > bb_building_lock,
                                      * < dynamo_areas, < heap_unit_lock. */
 #endif
+    LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(coarse_info_lock), /* < special_heap_lock, < global_alloc_lock,
                                   * > change_linking_lock */
 
