@@ -532,9 +532,9 @@ raw2trace_t::merge_and_process_thread_files()
     VPRINT(1, "%u thread(s) are seen\n", (uint)tid_set.size());
     VPRINT(2, "Iterating threads:\n");
     for (it = tid_set.begin(); it != tid_set.end(); ++it) {
-        VPRINT(2, " thread %d\n", *it);
+        VPRINT(2, " thread %u\n", (uint)*it);
         if (tid_exit_set.find(*it) == tid_exit_set.end()) {
-            WARN("Trace for thread %d is truncated.", *it);
+            WARN("Trace for thread %d is truncated.", (uint)*it);
         }
     }
 }
