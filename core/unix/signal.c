@@ -4524,6 +4524,12 @@ master_signal_handler_C(byte *xsp)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
+    if (dcontext == NULL && sig == SUSPEND_SIGNAL) {
+        /* Check for a temporarily-native thread we're synch-ing with. */
+        tr = thread_lookup(get_sys_thread_id());
+        if (tr != NULL)
+            dcontext = tr->dcontext;
+    }
     if (dcontext == NULL ||
         (dcontext != GLOBAL_DCONTEXT &&
          (dcontext->signal_field == NULL ||
@@ -4543,6 +4549,7 @@ master_signal_handler_C(byte *xsp)
             /* We sent SUSPEND_SIGNAL to a thread we don't control (no
              * dcontext), which means we want to take over.
              */
+            ASSERT(!doing_detach);
             sig_take_over(ucxt);  /* no return */
             ASSERT_NOT_REACHED();
         } else {
@@ -4578,7 +4585,8 @@ master_signal_handler_C(byte *xsp)
      * signals to app handlers while native.  For now we do not support re-takeover
      * and we give up our handlers via signal_remove_handlers().
      */
-    ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
+    ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext) ||
+           sig == SUSPEND_SIGNAL);
 
     LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
         sig, *((byte **)xsp));
@@ -4834,8 +4842,11 @@ master_signal_handler_C(byte *xsp)
 
     /* PR 212090: the signal we use to suspend threads */
     case SUSPEND_SIGNAL:
-        if (handle_suspend_signal(dcontext, ucxt, frame))
+        if (handle_suspend_signal(dcontext, ucxt, frame)) {
+            /* i#1921: see comment above */
+            ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
             record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+        }
         /* else, don't deliver to app */
         break;
 
