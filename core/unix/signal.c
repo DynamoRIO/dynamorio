@@ -5281,9 +5281,26 @@ void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
 {
     if (signal_is_interceptable(sig)) {
-        DEBUG_DECLARE(bool res =)
-            set_default_signal_action(sig);
-        ASSERT(res);
+        bool set_action = false;
+#if defined(STATIC_LIBRARY) && defined(LINUX)
+        if (INTERNAL_OPTION(invoke_app_on_crash)) {
+            /* We come here for asserts.  Faults already bypass this routine. */
+            dcontext_t *my_dc = get_thread_private_dcontext();
+            if (my_dc != NULL) {
+                thread_sig_info_t *info = (thread_sig_info_t *) my_dc->signal_field;
+                if (info != NULL && info->app_sigaction[sig] != NULL &&
+                    IS_RT_FOR_APP(info, sig)) {
+                    set_action = true;
+                    sigaction_syscall(sig, info->app_sigaction[sig], NULL);
+                }
+            }
+        }
+#endif
+        if (!set_action) {
+            DEBUG_DECLARE(bool res =)
+                set_default_signal_action(sig);
+            ASSERT(res);
+        }
     }
     if (TEST(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
