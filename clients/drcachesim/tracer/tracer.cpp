@@ -96,6 +96,7 @@ typedef struct {
     uint64 bytes_written;
     /* For offline traces */
     file_t file;
+    size_t init_header_size;
     int num_buffers;
     byte *reserve_buf;
 } per_thread_t;
@@ -132,6 +133,9 @@ struct file_ops_func_t {
     drmemtrace_write_file_func_t write_file;
     drmemtrace_close_file_func_t close_file;
     drmemtrace_create_dir_func_t create_dir;
+    drmemtrace_handoff_func_t handoff_buf;
+    drmemtrace_exit_func_t exit_cb;
+    void *exit_arg;
 };
 static struct file_ops_func_t file_ops_func = {
     dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
@@ -155,6 +159,21 @@ drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
         file_ops_func.close_file = close_file_func;
     if (create_dir_func != NULL)
         file_ops_func.create_dir = create_dir_func;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
+                          drmemtrace_exit_func_t exit_func,
+                          void *exit_func_arg)
+{
+    if (op_num_threads.get_value() > 0) {
+        return DRMEMTRACE_ERROR;
+    }
+    /* We don't check op_offline b/c option parsing may not have happened yet. */
+    file_ops_func.handoff_buf = handoff_func;
+    file_ops_func.exit_cb = exit_func;
+    file_ops_func.exit_arg = exit_func_arg;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -295,7 +314,7 @@ circular_buf_dequeue(buf_entry_t *entry)
 }
 
 static void
-trace_traverse(byte *buf_base, ssize_t size,
+trace_traverse(byte *buf_base, ssize_t size, int extra_header_size,
                bool vaddr2paddr, bool do_write, thread_id_t tid)
 {
     byte *mem_ref, *buf_ptr;
@@ -303,7 +322,7 @@ trace_traverse(byte *buf_base, ssize_t size,
     pipe_start = buf_base;
     pipe_end = pipe_start;
     buf_ptr = buf_base + size;
-    for (mem_ref  = buf_base + buf_hdr_slots_size;
+    for (mem_ref  = buf_base + buf_hdr_slots_size + extra_header_size;
          mem_ref  < buf_ptr;
          mem_ref += instru->sizeof_entry()) {
         if (vaddr2paddr) {
@@ -352,14 +371,23 @@ trace_traverse(byte *buf_base, ssize_t size,
 }
 
 static inline ssize_t
+handoff_trace_data(file_t file, void *data, ssize_t size)
+{
+    if (!file_ops_func.handoff_buf(file, data, size, max_buf_size)) {
+        NOTIFY(0, "Fatal error: failed to hand off trace\n");
+        dr_abort();
+    }
+    return size;
+}
+
+static inline ssize_t
 write_trace_data(file_t file, void *data, ssize_t size)
 {
-    ssize_t written = file_ops_func.write_file(file, data, size);
-    if (written != size) {
+    if (file_ops_func.write_file(file, data, size) < size) {
         NOTIFY(0, "Fatal error: failed to write trace\n");
         dr_abort();
     }
-    return written;
+    return size;
 }
 
 static void
@@ -386,6 +414,7 @@ sideline_run(void *arg)
                 write_trace_data(sa->file, entry.data, entry.size);
             else {
                 trace_traverse((byte *)entry.data, entry.size,
+                               0, /* extra header size */
                                false, /* !vaddr2paddr */
                                true, /* do_write */
                                entry.tid);
@@ -460,8 +489,12 @@ memtrace(void *drcontext, bool skip_size_cap)
     bool do_write = true;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    /* The initial slot is left empty for the header entry, which we add here. */
-    instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
+    /* The initial slot is left empty for the header entry, which we add here,
+     * unless this is the very first buffer for this thread, in which case it
+     * already has a header.
+     */
+    instru->append_unit_header(data->buf_base + data->init_header_size,
+                               dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
@@ -482,6 +515,7 @@ memtrace(void *drcontext, bool skip_size_cap)
             (!op_offline.get_value() && op_num_threads.get_value() == 0)) {
             trace_traverse(data->buf_base,
                            buf_ptr - data->buf_base,
+                           data->init_header_size,
                            have_phys && op_use_physical.get_value(), /* vaddr2paddr */
                            !op_offline.get_value() &&
                            op_num_threads.get_value() == 0, /* online synch-ed sim */
@@ -494,10 +528,16 @@ memtrace(void *drcontext, bool skip_size_cap)
             create_buffer(data);
         } else if (op_offline.get_value()) {
             /* offline synch-ed write out */
-            write_trace_data(data->file, pipe_start, buf_ptr - pipe_start);
+            if (file_ops_func.handoff_buf != NULL) {
+                handoff_trace_data(data->file, pipe_start, buf_ptr - pipe_start);
+                create_buffer(data);
+            } else {
+                write_trace_data(data->file, pipe_start, buf_ptr - pipe_start);
+            }
         }
     }
-    if (!do_write || op_num_threads.get_value() == 0) {
+    if (!do_write ||
+        (op_num_threads.get_value() == 0 && file_ops_func.handoff_buf == NULL)) {
         // Our instrumentation reads from buffer and skips the clean call if the
         // content is 0, so we need set zero in the trace buffer and set non-zero
         // in redzone.
@@ -509,6 +549,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+    data->init_header_size = 0;
 }
 
 /* clean_call sends the memory reference info to the simulator */
@@ -889,7 +930,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    memtrace(drcontext, false);
+    if (file_ops_func.handoff_buf == NULL)
+        memtrace(drcontext, false);
     return true;
 }
 
@@ -900,7 +942,7 @@ create_thread_file(ptr_int_t id)
      * Since we're now in a subdir we could make the name simpler but this
      * seems nice and complete.
      */
-    int i, size;
+    int i;
     file_t file = INVALID_FILE;
     char buf[MAXIMUM_PATH];
     const int NUM_OF_TRIES = 10000;
@@ -925,24 +967,12 @@ create_thread_file(ptr_int_t id)
         dr_abort();
     }
     NOTIFY(2, "Created thread trace file %s\n", buf);
-    /* write file header */
-    size  = instru->append_file_header((byte *)buf);
-
-    DR_ASSERT(size > 0 && size < MAXIMUM_PATH);
-    write_trace_data(file, (void *)buf, (size_t)size);
     return file;
 }
 
 static void
 close_thread_file(file_t file)
 {
-    byte buf[8];
-    int size;
-    if (!op_offline.get_value())
-        return;
-    size = instru->append_file_footer(buf);
-    DR_ASSERT(size <= 8);
-    write_trace_data(file, (void *)buf, (size_t)size);
     file_ops_func.close_file(file);
 }
 
@@ -962,10 +992,15 @@ event_thread_init(void *drcontext)
     DR_ASSERT(data->seg_base != NULL);
     create_buffer(data);
 
+    /* put buf_base to TLS plus header slots as starting buf_ptr */
+    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     if (op_offline.get_value()) {
-        if (op_num_threads.get_value() == 0)
+        if (op_num_threads.get_value() == 0) {
             data->file = create_thread_file(dr_get_thread_id(drcontext));
-        else
+            /* write file header */
+            data->init_header_size = instru->append_file_header(data->buf_base);
+            BUF_PTR(data->seg_base) += data->init_header_size;
+        } else
             data->file = INVALID_FILE;
     } else {
         /* pass file header to the simulator to register current thread */
@@ -975,8 +1010,6 @@ event_thread_init(void *drcontext)
         if (atomic_pipe_write(dr_get_thread_id(drcontext), buf, buf + size) != buf)
             DR_ASSERT(false);
     }
-    /* put buf_base to TLS plus header slots as starting buf_ptr */
-    BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
 
     // XXX i#1729: gather and store an initial callstack for the thread.
 }
@@ -993,10 +1026,12 @@ event_thread_exit(void *drcontext)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_thread_exit(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-
+    if (data->file != INVALID_FILE) {
+        BUF_PTR(data->seg_base) +=
+            instru->append_file_footer(BUF_PTR(data->seg_base));
+    }
     memtrace(drcontext, true);
-
-    if (op_offline.get_value() && op_num_threads.get_value() == 0) {
+    if (data->file != INVALID_FILE) {
         close_thread_file(data->file);
     }
 
@@ -1027,8 +1062,14 @@ event_exit(void)
         for (i = 0; i < op_num_threads.get_value(); i++) {
             dr_event_wait(sideline_exit_events[i]);
             dr_event_destroy(sideline_exit_events[i]);
-            if (op_offline.get_value())
+            if (op_offline.get_value()) {
+                byte buf[8];
+                int size;
+                size = instru->append_file_footer(buf);
+                DR_ASSERT(size > 0 && size <= 8);
+                write_trace_data(sideline_args[i].file, (void *)buf, (size_t)size);
                 close_thread_file(sideline_args[i].file);
+            }
         }
         drvector_delete(&circular_buf_queue);
         dr_global_free(sideline_args,
@@ -1045,6 +1086,8 @@ event_exit(void)
     if (op_offline.get_value()) {
         /* ~instru_t writes to module_file, so we close module_file after. */
         file_ops_func.close_file(module_file);
+        if (file_ops_func.exit_cb != NULL)
+            (*file_ops_func.exit_cb)(file_ops_func.exit_arg);
     } else {
         ipc_pipe.close();
     }
@@ -1181,8 +1224,15 @@ init_thread_pool(void)
     for (i = 0; i < op_num_threads.get_value(); i++) {
         sideline_exit_events[i] = dr_event_create();
         sideline_args[i].index = i;
-        if (op_offline.get_value())
+        if (op_offline.get_value()) {
+            byte buf[24];
+            int size;
             sideline_args[i].file = create_thread_file((ptr_int_t)i);
+            /* write file header */
+            size  = instru->append_file_header((byte *)buf);
+            DR_ASSERT(size > 0 && size <= 24);
+            write_trace_data(sideline_args[i].file, (void *)buf, (size_t)size);
+        }
         if (!dr_create_client_thread(sideline_run, &sideline_args[i])) {
             NOTIFY(0, "Fatal error: failed to create threading pool.\n");
             dr_abort();

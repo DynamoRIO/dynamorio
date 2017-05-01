@@ -1,19 +1,9 @@
 replace all file functions
-add custom module data
 pre-DR init
-create dir .*
-create dir .*
-open file .*
-open file .*
 pre-DR start
-0: writing [0-9]+ bytes .*
-1: writing [0-9]+ bytes .*
-restore the write file function
 pre-DR detach
-close file .*
-2: writing [0-9]+ bytes .*
-close file .*
-processing .*
+processing [0-9]* buffers
+creating module file .*
 all done
 Cache simulation results:
 Core #0 \(1 thread\(s\)\)
