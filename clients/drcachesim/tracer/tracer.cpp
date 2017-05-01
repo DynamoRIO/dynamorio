@@ -314,7 +314,7 @@ circular_buf_dequeue(buf_entry_t *entry)
 }
 
 static void
-trace_traverse(byte *buf_base, ssize_t size, int extra_header_size,
+trace_traverse(byte *buf_base, ssize_t size, size_t extra_header_size,
                bool vaddr2paddr, bool do_write, thread_id_t tid)
 {
     byte *mem_ref, *buf_ptr;
