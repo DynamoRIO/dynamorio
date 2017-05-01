@@ -275,6 +275,8 @@ prepare_return_from_native_via_stack(dcontext_t *dcontext, app_pc *app_sp)
     dcontext->native_retstack[i].retaddr = *app_sp;
     dcontext->native_retstack[i].retloc = (app_pc) app_sp;
     dcontext->native_retstack_cur = i + 1;
+    LOG(THREAD, LOG_ASYNCH, 2,
+        "%s: app ra="PFX", sp="PFX", level=%d\n", *app_sp, app_sp, i);
     /* i#978: We use a different return stub for every nested call to native
      * code.  Each stub pushes a different index into the retstack.  We could
      * use the SP at return time to try to find the app's return address, but
@@ -466,7 +468,9 @@ put_back_native_retaddrs(dcontext_t *dcontext)
     for (i = 0; i < dcontext->native_retstack_cur; i++) {
         app_pc *retloc = (app_pc *) retstack[i].retloc;
         ASSERT(*retloc >= retstub_start && *retloc < retstub_end);
-        *retloc = retstack[i].retaddr;
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: writing "PFX" over "PFX" @"PFX"\n",
+            __FUNCTION__, retstack[i].retaddr, *retloc, retloc);
+         *retloc = retstack[i].retaddr;
     }
     dcontext->native_retstack_cur = 0;
 #ifdef HOT_PATCHING_INTERFACE
