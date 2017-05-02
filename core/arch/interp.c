@@ -4667,8 +4667,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     ASSERT(bb->app_interp);
     ASSERT(!bb->record_translation);
     ASSERT(bb->start_pc != NULL);
-    /* vmlist must start out empty (or N/A) */
-    ASSERT(bb->vmlist == NULL);
+    /* vmlist must start out empty (or N/A).  For clients it may have started early. */
+    ASSERT(bb->vmlist == NULL || !bb->record_vmlist || bb->checked_start_vmarea);
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags))
         bb->flags &= ~FRAG_HAS_TRANSLATION_INFO;
     bb->native_exec = true;
