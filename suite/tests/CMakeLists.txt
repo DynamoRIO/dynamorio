@@ -2252,8 +2252,9 @@ if (CLIENT_INTERFACE)
       tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
       target_link_libraries(api.static_crash ${libmath})
       # XXX i#2346: add delayed sideline thread exit on Windows
-      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON)
-      target_link_libraries(api.static_sideline ${libmath} ${libpthread})
+      # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
+      tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
+      target_link_libraries(api.static_sideline_FLAKY ${libmath} ${libpthread})
     endif ()
   endif ()
 
