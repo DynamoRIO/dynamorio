@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -332,8 +332,12 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     bool hint = true;
     byte hint_byte;
 #endif
+    /* We need to use the passed-in cxt for IR but we need a real one for TRY_EXCEPT. */
+    dcontext_t *my_dcontext;
     if (dcontext == GLOBAL_DCONTEXT)
-        dcontext = get_thread_private_dcontext(); /* for TRY_EXCEPT */
+        my_dcontext = get_thread_private_dcontext();
+    else
+        my_dcontext = dcontext;
 
 #if defined(WINDOWS) && defined(X64)
     if (hint_is_safe) {
@@ -352,7 +356,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 #endif
 
     instr_init(dcontext, &scratch);
-    TRY_EXCEPT(dcontext, {
+    TRY_EXCEPT(my_dcontext, {
         identify_annotation(dcontext, &layout, &scratch);
     }, { /* EXCEPT */
         LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at "PFX"\n",

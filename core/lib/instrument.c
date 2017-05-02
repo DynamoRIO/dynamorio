@@ -5921,7 +5921,11 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         /* the retaddr operand is always the final source for all OP_ret* instrs */
         opnd_t retaddr = instr_get_src(instr, instr_num_srcs(instr) - 1);
         opnd_size_t sz = opnd_get_size(retaddr);
-        /* even for far ret and iret, retaddr is at TOS */
+        /* Even for far ret and iret, retaddr is at TOS
+         * but operand size needs to be set to stack size
+         * since iret pops more than return address.
+         */
+        opnd_set_size(&retaddr, OPSZ_STACK);
         newinst = instr_create_1dst_1src(dcontext, sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
                                          opnd_create_reg(reg_target), retaddr);
     } else {
