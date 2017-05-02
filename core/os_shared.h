@@ -545,6 +545,8 @@ bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
 void os_check_new_app_module(dcontext_t *dcontext, app_pc pc);
 #endif
 
+void native_exec_os_init(void);
+
 bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
 /* Does a safe_read of *src_ptr into dst_var, returning true for success.  We

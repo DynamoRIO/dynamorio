@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -35,13 +36,11 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#include <stddef.h> /* offsetof */
-#include <string.h> /* memset */
-
-#define CALLEE_ALIGNMENT 64
-
-#define PRE  instrlist_meta_preinsert
-#define APP  instrlist_meta_append
+#ifdef WINDOWS
+#define BINARY_NAME "client.inline.exe"
+#else
+#define BINARY_NAME "client.inline"
+#endif
 
 /* List of instrumentation functions. */
 #define FUNCTIONS() \
@@ -59,60 +58,13 @@
         FUNCTION(bbcount) \
         LAST_FUNCTION()
 
-/* Table of function names. */
-#define FUNCTION(fn_name) #fn_name,
-#define LAST_FUNCTION() NULL
-static const char *func_names[] = {
-    FUNCTIONS()
-};
-#undef FUNCTION
-#undef LAST_FUNCTION
-
-/* Codegen function declarations. */
-#define FUNCTION(fn_name) \
-    static instrlist_t *codegen_##fn_name(void *dc);
-#define LAST_FUNCTION()
-FUNCTIONS()
-#undef FUNCTION
-#undef LAST_FUNCTION
-
-/* Table of codegen functions. */
-typedef instrlist_t *(*codegen_func_t)(void *dc);
-#define FUNCTION(fn_name) codegen_##fn_name,
-#define LAST_FUNCTION() NULL
-static codegen_func_t codegen_funcs[] = {
-    FUNCTIONS()
-};
-#undef FUNCTION
-#undef LAST_FUNCTION
-
-/* Create an enum for each function. */
-#define FUNCTION(fn_name) FN_##fn_name,
-#define LAST_FUNCTION() LAST_FUNC_ENUM
-enum {
-    FUNCTIONS()
-};
-#undef FUNCTION
-#undef LAST_FUNCTION
-
-/* A separate define so ctags can find it. */
-#define N_FUNCS LAST_FUNC_ENUM
-
-static app_pc func_app_pcs[N_FUNCS];
-static void *func_ptrs[N_FUNCS];
-static bool func_called[N_FUNCS];
-
-/* Instrumentation machine code memory. */
-static void *rwx_mem;
-static size_t rwx_size;
+#define TEST_INLINE 1
+static void compiler_inscount(ptr_uint_t count);
+#include "cleancall-opt-shared.h"
 
 static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
-static void lookup_pcs(void);
-static void codegen_instrumentation_funcs(void);
-static void free_instrumentation_funcs(void);
-static void compiler_inscount(ptr_uint_t count);
 static void test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where,
                                    int fn_idx);
 
@@ -126,6 +78,10 @@ dr_init(client_id_t id)
     /* Lookup pcs. */
     lookup_pcs();
     codegen_instrumentation_funcs();
+   /* For compiler_inscount, we don't use generated code, we just point
+    * straight at the compiled code.
+    */
+    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
 }
 
 static void
@@ -139,342 +95,6 @@ event_exit(void)
                       "Instrumentation function was not called!");
     }
     dr_fprintf(STDERR, "PASSED\n");
-}
-
-static void
-lookup_pcs(void)
-{
-    module_data_t *exe;
-    int i;
-
-    exe = dr_lookup_module_by_name(
-#ifdef WINDOWS
-            "client.inline.exe"
-#else
-            "client.inline"
-#endif
-            );
-    for (i = 0; i < N_FUNCS; i++) {
-        app_pc func_pc = (app_pc)dr_get_proc_address(
-                exe->handle, func_names[i]);
-        DR_ASSERT_MSG(func_pc != NULL,
-                      "Unable to find a function we wanted to instrument!");
-        func_app_pcs[i] = func_pc;
-    }
-    dr_free_module_data(exe);
-}
-
-/* Generate the instrumentation. */
-static void
-codegen_instrumentation_funcs(void)
-{
-    void *dc = dr_get_current_drcontext();
-    instrlist_t *ilists[N_FUNCS];
-    int i;
-    size_t offset = 0;
-    uint rwx_prot;
-    app_pc pc;
-
-    /* Generate all of the ilists. */
-    for (i = 0; i < N_FUNCS; i++) {
-        ilists[i] = codegen_funcs[i](dc);
-    }
-
-    /* Compute size of each instr and the total offset. */
-    for (i = 0; i < N_FUNCS; i++) {
-        instr_t *inst;
-        offset = ALIGN_FORWARD(offset, CALLEE_ALIGNMENT);
-        for (inst = instrlist_first(ilists[i]); inst; inst = instr_get_next(inst))
-            offset += instr_length(dc, inst);
-    }
-
-    /* Allocate RWX memory for the code and fill it with nops.  nops make
-     * reading the disassembly in gdb easier.  */
-    rwx_prot = DR_MEMPROT_EXEC|DR_MEMPROT_READ|DR_MEMPROT_WRITE;
-    rwx_size = ALIGN_FORWARD(offset, PAGE_SIZE);
-    rwx_mem = dr_nonheap_alloc(rwx_size, rwx_prot);
-    memset(rwx_mem, 0x90, rwx_size);
-
-    /* encode instructions, telling instrlist_encode to care about the labels */
-    pc = (byte*)rwx_mem;
-    for (i = 0; i < N_FUNCS; i++) {
-        pc = (byte*)ALIGN_FORWARD(pc, CALLEE_ALIGNMENT);
-        func_ptrs[i] = pc;
-        dr_log(dc, LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
-               ":", func_names[i], pc);
-        instrlist_disassemble(dc, pc, ilists[i], dr_get_logfile(dc));
-        pc = instrlist_encode(dc, ilists[i], pc, true);
-        instrlist_clear_and_destroy(dc, ilists[i]);
-    }
-
-    /* For compiler_inscount, we don't use generated code, we just point
-     * straight at the compiled code.
-     */
-    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
-}
-
-/* Free the instrumentation machine code. */
-static void
-free_instrumentation_funcs(void)
-{
-    dr_nonheap_free(rwx_mem, rwx_size);
-}
-
-/* Globals used by instrumentation functions. */
-ptr_uint_t global_count;
-static uint callee_inlined;
-
-static dr_mcontext_t before_mcontext = {sizeof(before_mcontext),DR_MC_ALL,};
-static int before_errno;
-static dr_mcontext_t after_mcontext = {sizeof(after_mcontext),DR_MC_ALL,};
-static int after_errno;
-
-/* Reset global_count and patch the out-of-line version of the instrumentation function
- * so we can find out if it got called, which would mean it wasn't inlined.
- *
- * XXX: We modify the callee code!  If DR tries to disassemble the callee's
- * ilist after the modification, it will trigger assertion failures in the
- * disassembler.
- */
-static void
-before_callee(app_pc func, const char *func_name)
-{
-    void *dc;
-    instrlist_t *ilist;
-    opnd_t xax = opnd_create_reg(DR_REG_XAX);
-    byte *end_pc;
-
-    if (func_name != NULL)
-        dr_fprintf(STDERR, "Calling func %s...\n", func_name);
-
-    /* Save mcontext before call. */
-    dc = dr_get_current_drcontext();
-    dr_get_mcontext(dc, &before_mcontext);
-
-    /* If this is compiler_inscount, we need to unprotect our own text section
-     * so we can make this code modification.
-     */
-    if (func == (app_pc)compiler_inscount) {
-        app_pc start_pc = (app_pc)ALIGN_BACKWARD(func, PAGE_SIZE);
-        app_pc end_pc = func;
-        instr_t instr;
-        instr_init(dc, &instr);
-        do {
-            instr_reset(dc, &instr);
-            end_pc = decode(dc, end_pc, &instr);
-        } while (!instr_is_return(&instr));
-        end_pc += instr_length(dc, &instr);
-        instr_reset(dc, &instr);
-        end_pc = (app_pc)ALIGN_FORWARD(end_pc, PAGE_SIZE);
-        dr_memory_protect(start_pc, (size_t)(end_pc - start_pc),
-                          DR_MEMPROT_EXEC|DR_MEMPROT_READ|DR_MEMPROT_WRITE);
-    }
-
-    /* Patch the callee to be:
-     * push xax
-     * mov xax, &callee_inlined
-     * mov dword [xax], 0
-     * pop xax
-     * ret
-     */
-    ilist = instrlist_create(dc);
-    APP(ilist, INSTR_CREATE_push(dc, xax));
-    APP(ilist, INSTR_CREATE_mov_imm
-        (dc, xax, OPND_CREATE_INTPTR(&callee_inlined)));
-    APP(ilist, INSTR_CREATE_mov_st
-        (dc, OPND_CREATE_MEM32(DR_REG_XAX, 0), OPND_CREATE_INT32(0)));
-    APP(ilist, INSTR_CREATE_pop(dc, xax));
-    APP(ilist, INSTR_CREATE_ret(dc));
-
-    end_pc = instrlist_encode(dc, ilist, func, false /* no jump targets */);
-    instrlist_clear_and_destroy(dc, ilist);
-    dr_log(dc, LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
-           (func_name ? func_name : "(null)"), func);
-
-    /* Check there was enough room in the function.  We align every callee
-     * entry point to CALLEE_ALIGNMENT, so each function has at least
-     * CALLEE_ALIGNMENT bytes long.
-     */
-    DR_ASSERT_MSG(end_pc < func + CALLEE_ALIGNMENT,
-                  "Patched code too big for smallest function!");
-
-    /* Reset instrumentation globals. */
-    global_count = 0;
-    callee_inlined = 1;
-}
-
-#define NUM_GP_REGS   (1 + (IF_X64_ELSE(DR_REG_R15, DR_REG_XDI) - DR_REG_XAX))
-static int reg_offsets[NUM_GP_REGS + 1] = {
-    offsetof(dr_mcontext_t, xax),
-    offsetof(dr_mcontext_t, xbx),
-    offsetof(dr_mcontext_t, xcx),
-    offsetof(dr_mcontext_t, xdx),
-    offsetof(dr_mcontext_t, xdi),
-    offsetof(dr_mcontext_t, xsi),
-    offsetof(dr_mcontext_t, xbp),
-    offsetof(dr_mcontext_t, xsp),
-#ifdef X64
-    offsetof(dr_mcontext_t, r8),
-    offsetof(dr_mcontext_t, r9),
-    offsetof(dr_mcontext_t, r10),
-    offsetof(dr_mcontext_t, r11),
-    offsetof(dr_mcontext_t, r12),
-    offsetof(dr_mcontext_t, r13),
-    offsetof(dr_mcontext_t, r14),
-    offsetof(dr_mcontext_t, r15),
-#endif
-    offsetof(dr_mcontext_t, xflags)
-};
-
-static bool
-mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
-{
-    int i;
-    int ymm_bytes_used;
-    /* Check GPRs. */
-    for (i = 0; i < NUM_GP_REGS; i++) {
-        reg_t a = *(reg_t*)((byte*)mc_a + reg_offsets[i]);
-        reg_t b = *(reg_t*)((byte*)mc_b + reg_offsets[i]);
-        if (a != b)
-            return false;
-    }
-
-    /* Check xflags for all funcs except bbcount, which has dead flags. */
-    if (mc_a->xflags != mc_b->xflags && func_index != FN_bbcount)
-        return false;
-
-    /* Only look at the initialized bits of the SSE regs. */
-    ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
-            return false;
-    }
-    return true;
-}
-
-static void
-dump_diff_mcontexts(void)
-{
-    uint i;
-    dr_fprintf(STDERR, "Registers clobbered by supposedly clean call!\n"
-               "Printing GPRs + flags:\n");
-    for (i = 0; i < NUM_GP_REGS + 1; i++) {
-        reg_t before_reg = *(reg_t*)((byte*)&before_mcontext + reg_offsets[i]);
-        reg_t after_reg  = *(reg_t*)((byte*)&after_mcontext  + reg_offsets[i]);
-        const char *reg_name = (i < NUM_GP_REGS ?
-                                get_register_name(DR_REG_XAX + i) :
-                                "xflags");
-        const char *diff_str = (before_reg == after_reg ?
-                                "" : " <- DIFFERS");
-        dr_fprintf(STDERR, "%s before: "PFX" after: "PFX"%s\n",
-                   reg_name, before_reg, after_reg, diff_str);
-    }
-
-    dr_fprintf(STDERR, "Printing XMM regs:\n");
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
-        dr_ymm_t before_reg = before_mcontext.ymm[i];
-        dr_ymm_t  after_reg =  after_mcontext.ymm[i];
-        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) :
-                sizeof(dr_ymm_t);
-        const char *diff_str =
-                (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
-        dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x",
-                   i,
-                   before_reg.u32[0], before_reg.u32[1],
-                   before_reg.u32[2], before_reg.u32[3]);
-        if (proc_has_feature(FEATURE_AVX)) {
-            dr_fprintf(STDERR, "%08x%08x%08x%08x",
-                       before_reg.u32[4], before_reg.u32[5],
-                       before_reg.u32[6], before_reg.u32[7]);
-        }
-        dr_fprintf(STDERR, " after: %08x%08x%08x%08x",
-                   after_reg.u32[0], after_reg.u32[1],
-                   after_reg.u32[2], after_reg.u32[3]);
-        if (proc_has_feature(FEATURE_AVX)) {
-            dr_fprintf(STDERR, "%08x%08x%08x%08x",
-                       after_reg.u32[4], after_reg.u32[5],
-                       after_reg.u32[6], after_reg.u32[7]);
-        }
-        dr_fprintf(STDERR, "%s\n", diff_str);
-    }
-}
-
-static void
-dump_inlined_code(void *dc, app_pc start_inline, app_pc end_inline,
-                  int func_index)
-{
-    app_pc pc, next_pc;
-    dr_fprintf(STDERR, "Inlined code for %s:\n", func_names[func_index]);
-    for (pc = start_inline; pc != end_inline; pc = next_pc) {
-        next_pc = disassemble(dc, pc, STDERR);
-    }
-}
-
-static void
-after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
-             int func_index, const char *func_name)
-{
-    void *dc;
-
-    /* Save mcontext after call. */
-    dc = dr_get_current_drcontext();
-    dr_get_mcontext(dc, &after_mcontext);
-
-    /* Compare mcontexts. */
-    if (before_errno != after_errno) {
-        dr_fprintf(STDERR, "errnos differ!\nbefore: %d, after: %d\n",
-                   before_errno, after_errno);
-    }
-    if (!mcontexts_equal(&before_mcontext, &after_mcontext, func_index)) {
-        dump_diff_mcontexts();
-        dump_inlined_code(dc, start_inline, end_inline, func_index);
-    }
-
-    /* Now that we use the mcontext in dcontext, we expect no stack usage. */
-    if (inline_expected) {
-        app_pc pc, next_pc;
-        instr_t instr;
-        bool found_xsp = false;
-        instr_init(dc, &instr);
-        for (pc = start_inline; pc != end_inline; pc = next_pc) {
-            next_pc = decode(dc, pc, &instr);
-            if (instr_uses_reg(&instr, DR_REG_XSP)) {
-                found_xsp = true;
-            }
-            instr_reset(dc, &instr);
-        }
-        if (found_xsp) {
-            dr_fprintf(STDERR, "Found stack usage in inlined code for %s\n",
-                       func_names[func_index]);
-            dump_inlined_code(dc, start_inline, end_inline, func_index);
-        }
-    }
-
-    if (inline_expected && !callee_inlined) {
-        dr_fprintf(STDERR, "Function %s was not inlined!\n",
-                   func_names[func_index]);
-        dump_inlined_code(dc, start_inline, end_inline, func_index);
-    } else if (!inline_expected && callee_inlined) {
-        dr_fprintf(STDERR, "Function %s was inlined unexpectedly!\n",
-                   func_names[func_index]);
-        dump_inlined_code(dc, start_inline, end_inline, func_index);
-    }
-
-    /* Function-specific checks. */
-    switch (func_index) {
-    case FN_inscount:
-    case FN_compiler_inscount:
-        if (global_count != 0xDEAD) {
-            dr_fprintf(STDERR, "global_count not updated properly after inscount!\n");
-            dump_inlined_code(dc, start_inline, end_inline, func_index);
-        }
-        break;
-    default:
-        break;
-    }
-
-    if (func_name != NULL)
-        dr_fprintf(STDERR, "Called func %s.\n", func_name);
 }
 
 static void
@@ -642,10 +262,11 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
         (void)test_aflags(dc, bb, entry, 0x00200, NULL, NULL);
         break;
     }
-    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, 5,
+    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, 6,
                          opnd_create_instr(before_label),
                          opnd_create_instr(after_label),
                          OPND_CREATE_INT32(inline_expected),
+                         OPND_CREATE_INT32(false),
                          OPND_CREATE_INT32(i),
                          OPND_CREATE_INTPTR(func_names[i]));
 
@@ -667,7 +288,7 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
     uint i;
     static const ptr_uint_t hex_dead_global = 0xDEAD;
 
-    for (i = 0; i < NUM_GP_REGS; i++) {
+    for (i = 0; i < DR_NUM_GPR_REGS; i++) {
         reg_id_t reg = DR_REG_XAX + (reg_id_t)i;
         reg_id_t other_reg = (reg == DR_REG_XAX ? DR_REG_XBX : DR_REG_XAX);
         opnd_t arg;
@@ -695,10 +316,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
                              arg);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 6,
                              opnd_create_instr(before_label),
                              opnd_create_instr(after_label),
                              OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(false),
                              OPND_CREATE_INT32(fn_idx),
                              OPND_CREATE_INTPTR(0));
 
@@ -722,10 +344,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 6,
                              opnd_create_instr(before_label),
                              opnd_create_instr(after_label),
                              OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(false),
                              OPND_CREATE_INT32(fn_idx),
                              OPND_CREATE_INTPTR(0));
 
@@ -749,10 +372,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 5,
+        dr_insert_clean_call(dc, bb, where, (void*)after_callee, false, 6,
                              opnd_create_instr(before_label),
                              opnd_create_instr(after_label),
                              OPND_CREATE_INT32(true),
+                             OPND_CREATE_INT32(false),
                              OPND_CREATE_INT32(fn_idx),
                              OPND_CREATE_INTPTR(0));
     }
@@ -760,31 +384,6 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
 
 /*****************************************************************************/
 /* Instrumentation function code generation. */
-
-/*
-prologue:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-*/
-static void
-codegen_prologue(void *dc, instrlist_t *ilist)
-{
-    APP(ilist, INSTR_CREATE_push(dc, opnd_create_reg(DR_REG_XBP)));
-    APP(ilist, INSTR_CREATE_mov_ld
-        (dc, opnd_create_reg(DR_REG_XBP), opnd_create_reg(DR_REG_XSP)));
-}
-
-/*
-epilogue:
-    leave
-    ret
-*/
-static void
-codegen_epilogue(void *dc, instrlist_t *ilist)
-{
-    APP(ilist, INSTR_CREATE_leave(dc));
-    APP(ilist, INSTR_CREATE_ret(dc));
-}
 
 /*
 empty:
