@@ -42,6 +42,9 @@
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(out_of_line) \
+        FUNCTION(modify_gprs) \
+        FUNCTION(inscount) \
+        FUNCTION(compiler_inscount) \
         LAST_FUNCTION()
 
 /* Definitions for every function. */
