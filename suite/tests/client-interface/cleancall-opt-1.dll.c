@@ -85,7 +85,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
     app_pc entry_pc = instr_get_app_pc(entry);
     int i;
     bool inline_expected = false;
-    bool out_of_line_expected = false;
+    bool out_of_line_expected = IF_AARCH64_ELSE(true, false);
     instr_t *before_label;
     instr_t *after_label;
 
