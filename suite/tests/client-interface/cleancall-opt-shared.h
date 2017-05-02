@@ -455,18 +455,24 @@ static void
 save_current_pc(void *dc, instrlist_t *ilist, instr_t *where, app_pc *ptr, instr_t *label) {
     opnd_t scratch_reg1 = opnd_create_reg(DR_REG_X0);
     opnd_t scratch_reg2 = opnd_create_reg(DR_REG_X1);
-    PRE(ilist, where, INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
+    PRE(ilist, where, INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_SP),
+                                       opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
 
 
-    PRE(ilist, where, INSTR_CREATE_stp(dc,  opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_16),
-                                scratch_reg1, scratch_reg2));
+    PRE(ilist, where, INSTR_CREATE_stp(dc,  opnd_create_base_disp(DR_REG_SP, DR_REG_NULL,
+                                                                  0, 0, OPSZ_16),
+                                       scratch_reg1, scratch_reg2));
 
     instrlist_insert_mov_immed_ptrsz(dc, (long) ptr, scratch_reg1, ilist, where, NULL, NULL);
     PRE(ilist, where, INSTR_CREATE_adr(dc, scratch_reg2, opnd_create_instr(label)));
-    PRE(ilist, where, INSTR_CREATE_str(dc,  opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_8),
+    PRE(ilist, where, INSTR_CREATE_str(dc, opnd_create_base_disp(DR_REG_X0, DR_REG_NULL,
+                                                                 0, 0, OPSZ_8),
                                 scratch_reg2));
-    PRE(ilist, where, INSTR_CREATE_ldp(dc, scratch_reg1, scratch_reg2, opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_16)));
-    PRE(ilist, where, INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
+    PRE(ilist, where, INSTR_CREATE_ldp(dc, scratch_reg1, scratch_reg2,
+                                       opnd_create_base_disp(DR_REG_SP, DR_REG_NULL,
+                                                             0, 0, OPSZ_16)));
+    PRE(ilist, where, INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_SP),
+                                       opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
 }
 #endif
 

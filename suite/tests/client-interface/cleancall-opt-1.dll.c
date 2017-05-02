@@ -129,9 +129,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
 /*****************************************************************************/
 /* Instrumentation function code generation. */
 
-/*
- * Modifies all GPRS and SIMD registers on X86.
-*/
+/* Modifies all GPRS and SIMD registers on X86 only. */
 static instrlist_t *
 codegen_modify_gprs(void *dc)
 {
