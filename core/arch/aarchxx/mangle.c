@@ -936,7 +936,12 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
             XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
 
-        /* stp x30, [sp, #x30_offset] */
+        /* str x30, [sp, #x30_offset]
+         *
+         * We have to save the original value of x30 before using BLR to jump
+         * to the save code, because BLR will modify x30. The original value of
+         * x30 is restored after the returning from the save/restore functions below.
+         */
         PRE(ilist, instr,
             INSTR_CREATE_str(dcontext,
                              opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
@@ -951,7 +956,7 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
     PRE(ilist, instr,
         INSTR_CREATE_blr(dcontext, opnd_create_reg(DR_REG_X30)));
 
-   /* Restore original value of X30, which was changed by BL.
+   /* Restore original value of X30, which was changed by BLR.
     *
     * ldr x30, [sp, #x30_offset]
     */
