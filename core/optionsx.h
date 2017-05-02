@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1557,6 +1557,14 @@
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
+    /* i#2350: we support restartable sequence ("rseq") Linux kernel extensions,
+     * but as they are not in the mainline kernel we need the number to be passed
+     * in.  If left as 0 the support is disabled.
+     * Current support is preliminary: we execute them natively.
+     */
+    /* XXX: I'd prefer -1 to disable but there's no signed option type. */
+    OPTION_DEFAULT(uint, rseq_sysnum, 0,
+                   "system call number for restartable sequences; 0 disables")
 #endif
 #ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,
