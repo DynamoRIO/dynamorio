@@ -10208,6 +10208,7 @@ handle_restartable_region_syscall_pre(dcontext_t *dcontext)
     /* We do the work in post */
     dcontext->sys_param0 = sys_param(dcontext, 0);
     dcontext->sys_param1 = sys_param(dcontext, 1);
+    dcontext->sys_param2 = sys_param(dcontext, 2);
     return true;
 }
 
@@ -10223,10 +10224,10 @@ handle_restartable_region_syscall_post(dcontext_t *dcontext, bool success)
         dcontext->sys_num != DYNAMO_OPTION(rseq_sysnum) ||
         !success)
         return;
-    op = (int) sys_param(dcontext, 0);
+    op = (int) dcontext->sys_param0;
     if (op == RSEQ_SET_CRITICAL) {
-        app_pc start = (app_pc) dcontext->sys_param0;
-        app_pc end = (app_pc) dcontext->sys_param1;
+        app_pc start = (app_pc) dcontext->sys_param1;
+        app_pc end = (app_pc) dcontext->sys_param2;
         LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 2,
             "syscall: set rseq region to " PFX"-" PFX"\n", start, end);
         /* An unlink flush should be good enough: we simply don't support
