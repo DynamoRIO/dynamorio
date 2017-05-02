@@ -423,9 +423,11 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
             instr_reset(dc, &instr);
         }
         if (blr_count != 3) {
-            dr_fprintf(STDERR, "Expected out-of-line call but did not find exactly 3 "
-                       IF_X86_ELSE("CALL", "BLR") " instructions.\n");
+            dr_fprintf(STDERR, "Expected out-of-line call but did not find exactly 3 %s instructions.\n"
+                       IF_X86_ELSE("CALL", "BLR"));
             dump_cc_code(dc, start_inline, end_inline, func_index);
+        } else {
+            dr_fprintf(STDERR, "Out-of-line call generated as expected.\n");
         }
     }
 
