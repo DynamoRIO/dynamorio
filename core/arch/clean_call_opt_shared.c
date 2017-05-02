@@ -737,8 +737,10 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * unless multiple regs are able to be skipped.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
+
     if ((cci->num_simd_skip == 0 /* save all xmms */ &&
-         cci->num_regs_skip == 0 /* save all regs */ &&
+        /* save all regs except 2, because XSP and XBP are commonly callee saved */
+         cci->num_regs_skip <= 2 &&
          !cci->skip_save_flags) ||
         always_out_of_line)
         cci->out_of_line_swap = true;

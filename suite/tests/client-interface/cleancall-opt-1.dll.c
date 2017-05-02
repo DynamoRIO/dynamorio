@@ -43,7 +43,7 @@
 
 /* List of instrumentation functions. */
 #define FUNCTIONS() \
-        FUNCTION(modify_gprs) \
+        FUNCTION(out_of_line) \
         LAST_FUNCTION()
 
 #include "cleancall-opt-shared.h"
@@ -85,7 +85,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
     app_pc entry_pc = instr_get_app_pc(entry);
     int i;
     bool inline_expected = false;
-    bool out_of_line_expected = false;
+    bool out_of_line_expected = true;
     instr_t *before_label;
     instr_t *after_label;
 
@@ -131,7 +131,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
 
 /* Modifies all GPRS and SIMD registers on X86 only. */
 static instrlist_t *
-codegen_modify_gprs(void *dc)
+codegen_out_of_line(void *dc)
 {
     uint i;
     instrlist_t *ilist = instrlist_create(dc);
@@ -151,6 +151,9 @@ codegen_modify_gprs(void *dc)
         APP(ilist, INSTR_CREATE_movd(dc, opnd_create_reg(reg),
                                      opnd_create_reg(DR_REG_START_GPR)));
     }
+
+    /* Modify flags */
+    APP(ilist, INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INT32(0xffff)));
 #endif
     codegen_epilogue(dc, ilist);
     return ilist;
