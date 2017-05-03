@@ -61,7 +61,7 @@ callee_info_t default_callee_info;
 int
 get_clean_call_switch_stack_size(void)
 {
-#ifdef AARCHXX
+#ifdef AARCH64
     /* Stack size needs to be 16 byte aligned on ARM */
     return ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
 #else

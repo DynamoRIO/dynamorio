@@ -5391,6 +5391,11 @@ client_clean_call_is_thread_private(void)
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
+#ifdef ARM
+    /* FIXME i#1621: NYI on AArch32 */
+    return pc;
+#endif
+
     instrlist_t ilist;
     instrlist_init(&ilist);
     /* xref insert_out_of_line_context_switch @ x86/mangle.c,
@@ -5417,9 +5422,6 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
                               OPND_CREATE_INT32(0), REG_NULL, true);
-#else
-    /* FIXME i#1621: NYI on AArch32 */
-    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
 #ifdef WINDOWS
