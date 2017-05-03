@@ -329,8 +329,7 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
-                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/
-                          _IF_AARCH64(bool out_of_line))
+                          uint alignment, opnd_t push_pc, reg_id_t scratch/*optional*/)
 {
     uint dstack_offs = 0;
 #ifdef AARCH64
@@ -342,18 +341,14 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
+
 #ifdef AARCH64
 
-    max_offs = get_clean_call_switch_stack_size();
+    max_offs = ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
 
-    /* For out-of-line clean calls, the stack pointer is adjusted before jumping
-     * to this code.
-     */
-    if (!out_of_line) {
-        /* sub sp, sp, #clean_call_switch_stack_size */
-        PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
-                                           OPND_CREATE_INT16(max_offs)));
-    }
+    /* sub sp, sp, #sizeof(priv_mcontext_t) */
+    PRE(ilist, instr, XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
+                                       OPND_CREATE_INT16(max_offs)));
 
     /* Push GPRs. */
     insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
@@ -365,19 +360,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
-
-    /* For out-of-line clean calls, X30 is saved before jumping to this code,
-     * because it is used for the return address.
-     */
-    if (!out_of_line) {
-        /* stp x30, x0, [sp, #x30_offset] */
-        PRE(ilist, instr,
-            INSTR_CREATE_stp(dcontext,
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X30), OPSZ_16),
-                             opnd_create_reg(DR_REG_X30),
-                             opnd_create_reg(DR_REG_X0)));
-    }
+    /* stp x30, x0, [sp, #x30_offset] */
+    PRE(ilist, instr,
+        INSTR_CREATE_stp(dcontext, opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                         REG_OFFSET(DR_REG_X30), OPSZ_16),
+                         opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X0)));
 
     /* add x0, x0, #dstack_offs */
     PRE(ilist, instr,
@@ -541,17 +528,15 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
-                         uint alignment _IF_AARCH64(bool out_of_line))
+                         uint alignment)
 {
-    if (cci == NULL)
-        cci = &default_clean_call_info;
 #ifdef AARCH64
     uint current_offs;
     /* mov x0, sp */
     PRE(ilist, instr, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                                         opnd_create_reg(DR_REG_SP)));
 
-    current_offs = get_clean_call_switch_stack_size() -
+    current_offs = sizeof(priv_mcontext_t) -
                    NUM_SIMD_SLOTS * sizeof(dr_simd_t);
 
     /* add x0, x0, current_offs */
@@ -604,21 +589,17 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_restore_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
                              true /* is_gpr */);
 
-    /* For out-of-line clean calls, X30 is restored after jumping back from this
-     * code, because it is used for the return address.
-     */
-    if (!out_of_line) {
-        /* Recover x30 */
-        /* ldr w3, [x0, #16] */
-        PRE(ilist, instr,
-            INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X30),
-                             OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_X30))));
-       PRE(ilist, instr,
-            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
-                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
-    }
-
- #else
+    /* Recover x30 */
+    /* ldr w3, [x0, #16] */
+    PRE(ilist, instr,
+        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X30),
+                         OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_X30))));
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
+                         OPND_CREATE_INT32(sizeof(priv_mcontext_t))));
+#else
+    if (cci == NULL)
+        cci = &default_clean_call_info;
     /* We rely on dr_set_mcontext_priv() to set the app's stolen reg value,
      * and the stack swap to set the sp value: we assume the stolen reg on
      * the stack still has our TLS base in it.
@@ -923,59 +904,8 @@ int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr, bool save)
 {
-#ifdef AARCH64
-    if (save) {
-        /* Reserve stack space to push the context. We do it here instead of
-         * in insert_push_all_registers, so we can save the original value
-         * of X30 on the stack before it is changed by the BL (branch & link)
-         * to the clean call save routine in the code cache.
-         *
-         * sub sp, sp, #clean_call_switch_stack_size
-         */
-        PRE(ilist, instr,
-            XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
-                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
-
-        /* str x30, [sp, #x30_offset]
-         *
-         * We have to save the original value of x30 before using BLR to jump
-         * to the save code, because BLR will modify x30. The original value of
-         * x30 is restored after the returning from the save/restore functions below.
-         */
-        PRE(ilist, instr,
-            INSTR_CREATE_str(dcontext,
-                             opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
-                                                   REG_OFFSET(DR_REG_X30), OPSZ_8),
-                             opnd_create_reg(DR_REG_X30)));
-    }
-
-    insert_mov_immed_ptrsz(dcontext,
-                           (long) (save ? get_clean_call_save(dcontext) :
-                                          get_clean_call_restore(dcontext)),
-                           opnd_create_reg(DR_REG_X30), ilist, instr, NULL, NULL);
-    PRE(ilist, instr,
-        INSTR_CREATE_blr(dcontext, opnd_create_reg(DR_REG_X30)));
-
-   /* Restore original value of X30, which was changed by BLR.
-    *
-    * ldr x30, [sp, #x30_offset]
-    */
-    PRE(ilist, instr,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X30),
-                         OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_X30))));
-
-    if (!save) {
-        /* add sp, sp, #clean_call_switch_stack_size */
-        PRE(ilist, instr,
-            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_SP),
-                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
-    }
-
-    return get_clean_call_switch_stack_size();
-#else
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1621: NYI on AArch32. */
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
     return 0;
-#endif
 }
 
 /*###########################################################################
