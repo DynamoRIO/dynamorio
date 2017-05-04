@@ -86,7 +86,7 @@ bool reuse_time_t::process_memref(const memref_t &memref)
     }
 
     time_stamp++;
-    int_least64_t line = memref.data.addr >> line_size_bits;
+    addr_t line = memref.data.addr >> line_size_bits;
     if (time_map.count(line) > 0) {
         int_least64_t reuse_time = time_stamp - time_map[line];
         if (DEBUG_VERBOSE(3)) {
