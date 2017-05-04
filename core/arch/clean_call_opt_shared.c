@@ -732,16 +732,11 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
     }
 # ifdef X86
     /* 9. derived fields */
-    /* XXX: For x64, skipping a single reg or flags still results in a huge
-     * code sequence to put in place: we may want to still use out-of-line
-     * unless multiple regs are able to be skipped.
+    /* Use out-of-line calls if more than 3 SIMD or GP registers have to be saved.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-
-    if ((cci->num_simd_skip == 0 /* save all xmms */ &&
-        /* save all regs except 2, because XSP and XBP are commonly callee saved */
-         cci->num_regs_skip <= 2 &&
-         !cci->skip_save_flags) ||
+    if ((NUM_SIMD_REGS - cci->num_simd_skip) > 3  /* save more than 3 xmms */ ||
+        (NUM_GP_REGS - cci->num_regs_skip) > 3 /* save more than 3 GPRs */ ||
         always_out_of_line)
         cci->out_of_line_swap = true;
 # endif
