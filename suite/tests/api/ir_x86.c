@@ -737,6 +737,22 @@ test_nop_xchg(void *dc)
 #endif
 }
 
+static void
+test_hint_nops(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+    /* ensure we treat as nop. */
+    buf[0] = 0x0f;
+    buf[1] = 0x18;
+    buf[2] = 0x38;
+    instr = instr_create(dc);
+    pc = decode(dc, buf, instr);
+    ASSERT(instr_get_opcode(instr) == OP_nop_modrm);
+    instr_destroy(dc, instr);
+
+}
+
 #ifdef X64
 static void
 test_x86_mode(void *dc)
@@ -1462,6 +1478,8 @@ main(int argc, char *argv[])
     test_size_changes(dcontext);
 
     test_nop_xchg(dcontext);
+
+    test_hint_nops(dcontext);
 
 #ifdef X64
     test_x86_mode(dcontext);
