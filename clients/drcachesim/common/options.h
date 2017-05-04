@@ -43,6 +43,7 @@
 #define TLB                                     "TLB"
 #define HISTOGRAM                               "histogram"
 #define REUSE_DIST                              "reuse_distance"
+#define REUSE_TIME                              "reuse_time"
 
 #include <string>
 #include "droption.h"
