@@ -169,7 +169,10 @@
  * \param i   The source immediate integer opnd.
  */
 #define XINST_CREATE_load_int(dc, r, i) \
-    INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0))
+  (opnd_get_immed_int(i) < 0 ? \
+   INSTR_CREATE_movn((dc), (r), OPND_CREATE_INT32(~opnd_get_immed_int(i)), \
+                     OPND_CREATE_INT(0)) : \
+   INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.

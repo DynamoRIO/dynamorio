@@ -1898,8 +1898,10 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
     endif (NOT ARM)
-    if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+    if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+    endif (X86 OR AARCH64)
+    if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
@@ -1972,7 +1974,9 @@ if (CLIENT_INTERFACE)
       optimize(client.inline.dll)
     endif ()
   endif (X86)
-
+  if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
+    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
+  endif (NOT ARM)
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
     tobuild_appdll(client.null_instrument client-interface/null_instrument.c)
@@ -2248,8 +2252,9 @@ if (CLIENT_INTERFACE)
       tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
       target_link_libraries(api.static_crash ${libmath})
       # XXX i#2346: add delayed sideline thread exit on Windows
-      tobuild_api(api.static_sideline api/static_sideline.c "" "" OFF ON)
-      target_link_libraries(api.static_sideline ${libmath} ${libpthread})
+      # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
+      tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
+      target_link_libraries(api.static_sideline_FLAKY ${libmath} ${libpthread})
     endif ()
   endif ()
 

@@ -1,7 +1,7 @@
-/* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
- * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+/* *******************************************************************************
+ * Copyright (c) 2017 ARM Limited. All rights reserved.
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
+ * *******************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -14,14 +14,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of MIT nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL MIT OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,39 +31,32 @@
  * DAMAGE.
  */
 
-#include "configure.h"
-
-#include <stdio.h>
-#if defined(MACOS) || defined(ANDROID)
-# include <sys/syscall.h>
-#else
-# include <syscall.h>
+/* Export instrumented functions so we can easily find them in client.  */
+#ifdef WINDOWS
+# define EXPORT __declspec(dllexport)
+#else /* UNIX */
+# define EXPORT __attribute__((visibility("default")))
 #endif
 
-#define EXPANDSTR(x) #x
-#define STRINGIFY(x) EXPANDSTR(x)
+/* List of instrumented functions. */
+#define FUNCTIONS() \
+        FUNCTION(modify_gprs) \
+        LAST_FUNCTION()
 
-int main()
+/* Definitions for every function. */
+#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
+#define LAST_FUNCTION()
+FUNCTIONS()
+#undef FUNCTION
+#undef LAST_FUNCTION
+
+int
+main(void)
 {
-    int pid;
-    fprintf(stderr, "starting\n");
-#if defined(AARCH64)
-    asm("movz x8, " STRINGIFY(SYS_getpid) ";"
-        "svc 0;"
-        "mov %0, x0" : "=r"(pid));
-#elif defined(X64)
-    /* we don't want vsyscall since we rely on mov immed, eax being in same bb.
-     * plus, libc getpid might cache the pid value.
-     */
-    asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
-        "syscall;"
-        "mov %%eax, %0" : "=m"(pid));
-#else
-    asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
-        "int $0x80;"
-        "mov %%eax, %0" : "=m"(pid));
-#endif
-    fprintf(stderr, "pid = %d\n", pid);
-
-    return 0;
+    /* Calls to every function. */
+#define FUNCTION(FUNCNAME) FUNCNAME();
+#define LAST_FUNCTION()
+    FUNCTIONS()
+#undef FUNCTION
+#undef LAST_FUNCTION
 }

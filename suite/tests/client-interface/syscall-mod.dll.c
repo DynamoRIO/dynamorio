@@ -42,23 +42,35 @@
 
 #define MINSERT instrlist_meta_preinsert
 
+#ifdef AARCH64
+# define SYSCALL_ARG_REG DR_REG_X8
+# define SYSCALL_RES_REG DR_REG_X0
+#else
+# define SYSCALL_ARG_REG REG_EAX
+# define SYSCALL_RES_REG REG_EAX
+#endif
+
 static
 dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb,
                          bool for_trace, bool translating)
 {
     instr_t *instr;
     instr_t *next_instr;
-    reg_t in_eax = -1;
+    ptr_int_t value;
+    reg_t in_reg = -1;
 
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
-        if (instr_get_opcode(instr) == OP_mov_imm &&
-            opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX)
-            in_eax = opnd_get_immed_int(instr_get_src(instr, 0));
+        if (instr_is_mov_constant(instr, &value) &&
+            opnd_is_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == SYSCALL_ARG_REG &&
+            opnd_is_immed_int(instr_get_src(instr, 0)))
+            in_reg = opnd_get_immed_int(instr_get_src(instr, 0));
         if (instr_is_syscall(instr) &&
-            in_eax == SYS_getpid) {
-            instr_t *myval = INSTR_CREATE_mov_imm
-                (drcontext, opnd_create_reg(REG_EAX), OPND_CREATE_INT32(-7));
+            in_reg == SYS_getpid) {
+            instr_t *myval = XINST_CREATE_load_int
+                (drcontext, opnd_create_reg(SYSCALL_RES_REG),
+                 OPND_CREATE_INT32(-7));
             instr_set_translation(myval, instr_get_app_pc(instr));
             instrlist_preinsert(bb, instr, myval);
             instrlist_remove(bb, instr);
