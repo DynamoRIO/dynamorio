@@ -2474,8 +2474,6 @@ if (CLIENT_INTERFACE)
         set(tool.reuse.offline_toolname "drcachesim")
         set(tool.reuse.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
-        set(small_trace_file
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.small.x64.trace")
         torunonly_ci(tool.reuse_time.offline ${ci_shared_app} drcachesim
           "reuse_time_offline.c" # for expect basename
           "-infile ${small_trace_file} -simulator_type reuse_time" "" "")

@@ -57,9 +57,13 @@ reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose) :
     line_size_bits = compute_log2((int)knob_line_size);
 }
 
-reuse_time_t::~reuse_time_t() {}
+reuse_time_t::~reuse_time_t()
+{
+    // Empty.
+}
 
-bool reuse_time_t::process_memref(const memref_t &memref)
+bool
+reuse_time_t::process_memref(const memref_t &memref)
 {
     if (DEBUG_VERBOSE(3)) {
         std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
@@ -81,7 +85,7 @@ bool reuse_time_t::process_memref(const memref_t &memref)
     // Ignore thread events and other tracing metadata.
     if (memref.data.type != TRACE_TYPE_READ &&
         memref.data.type != TRACE_TYPE_WRITE &&
-        type_is_prefetch(memref.data.type)) {
+        !type_is_prefetch(memref.data.type)) {
         return true;
     }
 
