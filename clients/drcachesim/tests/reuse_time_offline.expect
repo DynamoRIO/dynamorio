@@ -1,0 +1,8 @@
+Reuse time tool results:
+Total accesses: 56
+Mean reuse time: 3.00
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1          13   24.53%      24.53%
+       3          14   26.42%      50.94%
+       4          26   49.06%     100.00%
