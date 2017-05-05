@@ -167,9 +167,9 @@ droption_t<std::string> op_TLB_replace_policy
 
 droption_t<std::string> op_simulator_type
 (DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
- "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", or " HISTOGRAM").",
+ "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM").",
  "Specifies the type of the simulator. "
- "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", or " HISTOGRAM".");
+ "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM".");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
