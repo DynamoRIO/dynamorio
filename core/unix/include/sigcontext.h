@@ -27,9 +27,9 @@
 
 #include <linux/types.h>
 
-#define FP_XSTATE_MAGIC1	0x46505853U
-#define FP_XSTATE_MAGIC2	0x46505845U
-#define FP_XSTATE_MAGIC2_SIZE	sizeof(FP_XSTATE_MAGIC2)
+#define FP_XSTATE_MAGIC1        0x46505853U
+#define FP_XSTATE_MAGIC2        0x46505845U
+#define FP_XSTATE_MAGIC2_SIZE   sizeof(FP_XSTATE_MAGIC2)
 
 /*
  * bytes 464..511 in the current 512byte layout of fxsave/fxrstor frame
@@ -44,21 +44,21 @@
  * pointer in sigcontext.
  */
 struct _fpx_sw_bytes {
-	__u32 magic1;		/* FP_XSTATE_MAGIC1 */
-	__u32 extended_size;	/* total size of the layout referred by
-				 * fpstate pointer in the sigcontext.
-				 */
-	__u64 xstate_bv;
-				/* feature bit mask (including fp/sse/extended
-				 * state) that is present in the memory
-				 * layout.
-				 */
-	__u32 xstate_size;	/* actual xsave state size, based on the
-				 * features saved in the layout.
-				 * 'extended_size' will be greater than
-				 * 'xstate_size'.
-				 */
-	__u32 padding[7];	/*  for future use. */
+        __u32 magic1;           /* FP_XSTATE_MAGIC1 */
+        __u32 extended_size;    /* total size of the layout referred by
+                                 * fpstate pointer in the sigcontext.
+                                 */
+        __u64 xstate_bv;
+                                /* feature bit mask (including fp/sse/extended
+                                 * state) that is present in the memory
+                                 * layout.
+                                 */
+        __u32 xstate_size;      /* actual xsave state size, based on the
+                                 * features saved in the layout.
+                                 * 'extended_size' will be greater than
+                                 * 'xstate_size'.
+                                 */
+        __u32 padding[7];       /*  for future use. */
 };
 
 #ifdef __i386__
@@ -70,83 +70,83 @@ struct _fpx_sw_bytes {
  * coprocessor status word before entering the handler.
  *
  * Pentium III FXSR, SSE support
- *	Gareth Hughes <gareth@valinux.com>, May 2000
+ *      Gareth Hughes <gareth@valinux.com>, May 2000
  *
  * The FPU state data structure has had to grow to accommodate the
  * extended FPU state required by the Streaming SIMD Extensions.
  * There is no documented standard to accomplish this at the moment.
  */
 struct _fpreg {
-	unsigned short significand[4];
-	unsigned short exponent;
+        unsigned short significand[4];
+        unsigned short exponent;
 };
 
 struct _fpxreg {
-	unsigned short significand[4];
-	unsigned short exponent;
-	unsigned short padding[3];
+        unsigned short significand[4];
+        unsigned short exponent;
+        unsigned short padding[3];
 };
 
 struct _xmmreg {
-	unsigned long element[4];
+        unsigned long element[4];
 };
 
 struct _fpstate {
-	/* Regular FPU environment */
-	unsigned long	cw;
-	unsigned long	sw;
-	unsigned long	tag;
-	unsigned long	ipoff;
-	unsigned long	cssel;
-	unsigned long	dataoff;
-	unsigned long	datasel;
-	struct _fpreg	_st[8];
-	unsigned short	status;
-	unsigned short	magic;		/* 0xffff = regular FPU data only */
+        /* Regular FPU environment */
+        unsigned long   cw;
+        unsigned long   sw;
+        unsigned long   tag;
+        unsigned long   ipoff;
+        unsigned long   cssel;
+        unsigned long   dataoff;
+        unsigned long   datasel;
+        struct _fpreg   _st[8];
+        unsigned short  status;
+        unsigned short  magic;          /* 0xffff = regular FPU data only */
 
-	/* FXSR FPU environment */
-	unsigned long	_fxsr_env[6];	/* FXSR FPU env is ignored */
-	unsigned long	mxcsr;
-	unsigned long	reserved;
-	struct _fpxreg	_fxsr_st[8];	/* FXSR FPU reg data is ignored */
-	struct _xmmreg	_xmm[8];
-	unsigned long	padding1[44];
+        /* FXSR FPU environment */
+        unsigned long   _fxsr_env[6];   /* FXSR FPU env is ignored */
+        unsigned long   mxcsr;
+        unsigned long   reserved;
+        struct _fpxreg  _fxsr_st[8];    /* FXSR FPU reg data is ignored */
+        struct _xmmreg  _xmm[8];
+        unsigned long   padding1[44];
 
-	union {
-		unsigned long	padding2[12];
-		struct _fpx_sw_bytes sw_reserved; /* represents the extended
-						   * state info */
-	};
+        union {
+                unsigned long   padding2[12];
+                struct _fpx_sw_bytes sw_reserved; /* represents the extended
+                                                   * state info */
+        };
 };
 
-#define X86_FXSR_MAGIC		0x0000
+#define X86_FXSR_MAGIC          0x0000
 
 /*
  * User-space might still rely on the old definition:
  */
 struct sigcontext {
-	unsigned short gs, __gsh;
-	unsigned short fs, __fsh;
-	unsigned short es, __esh;
-	unsigned short ds, __dsh;
-	unsigned long edi;
-	unsigned long esi;
-	unsigned long ebp;
-	unsigned long esp;
-	unsigned long ebx;
-	unsigned long edx;
-	unsigned long ecx;
-	unsigned long eax;
-	unsigned long trapno;
-	unsigned long err;
-	unsigned long eip;
-	unsigned short cs, __csh;
-	unsigned long eflags;
-	unsigned long esp_at_signal;
-	unsigned short ss, __ssh;
-	struct _fpstate *fpstate;
-	unsigned long oldmask;
-	unsigned long cr2;
+        unsigned short gs, __gsh;
+        unsigned short fs, __fsh;
+        unsigned short es, __esh;
+        unsigned short ds, __dsh;
+        unsigned long edi;
+        unsigned long esi;
+        unsigned long ebp;
+        unsigned long esp;
+        unsigned long ebx;
+        unsigned long edx;
+        unsigned long ecx;
+        unsigned long eax;
+        unsigned long trapno;
+        unsigned long err;
+        unsigned long eip;
+        unsigned short cs, __csh;
+        unsigned long eflags;
+        unsigned long esp_at_signal;
+        unsigned short ss, __ssh;
+        struct _fpstate *fpstate;
+        unsigned long oldmask;
+        unsigned long cr2;
 };
 
 #elif defined(__amd64__)
@@ -155,23 +155,23 @@ struct sigcontext {
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
    them when you change signal frames. */
 struct _fpstate {
-	__u16	cwd;
-	__u16	swd;
-	__u16	twd;		/* Note this is not the same as the
-				   32bit/x87/FSAVE twd */
-	__u16	fop;
-	__u64	rip;
-	__u64	rdp;
-	__u32	mxcsr;
-	__u32	mxcsr_mask;
-	__u32	st_space[32];	/* 8*16 bytes for each FP-reg */
-	__u32	xmm_space[64];	/* 16*16 bytes for each XMM-reg  */
-	__u32	reserved2[12];
-	union {
-		__u32	reserved3[12];
-		struct _fpx_sw_bytes sw_reserved; /* represents the extended
-						   * state information */
-	};
+        __u16   cwd;
+        __u16   swd;
+        __u16   twd;            /* Note this is not the same as the
+                                   32bit/x87/FSAVE twd */
+        __u16   fop;
+        __u64   rip;
+        __u64   rdp;
+        __u32   mxcsr;
+        __u32   mxcsr_mask;
+        __u32   st_space[32];   /* 8*16 bytes for each FP-reg */
+        __u32   xmm_space[64];  /* 16*16 bytes for each XMM-reg  */
+        __u32   reserved2[12];
+        union {
+                __u32   reserved3[12];
+                struct _fpx_sw_bytes sw_reserved; /* represents the extended
+                                                   * state information */
+        };
 };
 
 /*
