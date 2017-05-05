@@ -385,18 +385,6 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
 /*****************************************************************************/
 /* Instrumentation function code generation. */
 
-/*
-empty:
-    ret
-*/
-static instrlist_t *
-codegen_empty(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    APP(ilist, INSTR_CREATE_ret(dc));
-    return ilist;
-}
-
 /* i#988: We fail to inline if the number of arguments to the same clean call
  * routine increases. empty is used for a 0 arg clean call, so we add empty_1arg
  * for test_inlined_call_args(), which passes 1 arg.

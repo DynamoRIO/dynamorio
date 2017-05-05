@@ -43,6 +43,7 @@
 
 /* List of instrumentation functions. */
 #define FUNCTIONS() \
+        FUNCTION(empty) \
         FUNCTION(out_of_line) \
         LAST_FUNCTION()
 
@@ -109,9 +110,18 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
      * We use a workaround involving ADR. */
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
     PRE(bb, entry, before_label);
-    dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+   dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
     PRE(bb, entry, after_label);
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_end_pc, after_label));
+
+    switch (i) {
+    case FN_empty:
+        out_of_line_expected = false;
+        break;
+    case FN_out_of_line:
+        out_of_line_expected = true;
+        break;
+    }
 
     dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, IF_X86_ELSE(6, 4),
 #ifdef X86

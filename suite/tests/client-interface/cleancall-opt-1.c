@@ -40,6 +40,7 @@
 
 /* List of instrumented functions. */
 #define FUNCTIONS() \
+        FUNCTION(empty) \
         FUNCTION(out_of_line) \
         LAST_FUNCTION()
 

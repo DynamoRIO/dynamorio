@@ -732,10 +732,13 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
     }
 # ifdef X86
     /* 9. derived fields */
-    /* Use out-of-line calls if more than 3 SIMD or GP registers have to be saved.
+    /* Use out-of-line calls on
+         * X86, if more than 3 SIMD registers have to be saved
+           (GP registers are saved using a single pusha instruction).
+         * X86-X64, if more than 3 SIMD or GP registers have to be saved.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((NUM_SIMD_REGS - cci->num_simd_skip) > 3  /* save more than 3 xmms */ ||
+    if (IF_X64((NUM_SIMD_REGS - cci->num_simd_skip) > 3  /* save more than 3 xmms */ ||)
         (NUM_GP_REGS - cci->num_regs_skip) > 3 /* save more than 3 GPRs */ ||
         always_out_of_line)
         cci->out_of_line_swap = true;
