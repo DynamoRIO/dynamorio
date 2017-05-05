@@ -2562,10 +2562,10 @@ const instr_info_t extensions[][8] = {
     {OP_prefetcht0,  0x0f1831, "prefetcht0",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_prefetcht1,  0x0f1832, "prefetcht1",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_prefetcht2,  0x0f1833, "prefetcht2",  xx, xx, Mb, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0x0f1834, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1835, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1836, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0f1837, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_nop_modrm, 0x0f1834, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1835, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1836, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
+    {OP_nop_modrm, 0x0f1837, "nop", xx, xx, Ed, xx, xx, mrm, x, END_LIST},
  },
   /* group AMD (first bytes 0f 0d) */
   { /* extensions[24] */
