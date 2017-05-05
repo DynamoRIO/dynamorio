@@ -42,11 +42,13 @@ use Cwd 'abs_path';
 use File::Basename;
 my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
+my $is_AArchxx = 0;
 
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
     $is_CI = 1 if ($ARGV[$i] eq 'travis');
+    $is_AArchxx = 1 if ($ARGV[$i] eq 'aarchxx');
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
     } else {
@@ -105,20 +107,42 @@ for (my $i = 0; $i < $#lines; ++$i) {
         $should_print = 1;
         $name = "diff pre-commit checks";
     }
-    if ($fail && $is_CI && $^O eq 'cygwin' && $line =~ /tests failed/) {
-        # FIXME i#2145: ignoring certain AppVeyor test failures until
-        # we get all tests passing.
+    if ($fail && $is_CI && $line =~ /tests failed/) {
         my $is_32 = $line =~ /-32/;
-        my %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
-                                  'code_api|win32.reload-newaddr' => 1,
-                                  'code_api|client.pcache-use' => 1,
-                                  'code_api|client.nudge_ex' => 1);
-        my %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
-                                  'code_api|win32.reload-newaddr' => 1,
-                                  'code_api|client.loader' => 1,
-                                  'code_api|client.nudge_ex' => 1,
-                                  'code_api|api.static_noclient' => 1,
-                                  'code_api|api.static_noinit' => 1);
+        my $issue_no = "";
+        my %ignore_failures_32 = ();
+        my %ignore_failures_64 = ();
+        if ($^O eq 'cygwin') {
+            # FIXME i#2145: ignoring certain AppVeyor test failures until
+            # we get all tests passing.
+            %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
+                                   'code_api|win32.reload-newaddr' => 1,
+                                   'code_api|client.pcache-use' => 1,
+                                   'code_api|client.nudge_ex' => 1);
+            %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
+                                   'code_api|win32.reload-newaddr' => 1,
+                                   'code_api|client.loader' => 1,
+                                   'code_api|client.nudge_ex' => 1,
+                                   'code_api|api.static_noclient' => 1,
+                                   'code_api|api.static_noinit' => 1);
+            $issue_no = "#2145";
+        } elsif ($is_AArchxx) {
+            # FIXME i#2416: fix flaky AArch32 tests
+            %ignore_failures_32 = ('code_api|tool.histogram.offline' => 1,
+                                   'code_api|linux.sigaction_nosignals' => 1,
+                                   'code_api|linux.signal_race' => 1,
+                                   'code_api|tool.drcacheoff.simple' => 1,
+                                   'code_api|tool.histogram.gzip' => 1);
+            # FIXME i#2417: fix flaky AArch64 tests
+            %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
+                                   'code_api|pthreads.pthreads_exit' => 1);
+            if ($is_32) {
+                $issue_no = "#2416";
+            } else {
+                $issue_no = "#2417";
+            }
+        }
+
         # Read ahead to examine the test failures:
         $fail = 0;
         my $num_ignore = 0;
@@ -128,7 +152,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 $test = $1;
                 if (($is_32 && $ignore_failures_32{$test}) ||
                     (!$is_32 && $ignore_failures_64{$test})) {
-                    $lines[$j] = "\t(ignore: i#2145) " . $lines[$j];
+                    $lines[$j] = "\t(ignore: " . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {
                     # Don't count toward failure.
