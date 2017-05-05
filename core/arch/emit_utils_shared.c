@@ -4985,7 +4985,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                         * use of the stolen reg, which would be
                                         * a race w/ the parent's use of it!
                                         */
-                                       SCRATCH_REG0);
+                                       SCRATCH_REG0 _IF_AARCH64(false));
 #ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
@@ -5391,14 +5391,12 @@ client_clean_call_is_thread_private(void)
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
-    instrlist_t ilist;
-#ifdef AARCHXX
-    /* FIXME i#1551, i#1569:
-     * NYI on ARM/AArch64 (no assert here, it's in get_clean_call_save())
-     */
+#ifdef ARM
+    /* FIXME i#1621: NYI on AArch32 */
     return pc;
 #endif
 
+    instrlist_t ilist;
     instrlist_init(&ilist);
     /* xref insert_out_of_line_context_switch @ x86/mangle.c,
      * stack was adjusted beyond what we place there to get retaddr
@@ -5420,9 +5418,10 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     /* save all registers */
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
                               OPND_CREATE_INT32(0), REG_NULL);
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+#elif defined(AARCH64)
+    /* save all registers */
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE,
+                              OPND_CREATE_INT32(0), REG_NULL, true);
 #endif
 
 #ifdef WINDOWS
@@ -5458,8 +5457,10 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
                                OPSZ_lea)));
     APP(&ilist, INSTR_CREATE_ret_imm
         (dcontext, OPND_CREATE_INT16(get_clean_call_temp_stack_size())));
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#elif defined(AARCH64)
+    APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
+#else
+    /* FIXME i#1621: NYI on AArch32 */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
@@ -5475,7 +5476,9 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     instrlist_t ilist;
 #ifdef ARM
-    /* FIXME i#1551: NYI on ARM (no assert here, it's in get_clean_call_restore()) */
+    /* FIXME i#1551: NYI on AArch32
+     * (no assert here, it's in get_clean_call_restore())
+    */
     return pc;
 #endif
 
@@ -5515,10 +5518,15 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     APP(&ilist, INSTR_CREATE_ret_imm
         (dcontext,
          OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
-#elif defined(ARM)
-    /* FIXMED i#1551: NYI on ARM */
+#elif defined(AARCH64)
+    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, (uint)PAGE_SIZE, true);
+
+    APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X30)));
+#else
+    /* FIXME i#1621: NYI on AArch32 */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
+
     /* emit code */
     pc = instrlist_encode(dcontext, &ilist, pc, false);
     ASSERT(pc != NULL);
