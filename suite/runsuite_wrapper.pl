@@ -38,17 +38,17 @@
 # Travis only supports Linux and Mac, so we're ok relying on perl.
 
 use strict;
+use Config;
 use Cwd 'abs_path';
 use File::Basename;
 my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
-my $is_AArchxx = 0;
+my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
     $is_CI = 1 if ($ARGV[$i] eq 'travis');
-    $is_AArchxx = 1 if ($ARGV[$i] eq 'aarchxx');
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
     } else {
@@ -126,7 +126,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.static_noclient' => 1,
                                    'code_api|api.static_noinit' => 1);
             $issue_no = "#2145";
-        } elsif ($is_AArchxx) {
+        } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests
             %ignore_failures_32 = ('code_api|tool.histogram.offline' => 1,
                                    'code_api|linux.sigaction_nosignals' => 1,
@@ -152,7 +152,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 $test = $1;
                 if (($is_32 && $ignore_failures_32{$test}) ||
                     (!$is_32 && $ignore_failures_64{$test})) {
-                    $lines[$j] = "\t(ignore: " . $issue_no . ") " . $lines[$j];
+                    $lines[$j] = "\t(ignore: i" . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {
                     # Don't count toward failure.
