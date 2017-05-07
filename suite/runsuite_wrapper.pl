@@ -163,7 +163,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 last if ($lines[$j] =~ /^\S/);
             }
         }
-        $line =~ s/: \*/, but ignoring $num_ignore for i2145: */;
+        $line =~ s/: \*/, but ignoring $num_ignore for i" . $issue_no . ": */;
     }
     if ($fail) {
         $exit_code++;
