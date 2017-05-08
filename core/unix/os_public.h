@@ -63,7 +63,7 @@ typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
 typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
 #  endif
 #else
-typedef struct kernel_sigcontext sigcontext_t;
+typedef kernel_sigcontext_t sigcontext_t;
 #endif
 
 #ifdef LINUX
