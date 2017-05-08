@@ -90,8 +90,9 @@ endif ()
 
 ##################################################
 # Pre-commit source file checks.
-# Google Code does not support adding subversion hooks, so we
-# have checks here.
+# We do have some pre-commit hooks but we don't rely on them.
+# We also have vera++ style checking rules for C/C++ code, but we
+# keep a few checks here to cover cmake and other code.
 # We could do a GLOB_RECURSE and read every file, but that's slow, so
 # we try to construct the diff.
 if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.svn" OR
@@ -168,7 +169,7 @@ endif ()
 
 # CMake seems to remove carriage returns for us so we can't easily
 # check for them unless we switch to perl or python or something
-# to get the diff and check it.
+# to get the diff and check it.  The vera++ rules do check C/C++ code.
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.

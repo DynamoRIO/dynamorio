@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,20 +98,22 @@ find_address_references(dcontext_t *dcontext,
     app_pc cur_addr;
     app_pc last_addr = text_end - sizeof(app_pc); /* inclusive */
 
-    LOG(GLOBAL, LOG_RCT, 2, "find_address_references: text["PFX", "PFX"), referto["PFX", "PFX")\n",
+    LOG(GLOBAL, LOG_RCT, 2,
+        "find_address_references: text["PFX", "PFX"), referto["PFX", "PFX")\n",
         text_start, text_end, referto_start, referto_end);
 
     ASSERT(text_start <= text_end); /* empty ok */
     ASSERT(referto_start <= referto_end); /* empty ok */
 
     ASSERT(sizeof(app_pc) == IF_X64_ELSE(8,4));
-    ASSERT((ptr_uint_t)(last_addr+1) == (((ptr_uint_t)last_addr)+1)); /* byte increments */
+    ASSERT((ptr_uint_t)(last_addr+1) == (((ptr_uint_t)last_addr)+1));/* byte increments */
 
     ASSERT(is_readable_without_exception(text_start, text_end - text_start));
 
-    /* FIXME: could try to read dword[pc] dword[pc+4] and then merging them with shifts and |  */
-    /* to get dword[pc+1] dword[pc+2] dword[pc+3]  instead of reading memory  */
-    /* but of course only if KSTAT says the latter is indeed faster! */
+    /* FIXME: could try to read dword[pc] dword[pc+4] and then merging them with shifts
+     * and | to get dword[pc+1] dword[pc+2] dword[pc+3]  instead of reading memory
+     * but of course only if KSTAT says the latter is indeed faster!
+     */
 
     KSTART(rct_no_reloc);
     for (cur_addr = text_start; cur_addr <= last_addr; cur_addr++) {
@@ -291,9 +293,12 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 
             if (DYNAMO_OPTION(IAT_convert)) {
                 LOG(THREAD, LOG_RCT, 2,
-                    "RCT: address taken export or IAT conversion missed for "PFX, target_addr);
+                    "RCT: address taken export or IAT conversion missed for "PFX,
+                    target_addr);
                 /* the module entry point is in fact hit here */
-                /* FIXME: investigate if an export is really not used via IAT or a variation of register */
+                /* FIXME: investigate if an export is really not used
+                 * via IAT or a variation of register.
+                 */
             }
         }
     });
@@ -352,7 +357,8 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 }
             } else {
                 /* case 4982: we can't use RAC data - we'll get a violation
-                 * FIXME: add better option enforcement after making ret_after_call a security_option_t
+                 * FIXME: add better option enforcement after making ret_after_call a
+                 * security_option_t.
                  */
                 ASSERT_NOT_IMPLEMENTED(false);
             }
@@ -411,7 +417,8 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 STATS_INC(aslr_rct_ind_wouldbe);
                 /* fall through and report */
             } else {
-                LOG(THREAD, LOG_RCT, 1, "RCT: not a code section, ignoring "PFX" --check\n", target_addr);
+                LOG(THREAD, LOG_RCT, 1,
+                    "RCT: not a code section, ignoring "PFX" --check\n", target_addr);
                 /* not caching violation target if not in code section */
                 return 2;       /* positive, ignore violation */
             }
@@ -423,14 +430,16 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
          */
         if (is_unreadable_or_currently_unloaded_region(target_addr)) {
             STATS_INC(rct_ind_branch_unload_race);
-            LOG(THREAD, LOG_RCT, 1, "RCT: unload race, ignoring "PFX" --check\n", target_addr);
+            LOG(THREAD, LOG_RCT, 1,
+                "RCT: unload race, ignoring "PFX" --check\n", target_addr);
             /* not caching violation target since it will disappear */
             /* note that we should throw exception while processing code origin checks */
             return 2;       /* positive, ignore violation */
         }
 
         if (is_address_taken(dcontext, target_addr)) {
-            LOG(THREAD, LOG_RCT, 1, "RCT: new module added for "PFX" --ok\n", target_addr);
+            LOG(THREAD, LOG_RCT, 1,
+                "RCT: new module added for "PFX" --ok\n", target_addr);
             STATS_INC(rct_ok_at_vio);
             goto good;
         }
@@ -455,7 +464,8 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 DOLOG(1, LOG_RCT, {
                     char name[MAXIMUM_SYMBOL_LENGTH];
                     print_symbolic_address(target_addr, name, sizeof(name), false);
-                    LOG(THREAD, LOG_RCT, 1, "RCT: exported function "PFX" %s missed!\n", target_addr, name);
+                    LOG(THREAD, LOG_RCT, 1,
+                        "RCT: exported function "PFX" %s missed!\n", target_addr, name);
                 });
             }
         });
@@ -494,7 +504,8 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                                      ? "call" : "jmp", target_addr);
         /* does not return when OPTION_BLOCK is enforced */
         if (security_violation(dcontext, target_addr, indirect_branch_violation,
-                               is_ind_call ? DYNAMO_OPTION(rct_ind_call) : DYNAMO_OPTION(rct_ind_jump)) ==
+                               is_ind_call ? DYNAMO_OPTION(rct_ind_call) :
+                               DYNAMO_OPTION(rct_ind_jump)) ==
             indirect_branch_violation) {
             /* running in detect mode */
             /* we'll cache violation target */
