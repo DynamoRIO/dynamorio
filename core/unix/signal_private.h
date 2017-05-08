@@ -167,7 +167,7 @@ typedef struct {
     /* coprocessor state is here */
     union {
         unsigned long uc_regspace[128] __attribute__((__aligned__(8)));
-        struct vfp_sigframe uc_vfp;
+        kernel_vfp_sigframe_t uc_vfp;
     } coproc;
 # else
 #  error NYI
@@ -201,7 +201,7 @@ typedef struct sigframe {
     /* Since 2.6.28, this fpstate has been unused and the real fpstate
      * is at the end of the struct so it can include xstate
      */
-    struct _fpstate fpstate;
+    kernel_fpstate_t fpstate;
     unsigned long extramask[_NSIG_WORDS-1];
     char retcode[RETCODE_SIZE];
 # elif defined(ARM)
@@ -244,7 +244,7 @@ typedef struct rt_sigframe {
     void *puc;
     siginfo_t info;
     kernel_ucontext_t uc;
-    /* Prior to 2.6.28, "struct _fpstate fpstate" was here.  Rather than
+    /* Prior to 2.6.28, "kernel_fpstate_t fpstate" was here.  Rather than
      * try to reproduce that exact layout and detect the underlying kernel
      * (the safest way would be to send ourselves a signal and examine the
      * frame, rather than relying on uname, to handle backports), we use
@@ -306,7 +306,7 @@ typedef struct _sigpending_t {
      * if we delay we need to ensure we have room for it.
      * we statically keep room for full xstate in case we need it.
      */
-    struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
+    kernel_xstate_t __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
     /* The xstate struct grows and we have to allow for variable sizing,
      * which we handle here by placing it last.
      */

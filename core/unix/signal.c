@@ -489,7 +489,7 @@ signal_thread_init(dcontext_t *dcontext)
         /* include alignment for xsave on xstate */
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
-        IF_LINUX(IF_X86(- sizeof(struct _xstate)));
+        IF_LINUX(IF_X86(- sizeof(kernel_xstate_t)));
     IF_LINUX(IF_X86(ASSERT(ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
 
     /* all fields want to be initialized to 0 */
@@ -2482,7 +2482,7 @@ thread_set_self_context(void *cxt)
 #ifdef LINUX
 # ifdef X86
     byte *xstate = get_xstate_buffer(dcontext);
-    frame.uc.uc_mcontext.fpstate = &((struct _xstate *)xstate)->fpstate;
+    frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
 # endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
@@ -2627,7 +2627,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
 #endif
 
 /* Returns the size of the frame for delivering to the app.
- * For x64 this does NOT include struct _fpstate.
+ * For x64 this does NOT include kernel_fpstate_t.
  */
 static uint
 get_app_frame_size(thread_sig_info_t *info, int sig)
@@ -2788,7 +2788,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         byte *new_fpstate = (byte *)
             ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
         memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
-        f_new->sc.fpstate = (struct _fpstate *) new_fpstate;
+        f_new->sc.fpstate = (kernel_fpstate_t *) new_fpstate;
     }
     f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
     memcpy(&f_new->extramask, &f_old->uc.uc_sigmask.sig[1],
@@ -2887,11 +2887,12 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         byte *frame_end = ((byte *)f_new) + frame_size;
         byte *tgt = (byte *) ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
         ASSERT(tgt - frame_end <= signal_frame_extra_size(true));
-        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
-        f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
+        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(kernel_fpstate_t));
+        f_new->uc.uc_mcontext.fpstate = (kernel_fpstate_t *) tgt;
         if (YMM_ENABLED()) {
-            struct _xstate *xstate_new = (struct _xstate *) tgt;
-            struct _xstate *xstate_old = (struct _xstate *) f_old->uc.uc_mcontext.fpstate;
+            kernel_xstate_t *xstate_new = (kernel_xstate_t *) tgt;
+            kernel_xstate_t *xstate_old =
+                (kernel_xstate_t *) f_old->uc.uc_mcontext.fpstate;
             memcpy(&xstate_new->xstate_hdr, &xstate_old->xstate_hdr,
                    sizeof(xstate_new->xstate_hdr));
             memcpy(&xstate_new->ymmh, &xstate_old->ymmh, sizeof(xstate_new->ymmh));
@@ -3119,7 +3120,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
                signal_frame_extra_size(false));
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
-    dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;
+    dst->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)&info->sigpending[sig]->xstate;
 #endif /* LINUX && X86 */
 
 #ifdef CLIENT_INTERFACE
@@ -5920,7 +5921,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #endif
 #if defined(LINUX) && defined(X86)
     /* We use a TLS buffer to avoid too much stack space here. */
-    sc->fpstate = (struct _fpstate *) get_xstate_buffer(dcontext);
+    sc->fpstate = (kernel_fpstate_t *) get_xstate_buffer(dcontext);
 #endif
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
