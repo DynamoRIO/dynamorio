@@ -5546,6 +5546,8 @@ DR_API
  * Pointers to the first and last created meta instructions are returned
  * in \p first and \p last, unless only one meta instruction is created,
  * in which case NULL is returned in last.
+ * If the instruction is a no-op (when dst is the zero register on AArch64)
+ * then no instructions are created and NULL is returned in first and last.
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
@@ -5578,6 +5580,8 @@ DR_API
  * Pointers to the first and last created meta instructions are returned
  * in \p first and \p last, unless only one meta instruction is created,
  * in which case NULL is returned in last.
+ * If the instruction is a no-op (when dst is the zero register on AArch64)
+ * then no instructions are created and NULL is returned in first and last.
  */
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
