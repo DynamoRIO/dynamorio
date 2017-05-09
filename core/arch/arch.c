@@ -308,9 +308,6 @@ release_final_page(generated_code_t *code)
 static void
 shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 {
-#if defined(X86) && defined(X64)
-    fragment_t *fragment;
-#endif
     byte *pc;
     /* As ARM mode switches are inexpensive, we do not need separate gencode
      * versions and stick with Thumb for all our gencode.
@@ -413,16 +410,6 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
         /* PR 244737: syscall routines are all shared */
         pc = emit_syscall_routines(GLOBAL_DCONTEXT, gencode, pc, true/*thread-shared*/);
     }
-
-    /* since we always have a shared fcache_return we can make reset stub shared */
-    gencode->reset_exit_stub = pc;
-    fragment = linkstub_fragment(GLOBAL_DCONTEXT, (linkstub_t *) get_reset_linkstub());
-    if (GENCODE_IS_X86(gencode->gencode_mode))
-        fragment = empty_fragment_mark_x86(fragment);
-    /* reset exit stub should look just like a direct exit stub */
-    pc += insert_exit_stub_other_flags
-        (GLOBAL_DCONTEXT, fragment,
-         (linkstub_t *) get_reset_linkstub(), pc, LINK_DIRECT);
 #elif defined(UNIX) && defined(HAVE_TLS)
     /* PR 212570: we need a thread-shared do_syscall for our vsyscall hook */
     /* PR 361894: we don't support sysenter if no TLS */
@@ -438,6 +425,21 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
                                true/*shared*/, &gencode->do_clone_syscall_offs);
 # endif
 #endif
+
+    if (USE_SHARED_GENCODE_ALWAYS()) {
+        fragment_t *fragment;
+        /* make reset stub shared */
+        gencode->reset_exit_stub = pc;
+        fragment = linkstub_fragment(GLOBAL_DCONTEXT, (linkstub_t *)get_reset_linkstub());
+#ifdef X86_64
+        if (GENCODE_IS_X86(gencode->gencode_mode))
+            fragment = empty_fragment_mark_x86(fragment);
+#endif
+        /* reset exit stub should look just like a direct exit stub */
+        pc += insert_exit_stub_other_flags
+            (GLOBAL_DCONTEXT, fragment,
+            (linkstub_t *) get_reset_linkstub(), pc, LINK_DIRECT);
+    }
 
 #ifdef TRACE_HEAD_CACHE_INCR
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
