@@ -586,9 +586,9 @@ arch_reset_stolen_reg(void)
      */
     dr_isa_mode_t old_mode;
     dcontext_t *dcontext;
-#ifdef AARCH64
+# ifdef AARCH64
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
+# endif
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
     SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s",
@@ -614,9 +614,6 @@ arch_reset_stolen_reg(void)
 void
 arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
 {
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
     /* Put the app value in the old stolen reg */
     *(reg_t*)(((byte *)mc) +
               opnd_get_reg_dcontext_offs(DR_REG_R0 + INTERNAL_OPTION(steal_reg))) =
@@ -624,7 +621,7 @@ arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
     /* Put the TLs base into the new stolen reg */
     set_stolen_reg_val(mc, (reg_t) os_get_dr_tls_base(dcontext));
 }
-#endif /* ARM */
+#endif /* AARCHXX */
 
 #if defined(X86) && defined(X64)
 /* Sets other-mode ibl targets, for mixed-mode and x86_to_x64 mode */
