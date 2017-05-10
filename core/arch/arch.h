@@ -483,7 +483,7 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 void
 mangle_possible_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 void
-mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *instr);
 
 #endif
 instr_t *

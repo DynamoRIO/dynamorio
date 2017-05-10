@@ -2415,16 +2415,24 @@ mangle_possible_single_step(dcontext_t *dcontext, instrlist_t *ilist,
  * Single step exceptions generation
  */
 void
-mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                   instr_t *instr)
 {
     /* Sets exit reason dynamically. */
-    insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
-    PRE(ilist, instr, INSTR_CREATE_mov_st
-        (dcontext,
-         opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                               EXIT_REASON_OFFSET, OPSZ_2),
-         OPND_CREATE_INT16(EXIT_REASON_SINGLE_STEP)));
-    insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+        insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
+        PRE(ilist, instr, INSTR_CREATE_mov_st
+            (dcontext,
+             opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
+                                                   EXIT_REASON_OFFSET, OPSZ_2),
+             OPND_CREATE_INT16(EXIT_REASON_SINGLE_STEP)));
+        insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+    } else {
+        PRE(ilist, instr,
+            instr_create_save_immed16_to_dcontext(dcontext,
+                                                  EXIT_REASON_SINGLE_STEP,
+                                                  EXIT_REASON_OFFSET));
+    }
 }
 
 /***************************************************************************
