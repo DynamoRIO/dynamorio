@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,19 +46,23 @@ const int N = 8;
 
 /***************************************************************************/
 
-int fib(int n) {
-    if (n <= 1) return 1;
+int
+fib(int n)
+{
+    if (n <= 1)
+        return 1;
     return fib(n-1) + fib(n-2);
 }
 
 #ifdef DEBUG
 #  define pf printf
 #else
-#  define pf if(0)printf
+#  define pf if (0) printf
 #endif
 
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
     pid_t child1, child2;
     int do_vfork = 1; //argc == 1;
@@ -140,16 +145,17 @@ int main(int argc, char** argv)
             snprintf(carg, 10, "%d", n-1);
             arg[2] = carg;
             result = execve(arg[0], arg, env);
-            if (result < 0) perror("ERROR in execve");
+            if (result < 0)
+                perror("ERROR in execve");
         }
 
-        while(children > 0) {
+        while (children > 0) {
             pf("parent waiting for %d children\n", children);
             result = wait(&status);
 
             assert(result == child2 || result == child1);
             assert(WIFEXITED(status));
-            //printf("child %d has exited with status=%d %d\n", result, status, WEXITSTATUS(status));
+
             sum+=WEXITSTATUS(status);
 
             if (children == 2 && result == child1)
@@ -186,5 +192,6 @@ int main(int argc, char** argv)
 }
 
 
-// TODO it would be nice to have in the tests a measure for nondeterminism
-// to also a guarantee that we don't introduce extra synchronization to stifle any parallelism
+// TODO it would be nice to have in the tests a measure for
+// nondeterminism to also a guarantee that we don't introduce extra
+// synchronization to stifle any parallelism

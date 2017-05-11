@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -148,8 +148,7 @@ main(int argc, char **argv)
                 CreateRemoteThread(pi.hProcess, 0, 0, &LoadLibrary, (void*)mylib,
                                    CREATE_SUSPENDED, NULL);
 
-            if (hThread_child == NULL)
-            {
+            if (hThread_child == NULL) {
                 print("Error in CreateRemoteThread(Code %d)\n",GetLastError());
             }
 
@@ -170,7 +169,8 @@ main(int argc, char **argv)
                 print("SetProcessAffinityMask(original) failure %d\n", GetLastError());
                 /*
                  * 1:001> !error c000000d
-                 * Error code: (NTSTATUS) 0xc000000d (3221225485) - An invalid parameter was passed to a service or function.
+                 * Error code: (NTSTATUS) 0xc000000d (3221225485) - An invalid parameter
+                 * was passed to a service or function.
                  */
             }
 #endif /* PROCAFFINITY */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -359,7 +359,8 @@ typedef enum {
 
 cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                             ibl_source_fragment_type_t source_fragment_type,
-                            ibl_branch_type_t branch_type _IF_X86_64(gencode_mode_t mode));
+                            ibl_branch_type_t branch_type
+                            _IF_X86_64(gencode_mode_t mode));
 cache_pc get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                          ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type);
@@ -674,13 +675,16 @@ enum {
     7, /* we use 5 normally, 7 w/ -atomic_inlined_linking and inlining */
     /* Patch entry flags */
     /* Patch offset entries for dynamic updates from input variables */
-    PATCH_TAKE_ADDRESS      = 0x01, /* use computed address if set, value at address otherwise */
-    PATCH_PER_THREAD        = 0x02, /* address is relative to the per_thread_t thread local field */
-    PATCH_UNPROT_STAT       = 0x04, /* address is (unprot_ht_statistics_t offs << 16) | (stats offs) */
+    /* use computed address if set, value at address otherwise */
+    PATCH_TAKE_ADDRESS      = 0x01,
+    /* address is relative to the per_thread_t thread local field */
+    PATCH_PER_THREAD        = 0x02,
+    /* address is (unprot_ht_statistics_t offs << 16) | (stats offs) */
+    PATCH_UNPROT_STAT       = 0x04,
     /* Patch offset markers update an output variable in encode_with_patch_list */
     PATCH_MARKER            = 0x08, /* if set use only as a static marker */
-    PATCH_ASSEMBLE_ABSOLUTE = 0x10, /* if set retrieve an absolute pc into given target address,
-                                      otherwise relative to start pc */
+    PATCH_ASSEMBLE_ABSOLUTE = 0x10, /* if set retrieve an absolute pc into given target
+                                     * address, otherwise relative to start pc */
     PATCH_OFFSET_VALID      = 0x20, /* if set use patch_entry_t.where.offset;
                                      * else patch_entry_t.where.instr */
     PATCH_UINT_SIZED        = 0x40, /* if set value is uint-sized; else pointer-sized */
@@ -763,7 +767,9 @@ typedef struct ibl_code_t {
     uint unprot_stats_offset;
     uint hashtable_stats_offset;
     /* e.g. offsetof(per_thread_t, trace) + offsetof(ibl_table_t, bb_ibl_stats) */
-    /* Note hashtable statistics are associated with the hashtable for easier use when sharing IBL routines */
+    /* Note hashtable statistics are associated with the hashtable for easier use
+     * when sharing IBL routines
+     */
     uint entry_stats_to_lookup_table_offset; /* offset to (entry_stats - lookup_table)  */
 #endif
 } ibl_code_t;
@@ -1060,7 +1066,8 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
                    bool absolute, reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv);
 
-void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X86_64(gencode_mode_t mode));
+void emit_patch_syscall(dcontext_t *dcontext, byte *target
+                        _IF_X86_64(gencode_mode_t mode));
 #endif /* WINDOWS */
 
 byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -1132,7 +1139,8 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt));
+                   uint flags, bool tls, bool absolute
+                   _IF_X86_64(bool x86_to_x64_ibl_opt));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                       uint flags, bool tls, bool absolute

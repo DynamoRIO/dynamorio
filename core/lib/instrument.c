@@ -497,14 +497,12 @@ add_client_lib(const char *path, const char *id_str, const char *options)
          * they may happen at customer sites with a third party
          * client.
          */
-#ifdef UNIX
         /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
          * in debug build across execve chains.  Xref i#147.
          * XXX: w/ -private_loader, err always equals "error in private loader"
          * and so we never match here!
          */
-        if (strstr(err, "wrong ELF class") == NULL)
-#endif
+        IF_UNIX(if (strstr(err, "wrong ELF class") == NULL))
             CLIENT_ASSERT(false, msg);
         SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
                get_application_name(), get_application_pid(), path, msg);
@@ -2180,7 +2178,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
              dr_violation, &dr_mcontext, &dr_action);
 
     if (dr_action != dr_action_original) {
-        switch(dr_action) {
+        switch (dr_action) {
         case DR_VIOLATION_ACTION_KILL_PROCESS:
             *action = ACTION_TERMINATE_PROCESS;
             break;
@@ -5185,8 +5183,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     /* analyze the clean call, return true if clean call can be inlined. */
-    if (analyze_clean_call(dcontext, &cci, where, callee,
-                           save_fpstate, TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
+    if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
+                           TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
                            num_args, args) &&
         !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
 #ifdef CLIENT_INTERFACE
@@ -5229,11 +5227,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
             /* xmm0-3 (-7 for linux) are used for params */
-# ifdef UNIX
-            for (i=0; i<7; i++)
-# else
-            for (i=0; i<3; i++)
-# endif
+            for (i=0; i<IF_UNIX_ELSE(7,3); i++)
                 cci.simd_skip[i] = false;
             cci.num_simd_skip -= i;
         }
@@ -5843,8 +5837,8 @@ dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *ins
                       "dr_insert_{ubr,call}_instrumentation: unknown target");
         if (opnd_is_far_instr(instr_get_target(instr))) {
             /* FIXME: handle far instr */
-            CLIENT_ASSERT(false,
-                          "dr_insert_{ubr,call}_instrumentation: far instr not supported");
+            CLIENT_ASSERT(false, "dr_insert_{ubr,call}_instrumentation: far instr "
+                          "not supported");
         }
     } else {
         CLIENT_ASSERT(false, "dr_insert_{ubr,call}_instrumentation: unknown target");
@@ -6778,7 +6772,8 @@ dr_unlink_flush_region(app_pc start, size_t size)
     /* This routine won't work with coarse_units */
     CLIENT_ASSERT(!DYNAMO_OPTION(coarse_units),
                   /* as of now, coarse_units are always disabled with -thread_private. */
-                  "dr_unlink_flush_region is not supported with -opt_memory unless -thread_private or -enable_full_api is also specified");
+                  "dr_unlink_flush_region is not supported with -opt_memory unless "
+                  "-thread_private or -enable_full_api is also specified");
 
     /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
      * !couldbelinking (see PR 227619) restricting where this routine can be used. */

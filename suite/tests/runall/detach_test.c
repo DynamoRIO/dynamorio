@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,8 @@ static BOOL thread_ready = FALSE;
 void CALLBACK SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult);
 void do_test(int count);
 
-int do_busy_work(int c)
+int
+do_busy_work(int c)
 {
     int i, t;
     for (i = 0, t = 0; i < c; i++)
@@ -100,7 +101,8 @@ ThreadProcBusyBuild(LPVOID param)
 
 /* see win32/tls.c test for alt. method of starting a detach, this way is preferable
  * since we may at some point disallow the process from detaching itself */
-void detach()
+void
+detach()
 {
     char buf[2*MAX_PATH] = "\"";
     char *tools = getenv("DYNAMORIO_WINTOOLS");
@@ -130,7 +132,9 @@ void detach()
 static BOOL did_send_callback[MAX_COUNT];
 static BOOL action_detach = FALSE;
 static BOOL action_exit = FALSE;
-void CALLBACK SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult) {
+void CALLBACK
+SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult)
+{
     int count = (int)dwData;
     did_send_callback[count] = TRUE;
     if (count > 0) {
@@ -167,7 +171,8 @@ void CALLBACK SendAsyncProc(HWND hwnd, UINT uMsg, ULONG *dwData, LRESULT lResult
  * up a callback stack. This routine will end up being recursively called count times
  * building up count stacked callbacks. */
 #define MAX_SLEEP 30000
-void do_test(int count)
+void
+do_test(int count)
 {
     MSG msg;
     int total_slept = 0;

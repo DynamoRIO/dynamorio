@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -182,7 +182,7 @@ _init(int argc, char **argv, char **envp)
 }
 
 int
-_fini ()
+_fini()
 {
 #if VERBOSE_INIT_FINI
     fprintf (stderr, "preload finalized\n");

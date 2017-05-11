@@ -776,7 +776,8 @@ typedef enum {
     SYSLOG_ERROR       = 0x4,
     SYSLOG_CRITICAL    = 0x8,
     SYSLOG_NONE        = 0x0,
-    SYSLOG_ALL         = SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR | SYSLOG_CRITICAL
+    SYSLOG_ALL         = (SYSLOG_INFORMATION | SYSLOG_WARNING | SYSLOG_ERROR |
+                          SYSLOG_CRITICAL),
 } syslog_event_type_t;
 
 #define DYNAMO_OPTION(opt) (ASSERT_OWN_READWRITE_LOCK(IS_OPTION_STRING(opt), \
@@ -800,11 +801,14 @@ typedef enum {
 #else
   /* Use only for experimental non-release options,
      default value is assumed and command line options are ignored */
-  /* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an option is defined as INTERNAL in
-     optionsx.h and have that be the only place to modify to transition between internal and external options.
-     The compiler should be able to eliminate the inappropriate part of the constant expression,
-     if the specific option is no longer defined as internal so we don't have to modify the code.
-     Still I'd rather have explicit uses of DYNAMO_OPTION or INTERNAL_OPTION for now.
+  /* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an
+   * option is defined as INTERNAL in optionsx.h and have that be the
+   * only place to modify to transition between internal and external
+   * options.  The compiler should be able to eliminate the
+   * inappropriate part of the constant expression, if the specific
+   * option is no longer defined as internal so we don't have to
+   * modify the code.  Still I'd rather have explicit uses of
+   * DYNAMO_OPTION or INTERNAL_OPTION for now.
   */
 # define INTERNAL_OPTION(opt) DEFAULT_INTERNAL_OPTION_VALUE(opt)
 #endif /* EXPOSE_INTERNAL_OPTIONS */
@@ -1013,7 +1017,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #define CAT_AND_TERMINATE(buf, str) do {        \
       strncat(buf, str, BUFFER_ROOM_LEFT(buf)); \
       NULL_TERMINATE_BUFFER(buf);               \
-  } while(0)
+  } while (0)
 
 
 /* platform-independent */
@@ -1166,7 +1170,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define L_DYNAMORIO_VAR_CACHE_ROOT  L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_ROOT)
 #  define L_DYNAMORIO_VAR_CACHE_SHARED L_EXPAND_LEVEL(DYNAMORIO_VAR_CACHE_SHARED)
 # ifdef HOT_PATCHING_INTERFACE
-#  define L_DYNAMORIO_VAR_HOT_PATCH_POLICIES  L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
+#  define L_DYNAMORIO_VAR_HOT_PATCH_POLICIES \
+                                        L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
 #  define L_DYNAMORIO_VAR_HOT_PATCH_MODES  L_EXPAND_LEVEL(DYNAMORIO_VAR_HOT_PATCH_MODES)
 # endif
 # ifdef PROCESS_CONTROL
@@ -1192,7 +1197,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 
 #  define EVENTLOG_REGISTRY_SUBKEY "System\\CurrentControlSet\\Services\\EventLog"
 #  define L_EVENTLOG_REGISTRY_SUBKEY L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
-#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\" L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
+#  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\" \
+                                  L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
 #  define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
@@ -1229,14 +1235,17 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 /* base root in global object namespace, not in BaseNamedObjects or Sessions */
 #  define DYNAMORIO_SHARED_OBJECT_BASE L("\\")L_EXPAND_LEVEL(COMPANY_NAME)
 /* shared object directory for shared DLL cache */
-#  define DYNAMORIO_SHARED_OBJECT_DIRECTORY LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE, "SharedCache")
+#  define DYNAMORIO_SHARED_OBJECT_DIRECTORY LCONCAT(DYNAMORIO_SHARED_OBJECT_BASE,\
+                                                    "SharedCache")
 
 /* registry */
 #  define DYNAMORIO_REGISTRY_BASE_SUBKEY "Software\\" COMPANY_NAME "\\" PRODUCT_NAME
-#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define DYNAMORIO_REGISTRY_BASE L"\\Registry\\Machine\\Software\\" \
+                       L_EXPAND_LEVEL(COMPANY_NAME)L("\\")L_EXPAND_LEVEL(PRODUCT_NAME)
 #  define DYNAMORIO_REGISTRY_HIVE HKEY_LOCAL_MACHINE
 #  define DYNAMORIO_REGISTRY_KEY    DYNAMORIO_REGISTRY_BASE_SUBKEY
-#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L"\\" L_EXPAND_LEVEL(PRODUCT_NAME)
+#  define L_DYNAMORIO_REGISTRY_KEY L"Software\\" L_EXPAND_LEVEL(COMPANY_NAME)L"\\" \
+                                   L_EXPAND_LEVEL(PRODUCT_NAME)
 
 #  define INJECT_ALL_HIVE    HKEY_LOCAL_MACHINE
 #  define INJECT_ALL_KEY     "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows"
@@ -1259,7 +1268,8 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define INJECT_HELPER_DLL2_NAME      "drearlyhelp2.dll"
 
 #  define DEBUGGER_INJECTION_HIVE       HKEY_LOCAL_MACHINE
-#  define DEBUGGER_INJECTION_KEY        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
+#  define DEBUGGER_INJECTION_KEY \
+       "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options"
 #  define DEBUGGER_INJECTION_VALUE_NAME "Debugger"
 
 #  define DEBUGGER_INJECTION_HIVE_L       L"\\Registry\\Machine\\"

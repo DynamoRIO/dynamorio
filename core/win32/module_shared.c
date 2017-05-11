@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -139,13 +139,14 @@ is_readable_without_exception(const byte *pc, size_t size)
 #if defined(NOT_DYNAMORIO_CORE)
         if (!ReadProcessMemory(NT_CURRENT_PROCESS, check_pc, is_readable_buf,
                                sizeof(is_readable_buf), (SIZE_T*) &bytes_read) ||
-            bytes_read != sizeof(is_readable_buf))
+            bytes_read != sizeof(is_readable_buf)) {
 #else
         if (!nt_read_virtual_memory(NT_CURRENT_PROCESS, check_pc, is_readable_buf,
                                     sizeof(is_readable_buf), &bytes_read) ||
-            bytes_read != sizeof(is_readable_buf))
+            bytes_read != sizeof(is_readable_buf)) {
 #endif
             return false;
+        }
         check_pc += PAGE_SIZE;
     } while (check_pc != 0/*overflow*/ && check_pc < pc+size);
     return true;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,7 +75,8 @@ static volatile bool child_done;
 
 static struct timespec sleeptime;
 
-int main()
+int
+main()
 {
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 10*1000*1000; /* 10ms */
@@ -101,7 +102,8 @@ int main()
  * and TLS state.  Our tests use CLONE_VM and don't initialize TLS
  * segments, so the TLS is actually *shared* with the parent.
  */
-int run(void *arg)
+int
+run(void *arg)
 {
     int i = 0;
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw

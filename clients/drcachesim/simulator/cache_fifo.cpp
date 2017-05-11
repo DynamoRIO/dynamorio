@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,7 +75,8 @@ cache_fifo_t::replace_which_way(int block_idx)
             // clear the counter of the victim block
             get_caching_device_block(block_idx, i).counter = 0;
             // set the next block as victim
-            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter = 1;
+            get_caching_device_block(block_idx, (i + 1) & (associativity - 1)).counter
+                = 1;
             return i;
         }
     }

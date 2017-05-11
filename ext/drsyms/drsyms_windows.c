@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -274,7 +274,7 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
      */
     if (SymGetModuleInfoW64(proc, base, &info)) {
         kind = 0;
-        switch(info.SymType) {
+        switch (info.SymType) {
         case SymNone:
             NOTIFY("No symbols found\n");
             break;
@@ -849,7 +849,8 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         info.out->struct_size = info_size;
         info.out->name = (char *) dr_global_alloc(MAX_SYM_NAME);
         info.out->name_size = MAX_SYM_NAME;
-        if (!query_available(GetCurrentProcess(), mod->u.load_base, &info.out->debug_kind))
+        if (!query_available(GetCurrentProcess(), mod->u.load_base,
+                             &info.out->debug_kind))
             info.out->debug_kind = 0;
         info.out->file = NULL;
         info.out->file_size = 0;
@@ -901,12 +902,12 @@ drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
     mod = lookup_or_load(modpath, true/*use dbghelp*/);
     if (mod == NULL)
         res = DRSYM_ERROR_LOAD_FAILED;
-    else if (mod->use_pecoff_symtable)
+    else if (mod->use_pecoff_symtable) {
         /* pecoff doesn't support search, and the enumerate impl in
          * drsyms_unix.c doesn't take a pattern
          */
         res = DRSYM_ERROR_NOT_IMPLEMENTED;
-    else {
+    } else {
         enum_info_t info;
         if (func == NULL) {
             /* if we fail to find it we'll pay the lookup cost every time,
@@ -1825,9 +1826,10 @@ drsym_module_has_symbols(const char *modpath)
                  * but if we succeed we'll cache it
                  */
                 HMODULE hmod = GetModuleHandle("dbghelp.dll");
-                if (hmod != NULL)
+                if (hmod != NULL) {
                     func = (func_SymGetSymbolFileW_t)
                         GetProcAddress(hmod, "SymGetSymbolFileW");
+                }
             }
             if (func != NULL) {
                 /* more efficient than fully loading the pdb */

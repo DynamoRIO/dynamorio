@@ -2727,7 +2727,8 @@ instr_t * instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed,
 instr_t *
 instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
                                       int offs, ptr_int_t immed, opnd_size_t sz);
-instr_t * instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
+instr_t * instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg,
+                                             int offs);
 
 instr_t * instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
                                         reg_id_t reg, int offs);

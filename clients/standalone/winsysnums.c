@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -240,7 +240,8 @@ check_Ki(const char *name)
         print("we've never seen this guy invoked\n");
     } else if (strcmp(name, "KiUserCallbackDispatcher") == 0) {
         print("verify that:\n"
-              "\t1) peb->KernelCallbackTable[*(esp+4)] == call* target (not relied on)\n");
+              "\t1) peb->KernelCallbackTable[*(esp+4)] == call* target "
+              "(not relied on)\n");
     } else if (strcmp(name, "KiFastSystemCall") == 0) {
         print("should be simply \"mov esp,edx; sysenter; ret\"\n");
     } else if (strcmp(name, "KiFastSystemCallRet") == 0) {
@@ -453,8 +454,10 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info, LOADED_IMA
              *   ntdll!NtContinue:
              *   00007ff9`13185630 4c8bd1          mov     r10,rcx
              *   00007ff9`13185633 b843000000      mov     eax,43h
-             *   00007ff9`13185638 f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
-             *   00007ff9`13185640 7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+             *   00007ff9`13185638 f604250803fe7f01 test byte ptr [SharedUserData+0x308
+             *                                                     (00000000`7ffe0308)],1
+             *   00007ff9`13185640 7503            jne     ntdll!NtContinue+0x15
+             *                                             (00007ff9`13185645)
              *   00007ff9`13185642 0f05            syscall
              *   00007ff9`13185644 c3              ret
              *   00007ff9`13185645 cd2e            int     2Eh
@@ -773,7 +776,8 @@ process_exports(void *dcontext, char *dllname, LOADED_IMAGE *img)
                                name[dir->NumberOfNames-1], NULL));
 
     for (i = 0; i < dir->NumberOfNames; i++) {
-        string = (char *) ImageRvaToVa(img->FileHeader, img->MappedAddress, name[i], NULL);
+        string = (char *)
+            ImageRvaToVa(img->FileHeader, img->MappedAddress, name[i], NULL);
         /* ordinal is biased (dir->Base), but don't add base when using as index */
         assert(dir->NumberOfFunctions > ordinal[i]);
         /* I don't understand why have to do RVA to VA here, when dumpbin /exports

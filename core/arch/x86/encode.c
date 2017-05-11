@@ -559,9 +559,11 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 return !TEST(PREFIX_REX_W, di->prefixes);
             return false;
         case OPSZ_6:
-            if (size_template == OPSZ_6_irex10_short4)
+            if (size_template == OPSZ_6_irex10_short4) {
                 return !TEST(prefix_data_addr, di->prefixes) &&
-                    (!TEST(PREFIX_REX_W, di->prefixes) || proc_get_vendor() == VENDOR_AMD);
+                    (!TEST(PREFIX_REX_W, di->prefixes) ||
+                     proc_get_vendor() == VENDOR_AMD);
+            }
             if (size_template == OPSZ_12_rex40_short6) {
                 di->prefixes |= prefix_data_addr;
                 return true;
@@ -1672,7 +1674,8 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
                 encode_reg_ext_prefixes(di, base, PREFIX_REX_B);
                 if (X64_MODE(di) && reg_is_32bit(base)) {
                     CLIENT_ASSERT(index == REG_NULL ||
-                                  (reg_is_32bit(index) && TEST(PREFIX_ADDR, di->prefixes)),
+                                  (reg_is_32bit(index) &&
+                                   TEST(PREFIX_ADDR, di->prefixes)),
                                   "encode error: index and base must be same width");
                     di->prefixes |= PREFIX_ADDR;
                 }

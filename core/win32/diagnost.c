@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,7 +54,8 @@ DECLARE_NEVERPROT_VAR(static DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION diagnostic_v
                       {0});
 DECLARE_NEVERPROT_VAR(static char keyinfo_name[DIAGNOSTICS_MAX_KEY_NAME_SIZE], {0});
 DECLARE_NEVERPROT_VAR(static char keyinfo_data[DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE], {0});
-DECLARE_NEVERPROT_VAR(static wchar_t diagnostic_keyname[DIAGNOSTICS_MAX_KEY_NAME_SIZE], {0});
+DECLARE_NEVERPROT_VAR(static wchar_t diagnostic_keyname[DIAGNOSTICS_MAX_KEY_NAME_SIZE],
+                      {0});
 DECLARE_NEVERPROT_VAR(static char optstring_buf[MAX_OPTIONS_STRING], {0});
 
 /* Enforces unique access to shared reg data structures */
@@ -75,23 +76,33 @@ static const wchar_t * const HKLM_entries[] = {
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Internet Explorer\\Extensions",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Internet Explorer\\Toolbar",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Appinit_Dlls",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\"
+    L"Appinit_Dlls",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Browser Helper Objects",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SharedTaskScheduler",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellExecuteHooks",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\"
+    L"Browser Helper Objects",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\"
+    L"SharedTaskScheduler",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\"
+    L"ShellExecuteHooks",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\"
+    L"Explorer\\Run",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\"
+    L"System",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
     L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved",
-    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ShellServiceObjectDelayLoad",
-    L"\\Registry\\Machine\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logon",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
+    L"Shell Extensions\\Approved",
+    L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
+    L"ShellServiceObjectDelayLoad",
+    L"\\Registry\\Machine\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\"
+    L"Logon",
     L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
     L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors",
     L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager",
-    L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\Wds\\rdpwd",
+    L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\Wds\\"
+    L"rdpwd",
     L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services",
 };
 
@@ -221,7 +232,8 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
             dump_buffer_as_bytes(diagnostics_file, start, cur_end - start,
                                  DUMP_RAW|DUMP_ADDRESS
                                  |(TEST(PRINT_MEM_BUF_BYTE, flags) ? 0 : DUMP_DWORD)
-                                 |(TEST(PRINT_MEM_BUF_ASCII, flags) ? DUMP_APPEND_ASCII : 0)
+                                 |(TEST(PRINT_MEM_BUF_ASCII, flags) ?
+                                   DUMP_APPEND_ASCII : 0)
                                  );
             print_file(diagnostics_file, "\n");
         } else {
@@ -301,7 +313,7 @@ report_src_info(file_t diagnostics_file, dcontext_t *dcontext)
             /* FIXME: all app tags are printed in one line, if it proves to
              * create unreadably long lines, change this
              */
-            for(i = 0; i < t->num_bbs; i++)
+            for (i = 0; i < t->num_bbs; i++)
                 print_file(diagnostics_file, PFX" ", t->bbs[i].tag);
             print_file(diagnostics_file, "\"");
         } else
@@ -1373,7 +1385,8 @@ add_diagnostics_xml_header(file_t diagnostics_file)
      * are valid and wld.exe's library knows how to handle it.  Other choices may be
      * more appropriate in the future. */
     print_file(diagnostics_file,
-               "<?xml version=\""DIAGNOSTICS_XML_FILE_VERSION"\" encoding=\"iso-8859-1\" ?>\n"
+               "<?xml version=\""DIAGNOSTICS_XML_FILE_VERSION
+               "\" encoding=\"iso-8859-1\" ?>\n"
                "<!--\n"
                "  =====================================================================\n"
                "  Copyright @ "COMPANY_LONG_NAME" (2007). All rights reserved\n"
@@ -1392,10 +1405,10 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
     report_intro(diagnostics_file, message, name);
 
     /* Process snapshot requires memory allocation -- only use if genuine attack */
-    if (violation_type == NO_VIOLATION_BAD_INTERNAL_STATE)
+    if (violation_type == NO_VIOLATION_BAD_INTERNAL_STATE) {
         report_current_process(diagnostics_file, NULL /*no snaphot*/,
                                violation_type, true /*be conservative*/);
-    else
+    } else
         report_processes(diagnostics_file, violation_type);
 
     report_system_diagnostics(diagnostics_file);
@@ -1503,7 +1516,8 @@ append_diagnostics(file_t diagnostics_file, const char *message, const char *nam
                    security_violation_t violation_type)
 {
     /* Begin Report */
-    print_file(diagnostics_file, "<forensic-report title=\""PRODUCT_NAME" Forensic File\" "
+    print_file(diagnostics_file, "<forensic-report title=\""PRODUCT_NAME
+               " Forensic File\" "
                "version=\""DIAGNOSTICS_XML_FILE_VERSION"\" encoding=\"iso-8859-1\">\n");
 
     report_diagnostics_common(diagnostics_file, message, name, violation_type);

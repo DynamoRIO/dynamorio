@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,7 +99,8 @@ typedef struct _thread_pc_info_t {
 #define ALARM_FREQUENCY 10 /* milliseconds */
 
 /* forward declarations for static functions */
-static pc_profile_entry_t *pcprofile_add_entry(thread_pc_info_t *info, void *pc, int whereami);
+static pc_profile_entry_t *pcprofile_add_entry(thread_pc_info_t *info, void *pc,
+                                               int whereami);
 static pc_profile_entry_t *pcprofile_lookup(thread_pc_info_t *info, void *pc);
 static void pcprofile_reset(thread_pc_info_t *info);
 static void pcprofile_results(thread_pc_info_t *info);

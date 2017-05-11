@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -183,12 +183,14 @@ aslr_init(void)
     ASSERT(ALIGNED(DYNAMO_OPTION(aslr_dll_base), ASLR_MAP_GRANULARITY));
     ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_DLL|ASLR_STACK|ASLR_HEAP|ASLR_HEAP_FILL),
                                     DYNAMO_OPTION(aslr)));
-    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_SHARED_INITIALIZE|ASLR_SHARED_INITIALIZE_NONPERMANENT|
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_SHARED_INITIALIZE|
+                                      ASLR_SHARED_INITIALIZE_NONPERMANENT|
                                       ASLR_SHARED_CONTENTS|
                                       ASLR_SHARED_PUBLISHER|ASLR_SHARED_SUBSCRIBER|
                                       ASLR_SHARED_ANONYMOUS_CONSUMER|
                                       ASLR_SHARED_WORKLIST|ASLR_SHARED_FILE_PRODUCER|
-                                      ASLR_ALLOW_ORIGINAL_CLOBBER|ASLR_RANDOMIZE_EXECUTABLE|
+                                      ASLR_ALLOW_ORIGINAL_CLOBBER|
+                                      ASLR_RANDOMIZE_EXECUTABLE|
                                       ASLR_AVOID_NET20_NATIVE_IMAGES|
                                       ASLR_SHARED_PER_USER
                                       ), DYNAMO_OPTION(aslr_cache)));
@@ -356,10 +358,9 @@ aslr_init(void)
         /* publisher will ask for permission to create objects in that
          * directory, consumer needs read only access */
         /* FIXME: this should change to become SID related */
-        NTSTATUS res = nt_open_object_directory(&shared_object_directory,
-                                                DYNAMORIO_SHARED_OBJECT_DIRECTORY,
-                                                TEST(ASLR_SHARED_PUBLISHER, DYNAMO_OPTION(aslr_cache))
-                                                );
+        NTSTATUS res = nt_open_object_directory
+            (&shared_object_directory, DYNAMORIO_SHARED_OBJECT_DIRECTORY,
+             TEST(ASLR_SHARED_PUBLISHER, DYNAMO_OPTION(aslr_cache)));
         /* Only trusted publishers should be allowed to publish in the
          * SharedCache */
         /* Note  */
@@ -694,7 +695,8 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
             DEBUG_DECLARE(app_pc our_relocated_preferred_base =
                           get_module_preferred_base(base););
             ASSERT(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
-            ASSERT(dcontext->aslr_context.original_section_base != ASLR_INVALID_SECTION_BASE);
+            ASSERT(dcontext->aslr_context.original_section_base !=
+                   ASLR_INVALID_SECTION_BASE);
 
             ASSERT_CURIOSITY(our_relocated_preferred_base == base
                              && "useless conflicting shared");
@@ -848,14 +850,16 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
         /* FIXME: unknown flag 0x20000000
          * when running notepad I get
          * Section attributes 0x21800000 only on two DLLs
-         * I:\Program Files\WIDCOMM\Bluetooth Software\btkeyind.dll (my bluetooth extension)
-         * I:\Program Files\Dell\QuickSet\dadkeyb.dll are using 0x20000000, why are they special?
+         * I:\Program Files\WIDCOMM\Bluetooth Software\btkeyind.dll (my bluetooth)
+         * I:\Program Files\Dell\QuickSet\dadkeyb.dll are using 0x20000000,
+         * why are they special?
          */
         ASSERT_CURIOSITY(!TESTANY(~(SEC_BASED_UNSUPPORTED | SEC_NO_CHANGE_UNSUPPORTED
                                     | SEC_FILE | SEC_IMAGE | SEC_VLM | SEC_RESERVE
                                     | SEC_COMMIT | SEC_NOCACHE
                                     /* FIXME: value is 0x20000000
-                                     * could also be IMAGE_SCN_MEM_EXECUTE , or MEM_LARGE_PAGES
+                                     * could also be IMAGE_SCN_MEM_EXECUTE, or
+                                     * MEM_LARGE_PAGES
                                      */
                                     | GENERIC_EXECUTE
                                     ),
@@ -866,8 +870,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
             "         sh="PIFX" zero=%d commit=%d &secoffs="PIFX" inherit=%d type=0x%x;"
             "%s%x\n",
             requested_base, requested_size, prot_string(prot),
-            section_handle, zerobits, commit_size, psection_offs_unsafe, inherit_disposition,
-            allocation_type,
+            section_handle, zerobits, commit_size, psection_offs_unsafe,
+            inherit_disposition, allocation_type,
             attrib_ok ? "attrib=0x" : "unknown ", queried_section_attributes);
     });
 
@@ -889,12 +893,14 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
      *   so get STATUS_IMAGE_NOT_AT_BASE, yet we can't always even query our section,
      *   so we would have to track NtCreateSection to determine that.
      *
-     * syscall: NtProtectVirtualMemory process=0xffffffff base=0x00981000 size=0x8000 prot=rw-- 0x4
+     * syscall: NtProtectVirtualMemory process=0xffffffff base=0x00981000
+     *          size=0x8000 prot=rw-- 0x4
      *
      * And most weird is a call that always fails while processing the above DLL
      * syscall: NtMapViewOfSection *base=0x00980000 *size=0x13000 prot=rw--
      *          sh=1832 zero=0 commit=0 &secoffs=0 inherit=1 type=0
-     * syscall: failed NtMapViewOfSection prot=rw-- => 0xc0000018 STATUS_CONFLICTING_ADDRESSES
+     * syscall: failed NtMapViewOfSection prot=rw--
+     *   => 0xc0000018 STATUS_CONFLICTING_ADDRESSES
      */
 
     if (is_phandle_me(process_handle)) {
@@ -983,7 +989,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
 
                         ASSERT_CURIOSITY(dcontext->aslr_context.
                                          last_app_section_handle == section_handle);
-                        /* note that unusual uses of sections other than the loader can trigger this */
+                        /* unusual uses of sections other than loader can trigger this */
 
                         if (dcontext->aslr_context.
                             last_app_section_handle == section_handle)
@@ -997,10 +1003,12 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                              * there is nothing with doing this and
                              * should take out this warning.
                              */
-                            SYSLOG_INTERNAL_WARNING_ONCE("non-image DLL pre-processed for private ASLR");
+                            SYSLOG_INTERNAL_WARNING_ONCE("non-image DLL pre-processed "
+                                                         "for private ASLR");
                         else {
                             /* could have been exempted */
-                            SYSLOG_INTERNAL_WARNING_ONCE("image DLL ASLRed without sharing");
+                            SYSLOG_INTERNAL_WARNING_ONCE("image DLL ASLRed without "
+                                                         "sharing");
                         }
                     }
                 });
@@ -1034,7 +1042,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                          * we'd have to safe_write it back in aslr_post_process_mapview.
                          */
                         DEBUG_DECLARE(bool ok = )
-                            safe_write(pbase_unsafe, sizeof(modified_base), &modified_base);
+                            safe_write(pbase_unsafe, sizeof(modified_base),
+                                       &modified_base);
                         ASSERT(ok);
                         STATS_INC(aslr_dlls_bumped);
                         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
@@ -1451,7 +1460,8 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                      * we're doing a full NtMapViewOfSection() to
                      * obtain the actual size needed
                      */
-                    if (aslr_get_module_mapping_size(section_handle, &size_needed, prot)) {
+                    if (aslr_get_module_mapping_size(section_handle, &size_needed,
+                                                     prot)) {
                         retry_base = aslr_update_failed(true /* request a better fit */,
                                                         base_requested,
                                                         size_needed);
@@ -1607,9 +1617,10 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * STATUS_IMAGE_NOT_AT_BASE
              */
 
-            /* Note the confusing mapping of MEM_MAPPED as --x, and of MEM_IMAGE as rw-! */
-            ASSERT_CURIOSITY(prot == PAGE_EXECUTE && status == STATUS_SUCCESS ||
-                             prot == PAGE_READWRITE && status == STATUS_IMAGE_NOT_AT_BASE);
+            /* Note the confusing mapping of MEM_MAPPED as --x, and MEM_IMAGE as rw-! */
+            ASSERT_CURIOSITY((prot == PAGE_EXECUTE && status == STATUS_SUCCESS) ||
+                             (prot == PAGE_READWRITE &&
+                              status == STATUS_IMAGE_NOT_AT_BASE));
             /* FIXME: case 6736 is hitting this as well - assumed
              * SEC_RESERVE 0x4000000, prot = RW, inherit_disposition = ViewUnmap
              * and should simply allow that to get STATUS_SUCCESS
@@ -1825,7 +1836,8 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              *
              * 00b664e4 7c91659e ntdll!LdrGetDllHandleEx+0x258
              * 00b66500 7c801d1f ntdll!LdrGetDllHandle+0x18
-             * 00b66568 7c816f55 kernel32!LoadLibraryExW+0x161 "I:\WINDOWS\WindowsShell.manifest"
+             * 00b66568 7c816f55 kernel32!LoadLibraryExW+0x161
+             *                   "I:\WINDOWS\WindowsShell.manifest"
              * 00b66594 7c816ed5 kernel32!BasepSxsFindSuitableManifestResourceFor+0x51
              * 00b66894 7d58f157 kernel32!CreateActCtxW+0x69e
              * 00b66acc 7d58f0a8 mshtml!DllGetClassObject+0x1291
@@ -2209,7 +2221,8 @@ aslr_free_dynamorio_loadblock(void)
             mbi.State == MEM_RESERVE &&
             mbi.Type == MEM_PRIVATE &&
             mbi.AllocationProtect == LOADBLOCK_PAGE_PROTECT) {
-            LOG(GLOBAL, LOG_SYSCALLS|LOG_THREADS, 1, "\t freeing loadblock at preferred base\n");
+            LOG(GLOBAL, LOG_SYSCALLS|LOG_THREADS, 1,
+                "\t freeing loadblock at preferred base\n");
             res = nt_free_virtual_memory(preferred_base);
             ASSERT(NT_SUCCESS(res));
         } else {
@@ -2307,8 +2320,8 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
         }
 
         LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
-            "ASLR: ASLR_HEAP: reserved pad base="PFX", size="PIFX", err=%x, after "PFX"\n",
-            heap_pad_base, heap_pad_size, error_code, append_heap_pad_base);
+            "ASLR: ASLR_HEAP: reserved pad base="PFX", size="PIFX", err=%x, after "
+            PFX"\n", heap_pad_base, heap_pad_size, error_code, append_heap_pad_base);
 
         ASSERT_CURIOSITY(NT_SUCCESS(error_code) ||
                          check_filter("win32.oomtest.exe",
@@ -2345,7 +2358,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
                         "ASLR: ASLR_HEAP: giving up, hole after region "PFX
                         " is too small, req "PIFX" hole\n",
                         append_heap_pad_base, heap_pad_size);
-                    /* FIXME: need to keep track of these - is there too much fragmentation? */
+                    /* XXX: need to track these - is there too much fragmentation? */
                 }
 
                 STATS_INC(aslr_heap_giveup_filling);
@@ -2391,11 +2404,14 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
              * (NTSTATUS) 0xc00000f2 - An invalid parameter was passed to a
              * service or function as the fourth argument.
              *
-             * This was the result of 0x7ff90000+80000 = 0x80010000 which of course is an invalid region.
+             * This was the result of 0x7ff90000+80000 = 0x80010000 which of course is
+             * an invalid region.
              */
 
             /* or
-             * Error code: (NTSTATUS) 0xc0000017 (3221225495) - {Not Enough Quota}  Not enough virtual memory or paging file quota is available to complete the specified operation.
+             * Error code: (NTSTATUS) 0xc0000017 (3221225495) - {Not Enough Quota}
+             * Not enough virtual memory or paging file quota is available to complete
+             * the specified operation.
              */
             ASSERT_CURIOSITY(error_code == STATUS_INVALID_PARAMETER_4 ||
                              error_code == STATUS_NO_MEMORY);
@@ -2566,7 +2582,8 @@ aslr_free_heap_pads(void)
         DODEBUG({count_freed++;});
     }
     vmvector_iterator_stop(&vmvi);
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "aslr_free_heap_pads: %d freed\n", count_freed);
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "aslr_free_heap_pads: %d freed\n",
+        count_freed);
 }
 
 /* ASLR_SHARED_CONTENTS related functions */
@@ -2657,7 +2674,8 @@ open_relocated_dlls_filecache_directory(void)
                                              true /* create if missing */);
         if (!res) {
             /* directory may be set even on failure */
-            LOG(GLOBAL, LOG_CACHE, 2, "\terror creating per-user dir %s\n", base_directory);
+            LOG(GLOBAL, LOG_CACHE, 2, "\terror creating per-user dir %s\n",
+                base_directory);
             return INVALID_HANDLE_VALUE;
         }
     }
@@ -3441,8 +3459,8 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
         ok = aslr_module_verify_relocated_contents(app_file_handle,
                                                    randomized_file_handle);
         if (!ok) {
-            SYSLOG_INTERNAL_WARNING("aslr_verify_file_checksum: "
-                                    "paranoid check failed - stale, corrupt, or rogue file!\n");
+            SYSLOG_INTERNAL_WARNING("aslr_verify_file_checksum: paranoid check failed "
+                                    "- stale, corrupt, or rogue file!\n");
             /* FIXME: do we want to report to the authorities?  Maybe
              * only for rogues, then caller needs to verify in other
              * ways.  To make sure file wasn't truncated due to power
@@ -3608,13 +3626,14 @@ aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
                 /* Maybe you're debugging and need to close windbg.
                  * Otherwise use procexp to find who owns the handle.
                  */
-                /* very mysteriously windbg was holding a handle to a DLL that was consecutively
-                 * rm'ed from cygwin which wasn't truly enough to allow
+                /* very mysteriously windbg was holding a handle to a DLL that was
+                 * consecutively rm'ed from cygwin which wasn't truly enough to allow
                  * $ ls -l
                  *   ls: dadkeyb.dll-12628e13: No such file or directory
                  *   total 104147
                  *   -rwxr-xr-x  1 vlk None   163903 May  3 21:09 dll.dll.dll-885d0011
-                 * SIC! although listing the whole directory ls was complaining about the file.
+                 * SIC! although listing the whole directory ls was complaining about
+                 * the file.
                  *
                  */
 
@@ -3748,7 +3767,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
                                     0,
                                     /* exclusive read/write access */
                                     FILE_CREATE /* create only if non-existing */
-                                    /* case 10884: really needed only for validate_owner_file */
+                                    /* case 10884: needed only for validate_owner_file */
                                     | FILE_DISPOSITION_SET_OWNER,
                                     allocation_size);
         /* FIXME: adding FILE_SHARE_DELETE would allow us to supersede
@@ -4310,7 +4329,8 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
      * IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND),
      * yet worst kind is the DelayLoad timestamp that may now be found to be bound.
      * pecoff.doc: 5.8.1. The Delay-Load Directory Table, Delay Import Descriptor
-     * offset 28, size 4, Time Stamp, Time stamp of DLL to which this image has been bound.
+     * offset 28, size 4, Time Stamp, Time stamp of DLL to which this image has been
+     * bound.
      * e.g. ImgDelayDescr.dwTimeStamp in Microsoft Visual Studio/VC98/Include/DELAYIMP.H
      * So it may require too many possibly custom delay import implementations.
      *
@@ -4385,7 +4405,8 @@ bool
 aslr_experiment_with_section_handle(IN HANDLE file_handle,
                                     const wchar_t *mostly_unique_name)
 {
-    HANDLE object_directory = shared_object_directory; /* publish in shared or private view */
+    /* publish in shared or private view */
+    HANDLE object_directory = shared_object_directory;
     HANDLE new_published_handle;
     NTSTATUS res;
     PSECURITY_DESCRIPTOR dacl = NULL;
@@ -4446,8 +4467,8 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
     if (NT_SUCCESS(res)) {
         /* FIXME: this is done for real in aslr_file_relocate_cow(),
          * FIXME: duplication here is left just for future experimentation
-         * now comes the interesting part of rebasing the executable to a random new address
-         * relocating and possibly updating all other fields that need to change
+         * now comes the interesting part of rebasing the executable to a random new
+         * address relocating and possibly updating all other fields that need to change
          */
         app_pc mapped_base;
         size_t mapped_size;
@@ -4468,7 +4489,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
 
 
         if (0 && relocated) {  /* CHANGEME:  */
-            /* finally verifying that the data doesn't stick around if it's not unmapped */
+            /* finally verifying that the data doesn't stick around if not unmapped */
             res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, mapped_base);
             ASSERT(NT_SUCCESS(res));
         }
@@ -4556,8 +4577,8 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
                              * which the loader doesn't use */
                             SEC_IMAGE,
                             /* note we can't map a SEC_IMAGE as PAGE_READWRITE, also
-                             * original_file_handle can't be pagefile - since we can't open
-                             * such section as a SEC_IMAGE later.
+                             * original_file_handle can't be pagefile - since we can't
+                             * open such section as a SEC_IMAGE later.
                              */
                             original_file_handle,
 
@@ -5639,7 +5660,8 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
             /* if we don't have Query access (e.g. for KnownDlls) we
              * can't even tell what else we have or don't have */
             if (!original_attrib_ok) {
-                SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing on KnownDll %ls", mostly_unique_name);
+                SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing on KnownDll %ls",
+                                             mostly_unique_name);
             }
 
             ASSERT(new_section_attributes ==
@@ -6268,13 +6290,15 @@ gbop_get_num_hooks(void)
         while (gbop_hooks_set_sizes[set_index] != GBOP_HOOK_LIST_END_SENTINEL) {
             if (TEST((1 << set_index), DYNAMO_OPTION(gbop_include_set))) {
                 gbop_hooks_set_enabled[set_index] = 1;
-                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "gbop_get_num_hooks: 0x%x => %d enabled \n",
+                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
+                    "gbop_get_num_hooks: 0x%x => %d enabled \n",
                     (1 << set_index),
                     gbop_hooks_set_sizes[set_index]);
                 total_size += gbop_hooks_set_sizes[set_index];
             } else {
                 gbop_hooks_set_enabled[set_index] = 0;
-                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "gbop_get_num_hooks: 0x%x => %d disabled \n",
+                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
+                    "gbop_get_num_hooks: 0x%x => %d disabled \n",
                     (1 << set_index),
                     gbop_hooks_set_sizes[set_index]);
             }
@@ -6439,7 +6463,7 @@ gbop_is_after_cti(const app_pc ret_addr)
      * preceded by a call.  Check if we find a call opcode at offsets listed
      * in cti_sizes[].
      */
-    for(i = 0; i < num_cti_types; i++) {
+    for (i = 0; i < num_cti_types; i++) {
         app_pc pc = NULL;
         app_pc next_pc = NULL;
         instr_t instr;

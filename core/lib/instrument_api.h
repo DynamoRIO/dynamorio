@@ -2824,7 +2824,8 @@ struct _module_data_t {
     version_number_t product_version; /**< product version number from .rsrc section */
     uint checksum; /**< module checksum from the PE headers */
     uint timestamp; /**< module timestamp from the PE headers */
-    size_t module_internal_size; /**< module internal size (from PE headers SizeOfImage) */
+    /** Module internal size (from PE headers SizeOfImage). */
+    size_t module_internal_size;
 #else
     bool contiguous;   /**< whether there are no gaps between segments */
     uint num_segments; /**< number of segments */

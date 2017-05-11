@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,7 +52,8 @@ UNIT_TEST_MAIN
 typedef int (*fconvert_t)(int c);
 typedef int (*fmult_t)(int);
 
-int foo(int a, bool lower)
+int
+foo(int a, bool lower)
 {
     fconvert_t f = toupper;
     int res;
@@ -63,17 +64,20 @@ int foo(int a, bool lower)
     return res;
 }
 
-int f2(int a)
+int
+f2(int a)
 {
     return 2*a;
 }
 
-int f3(int a)
+int
+f3(int a)
 {
     return 3*a;
 }
 
-int f7(int a)
+int
+f7(int a)
 {
     return 7*a;
 }
@@ -195,10 +199,10 @@ test_small_array(dcontext_t *dcontext)
            0);
     EXPECT(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)0x01020305),
            1);
-    EXPECT(invalidate_ind_branch_target_range(dcontext, (app_pc)0x01020306, (app_pc)0x01020309),
-           0);
-    EXPECT(invalidate_ind_branch_target_range(dcontext, (app_pc)0x01020305, (app_pc)0x01020306),
-           1);
+    EXPECT(invalidate_ind_branch_target_range(dcontext, (app_pc)0x01020306,
+                                              (app_pc)0x01020309), 0);
+    EXPECT(invalidate_ind_branch_target_range(dcontext, (app_pc)0x01020305,
+                                              (app_pc)0x01020306), 1);
     EXPECT(invalidate_ind_branch_target_range(dcontext, 0, (app_pc)-1),
            0);
 
@@ -453,15 +457,18 @@ test_loaddll()
 
 #if TEST_MULTI_SECTIONS         /* NYI */
 #pragma code_seg(".my_code1")
-void func2() {
+void
+func2() {
 }
 
 #pragma code_seg(push, r1, ".my_code2")
-void func3() {
+void
+func3() {
 }
 
 #pragma code_seg(pop, r1)      /* back to my_code1 */
-void func4() {
+void
+func4() {
 }
 #pragma code_seg                /* back in .text */
 #endif

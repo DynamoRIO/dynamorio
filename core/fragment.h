@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -244,7 +244,7 @@ struct _fragment_t {
      * N.B.: byte is an unsigned char
      */
     byte      prefix_size;      /* size of prefix, after which is non-ind. br. entry */
-    byte      fcache_extra;     /* padding to fit in fcache slot, also includes the header */
+    byte      fcache_extra;     /* padding to fit in fcache slot; includes the header */
 
     cache_pc  start_pc;         /* very top of fragment's code, equals
                                  * entry point when indirect branch target */
@@ -379,17 +379,18 @@ typedef struct _private_trace_t {
 #ifdef HASHTABLE_STATISTICS
 /* Statistics written from the cache that must be allocated separately */
 typedef struct _unprot_ht_statistics_t {
-    /* Statistics for App mode indirect branch lookups. Useful only for trace table. */
-    /* These should be accessible by indirect_branch_lookup emitted routines. */
-    /* Should have the form <ibl_routine>_stats, and are per hash table per routine (and per thread) */
-    /* FIXME: These are in the hash table itself for easier access when sharing IBL routines */
-
+    /* Statistics for App mode indirect branch lookups. Useful only for trace table.
+     * These should be accessible by indirect_branch_lookup emitted routines.
+     * Should have the form <ibl_routine>_stats, and are per hash table per routine
+     * (and per thread).
+     * These are in the hash table itself for easier access when sharing IBL routines.
+     */
     hashtable_statistics_t trace_ibl_stats[IBL_BRANCH_TYPE_END];
     hashtable_statistics_t bb_ibl_stats[IBL_BRANCH_TYPE_END];
 
     /* FIXME: this should really go to arch/arch.c instead of here */
 # ifdef WINDOWS
-    hashtable_statistics_t shared_syscall_hit_stats; /* miss path is shared with trace_ibl */
+    hashtable_statistics_t shared_syscall_hit_stats; /* miss path shared with trace_ibl */
 #  endif
 } unprot_ht_statistics_t;
 #endif /* HASHTABLE_STATISTICS */
@@ -504,7 +505,7 @@ typedef struct _per_thread_t {
     /* used for unlinking other threads' caches for flushing */
     bool           could_be_linking;     /* accessing link data structs? */
     bool           wait_for_unlink;      /* should this thread wait at synch point? */
-    bool           about_to_exit;        /* is this thread about to exit, so no need to flush? */
+    bool           about_to_exit;        /* no need to flush if thread about to exit */
     bool           flush_queue_nonempty; /* is this thread's deletion queue nonempty? */
     event_t        waiting_for_unlink;   /* synch bet flusher and flushee */
     event_t        finished_with_unlink; /* ditto */

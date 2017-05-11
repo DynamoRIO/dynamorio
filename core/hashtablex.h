@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -865,7 +865,7 @@ HTNAME(hashtable_,NAME_KEY,_add)(dcontext_t *dcontext, ENTRY_TYPE e,
      * collision cluster
      */
     DOLOG(1, LOG_HTABLE, {
-        if (cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2))
+        if (cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2)) {
             LOG(THREAD_GET, LOG_HTABLE,
                 cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2 + 1) ?
                     1U : 2U,
@@ -873,6 +873,7 @@ HTNAME(hashtable_,NAME_KEY,_add)(dcontext_t *dcontext, ENTRY_TYPE e,
                 "for "PFX" %s table[%u] capacity=%d entries=%d)\n",
                 cluster_len, ENTRY_TAG(e), table->name, hindex,
                 table->capacity, table->entries);
+        }
     });
 
     /* If we had uniformly distributed hash functions, expected max length is
@@ -1081,10 +1082,11 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
         ASSERT(table->ref_count == 0);
 
         /* can't just memcpy, must rehash */
-        /* for open address table rehash should first find an empty slot and start
-           from there so that we make sure that entries that used to find a hit on the first lookup
-           continue to do so instead of creating even longer collision parking lots
-           FIXME: can we do better?
+        /* For open address table rehash should first find an empty
+         * slot and start from there so that we make sure that entries
+         * that used to find a hit on the first lookup continue to do
+         * so instead of creating even longer collision parking lots.
+         * XXX: can we do better?
         */
         for (i = 0; i < old_capacity; i++) {
             ENTRY_TYPE e = old_table[i];
@@ -1249,7 +1251,7 @@ HTNAME(hashtable_,NAME_KEY,_lookup_for_removal)(ENTRY_TYPE fr,
 }
 
 #ifdef HASHTABLE_USE_LOOKUPTABLE
-/* FIXME: figure out what weight function I tipped off so now this is too much to inline */
+/* FIXME: figure out what weight function I tipped off so this is too much too inline */
 static INLINE_FORCED void
 HTNAME(hashtable_,NAME_KEY,_update_lookup)(HTNAME(,NAME_KEY,_table_t) *htable,
                                            uint hindex)
@@ -1278,10 +1280,11 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
 {
     bool wrapped = false;
     /* Assumptions:
-       We have to move the htable->table and lookuptable elements.
-       It is OK to do so since the address of these structures is never passed back to clients,
-       instead, all clients can only hold onto a fragment_t* itself, not to the indirection here.
-    */
+     * We have to move the htable->table and lookuptable elements.  It
+     * is OK to do so since the address of these structures is never
+     * passed back to clients, instead, all clients can only hold onto
+     * a fragment_t* itself, not to the indirection here.
+     */
     LOG(THREAD_GET, LOG_HTABLE, 4,
         "hashtable_"KEY_STRING"_remove_helper_open_address(table="PFX", "
         "hindex=%u)\n", htable, hindex);
@@ -1312,11 +1315,11 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
 
             preferred = HASH_FUNC(ENTRY_TAG(htable->table[hindex]), htable);
 
-            /* Verify if it will be lost if we leave a hole behind its preferred address */
+            /* Verify if it will be lost if we leave a hole behind its preferred addr */
             /* [preferred] <= [hole] < [hindex]  : BAD */
             /* [hindex] < [preferred] <= [hole]  : BAD [after wraparound]  */
             /* [hole] < [hindex] < [preferred]   : BAD [after wraparound]  */
-            /* Note the <='s:  hole != hindex, but it is possible that preferred == hole */
+            /* Note the <='s: hole != hindex, but it is possible that preferred == hole */
         } while (!(((preferred <= hole) && (hole < hindex))      ||
                    ((hindex < preferred) && (preferred <= hole)) ||
                    ((hole < hindex) && (hindex < preferred))));
@@ -1928,15 +1931,17 @@ HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext_t *dcontext,
 
         DOLOG(2, LOG_HTABLE, {
             /* print full table */
-            if (ENTRY_IS_EMPTY(htable->table[i]))
+            if (ENTRY_IS_EMPTY(htable->table[i])) {
                 LOG(THREAD, LOG_HTABLE, 2,
                     "%6x "PFX"\n", i, 0);
+            }
         });
         DOLOG(2, LOG_HTABLE, {
             if (track_cache_lines &&
-                (i+1)*entry_size % cache_line_size == 0 && cache_line_in_use)
+                (i+1)*entry_size % cache_line_size == 0 && cache_line_in_use) {
                 LOG(THREAD, LOG_HTABLE, 1,
                     "----cache line----\n");
+            }
         });
         DODEBUG({ HTNAME(hashtable_,NAME_KEY,_check_consistency)(dcontext, htable, i); });
     }

@@ -798,7 +798,8 @@ drwrap_redirect_execution(void *wrapcxt_opaque)
     }
 
     if (wrapcxt->where_am_i != DRWRAP_WHERE_POST_FUNC) {
-        NOTIFY(2, "%s: rejected redirect in state %d\n", __FUNCTION__, wrapcxt->where_am_i);
+        NOTIFY(2, "%s: rejected redirect in state %d\n", __FUNCTION__,
+               wrapcxt->where_am_i);
         return DREXT_ERROR_INCOMPATIBLE_STATE;
     }
 

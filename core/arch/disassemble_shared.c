@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -499,7 +499,8 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
                     int ls_num = 0;
                     CLIENT_ASSERT(!TEST(FRAG_FAKE, fragment->flags),
                                   "opnd_disassemble: invalid target");
-                    for (ls=FRAGMENT_EXIT_STUBS(fragment); ls; ls=LINKSTUB_NEXT_EXIT(ls)) {
+                    for (ls=FRAGMENT_EXIT_STUBS(fragment); ls;
+                         ls=LINKSTUB_NEXT_EXIT(ls)) {
                         if (target == EXIT_STUB_PC(dcontext, fragment, ls)) {
                             print_to_buffer(buf, bufsz, sofar,
                                             "$"PFX" <exit stub %d> ",
@@ -1227,7 +1228,8 @@ common_disassemble_fragment(dcontext_t *dcontext,
                    TEST(FRAG_COARSE_GRAIN, f->flags) ? "coarse, " : "",
                    (TEST(FRAG_SHARED, f->flags) ? "shared, " :
                     (SHARED_FRAGMENTS_ENABLED() ?
-                     (TEST(FRAG_TEMP_PRIVATE, f->flags) ? "private temp, " : "private, ") : "")),
+                     (TEST(FRAG_TEMP_PRIVATE, f->flags) ? "private temp, " : "private, ")
+                     : "")),
                    (TEST( FRAG_IS_TRACE, f->flags)) ? "trace, " :
                    (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, " : "",
                    f->size,
@@ -1235,7 +1237,7 @@ common_disassemble_fragment(dcontext_t *dcontext,
                    (TEST(FRAG_MUST_END_TRACE, f->flags)) ?", must end trace":"",
                    (TEST(FRAG_CANNOT_DELETE, f->flags)) ?", cannot delete":"");
 
-        DOLOG(2, LOG_SYMBOLS, { /* FIXME: this affects non-logging uses... dump_traces, etc. */
+        DOLOG(2, LOG_SYMBOLS, { /* FIXME: affects non-logging uses... dump_traces, etc. */
             char symbolbuf[MAXIMUM_SYMBOL_LENGTH];
             print_symbolic_address(f->tag, symbolbuf, sizeof(symbolbuf), false);
             print_file(outfile, "\t%s\n", symbolbuf);
@@ -1304,7 +1306,8 @@ common_disassemble_fragment(dcontext_t *dcontext,
         linkstub_t *nxt;
         /* store fragment pc since we don't want to walk forward in fragment */
         cache_pc frag_pc = pc;
-        print_file(outfile, "  -------- exit stub %d: -------- <target: "PFX"> type: %s\n",
+        print_file(outfile,
+                   "  -------- exit stub %d: -------- <target: "PFX"> type: %s\n",
                    exit_num, EXIT_TARGET_TAG(dcontext, f, l),
                    exit_stub_type_desc(dcontext, f, l));
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f->flags)) {
@@ -1340,7 +1343,8 @@ common_disassemble_fragment(dcontext_t *dcontext,
                 next_stop_pc = pc;
             }
         } else {
-            for (nxt = LINKSTUB_NEXT_EXIT(l); nxt != NULL; nxt = LINKSTUB_NEXT_EXIT(nxt)) {
+            for (nxt = LINKSTUB_NEXT_EXIT(l); nxt != NULL;
+                 nxt = LINKSTUB_NEXT_EXIT(nxt)) {
                 if (EXIT_HAS_LOCAL_STUB(nxt->flags, f->flags))
                     break;
             }
@@ -1503,7 +1507,8 @@ instrlist_disassemble(dcontext_t *dcontext,
                        offs, instr_is_app(instr) ? 'L' : 'm', level, " ");
             next_addr = internal_disassemble_to_file
                 (dcontext, addr, addr, outfile, false, true,
-                 IF_X64_ELSE("                               ","                       "));
+                 IF_X64_ELSE("                               ",
+                             "                       "));
             if (next_addr == NULL)
                 break;
             sz = (int) (next_addr - addr);

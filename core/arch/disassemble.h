@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,13 +48,17 @@
 #define MAX_OPND_DIS_SZ   64 /* gets long w/ ibl target names */
 /* Long examples:
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
- * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> 0x000007fefd1a2728[8byte] %rax "
+ * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> "
+ * "0x000007fefd1a2728[8byte] %rax "
  */
 #define MAX_INSTR_DIS_SZ 196
 /* Here's a pretty long one,
- * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
+ * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> "
+ * "0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
  * For ARM:
- * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13 %s14 %s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30 %s31 %r9 -> (%r9)[124byte]"
+ * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13 %s14 "
+ * "%s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30 %s31 "
+ * "%r9 -> (%r9)[124byte]"
  */
 #define MAX_PC_DIS_SZ    228
 
@@ -276,7 +280,8 @@ DR_API
  *  +42   m4 @0xe7856754  eb fe                jmp    @0xe7857350[4byte]
  *  +44   m4 @0xe7856054                       <label>
  *  +44   m4 @0xe7857428  b9 e9 76 75 f7       mov    $0xf77576e9 -> %ecx
- *  +49   m4 @0xe7855b54  64 c7 05 64 00 00 00 mov    @0xe7856514[4byte] -> %fs:0x00000064[4byte]
+ *  +49   m4 @0xe7855b54  64 c7 05 64 00 00 00 mov    @0xe7856514[4byte] ->
+ *                                                    %fs:0x00000064[4byte]
  *                        98 e6 7b e7
  *  +60   m4 @0xe7857a30  e9 0a 35 07 00       jmp    $0xe7831ba7
  *  +65   m4 @0xe7856514                       <label>

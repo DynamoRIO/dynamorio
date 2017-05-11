@@ -304,7 +304,8 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
                 LOG(THREAD, LOG_DISPATCH, 1, " %s\n", buf);
             }
             if (!stack &&
-                (strstr(buf, "user32.dll") != NULL || strstr(buf, "USER32.DLL") != NULL)) {
+                (strstr(buf, "user32.dll") != NULL ||
+                 strstr(buf, "USER32.DLL") != NULL)) {
                 /* try to find who set up user32 callback */
                 dump_mcontext_callstack(dcontext);
             }
@@ -326,7 +327,7 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
 # endif
 
     if (stats->loglevel >= 2 && (stats->logmask & LOG_DISPATCH) != 0) {
-        /* FIXME: this should use a different mask - and get printed at level 2 when turned on */
+        /* XXX: should use a different mask - and get printed at level 2 when turned on */
         DOLOG(4, LOG_DISPATCH, {
             dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
         DOLOG(6, LOG_DISPATCH, { dump_mcontext_callstack(dcontext); });
@@ -691,7 +692,8 @@ dispatch_enter_native(dcontext_t *dcontext)
         dcontext->next_tag = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext),
                                            dcontext->native_exec_postsyscall);
         dcontext->native_exec_postsyscall = NULL;
-        LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
+        LOG(THREAD, LOG_DISPATCH, 2,
+            "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
         KSTOP_NOT_MATCHING_DC(dcontext, dispatch_num_exits);
 #ifdef KSTATS
@@ -808,7 +810,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                    IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
         }
     } else {
-        ASSERT(dcontext->last_exit != NULL); /* MUST be set, if only to a fake linkstub_t */
+        /* MUST be set, if only to a fake linkstub_t */
+        ASSERT(dcontext->last_exit != NULL);
         /* cache last_exit's fragment */
         dcontext->last_fragment = linkstub_fragment(dcontext, dcontext->last_exit);
 
@@ -878,7 +881,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         if (exited_due_to_ni_syscall(dcontext)
             IF_CLIENT_INTERFACE(|| instrument_invoke_another_syscall(dcontext))) {
             handle_system_call(dcontext);
-            /* will return here if decided to skip the syscall; else, back to dispatch() */
+            /* will return here if decided to skip the syscall; else, back to dispatch */
         }
 #ifdef WINDOWS
         else if (TEST(LINK_CALLBACK_RETURN, dcontext->last_exit->flags)) {
@@ -987,7 +990,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     /* case 7966: no distinction of islinking-ness for hotp_only & thin_client */
     ASSERT(RUNNING_WITHOUT_CODE_CACHE() || is_couldbelinking(dcontext));
 
-#if defined(WINDOWS) && defined (CLIENT_INTERFACE) && defined(DEBUG)
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE) && defined(DEBUG)
     if (should_swap_teb_nonstack_fields()) {
         ASSERT(!is_dynamo_address(dcontext->app_fls_data));
         ASSERT(dcontext->app_fls_data == NULL ||
@@ -1041,7 +1044,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          * also double checks the findings of the indirect lookup
          * routine
          */
-        if (dynamo_options.ret_after_call && TEST(LINK_RETURN, dcontext->last_exit->flags)) {
+        if (dynamo_options.ret_after_call &&
+            TEST(LINK_RETURN, dcontext->last_exit->flags)) {
             /* ret_after_call will raise a security violation on failure */
             SELF_PROTECT_LOCAL(dcontext, WRITABLE);
             ret_after_call_check(dcontext, dcontext->next_tag, src_tag);
@@ -1216,8 +1220,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                 }
             } else {
                 LOG(THREAD, LOG_INTERP, 2,
-                    "Failed to delete/replace fragment at tag "PFX" because was already deleted",
-                    todo->tag);
+                    "Failed to delete/replace fragment at tag "PFX" because was already "
+                    "deleted\n", todo->tag);
             }
 
             HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
@@ -1585,7 +1589,9 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         if (exited_due_to_ni_syscall(dcontext)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (block ends with syscall)");
             STATS_INC(num_exits_dir_syscall);
-            /* FIXME: it doesn't matter whether next_f exists or not we're still in a syscall  */
+            /* FIXME: it doesn't matter whether next_f exists or not we're still in "
+             * a syscall
+             */
             KSWITCH(num_exits_dir_syscall);
         }
 # ifdef WINDOWS
@@ -2214,7 +2220,8 @@ handle_callback_return(dcontext_t *dcontext)
      */
 
     /* make sure set the next_tag of prev_dcontext, not dcontext! */
-    set_fcache_target(prev_dcontext, (app_pc) get_do_callback_return_entry(prev_dcontext));
+    set_fcache_target(prev_dcontext,
+                      (app_pc) get_do_callback_return_entry(prev_dcontext));
     DOLOG(4, LOG_ASYNCH, {
         LOG(THREAD, LOG_ASYNCH, 3, "passing prev dcontext "PFX", next_tag "PFX":\n",
             prev_dcontext, prev_dcontext->next_tag);

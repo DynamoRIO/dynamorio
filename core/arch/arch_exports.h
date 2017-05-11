@@ -807,7 +807,9 @@ static inline bool atomic_dec_and_test(volatile int *var)
     unsigned char c;
 
     ATOMIC_DEC(int, *var);
-    /* result should be set according to value before change, now we convert that back to C */
+    /* result should be set according to value before change, now we
+     * convert that back to C.
+     */
     SET_IF_NOT_LESS(c);
     /* FIXME: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
@@ -822,7 +824,9 @@ static inline bool atomic_dec_becomes_zero(volatile int *var)
     unsigned char c;
 
     ATOMIC_DEC(int, *var);
-    /* result should be set according to value after change, now we convert that back to C */
+    /* result should be set according to value after change, now we
+     * convert that back to C.
+     */
     SET_IF_NOT_ZERO(c);
     /* FIXME: we add an extra memory reference to a local,
        although we could put the return value in EAX ourselves */
@@ -1408,7 +1412,8 @@ decode_init(void);
     (FRAG_IS_32(flags) ? SIZE32_MOV_PTR_IMM_TO_XAX : SIZE64_MOV_PTR_IMM_TO_XAX)
 
 /* size of restore ecx prefix */
-# define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
+# define XCX_IN_TLS(flags) \
+    (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
 # define FRAGMENT_BASE_PREFIX_SIZE(flags) \
     ((FRAG_IS_X86_TO_X64(flags) && \
       IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
@@ -2075,7 +2080,8 @@ ibltype_to_linktype(ibl_branch_type_t ibltype)
 }
 
 #ifdef DEBUG
-bool is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t branch_type);
+bool is_ibl_routine_type(dcontext_t *dcontext, cache_pc target,
+                         ibl_branch_type_t branch_type);
 #endif /* DEBUG */
 
 /* This completely optimizable routine is the only place where we

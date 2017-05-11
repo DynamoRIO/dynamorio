@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -126,7 +126,7 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
     });
 
     recreated_pc = recreate_app_pc(dcontext, body_end_pc, NULL/*for full test*/);
-    /* FIXME: we should figure out how to test each instruction, while knowing the app state */
+    /* FIXME: figure out how to test each instruction, while knowing the app state */
     LOG(THREAD, LOG_MONITOR, 2, "Testing recreating Fragment #%d recreated_pc="PFX"\n",
         GLOBAL_STAT(num_fragments), recreated_pc);
 
@@ -230,8 +230,9 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
 
             if (is_indirect_branch_lookup_routine(dcontext, (cache_pc)target)) {
                 ASSERT(IF_WINDOWS_ELSE_0(is_shared_syscall_routine(dcontext, target)) ||
-                       is_ibl_routine_type(dcontext, (cache_pc)target,
-                                           extract_branchtype((ushort)instr_exit_branch_type(inst))));
+                       is_ibl_routine_type
+                       (dcontext, (cache_pc)target,
+                        extract_branchtype((ushort)instr_exit_branch_type(inst))));
                 /* this is a mangled form of an original indirect
                  * branch or is a mangled form of an indirect branch
                  * to a real native pc out of the fragment

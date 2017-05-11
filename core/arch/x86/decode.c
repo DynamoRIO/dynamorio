@@ -1109,7 +1109,8 @@ read_instruction(byte *pc, byte *orig_pc,
               /* i#1899: MPX puts repne prior to branches.  We ignore here until we have
                * full MPX decoding support (i#1312).
                */
-              info->type != OP_call && info->type != OP_call_ind && info->type != OP_ret &&
+              info->type != OP_call && info->type != OP_call_ind &&
+              info->type != OP_ret &&
               info->type != OP_jmp && info->type != OP_jmp_short &&
               !opc_is_cbr_arch(info->type)))) {
             char bytes[17*3];
@@ -2219,7 +2220,7 @@ unit_check_decode_ff_opcode() {
 
     for (modrm = 0x0; modrm < 0xff; modrm++) {
         raw_bytes[1] = modrm;
-        for(sib = 0x0; sib < 0xff; sib++) {
+        for (sib = 0x0; sib < 0xff; sib++) {
             raw_bytes[2] = sib;
 
             /* set up instr for decode_opcode */

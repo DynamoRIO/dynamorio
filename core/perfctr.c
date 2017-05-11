@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -79,7 +80,8 @@ struct {int num;char *name;} papi_events[]={
 
 
 
-void hardware_perfctr_init()
+void
+hardware_perfctr_init()
 {
     int a;
     perfctr_eventset=PAPI_NULL;
@@ -129,7 +131,8 @@ void hardware_perfctr_init()
 }
 
 
-void hardware_perfctr_exit()
+void
+hardware_perfctr_exit()
 {
     int a;
     uint64 vals[NUM_EVENTS]; /* only used if nullcalls */
@@ -151,7 +154,8 @@ void hardware_perfctr_exit()
 
 }
 
-void perfctr_update_gui()
+void
+perfctr_update_gui()
 {
     if (PAPI_read(perfctr_eventset,stats->perfctr_vals) != PAPI_OK) {
         LOG(GLOBAL, LOG_TOP, 1,

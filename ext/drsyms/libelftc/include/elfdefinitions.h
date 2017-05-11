@@ -743,7 +743,8 @@ _ELF_DEFINE_EM(EM_TRIMEDIA,         163,                                \
 _ELF_DEFINE_EM(EM_QDSP6,            164, "QUALCOMM DSP6 Processor")        \
 _ELF_DEFINE_EM(EM_8051,             165, "Intel 8051 and variants")        \
 _ELF_DEFINE_EM(EM_STXP7X,           166,                                \
-        "STMicroelectronics STxP7x family of configurable and extensible RISC processors") \
+        "STMicroelectronics STxP7x family of configurable and extensible "\
+        "RISC processors") \
 _ELF_DEFINE_EM(EM_NDS32,            167,                                \
         "Andes Technology compact code size embedded RISC processor family") \
 _ELF_DEFINE_EM(EM_ECOG1,            168,                                \
@@ -2039,7 +2040,7 @@ enum {
         R__LAST__
 };
 
-#define        PN_XNUM                        0xFFFFU /* Use extended section numbering. */
+#define        PN_XNUM                       0xFFFFU /* Use extended section numbering. */
 
 /**
  ** ELF Types.

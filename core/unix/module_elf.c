@@ -617,7 +617,8 @@ os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
                     if (soname != NULL)
                         ma->names.module_name = dr_strdup(soname HEAPACCT(ACCT_VMAREAS));
                     LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "%s "PFX": %s dynamic info\n",
-                        __FUNCTION__, base, ma->os_data.have_dynamic_info ? "have" : "no");
+                        __FUNCTION__, base,
+                        ma->os_data.have_dynamic_info ? "have" : "no");
                 }
             }
         }

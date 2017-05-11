@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -260,7 +260,8 @@ drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg)
     Dwarf_Error de; /* expensive to init (DrM#1770) */
     if (mod == NULL)
         return false;
-    if (dwarf_pecoff_init(mod->map_base, DW_DLC_READ, NULL, NULL, dbg, &de) != DW_DLV_OK) {
+    if (dwarf_pecoff_init(mod->map_base, DW_DLC_READ, NULL, NULL, dbg, &de) !=
+        DW_DLV_OK) {
         NOTIFY_DWARF(de);
         return false;
     }

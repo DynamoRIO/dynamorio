@@ -816,7 +816,7 @@ void os_flush(file_t f);
 #define OS_SEEK_SET 0  /* start of file */
 #define OS_SEEK_CUR 1  /* current file position */
 #define OS_SEEK_END 2  /* end of file */
-/* seek the current file position to offset bytes from origin, return true if successful */
+/* seek current file position to offset bytes from origin, return true if successful */
 bool os_seek(file_t f, int64 offset, int origin);
 /* return the current file position, -1 on failure */
 int64 os_tell(file_t f);
@@ -866,8 +866,8 @@ extern uint kilo_hertz;
 #endif
 
 /* Despite the name, this enum is used for all types of critical events:
-es
- * asserts and crashes for all builds, and security violations for PROGRAM_SHEPHERDING builds
+ * asserts and crashes for all builds, and security violations for
+ * PROGRAM_SHEPHERDING builds.
  * When a security_violation is being reported, enum value must be negative!
  */
 typedef enum {
@@ -925,7 +925,8 @@ typedef enum {
     INITIAL_STACK_BOTTOM_NOT_REACHED = 2
 } initial_call_stack_status_t;
 
-initial_call_stack_status_t at_initial_stack_bottom(dcontext_t *dcontext, app_pc target_pc);
+initial_call_stack_status_t at_initial_stack_bottom(dcontext_t *dcontext, app_pc
+                                                    target_pc);
 bool at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragment);
 #endif
 

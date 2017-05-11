@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -416,7 +416,8 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
     return false;
 }
 
-bool instr_is_prefetch(instr_t *instr)
+bool
+instr_is_prefetch(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
 

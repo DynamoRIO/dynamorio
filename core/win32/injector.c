@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -118,9 +118,9 @@ void internal_error(const char *file, int line, const char *msg);
 #ifdef DEBUG
 void display_error(char *msg);
 # ifdef INTERNAL
-#   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, #x)
+#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, #x); }
 # else
-#   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
+#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, ""); }
 # endif /* INTERNAL */
 #else
 # define display_error(msg) ((void) 0)
@@ -185,7 +185,8 @@ display_error(char *msg)
 #endif /* DEBUG */
 
 #if HANDLE_CONTROL_C
-BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
+BOOL WINAPI
+HandlerRoutine(DWORD dwCtrlType   //  control signal type
                            )
 {
     printf("Inside HandlerRoutine!\n");
@@ -697,8 +698,13 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
      * This should be good enough.
      *
      * Here's my test case:
-     * % bin32/drrun -debug -- e:/derek/dr/test/args.exe foo"""bar wo\"xof"\ -woah_\"man -choc-o-dile\'in*\\\"fact -logdir "c:\program files\some path\or other" '-even_num_quote\\\\"there' "" x\\\\
-     * orig command line is [E:\derek\dr\git\build_x86_dbg\bin32\drrun.exe -debug -- e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man" "-choc-o-dile'in*\\\"fact" -logdir "c:\program files\some path\or other" "-even_num_quote\\\\\\\\\"there" "" x\\]
+     * % bin32/drrun -debug -- e:/derek/dr/test/args.exe foo"""bar wo\"xof"\
+     *   -woah_\"man -choc-o-dile\'in*\\\"fact -logdir
+     *   "c:\program files\some path\or other" '-even_num_quote\\\\"there' "" x\\\ \
+     * orig command line is [E:\derek\dr\git\build_x86_dbg\bin32\drrun.exe -debug --
+     *   e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man" "-choc-o-dile'in*\\\"fact"
+     *   -logdir "c:\program files\some path\or other"
+     *   "-even_num_quote\\\\\\\\\"there" "" x\\]
      * appending [e:/derek/dr/test/args.exe]
      * appending [foobar wo"xof -woah_"man]
      * appending [-choc-o-dile'in*\"fact]
@@ -715,7 +721,9 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
      *         arg 5: [-even_num_quote\\\\"there]
      *         arg 6: []
      *         arg 7: [x\\]
-     * command line is [e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man" "-choc-o-dile'in*\\\"fact" -logdir "c:\program files\some path\or other" "-even_num_quote\\\\\\\\\"there" "" x\\]
+     * command line is [e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man"
+     *   "-choc-o-dile'in*\\\"fact" -logdir "c:\program files\some path\or other"
+     *   "-even_num_quote\\\\\\\\\"there" "" x\\]
      */
     size_t span = strcspn(arg, " \t\"");
     VERBOSE_PRINT("appending [%s]\n", arg);
@@ -900,8 +908,8 @@ dr_inject_process_inject(void *data, bool force_injection,
                                     library_path_buf, sizeof(library_path_buf));
         if (err != GET_PARAMETER_SUCCESS && err != GET_PARAMETER_NOAPPSPECIFIC) {
             inject = false;
-            display_error("WARNING: this application is not configured to run under DynamoRIO!\n"
-                          "Use drconfig.exe or drrun.exe to configure.");
+            display_error("WARNING: this application is not configured to run under "
+                          "DynamoRIO!\nUse drconfig.exe or drrun.exe to configure.");
         }
         NULL_TERMINATE_BUFFER(library_path_buf);
         library_path = library_path_buf;

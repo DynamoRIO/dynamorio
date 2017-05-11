@@ -149,7 +149,8 @@ section_to_file_add_common(HANDLE section_handle, const char *filepath_dup)
         dr_strfree(s2f->file_path HEAPACCT(ACCT_VMAREAS));
     } else {
         added = true;
-        s2f = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, section_to_file_t, ACCT_VMAREAS, PROTECTED);
+        s2f = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, section_to_file_t, ACCT_VMAREAS,
+                              PROTECTED);
         s2f->section_handle = section_handle;
         generic_hash_add(GLOBAL_DCONTEXT, section2file_table,
                          (ptr_uint_t)s2f->section_handle, (void *)s2f);
@@ -274,7 +275,7 @@ print_module_list(module_info_vector_t *v)
         v, v->capacity, v->length, v->lock, v->buf);
 
     mutex_lock(&v->lock);
-    for(i = 0; i < v->length; i++) {
+    for (i = 0; i < v->length; i++) {
         LOG(GLOBAL, LOG_SYMBOLS, 3, "  "PFX"-"PFX" %s, %d exports ["SZFMT" size]\n",
             v->buf[i].start,
             v->buf[i].end,
@@ -348,7 +349,8 @@ export_entry_t *
 module_info_create(module_info_vector_t *v, app_pc start, app_pc end,
                    char *module_name, uint exports_num)
 {
-    struct module_info_t new_module = {start, end, module_name, exports_num, exports_num, 0 /* table */};
+    struct module_info_t new_module = {start, end, module_name, exports_num,
+                                       exports_num, 0 /* table */};
     int i,j;
 
     if (exports_num > 0) {
@@ -391,7 +393,9 @@ module_info_create(module_info_vector_t *v, app_pc start, app_pc end,
     mutex_unlock(&v->lock);
     DOLOG(3, LOG_SYMBOLS, { print_module_list(v); });
 
-    /* we can not return &v->buf[i] since buf may get realloc-ed, or buf[i] may be shifted */
+    /* we can not return &v->buf[i] since buf may get realloc-ed, or buf[i] may be
+     * shifted
+     */
     return new_module.exports_table;
 }
 
@@ -459,7 +463,8 @@ remove_module_info(app_pc start, size_t size)
         return 0;
     }
 
-    remove_module_info_vector(&process_module_vector, (app_pc)start, (app_pc)(start + size));
+    remove_module_info_vector(&process_module_vector, (app_pc)start,
+                              (app_pc)(start + size));
 
     return 1;
 }
@@ -481,9 +486,10 @@ module_cleanup(void)
                              HEAPACCT(ACCT_SYMBOLS));
         }
     }
-    if (v->buf != NULL)
+    if (v->buf != NULL) {
         global_heap_free(v->buf, v->capacity * sizeof(struct module_info_t)
                          HEAPACCT(ACCT_SYMBOLS));
+    }
     v->buf = NULL;
     v->capacity = 0;
     v->length = 0;
@@ -571,7 +577,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
     if (under_internal_exception()) {
         pmod = NULL;
     } else {
-        mutex_lock(&process_module_vector.lock); /* FIXME: this can be a shared read lock */
+        mutex_lock(&process_module_vector.lock); /* FIXME: can be a shared read lock */
         {
             pmod = lookup_module_info(&process_module_vector, tag);
             if (pmod) {
@@ -595,8 +601,9 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only)
             }
         } else {
             if (mod.exports_table[i].entry_point == tag) {
-                /* tag exactly matches an export, i.e. <ntdll!CsrIdentifyAlertableThread> */
-                snprintf(buf, max_chars, "[%s!%s]", mod.module_name, mod.exports_table[i].export_name);
+                /* tag matches an export like <ntdll!CsrIdentifyAlertableThread> */
+                snprintf(buf, max_chars, "[%s!%s]", mod.module_name,
+                         mod.exports_table[i].export_name);
             } else if (!exact_only) {
                 uint prev = (uint)i;
                 uint next = (uint)i+1;
@@ -677,8 +684,8 @@ add_module_info(app_pc base_addr, size_t image_size)
             exports->NumberOfNames, exports->NumberOfFunctions);
 
         if (exports->NumberOfFunctions != exports->NumberOfNames) {
-            /* TODO: we should also use the knowledge about the noname [ordinal] entry points  */
-            /* shlwapi.dll or winspool.drv  are good examples
+            /* TODO: we should also use the knowledge about the noname [ordinal] entry
+             * points.  shlwapi.dll or winspool.drv  are good examples.
              * find more with dumpbin /exports shlwapi.dll | grep "number of"
              */
             /* These are in fact much more important for
@@ -726,10 +733,13 @@ add_module_info(app_pc base_addr, size_t image_size)
 
 
         exports_table = module_info_create(&process_module_vector,
-                                           (app_pc)base_addr, (app_pc)(base_addr + image_size),
+                                           (app_pc)base_addr,
+                                           (app_pc)(base_addr + image_size),
                                            dll_name, exports->NumberOfNames);
         /* FIXME: for a security policy to restrict transfers to exports only,
-           we actually need all functions and they simply need to be put in a hash table */
+         * we actually need all functions and they simply need to be put in a hash
+         * table
+         */
         /* FIXME: for RCT_IND_BRANCH we don't need to travel
          * through the string names or forwarders - we should only
          * scan through all functions[] instead of
@@ -739,9 +749,9 @@ add_module_info(app_pc base_addr, size_t image_size)
         for (i = 0; i < exports->NumberOfNames; i++) {
             PSTR name = (PSTR) (base_addr + fnames[i]);
             ULONG ord = ordinals[i];
-            app_pc func = (app_pc) (base_addr + functions[ord]);  /* note ord here, not i */
+            app_pc func = (app_pc) (base_addr + functions[ord]);  /* ord here, not i */
 
-            /* check if it points within the exports section in real address space, not RVA */
+            /* check if it points within exports section in real address space, not RVA */
             if (func < (app_pc)exports || func >= (app_pc)exports + size) {
                 LOG(GLOBAL, LOG_SYMBOLS, 3, "\t%s -> "PFX"\n", name, func);
                 /* insert in exports table, coming sorted by name order */
@@ -757,10 +767,13 @@ add_module_info(app_pc base_addr, size_t image_size)
                     "Forward found for %s -> "PFX" %s.  Skipping...\n", name,
                     functions[ord], forwardto);
 
-                // FIXME: Report the name under which it should show up if it is an ordinal import
-                // if it is referenced as ordinal DLLNAME.#232, then we'll get more from the current name.
-                // The problem though is that now the address range of the forwarded function
-                // is not going to give us the module name... haven't seen any so far
+                /* FIXME: Report the name under which it should show up if it is
+                 * an ordinal import if it is referenced as ordinal
+                 * DLLNAME.#232, then we'll get more from the current name.  The
+                 * problem though is that now the address range of the forwarded
+                 * function is not going to give us the module name... haven't
+                 * seen any so far
+                 */
             }
         }
 
@@ -775,7 +788,8 @@ add_module_info(app_pc base_addr, size_t image_size)
             module_info_t *pmod;
             int unique_num = remove_export_duplicates(exports_table, exports_num);
 
-            pmod = lookup_module_info(&process_module_vector, (app_pc)base_addr); /* FIXME: need a real overlap check */
+            /* FIXME: need a real overlap check */
+            pmod = lookup_module_info(&process_module_vector, (app_pc)base_addr);
             ASSERT(pmod);
             pmod->exports_num = unique_num;
         }
@@ -1081,7 +1095,8 @@ hide_from_module_lists(void)
     mark = &ldr->InInitializationOrderModuleList;
     ASSERT(mark->Flink != NULL && mark->Blink != NULL); /* sanity check */
     for (i = 0, e = mark->Flink; e != mark; i++, e = e->Flink) {
-        mod = (LDR_MODULE *) ((char *)e - offsetof(LDR_MODULE, InInitializationOrderModuleList));
+        mod = (LDR_MODULE *)
+            ((char *)e - offsetof(LDR_MODULE, InInitializationOrderModuleList));
         /* sanity check */
         ASSERT(e->Flink != NULL && e->Blink != NULL &&
                e->Flink->Blink != NULL && e->Blink->Flink != NULL);
@@ -1311,7 +1326,8 @@ check_for_unsupported_modules()
     /* FIXME: share iteration w/ the other routines that do this? */
     mark = &ldr->InInitializationOrderModuleList;
     for (e = mark->Flink; e != mark; e = e->Flink) {
-        mod = (LDR_MODULE *) ((char *)e - offsetof(LDR_MODULE, InInitializationOrderModuleList));
+        mod = (LDR_MODULE *)
+            ((char *)e - offsetof(LDR_MODULE, InInitializationOrderModuleList));
         wchar_to_char(dllname, MAXIMUM_PATH, mod->FullDllName.Buffer,
                       /* Length is size in bytes not counting final 0 */
                       mod->FullDllName.Length);
@@ -2101,9 +2117,10 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                 names->exe_name == NULL ? "<unavailable>" : names->exe_name);
             LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "\t.rsrc original filename=%s\n",
                 names->rsrc_name == NULL ? "<unavailable>" : names->rsrc_name);
-            if (at_map && DYNAMO_OPTION(track_module_filenames) && dcontext != NULL)
+            if (at_map && DYNAMO_OPTION(track_module_filenames) && dcontext != NULL) {
                 LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "\tfilename=%s\n",
                     names->file_name == NULL ? "<unavailable>" : names->file_name);
+            }
         });
     }, {
         /* Free all allocations in the event of an exception and return NULL
@@ -2223,8 +2240,8 @@ get_ldr_module_by_pc(app_pc pc)
     if (owner != 0 && owner != get_thread_id()) {
         /* This will be a risky operation but we'll live with it.
            In case we walk in a list in an inconsistent state
-           1) we may get trapped in an infinite loop when following a partially updated list
-              so we'll bail out in case of a deep loop
+           1) we may get trapped in an infinite loop when following a partially updated
+              list so we'll bail out in case of a deep loop
            2) list entries and pointed data may be removed and even deallocated
               we can't just check for is_readable_without_exception
               since it won't help if we're in a race
@@ -2254,9 +2271,12 @@ get_ldr_module_by_pc(app_pc pc)
 
         if (traversed++ > MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD) {
             LOG(GLOBAL, LOG_ALL, 1,
-                "WARNING: get_ldr_module_by_pc too many modules, or an infinte loop due to a race\n");
+                "WARNING: get_ldr_module_by_pc too many modules, or an infinte loop due "
+                "to a race\n");
             SYSLOG_INTERNAL_WARNING_ONCE("get_ldr_module_by_pc too many modules");
-            /* TODO: In case we ever hit this we may want to retry the traversal once more */
+            /* TODO: In case we ever hit this we may want to retry the traversal
+             * once more.
+             */
             return NULL;
         }
     }
@@ -2342,7 +2362,8 @@ get_module_base_reloc(app_pc module_base, size_t *base_reloc_size /* OPTIONAL OU
         return base_reloc;
     } else {
         ASSERT_CURIOSITY(false && "bad base relocation" ||
-                         EXEMPT_TEST("win32.partial_map.exe"));/*expected for partial map*/
+                         /* expected for partial map */
+                         EXEMPT_TEST("win32.partial_map.exe"));
     }
 
     return NULL;
@@ -2525,7 +2546,8 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end,
         if (ALIGN_BACKWARD(start, PAGE_SIZE) != ALIGN_BACKWARD(sec_start, PAGE_SIZE) ||
             ALIGN_FORWARD(end, PAGE_SIZE) != ALIGN_FORWARD(sec_end, PAGE_SIZE)) {
             LOG(THREAD, LOG_VMAREAS, 2,
-                "is_module_patch_region: not targeting whole code or IAT section => NO\n");
+                "is_module_patch_region: not targeting whole code or IAT section => "
+                "NO\n");
             return false;
         }
     }
@@ -2543,8 +2565,8 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end,
         mod = get_ldr_module_by_pc(start);
         if (mod != NULL) {
             /* How do we know if module is initialized?  LoadCount is 0 for a while, but
-             * on win2003 it becomes 1 and the loader is still mucking around.  But when it
-             * does become 1, the flags have 0x1000 set.  So we have this hack.
+             * on win2003 it becomes 1 and the loader is still mucking around.  But when
+             * it does become 1, the flags have 0x1000 set.  So we have this hack.
              * ASSUMPTION: module is uninitialized if either LoadCount is 0 or
              * flags have 0x1000 set.
              * Note that LoadCount is -1 for statically linked dlls and the exe itself.
@@ -2577,7 +2599,7 @@ is_module_patch_region(dcontext_t *dcontext, app_pc start, app_pc end,
              * are safe.  If this is hit, then the image_entry hook will have
              * to placed in callback_interception_init for -hotp_only.  A TODO.
              */
-            if(DYNAMO_OPTION(hotp_only)) {
+            if (DYNAMO_OPTION(hotp_only)) {
                 LOG(GLOBAL, LOG_HOT_PATCHING, 1, "Warning: On w2k3, for "
                     "hotp_only, image entry won't be detected because no "
                     "interp is done and hook is placed late");
@@ -3222,7 +3244,8 @@ find_relocation_references(dcontext_t *dcontext,
                      77d9d36b 0fb7d1           movzx   edx,cx
                      ...
                      77d9d40b 6683f99f         cmp     cx,0xff9f
-                     77d9d40f 7709             ja      USER32!UserIsFELineBreakEnd+0xb9 (77d9d41a)
+                     77d9d40f 7709             ja      USER32!UserIsFELineBreakEnd+0xb9
+                                                       (77d9d41a)
                      77d9d411 0fb6824f39d377   movzx   eax,byte ptr [edx+0x77d3394f]
                      */
                     if (ref < module_base || ref >= module_end) {
@@ -3351,12 +3374,13 @@ add_rct_module(dcontext_t *dcontext,
     STATS_INC(rct_ind_branch_modules_analyzed);
 
     ASSERT(DYNAMO_OPTION(rct_section_type) != 0 &&
-           !TESTANY(~(IMAGE_SCN_CNT_CODE|IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_CNT_UNINITIALIZED_DATA),
+           !TESTANY(~(IMAGE_SCN_CNT_CODE|IMAGE_SCN_CNT_INITIALIZED_DATA|
+                      IMAGE_SCN_CNT_UNINITIALIZED_DATA),
                     DYNAMO_OPTION(rct_section_type)));
 
-    /* #define IMAGE_SCN_CNT_CODE                   0x00000020  // Section contains code. */
-    /* #define IMAGE_SCN_CNT_INITIALIZED_DATA       0x00000040  // Section contains initialized data. */
-    /* #define IMAGE_SCN_CNT_UNINITIALIZED_DATA     0x00000080  // Section contains uninitialized data. */
+    /* IMAGE_SCN_CNT_CODE                   0x00000020 */
+    /* IMAGE_SCN_CNT_INITIALIZED_DATA       0x00000040 */
+    /* IMAGE_SCN_CNT_UNINITIALIZED_DATA     0x00000080 */
 
     /* For code, there can be multiple sections (.text, .orpc, perhaps others)
      * so we walk the section headers and check for the "code" flag.
@@ -3544,7 +3568,7 @@ add_rct_module(dcontext_t *dcontext,
         modname, found, module_size, entry_point);
 
     rct_add_exports(dcontext, module_base, module_size);
-    /* FIXME: case 1948 curiosity: dump any exported entries that are also address taken */
+    /* FIXME: case 1948 curiosity: dump exported entries that are also address taken */
 
     /* PR 250395: add SEH handlers from .pdata section */
     IF_X64(add_SEH_to_rct_table(dcontext, module_base);)
@@ -3746,7 +3770,8 @@ rct_process_module_mmap(app_pc module_base, size_t module_size,
                     ASSERT(use_ldr ||
                            (mod != NULL && mod->EntryPoint == entry_point) ||
                            /* msvcrt40.dll is a good example of no entry point */
-                           (mod != NULL && mod->EntryPoint == 0 && entry_point == module_base));
+                           (mod != NULL && mod->EntryPoint == 0 &&
+                            entry_point == module_base));
                     if (use_ldr && mod != NULL) {
                         entry_point = mod->EntryPoint;
                         LOG(GLOBAL, LOG_RCT, 1, "rct_process_module_mmap: %s "
@@ -3756,7 +3781,7 @@ rct_process_module_mmap(app_pc module_base, size_t module_size,
                             SYSLOG_INTERNAL_WARNING("rct_process_module_mmap: %s "
                                                 ".NET modified entry point="PFX"\n",
                                                 modname, entry_point);
-                            /* expected to be mscoree!_CorDllMain or mscoree!_CorExeMain */
+                            /* we expect mscoree!_CorDllMain or mscoree!_CorExeMain */
                         });
                     }
                 }
@@ -3783,7 +3808,9 @@ rct_process_module_mmap(app_pc module_base, size_t module_size,
                 }
             });
 
-            /* add the module entry point DllMain() for mmap'ed region, before it is modified */
+            /* Add the module entry point DllMain() for mmap'ed region, before it
+             * is modified.
+             */
             if (entry_point != NULL) {
                 /* should use GLOBAL_DCONTEXT since called early */
                 rct_add_valid_ind_branch_target(GLOBAL_DCONTEXT, entry_point);
@@ -4290,7 +4317,8 @@ os_module_store_IAT_code(app_pc addr)
     if (ma != NULL && ma->os_data.iat_code == NULL /* no double store */ &&
         get_IAT_section_bounds(ma->start, &IAT_start, &IAT_end)) {
         ma->os_data.iat_len = (app_pc) ALIGN_FORWARD(IAT_end, PAGE_SIZE) - IAT_end;
-        ma->os_data.iat_code = (byte *) global_heap_alloc(ma->os_data.iat_len HEAPACCT(ACCT_VMAREAS));
+        ma->os_data.iat_code = (byte *)
+            global_heap_alloc(ma->os_data.iat_len HEAPACCT(ACCT_VMAREAS));
         memcpy(ma->os_data.iat_code, IAT_end, ma->os_data.iat_len);
         found = true;
     }
@@ -4316,7 +4344,8 @@ bool os_module_cmp_IAT_code(app_pc addr)
                  memcmp(ma->os_data.iat_code, IAT_end, ma->os_data.iat_len) == 0);
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "comparing stored "PFX"-"PFX" with IAT "PFX"-"PFX"\n",
-            ma->os_data.iat_code, ma->os_data.iat_code + ma->os_data.iat_len, IAT_end, IAT_end + IAT_len);
+            ma->os_data.iat_code, ma->os_data.iat_code + ma->os_data.iat_len,
+            IAT_end, IAT_end + IAT_len);
         /* in all uses so far we always expect to match, except when we mistake
          * a rebase of a single-page .text section for a rebind (case 10830).
          * note that we can't use the check here to distinguish those.
@@ -4346,7 +4375,8 @@ module_area_free_IAT(module_area_t *ma)
             ASSERT(ALIGN_FORWARD(IAT_end, PAGE_SIZE) -
                    (ptr_uint_t)IAT_end == ma->os_data.iat_len);
         });
-        global_heap_free(ma->os_data.iat_code, ma->os_data.iat_len HEAPACCT(ACCT_VMAREAS));
+        global_heap_free(ma->os_data.iat_code, ma->os_data.iat_len
+                         HEAPACCT(ACCT_VMAREAS));
         ma->os_data.iat_code = NULL;
         ma->os_data.iat_len = 0;
         return true;
@@ -4485,7 +4515,7 @@ module_apply_relocations(app_pc module_base, size_t module_size,
                  * curiosity: sometimes ref is not within module,
                  * is this in result of some compiler optimization on pointer arithmetic?
                  * or something else we don't get
-                 * 75f80000 7607d000   browseui   (export symbols)       I:\WINDOWS\System32\browseui.dll
+                 * 75f80000 7607d000   browseui   I:\WINDOWS\System32\browseui.dll
                  *
                  * browseui!Ordinal103+0x741:
                  * 75fa5e0a ff34bd44e9f775   push    dword ptr [75f7e944+edi*4]
@@ -4510,7 +4540,8 @@ module_apply_relocations(app_pc module_base, size_t module_size,
         DODEBUG(pages_touched++;);
 
         if (protect_incrementally) {
-            if (!protect_virtual_memory((void *)prot_pc, prot_size, orig_prot, &orig_prot))
+            if (!protect_virtual_memory((void *)prot_pc, prot_size, orig_prot,
+                                        &orig_prot))
                 return false; /* failed to restore prot */
         }
     } /* all relocation entries */
@@ -5049,8 +5080,9 @@ module_dump_pe_file(HANDLE new_file,
                         &num_written);
         if (!ok || num_written != get_image_section_map_size(sec, nt)) {
             /* we don't delete the file here assuming we'll retry to produce */
-            /* note that with aslr_safe_save the temporary file will in fact get orphaned! */
-            /* we have to count on nodemgr cleaning up */
+            /* Note that with aslr_safe_save the temporary file will in fact get
+             * orphaned!  We have to count on nodemgr cleaning up.
+             */
             return false;
         }
         DODEBUG({last_written_position = file_position + num_written;});
@@ -5107,7 +5139,7 @@ ensure_section_readable(app_pc module_base, IMAGE_SECTION_HEADER *sec,
                                 old_prot);
     ASSERT(ok);
     ASSERT_CURIOSITY(*old_prot == PAGE_NOACCESS ||
-                     *old_prot == PAGE_WRITECOPY); /* expecting unmodifed even if writable */
+                     *old_prot == PAGE_WRITECOPY); /* expect unmodifed even if writable */
     return false;
 }
 
@@ -5244,7 +5276,8 @@ module_pe_section_compare(app_pc original_module_section,
                 (*(app_pc*)(next_reloc_original) + relocation_delta !=
                  *(app_pc*)(next_reloc_suspect))) {
                 SYSLOG_INTERNAL_WARNING("mismatch at relocated entry "PFX" = "PFX,
-                                        next_reloc_original, *(app_pc*)next_reloc_original);
+                                        next_reloc_original,
+                                        *(app_pc*)next_reloc_original);
                 return false;
             }
             verbatim_start = next_reloc_original + sizeof(uint);
@@ -6111,10 +6144,11 @@ read_string_or_var_info(void *string_or_var_info, void *version_info,
                 if (!is_region_memset_to_char(string_or_var_info,
                                               version_info_size -
                                               ((byte *)string_or_var_info -
-                                               (byte *)version_info), 0))
+                                               (byte *)version_info), 0)) {
                     SYSLOG_INTERNAL_WARNING_ONCE(".rsrc @"PFX": expected var or string "
                                                  "info, or padding",
                                                  string_or_var_info);
+                }
             });
             return NULL;
         }

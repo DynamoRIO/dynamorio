@@ -1233,8 +1233,9 @@ query_time_micros()
 
 #ifdef RETURN_AFTER_CALL
 /* Finds the bottom of the call stack, presumably at program startup. */
-/* This routine is a copycat of internal_dump_callstack and makes assumptions about program state,
-   i.e. that frame pointers are valid and should be used only in well known points for release build.
+/* This routine is a copycat of internal_dump_callstack and makes
+   assumptions about program state, i.e. that frame pointers are valid
+   and should be used only in well known points for release build.
 */
 static app_pc
 find_stack_bottom()
@@ -4265,7 +4266,7 @@ os_flush(file_t f)
     /* we're not using FILE*, so there is no buffering */
 }
 
-/* seek the current file position to offset bytes from origin, return true if successful */
+/* seek current file position to offset bytes from origin, return true if successful */
 bool
 os_seek(file_t f, int64 offset, int origin)
 {
@@ -4324,9 +4325,10 @@ os_rename_file(const char *orig_name, const char *new_name, bool replace)
     res = dynamorio_syscall(SYS_renameat, 4,
                             AT_FDCWD, orig_name, AT_FDCWD, new_name);
 #endif
-    if (res != 0)
+    if (res != 0) {
         LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s \"%s\" to \"%s\" failed: "PIFX"\n",
             __func__, orig_name, new_name, res);
+    }
     return (res == 0);
 }
 
@@ -5352,7 +5354,8 @@ dr_syscall_invoke_another(void *drcontext)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
-                  "dr_syscall_invoke_another() can only be called from post-syscall event");
+                  "dr_syscall_invoke_another() can only be called from post-syscall "
+                  "event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
     dcontext->client_data->invoke_another_syscall = true;
 # ifdef X86
@@ -5878,8 +5881,12 @@ handle_execve(dcontext_t *dcontext)
     }
 #endif
 
-    LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
-    LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
+    LOG(GLOBAL, LOG_ALL, 1,
+        "\n---------------------------------------------------------------------------"
+        "\n");
+    LOG(THREAD, LOG_ALL, 1,
+        "\n---------------------------------------------------------------------------"
+        "\n");
     DODEBUG({
         int i;
         SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
@@ -5919,7 +5926,8 @@ handle_execve(dcontext_t *dcontext)
 
 #ifdef STATIC_LIBRARY
     /* no way we can inject, we just lose control */
-    SYSLOG_INTERNAL_WARNING("WARNING: static DynamoRIO library, losing control on execve");
+    SYSLOG_INTERNAL_WARNING("WARNING: static DynamoRIO library, losing control on "
+                            "execve");
     return 0;
 #endif
 
@@ -6399,7 +6407,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
              */
             res = true;  /* Indicate success. */
         }
-        /* XXX i#2098: it is unsafe to call LOG here in between GDT and register changes */
+        /* XXX i#2098: it's unsafe to call LOG here in between GDT and register changes */
         /* i558 update lib seg reg to enforce the segment changes */
         if (seg == SEG_TLS)
             WRITE_DR_SEG(selector);
@@ -9399,15 +9407,16 @@ typedef struct linux_event_t {
 } linux_event_t;
 
 
-/* FIXME: this routine will need to have a macro wrapper to let us assign different ranks to
- * all events for DEADLOCK_AVOIDANCE.  Currently a single rank seems to work.
+/* FIXME: this routine will need to have a macro wrapper to let us
+ * assign different ranks to all events for DEADLOCK_AVOIDANCE.
+ * Currently a single rank seems to work.
  */
 event_t
 create_event()
 {
     event_t e = (event_t) global_heap_alloc(sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
     ksynch_init_var(&e->signaled);
-    ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* FIXME: we'll need to pass the event name here */
+    ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* FIXME: pass the event name here */
     return e;
 }
 
@@ -9425,7 +9434,8 @@ signal_event(event_t e)
     mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 1);
     ksynch_wake(&e->signaled);
-    LOG(THREAD_GET, LOG_THREADS, 3,"thread "TIDFMT" signalling event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD_GET, LOG_THREADS, 3,
+        "thread "TIDFMT" signalling event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
 
@@ -9434,7 +9444,8 @@ reset_event(event_t e)
 {
     mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 0);
-    LOG(THREAD_GET, LOG_THREADS, 3,"thread "TIDFMT" resetting event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD_GET, LOG_THREADS, 3,
+        "thread "TIDFMT" resetting event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
 
@@ -9445,7 +9456,8 @@ wait_for_event(event_t e)
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
     /* Use a user-space event on Linux, a kernel event on Windows. */
-    LOG(THREAD, LOG_THREADS, 3, "thread "TIDFMT" waiting for event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD, LOG_THREADS, 3,
+        "thread "TIDFMT" waiting for event "PFX"\n",get_thread_id(),e);
     while (true) {
         if (ksynch_get_value(&e->signaled) == 1) {
             mutex_lock(&e->lock);
@@ -9459,7 +9471,8 @@ wait_for_event(event_t e)
                 ksynch_set_value(&e->signaled, 0);
                 mutex_unlock(&e->lock);
                 LOG(THREAD, LOG_THREADS, 3,
-                    "thread "TIDFMT" finished waiting for event "PFX"\n", get_thread_id(),e);
+                    "thread "TIDFMT" finished waiting for event "PFX"\n",
+                    get_thread_id(),e);
                 return;
             }
         } else {
@@ -9947,7 +9960,7 @@ rct_analyze_module_at_violation(dcontext_t *dcontext, app_pc target_pc)
         app_pc text_start = code_start;
         app_pc text_end = data_start + data_size;
 
-        /* TODO: performance: should do this only in case relocation info is not present */
+        /* TODO: performance: do this only in case relocation info is not present */
         DEBUG_DECLARE(uint found = )
             find_address_references(dcontext, text_start, text_end,
                                     code_start, code_end);

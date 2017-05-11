@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -240,7 +241,7 @@ kstat_ignore_context_switch;
     (kstack)->node[depth].subpath_time = 0;             \
     (kstack)->node[depth].self_time = 0;                \
     (kstack)->node[depth].outlier_time = 0;             \
-} while(0)
+} while (0)
 
 /* updates which variable will be counted */
 #define kstat_switch_var(kstack, pvar) (kstack)->node[(kstack)->depth - 1].var = (pvar)

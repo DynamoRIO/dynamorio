@@ -195,16 +195,18 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\tmxcsrmask=0x%08x\n", sc->__fs.__fpu_mxcsrmask);
     for (i=0; i<8; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\tst%d = ", i);
-        for (j=0; j<5; j++)
+        for (j=0; j<5; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
                 *((ushort *)(&sc->__fs.__fpu_stmm0 + i) + j));
+        }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     for (i=0; i<NUM_SIMD_SLOTS; i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
-        for (j=0; j<4; j++)
+        for (j=0; j<4; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
                 *((uint *)(&sc->__fs.__fpu_xmm0 + i) + j));
+        }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     if (YMM_ENABLED()) {

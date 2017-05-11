@@ -134,7 +134,8 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
      * walk the exports of kernel32.dll (we can cache its mod handle when it
      * is loaded). */
     if (!inject_initialized) {
-        SYSLOG_INTERNAL_WARNING("Using late inject follow children from early injected process, unsafe LdrLock usage");
+        SYSLOG_INTERNAL_WARNING("Using late inject follow children from early injected "
+                                "process, unsafe LdrLock usage");
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         inject_init();
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -1376,7 +1377,7 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
     GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1,
                                           IN PVOID Unknown2));
 
-    switch(inject_location) {
+    switch (inject_location) {
     case INJECT_LOCATION_LdrLoadDll:
     case INJECT_LOCATION_LdrpLoadDll:
     case INJECT_LOCATION_LdrCustom:

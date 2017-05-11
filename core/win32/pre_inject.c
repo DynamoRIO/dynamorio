@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,9 +89,9 @@
 void internal_error(char *file, int line, char *msg);
 #ifdef DEBUG
 # ifdef INTERNAL
-#   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, #x)
+#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, #x); }
 # else
-#   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
+#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, ""); }
 # endif /* INTERNAL */
 #else
 # define ASSERT(x)         ((void) 0)
@@ -226,7 +226,9 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
                  * the controller. */
 #ifdef DEBUG
                 _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                          PRODUCT_NAME" Error: improper injection - "PRODUCT_NAME" (%s) can't inject into process %s (%s) (user32.dll not statically linked)\n",
+                          PRODUCT_NAME" Error: improper injection - "PRODUCT_NAME
+                          " (%s) can't inject into process %s (%s) (user32.dll "
+                          "not statically linked)\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -248,7 +250,9 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
 #if VERBOSE
                 /* can't readily tell what was expected */
                 _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                          PRODUCT_NAME" ok if early injection, otherwise ERROR: double injection, "PRODUCT_NAME" (%s) is already loaded in process %s (%s), continuing\n",
+                          PRODUCT_NAME" ok if early injection, otherwise ERROR: "
+                          "double injection, "PRODUCT_NAME" (%s) is already loaded "
+                          "in process %s (%s), continuing\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -257,7 +261,8 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
                 /* if GetModuleHandle finds us but we don't have a marker
                  * we may have failed somehow */
                 _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
-                          PRODUCT_NAME" Error: failed injection, "PRODUCT_NAME" (%s) is loaded but not initialized in process %s (%s), continuing\n",
+                          PRODUCT_NAME" Error: failed injection, "PRODUCT_NAME" (%s) is "
+                          "loaded but not initialized in process %s (%s), continuing\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -286,8 +291,8 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
                 get_proc_address_64((uint64)dll, "dynamorio_app_init");
             take_over_func = (void_func_t)(ptr_uint_t)/*we know <4GB*/
                 get_proc_address_64((uint64)dll, "dynamorio_app_take_over");
-            VERBOSE_MESSAGE("dynamorio_app_init: 0x%08x; dynamorio_app_take_over: 0x%08x\n",
-                            init_func, take_over_func);
+            VERBOSE_MESSAGE("dynamorio_app_init: 0x%08x; dynamorio_app_take_over: "
+                            "0x%08x\n", init_func, take_over_func);
         } else {
 #endif
             init_func = (int_func_t) GetProcAddress(dll, "dynamorio_app_init");
