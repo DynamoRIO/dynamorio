@@ -429,6 +429,9 @@ DR_API
 /**
  * Returns an initialized instr_t allocated on the thread-local heap.
  * Sets the x86/x64 mode of the returned instr_t to the mode of dcontext.
+ * The instruction should be de-allocated with instr_destroy(), which
+ * will be called automatically if this instruction is added to the instruction
+ * list passed to the basic block or trace events.
  */
 /* For -x86_to_x64, sets the mode of the instr to the code cache mode instead of
 the app mode. */
@@ -436,8 +439,11 @@ instr_t*
 instr_create(dcontext_t *dcontext);
 
 DR_API
-/** Initializes \p instr.
+/**
+ * Initializes \p instr.
  * Sets the x86/x64 mode of \p instr to the mode of dcontext.
+ * When finished with it, the instruction's internal memory should be freed
+ * with instr_free(), or instr_reset() for reuse.
  */
 void
 instr_init(dcontext_t *dcontext, instr_t *instr);
@@ -447,7 +453,8 @@ DR_API
  * Deallocates all memory that was allocated by \p instr.  This
  * includes raw bytes allocated by instr_allocate_raw_bits() and
  * operands allocated by instr_set_num_opnds().  Does not deallocate
- * the storage for \p instr itself.
+ * the storage for \p instr itself (use instr_destroy() instead if
+ * \p instr was created with instr_create()).
  */
 void
 instr_free(dcontext_t *dcontext, instr_t *instr);
@@ -474,7 +481,7 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr);
 DR_API
 /**
  * Performs instr_free() and then deallocates the thread-local heap
- * storage for \p instr.
+ * storage for \p instr that was performed by instr_create().
  */
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr);
