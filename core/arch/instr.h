@@ -430,8 +430,8 @@ DR_API
  * Returns an initialized instr_t allocated on the thread-local heap.
  * Sets the x86/x64 mode of the returned instr_t to the mode of dcontext.
  * The instruction should be de-allocated with instr_destroy(), which
- * will be called automatically if this instruction is added to the #instrlist_t
- * passed to the basic block or trace events.
+ * will be called automatically if this instruction is added to the instruction
+ * list passed to the basic block or trace events.
  */
 /* For -x86_to_x64, sets the mode of the instr to the code cache mode instead of
 the app mode. */
