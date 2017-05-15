@@ -85,9 +85,10 @@ instr_is_nonbranch_pcrel(instr_t *instr)
     for (i = 0; i < n; i++)
         ASSERT(!OPND_IS_REL_ADDR(instr_get_dst(instr, i)));
     n = instr_num_srcs(instr);
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
         if (OPND_IS_REL_ADDR(instr_get_src(instr, i)))
             return true;
+    }
     return false;
 }
 

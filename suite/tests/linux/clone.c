@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,7 +115,8 @@ main()
 /* Procedure executed by sideline threads
  * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
-int run(void *arg)
+int
+run(void *arg)
 {
     int i = 0;
     nolibc_print("Sideline thread started\n");

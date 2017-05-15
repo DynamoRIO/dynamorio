@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -66,11 +66,13 @@ ksynch_free_var(KSYNCH_TYPE *var);
 
 #ifdef LINUX
 /* avoid de-ref */
-static inline int ksynch_get_value(volatile int *futex)
+static inline int
+ksynch_get_value(volatile int *futex)
 {
     return *futex;
 }
-static inline void ksynch_set_value(volatile int *futex, int new_val)
+static inline void
+ksynch_set_value(volatile int *futex, int new_val)
 {
     *futex = new_val;
 }

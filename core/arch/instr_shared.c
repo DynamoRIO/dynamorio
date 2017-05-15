@@ -540,8 +540,8 @@ instr_set_num_opnds(dcontext_t *dcontext,
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            instr->srcs = (opnd_t *) heap_alloc(dcontext, (instr_num_srcs-1)*sizeof(opnd_t)
-                                              HEAPACCT(ACCT_IR));
+            instr->srcs = (opnd_t *)
+                heap_alloc(dcontext, (instr_num_srcs-1)*sizeof(opnd_t) HEAPACCT(ACCT_IR));
         }
         CLIENT_ASSERT_TRUNCATE(instr->num_srcs, byte, instr_num_srcs,
                                "instr_set_num_opnds: too many srcs");
@@ -1612,7 +1612,8 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
             instr_num_srcs(instr) > 0 && opnd_is_near_pc(instr_get_src(instr, 0))) {
             instr_t *tgt;
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: found cti w/ pc target");
+                loginst(dcontext, 4, instr,
+                        "instrlist_decode_cti: found cti w/ pc target");
             });
             for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
                 DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tchecking"); });
@@ -1629,7 +1630,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
                     instr_set_target(instr, opnd_create_instr(tgt));
                     if (bits != 0)
                         instr_set_raw_bits(instr, bits, len);
-                    DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tcti targets this"); });
+                    DOLOG(4, LOG_ALL, {loginst(dcontext, 4, tgt, "\tcti targets this");});
                     break;
                 }
             }
@@ -1750,9 +1751,10 @@ instr_uses_reg(instr_t *instr, reg_id_t reg)
 bool instr_reg_in_dst(instr_t *instr, reg_id_t reg)
 {
     int i;
-    for (i=0; i<instr_num_dsts(instr); i++)
+    for (i=0; i<instr_num_dsts(instr); i++) {
         if (opnd_uses_reg(instr_get_dst(instr, i), reg))
             return true;
+    }
     return false;
 }
 
@@ -2008,9 +2010,10 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
         if (instr_get_rip_rel_pos(instr) > 0) {
-            if (target != NULL)
+            if (target != NULL) {
                 *target = instr->bytes + instr->length +
                     *((int *)(instr->bytes + instr_get_rip_rel_pos(instr)));
+            }
             return true;
         } else
             return false;

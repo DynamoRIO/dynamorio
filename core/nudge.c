@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -401,8 +401,10 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
         TEST_ANY(NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|NUDGE_GENERIC(lstats),
                  nudge_action_mask)) {
         hotp_nudge_update(nudge_action_mask &
-                          (NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|NUDGE_GENERIC(lstats)));
-        nudge_action_mask &= ~(NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|NUDGE_GENERIC(lstats));
+                          (NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|
+                           NUDGE_GENERIC(lstats)));
+        nudge_action_mask &= ~(NUDGE_GENERIC(policy)|NUDGE_GENERIC(mode)|
+                               NUDGE_GENERIC(lstats));
     }
 #endif
 #ifdef PROGRAM_SHEPHERDING

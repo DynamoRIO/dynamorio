@@ -84,20 +84,22 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    kernel_vfp_sigframe_t *vfp =
+        (kernel_vfp_sigframe_t *) sc_full->fp_simd_state;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
     ASSERT(vfp->magic == VFP_MAGIC);
-    ASSERT(vfp->size == sizeof(struct vfp_sigframe));
+    ASSERT(vfp->size == sizeof(kernel_vfp_sigframe_t));
     memcpy(&mc->simd[0], &vfp->ufp.fpregs[0], sizeof(mc->simd));
 }
 
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    struct vfp_sigframe *vfp = (struct vfp_sigframe *) sc_full->fp_simd_state;
+    kernel_vfp_sigframe_t *vfp =
+        (kernel_vfp_sigframe_t *) sc_full->fp_simd_state;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
     vfp->magic = VFP_MAGIC;
-    vfp->size = sizeof(struct vfp_sigframe);
+    vfp->size = sizeof(kernel_vfp_sigframe_t);
     memcpy(&vfp->ufp.fpregs[0], &mc->simd[0], sizeof(vfp->ufp.fpregs));
 }
 

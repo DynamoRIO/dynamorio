@@ -75,7 +75,7 @@ typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 #define OBJ_CASE_INSENSITIVE    0x00000040L
 #define OBJ_OPENIF              0x00000080L
 #define OBJ_OPENLINK            0x00000100L
-#define OBJ_KERNEL_HANDLE       0x00000200L /* N.B.: this is an invalid parameter on NT4! */
+#define OBJ_KERNEL_HANDLE       0x00000200L /* N.B.: invalid parameter on NT4! */
 #define OBJ_FORCE_ACCESS_CHECK  0x00000400L /* N.B.: introduced with Win2003 */
 
 typedef ULONG ACCESS_MASK;
@@ -424,8 +424,10 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
 
 /* Event types and functions */
 typedef enum _EVENT_TYPE {
-    NotificationEvent,   /* manual-reset event - used for broadcasting to multiple waiting threads */
-    SynchronizationEvent /* automatically changes state to non-signaled after releasing a waiting thread */
+    /* manual-reset event - used for broadcasting to multiple waiting threads */
+    NotificationEvent,
+    /* automatically changes state to non-signaled after releasing a waiting thread */
+    SynchronizationEvent
 } EVENT_TYPE, *PEVENT_TYPE;
 
 /* we don't actually use this but for cleanliness sake, is from ntddk.h */
@@ -440,7 +442,9 @@ VOID
 typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
     (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2);
 
-/* From http://undocumented.ntinternals.net/UserMode/Structures/RTL_USER_PROCESS_PARAMETERS.html */
+/* From http://undocumented.ntinternals.net/UserMode/Structures/
+ * RTL_USER_PROCESS_PARAMETERS.html
+ */
 
 typedef struct _RTL_USER_PROCESS_PARAMETERS {
     ULONG MaximumLength;

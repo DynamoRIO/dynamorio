@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,8 +94,8 @@ event_exit(void)
 }
 
 #ifdef UNIX
-static
-dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info)
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *info)
 {
     dr_atomic_add32_return_sum(&num_signals, 1);
     if (info->sig == SIGTERM) {

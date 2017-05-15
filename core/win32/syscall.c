@@ -548,8 +548,8 @@ syscall_while_native(app_state_at_intercept_t *state)
          */
         STATS_INC(num_syscall_trampolines_retakeover);
         LOG(THREAD, LOG_SYSCALLS, 1,
-            "syscall_while_native: retakeover in %s after native cb return lost control\n",
-            syscall_names[sysnum]);
+            "syscall_while_native: retakeover in %s after native cb return lost "
+            "control\n", syscall_names[sysnum]);
         retakeover_after_native(dcontext->thread_record, INTERCEPT_SYSCALL);
         dcontext->thread_record->retakeover = false;
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */
@@ -1150,9 +1150,10 @@ presys_CreateProcess(dcontext_t *dcontext, reg_t *param_base, bool ex)
             DOLOG(1, LOG_SYSCALLS, {
                 char buf[MAXIMUM_PATH];
                 get_module_name(base, buf, sizeof(buf));
-                if (buf[0] != '\0')
+                if (buf[0] != '\0') {
                     LOG(THREAD, LOG_SYSCALLS, 2,
                         "\tNtCreateProcess for module %s\n", buf);
+                }
             });
         }
     });
@@ -1210,7 +1211,8 @@ presys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base)
     ACCESS_MASK thread_access_mask = (uint) sys_param(dcontext, param_base, 3);
     /* might be BOOLEAN instead?  though separate param should zero out rest */
     BOOL create_suspended = (BOOL) sys_param(dcontext, param_base, 7);
-    create_proc_thread_info_t *thread_stuff = (void *) sys_param(dcontext, param_base, 10);
+    create_proc_thread_info_t *thread_stuff = (void *)
+        sys_param(dcontext, param_base, 10);
     ASSERT(get_os_version() >= WINDOWS_VERSION_VISTA);
 
     /* might need these in post, note CreateProcess appears to hardcode them */
@@ -1679,7 +1681,8 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
     LOG(THREAD, LOG_SYSCALLS, 1,
         "syscall: NtTerminateProcess handle="PFX" pid=%d exit=%d\n",
         process_handle,
-        process_id_from_handle((process_handle == 0) ? NT_CURRENT_PROCESS : process_handle),
+        process_id_from_handle((process_handle == 0) ?
+                               NT_CURRENT_PROCESS : process_handle),
         exit_status);
     if (process_handle == 0) {
         NTSTATUS return_val;
@@ -1739,7 +1742,8 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         end_synch_with_all_threads(threads, num_threads, false/*no resume*/);
 
         return false; /* do not execute syscall -- we already did it */
-    } else if (is_phandle_me((process_handle == 0) ? NT_CURRENT_PROCESS : process_handle)) {
+    } else if (is_phandle_me((process_handle == 0) ?
+                             NT_CURRENT_PROCESS : process_handle)) {
         /* case 10338: we don't synchall here for faster shutdown, but we have
          * to try and not crash any other threads.  FIXME: if it's rare to get here
          * w/ > 1 thread perhaps we should do the synchall.
@@ -2376,7 +2380,7 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
                         nt_remote_protect_virtual_memory(process_handle,
                                                          base, size,
                                                          subset_osprot, &old_osprot);
-                    /* using app's handle in case it has different rights that current thread */
+                    /* using app's handle in case has different rights than cur thread */
                     ASSERT_CURIOSITY(process_handle == NT_CURRENT_PROCESS);
                     ASSERT_CURIOSITY(ok);
                     /* we'll keep going anyways as if it would have worked */
@@ -2425,7 +2429,9 @@ presys_ProtectVirtualMemory(dcontext_t *dcontext, reg_t *param_base)
             /* FIXME i#143: we still need to tweak the returned oldprot (in
              * post-syscall) for writable areas we've made read-only
              */
-            /* FIXME: ASSERT here that have not modified size unless using, e.g. fix_unsafe_hooker */
+            /* FIXME: ASSERT here that have not modified size unless using, e.g.
+             * fix_unsafe_hooker
+             */
         }
     } else {
         /* FIXME: should we try to alert any dynamo running the other process?
@@ -2742,15 +2748,24 @@ pre_system_call(dcontext_t *dcontext)
           dump_mcontext(mc, THREAD, false/*not xml*/);
     });
     /* we can't pass other than a numeric literal anymore */
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: "PFX"\n", sys_param(dcontext, param_base, 0));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: "PFX"\n", sys_param(dcontext, param_base, 1));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: "PFX"\n", sys_param(dcontext, param_base, 2));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: "PFX"\n", sys_param(dcontext, param_base, 3));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: "PFX"\n", sys_param(dcontext, param_base, 4));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: "PFX"\n", sys_param(dcontext, param_base, 5));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: "PFX"\n", sys_param(dcontext, param_base, 6));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: "PFX"\n", sys_param(dcontext, param_base, 7));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: "PFX"\n", sys_param(dcontext, param_base, 8));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: "PFX"\n",
+        sys_param(dcontext, param_base, 0));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: "PFX"\n",
+        sys_param(dcontext, param_base, 1));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: "PFX"\n",
+        sys_param(dcontext, param_base, 2));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: "PFX"\n",
+        sys_param(dcontext, param_base, 3));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: "PFX"\n",
+        sys_param(dcontext, param_base, 4));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: "PFX"\n",
+        sys_param(dcontext, param_base, 5));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: "PFX"\n",
+        sys_param(dcontext, param_base, 6));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: "PFX"\n",
+        sys_param(dcontext, param_base, 7));
+    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: "PFX"\n",
+        sys_param(dcontext, param_base, 8));
     DOLOG(3, LOG_SYSCALLS, {
         /* ebp isn't in mcontext right now, so pass ebp */
         dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc) mc->xbp, THREAD,
@@ -3159,7 +3174,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
              * PLUS, need to handle unknown (unscheduled yet) thread --
              * passing native should be fine
              */
-            SYSLOG_INTERNAL_WARNING("NtGetContextThread called for thread not in translatable spot");
+            SYSLOG_INTERNAL_WARNING("NtGetContextThread called for thread not in "
+                                    "translatable spot");
             LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
                 "ERROR: NtGetContextThread called for thread not in translatable spot\n");
         } else if (xlate_cxt != cxt) {
@@ -3248,8 +3264,8 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             thread_record_t *tr;
             /* know thread isn't holding any of the locks we will need */
             LOG(THREAD, LOG_SYNCH, 2,
-                "SuspendThread got necessary locks to test if thread "TIDFMT" suspended at good spot without resuming\n",
-                tid);
+                "SuspendThread got necessary locks to test if thread "TIDFMT
+                " suspended at good spot without resuming\n", tid);
             tr = thread_lookup(tid);
             if (tr == NULL) {
                 /* Could be unknown thread, a thread just starting up or
@@ -3274,14 +3290,14 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             }
         } else {
             LOG(THREAD, LOG_SYNCH, 2,
-                "SuspendThread couldn't get all_threads_lock to test if thread "TIDFMT" at good spot without resuming\n",
-                tid);
+                "SuspendThread couldn't get all_threads_lock to test if thread "
+                TIDFMT" at good spot without resuming\n", tid);
         }
         mutex_unlock(&thread_initexit_lock);
     } else {
         LOG(THREAD, LOG_SYNCH, 2,
-            "SuspendThread couldn't get thread_initexit_lock to test if thread "TIDFMT" at good spot without resuming\n",
-            tid);
+            "SuspendThread couldn't get thread_initexit_lock to test if thread "
+            TIDFMT" at good spot without resuming\n", tid);
     }
     LOG(THREAD, LOG_SYNCH, 2,
         "SuspendThread resuming suspended thread "TIDFMT" for synch routine\n",
@@ -3426,7 +3442,8 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
          */
         return;
     }
-    if (!safe_read(pbase, sizeof(base), &base) || !safe_read(psize, sizeof(size), &size)) {
+    if (!safe_read(pbase, sizeof(base), &base) ||
+        !safe_read(psize, sizeof(size), &size)) {
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "syscall: NtAllocateVirtualMemory: failed to read params "PFX" "PFX"\n",
             pbase, psize);
@@ -3570,7 +3587,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                 uint flags =
                     mbi->Protect & ~PAGE_PROTECTION_QUALIFIERS;
                 LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                    "WARNING: Query to now-readonly executable area, pretending writable\n");
+                    "WARNING: Query to now-readonly executable area, pretending "
+                    "writable\n");
                 if (flags == PAGE_READONLY) {
                     mbi->Protect &= ~PAGE_READONLY;
                     mbi->Protect |= PAGE_READWRITE;
@@ -3581,7 +3599,8 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                         "ERROR: Query to now-readonly executable area w/ bad flags %s\n",
                         prot_string(mbi->Protect));
-                    SYSLOG_INTERNAL_INFO("ERROR: Query to now-readonly executable area w/ bad flags");
+                    SYSLOG_INTERNAL_INFO("ERROR: Query to now-readonly executable area "
+                                         "w/ bad flags");
                 }
             } else if (is_dynamo_address(base)) {
                 LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
@@ -3954,8 +3973,8 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                         STATS_INC(map_unknown_Dos_name);
                         SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
                         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                            "\t%s: WARNING: unable to convert NT to Dos path for \"%S\"\n",
-                            __FUNCTION__, buf2);
+                            "\t%s: WARNING: unable to convert NT to Dos path for "
+                            "\"%S\"\n", __FUNCTION__, buf2);
                     }
                     /* may as well update the table: if already there this is a nop */
                     section_to_file_add(section_handle, file);
@@ -3965,7 +3984,8 @@ postsys_MapViewOfSection(dcontext_t *dcontext, reg_t *param_base, bool success)
                      * verify that its CreateSection was passed NULL for a file?
                      * You can see some of these just starting up calc.  They
                      * have names like
-                     * "\BaseNamedObjects\CiceroSharedMemDefaultS-1-5-21-1262752155-650278929-1212509807-100"
+                     * "\BaseNamedObjects\CiceroSharedMemDefaultS-1-5-21-1262752155-"
+                     * "650278929-1212509807-100"
                      */
                     unknown = false;
                     DODEBUG(reason = " (pagefile-backed)";);
@@ -4459,7 +4479,8 @@ dr_syscall_invoke_another(void *drcontext)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
-                  "dr_syscall_invoke_another() can only be called from post-syscall event");
+                  "dr_syscall_invoke_another() can only be called from post-syscall "
+                  "event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
     /* Dispatch checks this flag immediately upon return from handle_post_system_call()
      * and if set it invokes handle_system_call().

@@ -42,6 +42,10 @@
 #ifndef _OS_PUBLIC_H_
 #define _OS_PUBLIC_H_ 1
 
+#ifdef LINUX
+# include "include/sigcontext.h"
+#endif
+
 #ifdef MACOS
 #  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
 #  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
@@ -59,7 +63,7 @@ typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
 typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
 #  endif
 #else
-typedef struct sigcontext sigcontext_t;
+typedef kernel_sigcontext_t sigcontext_t;
 #endif
 
 #ifdef LINUX

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -346,7 +346,8 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
 #ifdef HOT_PATCHING_INTERFACE
                 if (info->hotp_ppoint_vec != NULL) {
                     HEAP_ARRAY_FREE(dcontext, info->hotp_ppoint_vec, app_rva_t,
-                                    info->hotp_ppoint_vec_num, ACCT_HOT_PATCHING, PROTECTED);
+                                    info->hotp_ppoint_vec_num, ACCT_HOT_PATCHING,
+                                    PROTECTED);
                 }
 #endif
             }
@@ -3568,8 +3569,8 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
      * the original, to ensure we have a complete file (case 9696).
      * We can't rename it if we have a handle with write privileges open,
      * regardless of FILE_SHARE_* flags, so we close it and live with races.
-     * Nobody else should be creating a file of the same name (tmpname includes process id).
-     * Therefore no other process may have racily created an
+     * Nobody else should be creating a file of the same name (tmpname includes process
+     * id).  Therefore no other process may have racily created an
      * incomplete file overwriting the file we just produced and are
      * about to rename.
      */

@@ -340,11 +340,13 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
 #endif
             if (is_at_do_syscall(trec->dcontext, (app_pc)mcontext->pc,
                                  (byte *)mcontext->xsp)) {
-                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" running "
+                LOG(THREAD_GET, LOG_SYNCH, 1,
+                    "translate context, thread "TIDFMT" running "
                     "natively, at do_syscall so translation needed\n", trec->id);
                 native_translate = true;
             } else {
-                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" running "
+                LOG(THREAD_GET, LOG_SYNCH, 1,
+                    "translate context, thread "TIDFMT" running "
                     "natively, no translation needed\n", trec->id);
                 return true;
             }

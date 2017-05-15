@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,7 +75,7 @@ find_dynamo_library()
 
     maps=fopen(proc_pid_maps,"r");
 
-    while(!feof(maps)){
+    while (!feof(maps)){
         void * vm_start, * vm_end;
         char perm[16];
         char comment_buffer[MAPS_LINE_LENGTH];
@@ -101,7 +101,8 @@ find_dynamo_library()
 
 /***************************************************************************/
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
     pid_t child;
 

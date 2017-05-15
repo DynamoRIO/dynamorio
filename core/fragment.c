@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -420,7 +420,8 @@ add_shared_block(shared_entry_t **table, mutex_t *lock, fragment_t *f)
     e->threads->thread_num = tnum;
     e->threads->count = 1;
     e->threads->next = NULL;
-    LOG(GLOBAL, LOG_ALL, 2, "add_shared_block: tag "PFX", heap %d, cache %d, thread #%d\n",
+    LOG(GLOBAL, LOG_ALL, 2,
+        "add_shared_block: tag "PFX", heap %d, cache %d, thread #%d\n",
         e->tag, e->heap_size, e->cache_size, e->threads->thread_num);
 
     hindex = HASH_FUNC_BITS((ptr_uint_t)f->tag, SHARED_HASH_BITS);
@@ -1092,7 +1093,7 @@ hashtable_ibl_study_custom(dcontext_t *dcontext, ibl_table_t *table,
                   (DYNAMO_OPTION(bb_ibl_targets) &&
                    table == &pt->bb_ibt[branch_type])))
                 continue;
-            /* stats for lookup routines from bb's and trace's targeting the current table */
+            /* stats for lookup routines from bb's & trace's targeting current table */
             print_hashtable_stats(dcontext, entries_inc == 0 ? "Total" : "Current",
                                   table->name,
                                   "trace ibl ", get_branch_type_name(branch_type),
@@ -1922,7 +1923,8 @@ fragment_thread_reset_init(dcontext_t *dcontext)
             }
             else {
                 /* ensure table from last time (if we had a reset) not still there */
-                memset(&pt->trace_ibt[branch_type], 0, sizeof(pt->trace_ibt[branch_type]));
+                memset(&pt->trace_ibt[branch_type], 0,
+                       sizeof(pt->trace_ibt[branch_type]));
                 update_private_ptr_to_shared_ibt_table(dcontext, branch_type,
                                                        true,  /* trace = yes */
                                                        false, /* no adjust old
@@ -2403,7 +2405,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
     DO_GLOBAL_STATS({
         if (!TEST(FRAG_IS_TRACE, f->flags)) {
             RSTATS_INC(num_bbs);
-            IF_X64(if (FRAG_IS_32(f->flags)) STATS_INC(num_32bit_bbs);)
+            IF_X64(if (FRAG_IS_32(f->flags)) { STATS_INC(num_32bit_bbs); })
         }
     });
     DOSTATS({
@@ -2488,7 +2490,8 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
             /* FIXME: why do we need a new dcontext? */
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (THREAD_STATS_ON(dcontext) &&
-                THREAD_STAT(dcontext, num_fragments) % INTERNAL_OPTION(thread_stats_interval) == 0) {
+                THREAD_STAT(dcontext, num_fragments) %
+                INTERNAL_OPTION(thread_stats_interval) == 0) {
                 dump_thread_stats(dcontext, false);
             }
         }
@@ -2816,7 +2819,7 @@ hashtable_pclookup(dcontext_t *dcontext, fragment_table_t *table, cache_pc pc)
 {
     uint i;
     fragment_t *f;
-    ASSERT_TABLE_SYNCHRONIZED(table, READWRITE); /* lookup requires read (or write) lock */
+    ASSERT_TABLE_SYNCHRONIZED(table, READWRITE); /* lookup requires read or write lock */
     for (i = 0; i < table->capacity; i++) {
         f = table->table[i];
         if (!REAL_FRAGMENT(f))
@@ -3378,9 +3381,10 @@ update_private_ibt_table_ptrs(dcontext_t *dcontext, ibl_table_t *ftable
         if (TEST(FRAG_TABLE_TRACE, ftable->table_flags) &&
             ftable->table != pt->trace_ibt[ftable->branch_type].table) {
             DODEBUG({
-                if (orig_table != NULL)
+                if (orig_table != NULL) {
                     *orig_table =
                         pt->trace_ibt[ftable->branch_type].table;
+                }
             });
             table_change = true;
         }
@@ -3388,9 +3392,10 @@ update_private_ibt_table_ptrs(dcontext_t *dcontext, ibl_table_t *ftable
                  !TEST(FRAG_TABLE_TRACE, ftable->table_flags) &&
                  ftable->table != pt->bb_ibt[ftable->branch_type].table) {
             DODEBUG({
-                if (orig_table != NULL)
+                if (orig_table != NULL) {
                     *orig_table =
                         pt->bb_ibt[ftable->branch_type].table;
+                }
             });
             table_change = true;
         }
@@ -3794,12 +3799,14 @@ fragment_remove_ibl_entries_in_region(dcontext_t *dcontext, app_pc start, app_pc
         TABLE_RWLOCK(ibtable, write, lock);
         if (ibtable->entries > 0) {
             removed = hashtable_ibl_range_remove(dcontext, ibtable,
-                                                 (ptr_uint_t)start, (ptr_uint_t)end, NULL);
+                                                 (ptr_uint_t)start, (ptr_uint_t)end,
+                                                 NULL);
             /* Ensure a full remove gets everything */
             ASSERT(start != UNIVERSAL_REGION_BASE || end != UNIVERSAL_REGION_END ||
                    (ibtable->entries == 0 &&
                     is_region_memset_to_char((app_pc)ibtable->table,
-                                             (ibtable->capacity-1)*sizeof(fragment_entry_t),
+                                             (ibtable->capacity-1)*
+                                             sizeof(fragment_entry_t),
                                              0)));
         }
         LOG(THREAD, LOG_FRAGMENT, 2,
@@ -3891,7 +3898,8 @@ fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f)
         fragment_entry_t fe = FRAGENTRY_FROM_FRAGMENT(f);
         fragment_entry_t new_fe = FRAGENTRY_FROM_FRAGMENT(new_f);
         LOG(THREAD, LOG_FRAGMENT, 4,
-            "removed F%d from fcache lookup table (replaced with F%d) "PFX"->~"PFX","PFX"\n",
+            "removed F%d from fcache lookup table (replaced with F%d) "PFX
+            "->~"PFX","PFX"\n",
             f->id, new_f->id, f->tag, f->start_pc, new_f->start_pc);
         /* Need to replace all entries from the IBL tables that may have this entry */
         if (IS_IBL_TARGET(f->flags)) {
@@ -3939,13 +3947,16 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     f->start_pc += shift;
 
     /* Should shift cached lookup entries in all IBL target tables,
-     * order doesn't matter here: either way we'll be inconsistent, can't do this within the cache.
+     * order doesn't matter here: either way we'll be inconsistent, can't do this
+     * within the cache.
      */
     if (IS_IBL_TARGET(f->flags)) {
         ibl_branch_type_t branch_type;
         for (branch_type = IBL_BRANCH_TYPE_START;
              branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-            /* Of course, we need to shift only pointers into the cache that is getting shifted! */
+            /* Of course, we need to shift only pointers into the
+             * cache that is getting shifted!
+             */
             ibl_table_t *ibtable = GET_IBT_TABLE(pt, f->flags, branch_type);
             fragment_entry_t fe = FRAGENTRY_FROM_FRAGMENT(f);
             fragment_entry_t *pg;
@@ -4062,8 +4073,8 @@ is_fragment_index_wraparound(dcontext_t *dcontext, ibl_table_t *ftable, fragment
     ASSERT(pg != NULL);
     ASSERT(IBL_ENTRIES_ARE_EQUAL(*pg, fe));
     LOG(THREAD, LOG_FRAGMENT, 3,
-        "is_fragment_index_wraparound F%d, tag "PFX", found_at_hindex 0x%x, preferred 0x%x\n",
-        f->id, f->tag, found_at_hindex, hindex);
+        "is_fragment_index_wraparound F%d, tag "PFX", found_at_hindex 0x%x, "
+        "preferred 0x%x\n", f->id, f->tag, found_at_hindex, hindex);
     return (found_at_hindex < hindex); /* wraparound */
 }
 #endif /* DEBUG */
@@ -4134,9 +4145,8 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
      * will not have exits associated.
      */
     LOG(THREAD, LOG_FRAGMENT, 2,
-        "fragment_add_ibl_target added F%d("PFX"), branch %d, to %s, on exit from "PFX"\n",
-        f->id, f->tag,
-        ibl_table->branch_type, ibl_table->name,
+        "fragment_add_ibl_target added F%d("PFX"), branch %d, to %s, on exit from "
+        PFX"\n", f->id, f->tag, ibl_table->branch_type, ibl_table->name,
         LINKSTUB_FAKE(dcontext->last_exit) ? 0 :
         EXIT_CTI_PC(dcontext->last_fragment, dcontext->last_exit)
         );
@@ -4146,10 +4156,10 @@ fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
         dump_lookup_table(dcontext, ibl_table);
     });
     DODEBUG({
-        if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_IS_TRACE, f->flags))
+        if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_IS_TRACE, f->flags)) {
             LOG(THREAD, LOG_FRAGMENT, 2,
-                "add_ibl_target: shared BB F%d("PFX") added\n", f->id,
-                f->tag);
+                "add_ibl_target: shared BB F%d("PFX") added\n", f->id, f->tag);
+        }
     });
 }
 
@@ -4188,7 +4198,8 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
                             coarse_persisted_fill_ibl(dcontext, coarse, branch_type);
                             TABLE_RWLOCK(ibl_table, read, lock);
                             if (!IBL_ENTRY_IS_EMPTY(hashtable_ibl_lookup(dcontext,
-                                                                  (ptr_uint_t)tag, ibl_table)))
+                                                                         (ptr_uint_t)tag,
+                                                                         ibl_table)))
                                 in_persisted_ibl = true;
                             TABLE_RWLOCK(ibl_table, read, unlock);
                             if (in_persisted_ibl) {
@@ -4214,7 +4225,7 @@ fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag,
             if (f != NULL &&
                 (TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
                  TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags))) {
-                /* FIXME: should change the logic if trace headness becomes a private property */
+                /* XXX: change the logic if trace headness becomes a private property */
                 f = NULL; /* ignore fragment */
                 STATS_INC(num_ib_th_target); /* counted in num_ibt_cold_misses */
             }
@@ -5311,12 +5322,13 @@ fragment_self_write(dcontext_t *dcontext)
     } else {
 #ifdef PROGRAM_SHEPHERDING
         /* we can't call fragment_delete if vm_area_t deletes it by flushing */
-        if (!vm_area_fragment_self_write(dcontext, dcontext->last_fragment->tag))
+        if (!vm_area_fragment_self_write(dcontext, dcontext->last_fragment->tag)) {
 #endif
-            {
-                fragment_delete(dcontext, dcontext->last_fragment, FRAGDEL_ALL);
-                STATS_INC(num_fragments_deleted_selfmod);
-            }
+            fragment_delete(dcontext, dcontext->last_fragment, FRAGDEL_ALL);
+            STATS_INC(num_fragments_deleted_selfmod);
+#ifdef PROGRAM_SHEPHERDING
+        }
+#endif
     }
 }
 
@@ -5824,7 +5836,8 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
 
 /* Returns false iff was_I_flushed ends up being deleted */
 bool
-enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_transition)
+enter_couldbelinking(dcontext_t *dcontext, fragment_t *was_I_flushed,
+                     bool cache_transition)
 {
     per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
     bool not_flushed;
@@ -7406,7 +7419,8 @@ profile_fragment_dispatch(dcontext_t *dcontext)
      * be exiting the cache that often */
     uint64 end_time = get_time();
     bool tagtable = LINKSTUB_INDIRECT(dcontext->last_exit->flags);
-    if (dcontext->prev_fragment != NULL && (dcontext->prev_fragment->flags & FRAG_IS_TRACE) != 0) {
+    if (dcontext->prev_fragment != NULL &&
+        (dcontext->prev_fragment->flags & FRAG_IS_TRACE) != 0) {
         /* end time slot, charge time to last fragment
          * there's more overhead here than other time endings, so subtract
          * some time off.  these numbers are pretty arbitrary:
@@ -7415,8 +7429,8 @@ profile_fragment_dispatch(dcontext_t *dcontext)
         const uint64 adjust = (tagtable) ? 72 : 36;
         uint64 add = end_time - dcontext->start_time;
         if (add < adjust) {
-            SYSLOG_INTERNAL_ERROR("ERROR: profile_fragment_dispatch: add was %d, tagtable %d",
-                                  (int)add, tagtable);
+            SYSLOG_INTERNAL_ERROR("ERROR: profile_fragment_dispatch: add was %d, "
+                                  "tagtable %d", (int)add, tagtable);
             add = 0;
         } else
             add -= adjust;
@@ -7770,7 +7784,8 @@ study_and_free_coarse_htable(coarse_info_t *info, coarse_table_t *htable,
         ASSERT(htable->table_unaligned == NULL);
     }
     hashtable_coarse_free(GLOBAL_DCONTEXT, htable);
-    NONPERSISTENT_HEAP_TYPE_FREE(GLOBAL_DCONTEXT, htable, coarse_table_t, ACCT_FRAG_TABLE);
+    NONPERSISTENT_HEAP_TYPE_FREE(GLOBAL_DCONTEXT, htable, coarse_table_t,
+                                 ACCT_FRAG_TABLE);
 }
 
 void

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,31 +45,35 @@
 #define DIAGNOSTICS_FILE_XML_EXTENSION ".xml"
 #define DIAGNOSTICS_XML_FILE_VERSION "1.0"
 #define DIAGNOSTICS_NTDLL_DLL_LOCATION L"System32\\NTDLL.DLL"
-#define DIAGNOSTICS_HARDWARE_REG_KEY L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum"
-#define DIAGNOSTICS_CONTROL_REG_KEY L"\\Registry\\Machine\\System\\CurrentControlSet\\Control"
+#define DIAGNOSTICS_HARDWARE_REG_KEY \
+    L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum"
+#define DIAGNOSTICS_CONTROL_REG_KEY \
+    L"\\Registry\\Machine\\System\\CurrentControlSet\\Control"
 #define DIAGNOSTICS_TEST_REG_KEY L"\\Registry\\Machine\\Software"
-#define DIAGNOSTICS_OS_REG_KEY L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion"
-#define DIAGNOSTICS_OS_HOTFIX_REG_KEY L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Hotfix"
+#define DIAGNOSTICS_OS_REG_KEY \
+    L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion"
+#define DIAGNOSTICS_OS_HOTFIX_REG_KEY \
+    L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Hotfix"
 #define DIAGNOSTICS_BIOS_REG_KEY L"\\Registry\\Machine\\Hardware\\Description\\System"
 #define DIAGNOSTICS_SYSTEMROOT_REG_KEY L"SystemRoot"
 #define DIAGNOSTICS_DESCRIPTION_KEY L"DeviceDesc"
 #define DIAGNOSTICS_MANUFACTURER_KEY L"Mfg"
 #define DIAGNOSTICS_FRIENDLYNAME_KEY L"FriendlyName"
 
-#define DIAGNOSTICS_MAX_REG_KEYS 1000                  /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_REG_VALUES 1000                /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_RECURSION_LEVEL 5              /* Arbitrary, bit should keep small */
-#define DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE 500         /* Arbitrary - seems sufficient */
-#define DIAGNOSTICS_MAX_KEY_NAME_SIZE 257              /* From SDK, + 1 for a null */
+#define DIAGNOSTICS_MAX_REG_KEYS 1000            /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_REG_VALUES 1000          /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_RECURSION_LEVEL 5        /* Arbitrary, but should keep small */
+#define DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE 500   /* Arbitrary - seems sufficient */
+#define DIAGNOSTICS_MAX_KEY_NAME_SIZE 257        /* From SDK, + 1 for a null */
 #define DIAGNOSTICS_MAX_LOG_BUFFER_SIZE 1000
-#define DIAGNOSTICS_MAX_LOG_FILES 99999999             /* Supports 8.3 */
-#define DIAGNOSTICS_MINI_DUMP_SIZE 104                 /* multiple of 8, so is dumped aligned */
+#define DIAGNOSTICS_MAX_LOG_FILES 99999999       /* Supports 8.3 */
+#define DIAGNOSTICS_MINI_DUMP_SIZE 104           /* multiple of 8, so is dumped aligned */
 
-#define DIAGNOSTICS_REG_NAME       0x00000001L         /* Log key name */
-#define DIAGNOSTICS_REG_DATA       0x00000002L         /* Log key data */
-#define DIAGNOSTICS_REG_HARDWARE   0x00000004L         /* Look for device keys */
-#define DIAGNOSTICS_REG_ALLKEYS    0x00000008L         /* Search all keys */
-#define DIAGNOSTICS_REG_ALLSUBKEYS 0x00000010L         /* Search all subkeys (recursive)*/
+#define DIAGNOSTICS_REG_NAME       0x00000001L   /* Log key name */
+#define DIAGNOSTICS_REG_DATA       0x00000002L   /* Log key data */
+#define DIAGNOSTICS_REG_HARDWARE   0x00000004L   /* Look for device keys */
+#define DIAGNOSTICS_REG_ALLKEYS    0x00000008L   /* Search all keys */
+#define DIAGNOSTICS_REG_ALLSUBKEYS 0x00000010L   /* Search all subkeys (recursive)*/
 #define DIAGNOSTICS_INITIAL_PROCESS_TOTAL 10
 
 #define DIAGNOSTICS_BYTES_PER_LINE 32
@@ -77,7 +82,8 @@
    part of the offset.  When offsetting into the NameAndData member (see below), these
    bytes are not present, and must be decremented.  The 2 WCHARs readjusts back for the
    null-terminated Name[1] (which IS included in NameAndData).  Confusing, no? */
-#define DECREMENT_FOR_DATA_OFFSET (sizeof(KEY_VALUE_FULL_INFORMATION) - (sizeof(WCHAR) * 2))
+#define DECREMENT_FOR_DATA_OFFSET \
+    (sizeof(KEY_VALUE_FULL_INFORMATION) - (sizeof(WCHAR) * 2))
 
 typedef struct _DIAGNOSTICS_INFORMATION {
     SYSTEM_BASIC_INFORMATION sbasic_info;

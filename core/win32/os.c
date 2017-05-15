@@ -997,9 +997,10 @@ os_init(void)
 
     DODEBUG({
         /* FIXME: elevate failure here to a release-build syslog? */
-        if (!res)
-            SYSLOG_INTERNAL_ERROR("Cannot allocate %d tls slots at %d alignment", TLS_NUM_SLOTS,
-                                  alignment);
+        if (!res) {
+            SYSLOG_INTERNAL_ERROR("Cannot allocate %d tls slots at %d alignment",
+                                  TLS_NUM_SLOTS, alignment);
+        }
     });
 
     /* retry with no alignment on failure */
@@ -1014,7 +1015,8 @@ os_init(void)
         /* report even in release build that we really can't grab in TLS64 */
         if (!res) {
             ASSERT_NOT_TESTED();
-            SYSLOG_INTERNAL_ERROR("Cannot allocate %d tls slots at %d alignment", TLS_NUM_SLOTS,
+            SYSLOG_INTERNAL_ERROR("Cannot allocate %d tls slots at %d alignment",
+                                  TLS_NUM_SLOTS,
                                   alignment);
 
             report_dynamorio_problem(NULL, DUMPCORE_INTERNAL_EXCEPTION, NULL, NULL,
@@ -1439,9 +1441,10 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
                                DYNAMO_OPTION(internal_detach_mask)) ?
                           DETACH_BAD_STATE_NO_CLEANUP : DETACH_BAD_STATE);
             /* skip option synch, make this as safe as possible */
-            SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING,
-                                            "detach on terminate failed or already started by another thread, killing thread "TIDFMT"\n",
-                                            get_thread_id());
+            SYSLOG_INTERNAL_NO_OPTION_SYNCH
+                (SYSLOG_WARNING,
+                 "detach on terminate failed or already started by another thread, "
+                 "killing thread "TIDFMT"\n", get_thread_id());
             /* if we get here, either we recursed or someone is already trying
              * to detach, just kill this thread so progress is made we don't
              * have anything better to do with it */
@@ -1676,7 +1679,9 @@ os_thread_stack_exit(dcontext_t *dcontext)
         }
         if (TEST(ASLR_HEAP_FILL, DYNAMO_OPTION(aslr))) {
             size_t stack_reserved_size = ostd->stack_top - ostd->stack_base;
-            /* verified above with get_allocation_size() this is not only the committed portion */
+            /* verified above with get_allocation_size() this is not
+             * only the committed portion
+             */
             aslr_pre_process_free_virtual_memory(dcontext, ostd->stack_base,
                                                  stack_reserved_size);
         }
@@ -2458,8 +2463,8 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                 TABLE_RWLOCK(takeover_table, write, unlock);
             }
             LOG(GLOBAL, LOG_THREADS, 1,
-                "\tset context for thread "TIDFMT"; old xip="PFX", xsp="PFX", data="PFX"\n",
-                tid, data->continuation_pc, cxt->CXT_XSP, data);
+                "\tset context for thread "TIDFMT"; old xip="PFX", xsp="PFX", data="
+                PFX"\n", tid, data->continuation_pc, cxt->CXT_XSP, data);
             /* leave thread suspended */
         }
     } else {
@@ -2647,7 +2652,8 @@ thread_attach_setup(priv_mcontext_t *mc)
     set_at_syscall(dcontext, false);
 
     LOG(GLOBAL, LOG_THREADS, 1,
-        "TAKEOVER: thread "TIDFMT", start pc "PFX"\n", get_thread_id(), data->continuation_pc);
+        "TAKEOVER: thread "TIDFMT", start pc "PFX"\n",
+        get_thread_id(), data->continuation_pc);
 
     ASSERT(os_using_app_state(dcontext));
 
@@ -3097,9 +3103,10 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
             }
 
             DODEBUG({
-                if (inject)
+                if (inject) {
                     LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
                         "\tnon-excluded, non-preinjected child should be injected\n");
+                }
             });
         }
         if (inject) {
@@ -3142,11 +3149,12 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     int err = get_process_parameter(process_handle, PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
                                     library_path_buf, sizeof(library_path_buf));
 
-    /* If there is no app-specific subkey, then we should check in what mode are we injecting */
-    /* If we are in fact in follow_children - meaning all children are followed,
-       and there is no app specific option then we should use the parent library,
-       unless the child is in fact explicit in which case we just use the global library.
-    */
+    /* If there is no app-specific subkey, then we should check in
+     * what mode are we injecting.
+     * If we are in fact in follow_children - meaning all children are followed,
+     * and there is no app specific option then we should use the parent library,
+     * unless the child is in fact explicit in which case we just use the global library.
+     */
 
     switch (err) {
     case GET_PARAMETER_SUCCESS:
@@ -3168,7 +3176,8 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
         ASSERT_NOT_REACHED();
     }
 
-    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1, "\tinjecting %s into child process\n", library);
+    LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 1,
+        "\tinjecting %s into child process\n", library);
 
     if (DYNAMO_OPTION(aslr_dr) &&
         /* case 8749 - can't aslr dr for thin_clients */
@@ -3312,7 +3321,8 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
                  * FIXME i#1898: on win10 for heap crash handling we hit this, and
                  * we are currently missing the child.
                  */
-                SYSLOG_INTERNAL_WARNING("legacy process creation detected: may miss child");
+                SYSLOG_INTERNAL_WARNING("legacy process creation detected: may miss "
+                                        "child");
             } else {
                 injected = true; /* attempted, at least */
                 ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
@@ -3511,7 +3521,8 @@ find_dynamo_library_vm_areas()
     int num_regions = 0;
 
     get_dynamorio_library_path(); /* just to preserve side effects */
-    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" dll path: %s\n", get_dynamorio_library_path());
+    LOG(GLOBAL, LOG_VMAREAS, 1,
+        PRODUCT_NAME" dll path: %s\n", get_dynamorio_library_path());
 
     get_dynamorio_dll_start(); /* for side effects: probably already called though */
     ASSERT(dynamo_dll_start != NULL);
@@ -3705,9 +3716,10 @@ mem_stats_snapshot()
          */
         if (mbi.State == MEM_FREE || mbi.AllocationBase == mbi.BaseAddress) {
             bool ours = false;
-            if (r_start != NULL)
+            if (r_start != NULL) {
                 ours = add_mem_stats(r_start, r_commit, r_reserve, r_is_stack,
                                      r_type, r_exec, r_ro, r_rw);
+            }
             /* reset for next region */
             r_commit = r_reserve = r_exec = r_ro = r_rw = 0;
             r_is_stack = false;
@@ -3763,8 +3775,10 @@ mem_stats_snapshot()
             break;
         pb += mbi.RegionSize;
     }
-    if (r_start != NULL)
-        add_mem_stats(r_start, r_commit, r_reserve, r_is_stack, r_type, r_exec, r_ro, r_rw);
+    if (r_start != NULL) {
+        add_mem_stats(r_start, r_commit, r_reserve, r_is_stack, r_type, r_exec,
+                      r_ro, r_rw);
+    }
     STATS_PEAK(unaligned_allocations);
     STATS_PEAK(dr_commited_capacity);
     STATS_PEAK(dr_reserved_capacity);
@@ -3944,7 +3958,12 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                 SYSLOG_INTERNAL_INFO(".pexe module %s added to native exec area",
                                      name ? name : "<noname>");
                 /* check is one of the known .pexe dlls */
-                ASSERT_CURIOSITY(name != NULL && check_filter("AuxiliaryDisplayCpl.dll;AuxiliaryDisplayDriverLib.dll;AuxiliaryDisplayServices.dll;NetProjW.dll;P2PGraph.dll;localspl.dll;lsasrv.dll;mssrch.dll;p2psvc.dll;pmcsnap.dll;shell32.dll;spoolss.dll;uDWM.dll", name));
+                ASSERT_CURIOSITY
+                    (name != NULL && check_filter
+                     ("AuxiliaryDisplayCpl.dll;AuxiliaryDisplayDriverLib.dll;"
+                      "AuxiliaryDisplayServices.dll;NetProjW.dll;P2PGraph.dll;"
+                      "localspl.dll;lsasrv.dll;mssrch.dll;p2psvc.dll;pmcsnap.dll;"
+                      "shell32.dll;spoolss.dll;uDWM.dll", name));
             }
         });
         module_is_native_exec = true;
@@ -4056,7 +4075,8 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                     vmvector_add(IAT_areas, IAT_start, IAT_end, NULL);
                 } else {
                     LOG(GLOBAL, LOG_INTERP, 1,
-                        "skipping native module %s IAT("PFX","PFX"), native modules seen\n",
+                        "skipping native module %s IAT("PFX","PFX
+                        "), native modules seen\n",
                         name ? name : "<noname>",
                         IAT_start, IAT_end);
                 }
@@ -4514,9 +4534,10 @@ dump_profile_range(file_t file, profile_t *profile, byte *start, byte *end)
     ASSERT(start_i < profile->buffer_size / sizeof(uint) &&
            end_i < profile->buffer_size / sizeof(uint));
     for (i = start_i; i <= end_i; i++) {
-        if (profile->buffer[i] > 0)
+        if (profile->buffer[i] > 0) {
             print_file(file, PFX" %10d\n", (byte *)profile->start + i * step,
                        profile->buffer[i]);
+        }
     }
     print_file(file, "Finished Profile Dump\n");
 }
@@ -5052,7 +5073,8 @@ typedef struct {
 
 #define print_timeout_message(buf, context) \
    snprintf(buf, sizeof(buf), "%s\n""You have %d seconds to respond", \
-            ((timeout_context_t*)context)->message, ((timeout_context_t*)context)->seconds_left);
+            ((timeout_context_t*)context)->message, \
+            ((timeout_context_t*)context)->seconds_left);
 
 /* FIXME: Be careful about creating a thread -- make sure we
 don't intercept its asynch events.  Not clear how to do that -- you can
@@ -5087,7 +5109,7 @@ message_box_timeout_thread(void *context) {
                 }
             }
         }
-    } while(!tcontext->done);
+    } while (!tcontext->done);
     return 0;
 }
 
@@ -5883,10 +5905,12 @@ internal_change_protection(byte *start, size_t requested_size, bool set,
             LOG(THREAD_GET, LOG_VMAREAS, 2,
                 "WARNING: make_%swritable "PFX": param size "PIFX" vs. "
                 "mbi size "PIFX" base "PFX"\n",
-                writable ? "" : "un", pc, remaining_size, mbi.RegionSize, mbi.BaseAddress);
-            /* we see this on make_writable when we've merged regions that we made read-only
-             * and we go to restore their permissions.
-             * we can see it for the same region many times in a row (e.g., on javac in SPECJVM98),
+                writable ? "" : "un", pc, remaining_size, mbi.RegionSize,
+                mbi.BaseAddress);
+            /* we see this on make_writable when we've merged regions
+             * that we made read-only and we go to restore their permissions.
+             * we can see it for the same region many times in a row
+             * (e.g., on javac in SPECJVM98),
              */
             /* flag in GLOBAL LOG */
             LOG(GLOBAL, LOG_VMAREAS, pc == start ? 1U : 2U,
@@ -6839,7 +6863,7 @@ os_flush(file_t f)
     nt_flush_file_buffers(f);
 }
 
-/* seek the current file position to offset bytes from origin, return true if successful */
+/* seek current file position to offset bytes from origin, return true if successful */
 bool
 os_seek(file_t f, int64 offset, int origin)
 {
@@ -7498,10 +7522,11 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
      * turned off! We hack around it here */
     if (all_threads_lock.owner == get_thread_id()) {
         LOG(GLOBAL, LOG_ALL, 1,
-            "WARNING : live dump, faulting thread already owns the all_threads lock, let's hope things are consistent\n");
+            "WARNING : live dump, faulting thread already owns the all_threads lock, "
+            "let's hope things are consistent\n");
     } else {
 #endif
-        for(i=0; i < 100 /* arbitrary num */; i++) {
+        for (i=0; i < 100 /* arbitrary num */; i++) {
             if (mutex_trylock(&all_threads_lock)) {
                 have_all_threads_lock = true;
                 break;
@@ -7875,7 +7900,8 @@ detach_handle_callbacks(int num_threads, thread_record_t **threads,
             cleanup_tpc[i] = (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
                               INTERNAL_OPTION(detach_fix_sysenter_on_stack));
             LOG(GLOBAL, LOG_ALL, 1,
-                "Detach : thread "TIDFMT" had %d stacked callbacks\n", threads[i]->id, count);
+                "Detach : thread "TIDFMT" had %d stacked callbacks\n",
+                threads[i]->id, count);
         } else {
             /* no saved callback state, done with this thread */
             LOG(GLOBAL, LOG_ALL, 1,
@@ -8152,7 +8178,7 @@ mutex_get_contended_event(contention_event_t *contended_event, EVENT_TYPE event_
         contention_event_t new_event;
         bool not_yet_created;
         /* not signaled */
-        /* EVENT_ALL_ACCESS, although observed access mask of 0x100003 (SYNCHRONIZE|0x3) */
+        /* EVENT_ALL_ACCESS, although observed access mask 0x100003 (SYNCHRONIZE|0x3) */
         new_event = nt_create_event(event_type);
 
         not_yet_created =
@@ -8218,7 +8244,8 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
         DO_ONCE({
             reported_timeout = true;
             report_dynamorio_problem(NULL, DUMPCORE_TIMEOUT, NULL, NULL,
-                                     "Timeout expired - 1st wait, possible deadlock (or you were debugging)");
+                                     "Timeout expired - 1st wait, possible deadlock "
+                                     "(or you were debugging)");
             /* do a 2nd wait so we can get two dumps to compare for progress */
             /* FIXME - use shorter timeout for the 2nd wait? */
             res = nt_wait_event_with_timeout(e, &timeout /* debug timeout */);
@@ -8228,13 +8255,15 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
                 /* FIXME - should we reset the DO_ONCE now? */
                 /* FIXME - should this be a report_dynamorio_problem or some
                  * such so is more useful in release builds? */
-                SYSLOG_INTERNAL_WARNING("WARNING - 2nd wait after deadlock timeout expired succeeded! Not really deadlocked.");
+                SYSLOG_INTERNAL_WARNING("WARNING - 2nd wait after deadlock timeout "
+                                        "expired succeeded! Not really deadlocked.");
                 KSTOP(wait_event);
                 return;
             }
             ASSERT(res == WAIT_TIMEDOUT);
             report_dynamorio_problem(NULL, DUMPCORE_TIMEOUT, NULL, NULL,
-                                     "Timeout expired - 2nd wait, possible deadlock (or you were debugging)");
+                                     "Timeout expired - 2nd wait, possible deadlock "
+                                     "(or you were debugging)");
         });
     }
     /* fallback to waiting forever */
@@ -8254,7 +8283,8 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
         /* FIXME - should we reset the DO_ONCE now? */
         /* FIXME - should this be a report_dynamorio_problem or some
          * such so is more useful in release builds? */
-        SYSLOG_INTERNAL_WARNING("WARNING - Final wait after reporting deadlock timeout expired succeeded! Not really deadlocked.");
+        SYSLOG_INTERNAL_WARNING("WARNING - Final wait after reporting deadlock timeout "
+                                "expired succeeded! Not really deadlocked.");
     }
     KSTOP(wait_event);
 }
@@ -8333,8 +8363,8 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
     os_wait_event(notify_readers _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
-    /* the event was signaled, and only a single threads waiting on this event are released,
-       if this was indeed the last reader
+    /* the event was signaled, and only a single threads waiting on
+     * this event are released, if this was indeed the last reader
     */
 }
 
@@ -8402,9 +8432,10 @@ get_timer_frequency()
 
     processor_speed = freq.QuadPart / 1000; /* convert to KHz */
     /* case 2937 - windows sometimes is using RTC */
-    if (processor_speed < 500*1000 /* considering 500 MHz too low for a modern machine */) {
+    if (processor_speed < 500*1000 /* 500 MHz too low for a modern machine */) {
         processor_speed = 2937*1000;
-        LOG(GLOBAL, LOG_ALL, 1, "get_timer_frequency: OS is using RTC!  Reported speed is bogus.\n");
+        LOG(GLOBAL, LOG_ALL, 1,
+            "get_timer_frequency: OS is using RTC!  Reported speed is bogus.\n");
     }
     return processor_speed;
 }
@@ -8968,7 +8999,8 @@ open_trusted_cache_root_directory(void)
     } else {
         /* no aslr so this is just for pcache */
         ASSERT(strcmp(DYNAMORIO_VAR_CACHE_ROOT, DYNAMORIO_VAR_PERSCACHE_ROOT) == 0);
-        param_ok = perscache_dirname(base_directory, BUFFER_SIZE_ELEMENTS(base_directory));
+        param_ok =
+            perscache_dirname(base_directory, BUFFER_SIZE_ELEMENTS(base_directory));
     }
     if (!param_ok ||
         double_strchr(base_directory, DIRSEP, ALT_DIRSEP) == NULL) {

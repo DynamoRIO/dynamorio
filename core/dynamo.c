@@ -163,8 +163,7 @@ int exiting_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 /* This is unprotected to allow stats to be written while the data
  * segment is still protected (right now the only ones are selfmod stats)
  */
-static dr_statistics_t nonshared_stats VAR_IN_SECTION(NEVER_PROTECTED_SECTION)
-     = {{0},};
+static dr_statistics_t nonshared_stats VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = {{0},};
 
 /* Each lock protects its corresponding datasec_start, datasec_end, and
  * datasec_writable variables.
@@ -597,7 +596,8 @@ dynamorio_app_init(void)
          * issue.
          */
         size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*);
-        all_threads = (thread_record_t**) global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
+        all_threads =
+            (thread_record_t**) global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
         if (!INTERNAL_OPTION(nop_initial_bblock)
             IF_WINDOWS(|| !check_sole_thread())) /* some other thread is already here! */
@@ -668,7 +668,8 @@ dynamorio_app_init(void)
 
         if (SELF_PROTECT_ON_CXT_SWITCH) {
             protect_info = (protect_info_t *)
-                global_unprotected_heap_alloc(sizeof(protect_info_t) HEAPACCT(ACCT_OTHER));
+                global_unprotected_heap_alloc(sizeof(protect_info_t)
+                                              HEAPACCT(ACCT_OTHER));
             ASSIGN_INIT_LOCK_FREE(protect_info->lock, protect_info);
             protect_info->num_threads_unprot = 0; /* ENTERING_DR() below will inc to 1 */
             protect_info->num_threads_suspended = 0;
@@ -956,7 +957,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 
     if (SELF_PROTECT_ON_CXT_SWITCH) {
         DELETE_LOCK(protect_info->lock);
-        global_unprotected_heap_free(protect_info, sizeof(protect_info_t) HEAPACCT(ACCT_OTHER));
+        global_unprotected_heap_free(protect_info, sizeof(protect_info_t)
+                                     HEAPACCT(ACCT_OTHER));
     }
 
     /* call all component exit routines (CAUTION: order is important here) */
@@ -1373,7 +1375,7 @@ dynamo_process_exit(void)
      * beyond our death, we're not holding any systemwide locks, etc.
      */
 
-    /* It is not clear whether the Event Log service can handle well unterminated connections */
+    /* It is not clear whether the Event Log service handles unterminated connections */
 
     /* Do we need profile data for each thread?
      * Note that windows prof_pcs duplicates the thread walk in os_exit()
@@ -1423,11 +1425,12 @@ dynamo_process_exit(void)
                 continue;
 #endif
             /* FIXME: separate trace dump from rest of fragment cleanup code */
-            if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| true))
+            if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| true)) {
                 /* We always want to call this for CI builds so we can get the
                  * dr_fragment_deleted() callbacks.
                  */
                 fragment_thread_exit(threads[i]->dcontext);
+            }
 # ifdef UNIX
             if (INTERNAL_OPTION(profile_pcs))
                 pcprofile_thread_exit(threads[i]->dcontext);
@@ -1604,7 +1607,8 @@ create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
     }
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         dcontext->upcontext.separate_upcontext =
-            global_unprotected_heap_alloc(sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
+            global_unprotected_heap_alloc(sizeof(unprotected_context_t)
+                                          HEAPACCT(ACCT_OTHER));
         /* don't need to initialize upcontext */
         LOG(GLOBAL, LOG_TOP, 2, "new dcontext="PFX", dcontext->upcontext="PFX"\n",
             dcontext, dcontext->upcontext.separate_upcontext);
@@ -1670,7 +1674,8 @@ void
 initialize_dynamo_context(dcontext_t *dcontext)
 {
     /* we can't just zero out the whole thing b/c we have persistent state
-     * (fields kept across callbacks, like dstack, module-private fields, next & prev, etc.)
+     * (fields kept across callbacks, like dstack, module-private fields, next &
+     * prev, etc.)
      */
     memset(dcontext->upcontext_ptr, 0, sizeof(unprotected_context_t));
     dcontext->initialized = true;
@@ -2269,8 +2274,10 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
         dcontext->logfile = INVALID_FILE;
     }
     DOLOG(1, LOG_TOP|LOG_THREADS, {
-        LOG(THREAD, LOG_TOP|LOG_THREADS, 1, PRODUCT_NAME" built with: %s\n", DYNAMORIO_DEFINES);
-        LOG(THREAD, LOG_TOP|LOG_THREADS, 1, PRODUCT_NAME" built on: %s\n", dynamorio_buildmark);
+        LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
+            PRODUCT_NAME" built with: %s\n", DYNAMORIO_DEFINES);
+        LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
+            PRODUCT_NAME" built on: %s\n", dynamorio_buildmark);
     });
 
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
@@ -3101,7 +3108,8 @@ dynamorio_unprotect(void)
      * it was protected lazily
      */
     mutex_unlock(&protect_info->lock);
-    LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_unprotect thread="TIDFMT"\n", get_thread_id());
+    LOG(GLOBAL, LOG_DISPATCH, 4,
+        "dynamorio_unprotect thread="TIDFMT"\n", get_thread_id());
 }
 
 #ifdef DEBUG

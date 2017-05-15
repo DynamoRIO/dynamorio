@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -84,7 +85,8 @@ struct kernel_sigaction_t {
 #define MARGIN 8
 
 /* POSIX sigdelset: delete signal signum from set. */
-void kernel_sigdelset(kernel_sigset_t *set, int signum)
+void
+kernel_sigdelset(kernel_sigset_t *set, int signum)
 {
     size_t b = sizeof(long) * 8;
     set->sig[(signum - 1) / b] &= ~(1L << ((signum - 1) % b));

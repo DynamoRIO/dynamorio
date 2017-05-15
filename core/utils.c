@@ -361,7 +361,8 @@ dump_process_locks()
     cur_lock = &innermost_lock;
     do {
         depth++;
-        LOG(GLOBAL, LOG_STATS, (cur_lock->count_times_contended ? 1U: 2U), /* elevate contended ones */
+        LOG(GLOBAL, LOG_STATS,
+            (cur_lock->count_times_contended ? 1U: 2U), /* elevate contended ones */
             DUMP_LOCK_INFO_ARGS(depth, cur_lock, cur_lock->next_process_lock));
         DOLOG((cur_lock->count_times_contended ? 2U: 3U), /* elevate contended ones */
               LOG_THREADS, {
@@ -378,7 +379,8 @@ dump_process_locks()
         ASSERT(cur_lock->next_process_lock != cur_lock || cur_lock == &innermost_lock);
     } while (cur_lock != &innermost_lock);
     mutex_unlock(&innermost_lock);
-    LOG(GLOBAL, LOG_STATS, 1, "Currently live process locks: %d, acquired %d, contended %d (current only)\n",
+    LOG(GLOBAL, LOG_STATS, 1,
+        "Currently live process locks: %d, acquired %d, contended %d (current only)\n",
         depth, total_acquired, total_contended);
 }
 
@@ -454,8 +456,10 @@ locks_thread_exit(dcontext_t *dcontext)
                /* PR 546016: sideline client thread might hold client lock */
                IF_CLIENT_INTERFACE(|| dcontext->thread_owned_locks->last_lock->rank ==
                                    dr_client_mutex_rank));
-        dcontext->thread_owned_locks = NULL; /* disable thread lock checks before freeing memory */
-        UNPROTECTED_GLOBAL_FREE(old_thread_locks, sizeof(thread_locks_t) HEAPACCT(ACCT_OTHER));
+        /* disable thread lock checks before freeing memory */
+        dcontext->thread_owned_locks = NULL;
+        UNPROTECTED_GLOBAL_FREE(old_thread_locks, sizeof(thread_locks_t)
+                                HEAPACCT(ACCT_OTHER));
     }
 }
 
@@ -563,7 +567,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
     if (acquired) {
         lock->count_times_acquired++;
         /* CHECK: everything here works without mutex_trylock's */
-        LOG(GLOBAL, LOG_THREADS, 6, "acquired lock "PFX" %s rank=%d, %s dcontext, tid:%d, %d time\n",
+        LOG(GLOBAL, LOG_THREADS, 6,
+            "acquired lock "PFX" %s rank=%d, %s dcontext, tid:%d, %d time\n",
             lock, lock->name, lock->rank,
             get_thread_private_dcontext() ? "valid" : "not valid",
             get_thread_id(),
@@ -587,7 +592,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
          */
         ASSERT(lock != &thread_initexit_lock || !is_self_couldbelinking());
 
-        if (INTERNAL_OPTION(deadlock_avoidance) && get_thread_private_dcontext() != NULL) {
+        if (INTERNAL_OPTION(deadlock_avoidance) &&
+            get_thread_private_dcontext() != NULL) {
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (dcontext->thread_owned_locks != NULL) {
 #ifdef CLIENT_INTERFACE
@@ -607,10 +613,11 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                     if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("rank order violation");
                     /* report rank order violation */
-                    SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_CRITICAL,
-                                                    "rank order violation %s acquired after %s in tid:%x",
-                                                    lock->name,
-                                                    dcontext->thread_owned_locks->last_lock->name, get_thread_id());
+                    SYSLOG_INTERNAL_NO_OPTION_SYNCH
+                        (SYSLOG_CRITICAL,
+                         "rank order violation %s acquired after %s in tid:%x",
+                         lock->name,
+                         dcontext->thread_owned_locks->last_lock->name, get_thread_id());
                     dump_owned_locks(dcontext);
                 }
                 ASSERT((dcontext->thread_owned_locks->last_lock->rank < lock->rank
@@ -663,43 +670,40 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 
     ASSERT(lock->owner == get_thread_id());
     if (INTERNAL_OPTION(deadlock_avoidance) && lock->owning_dcontext != NULL &&
-        lock->owning_dcontext != GLOBAL_DCONTEXT)
-        {
-            dcontext_t *dcontext = get_thread_private_dcontext();
-            if (dcontext == NULL) {
+        lock->owning_dcontext != GLOBAL_DCONTEXT) {
+        dcontext_t *dcontext = get_thread_private_dcontext();
+        if (dcontext == NULL) {
 #ifdef DEBUG
-                /* thread_initexit_lock and all_threads_synch_lock
-                 * are unlocked after tearing down thread structures
-                 */
+            /* thread_initexit_lock and all_threads_synch_lock
+             * are unlocked after tearing down thread structures
+             */
 # if defined(UNIX) && !defined(HAVE_TLS)
-                extern mutex_t tls_lock;
+            extern mutex_t tls_lock;
 # endif
-                bool null_ok = (lock == &thread_initexit_lock ||
-                                lock == &all_threads_synch_lock
+            bool null_ok = (lock == &thread_initexit_lock ||
+                            lock == &all_threads_synch_lock
 # if defined(UNIX) && !defined(HAVE_TLS)
-                                || lock == &tls_lock
+                            || lock == &tls_lock
 # endif
-                                );
-                ASSERT(null_ok);
+                            );
+            ASSERT(null_ok);
 #endif
-            }
-            else {
-                ASSERT(lock->owning_dcontext == dcontext);
-                if (dcontext->thread_owned_locks != NULL) {
-                    DOLOG(6, LOG_THREADS, {
-                        dump_owned_locks(dcontext);
-                    });
-                    /* LIFO order even though order in releasing doesn't matter */
-                    ASSERT(dcontext->thread_owned_locks->last_lock == lock);
-                    dcontext->thread_owned_locks->last_lock = lock->prev_owned_lock;
-                    lock->prev_owned_lock = NULL;
-                }
+        } else {
+            ASSERT(lock->owning_dcontext == dcontext);
+            if (dcontext->thread_owned_locks != NULL) {
+                DOLOG(6, LOG_THREADS, { dump_owned_locks(dcontext); });
+                /* LIFO order even though order in releasing doesn't matter */
+                ASSERT(dcontext->thread_owned_locks->last_lock == lock);
+                dcontext->thread_owned_locks->last_lock = lock->prev_owned_lock;
+                lock->prev_owned_lock = NULL;
             }
         }
+    }
     lock->owner = INVALID_THREAD_ID;
     lock->owning_dcontext = NULL;
 }
-#define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) deadlock_avoidance_lock(lock, acquired, ownable)
+#define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) \
+    deadlock_avoidance_lock(lock, acquired, ownable)
 #define DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable) deadlock_avoidance_unlock(lock, ownable)
 #else
 #  define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) /* do nothing */
@@ -852,7 +856,9 @@ mutex_lock(mutex_t *lock)
         return;
     }
 
-    /* we may want to first spin the lock for a while if we are on a multiprocessor machine */
+    /* we may want to first spin the lock for a while if we are on a multiprocessor
+     * machine
+     */
     /* option is external only so that we can set it to 0 on a uniprocessor */
     if (spinlock_count) {
         uint i;
@@ -862,7 +868,9 @@ mutex_lock(mutex_t *lock)
 
         /* otherwise contended, we should spin for some time */
         i = spinlock_count;
-        /* while spinning we are PAUSEing and reading without LOCKing the bus in the spin loop */
+        /* while spinning we are PAUSEing and reading without LOCKing the bus in the
+         * spin loop
+         */
         do {
             /* hint we are spinning */
             SPINLOCK_PAUSE();
@@ -1251,7 +1259,9 @@ bool write_trylock(read_write_lock_t *rw)
             mutex_unlock(&rw->lock);
             /* check whether any reader is currently waiting */
             if (rw->num_pending_readers > 0) {
-                /* after we've released the write lock, pending readers will no longer wait */
+                /* after we've released the write lock, pending
+                 * readers will no longer wait
+                 */
                 rwlock_notify_readers(rw);
             }
         }
@@ -1406,7 +1416,7 @@ hash_value(ptr_uint_t val, hash_function_t func, ptr_uint_t mask, uint bits)
 {
     if (func == HASH_FUNCTION_NONE)
         return val;
-    switch(func)
+    switch (func)
         {
         case HASH_FUNCTION_MULTIPLY_PHI:
             {
@@ -1620,7 +1630,8 @@ bitmap_free_blocks(bitmap_t b, uint bitmap_size, uint first_block, uint num_free
 #ifdef DEBUG
 /* used only for ASSERTs */
 bool
-bitmap_are_reserved_blocks(bitmap_t b, uint bitmap_size, uint first_block, uint num_blocks)
+bitmap_are_reserved_blocks(bitmap_t b, uint bitmap_size, uint first_block,
+                           uint num_blocks)
 {
     ASSERT(first_block + num_blocks <= bitmap_size);
     do {
@@ -1756,10 +1767,12 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
     *top = (uint) ((multiple * numerator) / denominator);
     for (i = 0, precision_multiple = 1; i < precision; i++)
         precision_multiple *= 10;
-    ASSERT_TRUNCATE(*bottom, uint, (((precision_multiple * multiple * numerator) / denominator)
-                                    - (precision_multiple * *top)));
-    /* FUNNY: if I forget the above ) I crash the preprocessor: cc1 internal compiler error
-     * couldn't reproduce in a smaller set to file a bug against gcc version 3.3.3 (cygwin special)
+    ASSERT_TRUNCATE(*bottom, uint,
+                    (((precision_multiple * multiple * numerator) / denominator)
+                     - (precision_multiple * *top)));
+    /* FUNNY: if I forget the above ) I crash the preprocessor: cc1
+     * internal compiler error couldn't reproduce in a smaller set to
+     * file a bug against gcc version 3.3.3 (cygwin special)
      */
     *bottom = (uint) (((precision_multiple * multiple * numerator) / denominator)
                       - (precision_multiple * *top));
@@ -1949,9 +1962,10 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #ifdef WINDOWS
     if (TEST(priority, dynamo_options.syslog_mask)) {
         if (internal) {
-            if (TEST(priority, INTERNAL_OPTION(syslog_internal_mask)))
+            if (TEST(priority, INTERNAL_OPTION(syslog_internal_mask))) {
                 do_syslog(priority, message_id, 3, get_application_name(),
                           get_application_pid(), msgbuf);
+            }
         } else {
             va_start(ap, fmt);
             os_syslog(priority, message_id, substitution_num, ap);
@@ -2941,16 +2955,17 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     }
     /* full path is often too long, so just print final dir and file name */
 #ifdef UNIX
-    if (!post_execve)
+    if (!post_execve) {
 #endif
-        {
-            /* Note that we won't receive a message for the global logfile
-             * since the caller won't have set it yet.  However, we will get
-             * all thread log files logged here. */
-            LOG(GLOBAL, LOG_THREADS, 1,
-                "created log file %d=%s\n", file,
-                double_strrchr(name, DIRSEP, ALT_DIRSEP) + 1);
-        }
+        /* Note that we won't receive a message for the global logfile
+         * since the caller won't have set it yet.  However, we will get
+         * all thread log files logged here. */
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "created log file %d=%s\n", file,
+            double_strrchr(name, DIRSEP, ALT_DIRSEP) + 1);
+#ifdef UNIX
+    }
+#endif
     if (finalname_with_path != NULL) {
         strncpy(finalname_with_path, name, maxlen);
         finalname_with_path[maxlen-1]  = '\0'; /* if max no null */
@@ -3151,7 +3166,8 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
      * with the only difference being THREAD vs GLOBAL, e.g. LOG(GLOBAL and GLOBAL_STAT
      * Keep in sync or make a template statistics dump macro for both cases.
      */
-    LOG(logfile, LOG_STATS, 1, "(Begin) Thread statistics @%d global, %d thread fragments ",
+    LOG(logfile, LOG_STATS, 1,
+        "(Begin) Thread statistics @%d global, %d thread fragments ",
         GLOBAL_STAT(num_fragments), THREAD_STAT(dcontext, num_fragments));
     DOLOG(1, LOG_STATS, { print_timestamp(logfile); });
     /* give up right away if thread stats lock already held, will dump next time
@@ -3177,7 +3193,7 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
 
     LOG(logfile, LOG_STATS, 1, "(End) Thread statistics\n");
     mutex_unlock(&dcontext->thread_stats->thread_stats_lock);
-    /* TODO: update all thread statistics, using the thread stats delta when implemented */
+    /* TODO: update thread statistics, using the thread stats delta when implemented */
 
 #ifdef KSTATS
     dump_thread_kstats(dcontext);
@@ -3194,7 +3210,8 @@ dump_global_stats(bool raw)
     if (!dynamo_exited_and_cleaned)
         print_vmm_heap_data(GLOBAL);
     if (GLOBAL_STATS_ON()) {
-        LOG(GLOBAL, LOG_STATS, 1, "(Begin) All statistics @%d ", GLOBAL_STAT(num_fragments));
+        LOG(GLOBAL, LOG_STATS, 1,
+            "(Begin) All statistics @%d ", GLOBAL_STAT(num_fragments));
         DOLOG(1, LOG_STATS, { print_timestamp(GLOBAL); });
         LOG(GLOBAL, LOG_STATS, 1, ":\n");
 #define STATS_DEF(desc, stat) if (GLOBAL_STAT(stat)) {                                  \
@@ -3290,7 +3307,8 @@ dump_buffer_as_bytes (file_t logfile, void *buffer, size_t len, int flags)
 
     unsigned char *buf = (unsigned char*) buffer;
 
-    int per_line = (flags & DUMP_PER_LINE) ? (flags & DUMP_PER_LINE) : DUMP_PER_LINE_DEFAULT;
+    int per_line = (flags & DUMP_PER_LINE) ?
+        (flags & DUMP_PER_LINE) : DUMP_PER_LINE_DEFAULT;
     size_t i;
     int nonprint = 0;
     size_t line_start = 0;
@@ -4073,7 +4091,8 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
         if (!ok) {
             /* FIXME: notify the customer that they are low on disk space? */
             SYSLOG_INTERNAL_WARNING_ONCE("reached minimal free disk space limit,"
-                                         " available "UINT64_FORMAT_STRING"MB, limit %dMB, "
+                                         " available "UINT64_FORMAT_STRING
+                                         "MB, limit %dMB, "
                                          "asking for "UINT64_FORMAT_STRING"KB",
                                          user_available_bytes/1024/1024,
                                          DYNAMO_OPTION(min_free_disk)/1024/1024,

@@ -100,7 +100,7 @@
 # define __NR_sigpending                 (__NR_SYSCALL_BASE+ 73)
 # define __NR_sethostname                (__NR_SYSCALL_BASE+ 74)
 # define __NR_setrlimit                  (__NR_SYSCALL_BASE+ 75)
-# define __NR_getrlimit                  (__NR_SYSCALL_BASE+ 76) /* Back compat 2GB limited rlimit */
+# define __NR_getrlimit                  (__NR_SYSCALL_BASE+ 76)
 # define __NR_getrusage                  (__NR_SYSCALL_BASE+ 77)
 # define __NR_gettimeofday               (__NR_SYSCALL_BASE+ 78)
 # define __NR_settimeofday               (__NR_SYSCALL_BASE+ 79)
@@ -137,7 +137,7 @@
                                         /* 110 was sys_iopl */
 # define __NR_vhangup                    (__NR_SYSCALL_BASE+111)
                                         /* 112 was sys_idle */
-# define __NR_syscall                    (__NR_SYSCALL_BASE+113) /* syscall to call a syscall! */
+# define __NR_syscall                    (__NR_SYSCALL_BASE+113)
 # define __NR_wait4                      (__NR_SYSCALL_BASE+114)
 # define __NR_swapoff                    (__NR_SYSCALL_BASE+115)
 # define __NR_sysinfo                    (__NR_SYSCALL_BASE+116)
@@ -215,7 +215,7 @@
                                         /* 188 reserved */
                                         /* 189 reserved */
 # define __NR_vfork                      (__NR_SYSCALL_BASE+190)
-# define __NR_ugetrlimit                 (__NR_SYSCALL_BASE+191) /* SuS compliant getrlimit */
+# define __NR_ugetrlimit                 (__NR_SYSCALL_BASE+191)
 # define __NR_mmap2                      (__NR_SYSCALL_BASE+192)
 # define __NR_truncate64                 (__NR_SYSCALL_BASE+193)
 # define __NR_ftruncate64                (__NR_SYSCALL_BASE+194)

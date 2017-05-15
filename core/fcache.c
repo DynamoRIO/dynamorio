@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,8 @@
 
 /*
  * unit initial size is FCACHE_OPTION(cache_{bb,trace}_unit_init, default is 32*1024
- * it grows by 4X steps up to FCACHE_OPTION(cache_{bb,trace}_unit_quadruple, default is 32*1024
+ * it grows by 4X steps up to FCACHE_OPTION(cache_{bb,trace}_unit_quadruple, default
+ * is 32*1024
  * unit max size is FCACHE_OPTION(cache_{bb,trace}_unit_max, default is 64*1024
  * once at max size, we make new units, all of max size
  *
@@ -173,14 +174,14 @@ typedef struct _live_header_t {
  * Thus:
  *           ------
  *           header
- *           <up to START_PC_ALIGNMENT-1 bytes padding, stored in the alignment of start_pc>
+ *           <up to START_PC_ALIGNMENT-1 bytes padding, stored in alignment of start_pc>
  * start_pc: prefix
  *           body
  *           stubs
  *           <padding for alignment>
  *           ------
  *           header
- *           <up to START_PC_ALIGNMENT-1 bytes padding, stored in the alignment of start_pc>
+ *           <up to START_PC_ALIGNMENT-1 bytes padding, stored in alignment of start_pc>
  * start_pc: ...
  */
 typedef struct _empty_slot_t {
@@ -234,9 +235,9 @@ typedef struct _empty_slot_t {
  * FIXME: we can't assert as we can't do a unit lookup at all use sites
  */
 #define FRAG_SIZE_ASSIGN(f, val) do {                                                   \
-    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                                             \
-        ASSERT_TRUNCATE(((empty_slot_t *)(f))->fcache_size, uint, val);                    \
-        ((empty_slot_t *)(f))->fcache_size = (val);                                        \
+    if (TEST(FRAG_IS_EMPTY_SLOT, (f)->flags)) {                                         \
+        ASSERT_TRUNCATE(((empty_slot_t *)(f))->fcache_size, uint, val);                 \
+        ((empty_slot_t *)(f))->fcache_size = (val);                                     \
     } else {                                                                            \
         /* cl has string limit so need temp to get ASSERT to compile */                 \
         uint extra_tmp = ((val) - ((f)->size + FRAG_START_PADDING(f)));                 \
@@ -722,13 +723,15 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
             ret = true;                                                       \
         }                                                                     \
         if (dynamo_options.cache_##param##_replace != 0 &&                    \
-            dynamo_options.cache_##param##_regen > dynamo_options.cache_##param##_replace) { \
+            dynamo_options.cache_##param##_regen >                            \
+            dynamo_options.cache_##param##_replace) {                         \
             USAGE_ERROR("-cache_"#param"_regen (currently %d) must be <= "    \
                         "-cache_"#param"_replace (currently %d) (if -cache_"  \
                         #param"_replace > 0), setting regen to equal replace",\
                         dynamo_options.cache_##param##_regen,                 \
                         dynamo_options.cache_##param##_replace);              \
-            dynamo_options.cache_##param##_regen = dynamo_options.cache_##param##_replace; \
+            dynamo_options.cache_##param##_regen =                            \
+                dynamo_options.cache_##param##_replace;                       \
             ret = true;                                                       \
         }                                                                     \
     } while (0);
@@ -759,7 +762,8 @@ fcache_check_option_compatibility()
         ret = check_param_bounds(&FCACHE_OPTION(cache_shared_bb_unit_init),
                                  FCACHE_OPTION(cache_shared_bb_unit_max),
                                  FCACHE_OPTION(cache_shared_bb_unit_max),
-                                 "cache_shared_bb_unit_init should equal cache_shared_bb_unit_max")
+                                 "cache_shared_bb_unit_init should equal "
+                                 "cache_shared_bb_unit_max")
             || ret;
     }
     if (DYNAMO_OPTION(shared_traces)) {
@@ -775,7 +779,8 @@ fcache_check_option_compatibility()
         ret = check_param_bounds(&FCACHE_OPTION(cache_shared_trace_unit_init),
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
                                  FCACHE_OPTION(cache_shared_trace_unit_max),
-                                 "cache_shared_trace_unit_init should equal cache_shared_trace_unit_max")
+                                 "cache_shared_trace_unit_init should equal "
+                                 "cache_shared_trace_unit_max")
             || ret;
     }
     if (INTERNAL_OPTION(pad_jmps_shift_bb) &&
@@ -2830,7 +2835,8 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             LOG(THREAD, LOG_CACHE, 4, "\t\teating extra %d bytes\n", diff);
         } else {
             /* add entry for diff */
-            fifo_prepend_empty(dcontext, cache, unit, NULL, header_pc + FRAG_SIZE(f), diff);
+            fifo_prepend_empty(dcontext, cache, unit, NULL, header_pc + FRAG_SIZE(f),
+                               diff);
             STATS_FCACHE_SUB(cache, used, diff);
         }
     }
@@ -3181,10 +3187,13 @@ find_free_list_slot(dcontext_t *dcontext, fcache_t *cache, fragment_t *f, uint s
         /* taking whole entry */
         if (unit->cur_pc > start_pc + free_size) {
             fragment_t *subseq = FRAG_NEXT_SLOT(start_pc, free_size);
-            /* remove FRAG_FOLLOWS_FREE_ENTRY flag from subsequent fragment_t, if it exists */
+            /* remove FRAG_FOLLOWS_FREE_ENTRY flag from subsequent fragment_t,
+             * if it exists
+             */
             if (!FRAG_IS_FREE_LIST(subseq)) {
                 LOG(GLOBAL, LOG_CACHE, 4,
-                    "find_free_list_slot: un-marking next F%d("PFX")."PFX" as after-free\n",
+                    "find_free_list_slot: un-marking next F%d("PFX")."PFX
+                    " as after-free\n",
                     subseq->id, subseq->tag, subseq->start_pc);
                 ASSERT(FIFO_UNIT(subseq) == unit);
                 ASSERT(FRAG_HDR_START(subseq) == start_pc + free_size);
@@ -4137,7 +4146,8 @@ fcache_reset_all_caches_proactively(uint target)
         ASSERT(!dynamo_all_threads_synched);
         STATS_INC(fcache_reset_abort);
         LOG(GLOBAL, LOG_CACHE, 2,
-            "fcache_reset_all_caches_proactively: aborting due to thread synch failure\n");
+            "fcache_reset_all_caches_proactively: aborting due to thread synch "
+            "failure\n");
         /* FIXME: may need DO_ONCE but only if we do a LOT of resets combined with
          * other nudges or sources of thread permission problems */
         SYSLOG_INTERNAL_WARNING("proactive reset aborted due to thread synch failure");
@@ -4160,7 +4170,8 @@ fcache_reset_all_caches_proactively(uint target)
     LOG(GLOBAL, LOG_CACHE, 2,
         "fcache_reset_all_caches_proactively: walking the threads\n");
     DOSTATS({
-        SYSLOG_INTERNAL_INFO("proactive reset @ %d fragments", GLOBAL_STAT(num_fragments));
+        SYSLOG_INTERNAL_INFO("proactive reset @ %d fragments",
+                             GLOBAL_STAT(num_fragments));
     });
 
     /* reset_free and reset_init may write to .data.
@@ -4277,7 +4288,8 @@ fcache_reset_all_caches_proactively(uint target)
             dcontext_t *dcontext = threads[i]->dcontext;
             if (dcontext != NULL) { /* include my_dcontext here */
                 LOG(GLOBAL, LOG_CACHE, 2,
-                    "fcache_reset_all_caches_proactively: re-initializing thread "TIDFMT"\n", i);
+                    "fcache_reset_all_caches_proactively: re-initializing thread "
+                    TIDFMT"\n", i);
                 /* now set up private state all over again -- generally, we can do
                  * this before the global free/init since our private/global
                  * free/init are completely separate (due to the presence of

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,7 +78,8 @@ static volatile bool child_done[NUM_THREADS];
 
 static struct timespec sleeptime;
 
-int main()
+int
+main()
 {
     int i;
     sleeptime.tv_sec = 0;
@@ -113,7 +114,8 @@ int main()
 /* Procedure executed by sideline threads
  * XXX i#500: Cannot use libc routines (printf) in the child process.
  */
-int run(void *arg)
+int
+run(void *arg)
 {
     int threadnum = (int)(long) arg;
     int i = 0;

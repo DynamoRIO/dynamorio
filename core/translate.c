@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1056,7 +1056,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 bool new_alloc;
                 DEBUG_DECLARE(fragment_t *pre_f = f;)
                 ilist = recreate_fragment_ilist(tdcontext, NULL, &f, &new_alloc,
-                                                true/*mangle*/ _IF_CLIENT(true/*client*/));
+                                                true/*mangle*/
+                                                _IF_CLIENT(true/*client*/));
                 ASSERT(owning_f == NULL || f == owning_f ||
                        (TEST(FRAG_COARSE_GRAIN, owning_f->flags) && f == pre_f));
                 ASSERT(!new_alloc);

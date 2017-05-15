@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -613,7 +613,7 @@ enum {
     DR_MODIFY_NOP   = 1, /* turn the mem prot and later write faults into nops */
     DR_MODIFY_FAIL  = 2, /* have the mem prot fail */
     DR_MODIFY_ALLOW = 3, /* let the app muck with us -- WARNING: use at own risk */
-    DR_MODIFY_OFF   = 4, /* we don't even check for attempts -- WARNING: use at own risk */
+    DR_MODIFY_OFF   = 4, /* we don't even check for attempts; WARNING: use at own risk */
 };
 
 bool

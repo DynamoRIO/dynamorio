@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1376,9 +1376,10 @@ hotp_read_policy_modes(hotp_policy_mode_t **old_modes)
          * (cases 5500 & 5526).  However this could be a bug somewhere in the
          * pipe line (EV, nm, policy package, etc) too.
          */
-        if (!matched)
+        if (!matched) {
             SYSLOG_INTERNAL_WARNING("While reading modes, found a mode "
                 "definition for a policy (%s) that didn't exist", policy_id);
+        }
     }
 
 /* TODO: make the macro take this as an argument or find a neutral name */
@@ -2855,11 +2856,12 @@ hotp_init(void)
     /* hotp_only trampolines should be allocated on a special heap that allows
      * code to be executed in it.
      */
-    if (DYNAMO_OPTION(hotp_only))
+    if (DYNAMO_OPTION(hotp_only)) {
         hotp_only_tramp_heap = special_heap_init(HOTP_ONLY_TRAMPOLINE_SIZE,
                                                  true, /* yes, use a lock */
                                                  true, /* make it executable */
                                                  true /* it is persistent */);
+    }
     ASSERT(GLOBAL_VUL_TABLE == NULL && NUM_GLOBAL_VULS == 0);
     GLOBAL_VUL_TABLE = hotp_read_policy_defs(&NUM_GLOBAL_VULS);
     if (GLOBAL_VUL_TABLE != NULL) {
@@ -4675,14 +4677,14 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
      */
     ENTERING_DR();
 
-    if (!own_hot_patch_lock)
+    if (!own_hot_patch_lock) {
         /* Note: for regular hot patches (!hotp_only) vulnerability table
          * access during execution isn't via a lookup and all the old tables
          * are alive, so we don't need to grab the lock here; if we do an
          * indirect access then we need it.  It is left in there for safety.
          */
         read_lock(&hotp_vul_table_lock);        /* Part of fix for case 5521. */
-    else
+    } else
         ASSERT_OWN_READ_LOCK(true, &hotp_vul_table_lock);
 
     /* Check the validity of the input indices before using them.  The injection
@@ -4912,10 +4914,10 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls,
 
         /* Which one comes first, esp with kill/raise & cflow change? */
         /* Raise an event only if requested by the protector. */
-        if (TEST(exec_status, HOTP_EXEC_LOG_EVENT))
+        if (TEST(exec_status, HOTP_EXEC_LOG_EVENT)) {
             hotp_event_notify(exec_status, true, &ppoint, gbop_bad_addr,
                               app_reg_ptr);
-
+        }
         if (TEST(exec_status, HOTP_EXEC_CHANGE_CONTROL_FLOW)) {
 
             app_rva_t return_rva = PPOINT(vul_tab, vul_index, set_index,
@@ -5047,11 +5049,12 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
                 if (TEST(DUMPCORE_HOTP_FAILURE, DYNAMO_OPTION(dumpcore_mask)))
                     os_dump_core(msg);
             }
-            if (TEST(HOTP_EXEC_LOG_EVENT, exec_status))
+            if (TEST(HOTP_EXEC_LOG_EVENT, exec_status)) {
                 SYSLOG_CUSTOM_NOTIFY(SYSLOG_ERROR, MSG_HOT_PATCH_FAILURE, 3,
                                      "Hot patch error, continuing.",
                                      get_application_name(),
                                      get_application_pid(), "<none>");
+            }
 #ifdef PROGRAM_SHEPHERDING
             if (dump_error_info) {
                 report_diagnostics(msg, NULL, HOT_PATCH_FAILURE);
@@ -5604,7 +5607,7 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
      * are where the leaked trampolines are located.  If we do implement that
      * check then this code in #if 0 would be needed.  Case 10434. */
 #if 0
-    for (i = 0; i < hotp_only_num_tramps_leaked; i++)
+    for (i = 0; i < hotp_only_num_tramps_leaked; i++) {
         if (hotp_only_tramps_leaked[i] >= pc &&
             hotp_only_tramps_leaked[i] < (pc + size)) {
             /* Make sure we don't have trampolines across heap units! */
@@ -5612,6 +5615,7 @@ hotp_only_contains_leaked_trampoline(byte *pc, size_t size)
                    (pc + size));
             return true;
         }
+    }
 #endif
 
     /* The actual special_units_t structure (pointed to by

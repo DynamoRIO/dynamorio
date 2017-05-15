@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -290,10 +290,13 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
                                                        true /* is_single_reg */,
                                                        is_gpr);
-        if (save)
-            new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
-        else
-            new_instr = INSTR_CREATE_ldr(dcontext, opnd_create_reg(first_reg + reg1), mem);
+        if (save) {
+            new_instr = INSTR_CREATE_str(dcontext, mem,
+                                         opnd_create_reg(first_reg + reg1));
+        } else {
+            new_instr = INSTR_CREATE_ldr(dcontext,
+                                         opnd_create_reg(first_reg + reg1), mem);
+        }
         PRE(ilist, instr, new_instr);
     }
 }
@@ -581,7 +584,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT32(current_offs)));
 
     /* load pc and flags */
-    if(!(cci->skip_save_flags)) {
+    if (!(cci->skip_save_flags)) {
         /* ldp w1, w2, [x0, #8] */
         PRE(ilist, instr,
             INSTR_CREATE_ldp(dcontext,
@@ -1225,26 +1228,36 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
 {
 #ifdef AARCH64
     instr_t *mov;
-    uint rt;
     int i;
 
     CLIENT_ASSERT(opnd_is_reg(dst),
                   "AArch64 cannot store an immediate direct to memory");
-    rt = opnd_get_reg(dst) - DR_REG_X0;
-    ASSERT(rt < 31);
+
+    if (opnd_get_reg(dst) == DR_REG_XZR) {
+        /* Moving a value to the zero register is a no-op. We insert nothing,
+         * so *first and *last are set to NULL. Caller beware!
+         */
+        if (first != NULL)
+            *first = NULL;
+        if (last != NULL)
+            *last = NULL;
+        return;
+    }
+
+    ASSERT((uint)(opnd_get_reg(dst) - DR_REG_X0) < 31);
     if (src_inst != NULL)
         val = (ptr_int_t)encode_estimate;
 
-    /* movz x(rt), #(val & 0xffff) */
-    mov = INSTR_CREATE_movz(dcontext, opnd_create_reg(DR_REG_X0 + rt),
+    /* movz x(dst), #(val & 0xffff) */
+    mov = INSTR_CREATE_movz(dcontext, dst,
                             OPND_CREATE_INT16(val & 0xffff), OPND_CREATE_INT8(0));
     PRE(ilist, instr, mov);
     if (first != NULL)
         *first = mov;
     for (i = 1; i < 4; i++) {
         if ((val >> (16 * i) & 0xffff) != 0) {
-            /* movk x(rt), #(val >> sh & 0xffff), lsl #(sh) */
-            mov = INSTR_CREATE_movk(dcontext, opnd_create_reg(DR_REG_X0 + rt),
+            /* movk x(dst), #(val >> sh & 0xffff), lsl #(sh) */
+            mov = INSTR_CREATE_movk(dcontext, dst,
                                     OPND_CREATE_INT16((val >> 16 * i) & 0xffff),
                                     OPND_CREATE_INT8(i * 16));
             PRE(ilist, instr, mov);

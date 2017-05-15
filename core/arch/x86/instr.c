@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -704,7 +704,8 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
     return false;
 }
 
-bool instr_is_prefetch(instr_t *instr)
+bool
+instr_is_prefetch(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
 
@@ -1559,13 +1560,13 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
             /* The src can't involve a multimedia reg or VSIB */
             opnd_t src = instr_get_src(instr, 0);
             CLIENT_ASSERT(instr_num_srcs(instr) == 1, "invalid predicate/instr combo");
-            if (opnd_is_immed_int(src))
+            if (opnd_is_immed_int(src)) {
                 return (opnd_get_immed_int(src) != 0) ?
                     DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
-            else if (opnd_is_reg(src))
+            } else if (opnd_is_reg(src)) {
                 return (reg_get_value(opnd_get_reg(src), mc) != 0) ?
                     DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
-            else if (opnd_is_memory_reference(src)) {
+            } else if (opnd_is_memory_reference(src)) {
                 ptr_int_t val;
                 if (!safe_read(opnd_compute_address(src, mc),
                                MIN(opnd_get_size(src), sizeof(val)), &val))
@@ -1716,7 +1717,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
      * As a workaround, we call INSTR_CREATE_RAW_nop*byte here if in x86_to_x64.
      */
     if (raw IF_X64(|| DYNAMO_OPTION(x86_to_x64))) {
-        switch(num_bytes) {
+        switch (num_bytes) {
         case 1 :
             return INSTR_CREATE_RAW_nop1byte(dcontext);
         case 2 :
@@ -1725,7 +1726,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
             return INSTR_CREATE_RAW_nop3byte(dcontext);
         }
     } else {
-        switch(num_bytes) {
+        switch (num_bytes) {
         case 1 :
             return INSTR_CREATE_nop1byte(dcontext);
         case 2:
@@ -1766,7 +1767,8 @@ instr_is_nop(instr_t *inst)
         opnd_get_disp(instr_get_src(inst, 0)) == 0 &&
         ((opnd_get_base(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
           opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) ||
-         (opnd_get_index(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
+         (opnd_get_index(instr_get_src(inst, 0)) ==
+          opnd_get_reg(instr_get_dst(inst, 0)) &&
           opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
           opnd_get_scale(instr_get_src(inst, 0)) == 1)))
         return true;

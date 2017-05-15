@@ -308,9 +308,6 @@ release_final_page(generated_code_t *code)
 static void
 shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 {
-#if defined(X86) && defined(X64)
-    fragment_t *fragment;
-#endif
     byte *pc;
     /* As ARM mode switches are inexpensive, we do not need separate gencode
      * versions and stick with Thumb for all our gencode.
@@ -345,7 +342,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
         pc = emit_ibl_routines(GLOBAL_DCONTEXT, gencode,
                                pc, gencode->fcache_return,
                                DYNAMO_OPTION(shared_traces) ?
-                               IBL_TRACE_SHARED : IBL_TRACE_PRIVATE, /* source_fragment_type */
+                               IBL_TRACE_SHARED : IBL_TRACE_PRIVATE, /* source type */
                                true, /* thread_shared */
                                true, /* target_trace_table */
                                gencode->trace_ibl);
@@ -413,16 +410,6 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
         /* PR 244737: syscall routines are all shared */
         pc = emit_syscall_routines(GLOBAL_DCONTEXT, gencode, pc, true/*thread-shared*/);
     }
-
-    /* since we always have a shared fcache_return we can make reset stub shared */
-    gencode->reset_exit_stub = pc;
-    fragment = linkstub_fragment(GLOBAL_DCONTEXT, (linkstub_t *) get_reset_linkstub());
-    if (GENCODE_IS_X86(gencode->gencode_mode))
-        fragment = empty_fragment_mark_x86(fragment);
-    /* reset exit stub should look just like a direct exit stub */
-    pc += insert_exit_stub_other_flags
-        (GLOBAL_DCONTEXT, fragment,
-         (linkstub_t *) get_reset_linkstub(), pc, LINK_DIRECT);
 #elif defined(UNIX) && defined(HAVE_TLS)
     /* PR 212570: we need a thread-shared do_syscall for our vsyscall hook */
     /* PR 361894: we don't support sysenter if no TLS */
@@ -438,6 +425,21 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
                                true/*shared*/, &gencode->do_clone_syscall_offs);
 # endif
 #endif
+
+    if (USE_SHARED_GENCODE_ALWAYS()) {
+        fragment_t *fragment;
+        /* make reset stub shared */
+        gencode->reset_exit_stub = pc;
+        fragment = linkstub_fragment(GLOBAL_DCONTEXT, (linkstub_t *)get_reset_linkstub());
+#ifdef X86_64
+        if (GENCODE_IS_X86(gencode->gencode_mode))
+            fragment = empty_fragment_mark_x86(fragment);
+#endif
+        /* reset exit stub should look just like a direct exit stub */
+        pc += insert_exit_stub_other_flags
+            (GLOBAL_DCONTEXT, fragment,
+            (linkstub_t *) get_reset_linkstub(), pc, LINK_DIRECT);
+    }
 
 #ifdef TRACE_HEAD_CACHE_INCR
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
@@ -586,9 +588,9 @@ arch_reset_stolen_reg(void)
      */
     dr_isa_mode_t old_mode;
     dcontext_t *dcontext;
-#ifdef AARCH64
+# ifdef AARCH64
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
+# endif
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
     SYSLOG_INTERNAL_INFO("swapping stolen reg from %s to %s",
@@ -614,9 +616,6 @@ arch_reset_stolen_reg(void)
 void
 arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
 {
-#ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#endif
     /* Put the app value in the old stolen reg */
     *(reg_t*)(((byte *)mc) +
               opnd_get_reg_dcontext_offs(DR_REG_R0 + INTERNAL_OPTION(steal_reg))) =
@@ -624,7 +623,7 @@ arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc)
     /* Put the TLs base into the new stolen reg */
     set_stolen_reg_val(mc, (reg_t) os_get_dr_tls_base(dcontext));
 }
-#endif /* ARM */
+#endif /* AARCHXX */
 
 #if defined(X86) && defined(X64)
 /* Sets other-mode ibl targets, for mixed-mode and x86_to_x64 mode */
@@ -1009,7 +1008,9 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* FIXME i#1551: pass in or store mode in generated_code_t */
     dr_isa_mode_t isa_mode = dr_get_isa_mode(dcontext);
 #ifdef HASHTABLE_STATISTICS
-    /* Stats for the syscall IBLs (note it is also using the trace hashtable, and it never hits!) */
+    /* Stats for the syscall IBLs (note it is also using the trace
+     * hashtable, and it never hits!)
+     */
 # ifdef WINDOWS
     /* ugly asserts but we'll stick with uints to save space */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint
@@ -1240,7 +1241,7 @@ arch_thread_init(dcontext_t *dcontext)
         /* shared_trace_ibl_routine should be false for private (performance test only) */
         pc = emit_ibl_routines(dcontext, code, pc, code->fcache_return,
                                IBL_TRACE_PRIVATE, /* source_fragment_type */
-                               DYNAMO_OPTION(shared_trace_ibl_routine), /* thread_shared */
+                               DYNAMO_OPTION(shared_trace_ibl_routine), /* shared */
                                true, /* target_trace_table */
                                code->trace_ibl);
     }
@@ -1500,8 +1501,10 @@ is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc)
     return get_ibl_routine_type_ex(dcontext, pc, NULL _IF_X86_64(NULL));
 }
 
-/* Promotes the current ibl routine from IBL_BB* to IBL_TRACE* preserving other properties */
-/* There seems to be no need for the opposite transformation */
+/* Promotes the current ibl routine from IBL_BB* to IBL_TRACE*
+ * preserving other properties.  There seems to be no need for the
+ * opposite transformation.
+ */
 cache_pc
 get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
 {
@@ -1717,8 +1720,10 @@ in_indirect_branch_lookup_code(dcontext_t *dcontext, cache_pc pc)
         for (branch_type = IBL_BRANCH_TYPE_START;
              branch_type < IBL_BRANCH_TYPE_END;
              branch_type++) {
-            if (pc >= get_ibl_routine(dcontext, IBL_LINKED, source_fragment_type, branch_type) &&
-                pc <  get_ibl_routine(dcontext, IBL_UNLINKED, source_fragment_type, branch_type))
+            if (pc >= get_ibl_routine(dcontext, IBL_LINKED, source_fragment_type,
+                                      branch_type) &&
+                pc <  get_ibl_routine(dcontext, IBL_UNLINKED, source_fragment_type,
+                                      branch_type))
                 return true;
         }
     }
@@ -1996,7 +2001,8 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
 #if defined(X86) && defined(X64)
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
 #endif
-                if (target == unlinked_shared_syscall_routine_ex(dcontext _IF_X86_64(mode)))
+                if (target == unlinked_shared_syscall_routine_ex(dcontext
+                                                                 _IF_X86_64(mode)))
                     type->link_state = IBL_UNLINKED;
                 else IF_X64(if (target ==
                                 shared_syscall_routine_ex(dcontext _IF_X86_64(mode))))
@@ -2118,7 +2124,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
          "private_trace_ibl", "private_trace_ibl_template"},
         {"shared_unlinked_coarse_ibl", "shared_delete_coarse_ibl",
          "shared_coarse_trace_far", "shared_coarse_trace_far_unlinked",
-         IF_X86_64_("shared_coarse_trace_cmp") IF_X86_64_("shared_coarse_trace_cmp_unlinked")
+         IF_X86_64_("shared_coarse_trace_cmp")
+         IF_X86_64_("shared_coarse_trace_cmp_unlinked")
          "shared_coarse_ibl", "shared_coarse_ibl_template"},
 #if defined(X86) && defined(X64)
         /* PR 282576: for WOW64 processes we have separate x86 routines */
@@ -2177,7 +2184,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
 #endif
     if (!get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X86_64(&mode))) {
         /* not an IBL routine */
-        if (!get_ibl_routine_template_type(dcontext, target, &ibl_type _IF_X86_64(&mode))) {
+        if (!get_ibl_routine_template_type(dcontext, target, &ibl_type
+                                           _IF_X86_64(&mode))) {
             return NULL;                /* not an IBL template either */
         }
     }
@@ -2212,7 +2220,8 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
             return NULL;
         return &(get_shared_gencode(dcontext _IF_X86_64(mode))->bb_ibl[branch_type]);
     case IBL_BB_PRIVATE:
-        return &(get_emitted_routines_code(dcontext _IF_X86_64(mode))->bb_ibl[branch_type]);
+        return &(get_emitted_routines_code(dcontext
+                                           _IF_X86_64(mode))->bb_ibl[branch_type]);
     case IBL_TRACE_SHARED:
         if (!USE_SHARED_TRACE_IBL())
             return NULL;

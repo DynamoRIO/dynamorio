@@ -49,8 +49,8 @@
 # define DODEBUG(x)
 # define DOCHECK(n, x)
 # define DEBUG_DECLARE(x)
-# pragma warning(disable : 4210) //nonstandard extension used : function given file scope
-# pragma warning( disable : 4204) //nonstandard extension used : non-constant aggregate initializer
+# pragma warning(disable : 4210) //nonstd extension: function given file scope
+# pragma warning( disable : 4204) //nonstd extension: non-constant aggregate initializer
 # define INVALID_FILE INVALID_HANDLE_VALUE
 # define snprintf   _snprintf
 # include <stdio.h> /* _snprintf */
@@ -523,14 +523,14 @@ syscalls_init()
      *    0:000> U poi(77cc1218)
      *    58787000 ea097078583300  jmp     0033:58787009
      *  win10-TH2(1511) x64:
-     *    00007ff9`13185630 4c8bd1          mov     r10,rcx
-     *    00007ff9`13185633 b843000000      mov     eax,43h
-     *    00007ff9`13185638 f604250803fe7f01 test    byte ptr [SharedUserData+0x308 (00000000`7ffe0308)],1
-     *    00007ff9`13185640 7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
-     *    00007ff9`13185642 0f05            syscall
-     *    00007ff9`13185644 c3              ret
-     *    00007ff9`13185645 cd2e            int     2Eh
-     *    00007ff9`13185647 c3              ret
+     *    7ff9`13185630 4c8bd1          mov     r10,rcx
+     *    7ff9`13185633 b843000000      mov     eax,43h
+     *    7ff9`13185638 f604250803fe7f01 test byte ptr [SharedUserData+0x308(`7ffe0308)],1
+     *    7ff9`13185640 7503            jne     ntdll!NtContinue+0x15 (00007ff9`13185645)
+     *    7ff9`13185642 0f05            syscall
+     *    7ff9`13185644 c3              ret
+     *    7ff9`13185645 cd2e            int     2Eh
+     *    7ff9`13185647 c3              ret
      */
     if (check == 0x2ecd) {
         dr_which_syscall_t = DR_SYSCALL_INT2E;
@@ -1565,7 +1565,8 @@ bitmap_find_free_sequence(byte *rtl_bitmap, int bitmap_size,
                     + align_which_slot;
                 /* ALIGNED doesn't work for 0 so we have to special-case it */
                 bool aligned = (alignment == 0 ||
-                                ALIGNED(tls_segment_offs(proposed_align_slot), alignment));
+                                ALIGNED(tls_segment_offs(proposed_align_slot),
+                                        alignment));
 
                 NTPRINT("\t => @ "PFX", pivot "PFX" %saligned to 0x%x\n",
                         tls_segment_offs(i),
@@ -1637,7 +1638,9 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
 
     NTSTATUS res;
     if (synch) {
-        /* FIXME: I read somewhere they are removing more PEB pointers in Vista or earlier..  */
+        /* XXX: I read somewhere they are removing more PEB pointers in Vista or
+         * earlier..
+         */
         /* TlsAlloc calls RtlAcquirePebLock which calls RtlEnterCriticalSection */
         res = RtlEnterCriticalSection(peb->FastPebLock);
         if (!NT_SUCCESS(res))
@@ -1805,7 +1808,8 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
          * and that is on TEB so reachable with a short */
         /* to avoid ASSERT_TRUNCATE in os_tls_offset() checking here */
         ASSERT_TRUNCATE(ushort, ushort, *teb_offs);
-        NTPRINT("Taking %d tls slot(s) %d-%d at offset 0x%x\n", num_slots, start, start + num_slots, *teb_offs);
+        NTPRINT("Taking %d tls slot(s) %d-%d at offset 0x%x\n", num_slots, start,
+                start + num_slots, *teb_offs);
     }
 
     DOCHECK(1, {
@@ -1967,7 +1971,8 @@ get_process_mem_stats(HANDLE h, VM_COUNTERS *info)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationProcess(h, ProcessVmCounters, info, sizeof(VM_COUNTERS), &got);
+    res = NtQueryInformationProcess(h, ProcessVmCounters, info, sizeof(VM_COUNTERS),
+                                    &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(VM_COUNTERS));
     return NT_SUCCESS(res);
 }
@@ -1979,7 +1984,8 @@ get_process_mem_quota(HANDLE h, QUOTA_LIMITS *qlimits)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationProcess(h, ProcessQuotaLimits, qlimits, sizeof(QUOTA_LIMITS), &got);
+    res = NtQueryInformationProcess(h, ProcessQuotaLimits, qlimits, sizeof(QUOTA_LIMITS),
+                                    &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(QUOTA_LIMITS));
     return res;
 }
@@ -1991,7 +1997,8 @@ get_process_handle_count(HANDLE ph, ULONG *handle_count)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationProcess(ph, ProcessHandleCount, handle_count, sizeof(ULONG), &got);
+    res = NtQueryInformationProcess(ph, ProcessHandleCount, handle_count, sizeof(ULONG),
+                                    &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(ULONG));
     return res;
 }
@@ -2107,7 +2114,8 @@ nt_remote_free_virtual_memory(HANDLE process, void *base)
  * Note returns raw NTSTATUS.
  */
 NTSTATUS
-nt_allocate_virtual_memory(void **base, size_t size, uint prot, memory_commit_status_t commit)
+nt_allocate_virtual_memory(void **base, size_t size, uint prot,
+                           memory_commit_status_t commit)
 {
     return nt_remote_allocate_virtual_memory(NT_CURRENT_PROCESS, base,
                                              size, prot, commit);
@@ -2935,7 +2943,8 @@ env_get_value(PCWSTR var, wchar_t *val, size_t valsz)
 {
     PEB *peb = get_own_peb();
     PWSTR env = (PWSTR)
-        get_process_param_buf(peb->ProcessParameters, peb->ProcessParameters->Environment);
+        get_process_param_buf(peb->ProcessParameters,
+                              peb->ProcessParameters->Environment);
     NTSTATUS res;
     UNICODE_STRING var_us, val_us;
     GET_NTDLL(RtlQueryEnvironmentVariable_U, (PWSTR Environment,
@@ -3089,34 +3098,34 @@ get_sd_pointers(IN PISECURITY_DESCRIPTOR SecurityDescriptor,
     if (TEST(SE_SELF_RELATIVE, SecurityDescriptor->Control)) {
         PISECURITY_DESCRIPTOR_RELATIVE RelSD =
             (PISECURITY_DESCRIPTOR_RELATIVE)SecurityDescriptor;
-        if(Owner != NULL) {
+        if (Owner != NULL) {
             *Owner = ((RelSD->Owner != 0) ?
                       (PSID)((ULONG_PTR)RelSD + RelSD->Owner) : NULL);
         }
-        if(Group != NULL) {
+        if (Group != NULL) {
             *Group = ((RelSD->Group != 0) ?
                       (PSID)((ULONG_PTR)RelSD + RelSD->Group) : NULL);
         }
-        if(Sacl != NULL) {
+        if (Sacl != NULL) {
             *Sacl = (((RelSD->Control & SE_SACL_PRESENT) && (RelSD->Sacl != 0)) ?
                      (PSID)((ULONG_PTR)RelSD + RelSD->Sacl) : NULL);
         }
-        if(Dacl != NULL) {
+        if (Dacl != NULL) {
             *Dacl = (((RelSD->Control & SE_DACL_PRESENT) && (RelSD->Dacl != 0)) ?
                      (PSID)((ULONG_PTR)RelSD + RelSD->Dacl) : NULL);
         }
     } else {
-        if(Owner != NULL) {
+        if (Owner != NULL) {
             *Owner = SecurityDescriptor->Owner;
         }
-        if(Group != NULL) {
+        if (Group != NULL) {
             *Group = SecurityDescriptor->Group;
         }
-        if(Sacl != NULL) {
+        if (Sacl != NULL) {
             *Sacl = ((SecurityDescriptor->Control & SE_SACL_PRESENT) ?
                      SecurityDescriptor->Sacl : NULL);
         }
-        if(Dacl != NULL) {
+        if (Dacl != NULL) {
             *Dacl = ((SecurityDescriptor->Control & SE_DACL_PRESENT) ?
                      SecurityDescriptor->Dacl : NULL);
         }
@@ -3214,7 +3223,7 @@ equal_sid(IN PSID Sid1_, IN PSID Sid2_)
 
     if (Sid1->Revision != Sid2->Revision ||
         Sid1->SubAuthorityCount != Sid2->SubAuthorityCount) {
-        return(FALSE);
+        return false;
     }
 
     SidLen = length_sid(Sid1);
@@ -3416,8 +3425,9 @@ set_primary_user_owner(PSECURITY_DESCRIPTOR psd)
     ASSERT(ok);
     if (!ok)
         return NULL;
-    /* FIXME: (not verified) note that even if we set owner, we may not be allowed to use it
-     * as an owner it it is not present in the current token.
+    /* FIXME: (not verified) note that even if we set owner, we may
+     * not be allowed to use it as an owner it it is not present in
+     * the current token.
      */
 
     /* we rely on the correct DACL to be provided through inheritance */
@@ -3711,7 +3721,8 @@ open_pipe(PCWSTR pipename, HANDLE hsync)
     if (h == INVALID_FILE)
         return NULL;
     /* FIXME: call nt_set_file_info */
-    res = NT_SYSCALL(SetInformationFile, h, &iob, &pipeinfo, sizeof(pipeinfo), FilePipeInformation);
+    res = NT_SYSCALL(SetInformationFile, h, &iob, &pipeinfo, sizeof(pipeinfo),
+                     FilePipeInformation);
     if (!NT_SUCCESS(res)) {
         /* FIXME: get __FUNCTION__ working for windows */
         NTPRINT("Error 0x%x in %s:%d\n", res, __FILE__, __LINE__);
@@ -4063,7 +4074,9 @@ nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                               "pipe transceive 2nd try FAILED!\n");
                         /* DO_ONCE to avoid an infinite recursion here */
                         DOCHECK(1, {
-                            /* custom DO_ONCE to avoid selfprot link issues with NOT_DYNAMORIO_CORE_PROPER */
+                            /* custom DO_ONCE to avoid selfprot link issues with
+                             * NOT_DYNAMORIO_CORE_PROPER
+                             */
                             if (!do_once_nt_pipe_transceive) {
                                 do_once_nt_pipe_transceive = true;
                                 ASSERT_NOT_REACHED();
@@ -4345,7 +4358,7 @@ create_process_parameters(HANDLE hProcess, PEB *peb, UNICODE_STRING *imagefile,
     RTL_USER_PROCESS_PARAMETERS *pp;
     SIZE_T n;
     void *p;
-    GET_NTDLL(RtlCreateProcessParameters, (OUT PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
+    GET_NTDLL(RtlCreateProcessParameters, (OUT PRTL_USER_PROCESS_PARAMETERS *ProcParams,
                                            IN PUNICODE_STRING ImageFile,
                                            IN PUNICODE_STRING DllPath OPTIONAL,
                                            IN PUNICODE_STRING CurrentDirectory OPTIONAL,
@@ -4355,7 +4368,7 @@ create_process_parameters(HANDLE hProcess, PEB *peb, UNICODE_STRING *imagefile,
                                            IN PUNICODE_STRING Desktop OPTIONAL,
                                            IN PUNICODE_STRING Reserved OPTIONAL,
                                            IN PUNICODE_STRING Reserved2 OPTIONAL));
-    GET_NTDLL(RtlDestroyProcessParameters, (IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters));
+    GET_NTDLL(RtlDestroyProcessParameters, (IN PRTL_USER_PROCESS_PARAMETERS ProcParams));
 
     RtlCreateProcessParameters(&pp, imagefile, 0, 0, cmdline, 0, 0, 0, 0, 0);
     pp->Environment = copy_environment(hProcess);
@@ -4436,7 +4449,8 @@ create_process(wchar_t *exe, wchar_t *cmdline)
         NTPRINT("create_process: failed to create process\n");
         goto creation_error;
     }
-    if (!NT_SUCCESS(NtQuerySection(hSection, SectionImageInformation, &sii, sizeof(sii), 0))) {
+    if (!NT_SUCCESS(NtQuerySection(hSection, SectionImageInformation, &sii, sizeof(sii),
+                                   0))) {
         NTPRINT("create_process: failed to query section\n");
         goto creation_error;
     }
@@ -4799,14 +4813,16 @@ nt_create_object_directory(OUT HANDLE *directory /* OUT */,
 
     res = wchar_to_unicode(&directory_name, object_directory_name);
     if (!NT_SUCCESS(res)) {
-        NTPRINT("nt_create_object_directory: base name conversion failed, res: %x\n", res);
+        NTPRINT("nt_create_object_directory: base name conversion failed, res: %x\n",
+                res);
         return res;
     }
 
     /* see DDK about all other flags */
     InitializeObjectAttributes(&directory_attributes,
                                &directory_name,
-                               (permanent_directory ? OBJ_PERMANENT : 0) | OBJ_OPENIF | OBJ_CASE_INSENSITIVE,
+                               (permanent_directory ? OBJ_PERMANENT : 0) | OBJ_OPENIF |
+                               OBJ_CASE_INSENSITIVE,
                                NULL,
                                /* no root, directory name should be fully qualified */
                                dacl);

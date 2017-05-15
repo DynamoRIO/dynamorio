@@ -57,18 +57,18 @@
 #  define WIN32_LEAN_AND_MEAN
 /* Exclude rarely-used stuff from Windows headers */
 
-/* Case 1167 - bumping up warning level to 4 - work in progress FIXME: */
-#pragma warning( disable : 4054) //from function pointer 'void (__cdecl *)(void )' to data pointer 'unsigned char *'
-#pragma warning( disable : 4100) //'envp' : unreferenced formal parameter
-#pragma warning( disable : 4127) //conditional expression is constant (majority of warnings - 2078)
-#pragma warning( disable : 4189) //'start_pc' : local variable is initialized but not referenced
-#pragma warning( disable : 4204) //nonstandard extension used : non-constant aggregate initializer
-#pragma warning( disable : 4210) //nonstandard extension used : function given file scope
-#pragma warning( disable : 4505) //unreferenced local function has been removed
-#pragma warning( disable : 4702) //unreachable code (should be disabled DEBUG=0, e.g. for INTERNAL_OPTION test)
+/* XXX Case 1167: work in progress: bumping up warning level to 4 */
+#pragma warning( disable : 4054) // from function pointer to data pointer
+#pragma warning( disable : 4100) // 'envp' : unreferenced formal parameter
+#pragma warning( disable : 4127) // conditional expr is constant (majority of warnings)
+#pragma warning( disable : 4189) // local variable is initialized but not referenced
+#pragma warning( disable : 4204) // nonstd extension: non-constant aggregate initializer
+#pragma warning( disable : 4210) // nonstd extension: function given file scope
+#pragma warning( disable : 4505) // unreferenced local function has been removed
+#pragma warning( disable : 4702) // unreachable code (DEBUG=0, for INTERNAL_OPTION test)
 #pragma warning( disable : 4324) // structure was padded due to __declspec(align())
 #pragma warning( disable : 4709) // comma operator within array index expression
-#pragma warning( disable : 4214) // nonstandard extension used : bit field types other than int
+#pragma warning( disable : 4214) // nonstd extension: bit field types other than int
 
 /**************************************************/
 /* warnings on compiling with VC 8.0, all on VC or PlatformSDK header files */
@@ -1077,7 +1077,8 @@ int our_vsscanf(const char *str, const char *fmt, va_list ap);
 const char * parse_int(const char *sp, uint64 *res_out, uint base, uint width,
                        bool is_signed);
 ssize_t
-utf16_to_utf8_size(const wchar_t *src, size_t max_chars, size_t *written/*unicode chars*/);
+utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
+                   size_t *written/*unicode chars*/);
 #define sscanf our_sscanf
 
 /* string.c */

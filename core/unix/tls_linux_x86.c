@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -757,7 +757,7 @@ tls_clear_descriptor(int index)
     ASSERT(tls_global_type != TLS_TYPE_LDT);
     clear_ldt_struct(&desc, index);
     res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-    return(res >= 0);
+    return (res >= 0);
 }
 
 int
@@ -862,9 +862,10 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_FS: {
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             safe_write_ex((void *)base, sizeof(void *),
                           &os_tls->app_lib_tls_base, NULL);
+        }
         break;
     }
     case ARCH_SET_GS: {

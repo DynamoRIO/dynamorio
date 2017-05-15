@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,17 +98,22 @@ typedef struct _dr_statistics_t {
 /* Thread local statistics */
 typedef struct {
     thread_id_t thread_id;
-    mutex_t thread_stats_lock;    /* transactional stats, for multiple stats invariants to hold */
-    /* TODO: We may also want to print another threads's stats without necessarily halting it,
-     * TODO: add stat name##_delta, which should be applied as a batch to the safe to read values.
-     * The basic idea of transactional stats is that uncommitted changes are not visible to readers.
-     * Some invariants between statistics, i.e. A=B+C should hold at the dump/committed points.
+    /* transactional stats, for multiple stats invariants to hold */
+    mutex_t thread_stats_lock;
+    /* TODO: We may also want to print another threads's stats without
+     * necessarily halting it, TODO: add stat name##_delta, which
+     * should be applied as a batch to the safe to read values.  The
+     * basic idea of transactional stats is that uncommitted changes
+     * are not visible to readers.  Some invariants between
+     * statistics, i.e. A=B+C should hold at the dump/committed
+     * points.
      *
      * The plan is:
      *   1) delta accessed w/o lock only by the owning thread,
-     *   2) on dump any other thread which only reads the committed values while holding the commit lock,
-     *   3) The owning thread is the single writer to the committed values to apply the deltas,
-     *      while holding the commit lock.
+     *   2) on dump any other thread which only reads the committed
+     *     values while holding the commit lock,
+     *   3) The owning thread is the single writer to the committed
+     *      values to apply the deltas, while holding the commit lock.
      *
      * Used for other threads to be able to request thread local stats,
      * and also for the not fully explained self-interruption on linux?

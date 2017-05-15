@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,10 +85,13 @@ KSTAT_DEF("in dispatch exit, BB2trace, ind target ...", num_exits_ind_bad_miss_b
 KSTAT_SUM("in dispatch exit, from BB", num_exits_ind_bad_miss_bb,
           num_exits_ind_bad_miss_bb2bb, num_exits_ind_bad_miss_bb2trace)
 
-KSTAT_DEF("in dispatch exit, trace2trace, ind target ...", num_exits_ind_bad_miss_trace2trace)
+KSTAT_DEF("in dispatch exit, trace2trace, ind target ...",
+          num_exits_ind_bad_miss_trace2trace)
 
-KSTAT_DEF("in dispatch exit, trace2BB not trace head, ind target", num_exits_ind_bad_miss_trace2bb_nth)
-KSTAT_DEF("in dispatch exit, trace2BB trace head, ind target", num_exits_ind_bad_miss_trace2bb_th)
+KSTAT_DEF("in dispatch exit, trace2BB not trace head, ind target",
+          num_exits_ind_bad_miss_trace2bb_nth)
+KSTAT_DEF("in dispatch exit, trace2BB trace head, ind target",
+          num_exits_ind_bad_miss_trace2bb_th)
 KSTAT_SUM("in dispatch exit, trace2BB, ind target ", num_exits_ind_bad_miss_trace2bb,
           num_exits_ind_bad_miss_trace2bb_nth, num_exits_ind_bad_miss_trace2bb_th)
 
@@ -121,7 +125,9 @@ KSTAT_DEF("in trace cache, [not propagated]", fcache_trace_trace)
 /* hard to SUM it up against either bb or trace only */
 KSTAT_DEF("in bb cache out from trace cache, [not propagated]", fcache_bb_trace)
 
-/* assuming we'll deal with lock contention separately we don't propagate this time to callers */
+/* assuming we'll deal with lock contention separately we don't
+ * propagate this time to callers
+ */
 KSTAT_DEF("wait event (+context switch) [not propagated]", wait_event)
 
 /* FIXME: we should add all critical section bodies as suggested in

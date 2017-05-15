@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -2644,7 +2645,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     return next_pc;
 }
 
-uint encode_common(byte *pc, instr_t *i)
+uint
+encode_common(byte *pc, instr_t *i)
 {
     uint enc;
     ASSERT(((ptr_int_t)pc & 3) == 0);

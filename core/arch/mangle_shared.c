@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1026,7 +1026,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                  * as we want tight coupling w/ a pointer as a general way
                  * to store per-instr data outside of the instr itself.
                  */
-                for (tmp = instr_get_next(instr); tmp != NULL; tmp = instr_get_next(tmp)) {
+                for (tmp = instr_get_next(instr); tmp != NULL;
+                     tmp = instr_get_next(tmp)) {
                     if (tmp == ret) {
                         tmp->note = (void *) data->data[1]; /* the value to use */
                         break;

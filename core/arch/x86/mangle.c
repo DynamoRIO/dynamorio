@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1343,7 +1343,8 @@ insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * i#823 covers doing this more generally.
          */
         insert_push_retaddr(dcontext, ilist, instr,
-                            X64_MODE_DC(dcontext) ? CS64_SELECTOR : CS32_SELECTOR, opsize);
+                            X64_MODE_DC(dcontext) ? CS64_SELECTOR : CS32_SELECTOR,
+                            opsize);
     } else {
 #endif
         opnd_t stackop;
@@ -3357,7 +3358,8 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
         INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(ok)));
     PRE(ilist, instr,
         INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX),
-                         opnd_create_base_disp(REG_NULL, REG_XCX, opndsize, 0, OPSZ_lea)));
+                         opnd_create_base_disp(REG_NULL, REG_XCX, opndsize, 0,
+                                               OPSZ_lea)));
     PRE(ilist, instr,
         INSTR_CREATE_neg(dcontext, opnd_create_reg(REG_XBX)));
     PRE(ilist, instr,
@@ -3398,7 +3400,8 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
 #endif
     /* instr goes here */
     PRE(ilist, next,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX), opnd_create_reg(REG_XBX)));
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
+                            opnd_create_reg(REG_XBX)));
     PRE(ilist, next,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     PRE(ilist, next,
@@ -4002,7 +4005,8 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                                 TEST(INSTR_IND_CALL_DIRECT, instr->flags)));
 
 
-                        LOG(THREAD, LOG_INTERP, 3, " ignoring CALL* at end of fragment\n");
+                        LOG(THREAD, LOG_INTERP, 3,
+                            " ignoring CALL* at end of fragment\n");
                         /* This test could be done outside of this loop on
                          * destinations, but since it is rare it is faster
                          * to do it here.  Using continue instead of break in case

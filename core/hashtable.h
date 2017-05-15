@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -140,7 +140,8 @@ typedef struct _hashtable_statistics_t {
      * FIXME: case 4817 where bb's could also cache one target
      * or see the CGO03 paper for multiple cached locations with similar stats
      */
-    uint ib_stay_on_trace_stat; /* hash table lookup avoided - cached single target location */
+    uint ib_stay_on_trace_stat; /* hash table lookup avoided - cached single target
+                                 * location */
     /* This is likely to overflow in many cases, yet 64-bit in cache
      * increment is too heavy weight, should instead save last value
      * assuming that some rare, yet common enough event happens
@@ -155,7 +156,8 @@ typedef struct _hashtable_statistics_t {
     /* case 4817: add counter on extra check for converting IB into conditional
      * and add its success rate
      */
-    uint ib_trace_last_ibl_speculate_success; /* stay-on-trace check success on last exit */
+    uint ib_trace_last_ibl_speculate_success; /* stay-on-trace check success on last
+                                               * exit */
     /* FIXME: add last and ovfl flag here as well */
 } hashtable_statistics_t;
 

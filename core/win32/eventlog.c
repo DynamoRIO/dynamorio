@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,9 +70,10 @@ static void os_eventlog(syslog_event_type_t priority, uint message_id,
                         uint substitutions_num, char **arguments,
                         size_t size_data, char *raw_data);
 
-/* Custom logfile key and properties */
-/* This enables administrators to control the size of the log file  */
-/* and we can attach SACLs for security purposes, without affecting other applications.  */
+/* Custom logfile key and properties.
+ * This enables administrators to control the size of the log file,
+ * and we can attach SACLs for security purposes, without affecting other applications.
+ */
 
 // Make sure the registry key is all set up, maybe better done in the installer?
 // The minimum we need:
@@ -170,7 +172,8 @@ init_registry_source(void)
                 heventlogroot = reg_open_key(L_EVENTLOG_REGISTRY_KEY,
                                              KEY_READ | KEY_WRITE);
                 if (!heventlogroot) {
-                    LOG(GLOBAL, LOG_TOP, 1, "WARNING: Registration failure.  Could not open root %ls.",
+                    LOG(GLOBAL, LOG_TOP, 1,
+                        "WARNING: Registration failure.  Could not open root %ls.",
                         L_EVENTLOG_REGISTRY_KEY);
                     return 0;
                 }
@@ -178,12 +181,16 @@ init_registry_source(void)
                                            KEY_ALL_ACCESS);
             }
             if (!heventlog) {
-                LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not create event log key %s.", EVENTLOG_NAME);
+                LOG(GLOBAL, LOG_TOP, 1,
+                    "WARNING: Could not create event log key %s.", EVENTLOG_NAME);
                 return 0;
             }
 
-            /* obviously we'll need SET_VALUE later but to keep the logic simple we take minimal here */
-            heventsource = reg_create_key(heventlog, L_EVENT_SOURCE_NAME, KEY_QUERY_VALUE);
+            /* obviously we'll need SET_VALUE later but to keep the
+             * logic simple we take minimal here
+             */
+            heventsource =
+                reg_create_key(heventlog, L_EVENT_SOURCE_NAME, KEY_QUERY_VALUE);
             if (heventlog) {
                 reg_close_key(heventlog);
             }
@@ -193,7 +200,8 @@ init_registry_source(void)
 
         }
         if (!heventsource) {
-            LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not create event source key %s.", EVENTSOURCE_NAME);
+            LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not create event source key %s.",
+                EVENTSOURCE_NAME);
             return 0;
         }
 
@@ -207,8 +215,9 @@ init_registry_source(void)
 
 #define MAX_SYSLOG_ARGS 6       /* increase if necessary */
 /* collect arguments in an array and pass along */
-void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
-               va_list vargs)
+void
+os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
+          va_list vargs)
 {
     uint arg;
     char *arg_arr[MAX_SYSLOG_ARGS];
@@ -219,7 +228,7 @@ void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions
 
     ASSERT(substitutions_num < MAX_SYSLOG_ARGS);
 
-    for(arg = 0; arg < substitutions_num; arg++) {
+    for (arg = 0; arg < substitutions_num; arg++) {
         arg_arr[arg] = va_arg(vargs, char*);
     }
 
@@ -258,7 +267,7 @@ void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions
       return 0;                                             \
   while (skip--)                                            \
       *(*(pp))++ = '\0';                                    \
-} while(0)
+} while (0)
 
 /* Encodes an ASCIIZ string into some weird format */
 /* Example "\011\0\012\0""03B\0""\12\0\0\0DynamoRio\0\0\0"
@@ -644,13 +653,13 @@ eventlog_report(eventlog_state_t *evconnection,
           *(DWORD*)"\230y\23\0"); /* FIXME pointer placeholder */
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
           substitutions_num);
-    for(i=0; i<substitutions_num; i++) {
+    for (i=0; i<substitutions_num; i++) {
         /* FIXME unknown pointer placeholder */
         FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
               *(DWORD*)"\210y\23\0");
     }
 
-    for(i=0; i<substitutions_num; i++) {
+    for (i=0; i<substitutions_num; i++) {
         append_string(&p, evconnection->buf + sizeof(evconnection->buf),
                       substitutions[i]);
     }
@@ -824,7 +833,8 @@ eventlog_init()
     if (DYNAMO_OPTION(syslog_init) &&
         !init_registry_source()) { /* update registry keys */
         DOLOG_ONCE(1, LOG_TOP, {
-            LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not add the event source registry keys."
+            LOG(GLOBAL, LOG_TOP, 1,
+                "WARNING: Could not add the event source registry keys."
                 "Events are reported with no message files.\n");
         });
     }
@@ -910,7 +920,8 @@ os_eventlog(syslog_event_type_t priority, uint message_id,
         res = eventlog_register(shared_eventlog_connection);
         if (!res) {
             DOLOG_ONCE(1, LOG_TOP, {
-                LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not register event source on second attempt.\n");
+                LOG(GLOBAL, LOG_TOP, 1,
+                    "WARNING: Could not register event source on second attempt.\n");
             });
         } else {
             LOG(GLOBAL, LOG_TOP, 1, "Registered event source after program started. "

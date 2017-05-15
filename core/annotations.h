@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -106,8 +106,9 @@ typedef enum _dr_valgrind_request_id_t {
 
 enum {
     /**
-     * Defines the maximum number of arguments that can be passed to a Valgrind annotation,
-     * and accordingly specifies the length of the array vg_client_request_t.args.
+     * Defines the maximum number of arguments that can be passed to a Valgrind
+     * annotation, and accordingly specifies the length of the array
+     * vg_client_request_t.args.
      */
     DR_VG_NUM_ARGS = 5,
 };
