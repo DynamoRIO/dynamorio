@@ -1352,14 +1352,21 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     }
     /* popf */
     if (byte0 == 0x9d) {
+        reg_id_t stack_sized_reg = REG_XSP;
+#ifdef X64
+        if (dr_get_isa_mode(dcontext) == DR_ISA_IA32) {
+            stack_sized_reg = REG_ESP;
+        }
+#endif
         instr_set_opcode(instr, OP_popf);
         instr_set_raw_bits(instr, start_pc, sz);
         instr_set_num_opnds(dcontext, instr, 1, 2);
-        instr_set_src(instr, 0, opnd_create_reg(REG_XSP));
+        instr_set_src(instr, 0, opnd_create_reg(stack_sized_reg));
         instr_set_src(instr, 1, opnd_create_base_disp
-                      (REG_XSP, REG_NULL, 0, 0,
-                       resolve_variable_size_dc(dcontext, 0, OPSZ_ret, false)));
-        instr_set_dst(instr, 0, opnd_create_reg(REG_XSP));
+                      (stack_sized_reg, REG_NULL, 0, 0,
+                       resolve_variable_size_dc(dcontext, 0,
+                                                OPSZ_VARSTACK, false)));
+        instr_set_dst(instr, 0, opnd_create_reg(stack_sized_reg));
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (pc + 1);
     }
