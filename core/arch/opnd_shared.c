@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -104,13 +104,16 @@ opnd_is_abs_base_disp(opnd_t opnd) {
     return (opnd_is_base_disp(opnd) && opnd_get_base(opnd) == REG_NULL &&
             opnd_get_index(opnd) == REG_NULL);
 }
-bool opnd_is_abs_addr(opnd_t opnd) {
+bool
+opnd_is_abs_addr(opnd_t opnd) {
     return IF_X64(opnd.kind == ABS_ADDR_kind ||) opnd_is_abs_base_disp(opnd);
 }
-bool opnd_is_near_abs_addr(opnd_t opnd) {
+bool
+opnd_is_near_abs_addr(opnd_t opnd) {
     return opnd_is_abs_addr(opnd) IF_X86(&& opnd.aux.segment == REG_NULL);
 }
-bool opnd_is_far_abs_addr(opnd_t opnd) {
+bool
+opnd_is_far_abs_addr(opnd_t opnd) {
     return IF_X86_ELSE(opnd_is_abs_addr(opnd) && opnd.aux.segment != REG_NULL,
                        false);
 }
@@ -211,7 +214,7 @@ opnd_add_flags(opnd_t opnd, dr_opnd_flags_t flags)
 opnd_size_t
 opnd_get_size(opnd_t opnd)
 {
-    switch(opnd.kind) {
+    switch (opnd.kind) {
     case REG_kind:
         return (opnd.size == 0 ? reg_get_size(opnd_get_reg(opnd)) : opnd.size);
     case IMMED_INTEGER_kind:
@@ -242,7 +245,7 @@ opnd_get_size(opnd_t opnd)
 void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
 {
-    switch(opnd->kind) {
+    switch (opnd->kind) {
     case IMMED_INTEGER_kind:
     case BASE_DISP_kind:
 #if defined(X64) || defined(ARM)
@@ -1197,7 +1200,8 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
  * are the same.
  * different from opnd_same b/c this routine ignores data size!
  */
-bool opnd_same_address(opnd_t op1, opnd_t op2)
+bool
+opnd_same_address(opnd_t op1, opnd_t op2)
 {
     if (op1.kind != op2.kind)
         return false;
@@ -1242,7 +1246,8 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
     return true;
 }
 
-bool opnd_same(opnd_t op1, opnd_t op2)
+bool
+opnd_same(opnd_t op1, opnd_t op2)
 {
     if (op1.kind != op2.kind)
         return false;
@@ -1317,7 +1322,8 @@ bool opnd_same(opnd_t op1, opnd_t op2)
     }
 }
 
-bool opnd_share_reg(opnd_t op1, opnd_t op2)
+bool
+opnd_share_reg(opnd_t op1, opnd_t op2)
 {
     switch (op1.kind) {
     case NULL_kind:
@@ -1369,7 +1375,8 @@ range_overlap(ptr_uint_t a1, ptr_uint_t a2, size_t s1, size_t s2)
  * Is conservative, so if both def and use are memory references,
  * will return true unless it can disambiguate them.
  */
-bool opnd_defines_use(opnd_t def, opnd_t use)
+bool
+opnd_defines_use(opnd_t def, opnd_t use)
 {
     switch (def.kind) {
     case NULL_kind:

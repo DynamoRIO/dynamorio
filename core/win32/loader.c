@@ -1863,9 +1863,10 @@ bool
 privload_attach_parent_console(app_pc app_kernel32)
 {
     ASSERT(app_kernel32 != NULL);
-    if (kernel32_AttachConsole == NULL)
+    if (kernel32_AttachConsole == NULL) {
         kernel32_AttachConsole = (kernel32_AttachConsole_t)
             get_proc_address(app_kernel32, "AttachConsole");
+    }
     if (kernel32_AttachConsole != NULL) {
         if (kernel32_AttachConsole(ATTACH_PARENT_PROCESS) != 0)
             return true;

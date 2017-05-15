@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -91,11 +91,8 @@ rpcrt4_redir_lookup(const char *name)
 }
 
 
-RPC_STATUS
-RPC_ENTRY
-redirect_UuidCreate (
-    __out UUID __RPC_FAR * Uuid
-    )
+RPC_STATUS RPC_ENTRY
+redirect_UuidCreate(__out UUID __RPC_FAR * Uuid)
 {
     if (Uuid == NULL)
         return RPC_S_INVALID_ARG;

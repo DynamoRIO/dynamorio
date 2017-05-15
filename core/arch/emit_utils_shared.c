@@ -381,7 +381,8 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags)
         } else
             return fcache_return_shared_routine(IF_X86_64(FRAGMENT_GENCODE_MODE(flags)));
     } else {
-        return fcache_return_routine_ex(dcontext _IF_X86_64(FRAGMENT_GENCODE_MODE(flags)));
+        return fcache_return_routine_ex(dcontext
+                                        _IF_X86_64(FRAGMENT_GENCODE_MODE(flags)));
     }
 }
 
@@ -556,10 +557,7 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
     }
     STATS_INC(num_indirect_links);
 
-# ifdef WINDOWS
-    if (!is_shared_syscall_routine(dcontext, target_tag))
-# endif
-    {
+    if (IF_WINDOWS_ELSE(!is_shared_syscall_routine(dcontext, target_tag), true)) {
         ibl_code_t *ibl_code =
             get_ibl_routine_code(dcontext,
                                  extract_branchtype(l->flags), f->flags);
@@ -988,7 +986,8 @@ remove_assembled_patch_markers(dcontext_t *dcontext, patch_list_t *patch)
         j++;
     }
 
-    LOG(THREAD, LOG_EMIT, 3, "remove_assembled_patch_markers: relocations %d, left only %d\n",
+    LOG(THREAD, LOG_EMIT, 3,
+        "remove_assembled_patch_markers: relocations %d, left only %d\n",
         patch->num_relocations, i);
     patch->num_relocations = i;
 }
@@ -1090,14 +1089,18 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch,
             inst == patch->entry[cur].where.instr) {
             ASSERT(!TEST(PATCH_OFFSET_VALID, patch->entry[cur].patch_flags));
 
-            /* support positive offsets from beginning and negative - from end of instruction */
+            /* support positive offsets from beginning and negative -
+             * from end of instruction
+             */
             if (offset_in_instr < 0) {
                 /* grab offset offset_in_instr bytes from the end of instruction */
                 /* most commonly -4 for a 32bit immediate  */
                 patch->entry[cur].where.offset =
                     ((pc + offset_in_instr) - start_pc);
             } else {
-                /* grab offset after skipping offset_in_instr from beginning of instruction */
+                /* grab offset after skipping offset_in_instr from beginning of
+                 * instruction
+                 */
                 patch->entry[cur].where.offset =
                     ((pc - len + offset_in_instr) - start_pc);
             }
@@ -1150,7 +1153,7 @@ print_patch_list(patch_list_t *patch)
     LOG(THREAD_GET, LOG_EMIT, 4, "patch="PFX" num_relocations=%d\n",
         patch, patch->num_relocations);
 
-    for(i=0; i<patch->num_relocations; i++) {
+    for (i=0; i<patch->num_relocations; i++) {
         ASSERT(TEST(PATCH_OFFSET_VALID, patch->entry[i].patch_flags));
         LOG(THREAD_GET, LOG_EMIT, 4,
             "patch_list [%d] offset="PFX" patch_flags=%d value_offset="PFX"\n", i,
@@ -1210,7 +1213,7 @@ patch_emitted_code(dcontext_t *dcontext, patch_list_t *patch, byte *start_pc)
     DOLOG(4, LOG_EMIT, {
         print_patch_list(patch);
     });
-    for(i=0; i<patch->num_relocations; i++) {
+    for (i=0; i<patch->num_relocations; i++) {
         byte *pc = start_pc + patch->entry[i].where.offset;
         /* value address, (think for example of pt->trace.hash_mask) */
         ptr_uint_t value;
@@ -1306,7 +1309,8 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         ASSERT(code->trace_ibl[branch_type].ibl_head_is_inlined);
-        patch_emitted_code(dcontext, &code->trace_ibl[branch_type].ibl_stub_patch, start_pc);
+        patch_emitted_code(dcontext, &code->trace_ibl[branch_type].ibl_stub_patch,
+                           start_pc);
     } else {
         ASSERT(code->bb_ibl[branch_type].ibl_head_is_inlined);
         patch_emitted_code(dcontext, &code->bb_ibl[branch_type].ibl_stub_patch, start_pc);
@@ -2694,7 +2698,8 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info)
         APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_instr(fcache_ret_prefix)));
     } else {
         APP(&ilist, XINST_CREATE_jump
-            (dcontext, opnd_create_pc(trace_head_return_coarse_routine(IF_X86_64(mode)))));
+            (dcontext,
+             opnd_create_pc(trace_head_return_coarse_routine(IF_X86_64(mode)))));
     }
 
     /* coarse does not support IBL_FAR so we don't bother with get_ibl_entry_type() */
@@ -2983,7 +2988,8 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
 
     if (restore_eflags) {
         insert_restore_eflags(dcontext, ilist, NULL, 0,
-                              IBL_EFLAGS_IN_TLS(), absolute _IF_X86_64(x86_to_x64_ibl_opt));
+                              IBL_EFLAGS_IN_TLS(), absolute
+                              _IF_X86_64(x86_to_x64_ibl_opt));
     }
     if (!target_prefix) {
         /* We're going to clobber the xax slot */
@@ -3024,7 +3030,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
 
     if (target_prefix) {
         /* FIXME: do we want this?  seems to be a problem, I'm disabling:
-         * ASSERT(!collision || start_pc_offset == FRAGMENT_START_PC_OFFS);  // c \imply FRAGMENT
+         * ASSERT(!collision || start_pc_offset == FRAGMENT_START_PC_OFFS)
          */
 #ifdef AARCH64
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
@@ -3048,10 +3054,10 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
             APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
             if (IF_X64_ELSE(x86_to_x64_ibl_opt, false))
                 APP(ilist, RESTORE_FROM_REG(dcontext, SCRATCH_REG2, REG_R9));
-            else if (XCX_IN_TLS(0/*!FRAG_SHARED*/))
+            else if (XCX_IN_TLS(0/*!FRAG_SHARED*/)) {
                 APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG2,
                                             MANGLE_XCX_SPILL_SLOT));
-            else
+            } else
                 APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
 #ifdef AARCH64
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
@@ -3110,17 +3116,21 @@ update_ibl_routine(dcontext_t *dcontext, ibl_code_t *ibl_code)
     });
 
     if (ibl_code->ibl_head_is_inlined) {
-        patch_emitted_code(dcontext, &ibl_code->ibl_stub_patch, ibl_code->inline_ibl_stub_template);
+        patch_emitted_code(dcontext, &ibl_code->ibl_stub_patch,
+                           ibl_code->inline_ibl_stub_template);
         DOLOG(2, LOG_EMIT, {
             const char *ibl_name;
             const char *ibl_brtype;
             ibl_name = get_ibl_routine_name(dcontext,
                                             ibl_code->indirect_branch_lookup_routine,
                                             &ibl_brtype);
-            LOG(THREAD, LOG_EMIT, 2, "Just updated inlined stub indirect branch lookup\n%s_template_%s:\n",
+            LOG(THREAD, LOG_EMIT, 2,
+                "Just updated inlined stub indirect branch lookup\n%s_template_%s:\n",
                 ibl_name, ibl_brtype);
-            disassemble_with_annotations(dcontext, &ibl_code->ibl_stub_patch, ibl_code->inline_ibl_stub_template,
-                                         ibl_code->inline_ibl_stub_template + ibl_code->inline_stub_length);
+            disassemble_with_annotations(dcontext, &ibl_code->ibl_stub_patch,
+                                         ibl_code->inline_ibl_stub_template,
+                                         ibl_code->inline_ibl_stub_template +
+                                         ibl_code->inline_stub_length);
         });
     }
 }
@@ -3141,7 +3151,8 @@ update_indirect_branch_lookup(dcontext_t *dcontext)
     dr_set_isa_mode(dcontext, DEFAULT_ISA_MODE, &old_mode);
 #endif
     protect_generated_code(code, WRITABLE);
-    for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+    for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
+         branch_type++) {
         update_ibl_routine(dcontext, &code->bb_ibl[branch_type]);
         if (PRIVATE_TRACES_ENABLED() && !DYNAMO_OPTION(shared_trace_ibl_routine))
             update_ibl_routine(dcontext, &code->trace_ibl[branch_type]);
@@ -3435,7 +3446,8 @@ insert_restore_target_from_dc(dcontext_t *dcontext,
             (dcontext, REG_NULL/*default*/, SCRATCH_REG2, SCRATCH_REG4_OFFS));
     } else {
         APP(ilist,
-            instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG4_OFFS));
+            instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2,
+                                               SCRATCH_REG4_OFFS));
     }
 # ifdef CLIENT_INTERFACE
     /* i#537: we push KiFastSystemCallRet on to the stack and adjust the
@@ -3936,10 +3948,12 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             if (all_shared) {
                 APP(&ilist,
                     instr_create_restore_from_dc_via_reg(dcontext, REG_NULL/*default*/,
-                                                         SCRATCH_REG1, SCRATCH_REG5_OFFS));
+                                                         SCRATCH_REG1,
+                                                         SCRATCH_REG5_OFFS));
             } else {
                 APP(&ilist,
-                    instr_create_restore_from_dcontext(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS));
+                    instr_create_restore_from_dcontext(dcontext, SCRATCH_REG1,
+                                                       SCRATCH_REG5_OFFS));
             }
         }
     } /* if inlined, xbx will be saved inside inlined ibl; if no indirect stubs,
@@ -3948,8 +3962,10 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     /* set up for indirect_branch_lookup */
     /* save app's xcx */
-    if (!DYNAMO_OPTION(shared_fragment_shared_syscalls))
-        APP(&ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
+    if (!DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
+        APP(&ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG2,
+                                                  SCRATCH_REG2_OFFS));
+    }
     /* FIXME Can we remove the write to the mcontext for the !absolute
      * case, as suggested above? */
     if (!absolute && !all_shared/*done later*/) {
@@ -3970,7 +3986,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
              * We do this now to take advantage of xcx being dead.
              */
             APP(&ilist,
-                instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG5_OFFS));
+                instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2,
+                                                   SCRATCH_REG5_OFFS));
             APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_REG3_SLOT));
         }
     }
@@ -3986,7 +4003,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         } else {
 # endif
             APP(&ilist, INSTR_CREATE_xchg
-                (dcontext, OPND_TLS_FIELD(MANGLE_XCX_SPILL_SLOT), opnd_create_reg(SCRATCH_REG2)));
+                (dcontext, OPND_TLS_FIELD(MANGLE_XCX_SPILL_SLOT),
+                 opnd_create_reg(SCRATCH_REG2)));
 # ifdef X64
         }
         /* clear top 32 bits */
@@ -3995,7 +4013,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 # endif
         /* app xdi is restored later after we've restored next_tag from xsi slot */
     } else {
-        APP(&ilist, instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG0_OFFS));
+        APP(&ilist, instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2,
+                                                       SCRATCH_REG0_OFFS));
     }
     jecxz = INSTR_CREATE_jecxz(dcontext, opnd_create_instr(unlink));
     APP(&ilist, jecxz);
@@ -4009,7 +4028,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         if (inline_ibl_head) {
             if (absolute) {
                 APP(&ilist,
-                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG1, SCRATCH_REG5_OFFS));
+                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG1,
+                                                  SCRATCH_REG5_OFFS));
             } else {
                 APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG3_SLOT));
             }
@@ -4127,7 +4147,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             /* we expect target saved in xbx_offset */
             if (absolute) {
                 APP(&ilist,
-                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG2, SCRATCH_REG1_OFFS));
+                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG2,
+                                                  SCRATCH_REG1_OFFS));
             } else
                 APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, TLS_REG1_SLOT));
             APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_CL),
@@ -4136,7 +4157,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             /* xbx could have changed in kernel, unlink expects it saved */
             if (absolute) {
                 APP(&ilist,
-                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG1, SCRATCH_REG1_OFFS));
+                    instr_create_save_to_dcontext(dcontext, SCRATCH_REG1,
+                                                  SCRATCH_REG1_OFFS));
             } else
                 APP(&ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
         }
@@ -4430,7 +4452,8 @@ emit_detach_callback_code(dcontext_t *dcontext, byte *buf,
          opnd_create_reg(SCRATCH_REG1)));
     APP(&ilist, XINST_CREATE_load
         (dcontext, opnd_create_reg(SCRATCH_REG2),
-         OPND_CREATE_MEMPTR(SCRATCH_REG0, offsetof(detach_callback_stack_t, callback_addrs))));
+         OPND_CREATE_MEMPTR(SCRATCH_REG0, offsetof(detach_callback_stack_t,
+                                                   callback_addrs))));
     APP(&ilist, XINST_CREATE_load
         (dcontext, opnd_create_reg(SCRATCH_REG2),
          opnd_create_base_disp(SCRATCH_REG2, SCRATCH_REG1, sizeof(app_pc), 0, OPSZ_PTR)));
@@ -5116,7 +5139,8 @@ emit_trace_head_incr(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc)
                                                          FRAGMENT_PREFIX_SIZE_OFFS,
                                                          OPSZ_1)));
     APP(&ilist, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ECX),
-                                 opnd_create_base_disp(REG_ECX, REG_EAX, 1, 0, OPSZ_lea)));
+                                 opnd_create_base_disp(REG_ECX, REG_EAX, 1, 0,
+                                                       OPSZ_lea)));
     APP(&ilist, instr_create_save_to_dcontext(dcontext, REG_ECX, TRACE_HEAD_PC_OFFSET));
     APP(&ilist, instr_create_restore_from_dcontext(dcontext, REG_ECX, SCRATCH_REG2_OFFS));
     APP(&ilist, instr_create_restore_from_dcontext(dcontext, REG_EAX, SCRATCH_REG0_OFFS));
@@ -5163,7 +5187,8 @@ special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
     return get_ibl_routine_ex(dcontext, entry_type,
                               DYNAMO_OPTION(disable_traces) ?
                               (code->thread_shared ? IBL_BB_SHARED : IBL_BB_PRIVATE) :
-                              (code->thread_shared ? IBL_TRACE_SHARED : IBL_TRACE_PRIVATE),
+                              (code->thread_shared ? IBL_TRACE_SHARED :
+                               IBL_TRACE_PRIVATE),
                               ibl_type
                               _IF_X86_64(code->gencode_mode));
 }

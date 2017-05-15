@@ -307,13 +307,15 @@ process_config_line(char *line, config_info_t *cfg, bool app_specific, bool over
                 val != line + strlen(config_var[i])) {
                 if (cfg->query == NULL) { /* only complain about this process */
                     FATAL_USAGE_ERROR(ERROR_CONFIG_FILE_INVALID, 3,
-                                      get_application_name(), get_application_pid(), line);
+                                      get_application_name(), get_application_pid(),
+                                      line);
                     ASSERT_NOT_REACHED();
                 }
             } else if (!cfg->u.v->vals[i].has_value || overwrite) {
                 if (strlen(val + 1) >= BUFFER_SIZE_ELEMENTS(cfg->u.v->vals[i].val)) {
                     /* not FATAL so release build will continue */
-                    USAGE_ERROR("Config value for %s too long: truncating", config_var[i]);
+                    USAGE_ERROR("Config value for %s too long: truncating",
+                                config_var[i]);
                 }
                 strncpy(cfg->u.v->vals[i].val, val + 1,
                         BUFFER_SIZE_ELEMENTS(cfg->u.v->vals[i].val));

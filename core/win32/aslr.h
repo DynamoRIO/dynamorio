@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -578,7 +579,7 @@ enum {
     GBOP_CHECK_INSTR_TYPE  = 0x10, /* no source instruction type restriction if not set */
     GBOP_IS_CALL           = 0x20, /* verify source is at all a CALL instruction */
     GBOP_IS_JMP            = 0x40, /* FIXME: not needed - app JMP won't be seen on TOS */
-    GBOP_IS_HOTPATCH_JMP   = 0x80, /* our JMP in case we have hotpatched purported source */
+    GBOP_IS_HOTPATCH_JMP   = 0x80, /* our JMP in case we hotpatched purported source */
     /* FIXME: we can't find the source if it was a JMP or JMP*, unless
      * the caller explicitly wants to fool us with one.
      *

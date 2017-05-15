@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -158,7 +158,8 @@ memmove(void *dst, const void *src, size_t n)
  * up arguments on the stack, so we alias these *_chk routines to the non-chk
  * routines and rely on the caller to clean up the extra dst_len arg.
  */
-void *__memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
+void *
+__memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
 # ifdef MACOS
 /* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
  * XXX: better to test for support at config time: for now assuming none on Mac.
@@ -167,9 +168,10 @@ void *__memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
   return memmove(dst, src, n);
 }
 # else
-    __attribute__ ((alias ("memmove")));
+    __attribute__((alias("memmove")));
 # endif
-void *__strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
+void *
+__strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
 # ifdef MACOS
 /* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
  * XXX: better to test for support at config time: for now assuming none on Mac.
@@ -178,7 +180,7 @@ void *__strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
   return strncpy(dst, src, n);
 }
 # else
-    __attribute__ ((alias ("strncpy")));
+    __attribute__((alias("strncpy")));
 # endif
 #endif
 

@@ -168,7 +168,7 @@ struct _linkstub_t {
 
 #ifdef CUSTOM_EXIT_STUBS
     ushort         fixed_stub_offset;  /* offset in bytes of fixed part of exit stub from
-                                          stub_pc, which points to custom prefix of stub */
+                                        * stub_pc, which points to custom stub prefix */
 #endif
 };
 

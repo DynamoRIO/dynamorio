@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -3099,7 +3099,8 @@ decode_debug_checks_arch(void)
 /* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
 # include "instr_create.h"
 
-int main()
+int
+main()
 {
     bool res = true;
     standalone_init();

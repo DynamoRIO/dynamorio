@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +51,8 @@ signal_handler(int sig)
         print("received SIGCHLD\n");
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
     pid_t child;
     int rc;

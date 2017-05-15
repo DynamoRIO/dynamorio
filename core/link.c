@@ -1079,7 +1079,8 @@ linkstubs_shift(dcontext_t *dcontext, fragment_t *f, ssize_t shift)
  * if mark_new_trace_head is false, this routine does not change any state.
  */
 bool
-is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragment_t *to_f,
+is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l,
+            fragment_t *to_f,
             bool have_link_lock, bool mark_new_trace_head)
 {
     /* monitor_is_linkable is what marks trace heads, so must
@@ -1089,7 +1090,8 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragme
                              have_link_lock, mark_new_trace_head))
         return false;
     /* cannot link between shared and private caches
-     * N.B.: we assume this in other places, like our use of fragment_lookup_same_sharing()
+     * N.B.: we assume this in other places, like our use of
+     * fragment_lookup_same_sharing()
      * for linking, so if we change this we need to change more than this routine here
      */
     if ((from_f->flags & FRAG_SHARED) != (to_f->flags & FRAG_SHARED))

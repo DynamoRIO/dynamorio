@@ -430,27 +430,27 @@ extern const reg_id_t dr_reg_fixer[];
 # endif
 /** Number of general registers */
 # define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
-# define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
-# define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
-# define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
-# define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
-# define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
-# define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
-# define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
-# define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
-# define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
-# define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
-# define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
-# define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
-# define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
-# define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
+# define DR_REG_START_64   DR_REG_RAX /**< Start of 64-bit general register enum values */
+# define DR_REG_STOP_64    DR_REG_R15 /**< End of 64-bit general register enum values */
+# define DR_REG_START_32   DR_REG_EAX /**< Start of 32-bit general register enum values */
+# define DR_REG_STOP_32    DR_REG_R15D/**< End of 32-bit general register enum values */
+# define DR_REG_START_16   DR_REG_AX  /**< Start of 16-bit general register enum values */
+# define DR_REG_STOP_16    DR_REG_R15W/**< End of 16-bit general register enum values */
+# define DR_REG_START_8    DR_REG_AL  /**< Start of 8-bit general register enum values */
+# define DR_REG_STOP_8     DR_REG_DIL /**< End of 8-bit general register enum values */
+# define DR_REG_START_8HL  DR_REG_AL  /**< Start of 8-bit high-low register enum values */
+# define DR_REG_STOP_8HL   DR_REG_BH   /**< End of 8-bit high-low register enum values */
+# define DR_REG_START_x86_8 DR_REG_AH /**< Start of 8-bit x86-only register enum values */
+# define DR_REG_STOP_x86_8  DR_REG_BH /**< Stop of 8-bit x86-only register enum values */
+# define DR_REG_START_x64_8 DR_REG_SPL /**< Start of 8-bit x64-only register enum values*/
+# define DR_REG_STOP_x64_8  DR_REG_DIL /**< Stop of 8-bit x64-only register enum values */
 # define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
 # define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
 # define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
 # define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
 # define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
 # define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
-# define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
+# define DR_REG_START_FLOAT DR_REG_ST0 /**< Start of floating-point-register enum values*/
 # define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
 # define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
 # define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1734,7 +1734,7 @@ query_full_attributes_file(PCWSTR filename,
 /* The file does not exist. */
 #define STATUS_NO_SUCH_FILE              ((NTSTATUS)0xC000000FL)
 
-/* {Conflicting Address Range}  The specified address range conflicts with the address space. */
+/* The specified address range conflicts with the address space. */
 #define STATUS_CONFLICTING_ADDRESSES     ((NTSTATUS)0xC0000018L)
 
 /* The end-of-file marker has been reached. There is no valid data in
@@ -1808,7 +1808,7 @@ query_full_attributes_file(PCWSTR filename,
  */
 #define STATUS_FILE_IS_A_DIRECTORY       ((NTSTATUS)0xC00000BAL)
 
-/* Warning: An attempt was made to create an object and the object name already existed. */
+/* An attempt was made to create an object and the object name already existed. */
 #define STATUS_OBJECT_NAME_EXISTS        ((NTSTATUS)0x40000000L)
 
 /* Warning: Image Relocated
@@ -2249,13 +2249,13 @@ typedef enum replaces_cor_hdr_numeric_defines_t
     IMAGE_COR_MIH_BASICBLOCK            =0x08,
 
 // V-table constants
-    COR_VTABLE_32BIT                    =0x01,          // V-table slots are 32-bits in size.
-    COR_VTABLE_64BIT                    =0x02,          // V-table slots are 64-bits in size.
-    COR_VTABLE_FROM_UNMANAGED           =0x04,          // If set, transition from unmanaged.
-    COR_VTABLE_CALL_MOST_DERIVED        =0x10,          // Call most derived method described by
+    COR_VTABLE_32BIT                    =0x01,  // V-table slots are 32-bits in size.
+    COR_VTABLE_64BIT                    =0x02,  // V-table slots are 64-bits in size.
+    COR_VTABLE_FROM_UNMANAGED           =0x04,  // If set, transition from unmanaged.
+    COR_VTABLE_CALL_MOST_DERIVED        =0x10,  // Call most derived method described by
 
 // EATJ constants
-    IMAGE_COR_EATJ_THUNK_SIZE           =32,            // Size of a jump thunk reserved range.
+   I MAGE_COR_EATJ_THUNK_SIZE           =32,    // Size of a jump thunk reserved range.
 
 // Max name lengths
     //@todo: Change to unlimited name lengths.

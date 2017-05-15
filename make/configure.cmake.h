@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -154,10 +154,11 @@
 #    $(D)KSTATS - on for INTERNAL, DEBUG, and PROFILE builds, use KSTATS=1 for
 # release builds
 #    $(D)PROGRAM_SHEPHERDING -  (always ON)
-#         currently turns on code origins checks and diagnostics, eventually will also turn
-#         on return-after-call and other restricted control transfer features
+#         currently turns on code origins checks and diagnostics, eventually will also
+#         turn on return-after-call and other restricted control transfer features
 #    $(D)RETURN_AFTER_CALL  - (always ON) return only to instructions after seen calls
-#    $(D)RCT_IND_BRANCH     - (experimental) indirect branch only to address taken entry points
+#    $(D)RCT_IND_BRANCH     - (experimental) indirect branch only to address taken
+#                             entry points
 #    $(D)DGC_DIAGNOSTICS
 #    $(D)CHECK_RETURNS_SSE2 (experimental security feature)
 #    $(D)CHECK_RETURNS_SSE2_EMIT (experimental unfinished)
@@ -170,7 +171,8 @@
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
-#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags) (defines ASSUME_NORMAL_EFLAGS)
+#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags)
+#                      (defines ASSUME_NORMAL_EFLAGS)
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
@@ -179,7 +181,7 @@
 #      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
 #    $(D)CLIENT_INTERFACE
-#    $(D)ANNOTATIONS -- optional instrumentation of binary annotations 
+#    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
 #    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE

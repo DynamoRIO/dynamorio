@@ -1588,7 +1588,8 @@ handle_clone(dcontext_t *dcontext, uint flags)
             *info->shared_itimer_underDR = 1;
             info->shared_itimer_lock = (recursive_lock_t *)
                 global_heap_alloc(sizeof(*info->shared_itimer_lock) HEAPACCT(ACCT_OTHER));
-            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock, shared_itimer_lock);
+            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock,
+                                            shared_itimer_lock);
         } /* else, some ancestor already created */
     }
 }
@@ -5384,14 +5385,14 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
          */
         if (info->shared_app_sigaction) {
             LOG(THREAD, LOG_ASYNCH, 1,
-                "WARNING: having to install SIG_DFL for thread "TIDFMT", but will be shared!\n",
-                get_thread_id());
+                "WARNING: having to install SIG_DFL for thread "TIDFMT", but will be "
+                "shared!\n", get_thread_id());
         }
         if (default_action[sig] == DEFAULT_TERMINATE ||
             default_action[sig] == DEFAULT_TERMINATE_CORE) {
             report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_FP,
-                               "\nSignal %d delivered to application as default action.\n",
-                               sig);
+                               "\nSignal %d delivered to application as default "
+                               "action.\n", sig);
             /* App may call sigaction to set handler SIG_DFL (unnecessary but legal),
              * in which case DR will put a handler in info->app_sigaction[sig].
              * We must clear it, otherwise, signal_thread_exit may cleanup the
@@ -5502,7 +5503,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 fragment_t wrapper;
                 fragment_t *f;
                 LOG(THREAD, LOG_ALL, 1,
-                    "Received SIGSEGV at pc "PFX" in thread "TIDFMT"\n", pc, get_thread_id());
+                    "Received SIGSEGV at pc "PFX" in thread "TIDFMT"\n",
+                    pc, get_thread_id());
                 f = fragment_pclookup(dcontext, pc, &wrapper);
                 if (f)
                     disassemble_fragment(dcontext, f, false);
@@ -5771,7 +5773,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
     /* set up for dispatch */
     /* we have to use a different slot since next_tag ends up holding the do_syscall
-     * entry when entered from dispatch (we're called from pre_syscall, prior to entering cache)
+     * entry when entered from dispatch (we're called from
+     * pre_syscall, prior to entering cache)
      */
     dcontext->asynch_target = canonicalize_pc_target
         (dcontext, (app_pc)(sc->SC_XIP IF_ARM(|(TEST(EFLAGS_T, sc->SC_XFLAGS) ? 1 : 0))));
@@ -6042,10 +6045,13 @@ os_dump_core(const char *msg)
 bool
 at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragment)
 {
-    /* There is a known exception in signal restorers and the Linux dynamic symbol resoulution */
-    /* The latter we assume it is the only other recurring known exception,
-       so the first time we pattern match to help make sure it is indeed _dl_runtime_resolve
-       (since with LD_BIND_NOW it will never be called).  After that we compare with the known value. */
+    /* There is a known exception in signal restorers and the Linux
+     * dynamic symbol resoulution.
+     * The latter we assume it is the only other recurring known exception,
+     * so the first time we pattern match to help make sure it is indeed
+     * _dl_runtime_resolve (since with LD_BIND_NOW it will never be called).
+     * After that we compare with the known value.
+     */
 
     static app_pc known_exception = 0;
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
@@ -6060,13 +6066,15 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
        (I haven't seen restorers other than the one in libc)
     */
     if (target_pc == info->signal_restorer_retaddr) {
-        LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception this is a signal restorer --ok \n");
+        LOG(THREAD, LOG_INTERP, 1,
+            "RCT: KNOWN exception this is a signal restorer --ok \n");
         STATS_INC(ret_after_call_signal_restorer);
         return true;
     }
 
     if (source_fragment == known_exception) {
-        LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception again _dl_runtime_resolve --ok\n");
+        LOG(THREAD, LOG_INTERP, 1,
+            "RCT: KNOWN exception again _dl_runtime_resolve --ok\n");
         return true;
     }
 
@@ -6142,7 +6150,8 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
     ASSERT(info != NULL && info->itimer != NULL);
     ASSERT(which >= 0 && which < NUM_ITIMERS);
     if (enable) {
-        ASSERT(!info->shared_itimer || self_owns_recursive_lock(info->shared_itimer_lock));
+        ASSERT(!info->shared_itimer ||
+               self_owns_recursive_lock(info->shared_itimer_lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
         usec_to_timeval((*info->itimer)[which].actual.value, &val.it_value);
         LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING

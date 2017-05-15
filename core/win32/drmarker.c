@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,9 +60,10 @@
 # define READ_FUNC nt_read_virtual_memory
 # define DR_MARKER_VERSION_CURRENT DR_MARKER_VERSION_2
 #else /* NOT_DYNAMORIO_CORE */
-# pragma warning( disable : 4054) /* from function pointer 'void (__cdecl *)(void )' to data pointer 'unsigned char *' */
+# pragma warning( disable : 4054) /* from function pointer to data pointer */
 /* complains about size_t* vs SIZE_T* */
-# pragma warning( disable : 4057) /* 'function' : 'unsigned long *' differs in indirection to slightly different base types from 'int *' */
+/* 'unsigned long *' differs to slightly different base types from 'int *' */
+# pragma warning( disable : 4057)
 # pragma warning( disable : 4100) /* 'envp' : unreferenced formal parameter */
 # ifndef byte
 typedef unsigned char byte;

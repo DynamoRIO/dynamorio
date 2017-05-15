@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -486,7 +486,8 @@ static inline
 int
 get_rununder_value(const char *runvalue)
 {
-    /* For now we allow only decimal, but with more flags it will be easier to work on hex.
+    /* For now we allow only decimal, but with more flags it will be
+       easier to work on hex.
        FIXME: share the logic in parse_uint() from after options.c -r 1.4
        to allow both hex and decimal values
     */
@@ -554,7 +555,7 @@ w_get_short_name(const wchar_t *exename)
 */
 bool
 get_commandline_qualifier(const wchar_t *command_line,
-                          wchar_t *derived_name, uint max_derived_length /* in elements */,
+                          wchar_t *derived_name, uint max_derived_length /* elements */,
                           bool no_strip)
 {
     wchar_t *derived_ptr = derived_name;
@@ -563,7 +564,7 @@ get_commandline_qualifier(const wchar_t *command_line,
     /* Find last piece of the executable name  */
     const wchar_t *cmdptr;
 
-    /* Long paths (that may have spaces) are assumed to be in quotes on the command line */
+    /* Long paths (that may have spaces) are assumed to be in quotes on command line */
     if (command_line[0] == L'"') {
         cmdptr = wcschr(command_line+1, L'"');
         if (cmdptr)
@@ -578,7 +579,9 @@ get_commandline_qualifier(const wchar_t *command_line,
     }
 
     do {
-        /* Skip any leading delimiters before each argument, e.g. "svchost.exe   -k          netsvcs" */
+        /* Skip any leading delimiters before each argument, e.g.
+         * "svchost.exe   -k          netsvcs"
+         */
         while (*cmdptr && !iswalnum(*cmdptr))
             cmdptr++;
         if (!*cmdptr)
@@ -600,8 +603,9 @@ get_commandline_qualifier(const wchar_t *command_line,
             *derived_ptr++ = *cmdptr++;
         }
 
-        /* We do not add any normalized delimiters, e.g. "/t /e /st" is the same as "/test",
-           since currently there is no need to be that punctual. */
+        /* We do not add any normalized delimiters, e.g. "/t /e /st" is the same as
+         * "/test", since currently there is no need to be that punctual.
+         */
     } while (*cmdptr);
  out:
     *derived_ptr = L'\0'; /* NULL terminate */
@@ -712,7 +716,8 @@ get_process_qualified_name(HANDLE process_handle,
         /* get foreign process subkey */
         /* to avoid another buffer and save stack space, we do this in stages */
         /* just get image name first */
-        get_process_imgname_cmdline(process_handle, other_process_img_or_cmd /* image name */,
+        get_process_imgname_cmdline(process_handle,
+                                    other_process_img_or_cmd /* image name */,
                                     BUFFER_SIZE_ELEMENTS(other_process_img_or_cmd),
                                     NULL, 0);
         full_name = other_process_img_or_cmd;
@@ -1307,11 +1312,12 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
 #endif
 
     rununder_mask = get_rununder_value(runvalue);
-    if (NULL != mask)
+    if (NULL != mask) {
         if (IS_GET_PARAMETER_SUCCESS(err))
             *mask = rununder_mask;
         else
             *mask = 0;
+    }
 
     /* if there is no app-specific subkey, then we should compare
        against runall */
@@ -1489,13 +1495,13 @@ main()
     test("write.exe", filter, 0);
     test("test.exe", filter, 0);
 
-    nametest("C:\WINNT\System32\dllhost.exe /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1}",
-             "");
+    nametest("C:\WINNT\System32\dllhost.exe /Processid:{"
+             "3D14228D-FBE1-11D0-995D-00C04FD919C1}", "");
 
     /* short name lots of spaces */
     nametest("svchost.exe   -k    netsvc    ", "");
 
-    /* a real example: in fact the service executable name for RpcSs doesn't have a .exe in it */
+    /* a real example: in fact the service executable name for RpcSs doesn't have .exe */
     nametest("system32\svchost -k rpcss    ", "");
 
     /* spaces in long name actually require " */
@@ -1506,8 +1512,17 @@ main()
     /* capital .EXE */
     nametest("c:\program files\test\my test\sqlserver.EXE   -s uddi    ", "");
     /* capital .EXE and a backslashes in case trying using short_name  */
-    nametest("c:\program files\test\my test\sqlserver.EXE   -s uddi -u test\test    ", "");
-    nametest("C:\WINNT\System32\dllhost.exe /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} /Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1}", "");
+    nametest("c:\program files\test\my test\sqlserver.EXE   -s uddi -u test\test    ",
+             "");
+    nametest("C:\WINNT\System32\dllhost.exe "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1} "
+             "/Processid:{3D14228D-FBE1-11D0-995D-00C04FD919C1}", "");
 
     nametest("dllhost.exe ////// /P#%@#$%-k    netsvc    ", "");
 

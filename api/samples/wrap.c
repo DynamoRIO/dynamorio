@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,8 +68,8 @@ static void *max_lock; /* to synch writes to max_malloc */
 
 #define MALLOC_ROUTINE_NAME IF_WINDOWS_ELSE("HeapAlloc", "malloc")
 
-static
-void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
+static void
+module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 {
     app_pc towrap = (app_pc)
         dr_get_proc_address(mod->handle, MALLOC_ROUTINE_NAME);

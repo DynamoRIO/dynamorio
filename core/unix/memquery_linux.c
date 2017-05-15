@@ -80,10 +80,10 @@ static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
 /* these are defined in /usr/src/linux/fs/proc/array.c */
 #define MAPS_LINE_LENGTH        4096
 /* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4         "%08lx-%08lx %s %08lx %*s "UINT64_FORMAT_STRING" %4096s"
+#define MAPS_LINE_FORMAT4     "%08lx-%08lx %s %08lx %*s "UINT64_FORMAT_STRING" %4096s"
 #define MAPS_LINE_MAX4  49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
 /* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8         "%016lx-%016lx %s %016lx %*s "UINT64_FORMAT_STRING" %4096s"
+#define MAPS_LINE_FORMAT8     "%016lx-%016lx %s %016lx %*s "UINT64_FORMAT_STRING" %4096s"
 #define MAPS_LINE_MAX8  73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
 
 #define MAPS_LINE_MAX   MAPS_LINE_MAX8

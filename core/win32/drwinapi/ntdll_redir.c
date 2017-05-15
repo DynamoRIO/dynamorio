@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -100,7 +100,7 @@ static const redirect_import_t redirect_ntdll[] = {
      */
     {"RtlInitializeCriticalSection",   (app_pc)redirect_RtlInitializeCriticalSection},
     {"RtlInitializeCriticalSectionAndSpinCount",
-                                (app_pc)redirect_RtlInitializeCriticalSectionAndSpinCount},
+                               (app_pc)redirect_RtlInitializeCriticalSectionAndSpinCount},
     {"RtlInitializeCriticalSectionEx", (app_pc)redirect_RtlInitializeCriticalSectionEx},
     {"RtlDeleteCriticalSection",       (app_pc)redirect_RtlDeleteCriticalSection},
     /* We don't redirect the creation but we avoid DR pointers being passed

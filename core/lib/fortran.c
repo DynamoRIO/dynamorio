@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,22 +45,26 @@
 #include "dr_app.h"
 
 #ifdef DR_APP_EXPORTS
-void drsetup_()
+void
+drsetup_()
 {
     dr_app_setup();
 }
 
-void drcleanup_()
+void
+drcleanup_()
 {
     dr_app_cleanup();
 }
 
-void drstart_()
+void
+drstart_()
 {
     dr_app_start();
 }
 
-void drstop_()
+void
+drstop_()
 {
     dr_app_stop();
 }

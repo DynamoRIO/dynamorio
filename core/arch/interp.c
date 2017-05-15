@@ -595,7 +595,8 @@ check_for_stopping_point(dcontext_t *dcontext, build_bb_t *bb)
         instrlist_append(bb->ilist, XINST_CREATE_return(dcontext));
         /* should this be treated as a real return? */
         bb->exit_type |= LINK_INDIRECT | LINK_RETURN;
-        bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(), IBL_RETURN);
+        bb->exit_target =
+            get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(), IBL_RETURN);
         return true;
     }
 #endif /* DR_APP_EXPORTS */
@@ -2369,7 +2370,8 @@ is_targeting_convertible_IAT(dcontext_t *dcontext, instr_t *instr,
          * but even in the unlikely reference by address from another
          * module there is really no problem, so not worth checking
          */
-        ASSERT_CURIOSITY(get_module_base(instr->bytes) == get_module_base(memory_reference));
+        ASSERT_CURIOSITY(get_module_base(instr->bytes) ==
+                         get_module_base(memory_reference));
 
         /* FIXME: now that we know it is in IAT/GOT,
          * we have to READ the contents and return that
@@ -2607,7 +2609,8 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
      * bb->instr and will remove bb->instr
      * FIXME: it would have been
      * better to replace in instrlist with a direct call and have
-     * mangle_{in,}direct_call use other than the raw bytes, but this for now does the job.
+     * mangle_{in,}direct_call use other than the raw bytes, but this for now does the
+     * job.
      */
     bb->instr->flags |= INSTR_IND_CALL_DIRECT;
 
@@ -3261,7 +3264,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             my_dcontext->bb_build_info = (void *) bb;
         } else {
             /* For nested we leave the original, which should be the only vmlist,
-             * and we give up on freeing dangling instr_t and instrlist_t from this decode.
+             * and we give up on freeing dangling instr_t and instrlist_t from this
+             * decode.
              * We need the original's for_cache so we know to free the bb_building_lock.
              * FIXME: use TRY to handle decode exceptions locally?  Shouldn't have
              * violation remediations on a !for_cache build.
@@ -3773,8 +3777,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     normal_indirect_processing = false;
                     elide_and_continue_if_converted = true;
                 } else if (DYNAMO_OPTION(IAT_convert)
-                           && bb_process_IAT_convertible_indcall(dcontext, bb,
-                                                                 &elide_and_continue_if_converted)) {
+                           && bb_process_IAT_convertible_indcall
+                           (dcontext, bb, &elide_and_continue_if_converted)) {
                     normal_indirect_processing = false;
                 }
                 else
@@ -3795,7 +3799,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 /* indirect jump */
                 /* was prev instr a direct call? if so, this is a PLT-style ind call */
                 instr_t *prev = instr_get_prev(bb->instr);
-                if (prev != NULL && instr_opcode_valid(prev) && instr_is_call_direct(prev)) {
+                if (prev != NULL && instr_opcode_valid(prev) &&
+                    instr_is_call_direct(prev)) {
                     bb->exit_type |= INSTR_IND_JMP_PLT_EXIT;
                     /* just because we have a CALL to JMP* makes it
                        only a _likely_ PLT call, we still have to make
@@ -3807,8 +3812,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 elide_and_continue_if_converted = true;
 
                 if (DYNAMO_OPTION(IAT_convert)
-                    && bb_process_IAT_convertible_indjmp(dcontext, bb,
-                                                         &elide_and_continue_if_converted)) {
+                    && bb_process_IAT_convertible_indjmp
+                    (dcontext, bb, &elide_and_continue_if_converted)) {
                     /* Clear the IND_JMP_PLT_EXIT flag since we've converted
                      * the PLT to a direct transition (and possibly elided).
                      * Xref case 7867 for why leaving this flag in the eliding
@@ -4968,8 +4973,8 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
             if (!xfer_target /* else we'll re-check at the target itself */ &&
                 !native_exec_bb && is_native_pc(start)) {
                 LOG(THREAD, LOG_INTERP|LOG_VMAREAS, 2,
-                    "WARNING: pc "PFX" is on native list but reached bypassing gateway!\n",
-                    start);
+                    "WARNING: pc "PFX" is on native list but reached bypassing "
+                    "gateway!\n", start);
                 STATS_INC(num_native_entrance_miss);
                 /* do-once since once get into dll past gateway may xfer
                  * through a bunch of lastexit-null or indjmp to same dll
@@ -5209,7 +5214,8 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_
 {
     build_bb_t bb;
 
-    if (!is_readable_without_exception(pc, 4/* don't know full range -- just do simple check now */)) {
+    /* don't know full range -- just do simple check now */
+    if (!is_readable_without_exception(pc, 4)) {
         LOG(THREAD, LOG_INTERP, 3,
             "recreate_bb_ilist: cannot read memory at "PFX"\n", pc);
         return NULL;
@@ -5641,7 +5647,8 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
 
 /* Combines instrlist_postinsert to ilist and the size calculation of the addition */
 static inline int
-tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t *inst)
+tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                    instr_t *inst)
 {
     /* when we emit the trace we're going to call instr_length() on all instrs
      * anyway, and we'll re-use any memory allocated here for an encoding
@@ -6301,7 +6308,8 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
                 exits_deleted++;
             } else if (instr_opcode_valid(inst) && instr_is_cti(inst)) {
                 LOG(THREAD, LOG_MONITOR, 3,
-                    "WARNING: deleting non-exit cti in unused tail of frag added to trace\n");
+                    "WARNING: deleting non-exit cti in unused tail of frag added to "
+                    "trace\n");
             }
             loginst(dcontext, 4, inst, "\tdeleting");
             instrlist_remove(trace, inst);
@@ -6375,23 +6383,25 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
             added_size +=
                 tracelist_add(dcontext, trace, where,
-                              XINST_CREATE_store(dcontext,
-                                                 opnd_create_tls_slot(tls_stat_scratch_slot),
-                                                 opnd_create_reg(SCRATCH_REG2)));
+                              XINST_CREATE_store
+                              (dcontext, opnd_create_tls_slot(tls_stat_scratch_slot),
+                               opnd_create_reg(SCRATCH_REG2)));
             added_size +=
-                insert_increment_stat_counter(dcontext, trace, where,
-                                              &get_ibl_per_type_statistics(dcontext,
-                                                                           ibl_type.branch_type)
-                                              ->ib_trace_last_ibl_exit);
+                insert_increment_stat_counter
+                (dcontext, trace, where,
+                 &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
+                 ->ib_trace_last_ibl_exit);
             added_size +=
                 tracelist_add(dcontext, trace, where,
-                              XINST_CREATE_load(dcontext,
-                                                opnd_create_reg(SCRATCH_REG2),
-                                                opnd_create_tls_slot(tls_stat_scratch_slot)));
+                              XINST_CREATE_load
+                              (dcontext, opnd_create_reg(SCRATCH_REG2),
+                               opnd_create_tls_slot(tls_stat_scratch_slot)));
         }
     });
 #endif
-    /* preinsert comparison before exit CTI, but increment of success statistics after it */
+    /* preinsert comparison before exit CTI, but increment of success
+     * statistics after it
+     */
 
     /* we need to compare to speculate_next_tag now */
     /* XCX holds value to match */
@@ -6406,7 +6416,8 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
      *
      * continue:
      *                        <increment stats>
-     *                        <restore app ecx>  # see FIXME whether to go to prefix or do here
+     *                        # see FIXME whether to go to prefix or do here
+     *                        <restore app ecx>
      *    e9 cc aa dd 00       jmp speculate_next_tag
      *
      */
@@ -6423,16 +6434,16 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
             /* XCX already saved */
 
             added_size +=
-                insert_increment_stat_counter(dcontext, trace, next,
-                                              &get_ibl_per_type_statistics(dcontext,
-                                                                           ibl_type.branch_type)
-                                              ->ib_trace_last_ibl_speculate_success);
+                insert_increment_stat_counter
+                (dcontext, trace, next,
+                 &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
+                 ->ib_trace_last_ibl_speculate_success);
             /* restore XCX to app IB target*/
             added_size +=
                 tracelist_add(dcontext, trace, next,
-                              XINST_CREATE_load(dcontext,
-                                                opnd_create_reg(reg),
-                                                opnd_create_tls_slot(tls_stat_scratch_slot)));
+                              XINST_CREATE_load
+                              (dcontext, opnd_create_reg(reg),
+                               opnd_create_tls_slot(tls_stat_scratch_slot)));
         }
     });
 #endif
@@ -6521,24 +6532,28 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     ASSERT(ok);
     added_size += tracelist_add(dcontext, trace, where,
-                                XINST_CREATE_store(dcontext,
-                                                   opnd_create_tls_slot(tls_stat_scratch_slot),
-                                                    opnd_create_reg(reg)));
+                                XINST_CREATE_store
+                                (dcontext,
+                                 opnd_create_tls_slot(tls_stat_scratch_slot),
+                                 opnd_create_reg(reg)));
     added_size +=
-        insert_increment_stat_counter(dcontext, trace, where,
-                                      &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
-                                      ->ib_trace_last_ibl_exit);
+        insert_increment_stat_counter
+        (dcontext, trace, where,
+         &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
+         ->ib_trace_last_ibl_exit);
     added_size += tracelist_add(dcontext, trace, where,
-                                XINST_CREATE_load(dcontext,
-                                                  opnd_create_reg(reg),
-                                                  opnd_create_tls_slot(tls_stat_scratch_slot)));
+                                XINST_CREATE_load
+                                (dcontext, opnd_create_reg(reg),
+                                 opnd_create_tls_slot(tls_stat_scratch_slot)));
 
     if (speculate_next_tag != NULL) {
         instr_t *next = instr_get_next(inst);
         reg_id_t reg = IF_X86_ELSE(REG_ECX, DR_REG_R2);
         /* preinsert comparison before exit CTI, but increment goes after it */
 
-        /* we need to compare to speculate_next_tag now - just like fixup_last_cti() would do later */
+        /* we need to compare to speculate_next_tag now - just like
+         * fixup_last_cti() would do later.
+         */
         /* ECX holds value to match here */
 
         /* leave jmp as it is, a jmp to exit stub (thence to ind br lookup) */
@@ -6547,22 +6562,24 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
          *    increment success counter
          *    jmp targeter
          *
-         *   FIXME: now the last instruction is no longer the exit_cti - see if that breaks any assumptions,
-         *   using a short jump to see if anyone erroneously uses this
+         *   FIXME: now the last instruction is no longer the exit_cti - see if that
+         *   breaks any assumptions, using a short jump to see if anyone erroneously
+         *   uses this
          */
         added_size +=
             insert_transparent_comparison(dcontext, trace, where, speculate_next_tag);
 
-        /* we'll kill again although ECX restored unnecessarily by comparison routine,   */
+        /* we'll kill again although ECX restored unnecessarily by comparison routine */
         added_size +=
-            insert_increment_stat_counter(dcontext, trace, next,
-                                          &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
-                                          ->ib_trace_last_ibl_speculate_success);
+            insert_increment_stat_counter
+            (dcontext, trace, next,
+             &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
+             ->ib_trace_last_ibl_speculate_success);
         /* restore ECX */
         added_size += tracelist_add(dcontext, trace, next,
-                                XINST_CREATE_load(dcontext,
-                                                  opnd_create_reg(reg),
-                                                  opnd_create_tls_slot(tls_stat_scratch_slot)));
+                                XINST_CREATE_load
+                                    (dcontext, opnd_create_reg(reg),
+                                     opnd_create_tls_slot(tls_stat_scratch_slot)));
         /* jmp where */
         added_size += tracelist_add(dcontext, trace, next,
                                     IF_X86_ELSE(INSTR_CREATE_jmp_short,
@@ -6669,7 +6686,7 @@ extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l)
 
     ASSERT(!instrlist_get_our_mangling(ilist));
     instrlist_append(trace, instrlist_first(ilist));
-    instrlist_init(ilist); /* clear fields so destroy won't kill instrs now on trace list */
+    instrlist_init(ilist); /* clear fields so destroy won't kill instrs on trace list */
     instrlist_destroy(dcontext, ilist);
 
     md->trace_buf_top += size;
@@ -7347,7 +7364,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     bool re_relativize = false;
                     bool intra_target = true;
                     DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                        loginst(dcontext, 4, instr, "decode_fragment: found non-exit cti");
+                        loginst(dcontext, 4, instr,
+                                "decode_fragment: found non-exit cti");
                     });
                     if (TEST(FRAG_FAKE, f->flags)) {
                         /* Case 8711: we don't know the size so we can't even
@@ -7425,7 +7443,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                         instrlist_append(&intra_ctis, clone);
                         /* intra-fragment target */
                         DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                            loginst(dcontext, 4, instr, "\tcti has intra-fragment target");
+                            loginst(dcontext, 4, instr,
+                                    "\tcti has intra-fragment target");
                         });
                         /* since the resulting instrlist could be manipulated,
                          * we need to change the target operand from pc to instr_t.

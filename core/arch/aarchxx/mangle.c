@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -290,10 +290,13 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
                                                        true /* is_single_reg */,
                                                        is_gpr);
-        if (save)
-            new_instr = INSTR_CREATE_str(dcontext, mem, opnd_create_reg(first_reg + reg1));
-        else
-            new_instr = INSTR_CREATE_ldr(dcontext, opnd_create_reg(first_reg + reg1), mem);
+        if (save) {
+            new_instr = INSTR_CREATE_str(dcontext, mem,
+                                         opnd_create_reg(first_reg + reg1));
+        } else {
+            new_instr = INSTR_CREATE_ldr(dcontext,
+                                         opnd_create_reg(first_reg + reg1), mem);
+        }
         PRE(ilist, instr, new_instr);
     }
 }
@@ -581,7 +584,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          OPND_CREATE_INT32(current_offs)));
 
     /* load pc and flags */
-    if(!(cci->skip_save_flags)) {
+    if (!(cci->skip_save_flags)) {
         /* ldp w1, w2, [x0, #8] */
         PRE(ilist, instr,
             INSTR_CREATE_ldp(dcontext,
