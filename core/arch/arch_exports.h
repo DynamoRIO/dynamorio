@@ -1727,6 +1727,7 @@ enum {
     CBR_SHORT_REWRITE_LENGTH = 9, /* FIXME: use this in mangle.c */
     RET_0_LENGTH     = 1,
     PUSH_IMM32_LENGTH = 5,
+    POPF_LENGTH = 1,
 
     /* size of 32-bit call and jmp instructions w/o prefixes. */
     CTI_IND1_LENGTH    = 2, /* FF D6             call esi                      */

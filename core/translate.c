@@ -338,6 +338,10 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
 #endif
+        /* Single step mangling adds a nop. */
+        else if (instr_is_nop(inst)) {
+            /* nothing to do */
+        }
         else if (instr_is_app(inst)) {
             /* To have reg spill+restore in the same mangle region, we mark
              * the (modified) app instr for rip-rel and for segment mangling as

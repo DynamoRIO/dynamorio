@@ -2221,6 +2221,11 @@ bool
 instr_writes_reg_list(instr_t *instr);
 #endif
 
+#ifdef X86
+bool
+instr_can_set_single_step(instr_t *instr);
+#endif
+
 DR_API
 /**
  * Assumes that \p instr's opcode is OP_int and that either \p instr's

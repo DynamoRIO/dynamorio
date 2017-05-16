@@ -998,6 +998,23 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             mangle_interrupt(dcontext, ilist, instr, next_instr);
             continue;
         }
+#ifdef X86
+        /*
+         * i#2144 : We look for single step exceptions generation.
+         */
+        else if (instr_can_set_single_step(instr) &&
+                 instr_get_opcode(instr) != OP_iret) {
+            /* iret is handled in mangle_return. */
+            mangle_possible_single_step(dcontext, ilist, instr);
+            continue;
+        }
+        else if (dcontext->single_step_addr != NULL &&
+                 dcontext->single_step_addr == instr->translation) {
+            mangle_single_step(dcontext, ilist, *flags, instr);
+            /* Resets to generate single step exception only once. */
+            dcontext->single_step_addr = NULL;
+        }
+#endif
 #ifdef FOOL_CPUID
         else if (instr_get_opcode(instr) == OP_cpuid) {
             mangle_cpuid(dcontext, ilist, instr, next_instr);

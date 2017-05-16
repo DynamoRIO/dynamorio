@@ -1965,6 +1965,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_set_src(popf, 1, memop);
             PRE(ilist, instr, popf);
         }
+        /* Mangles single step exception after a popf. */
+        mangle_possible_single_step(dcontext, ilist, popf);
 
 #ifdef X64
         /* In x64 mode, iret additionally does pop->RSP and pop->ss. */
@@ -2389,6 +2391,49 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_destroy(dcontext, instr);
     }
 #endif /* WINDOWS */
+}
+
+/***************************************************************************
+ * Single step exceptions catching
+ */
+void
+mangle_possible_single_step(dcontext_t *dcontext, instrlist_t *ilist,
+                            instr_t *instr)
+{
+    /* Simply inserts two nops so that next instruction where a single step
+     * exception might occur is in the same basic block and so that the
+     * translation of a single step exception points back to the instruction
+     * which set the trap flag.
+     * The single step exception is a problem because
+     * the ExceptionAddress should be the next EIP.
+     */
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+    /* Inserting two nops to get ExceptionAddress on the second one. */
+    POST(ilist, instr, INSTR_CREATE_nop(dcontext));
+}
+
+/***************************************************************************
+ * Single step exceptions generation
+ */
+void
+mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+                   instr_t *instr)
+{
+    /* Sets exit reason dynamically. */
+    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+        insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
+        PRE(ilist, instr, INSTR_CREATE_mov_st
+            (dcontext,
+             opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
+                                                   EXIT_REASON_OFFSET, OPSZ_2),
+             OPND_CREATE_INT16(EXIT_REASON_SINGLE_STEP)));
+        insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+    } else {
+        PRE(ilist, instr,
+            instr_create_save_immed16_to_dcontext(dcontext,
+                                                  EXIT_REASON_SINGLE_STEP,
+                                                  EXIT_REASON_OFFSET));
+    }
 }
 
 /***************************************************************************
