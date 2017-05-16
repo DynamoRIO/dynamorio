@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -107,7 +107,8 @@ static void ignore_varargs_function(char *format, ...) { }
 
 #ifndef EXPOSE_INTERNAL_OPTIONS
 /* default values for internal options are kept in a separate struct */
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) default_value,
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                  statement, description, flag, pcache) default_value,
 #  define OPTION_COMMAND(type, name, default_value, command_line_option, \
                          statement, description, flag, pcache) /* nothing */
 /* read only source for default internal option values and names
@@ -134,7 +135,8 @@ const internal_options_t default_internal_options = {
    in other object files since more option fields need longer than 8-bit offsets)
    For now we can live without this.
 */
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) /* nothing, */
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                  statement, description, flag, pcache) /* nothing, */
 #endif
 
 
@@ -232,17 +234,21 @@ adjust_defaults_for_page_size(options_t *options)
 CORE_STATIC void
 set_dynamo_options_defaults(options_t *options)
 {
-    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options, &options_lock);
+    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options,
+                            &options_lock);
     *options = default_options;
     adjust_defaults_for_page_size(options);
 }
 #undef OPTION_COMMAND_INTERNAL
 
-/* For all other purposes OPTION_COMMAND_INTERNAL should be equivalent to either OPTION_COMMAND or nothing */
+/* For all other purposes OPTION_COMMAND_INTERNAL should be equivalent
+ * to either OPTION_COMMAND or nothing.
+ */
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) /* nothing */
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                  statement, description, flag, pcache) /* nothing */
 #endif
 
 /* PARSING HANDLER */
@@ -516,7 +522,8 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     if (optstr == NULL)
         return 0;
 
-    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options, &options_lock);
+    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options,
+                            &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
     prev_pos = pos;
     while ((opt = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer))) != NULL) {
@@ -633,8 +640,10 @@ PRINT_STRING_uint(char *optionbuff, uint value, const char *option)
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d ", option, (value))
 #define PRINT_STRING_uint_addr(optionbuff,value,option) \
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s "PFX" ", option, (value));
-#define PRINT_STRING_pathstring_t(optionbuff,value,option) snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
-#define PRINT_STRING_liststring_t(optionbuff,value,option) snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
+#define PRINT_STRING_pathstring_t(optionbuff,value,option) \
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
+#define PRINT_STRING_liststring_t(optionbuff,value,option) \
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
 
 
 #define DIFF_bool(value1,value2) ( value1 != value2 )
@@ -745,7 +754,8 @@ update_dynamic_options(options_t *options, options_t *new_options)
 {
     int updated = 0;
 
-    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options, &options_lock);
+    ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options,
+                            &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
 
 #define OPTION_COMMAND(type, name, default_value,                       \
@@ -766,7 +776,8 @@ update_dynamic_options(options_t *options, options_t *new_options)
                                         command_line_option);           \
                     NULL_TERMINATE_BUFFER(new_optionbuff);              \
                     LOG(GLOBAL, LOG_TOP, 2,                             \
-                        "Updating dynamic options : Ignoring static option change (%.*s changed to %.*s)\n",                                              \
+                        "Updating dynamic options : Ignoring static option change "\
+                        "(%.*s changed to %.*s)\n",                     \
                         MAX_LOG_LENGTH/2-80, optionbuff,                \
                         MAX_LOG_LENGTH/2-80, new_optionbuff);           \
                 }                                                       \
@@ -909,13 +920,15 @@ check_option_compatibility_helper(int recurse_count)
     }
     if (!INTERNAL_OPTION(inline_calls) && !DYNAMO_OPTION(disable_traces)) {
         /* cannot disable inlining of calls and build traces (currently) */
-        USAGE_ERROR("-no_inline_calls not compatible with -disable_traces, setting to default");
+        USAGE_ERROR("-no_inline_calls not compatible with -disable_traces, setting "
+                    "to default");
         SET_DEFAULT_VALUE(inline_calls);
         SET_DEFAULT_VALUE(disable_traces);
         changed_options = true;
     }
     if (INTERNAL_OPTION(tracedump_binary) && INTERNAL_OPTION(tracedump_text)) {
-        USAGE_ERROR("Cannot set both -tracedump_binary and -tracedump_text, setting to default");
+        USAGE_ERROR("Cannot set both -tracedump_binary and -tracedump_text, setting "
+                    "to default");
         SET_DEFAULT_VALUE(tracedump_binary);
         SET_DEFAULT_VALUE(tracedump_text);
         changed_options = true;
@@ -967,7 +980,7 @@ check_option_compatibility_helper(int recurse_count)
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
     if (!ALIGNED(DYNAMO_OPTION(stack_size), PAGE_SIZE)) {
-        USAGE_ERROR("-stack_size must be at least 12K and a multiple of the page size (4k)");
+        USAGE_ERROR("-stack_size must be at least 12K and a multiple of the page size");
         SET_DEFAULT_VALUE(stack_size);
         changed_options = true;
     }
@@ -985,7 +998,8 @@ check_option_compatibility_helper(int recurse_count)
         && INTERNAL_OPTION(code_api)
 # endif
         ) {
-        USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without -pad_jmps_mark_no_trace when traces are enabled");
+        USAGE_ERROR("-pad_jmps isn't safe with code_api or on Linux without "
+                    "-pad_jmps_mark_no_trace when traces are enabled");
     }
 #endif
 
@@ -1029,7 +1043,8 @@ check_option_compatibility_helper(int recurse_count)
     /* FIXME: better way to enforce these incompatibilities w/ certain builds
      * than by turning off protection?  Should we halt instead?
      */
-    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) && SHARED_FRAGMENTS_ENABLED()) {
+    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
+        SHARED_FRAGMENTS_ENABLED()) {
         /* FIXME: get all shared gen routines to properly handle unprotected_context_t */
         USAGE_ERROR("Shared cache does not support protecting dcontext yet");
         dynamo_options.protect_mask &= ~SELFPROT_DCONTEXT;
@@ -1118,12 +1133,14 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
         if (!DYNAMO_OPTION(shared_trace_ibl_routine)) {
-            SYSLOG_INTERNAL_INFO("-shared_traces requires -shared_trace_ibl_routine, enabling");
+            SYSLOG_INTERNAL_INFO("-shared_traces requires -shared_trace_ibl_routine, "
+                                 "enabling");
             dynamo_options.shared_trace_ibl_routine = true;
             changed_options = true;
         }
         if (!DYNAMO_OPTION(atomic_inlined_linking)) {
-            SYSLOG_INTERNAL_INFO("-shared_traces requires -atomic_inlined_linking, enabling");
+            SYSLOG_INTERNAL_INFO("-shared_traces requires -atomic_inlined_linking, "
+                                 "enabling");
             dynamo_options.atomic_inlined_linking = true;
             changed_options = true;
         }
@@ -1131,14 +1148,16 @@ check_option_compatibility_helper(int recurse_count)
 #ifdef EXPOSE_INTERNAL_OPTIONS
 # ifdef DEADLOCK_AVOIDANCE
     if (INTERNAL_OPTION(mutex_callstack) > MAX_MUTEX_CALLSTACK) {
-        USAGE_ERROR("-mutex_callstack is compiled with MAX_MUTEX_CALLSTACK=%d", MAX_MUTEX_CALLSTACK);
+        USAGE_ERROR("-mutex_callstack is compiled with MAX_MUTEX_CALLSTACK=%d",
+                    MAX_MUTEX_CALLSTACK);
         dynamo_options.mutex_callstack = MAX_MUTEX_CALLSTACK;
         changed_options = true;
     }
 # endif
     if (INTERNAL_OPTION(unsafe_ignore_eflags_ibl) &&
         !INTERNAL_OPTION(unsafe_ignore_eflags_prefix)) {
-        USAGE_ERROR("-unsafe_ignore_eflags_ibl requires -unsafe_ignore_eflags_prefix, enabling");
+        USAGE_ERROR("-unsafe_ignore_eflags_ibl requires -unsafe_ignore_eflags_prefix, "
+                    "enabling");
         dynamo_options.unsafe_ignore_eflags_prefix = true;
         changed_options = true;
     }
@@ -1170,7 +1189,8 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
     if (DYNAMO_OPTION(reset_at_commit_percent_free_limit) > 100) {
-        USAGE_ERROR("-reset_at_commit_percent_free_limit is percentage value, can't be > 100");
+        USAGE_ERROR("-reset_at_commit_percent_free_limit is percentage value, can't "
+                    "be > 100");
         dynamo_options.reset_at_commit_percent_free_limit = 100;
         changed_options = true;
     }
@@ -1264,14 +1284,16 @@ check_option_compatibility_helper(int recurse_count)
     /* We need private_ib_in_tls for shared BB IBTs. */
     if (DYNAMO_OPTION(bb_ibl_targets) && DYNAMO_OPTION(shared_bbs) &&
         !DYNAMO_OPTION(private_ib_in_tls)) {
-        SYSLOG_INTERNAL_INFO("-bb_ibl_targets w/traces requires -private_ib_in_tls, enabling");
+        SYSLOG_INTERNAL_INFO("-bb_ibl_targets w/traces requires -private_ib_in_tls, "
+                             "enabling");
         dynamo_options.private_ib_in_tls = true;
         changed_options = true;
     }
     /* We need shared tables for shared BB IBTs when trace building is on. */
     if (DYNAMO_OPTION(bb_ibl_targets) && DYNAMO_OPTION(shared_bbs) &&
         !DYNAMO_OPTION(disable_traces) && !DYNAMO_OPTION(shared_bb_ibt_tables)) {
-        SYSLOG_INTERNAL_INFO("-bb_ibl_targets -shared_bbs w/traces requires -shared_bb_ibt_tables, enabling");
+        SYSLOG_INTERNAL_INFO("-bb_ibl_targets -shared_bbs w/traces requires "
+                             "-shared_bb_ibt_tables, enabling");
         dynamo_options.shared_bb_ibt_tables = true;
         changed_options = true;
     }
@@ -1282,7 +1304,9 @@ check_option_compatibility_helper(int recurse_count)
     if (DYNAMO_OPTION(bb_ibl_targets) && !DYNAMO_OPTION(disable_traces) &&
         DYNAMO_OPTION(bb_ibt_table_includes_traces) &&
         DYNAMO_OPTION(shared_bb_ibt_tables) && !DYNAMO_OPTION(shared_traces)) {
-        SYSLOG_INTERNAL_INFO("-bb_ibt_table_includes_traces -shared_bb_ibt_tables requires -shared_traces, disabling -bb_ibt_table_includes_traces");
+        SYSLOG_INTERNAL_INFO("-bb_ibt_table_includes_traces -shared_bb_ibt_tables "
+                             "requires -shared_traces, disabling "
+                             "-bb_ibt_table_includes_traces");
         dynamo_options.bb_ibt_table_includes_traces = false;
         changed_options = true;
     }
@@ -1290,8 +1314,10 @@ check_option_compatibility_helper(int recurse_count)
      * the BB IBT table, BBs & traces must use the same type of prefix. */
     if (DYNAMO_OPTION(bb_ibl_targets) && !DYNAMO_OPTION(disable_traces) &&
         DYNAMO_OPTION(bb_ibt_table_includes_traces) &&
-        (DYNAMO_OPTION(trace_single_restore_prefix) != DYNAMO_OPTION(bb_single_restore_prefix))) {
-        SYSLOG_INTERNAL_INFO("For -bb_ibl_targets -bb_ibt_table_includes_traces, traces & BBs must use identical prefixes");
+        (DYNAMO_OPTION(trace_single_restore_prefix) !=
+         DYNAMO_OPTION(bb_single_restore_prefix))) {
+        SYSLOG_INTERNAL_INFO("For -bb_ibl_targets -bb_ibt_table_includes_traces, "
+                             "traces & BBs must use identical prefixes");
         /* FIXME We could either set trace_single_restore_prefix and
          * bb_single_restore_prefix to the same value or use
          * -no_bb_ibt_table_includes_traces. For now, we do the latter as
@@ -1309,7 +1335,8 @@ check_option_compatibility_helper(int recurse_count)
          * to disable it when shared_deletion is off -- but don't yell at user so
          * not a USAGE_ERROR, simply an info event
          */
-        SYSLOG_INTERNAL_INFO("-syscalls_synch_flush requires -shared_deletion, disabling");
+        SYSLOG_INTERNAL_INFO("-syscalls_synch_flush requires -shared_deletion, "
+                             "disabling");
         dynamo_options.syscalls_synch_flush = false;
         changed_options = true;
     }
@@ -1318,8 +1345,10 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.free_private_stubs = false;
         changed_options = true;
     }
-    if (DYNAMO_OPTION(unsafe_free_shared_stubs) && !DYNAMO_OPTION(separate_shared_stubs)) {
-        USAGE_ERROR("-unsafe_free_shared_stubs requires -separate_shared_stubs, disabling");
+    if (DYNAMO_OPTION(unsafe_free_shared_stubs) &&
+        !DYNAMO_OPTION(separate_shared_stubs)) {
+        USAGE_ERROR("-unsafe_free_shared_stubs requires -separate_shared_stubs, "
+                    "disabling");
         dynamo_options.unsafe_free_shared_stubs = false;
         changed_options = true;
     }
@@ -1357,7 +1386,8 @@ check_option_compatibility_helper(int recurse_count)
     if ((DYNAMO_OPTION(finite_shared_bb_cache) ||
          DYNAMO_OPTION(finite_shared_trace_cache)) &&
         !DYNAMO_OPTION(cache_shared_free_list)) {
-        USAGE_ERROR("-finite_shared_{bb,trace}_cache requires -cache_shared_free_list, enabling");
+        USAGE_ERROR("-finite_shared_{bb,trace}_cache requires -cache_shared_free_list, "
+                    "enabling");
         dynamo_options.cache_shared_free_list = true;
         changed_options = true;
     }
@@ -1371,7 +1401,8 @@ check_option_compatibility_helper(int recurse_count)
 #ifdef WINDOWS
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
         !DYNAMO_OPTION(shared_syscalls)) {
-        SYSLOG_INTERNAL_INFO("-shared_fragment_shared_syscalls requires -shared_syscalls, disabling");
+        SYSLOG_INTERNAL_INFO("-shared_fragment_shared_syscalls requires "
+                             "-shared_syscalls, disabling");
         dynamo_options.shared_fragment_shared_syscalls = false;
         changed_options = true;
     }
@@ -1383,7 +1414,8 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
     if (DYNAMO_OPTION(x86_to_x64_ibl_opt) && !DYNAMO_OPTION(x86_to_x64)) {
-        SYSLOG_INTERNAL_INFO("-x86_to_x64 is required for x86_to_x64_ibl_opt. disabling -x86_to_x64_ibl_opt.");
+        SYSLOG_INTERNAL_INFO("-x86_to_x64 is required for x86_to_x64_ibl_opt. "
+                             "Disabling -x86_to_x64_ibl_opt.");
         dynamo_options.x86_to_x64_ibl_opt = false;
         changed_options = true;
     }
@@ -1393,13 +1425,15 @@ check_option_compatibility_helper(int recurse_count)
     if (SHARED_FRAGMENTS_ENABLED() &&
         DYNAMO_OPTION(shared_syscalls) &&
         !DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
-        SYSLOG_INTERNAL_INFO("-shared_{bbs|traces} w/-shared_syscalls requires -shared_fragment_shared_syscalls, enabling");
+        SYSLOG_INTERNAL_INFO("-shared_{bbs|traces} w/-shared_syscalls requires "
+                             "-shared_fragment_shared_syscalls, enabling");
         dynamo_options.shared_fragment_shared_syscalls = true;
         changed_options = true;
     }
     if (SHARED_IBT_TABLES_ENABLED() && DYNAMO_OPTION(shared_syscalls) &&
         !DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
-        SYSLOG_INTERNAL_INFO("-shared_{bb|trace}_ibt_tables requires -shared_fragment_shared_syscalls, enabling");
+        SYSLOG_INTERNAL_INFO("-shared_{bb|trace}_ibt_tables requires "
+                             "-shared_fragment_shared_syscalls, enabling");
         dynamo_options.shared_fragment_shared_syscalls = true;
         changed_options = true;
     }
@@ -1412,7 +1446,8 @@ check_option_compatibility_helper(int recurse_count)
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls) &&
         /* x64 uses -shared_fragment_shared_syscalls always */
         IF_X64_ELSE(false, !SHARED_FRAGMENTS_ENABLED())) {
-        SYSLOG_INTERNAL_INFO("-shared_fragment_shared_syscalls requires -shared_{bbs|traces}, disabling");
+        SYSLOG_INTERNAL_INFO("-shared_fragment_shared_syscalls requires "
+                             "-shared_{bbs|traces}, disabling");
         dynamo_options.shared_fragment_shared_syscalls = false;
         changed_options = true;
     }
@@ -1420,20 +1455,23 @@ check_option_compatibility_helper(int recurse_count)
      * simultaneously: case 5436. */
     if (DYNAMO_OPTION(shared_syscalls) && DYNAMO_OPTION(shared_bbs) &&
         !DYNAMO_OPTION(shared_traces) && !DYNAMO_OPTION(disable_traces)) {
-        SYSLOG_INTERNAL_INFO("-shared_syscalls not supported with -shared_bbs -no_shared_traces, disabling");
+        SYSLOG_INTERNAL_INFO("-shared_syscalls not supported with -shared_bbs "
+                             "-no_shared_traces, disabling");
         dynamo_options.shared_syscalls = false;
         changed_options = true;
     }
 # ifdef EXPOSE_INTERNAL_OPTIONS
     if (INTERNAL_OPTION(shared_syscalls_fastpath) &&
         !DYNAMO_OPTION(shared_syscalls)) {
-        SYSLOG_INTERNAL_INFO("-shared_syscalls_fastpath requires -shared_syscalls, disabling");
+        SYSLOG_INTERNAL_INFO("-shared_syscalls_fastpath requires -shared_syscalls, "
+                             "disabling");
         dynamo_options.shared_syscalls_fastpath = false;
         changed_options = true;
     }
     if (INTERNAL_OPTION(shared_syscalls_fastpath) &&
         !DYNAMO_OPTION(disable_traces)) {
-        SYSLOG_INTERNAL_INFO("-shared_syscalls_fastpath requires -disable_traces, disabling");
+        SYSLOG_INTERNAL_INFO("-shared_syscalls_fastpath requires -disable_traces, "
+                             "disabling");
         dynamo_options.shared_syscalls_fastpath = false;
         changed_options = true;
     }
@@ -1492,7 +1530,8 @@ check_option_compatibility_helper(int recurse_count)
     }
 
     if (DYNAMO_OPTION(sandbox_writable) && DYNAMO_OPTION(sandbox_non_text)) {
-        USAGE_ERROR("-sandbox_writable and -sandbox_non_text are mutually exclusive, using -sandbox_non_text");
+        USAGE_ERROR("-sandbox_writable and -sandbox_non_text are mutually exclusive, "
+                    "using -sandbox_non_text");
         dynamo_options.sandbox_writable = false;
         dynamo_options.sandbox_non_text = true;
         changed_options = true;
@@ -1517,7 +1556,8 @@ check_option_compatibility_helper(int recurse_count)
 # else
     if (DYNAMO_OPTION(IAT_convert)) {
         /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
-        USAGE_ERROR("-IAT_convert requires unavailable -emulate_IAT_writes, disabling IAT_convert");
+        USAGE_ERROR("-IAT_convert requires unavailable -emulate_IAT_writes, "
+                    "disabling IAT_convert");
         dynamo_options.IAT_convert = false;
         changed_options = true;
     }
@@ -1705,7 +1745,8 @@ check_option_compatibility_helper(int recurse_count)
 
 #ifdef WINDOWS
     if (DYNAMO_OPTION(inject_at_create_process) && !DYNAMO_OPTION(early_inject)) {
-        USAGE_ERROR("-inject_at_create_process requires -early_inject, setting to defaults");
+        USAGE_ERROR("-inject_at_create_process requires -early_inject, setting to "
+                    "defaults");
         SET_DEFAULT_VALUE(inject_at_create_process);
         SET_DEFAULT_VALUE(early_inject);
         changed_options = true;
@@ -1714,7 +1755,8 @@ check_option_compatibility_helper(int recurse_count)
         !IS_STRING_OPTION_EMPTY(block_mod_load_list_default) &&
         !check_filter(DYNAMO_OPTION(block_mod_load_list_default),
                       "dynamorio.dll")) {
-        USAGE_ERROR("follow_systemwide is dangerous without -early_inject unless -block_mod_load_list[_default] includes dynamorio.dll");
+        USAGE_ERROR("follow_systemwide is dangerous without -early_inject unless "
+                    "-block_mod_load_list[_default] includes dynamorio.dll");
         dynamo_options.follow_systemwide = false;
         changed_options = true;
     }
@@ -1736,7 +1778,8 @@ check_option_compatibility_helper(int recurse_count)
                 /* our method of finding the address relies on
                  * -native_exec_syscalls */
                 if (!DYNAMO_OPTION(native_exec_syscalls)) {
-                    USAGE_ERROR("early_inject_location LdrpLoadImportModule requires -native_exec_syscalls for first process in chain");
+                    USAGE_ERROR("early_inject_location LdrpLoadImportModule requires "
+                                "-native_exec_syscalls for first process in chain");
                     /* FIXME is this the best remediation choice? */
                     dynamo_options.native_exec_syscalls = true;
                     changed_options = true;
@@ -1753,7 +1796,8 @@ check_option_compatibility_helper(int recurse_count)
     }
     if (DYNAMO_OPTION(early_inject_location) == INJECT_LOCATION_LdrCustom &&
         DYNAMO_OPTION(early_inject_address) == 0) {
-        USAGE_ERROR("early_inject_location LdrCustom requires setting -early_inject_address");
+        USAGE_ERROR("early_inject_location LdrCustom requires setting "
+                    "-early_inject_address");
         SET_DEFAULT_VALUE(early_inject_location);
         changed_options = true;
     }
@@ -2212,7 +2256,8 @@ synchronize_dynamic_options()
     NULL_TERMINATE_BUFFER(option_string);
     SELF_PROTECT_OPTIONS();
 
-    LOG(GLOBAL, LOG_ALL, 2 , "synchronize_dynamic_options: %s, updated = %d\n", new_option_string, updated);
+    LOG(GLOBAL, LOG_ALL, 2 , "synchronize_dynamic_options: %s, updated = %d\n",
+        new_option_string, updated);
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
     if (updated) {
@@ -2387,18 +2432,22 @@ unit_test_options(void)
     print_file(STDERR, "default---\n");
     show_dynamo_options(false);
     print_file(STDERR, "\nbefore first set---\n");
-    set_dynamo_options(&dynamo_options,
-                       "-loglevel 1 -logmask 0x10 -block_mod_load_list 'mylib.dll;evilbad.dll;really_long_name_for_a_dll.dll' -stderr_mask 12");
+    set_dynamo_options
+        (&dynamo_options,
+         "-loglevel 1 -logmask 0x10 -block_mod_load_list "
+         "'mylib.dll;evilbad.dll;really_long_name_for_a_dll.dll' -stderr_mask 12");
     show_dynamo_options(true);
 
     print_file(STDERR, "\nbefore second set---\n");
-    set_dynamo_options(&dynamo_options,
-                       "-logmask 17 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
+    set_dynamo_options
+        (&dynamo_options,
+         "-logmask 17 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
     show_dynamo_options(true);
 
     set_dynamo_options_defaults(&new_options);
-    set_dynamo_options(&new_options,
-                       "-logmask 7 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
+    set_dynamo_options
+        (&new_options,
+         "-logmask 7 -cache_bb_max 20 -cache_trace_max 20M -svchost_timeout 3m");
     updated = update_dynamic_options(&dynamo_options, &new_options);
     print_file(STDERR, "updated %d\n", updated);
     show_dynamo_options(true);

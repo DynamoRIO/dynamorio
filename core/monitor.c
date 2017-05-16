@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -883,7 +883,8 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
  * monitor structure, one that is not shared across call backs.
  */
 static uint
-should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l,
+should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f,
+                              linkstub_t *from_l,
                               app_pc to_tag, uint to_flags, bool have_link_lock,
                               bool trace_sysenter_exit)
 {
@@ -1262,7 +1263,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
-        || INTERNAL_OPTION(speculate_last_exit_stats) || INTERNAL_OPTION(stay_on_trace_stats)
+        || INTERNAL_OPTION(speculate_last_exit_stats)
+        || INTERNAL_OPTION(stay_on_trace_stats)
 #endif
         ) {
         /* FIXME: speculation of last exit (case 4817) is currently
@@ -1536,7 +1538,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         mutex_unlock(&trace_building_lock);
 
     RSTATS_INC(num_traces);
-    DOSTATS({ IF_X86_64(if (FRAG_IS_32(trace_f->flags)) STATS_INC(num_32bit_traces);) });
+    DOSTATS({IF_X86_64(if (FRAG_IS_32(trace_f->flags)) {STATS_INC(num_32bit_traces);})});
     STATS_ADD(num_bbs_in_all_traces, md->num_blks);
     STATS_TRACK_MAX(max_bbs_in_a_trace, md->num_blks);
     DOLOG(2, LOG_MONITOR, {
@@ -2092,12 +2094,15 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         }
         end_trace = (end_trace ||
                      /* mangling may never use trace buffer memory but just in case */
-                     !make_room_in_trace_buffer(dcontext, add_size + prev_mangle_size, f));
+                     !make_room_in_trace_buffer(dcontext,
+                                                add_size + prev_mangle_size, f));
 
 #ifdef CUSTOM_TRACES
         if (end_trace && client == CUSTOM_TRACE_CONTINUE) {
             /* had to overide client, log */
-            LOG(THREAD, LOG_MONITOR, 2, PRODUCT_NAME" ignoring Client's decision to continue trace (cannot trace through next fragment), ending trace now\n");
+            LOG(THREAD, LOG_MONITOR, 2, PRODUCT_NAME" ignoring Client's decision to "
+                "continue trace (cannot trace through next fragment), ending trace "
+                "now\n");
         }
 #endif
 

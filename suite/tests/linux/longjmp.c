@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,14 +37,16 @@
 
 jmp_buf mark;
 
-void foo()
+void
+foo()
 {
    printf("about to do longjmp\n");
    fflush(stdout);
    longjmp(mark, -1);
 }
 
-int main()
+int
+main()
 {
    int jmpret;
    /* Save stack environment for return in case of error. First

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -266,7 +266,8 @@ kstat_thread_init(dcontext_t *dcontext)
         return;                 /* dcontext->thread_kstats stays NULL */
 
     /* allocated on thread heap - use global if timing initialization matters */
-    new_thread_kstats = HEAP_TYPE_ALLOC(dcontext, thread_kstats_t, ACCT_STATS, UNPROTECTED);
+    new_thread_kstats = HEAP_TYPE_ALLOC(dcontext, thread_kstats_t, ACCT_STATS,
+                                        UNPROTECTED);
     LOG(THREAD, LOG_STATS, 2, "thread_kstats="PFX" size=%d\n", new_thread_kstats,
         sizeof(thread_kstats_t));
     /* initialize any thread stats bookkeeping fields before assigning to dcontext */

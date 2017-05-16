@@ -13,23 +13,11 @@
 #ifndef _SIGCONTEXT_H_
 #define _SIGCONTEXT_H_
 
-/* Avoid <bits/sigcontext.h> from <signal.h> */
-#define _BITS_SIGCONTEXT_H  1
-/* Avoid <asm/sigcontext.h> from <signal.h> on 32-bit Ubuntu (i#648)
- * and anywhere else it manages to sneak in, just in case
- */
-#define _ASM_X86_SIGCONTEXT_H 1
-#define _ASMi386_SIGCONTEXT_H 1
-#define _ASM_X86_64_SIGCONTEXT_H 1
-#define _ASM_X86_SIGCONTEXT32_H 1
-/* Avoid <asm/sigcontext.h> from <signal.h> on 32-bit ARM. */
-#define _ASMARM_SIGCONTEXT_H
-
 #include <linux/types.h>
 
-#define FP_XSTATE_MAGIC1	0x46505853U
-#define FP_XSTATE_MAGIC2	0x46505845U
-#define FP_XSTATE_MAGIC2_SIZE	sizeof(FP_XSTATE_MAGIC2)
+#define FP_XSTATE_MAGIC1        0x46505853U
+#define FP_XSTATE_MAGIC2        0x46505845U
+#define FP_XSTATE_MAGIC2_SIZE   sizeof(FP_XSTATE_MAGIC2)
 
 /*
  * bytes 464..511 in the current 512byte layout of fxsave/fxrstor frame
@@ -43,141 +31,141 @@
  * extended state information in the memory layout pointed by the fpstate
  * pointer in sigcontext.
  */
-struct _fpx_sw_bytes {
-	__u32 magic1;		/* FP_XSTATE_MAGIC1 */
-	__u32 extended_size;	/* total size of the layout referred by
-				 * fpstate pointer in the sigcontext.
-				 */
-	__u64 xstate_bv;
-				/* feature bit mask (including fp/sse/extended
-				 * state) that is present in the memory
-				 * layout.
-				 */
-	__u32 xstate_size;	/* actual xsave state size, based on the
-				 * features saved in the layout.
-				 * 'extended_size' will be greater than
-				 * 'xstate_size'.
-				 */
-	__u32 padding[7];	/*  for future use. */
-};
+typedef struct _kernel_fpx_sw_bytes_t {
+        __u32 magic1;           /* FP_XSTATE_MAGIC1 */
+        __u32 extended_size;    /* total size of the layout referred by
+                                 * fpstate pointer in the sigcontext.
+                                 */
+        __u64 xstate_bv;
+                                /* feature bit mask (including fp/sse/extended
+                                 * state) that is present in the memory
+                                 * layout.
+                                 */
+        __u32 xstate_size;      /* actual xsave state size, based on the
+                                 * features saved in the layout.
+                                 * 'extended_size' will be greater than
+                                 * 'xstate_size'.
+                                 */
+        __u32 padding[7];       /*  for future use. */
+} kernel_fpx_sw_bytes_t;
 
 #ifdef __i386__
 /*
  * As documented in the iBCS2 standard..
  *
- * The first part of "struct _fpstate" is just the normal i387
+ * The first part of "kernel_fpstate_t" is just the normal i387
  * hardware setup, the extra "status" word is used to save the
  * coprocessor status word before entering the handler.
  *
  * Pentium III FXSR, SSE support
- *	Gareth Hughes <gareth@valinux.com>, May 2000
+ *      Gareth Hughes <gareth@valinux.com>, May 2000
  *
  * The FPU state data structure has had to grow to accommodate the
  * extended FPU state required by the Streaming SIMD Extensions.
  * There is no documented standard to accomplish this at the moment.
  */
-struct _fpreg {
-	unsigned short significand[4];
-	unsigned short exponent;
-};
+typedef struct _kernel_fpreg_t {
+        unsigned short significand[4];
+        unsigned short exponent;
+} kernel_fpreg_t;
 
-struct _fpxreg {
-	unsigned short significand[4];
-	unsigned short exponent;
-	unsigned short padding[3];
-};
+typedef struct _kernel_fpxreg_t {
+        unsigned short significand[4];
+        unsigned short exponent;
+        unsigned short padding[3];
+} kernel_fpxreg_t;
 
-struct _xmmreg {
-	unsigned long element[4];
-};
+typedef struct _kernel_xmmreg_t {
+        unsigned long element[4];
+} kernel_xmmreg_t;
 
-struct _fpstate {
-	/* Regular FPU environment */
-	unsigned long	cw;
-	unsigned long	sw;
-	unsigned long	tag;
-	unsigned long	ipoff;
-	unsigned long	cssel;
-	unsigned long	dataoff;
-	unsigned long	datasel;
-	struct _fpreg	_st[8];
-	unsigned short	status;
-	unsigned short	magic;		/* 0xffff = regular FPU data only */
+typedef struct _kernel_fpstate_t {
+        /* Regular FPU environment */
+        unsigned long   cw;
+        unsigned long   sw;
+        unsigned long   tag;
+        unsigned long   ipoff;
+        unsigned long   cssel;
+        unsigned long   dataoff;
+        unsigned long   datasel;
+        kernel_fpreg_t  _st[8];
+        unsigned short  status;
+        unsigned short  magic;          /* 0xffff = regular FPU data only */
 
-	/* FXSR FPU environment */
-	unsigned long	_fxsr_env[6];	/* FXSR FPU env is ignored */
-	unsigned long	mxcsr;
-	unsigned long	reserved;
-	struct _fpxreg	_fxsr_st[8];	/* FXSR FPU reg data is ignored */
-	struct _xmmreg	_xmm[8];
-	unsigned long	padding1[44];
+        /* FXSR FPU environment */
+        unsigned long   _fxsr_env[6];   /* FXSR FPU env is ignored */
+        unsigned long   mxcsr;
+        unsigned long   reserved;
+        kernel_fpxreg_t _fxsr_st[8];    /* FXSR FPU reg data is ignored */
+        kernel_xmmreg_t _xmm[8];
+        unsigned long   padding1[44];
 
-	union {
-		unsigned long	padding2[12];
-		struct _fpx_sw_bytes sw_reserved; /* represents the extended
-						   * state info */
-	};
-};
+        union {
+                unsigned long           padding2[12];
+                kernel_fpx_sw_bytes_t   sw_reserved; /* represents the extended
+                                                      * state info */
+        };
+} kernel_fpstate_t;
 
-#define X86_FXSR_MAGIC		0x0000
+#define X86_FXSR_MAGIC          0x0000
 
 /*
  * User-space might still rely on the old definition:
  */
-struct sigcontext {
-	unsigned short gs, __gsh;
-	unsigned short fs, __fsh;
-	unsigned short es, __esh;
-	unsigned short ds, __dsh;
-	unsigned long edi;
-	unsigned long esi;
-	unsigned long ebp;
-	unsigned long esp;
-	unsigned long ebx;
-	unsigned long edx;
-	unsigned long ecx;
-	unsigned long eax;
-	unsigned long trapno;
-	unsigned long err;
-	unsigned long eip;
-	unsigned short cs, __csh;
-	unsigned long eflags;
-	unsigned long esp_at_signal;
-	unsigned short ss, __ssh;
-	struct _fpstate *fpstate;
-	unsigned long oldmask;
-	unsigned long cr2;
-};
+typedef struct _kernel_sigcontext_t {
+        unsigned short gs, __gsh;
+        unsigned short fs, __fsh;
+        unsigned short es, __esh;
+        unsigned short ds, __dsh;
+        unsigned long edi;
+        unsigned long esi;
+        unsigned long ebp;
+        unsigned long esp;
+        unsigned long ebx;
+        unsigned long edx;
+        unsigned long ecx;
+        unsigned long eax;
+        unsigned long trapno;
+        unsigned long err;
+        unsigned long eip;
+        unsigned short cs, __csh;
+        unsigned long eflags;
+        unsigned long esp_at_signal;
+        unsigned short ss, __ssh;
+        kernel_fpstate_t *fpstate;
+        unsigned long oldmask;
+        unsigned long cr2;
+} kernel_sigcontext_t;
 
 #elif defined(__amd64__)
 
 /* FXSAVE frame */
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
    them when you change signal frames. */
-struct _fpstate {
-	__u16	cwd;
-	__u16	swd;
-	__u16	twd;		/* Note this is not the same as the
-				   32bit/x87/FSAVE twd */
-	__u16	fop;
-	__u64	rip;
-	__u64	rdp;
-	__u32	mxcsr;
-	__u32	mxcsr_mask;
-	__u32	st_space[32];	/* 8*16 bytes for each FP-reg */
-	__u32	xmm_space[64];	/* 16*16 bytes for each XMM-reg  */
-	__u32	reserved2[12];
-	union {
-		__u32	reserved3[12];
-		struct _fpx_sw_bytes sw_reserved; /* represents the extended
-						   * state information */
-	};
-};
+typedef struct _kernel_fpstate_t {
+        __u16   cwd;
+        __u16   swd;
+        __u16   twd;            /* Note this is not the same as the
+                                   32bit/x87/FSAVE twd */
+        __u16   fop;
+        __u64   rip;
+        __u64   rdp;
+        __u32   mxcsr;
+        __u32   mxcsr_mask;
+        __u32   st_space[32];   /* 8*16 bytes for each FP-reg */
+        __u32   xmm_space[64];  /* 16*16 bytes for each XMM-reg  */
+        __u32   reserved2[12];
+        union {
+                __u32   reserved3[12];
+                kernel_fpx_sw_bytes_t sw_reserved; /* represents the extended
+                                                    * state information */
+        };
+} kernel_fpstate_t;
 
 /*
  * User-space might still rely on the old definition:
  */
-struct sigcontext {
+typedef struct _kernel_sigcontext_t {
     unsigned long r8;
     unsigned long r9;
     unsigned long r10;
@@ -204,23 +192,23 @@ struct sigcontext {
     unsigned long trapno;
     unsigned long oldmask;
     unsigned long cr2;
-    struct _fpstate *fpstate;    /* zero when no FPU context */
+    kernel_fpstate_t *fpstate; /* zero when no FPU context */
     unsigned long reserved1[8];
-};
+} kernel_sigcontext_t;
 
 #endif /* !__i386__ */
 
 #if defined(__i386__) || defined(__amd64__)
-struct _xsave_hdr {
+typedef struct _kernel_xsave_hdr_t {
     __u64 xstate_bv;
     __u64 reserved1[2];
     __u64 reserved2[5];
-};
+} kernel_xsave_hdr_t;
 
-struct _ymmh_state {
+typedef struct _kernel_ymmh_state_t {
     /* 16 * 16 bytes for each YMMH-reg */
     __u32 ymmh_space[64];
-};
+} kernel_ymmh_state_t;
 
 /*
  * Extended state pointed by the fpstate pointer in the sigcontext.
@@ -228,12 +216,12 @@ struct _ymmh_state {
  * indicates the presence of other extended state information
  * supported by the processor and OS.
  */
-struct _xstate {
-    struct _fpstate fpstate;
-    struct _xsave_hdr xstate_hdr;
-    struct _ymmh_state ymmh;
+typedef struct _kernel_xstate_t {
+    kernel_fpstate_t fpstate;
+    kernel_xsave_hdr_t xstate_hdr;
+    kernel_ymmh_state_t ymmh;
     /* new processor state extensions go here */
-};
+} kernel_xstate_t;
 #endif /* __i386__ || __amd64__ */
 
 #ifdef __arm__
@@ -242,7 +230,7 @@ struct _xstate {
  * before the signal handler was invoked.  Note: only add new entries
  * to the end of the structure.
  */
-struct sigcontext {
+typedef struct _kernel_sigcontext_t {
     unsigned long trap_no;
     unsigned long error_code;
     unsigned long oldmask;
@@ -264,29 +252,42 @@ struct sigcontext {
     unsigned long arm_pc;
     unsigned long arm_cpsr;
     unsigned long fault_address;
-};
+} kernel_sigcontext_t;
 
 /* user_vfp is defined in <sys/user.h> on Android, so we use sys_user_vfp instead */
-struct sys_user_vfp {
+typedef struct _kernel_sys_user_vfp_t {
     unsigned long long fpregs[32]; /* 16-31 ignored for VFPv2 and below */
     unsigned long fpscr;
-};
+} kernel_sys_user_vfp_t;
 
-struct sys_user_vfp_exc {
+typedef struct _kernel_sys_user_vfp_exc_t {
     unsigned long fpexc;
     unsigned long fpinst;
     unsigned long fpinst2;
-};
+} kernel_sys_user_vfp_exc_t;
 
 #define VFP_MAGIC 0x56465001
 
-struct vfp_sigframe {
+typedef struct _kernel_vfp_sigframe_t {
     unsigned long magic;
     unsigned long size;
-    struct sys_user_vfp ufp;
-    struct sys_user_vfp_exc ufp_exc;
-} __attribute__((__aligned__(8)));
+    kernel_sys_user_vfp_t ufp;
+    kernel_sys_user_vfp_exc_t ufp_exc;
+} __attribute__((__aligned__(8))) kernel_vfp_sigframe_t;
 #endif /* __arm__ */
 
+#ifdef __aarch64__
+
+typedef struct _kernel_sigcontext_t {
+    unsigned long long fault_address;
+    unsigned long long regs[31];
+    unsigned long long sp;
+    unsigned long long pc;
+    unsigned long long pstate;
+    /* 4K reserved for FP/SIMD state and future expansion */
+    unsigned char __reserved[4096] __attribute__((__aligned__(16)));
+} kernel_sigcontext_t;
+
+#endif /* __aarch64__ */
 
 #endif /* _SIGCONTEXT_H_ */

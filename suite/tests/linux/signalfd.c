@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -129,7 +129,8 @@ test_signalfd(int sig)
     intercept_signal(sig, (handler_3_t) NULL, false);
 }
 
-int main(void)
+int
+main(void)
 {
     test_signalfd(SIGXCPU);
     test_signalfd(SIGUSR1);

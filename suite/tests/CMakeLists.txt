@@ -2473,6 +2473,12 @@ if (CLIENT_INTERFACE)
           "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "" "")
         set(tool.reuse.offline_toolname "drcachesim")
         set(tool.reuse.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
+        torunonly_ci(tool.reuse_time.offline ${ci_shared_app} drcachesim
+          "reuse_time_offline.c" # for expect basename
+          "-infile ${small_trace_file} -simulator_type reuse_time" "" "")
+        set(tool.reuse_time.offline_toolname "drcachesim")
+        set(tool.reuse_time.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       endif ()
 
       # Test offline traces.

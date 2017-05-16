@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -471,7 +471,8 @@ print_hashtable_stats(dcontext_t *dcontext,
             /* indirect branch lookups */
             uint64 total_dynamic_ibs =
                 total_lookups + lookup_stats->ib_stay_on_trace_stat +
-                (DYNAMO_OPTION(speculate_last_exit) ? lookup_stats->ib_trace_last_ibl_speculate_success : 0);
+                (DYNAMO_OPTION(speculate_last_exit) ?
+                 lookup_stats->ib_trace_last_ibl_speculate_success : 0);
 
             /* FIXME: add ib_stay_on_trace_stat_ovfl here */
 
@@ -484,16 +485,20 @@ print_hashtable_stats(dcontext_t *dcontext,
                                     4, &lastexit_top, &lastexit_bottom);
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                     total_dynamic_ibs, false,
-                                    4, &speculate_lastexit_top, &speculate_lastexit_bottom);
+                                    4, &speculate_lastexit_top,
+                                    &speculate_lastexit_bottom);
             }
 
             /* all percentages here relative to IB lookups */
-            /* ontrace is how often we stay on trace with respect to all indirect branches */
-            /* ontrace_fail is assuming IBL's that are not the last exit are due to ontrace failures */
+            /* ontrace is how often we stay on trace wrt all indirect branches */
+            /* ontrace_fail is assuming IBL's that are not the last exit are due to
+             * ontrace failures
+             */
             /* lastexit is how many are on last IBL when it is not speculated */
             /* lastexit_speculate is how many are speculatively hit (as of all IBs) */
             LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
-                "%s %s table %s%s stay on trace hit:%s %u, last_ibl: %u, ontrace%%=%u.%.4u, lastexit%%=%u.%.4u\n",
+                "%s %s table %s%s stay on trace hit:%s %u, last_ibl: %u, "
+                "ontrace%%=%u.%.4u, lastexit%%=%u.%.4u\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
                 lookup_stats->ib_stay_on_trace_stat_ovfl ? " OVFL" : "",
                 lookup_stats->ib_stay_on_trace_stat,
@@ -502,7 +507,8 @@ print_hashtable_stats(dcontext_t *dcontext,
                 lastexit_top, lastexit_bottom
                 );
             LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
-                "%s %s table %s%s last trace exit speculation hit: %u, lastexit_ontrace%%=%u.%.4u(%%IB)\n",
+                "%s %s table %s%s last trace exit speculation hit: %u, "
+                "lastexit_ontrace%%=%u.%.4u(%%IB)\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
                 lookup_stats->ib_trace_last_ibl_speculate_success,
                 speculate_lastexit_top, speculate_lastexit_bottom);
@@ -515,27 +521,33 @@ print_hashtable_stats(dcontext_t *dcontext,
             uint lastexit_ibl_top=0; uint lastexit_ibl_bottom=0;
             uint speculate_lastexit_ibl_top=0; uint speculate_lastexit_ibl_bottom=0;
 
-            uint64 total_dynamic_ibl_no_trace = total_lookups + lookup_stats->ib_trace_last_ibl_exit;
+            uint64 total_dynamic_ibl_no_trace =
+                total_lookups + lookup_stats->ib_trace_last_ibl_exit;
             if (total_dynamic_ibl_no_trace > 0) {
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit,
                                     total_dynamic_ibl_no_trace, false,
                                     4, &lastexit_ibl_top, &lastexit_ibl_bottom);
                 divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                     total_dynamic_ibl_no_trace, false,
-                                    4, &speculate_lastexit_ibl_top, &speculate_lastexit_ibl_bottom);
+                                    4, &speculate_lastexit_ibl_top,
+                                    &speculate_lastexit_ibl_bottom);
             }
 
             /* ib_trace_last_ibl_exit includes all ib_trace_last_ibl_speculate_success */
             divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                 lookup_stats->ib_trace_last_ibl_exit, false,
-                                4, &speculate_only_lastexit_top, &speculate_only_lastexit_bottom);
+                                4, &speculate_only_lastexit_top,
+                                &speculate_only_lastexit_bottom);
 
 
             LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
-                "%s %s table %s%s last trace exit speculation hit: %u, speculation miss: %u, lastexit%%=%u.%.4u(%%IBL), lastexit_succ%%=%u.%.4u(%%IBL), spec hit%%=%u.%.4u(%%last exit)\n",
+                "%s %s table %s%s last trace exit speculation hit: %u, speculation miss: "
+                "%u, lastexit%%=%u.%.4u(%%IBL), lastexit_succ%%=%u.%.4u(%%IBL), "
+                "spec hit%%=%u.%.4u(%%last exit)\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,
                 lookup_stats->ib_trace_last_ibl_speculate_success,
-                lookup_stats->ib_trace_last_ibl_exit - lookup_stats->ib_trace_last_ibl_speculate_success,
+                lookup_stats->ib_trace_last_ibl_exit -
+                lookup_stats->ib_trace_last_ibl_speculate_success,
                 lastexit_ibl_top, lastexit_ibl_bottom,
                 speculate_lastexit_ibl_top, speculate_lastexit_ibl_bottom,
                 speculate_only_lastexit_top, speculate_only_lastexit_bottom

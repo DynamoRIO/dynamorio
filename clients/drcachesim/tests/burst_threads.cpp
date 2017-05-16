@@ -129,7 +129,8 @@ main(int argc, const char *argv[])
      * running more and their trace files get up to 65MB or more, with the
      * merged result several GB's: too much for a test.  We thus cap each thread.
      */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline -max_trace_size 256K'"))
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;"
+                   "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "pre-DR init\n";

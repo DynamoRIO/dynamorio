@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -58,20 +59,23 @@ void nanosleep_interrupted(void);
 timer_t timer;
 sigjmp_buf env;
 
-void fail(const char *s)
+void
+fail(const char *s)
 {
     perror(s);
     exit(1);
 }
 
-void handler(int signum, siginfo_t *info, void *ucontext_)
+void
+handler(int signum, siginfo_t *info, void *ucontext_)
 {
     ucontext_t *ucontext = ucontext_;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucontext);
     siglongjmp(env, 1 + (sc->SC_XIP == (uintptr_t)nanosleep_interrupted));
 }
 
-void setup(void)
+void
+setup(void)
 {
     struct sigaction act;
     struct sigevent sevp;
@@ -89,7 +93,8 @@ void setup(void)
         fail("timer_create");
 }
 
-int try(uint64_t time)
+int
+try(uint64_t time)
 {
     struct itimerspec spec = {
         { 0, 0 },

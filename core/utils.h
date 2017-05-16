@@ -256,20 +256,24 @@ typedef struct _mutex_t {
      * or equal to the rank of a lock already held by the owning thread is acquired
      */
     uint      rank;             /* sets rank order in which this lock can be set */
-    thread_id_t owner;            /* TID of owner (reusable, not available before initialization) */
+    thread_id_t owner;      /* TID of owner (reusable, not avail before initialization) */
     /* Above here is explicitly set w/ INIT_LOCK_NO_TYPE macro so update
      * it if changing them.  Below here is filled with 0's.
      */
 
-    dcontext_t *owning_dcontext; /* dcontext responsible (reusable, multiple per thread) */
+    dcontext_t *owning_dcontext; /* dcxt responsible (reusable, multiple per thread) */
     struct _mutex_t *prev_owned_lock; /* linked list of thread owned locks */
     uint count_times_acquired;  /* count total times this lock was acquired */
     uint count_times_contended; /* count total times this lock was contended upon */
-    uint count_times_spin_pause; /* count total times this lock was contended in a spin pause loop */
-    uint max_contended_requests;/* maximum number of simultaneous requests when contended */
-    uint count_times_spin_only; /* count times contended but grabbed after spinning without yielding */
-    /* we need to register all locks in the process to be able to dump regular statistics */
-    /* linked list of all live locks (for all threads), another ad hoc double linked circular list */
+    uint count_times_spin_pause; /* count total times contended in a spin pause loop */
+    uint max_contended_requests;/* max number of simultaneous requests when contended */
+    /* count times contended but grabbed after spinning without yielding */
+    uint count_times_spin_only;
+    /* We need to register all locks in the process to be able to dump
+     * regular statistics.
+     * Linked list of all live locks (for all threads), another ad hoc
+     * double linked circular list:
+     */
     struct _mutex_t *prev_process_lock;
     struct _mutex_t *next_process_lock;
     /* TODO: we should also add cycles spent while holding the lock, KSTATS-like */
@@ -320,7 +324,7 @@ typedef struct _read_write_lock_t {
     volatile int num_readers;
     /* we store the writer so that writers can be readers */
     thread_id_t writer;
-    volatile int num_pending_readers;       /* readers that have contended with a writer */
+    volatile int num_pending_readers;      /* readers that have contended with a writer */
     contention_event_t writer_waiting_readers; /* event object for writer to wait on */
     contention_event_t readers_waiting_writer; /* event object for readers to wait on */
     /* make sure to update the two INIT_READWRITE_LOCK cases if you add new fields  */
@@ -618,7 +622,8 @@ uint locks_not_closed(void);
 bool thread_owns_no_locks(dcontext_t *dcontext);
 bool thread_owns_one_lock(dcontext_t *dcontext, mutex_t *lock);
 bool thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
-bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
+bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
+                                          mutex_t *lock2);
 
 /* We need the (mutex_t) type specifier for direct initialization,
    but not when defining compound structures, hence NO_TYPE */
@@ -632,13 +637,12 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 #endif /* DEADLOCK_AVOIDANCE */
 
 /* Structure assignments and initialization don't work the same in gcc and cl
-   in gcc it is ok to have assignment {gcc; var = (mutex_t) {0}; }
-      and so it helped to have the type specifier.
-      Windows however doesn't like that at all even for initialization,
-      so I have to go and add explicit initialized temporaries to be assigned to a variable
-      i.e. {cl; {mutex_t temp = {0}; var = temp; }; }
-      }
-*/
+ * in gcc it is ok to have assignment {gcc; var = (mutex_t) {0}; }
+ * and so it helped to have the type specifier.
+ * Windows however doesn't like that at all even for initialization,
+ * so I have to go and add explicit initialized temporaries to be assigned to a variable
+ * i.e. {cl; {mutex_t temp = {0}; var = temp; }; }
+ */
 #ifdef WINDOWS
 #  define STRUCTURE_TYPE(x)
 #else
@@ -1100,7 +1104,8 @@ void bitmap_free_blocks(bitmap_t b, uint bitmap_size, uint first_block, uint num
 
 #ifdef DEBUG
 /* used only for ASSERTs */
-bool bitmap_are_reserved_blocks(bitmap_t b, uint bitmap_size, uint first_block, uint num_blocks);
+bool bitmap_are_reserved_blocks(bitmap_t b, uint bitmap_size, uint first_block,
+                                uint num_blocks);
 bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #endif /* DEBUG */
 
@@ -1220,7 +1225,8 @@ file_t open_log_file(const char *basename, char *finalname_with_path, uint maxle
 void close_log_file(file_t f);
 
 file_t get_thread_private_logfile(void);
-bool get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen, bool open_directory, file_t *file);
+bool get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
+                        bool open_directory, file_t *file);
 const char *get_app_name_for_path(void);
 const char *get_short_name(const char *exename);
 
@@ -1765,7 +1771,8 @@ enum {LONGJMP_EXCEPTION = 1};
     KSTAT_THREAD_NO_PV_START(dc)                                \
         kstat_stop_not_matching_var(ks, ignored);               \
     KSTAT_THREAD_NO_PV_END()
-# define KSTOP_REWIND_DC(dc, name) KSTAT_OTHER_THREAD(dc, name, kstat_stop_rewind_var(ks, pv))
+# define KSTOP_REWIND_DC(dc, name) \
+    KSTAT_OTHER_THREAD(dc, name, kstat_stop_rewind_var(ks, pv))
 #else  /* !KSTATS */
 # define DOKSTATS(statement)    /* nothing */
 # define KSTART(name)           /* nothing */
@@ -1871,7 +1878,8 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
             const char *fmt, ...);
 
 #define SYSLOG_COMMON(synch, type, id, sub, ...) \
-    notify(type, false, synch, IF_WINDOWS_(MSG_##id) sub, #type, MSG_##id##_STRING, __VA_ARGS__)
+    notify(type, false, synch, IF_WINDOWS_(MSG_##id) sub, #type, MSG_##id##_STRING, \
+           __VA_ARGS__)
 
 #define SYSLOG_INTERNAL_COMMON(synch, type, ...) \
     notify(type, true, synch, IF_WINDOWS_(MSG_INTERNAL_##type) 0, #type, __VA_ARGS__)

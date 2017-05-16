@@ -489,7 +489,7 @@ signal_thread_init(dcontext_t *dcontext)
         /* include alignment for xsave on xstate */
         signal_frame_extra_size(true)
         /* sigpending_t has xstate inside it already */
-        IF_LINUX(IF_X86(- sizeof(struct _xstate)));
+        IF_LINUX(IF_X86(- sizeof(kernel_xstate_t)));
     IF_LINUX(IF_X86(ASSERT(ALIGNED(pend_unit_size, AVX_ALIGNMENT))));
 
     /* all fields want to be initialized to 0 */
@@ -1588,7 +1588,8 @@ handle_clone(dcontext_t *dcontext, uint flags)
             *info->shared_itimer_underDR = 1;
             info->shared_itimer_lock = (recursive_lock_t *)
                 global_heap_alloc(sizeof(*info->shared_itimer_lock) HEAPACCT(ACCT_OTHER));
-            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock, shared_itimer_lock);
+            ASSIGN_INIT_RECURSIVE_LOCK_FREE(*info->shared_itimer_lock,
+                                            shared_itimer_lock);
         } /* else, some ancestor already created */
     }
 }
@@ -2482,7 +2483,7 @@ thread_set_self_context(void *cxt)
 #ifdef LINUX
 # ifdef X86
     byte *xstate = get_xstate_buffer(dcontext);
-    frame.uc.uc_mcontext.fpstate = &((struct _xstate *)xstate)->fpstate;
+    frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
 # endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
@@ -2627,7 +2628,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
 #endif
 
 /* Returns the size of the frame for delivering to the app.
- * For x64 this does NOT include struct _fpstate.
+ * For x64 this does NOT include kernel_fpstate_t.
  */
 static uint
 get_app_frame_size(thread_sig_info_t *info, int sig)
@@ -2788,7 +2789,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         byte *new_fpstate = (byte *)
             ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
         memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
-        f_new->sc.fpstate = (struct _fpstate *) new_fpstate;
+        f_new->sc.fpstate = (kernel_fpstate_t *) new_fpstate;
     }
     f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
     memcpy(&f_new->extramask, &f_old->uc.uc_sigmask.sig[1],
@@ -2887,11 +2888,12 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         byte *frame_end = ((byte *)f_new) + frame_size;
         byte *tgt = (byte *) ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
         ASSERT(tgt - frame_end <= signal_frame_extra_size(true));
-        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
-        f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
+        memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(kernel_fpstate_t));
+        f_new->uc.uc_mcontext.fpstate = (kernel_fpstate_t *) tgt;
         if (YMM_ENABLED()) {
-            struct _xstate *xstate_new = (struct _xstate *) tgt;
-            struct _xstate *xstate_old = (struct _xstate *) f_old->uc.uc_mcontext.fpstate;
+            kernel_xstate_t *xstate_new = (kernel_xstate_t *) tgt;
+            kernel_xstate_t *xstate_old =
+                (kernel_xstate_t *) f_old->uc.uc_mcontext.fpstate;
             memcpy(&xstate_new->xstate_hdr, &xstate_old->xstate_hdr,
                    sizeof(xstate_new->xstate_hdr));
             memcpy(&xstate_new->ymmh, &xstate_old->ymmh, sizeof(xstate_new->ymmh));
@@ -3119,7 +3121,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
                signal_frame_extra_size(false));
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
-    dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;
+    dst->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)&info->sigpending[sig]->xstate;
 #endif /* LINUX && X86 */
 
 #ifdef CLIENT_INTERFACE
@@ -5383,14 +5385,14 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
          */
         if (info->shared_app_sigaction) {
             LOG(THREAD, LOG_ASYNCH, 1,
-                "WARNING: having to install SIG_DFL for thread "TIDFMT", but will be shared!\n",
-                get_thread_id());
+                "WARNING: having to install SIG_DFL for thread "TIDFMT", but will be "
+                "shared!\n", get_thread_id());
         }
         if (default_action[sig] == DEFAULT_TERMINATE ||
             default_action[sig] == DEFAULT_TERMINATE_CORE) {
             report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_FP,
-                               "\nSignal %d delivered to application as default action.\n",
-                               sig);
+                               "\nSignal %d delivered to application as default "
+                               "action.\n", sig);
             /* App may call sigaction to set handler SIG_DFL (unnecessary but legal),
              * in which case DR will put a handler in info->app_sigaction[sig].
              * We must clear it, otherwise, signal_thread_exit may cleanup the
@@ -5501,7 +5503,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 fragment_t wrapper;
                 fragment_t *f;
                 LOG(THREAD, LOG_ALL, 1,
-                    "Received SIGSEGV at pc "PFX" in thread "TIDFMT"\n", pc, get_thread_id());
+                    "Received SIGSEGV at pc "PFX" in thread "TIDFMT"\n",
+                    pc, get_thread_id());
                 f = fragment_pclookup(dcontext, pc, &wrapper);
                 if (f)
                     disassemble_fragment(dcontext, f, false);
@@ -5770,7 +5773,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
     /* set up for dispatch */
     /* we have to use a different slot since next_tag ends up holding the do_syscall
-     * entry when entered from dispatch (we're called from pre_syscall, prior to entering cache)
+     * entry when entered from dispatch (we're called from
+     * pre_syscall, prior to entering cache)
      */
     dcontext->asynch_target = canonicalize_pc_target
         (dcontext, (app_pc)(sc->SC_XIP IF_ARM(|(TEST(EFLAGS_T, sc->SC_XFLAGS) ? 1 : 0))));
@@ -5921,7 +5925,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #endif
 #if defined(LINUX) && defined(X86)
     /* We use a TLS buffer to avoid too much stack space here. */
-    sc->fpstate = (struct _fpstate *) get_xstate_buffer(dcontext);
+    sc->fpstate = (kernel_fpstate_t *) get_xstate_buffer(dcontext);
 #endif
     mcontext_to_ucontext(uc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
@@ -6042,10 +6046,13 @@ os_dump_core(const char *msg)
 bool
 at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragment)
 {
-    /* There is a known exception in signal restorers and the Linux dynamic symbol resoulution */
-    /* The latter we assume it is the only other recurring known exception,
-       so the first time we pattern match to help make sure it is indeed _dl_runtime_resolve
-       (since with LD_BIND_NOW it will never be called).  After that we compare with the known value. */
+    /* There is a known exception in signal restorers and the Linux
+     * dynamic symbol resoulution.
+     * The latter we assume it is the only other recurring known exception,
+     * so the first time we pattern match to help make sure it is indeed
+     * _dl_runtime_resolve (since with LD_BIND_NOW it will never be called).
+     * After that we compare with the known value.
+     */
 
     static app_pc known_exception = 0;
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
@@ -6060,13 +6067,15 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
        (I haven't seen restorers other than the one in libc)
     */
     if (target_pc == info->signal_restorer_retaddr) {
-        LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception this is a signal restorer --ok \n");
+        LOG(THREAD, LOG_INTERP, 1,
+            "RCT: KNOWN exception this is a signal restorer --ok \n");
         STATS_INC(ret_after_call_signal_restorer);
         return true;
     }
 
     if (source_fragment == known_exception) {
-        LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception again _dl_runtime_resolve --ok\n");
+        LOG(THREAD, LOG_INTERP, 1,
+            "RCT: KNOWN exception again _dl_runtime_resolve --ok\n");
         return true;
     }
 
@@ -6142,7 +6151,8 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
     ASSERT(info != NULL && info->itimer != NULL);
     ASSERT(which >= 0 && which < NUM_ITIMERS);
     if (enable) {
-        ASSERT(!info->shared_itimer || self_owns_recursive_lock(info->shared_itimer_lock));
+        ASSERT(!info->shared_itimer ||
+               self_owns_recursive_lock(info->shared_itimer_lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
         usec_to_timeval((*info->itimer)[which].actual.value, &val.it_value);
         LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING

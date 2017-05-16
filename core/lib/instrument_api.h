@@ -2824,7 +2824,8 @@ struct _module_data_t {
     version_number_t product_version; /**< product version number from .rsrc section */
     uint checksum; /**< module checksum from the PE headers */
     uint timestamp; /**< module timestamp from the PE headers */
-    size_t module_internal_size; /**< module internal size (from PE headers SizeOfImage) */
+    /** Module internal size (from PE headers SizeOfImage). */
+    size_t module_internal_size;
 #else
     bool contiguous;   /**< whether there are no gaps between segments */
     uint num_segments; /**< number of segments */
@@ -5546,6 +5547,8 @@ DR_API
  * Pointers to the first and last created meta instructions are returned
  * in \p first and \p last, unless only one meta instruction is created,
  * in which case NULL is returned in last.
+ * If the instruction is a no-op (when dst is the zero register on AArch64)
+ * then no instructions are created and NULL is returned in first and last.
  */
 void
 instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
@@ -5578,6 +5581,8 @@ DR_API
  * Pointers to the first and last created meta instructions are returned
  * in \p first and \p last, unless only one meta instruction is created,
  * in which case NULL is returned in last.
+ * If the instruction is a no-op (when dst is the zero register on AArch64)
+ * then no instructions are created and NULL is returned in first and last.
  */
 void
 instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,

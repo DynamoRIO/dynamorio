@@ -109,7 +109,8 @@ static const uint BLOCK_SIZES[] = {
 #endif
     /* we have a lot of size 16 requests for IR but they are transient */
     24, /* fcache empties and vm_area_t are now 20, vm area extras still 24 */
-    ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT), /* 40 dbg / 36 rel */
+    /* 40 dbg / 36 rel: */
+    ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT),
 #if defined(X64) || defined(CUSTOM_EXIT_STUBS)
     sizeof(instr_t), /* 64 (96 x64) */
     sizeof(fragment_t) + sizeof(direct_linkstub_t)
@@ -595,7 +596,7 @@ typedef struct {
      */
     uint    num_blocks;         /* total number of blocks in virtual allocation */
 
-    mutex_t   lock;               /* write access to the rest of the fields is protected */
+    mutex_t   lock;             /* write access to the rest of the fields is protected */
     /* We make an assumption about the bitmap_t implementation being
        static therefore we don't grab locks on read accesses.  Anyways,
        currently the bitmap_t is used with no write intent only for ASSERTs. */
@@ -1255,11 +1256,11 @@ vmm_heap_commit(vm_addr_t p, size_t size, uint prot, heap_error_code_t *error_co
         res = os_heap_commit(p, size, prot, error_code);
         DODEBUG({
             if (res) {
-                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retried, got away!  old="PFX" new="PFX"\n",
-                                        old_error_code, *error_code);
+                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retried, got away!  old="PFX
+                                        " new="PFX"\n", old_error_code, *error_code);
             } else {
-                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retrying, no luck.  old="PFX" new="PFX"\n",
-                                        old_error_code, *error_code);
+                SYSLOG_INTERNAL_WARNING("vmm_heap_commit retrying, no luck.  old="PFX
+                                        " new="PFX"\n", old_error_code, *error_code);
             }
         });
     }
@@ -1534,7 +1535,8 @@ heap_init()
     heapmgt->global_heap_writable = true;
     threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE);
 
-    heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT, PROTECTED);
+    heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT,
+                              PROTECTED);
     memset(heapmgt, 0, sizeof(*heapmgt));
     ASSERT(sizeof(temp_heapmgt) == sizeof(*heapmgt));
     memcpy(heapmgt, &temp_heapmgt, sizeof(temp_heapmgt));
@@ -1562,7 +1564,8 @@ static void
 really_free_unit(heap_unit_t *u)
 {
     STATS_SUB(heap_capacity, UNIT_COMMIT_SIZE(u));
-    STATS_ADD(heap_reserved_only, (stats_int_t)(UNIT_COMMIT_SIZE(u) - UNIT_RESERVED_SIZE(u)));
+    STATS_ADD(heap_reserved_only,
+              (stats_int_t)(UNIT_COMMIT_SIZE(u) - UNIT_RESERVED_SIZE(u)));
     /* remember that u itself is inside unit, not separately allocated */
     release_guarded_real_memory((vm_addr_t)u, UNIT_RESERVED_SIZE(u),
                                 false/*do not update DR areas now*/, true);
@@ -1802,11 +1805,11 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
         /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
         SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex);
 
-        /* FIXME: case 7296 - ldmp even if we have decided not to produce an event above */
+        /* XXX: case 7296 - ldmp even if we have decided not to produce an event above */
         if (TEST(DUMPCORE_OUT_OF_MEM, DYNAMO_OPTION(dumpcore_mask)))
             os_dump_core("Out of memory, aborting program.");
 
-        /* passing only status code to XML where we should have a stack dump and callstack */
+        /* pass only status code to XML where we should have a stack dump and callstack */
         report_diagnostics("Out of memory", status_hex, NO_VIOLATION_BAD_INTERNAL_STATE);
     }
     os_terminate(NULL, TERMINATE_PROCESS);
@@ -1858,9 +1861,10 @@ update_dynamo_areas_on_release(app_pc start, app_pc end, bool remove_vm)
         if (remove_vm) {
             remove_dynamo_vm_area(start, end);
         } else {
-            /* due to cyclic dependencies bet heap and vmareas we cannot remove incrementally.
-             * the pending set is protected by the same lock needed to synch the vm areas,
-             * so we will never mis-identify free memory as DR memory.
+            /* Due to cyclic dependencies bet heap and vmareas we cannot remove
+             * incrementally.  The pending set is protected by the same lock
+             * needed to synch the vm areas, so we will never mis-identify free
+             * memory as DR memory.
              */
             mark_dynamo_vm_areas_stale();
             dynamo_areas_pending_remove = true;
@@ -1983,10 +1987,10 @@ extend_commitment(vm_addr_t p, size_t size, uint prot,
     }
 }
 
-/* a wrapper around get_real_memory that adds a guard page on each side of the requested unit.
- * These should consume only uncommitted virtual address and should not use any physical memory.
+/* A wrapper around get_real_memory that adds a guard page on each side of the
+ * requested unit.  These should consume only uncommitted virtual address and
+ * should not use any physical memory.
  * add_vm MUST be false iff this is heap memory, which is updated separately.
- *
  * Non-NULL min_addr is only supported for stack allocations (DrMi#1723).
  */
 static vm_addr_t
@@ -2056,7 +2060,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
 #endif
 
     if (p == NULL) {
-        /* This is very unlikely to happen - we have to reach at least 2GB reserved memory. */
+        /* Very unlikely to happen: we have to reach at least 2GB reserved memory. */
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory - cannot reserve %dKB. "
                                      "Trying to recover.", reserve_size/1024);
         heap_low_on_memory();
@@ -2086,8 +2090,9 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
     return p;
 }
 
-/* a wrapper around get_release_memory that also frees the guard pages on each side of the requested unit.
- * remove_vm MUST be false iff this is heap memory, which is updated separately
+/* A wrapper around get_release_memory that also frees the guard pages on each
+ * side of the requested unit.  remove_vm MUST be false iff this is heap memory,
+ * which is updated separately.
  */
 static void
 release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guarded)
@@ -2365,7 +2370,9 @@ heap_munmap_ex(void *p, size_t size, bool guarded)
                                 guarded);
 
     DOSTATS({
-        /* avoid problem w/ being called by cleanup_and_terminate after dynamo_process_exit */
+        /* avoid problem w/ being called by cleanup_and_terminate after
+         * dynamo_process_exit
+         */
         if (!dynamo_exited_log_and_stats) {
             LOG(GLOBAL, LOG_HEAP, 2, "heap_munmap: %d bytes @ "PFX"\n", size, p);
             STATS_SUB(mmap_capacity, size);
@@ -2563,7 +2570,8 @@ heap_vmareas_synch_units()
              * may become dead if vector is resized, then u should be
              * alive and u->next_global should be reset AFTER add  */
             bool next_may_die =
-                is_dynamo_area_buffer(UNIT_GET_START_PC(next)); /* keep breaking abstractions */
+                /* keep breaking abstractions */
+                is_dynamo_area_buffer(UNIT_GET_START_PC(next));
             /* dynamo_areas.buf vector may get resized and u can either
              * go to the dead unit list, or it can be released back to
              * the OS.  We'll mark it as being in vmarea list to avoid
@@ -2629,7 +2637,8 @@ heap_vmareas_synch_units()
              * dynamo_areas.buf vector, then next will no longer be a
              * valid iterator over dead list
              */
-            if (is_dynamo_area_buffer(UNIT_GET_START_PC(next))) { /* keep breaking abstractions */
+            /* keep breaking abstractions */
+            if (is_dynamo_area_buffer(UNIT_GET_START_PC(next))) {
                 STATS_INC(num_vmareas_resize_synch);
                 ASSERT_NOT_TESTED();
                 next = u->next_global;
@@ -2664,7 +2673,8 @@ common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t w
 
 /* shared between global and global_unprotected */
 static void
-common_global_heap_free(thread_units_t *tu, void *p, size_t size HEAPACCT(which_heap_t which))
+common_global_heap_free(thread_units_t *tu, void *p, size_t size
+                        HEAPACCT(which_heap_t which))
 {
     bool ok;
     if (p == NULL) {
@@ -3101,7 +3111,7 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
     LOG(THREAD, LOG_HEAP|LOG_STATS, 1,
         "\tTotal heap used: "SZFMT" KB\n", total_heap_used/1024);
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING)
-    /* FIXME: separate scopes - in smaller functions for each of DEBUG_MEMORY and HEAP_ACCOUNTING */
+    /* FIXME: separate scopes: smaller functions for DEBUG_MEMORY x HEAP_ACCOUNTING */
     for (j = 0; j < ACCT_LAST; j++) {
         size_t usage = tu->acct.cur_usage[j];
         if (usage > 0) {
@@ -3554,7 +3564,8 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         /* verify is unallocated memory, skip possible free list next pointer */
         DOCHECK(chklvl, {
             CLIENT_ASSERT(is_region_memset_to_char
-                          (p+sizeof(heap_pc *), (alloc_size-HEADER_SIZE)-sizeof(heap_pc *),
+                          (p+sizeof(heap_pc *),
+                           (alloc_size-HEADER_SIZE)-sizeof(heap_pc *),
                            HEAP_UNALLOCATED_BYTE), "memory corruption detected");
         });
         LOG(THREAD, LOG_HEAP, 6,
@@ -3601,7 +3612,8 @@ heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
  * returns false if caller needs to grab dynamo_vm_areas_lock() and retry
  */
 static bool
-common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_heap_t which))
+common_heap_free(thread_units_t *tu, void *p_void, size_t size
+                 HEAPACCT(which_heap_t which))
 {
     int bucket = 0;
     heap_pc p = (heap_pc) p_void;
@@ -3719,7 +3731,8 @@ common_heap_free(thread_units_t *tu, void *p_void, size_t size HEAPACCT(which_he
             ASSERT(find_heap_unit(tu, p, alloc_size - HEADER_SIZE) != NULL);
         });
         /* set used and padding memory back to unallocated */
-        DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, alloc_size-HEADER_SIZE););
+        DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE,
+                                       alloc_size-HEADER_SIZE););
 # endif
         STATS_SUB(heap_headers, HEADER_SIZE);
     } else {
@@ -3887,7 +3900,8 @@ nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t
             LOG(GLOBAL, LOG_HEAP, 6,
                 "\nglobal nonpersistent alloc: "PFX" (%d bytes)\n", p, size);
         } else {
-            thread_units_t *nph = ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
+            thread_units_t *nph =
+                ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
             p = common_heap_alloc(nph, size HEAPACCT(which));
         }
     } else {
@@ -3908,7 +3922,8 @@ nonpersistent_heap_free(dcontext_t *dcontext, void *p, size_t size
             LOG(GLOBAL, LOG_HEAP, 6,
                 "\nglobal nonpersistent free: "PFX" (%d bytes)\n", p, size);
         } else {
-            thread_units_t *nph = ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
+            thread_units_t *nph =
+                ((thread_heap_t *) dcontext->heap_field)->nonpersistent_heap;
             DEBUG_DECLARE(bool ok =) common_heap_free(nph, p, size HEAPACCT(which));
             ASSERT(ok);
         }
@@ -4051,7 +4066,8 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
     ASSERT_OWN_MUTEX(su->use_lock, &su->lock);
 
     if (pc != NULL) {
-        u = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, special_heap_unit_t, ACCT_MEM_MGT, PROTECTED);
+        u = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, special_heap_unit_t, ACCT_MEM_MGT,
+                            PROTECTED);
         ASSERT(u != NULL);
         u->start_pc = pc;
         u->alloc_pc = pc;

@@ -51,7 +51,9 @@
 
 #include "arch.h"
 
-/* We have to dynamically size struct _xstate to account for kernel changes over time. */
+/* We have to dynamically size kernel_xstate_t to account for kernel changes
+ * over time.
+ */
 static size_t xstate_size;
 static bool xstate_has_extra_fields;
 
@@ -119,14 +121,14 @@ union i387_union {
 static uint
 twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
 {
-    struct _fpxreg *st = NULL;
+    kernel_fpxreg_t *st = NULL;
     uint twd = (uint) fxsave->twd;
     uint tag;
     uint ret = 0xffff0000;
     int i;
     for (i = 0 ; i < 8 ; i++) {
         if (TEST(0x1, twd)) {
-            st = (struct _fpxreg *) &fxsave->st_space[i*4];
+            st = (kernel_fpxreg_t *) &fxsave->st_space[i*4];
 
             switch (st->exponent & 0x7fff) {
             case 0x7fff:
@@ -160,7 +162,7 @@ twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
 }
 
 static void
-convert_fxsave_to_fpstate(struct _fpstate *fpstate,
+convert_fxsave_to_fpstate(kernel_fpstate_t *fpstate,
                           struct i387_fxsave_struct *fxsave)
 {
     int i;
@@ -197,7 +199,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
      */
     int i;
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-    struct _xstate *xstate = (struct _xstate *) sc->fpstate;
+    kernel_xstate_t *xstate = (kernel_xstate_t *) sc->fpstate;
     if (!preserve_xmm_caller_saved())
         return;
     if (xstate_has_extra_fields) {
@@ -234,7 +236,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         memcpy(&sc->fpstate->xmm_space[i*4], &get_mcontext(dcontext)->ymm[i],
                XMM_REG_SIZE);
         if (YMM_ENABLED()) {
-            /* i#637: ymm top halves are inside struct _xstate */
+            /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
                    ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
@@ -242,7 +244,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
 #else
         memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
         if (YMM_ENABLED()) {
-            /* i#637: ymm top halves are inside struct _xstate */
+            /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
                    ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
@@ -283,14 +285,14 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* fxsaveq is only supported with gas >= 2.16 but we have that */
         asm volatile( "fxsaveq %0 ; fnclex"
                       : "=m" (temp->fxsave) );
-        /* now convert into struct _fpstate form */
-        ASSERT(sizeof(struct _fpstate) == sizeof(struct i387_fxsave_struct));
+        /* now convert into kernel_fpstate_t form */
+        ASSERT(sizeof(kernel_fpstate_t) == sizeof(struct i387_fxsave_struct));
         memcpy(sc->fpstate, &temp->fxsave, sizeof(struct i387_fxsave_struct));
 #else
         /* this is "unlazy_fpu" */
         asm volatile( "fxsave %0 ; fnclex"
                       : "=m" (temp->fxsave) );
-        /* now convert into struct _fpstate form */
+        /* now convert into kernel_fpstate_t form */
         convert_fxsave_to_fpstate(sc->fpstate, &temp->fxsave);
 #endif
     } else {
@@ -299,7 +301,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* this is "unlazy_fpu" */
         asm volatile( "fnsave %0 ; fwait"
                       : "=m" (temp->fsave) );
-        /* now convert into struct _fpstate form */
+        /* now convert into kernel_fpstate_t form */
         temp->fsave.status = temp->fsave.swd;
         memcpy(sc->fpstate, &temp->fsave, sizeof(struct i387_fsave_struct));
     }
@@ -309,7 +311,7 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 
 #ifdef DEBUG
 static void
-dump_fpstate(dcontext_t *dcontext, struct _fpstate *fp)
+dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
 {
     int i,j;
 #ifdef X64
@@ -373,7 +375,7 @@ dump_fpstate(dcontext_t *dcontext, struct _fpstate *fp)
 #endif
     /* ignore padding */
     if (YMM_ENABLED()) {
-        struct _xstate *xstate = (struct _xstate *) fp;
+        kernel_xstate_t *xstate = (kernel_xstate_t *) fp;
         if (fp->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
             /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
              * is obtained via cpuid, which is the xstate size of 64-bit arch.
@@ -451,7 +453,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
-            struct _xstate *xstate = (struct _xstate *) sc->fpstate;
+            kernel_xstate_t *xstate = (kernel_xstate_t *) sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
                  * is obtained via cpuid, which is the xstate size of 64-bit arch.
@@ -478,7 +480,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
-            struct _xstate *xstate = (struct _xstate *) sc->fpstate;
+            kernel_xstate_t *xstate = (kernel_xstate_t *) sc->fpstate;
             if (sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 /* i#718: for 32-bit app on 64-bit OS, the xstate_size in sw_reserved
                  * is obtained via cpuid, which is the xstate size of 64-bit arch.
@@ -502,7 +504,7 @@ signal_frame_extra_size(bool include_alignment)
      * assume the stack pointer is 4-aligned already, so we over estimate padding
      * size by the alignment minus 4.
      */
-    size_t size = YMM_ENABLED() ? xstate_size : sizeof(struct _fpstate);
+    size_t size = YMM_ENABLED() ? xstate_size : sizeof(kernel_fpstate_t);
     if (include_alignment)
         size += (YMM_ENABLED() ? AVX_ALIGNMENT : FPSTATE_ALIGNMENT) - 4;
     return size;
@@ -539,7 +541,7 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
 void
 signal_arch_init(void)
 {
-    xstate_size = sizeof(struct _xstate) + 4 /* trailing FP_XSTATE_MAGIC2 */;
+    xstate_size = sizeof(kernel_xstate_t) + 4 /* trailing FP_XSTATE_MAGIC2 */;
     if (YMM_ENABLED()) {
         kernel_sigaction_t act, oldact;
         int rc;

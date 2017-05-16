@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -477,7 +477,8 @@ translate_into(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
 }
 
 static void
-translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
+translate_load_far_pointer(dcontext_t *dcontext, instrlist_t *ilist,
+                           INOUT instr_t **instr)
 {
     /* translate: les (src) -> dst, sreg => mov (src) -> r8w/r8d
      *                                      mov 2(src)/4(src) -> sreg

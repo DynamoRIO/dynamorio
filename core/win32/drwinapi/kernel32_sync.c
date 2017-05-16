@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -122,7 +122,7 @@ redirect_LeaveCriticalSection(
 
 LONG
 WINAPI
-redirect_InterlockedCompareExchange (
+redirect_InterlockedCompareExchange(
     __inout __drv_interlocked LONG volatile *Destination,
     __in LONG ExChange,
     __in LONG Comperand
@@ -221,12 +221,12 @@ unit_test_drwinapi_kernel32_sync(void)
     vol = 4;
     val1 = 5;
     val2 = 6;
-    res = redirect_InterlockedCompareExchange (&vol, val1, val2);
+    res = redirect_InterlockedCompareExchange(&vol, val1, val2);
     EXPECT(res == vol && res == 4, true);
     vol = 4;
     val1 = 5;
     val2 = 4;
-    res = redirect_InterlockedCompareExchange (&vol, val1, val2);
+    res = redirect_InterlockedCompareExchange(&vol, val1, val2);
     EXPECT(res == 4 && vol == val1, true);
 
     vol = 42;

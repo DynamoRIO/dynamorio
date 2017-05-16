@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,8 +50,8 @@
 # define DODEBUG(x)
 # define DOCHECK(n, x)
 # define DEBUG_DECLARE(x)
-# pragma warning(disable : 4210) //nonstandard extension used : function given file scope
-# pragma warning( disable : 4204) //nonstandard extension used : non-constant aggregate initializer
+# pragma warning(disable : 4210) //nonstd extension: function given file scope
+# pragma warning( disable : 4204) //nonstd extension: non-constant aggregate initializer
 # define INVALID_FILE INVALID_HANDLE_VALUE
 # define snprintf   _snprintf
 # include <stdio.h> /* _snprintf */

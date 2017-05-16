@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,7 +86,8 @@ extern "C" {
 # define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
 # define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
 # define dr_register_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
-# define dr_unregister_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+# define dr_unregister_restore_state_ex_event \
+    DO_NOT_USE_restore_state_ex_USE_drmgr_instead
 
 #endif /* !STATIC_DRMGR_ONLY */
 

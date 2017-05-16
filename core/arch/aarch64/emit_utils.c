@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -610,7 +610,8 @@ append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X86_64(bool x86_to_x64_ibl_opt))
+                   uint flags, bool tls, bool absolute
+                   _IF_X86_64(bool x86_to_x64_ibl_opt))
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }

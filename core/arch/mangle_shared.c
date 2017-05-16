@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -61,7 +61,12 @@ callee_info_t default_callee_info;
 int
 get_clean_call_switch_stack_size(void)
 {
+#ifdef AARCH64
+    /* Stack size needs to be 16 byte aligned on ARM */
+    return ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
+#else
     return sizeof(priv_mcontext_t);
+#endif
 }
 
 /* extra temporarily-used stack usage beyond
@@ -258,7 +263,9 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     } else {
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
-                                      OPND_CREATE_INT32(0), REG_NULL);
+                                      OPND_CREATE_INT32(0), REG_NULL
+                                      _IF_AARCH64(false));
+
         insert_clear_eflags(dcontext, cci, ilist, instr);
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
     }
@@ -327,7 +334,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
                                  /* see notes in prepare_for_clean_call() */
-                                 (uint)PAGE_SIZE);
+                                 (uint)PAGE_SIZE _IF_AARCH64(false));
     }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
@@ -1036,7 +1043,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                  * as we want tight coupling w/ a pointer as a general way
                  * to store per-instr data outside of the instr itself.
                  */
-                for (tmp = instr_get_next(instr); tmp != NULL; tmp = instr_get_next(tmp)) {
+                for (tmp = instr_get_next(instr); tmp != NULL;
+                     tmp = instr_get_next(tmp)) {
                     if (tmp == ret) {
                         tmp->note = (void *) data->data[1]; /* the value to use */
                         break;

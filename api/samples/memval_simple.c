@@ -104,9 +104,10 @@ write_hexdump(char *hex_buf, byte *write_base, mem_ref_t *mem_ref)
     int i;
     char *hexstring = hex_buf, *needle = hex_buf;
 
-    for (i = mem_ref->size - 1; i >= 0; --i)
+    for (i = mem_ref->size - 1; i >= 0; --i) {
         needle += dr_snprintf(needle, 2*mem_ref->size+1-(needle-hex_buf),
                               "%02x", write_base[i]);
+    }
     return hexstring;
 }
 

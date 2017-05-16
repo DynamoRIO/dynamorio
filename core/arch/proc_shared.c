@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -138,18 +138,21 @@ proc_get_family(void)
     return cpu_info.family;
 }
 
-uint proc_get_type(void)
+uint
+proc_get_type(void)
 {
     return cpu_info.type;
 }
 
 /* FIXME: Add MODEL_ constants to proc.h?? */
-uint proc_get_model(void)
+uint
+proc_get_model(void)
 {
     return cpu_info.model;
 }
 
-uint proc_get_stepping(void)
+uint
+proc_get_stepping(void)
 {
     return cpu_info.stepping;
 }

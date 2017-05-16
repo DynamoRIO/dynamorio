@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -131,8 +131,8 @@ fork_syscall(void)
     /* i386/fork.c pass a 5th arg, &THREAD_SELF->tid, is it needed for SETTID? */
     static uint tid;
     return dynamorio_syscall(SYS_clone, 4/* 5 */,
-                             /* flags, newsp (if 0 -> cur esp), parent_tidptr, child_tidptr,
-                              * something! */
+                             /* flags, newsp (if 0 -> cur esp), parent_tidptr,
+                              * child_tidptr, something! */
                              CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD,
                              0, NULL, NULL /*, &tid*/);
 # else
@@ -182,7 +182,8 @@ stackdump(void)
     pid = fork_syscall();
     if (pid == 0) { /* child */
 #if VERBOSE
-        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread "TIDFMT"",
+        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread "
+                              TIDFMT"",
                               get_process_id(), get_parent_id(), get_thread_id());
 #endif
         /* We used to use abort here, but that had lots of complications with
@@ -291,7 +292,7 @@ stackdump(void)
     }
     /* Parent continues */
     /* while(wait(NULL)>0) waits for all children, and could hang, so: */
-    while(wait_syscall(NULL) != pid) {
+    while (wait_syscall(NULL) != pid) {
         /* empty loop */
     }
 

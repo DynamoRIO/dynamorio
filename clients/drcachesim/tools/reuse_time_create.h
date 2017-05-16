@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,27 +30,15 @@
  * DAMAGE.
  */
 
-#include "tools.h"
-#include <signal.h>
-#include <unistd.h>
+/* reuse-distance tool creation */
 
-void
-handler()
-{
-    print("wake up by alarm\n");
-}
+#ifndef _REUSE_TIME_CREATE_H_
+#define _REUSE_TIME_CREATE_H_ 1
 
-int
-main()
-{
-    signal(SIGALRM, handler);
-    /* test alarm to wake up sleep */
-    alarm(1);
-    sleep(100); /* sleep long enough to timeout */
-    /* test alarm(0) to cancel pending alarm */
-    alarm(1);
-    alarm(0); /* cancel the alarm */
-    sleep(2); /* sleep long enough for alarm */
-    print("exiting\n");
-    return 0;
-}
+#include "analysis_tool.h"
+
+// These options are currently documented in ../common/options.cpp.
+analysis_tool_t *
+reuse_time_tool_create(unsigned int line_size = 64, unsigned int verbose = 0);
+
+#endif /* _REUSE_TIME_CREATE_H_ */

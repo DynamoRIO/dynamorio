@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -431,8 +431,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                     DOSTATS({
                         /* only inc stats for emitting, not for recreating */
                         if (emitting)
-                            STATS_PAD_JMPS_ADD(f->flags,
-                                               num_no_pad_exits, 1);
+                            STATS_PAD_JMPS_ADD(f->flags, num_no_pad_exits, 1);
                     });
                 }
             }
@@ -853,10 +852,13 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         return;
 
 # ifdef WINDOWS
-    if (!is_shared_syscall_routine(dcontext, target_tag))
+    if (!is_shared_syscall_routine(dcontext, target_tag)) {
 # endif
         ibl_code = get_ibl_routine_code(dcontext,
                                         extract_branchtype(l->flags), f->flags);
+# ifdef WINDOWS
+    }
+# endif
 
     if ((!DYNAMO_OPTION(atomic_inlined_linking) && DYNAMO_OPTION(indirect_stubs)) ||
 # ifdef WINDOWS
@@ -904,9 +906,8 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      * yet inconsistent
      */
     if (target_tag != shared_syscall_routine_ex
-        (dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags))))
+        (dcontext _IF_X64(FRAGMENT_GENCODE_MODE(f->flags)))) {
 # endif
-    {
         /* need to make branch target the unlink entry point inside exit stub */
         if (ibl_code->ibl_head_is_inlined) {
 # ifdef CUSTOM_EXIT_STUBS
@@ -921,7 +922,9 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
             patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), target,
                          HOT_PATCHABLE);
         }
+# ifdef WINDOWS
     }
+# endif
 }
 
 /*******************************************************************************
@@ -1448,9 +1451,13 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
                 if (GENCODE_IS_X86_TO_X64(code->gencode_mode) &&
                     DYNAMO_OPTION(x86_to_x64_ibl_opt))
                     APP(ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
-                else
+                else {
 #endif /* X64 */
-                    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+                    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX,
+                                                MANGLE_XCX_SPILL_SLOT));
+#ifdef X64
+                }
+#endif
             }
         } else {
             APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XAX_OFFSET));
@@ -2610,7 +2617,8 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
 #endif
         if (absolute) {
             APP(&ilist, instr_create_save_immed32_to_dcontext
-                (dcontext, (int)(ptr_int_t) get_ibl_deleted_linkstub(), SCRATCH_REG5_OFFS));
+                (dcontext, (int)(ptr_int_t) get_ibl_deleted_linkstub(),
+                 SCRATCH_REG5_OFFS));
         } else if (table_in_tls) {
             APP(&ilist, XINST_CREATE_store
                 (dcontext, OPND_TLS_FIELD(TLS_REG3_SLOT),
@@ -2684,9 +2692,10 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                                  REG_NULL,
                                  HASHLOOKUP_STAT_OFFS(miss),
                                  SCRATCH_REG1); /* xbx dead */
-        if (save_xdi)
+        if (save_xdi) {
             APP(&ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG5,
                                          HTABLE_STATS_SPILL_SLOT));
+        }
     }
 #endif
     if (only_spill_state_in_tls) {

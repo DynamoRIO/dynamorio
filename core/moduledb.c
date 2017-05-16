@@ -240,7 +240,9 @@ moduledb_process_image(const char *name, app_pc base, bool add)
 END_DATA_SECTION()
 
 static const char *const
-exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = { "rct", "image", "dll2heap", "dll2stack" };
+exempt_list_names[MODULEDB_EXEMPT_NUM_LISTS] = {
+    "rct", "image", "dll2heap", "dll2stack"
+};
 
 void
 moduledb_init()
@@ -481,8 +483,8 @@ process_control_whitelist(const char *md5_hash)
          */
         if (IS_PROCESS_CONTROL_MATCHED(app_specific))
             return;
-        anonymous = process_control_match(md5_hash,
-                                          PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST));
+        anonymous = process_control_match
+            (md5_hash, PARAM_STR(DYNAMORIO_VAR_ANON_PROCESS_WHITELIST));
         if (IS_PROCESS_CONTROL_MATCHED(anonymous))
             return;
 

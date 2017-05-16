@@ -65,7 +65,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
             /* SIGUSR1 is delayable so we're testing propagation of the
              * fpstate with xmm inside on delayed signals
              */
-            struct _fpstate *fp = (struct _fpstate *) ucxt->uc_mcontext.fpregs;
+            kernel_fpstate_t *fp = (kernel_fpstate_t *)ucxt->uc_mcontext.fpregs;
             for (i = 0; i < NUM_SIMD_REGS; i++) {
                 print("xmm[%d] = 0x%x 0x%x 0x%x 0x%x\n", i,
 #ifdef X64
@@ -94,7 +94,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
             /* SIGUSR2 is delayable so we're testing propagation of the
              * xstate with ymm inside on delayed signals on AVX processors
              */
-            struct _xstate *xstate = (struct _xstate *) ucxt->uc_mcontext.fpregs;
+            kernel_xstate_t *xstate =
+                (kernel_xstate_t *) ucxt->uc_mcontext.fpregs;
             if (xstate->fpstate.sw_reserved.magic1 == FP_XSTATE_MAGIC1) {
                 assert(xstate->fpstate.sw_reserved.xstate_size >= sizeof(*xstate));
                 /* we can't print b/c not all processors have avx */

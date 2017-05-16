@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -444,11 +444,16 @@ lookup_overloads(const char *exe_path)
     r = drsym_enumerate_symbols(exe_path, overloaded_cb, &p,
                                 DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
-    if (!p.overloaded_char)  dr_fprintf(STDERR, "overloaded_char missing!\n");
-    if (!p.overloaded_wchar) dr_fprintf(STDERR, "overloaded_wchar missing!\n");
-    if (!p.overloaded_int)   dr_fprintf(STDERR, "overloaded_int missing!\n");
-    if (!p.overloaded_void)  dr_fprintf(STDERR, "overloaded_void missing!\n");
-    if (!p.overloaded_void_ptr)  dr_fprintf(STDERR, "overloaded_void_ptr missing!\n");
+    if (!p.overloaded_char)
+        dr_fprintf(STDERR, "overloaded_char missing!\n");
+    if (!p.overloaded_wchar)
+        dr_fprintf(STDERR, "overloaded_wchar missing!\n");
+    if (!p.overloaded_int)
+        dr_fprintf(STDERR, "overloaded_int missing!\n");
+    if (!p.overloaded_void)
+        dr_fprintf(STDERR, "overloaded_void missing!\n");
+    if (!p.overloaded_void_ptr)
+        dr_fprintf(STDERR, "overloaded_void_ptr missing!\n");
     if (p.overloaded_class != NUM_OVERLOADED_CLASS)
         dr_fprintf(STDERR, "overloaded_class missing!\n");
     if (p.overloaded_char &&
@@ -476,7 +481,8 @@ search_ex_templates_cb(drsym_info_t *out, drsym_error_t status, void *data)
     /* i#1376: VS2013 PDB seems to not have qualified unnamed-tag entries so
      * in the interests of cross-platform non-flaky tests we don't
      * print them out anymore.  We're talking about this:
-     *   name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::<unnamed-tag>
+     *   name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::
+     *   <unnamed-tag>
      */
     if (strstr(out->name, "::templated_func") != NULL)
         dr_fprintf(STDERR, "found %s\n", out->name);

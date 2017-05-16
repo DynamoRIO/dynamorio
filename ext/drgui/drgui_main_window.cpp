@@ -67,7 +67,7 @@
  * Constructor, everything begins here
  */
 drgui_main_window_t::drgui_main_window_t(QString tool_name, QStringList tool_args)
-: tool_to_auto_load(tool_name), tool_to_auto_load_args(tool_args)
+    : tool_to_auto_load(tool_name), tool_to_auto_load_args(tool_args)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
     window_mapper = new QSignalMapper(this);

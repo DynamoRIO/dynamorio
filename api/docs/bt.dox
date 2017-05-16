@@ -114,8 +114,19 @@ that DynamoRIO performs on calls from the client, so it should typically be
 enabled only in a release build.  Furthermore, some of the macros evaluate their
 arguments twice, so clients should avoid passing arguments with side effects.
 
+When a new instruction is created using instr_create() or the
+INSTR_CREATE_* or XINST_CREATE_* macros, if the instruction is added to the
+\c instrlist_t that is passed to the basic block or trace events, the heap
+memory used by the instruction is automatically freed when that instruction
+list is freed by DynamoRIO.  If instead an instruction is created on the
+heap but used for other purposes and not added to a DynamoRIO-provided
+instruction list, it should be freed by calling instr_destroy() or by
+explicitly destroying a custom instruction list.
+
 See \ref sec_decode for further information on creating instructions from
-scratch, decoding, encoding, and disassembling instructions.
+scratch, decoding, encoding, and disassembling instructions.  Typically
+these instructions will be stored on the stack, using instr_init() and
+instr_free() or instr_reset(), as shown in that section.
 
 \if level_of_detail
 ********************

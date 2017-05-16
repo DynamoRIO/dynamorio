@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -65,18 +65,14 @@ kernel32_redir_exit_mem(void)
 
 PVOID
 WINAPI
-redirect_DecodePointer(
-    __in_opt PVOID Ptr
-    )
+redirect_DecodePointer(__in_opt PVOID Ptr)
 {
     return (PVOID) ((ptr_uint_t)Ptr ^ magic_val);
 }
 
 PVOID
 WINAPI
-redirect_EncodePointer (
-    __in_opt PVOID Ptr
-    )
+redirect_EncodePointer(__in_opt PVOID Ptr)
 {
     return (PVOID) ((ptr_uint_t)Ptr ^ magic_val);
 }
@@ -170,7 +166,7 @@ redirect_HeapReAlloc(
 
 BOOL
 WINAPI
-redirect_HeapSetInformation (
+redirect_HeapSetInformation(
     __in_opt HANDLE HeapHandle,
     __in HEAP_INFORMATION_CLASS HeapInformationClass,
     __in_bcount_opt(HeapInformationLength) PVOID HeapInformation,
