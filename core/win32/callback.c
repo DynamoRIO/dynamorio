@@ -5723,7 +5723,8 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif
                         }
                         instr_free(dcontext, &instr);
-                        transfer_to_dispatch(dcontext, &mcontext, false/*!full_DR_state*/);
+                        transfer_to_dispatch(dcontext, &mcontext,
+                                             false/*!full_DR_state*/);
                         ASSERT_NOT_REACHED();
                     }
                 }
