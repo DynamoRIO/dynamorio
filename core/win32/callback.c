@@ -3764,6 +3764,8 @@ NtContinue:
 void
 intercept_nt_continue(CONTEXT *cxt, int flag)
 {
+    size_t i;
+
     if (intercept_asynch_for_self(false/*no unknown threads*/)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -3776,11 +3778,18 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
 
         /* Updates debug register values.
          * FIXME should check dr6 and dr7 values as well.
+         * We ignore the potential race condition.
          */
-        dcontext->debugRegister[0] = (app_pc) cxt->Dr0;
-        dcontext->debugRegister[1] = (app_pc) cxt->Dr1;
-        dcontext->debugRegister[2] = (app_pc) cxt->Dr2;
-        dcontext->debugRegister[3] = (app_pc) cxt->Dr3;
+        debugRegister[0] = (app_pc) cxt->Dr0;
+        debugRegister[1] = (app_pc) cxt->Dr1;
+        debugRegister[2] = (app_pc) cxt->Dr2;
+        debugRegister[3] = (app_pc) cxt->Dr3;
+        for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+            if (debugRegister[i] != NULL) {
+                flush_fragments_from_region(dcontext, debugRegister[i], 1 /* size */,
+                                            false/*don't force synchall*/);
+            }
+        }
 
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 2, "intercept_nt_continue: squashing old trace\n");

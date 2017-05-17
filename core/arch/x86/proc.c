@@ -303,6 +303,8 @@ get_processor_specific_info(void)
 void
 proc_init_arch(void)
 {
+    size_t i;
+
     get_processor_specific_info();
 #ifdef X64
     CLIENT_ASSERT(proc_has_feature(FEATURE_LAHF),
@@ -366,6 +368,9 @@ proc_init_arch(void)
         } else {
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
+    }
+    for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+        debugRegister[i] = NULL;
     }
 }
 

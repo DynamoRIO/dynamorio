@@ -1863,12 +1863,6 @@ create_callback_dcontext(dcontext_t *old_dcontext)
 #ifdef WINDOWS
     new_dcontext->aslr_context.last_child_padded =
         old_dcontext->aslr_context.last_child_padded;
-    {
-        int i;
-        for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-            new_dcontext->debugRegister[i] = old_dcontext->debugRegister[i];
-        }
-    }
 #endif
 
     LOG(new_dcontext->logfile, LOG_TOP, 2,

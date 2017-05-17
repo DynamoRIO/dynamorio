@@ -227,10 +227,6 @@ typedef byte * cache_pc;  /* fragment cache pc */
 # endif
 #endif
 
-#ifdef WINDOWS
-#define DEBUG_REGISTERS_NB 4
-#endif
-
 /* in buildmark.c */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
@@ -1042,9 +1038,6 @@ struct _dcontext_t {
     bool currently_stopped;
     /* This is a flag requesting that this thread go native. */
     bool go_native;
-#ifdef WINDOWS
-    app_pc debugRegister[DEBUG_REGISTERS_NB];
-#endif
 };
 
 /* sentinel value for dcontext_t* used to indicate
