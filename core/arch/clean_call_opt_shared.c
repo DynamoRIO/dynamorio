@@ -735,22 +735,22 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
  * for generating out-of-line calls is quite low, so the code size is kept low.
  */
 #ifdef X86
-/* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
-#define SIMD_SAVE_TRESHOLD 3
-#ifdef X64
-/* Use out-of-line calls if more than 3 GP registers need to be saved. */
-#define GPR_SAVE_TRESHOLD 3
-#else
-/* On X86, a single pusha instruction is used to save the GPRs, so we do not take
- * the number of GPRs that need saving into account.
- */
-#define GPR_SAVE_TRESHOLD NUM_GP_REGS
-#endif
+  /* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
+# define SIMD_SAVE_TRESHOLD 3
+# ifdef X64
+   /* Use out-of-line calls if more than 3 GP registers need to be saved. */
+#  define GPR_SAVE_TRESHOLD 3
+# else
+   /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
+    * the number of GPRs that need saving into account.
+    */
+#  define GPR_SAVE_TRESHOLD NUM_GP_REGS
+# endif
 #elif defined(AARCH64)
-/* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
-#define SIMD_SAVE_TRESHOLD 6
-/* Use out-of-line calls if more than 6 GP registers need to be saved. */
-#define GPR_SAVE_TRESHOLD 6
+  /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
+# define SIMD_SAVE_TRESHOLD 6
+  /* Use out-of-line calls if more than 6 GP registers need to be saved. */
+# define GPR_SAVE_TRESHOLD 6
 #endif
 
 #if defined(X86) || defined(AARCH64)
