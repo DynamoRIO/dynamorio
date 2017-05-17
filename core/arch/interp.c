@@ -820,7 +820,8 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 static inline void
 bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
 {
-    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
+    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n",
+        bb->instr_start);
     /* FIXME i#2144 : handling a rep string operation.
      * In this case, we should test if only one iteration is done
      * before the single step exception.
@@ -3377,7 +3378,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         bb->full_decode = true;
         bb->record_translation = true;
     }
-    if (dcontext->single_step_addr == bb->start_pc) {
+    if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
         /* Decodes only one instruction because of single step exception. */
         cur_max_bb_instrs = 1;
     }
@@ -3712,7 +3713,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 # endif /* X86 */
 #endif /* WINDOWS */
 
-        if (dcontext->single_step_addr == bb->start_pc) {
+        if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
             bb_process_single_step(dcontext, bb);
             /* Stops basic block right now. */
             break;
@@ -4203,7 +4204,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
-        && dcontext->single_step_addr != bb->start_pc
+        && (my_dcontext == NULL || my_dcontext->single_step_addr != bb->start_pc)
        ) {
         /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
@@ -4233,7 +4234,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
     }
-    else if (dcontext->single_step_addr == bb->start_pc) {
+    else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
         /* Field exit_type might have been cleared by client_process_bb. */
         bb->exit_type |= LINK_SPECIAL_EXIT;
     }
