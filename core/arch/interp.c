@@ -818,6 +818,25 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 }
 
 static inline void
+bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
+{
+    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
+    /* FIXME i#2144 : handling a rep string operation.
+     * In this case, we should test if only one iteration is done
+     * before the single step exception.
+     */
+    instrlist_append(bb->ilist, bb->instr);
+
+    /* Mark instruction as special exit. */
+    instr_branch_set_special_exit(bb->instr, true);
+    bb->exit_type |= LINK_SPECIAL_EXIT;
+
+    /* Make this bb thread-private and a trace barrier. */
+    bb->flags &= ~FRAG_SHARED;
+    bb->flags |= FRAG_CANNOT_BE_TRACE;
+}
+
+static inline void
 bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
 {
 
@@ -3226,6 +3245,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      */
     int total_branches = 0;
     uint total_instrs = 0;
+    /* maximum number of instructions for current basic block */
+    uint cur_max_bb_instrs = DYNAMO_OPTION(max_bb_instrs);
     uint total_writes = 0; /* only used for selfmod */
     instr_t *non_cti;              /* used if !full_decode */
     byte *non_cti_start_pc; /* used if !full_decode */
@@ -3355,6 +3376,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags)) {
         bb->full_decode = true;
         bb->record_translation = true;
+    }
+    if (dcontext->single_step_addr == bb->start_pc) {
+        /* Decodes only one instruction because of single step exception. */
+        cur_max_bb_instrs = 1;
     }
 
     KSTART(bb_decoding);
@@ -3516,7 +3541,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * so instr_opcode_valid(bb->instr) is true, and terminates the loop.
              */
         } while (!instr_opcode_valid(bb->instr) &&
-                 total_instrs <= DYNAMO_OPTION(max_bb_instrs));
+                 total_instrs <= cur_max_bb_instrs);
 
         if (bb->cur_pc == NULL) {
             /* invalid instr or vmarea change: reset bb->cur_pc, will end bb
@@ -3686,6 +3711,12 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 # endif /* X86 */
 #endif /* WINDOWS */
+
+        if (dcontext->single_step_addr == bb->start_pc) {
+            bb_process_single_step(dcontext, bb);
+            /* Stops basic block right now. */
+            break;
+        }
 
         /* far direct is treated as indirect (i#823) */
         if (instr_is_near_ubr(bb->instr)) {
@@ -4172,6 +4203,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
+        && dcontext->single_step_addr != bb->start_pc
        ) {
         /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
@@ -4200,6 +4232,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                    "BB not shared for unknown reason");
         }
 #endif
+    }
+    else if (dcontext->single_step_addr == bb->start_pc) {
+        /* Field exit_type might have been cleared by client_process_bb. */
+        bb->exit_type |= LINK_SPECIAL_EXIT;
     }
 
     if (TEST(FRAG_COARSE_GRAIN, bb->flags) &&
