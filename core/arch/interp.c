@@ -3218,7 +3218,7 @@ instr_fires_debug_register(instr_t * instr) {
 
     for (i=0; i<DEBUG_REGISTERS_NB; i++) {
         if (instr->translation &&
-            instr->translation == dcontext->debugRegister[i]) {
+            instr->translation == debugRegister[i]) {
             return true;
         }
     }
