@@ -3013,7 +3013,10 @@ else (UNIX)
   tobuild(security-win32.except-guard security-win32/except-guard.c)
   tobuild(security-win32.thread-setcontext security-win32/thread-setcontext.c)
   tobuild(security-win32.singlestep security-win32/singlestep.c)
-  tobuild(security-win32.except-debugreg security-win32/except-debugreg.c)
+  if (NOT X64)
+    # no way to set debug register in 64 bit
+    tobuild(security-win32.except-debugreg security-win32/except-debugreg.c)
+  endif (NOT X64)
 
   tobuild(win32.threadterm win32/threadterm.c)
 

@@ -1431,6 +1431,6 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
  * DynamoRIO needs to keep track of their values process-wide.
  */
 #define DEBUG_REGISTERS_NB 4
-app_pc debugRegister[DEBUG_REGISTERS_NB];
+extern app_pc debugRegister[DEBUG_REGISTERS_NB];
 
 #endif /* _OPCODE_H_ */

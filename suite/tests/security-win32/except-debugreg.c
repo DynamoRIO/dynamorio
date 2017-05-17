@@ -38,6 +38,7 @@
 static int count = 0;
 void set_debug_register();
 void test_debug_register();
+void single_step_addr(void);
 
 
 /* top-level exception handler */
@@ -46,7 +47,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
         //should get here with some of the nops
-        pExceptionInfo->ContextRecord->Dr0 = (DWORD) (((char*)test_debug_register) + 4);
+        pExceptionInfo->ContextRecord->Dr0 = (unsigned int) single_step_addr;
         pExceptionInfo->ContextRecord->Dr6 = 0xfffe0ff0;
         pExceptionInfo->ContextRecord->Dr7 = 0x00000101;
         print("set debug register\n");
@@ -111,6 +112,8 @@ DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         nop
         nop
+DECLARE_GLOBAL(single_step_addr)
+ADDRTAKEN_LABEL(single_step_addr:)
         nop
         xor      eax, eax
         test     eax, eax
