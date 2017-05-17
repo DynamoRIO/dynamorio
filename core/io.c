@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1042,6 +1042,18 @@ test_integer(void)
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%llu", 0x82345678abcdef01LL);
     EXPECT(res == (ssize_t) strlen("9382218999998050049"), true);
     EXPECT(strcmp(buf, "9382218999998050049"), 0);
+
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zu",
+                       (size_t)IF_X64_ELSE(0x82345678abcdef01LL, 0x82345678));
+    EXPECT(res == (ssize_t)
+           strlen(IF_X64_ELSE("9382218999998050049", "2184468088")), true);
+    EXPECT(strcmp(buf, IF_X64_ELSE("9382218999998050049", "2184468088")), 0);
+
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%zd",
+                       (size_t)IF_X64_ELSE(0x82345678abcdef01LL, 0x82345678));
+    EXPECT(res == (ssize_t)
+           strlen(IF_X64_ELSE("-9064525073711501567", "-2110499208")), true);
+    EXPECT(strcmp(buf, IF_X64_ELSE("-9064525073711501567", "-2110499208")), 0);
 
     /* XXX: add more tests */
 }
