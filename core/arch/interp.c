@@ -820,7 +820,8 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
 static inline void
 bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
 {
-    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n", bb->instr_start);
+    LOG(THREAD, LOG_INTERP, 2, "interp: single step exception bb at "PFX"\n",
+        bb->instr_start);
     /* FIXME i#2144 : handling a rep string operation.
      * In this case, we should test if only one iteration is done
      * before the single step exception.
