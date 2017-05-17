@@ -370,8 +370,13 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     ll_type = true;
                 if (*c == _T('h'))
                     h_type = true;
-                if (*c == _T('z'))
+                if (*c == _T('z')) {
+#if defined(WINDOWS) && defined(X64)
+                    ll_type = true;
+#else
                     l_type = true;
+#endif
+                }
                 if (*c == _T('l')) {
                     c++;
                     ASSERT(*c);
