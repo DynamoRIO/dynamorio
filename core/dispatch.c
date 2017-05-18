@@ -923,7 +923,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 STATS_INC(float_pc_from_dispatch);
                 /* Restore */
                 dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
-            } else if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_SINGLE_STEP) {
+            } else if (dcontext->upcontext.upcontext.exit_reason ==
+                       EXIT_REASON_SINGLE_STEP) {
                 /* Delete basic block to generate only one single step exception. */
                 ASSERT(!TEST(FRAG_SHARED, dcontext->last_fragment->flags));
                 fragment_delete(dcontext, dcontext->last_fragment, FRAGDEL_ALL);
