@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -364,12 +364,19 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                 }
             }
 
-            /* get size modifiers l, h, ll/L */
-            if (*c == _T('l') || *c == _T('L') || *c == _T('h')) {
+            /* get size modifiers l, h, ll/L, z */
+            if (*c == _T('l') || *c == _T('L') || *c == _T('h') || *c == _T('z')) {
                 if (*c == _T('L'))
                     ll_type = true;
                 if (*c == _T('h'))
                     h_type = true;
+                if (*c == _T('z')) {
+#if defined(WINDOWS) && defined(X64)
+                    ll_type = true;
+#else
+                    l_type = true;
+#endif
+                }
                 if (*c == _T('l')) {
                     c++;
                     ASSERT(*c);
