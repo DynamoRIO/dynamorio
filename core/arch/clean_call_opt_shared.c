@@ -730,25 +730,40 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
             should_inline = analyze_clean_call_inline(dcontext, cci);
         }
     }
-# ifdef X86
+
+/* Thresholds for out-of-line calls. The values are based on a guess. The bar
+ * for generating out-of-line calls is quite low, so the code size is kept low.
+ */
+#ifdef X86
+  /* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
+# define SIMD_SAVE_TRESHOLD 3
+# ifdef X64
+   /* Use out-of-line calls if more than 3 GP registers need to be saved. */
+#  define GPR_SAVE_TRESHOLD 3
+# else
+   /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
+    * the number of GPRs that need saving into account.
+    */
+#  define GPR_SAVE_TRESHOLD NUM_GP_REGS
+# endif
+#elif defined(AARCH64)
+  /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
+# define SIMD_SAVE_TRESHOLD 6
+  /* Use out-of-line calls if more than 6 GP registers need to be saved. */
+# define GPR_SAVE_TRESHOLD 6
+#endif
+
+#if defined(X86) || defined(AARCH64)
     /* 9. derived fields */
-    /* XXX: For x64, skipping a single reg or flags still results in a huge
-     * code sequence to put in place: we may want to still use out-of-line
-     * unless multiple regs are able to be skipped.
+    /* Use out-of-line calls if more than SIMD_SAVE_TRESHOLD SIMD registers have
+     * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((cci->num_simd_skip == 0 /* save all xmms */ &&
-         cci->num_regs_skip == 0 /* save all regs */ &&
-         !cci->skip_save_flags) ||
+    if ((NUM_SIMD_REGS - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
+        (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD ||
         always_out_of_line)
         cci->out_of_line_swap = true;
-#elif defined(AARCH64)
-    /* Use out-of-line calls unless the majority of the registers are saved. */
-    if (cci->num_simd_skip < 20 /* save majority of simd registers*/ ||
-        cci->num_regs_skip < 20 /* save majority of gprs */ ||
-        always_out_of_line)
-        cci->out_of_line_swap = true;
-# endif
+#endif
 
     return should_inline;
 }
