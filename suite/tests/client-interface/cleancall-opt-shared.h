@@ -594,3 +594,15 @@ codegen_epilogue(void *dc, instrlist_t *ilist)
 #endif
     APP(ilist, XINST_CREATE_return(dc));
 }
+
+/*
+empty:
+    ret
+*/
+static instrlist_t *
+codegen_empty(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    APP(ilist, XINST_CREATE_return(dc));
+    return ilist;
+}
