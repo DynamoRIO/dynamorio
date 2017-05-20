@@ -45,38 +45,15 @@
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(out_of_line) \
+        FUNCTION(inscount) \
+        FUNCTION(compiler_inscount) \
         LAST_FUNCTION()
 
-#include "cleancall-opt-shared.h"
+static void compiler_inscount(ptr_uint_t count);
 
-static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
-
-DR_EXPORT void
-dr_init(client_id_t id)
-{
-    dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-    dr_fprintf(STDERR, "INIT\n");
-
-    /* Lookup pcs. */
-    lookup_pcs();
-    codegen_instrumentation_funcs();
-}
-
-static void
-event_exit(void)
-{
-    int i;
-    free_instrumentation_funcs();
-
-    for (i = 0; i < N_FUNCS; i++) {
-        DR_ASSERT_MSG(func_called[i],
-                      "Instrumentation function was not called!");
-    }
-    dr_fprintf(STDERR, "PASSED\n");
-}
+#include "cleancall-opt-shared.h"
 
 static dr_emit_flags_t
 event_basic_block(void *dc, void *tag, instrlist_t *bb,
@@ -110,12 +87,23 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
      * We use a workaround involving ADR. */
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
     PRE(bb, entry, before_label);
-   dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+
+    switch (i) {
+    default:
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
+        break;
+    case FN_inscount:
+    case FN_compiler_inscount:
+        dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 1,
+                             OPND_CREATE_INT32(0xDEAD));
+        break;
+    }
+
     PRE(bb, entry, after_label);
     IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_end_pc, after_label));
 
     switch (i) {
-    case FN_empty:
+    default:
         out_of_line_expected = false;
         break;
     case FN_out_of_line:
