@@ -161,6 +161,35 @@ lookup_pcs(void)
     dr_free_module_data(exe);
 }
 
+static void
+event_exit(void)
+{
+    int i;
+    free_instrumentation_funcs();
+
+    for (i = 0; i < N_FUNCS; i++) {
+        DR_ASSERT_MSG(func_called[i],
+                      "Instrumentation function was not called!");
+    }
+    dr_fprintf(STDERR, "PASSED\n");
+}
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+    dr_fprintf(STDERR, "INIT\n");
+
+    /* Lookup pcs. */
+    lookup_pcs();
+    codegen_instrumentation_funcs();
+   /* For compiler_inscount, we don't use generated code, we just point
+    * straight at the compiled code.
+    */
+    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
+}
+
 #ifdef X86
 static int reg_offsets[DR_NUM_GPR_REGS + 1] = {
     offsetof(dr_mcontext_t, xax),
@@ -429,7 +458,6 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
         }
     }
 
-#ifdef TEST_INLINE
     /* Function-specific checks. */
     switch (func_index) {
     case FN_inscount:
@@ -442,7 +470,6 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
     default:
         break;
     }
-#endif
 
     if (func_name != NULL)
         dr_fprintf(STDERR, "Called func %s.\n", func_name);
@@ -498,7 +525,6 @@ before_callee(app_pc func, const char *func_name)
     dc = dr_get_current_drcontext();
     dr_get_mcontext(dc, &before_mcontext);
 
-#ifdef TEST_INLINE
     /* If this is compiler_inscount, we need to unprotect our own text section
      * so we can make this code modification.
      */
@@ -518,6 +544,7 @@ before_callee(app_pc func, const char *func_name)
                           DR_MEMPROT_EXEC|DR_MEMPROT_READ|DR_MEMPROT_WRITE);
     }
 
+#ifdef TEST_INLINE
     ilist = instrlist_create(dc);
 #ifdef X86
     /* Patch the callee to be:
@@ -604,5 +631,95 @@ codegen_empty(void *dc)
 {
     instrlist_t *ilist = instrlist_create(dc);
     APP(ilist, XINST_CREATE_return(dc));
+    return ilist;
+}
+
+/* Return either a stack access opnd_t or the first regparm.  Assumes frame
+ * pointer is not omitted. */
+static opnd_t
+codegen_opnd_arg1(void)
+{
+    /* FIXME: Perhaps DR should expose this.  It currently tracks this in
+     * core/instr.h. */
+#ifdef AARCH64
+  return opnd_create_reg(DR_REG_X0);
+#elif defined(X64)
+# ifdef UNIX
+    int reg = DR_REG_RDI;
+# else /* WINDOWS */
+    int reg = DR_REG_RCX;
+# endif
+    return opnd_create_reg(reg);
+#else /* X86 */
+    /* Stack offset accounts for an additional push in prologue. */
+    return OPND_CREATE_MEMPTR(DR_REG_XBP, 2 * sizeof(reg_t));
+#endif
+}
+
+/* We want to test that we can auto-inline whatever the compiler generates for
+ * inscount.
+ */
+static void
+compiler_inscount(ptr_uint_t count) {
+    global_count += count;
+}
+
+/* We generate an empty ilist for compiler_inscount and don't use it.
+ * Originally I tried to decode compiler_inscount and re-encode it in the RWX
+ * memory along with our other callees, but that breaks 32-bit PIC code.  Even
+ * if we set the translation for each instruction in this ilist, that will be
+ * lost when we encode and decode in the inliner.
+ */
+static instrlist_t *
+codegen_compiler_inscount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    APP(ilist, XINST_CREATE_return(dc));
+    return ilist;
+}
+
+/*
+X86:
+  inscount:
+      push REG_XBP
+      mov REG_XBP, REG_XSP
+      mov REG_XAX, ARG1
+      add [global_count], REG_XAX
+      leave
+      ret
+
+AArch64:
+   inscount:
+     x4 and x5 are used as scratch registers
+     mov &global_count to x4 using a series of movz and movk instructions
+     ldr x5, [x4]
+     add x5, x5, x0
+     str [x4], x5
+*/
+static instrlist_t *
+codegen_inscount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    opnd_t scratch1 = opnd_create_reg(IF_X86_ELSE(DR_REG_XAX, DR_REG_X4));
+    IF_AARCH64(opnd_t scratch2);
+    codegen_prologue(dc, ilist);
+#ifdef X86
+    APP(ilist, INSTR_CREATE_mov_ld(dc, scratch1, codegen_opnd_arg1()));
+    APP(ilist, INSTR_CREATE_add(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR), scratch1));
+#elif defined(AARCH64)
+    scratch2 = opnd_create_reg(DR_REG_X5);
+    instrlist_insert_mov_immed_ptrsz(dc, (long) &global_count, scratch1, ilist, NULL,
+                                     NULL, NULL);
+    APP(ilist, INSTR_CREATE_ldr(dc, scratch2,
+                                opnd_create_base_disp(opnd_get_reg(scratch1), DR_REG_NULL,
+                                                      0, 0, OPSZ_8)));
+     APP(ilist, INSTR_CREATE_add(dc, scratch2, scratch2, codegen_opnd_arg1()));
+     APP(ilist, INSTR_CREATE_str(dc, opnd_create_base_disp(opnd_get_reg(scratch1),
+                                                           DR_REG_NULL, 0, 0, OPSZ_8),
+                                 scratch2));
+#else
+# error NYI
+#endif
+    codegen_epilogue(dc, ilist);
     return ilist;
 }

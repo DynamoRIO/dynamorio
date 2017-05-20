@@ -59,43 +59,13 @@
         LAST_FUNCTION()
 
 #define TEST_INLINE 1
+static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
+                                         bool for_trace, bool translating);
 static void compiler_inscount(ptr_uint_t count);
 #include "cleancall-opt-shared.h"
 
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
 static void test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where,
                                    int fn_idx);
-
-DR_EXPORT void
-dr_init(client_id_t id)
-{
-    dr_register_exit_event(event_exit);
-    dr_register_bb_event(event_basic_block);
-    dr_fprintf(STDERR, "INIT\n");
-
-    /* Lookup pcs. */
-    lookup_pcs();
-    codegen_instrumentation_funcs();
-   /* For compiler_inscount, we don't use generated code, we just point
-    * straight at the compiled code.
-    */
-    func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
-}
-
-static void
-event_exit(void)
-{
-    int i;
-    free_instrumentation_funcs();
-
-    for (i = 0; i < N_FUNCS; i++) {
-        DR_ASSERT_MSG(func_called[i],
-                      "Instrumentation function was not called!");
-    }
-    dr_fprintf(STDERR, "PASSED\n");
-}
 
 static void
 fill_scratch(void)
@@ -395,51 +365,6 @@ codegen_empty_1arg(void *dc)
     return codegen_empty(dc);
 }
 
-/* Return either a stack access opnd_t or the first regparm.  Assumes frame
- * pointer is not omitted. */
-static opnd_t
-codegen_opnd_arg1(void)
-{
-    /* FIXME: Perhaps DR should expose this.  It currently tracks this in
-     * core/instr.h. */
-#ifdef X64
-# ifdef UNIX
-    int reg = DR_REG_RDI;
-# else /* WINDOWS */
-    int reg = DR_REG_RCX;
-# endif
-    return opnd_create_reg(reg);
-#else /* X86 */
-# ifdef UNIX
-    int arg_offset = 1;
-# else /* WINDOWS */
-    int arg_offset = 5;
-# endif
-    return OPND_CREATE_MEMPTR(DR_REG_XBP, arg_offset * sizeof(reg_t));
-#endif
-}
-
-/*
-inscount:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    mov REG_XAX, ARG1
-    add [global_count], REG_XAX
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_inscount(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    opnd_t xax = opnd_create_reg(DR_REG_XAX);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xax, codegen_opnd_arg1()));
-    APP(ilist, INSTR_CREATE_add(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR), xax));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
 /*
 callpic_pop:
     push REG_XBP
@@ -678,27 +603,5 @@ codegen_gcc47_inscount(void *dc)
     APP(ilist, pic_thunk);
     APP(ilist, INSTR_CREATE_ret(dc));
 #endif
-    return ilist;
-}
-
-/* We want to test that we can auto-inline whatever the compiler generates for
- * inscount.
- */
-static void
-compiler_inscount(ptr_uint_t count) {
-    global_count += count;
-}
-
-/* We generate an empty ilist for compiler_inscount and don't use it.
- * Originally I tried to decode compiler_inscount and re-encode it in the RWX
- * memory along with our other callees, but that breaks 32-bit PIC code.  Even
- * if we set the translation for each instruction in this ilist, that will be
- * lost when we encode and decode in the inliner.
- */
-static instrlist_t *
-codegen_compiler_inscount(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    APP(ilist, INSTR_CREATE_ret(dc));
     return ilist;
 }
