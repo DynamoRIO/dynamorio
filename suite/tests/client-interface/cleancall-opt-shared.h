@@ -651,12 +651,8 @@ codegen_opnd_arg1(void)
 # endif
     return opnd_create_reg(reg);
 #else /* X86 */
-# ifdef UNIX
-    int arg_offset = 2; /* Accounts for additional push in prologue. */
-# else /* WINDOWS */
-    int arg_offset = 2; /* Accounts for additional push in prologue. */
-# endif
-    return OPND_CREATE_MEMPTR(DR_REG_XBP, arg_offset * sizeof(reg_t));
+    /* Stack offset accounts for an additional push in prologue. */
+    return OPND_CREATE_MEMPTR(DR_REG_XBP, 2, * sizeof(reg_t));
 #endif
 }
 
