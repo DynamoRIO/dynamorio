@@ -654,7 +654,7 @@ codegen_opnd_arg1(void)
 # ifdef UNIX
     int arg_offset = 2; /* Accounts for additional push in prologue. */
 # else /* WINDOWS */
-    int arg_offset = 6; /* Accounts for additional push in prologue. */
+    int arg_offset = 2; /* Accounts for additional push in prologue. */
 # endif
     return OPND_CREATE_MEMPTR(DR_REG_XBP, arg_offset * sizeof(reg_t));
 #endif
