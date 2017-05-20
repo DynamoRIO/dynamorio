@@ -652,7 +652,7 @@ codegen_opnd_arg1(void)
     return opnd_create_reg(reg);
 #else /* X86 */
     /* Stack offset accounts for an additional push in prologue. */
-    return OPND_CREATE_MEMPTR(DR_REG_XBP, 2, * sizeof(reg_t));
+    return OPND_CREATE_MEMPTR(DR_REG_XBP, 2 * sizeof(reg_t));
 #endif
 }
 
