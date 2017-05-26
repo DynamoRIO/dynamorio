@@ -518,7 +518,7 @@ signal_frame_extra_size(bool include_alignment)
  *
  * XXX: If the kernel ever does lazy state saving for any part of the new state
  * and that affects the size, like it does with fpstate, this initial signal
- * state may not match later state.
+ * state may not match later state.  Currently it seems to be all-or-nothing.
  */
 static void
 xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
@@ -527,6 +527,7 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
     if (sig == XSTATE_QUERY_SIG) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (YMM_ENABLED()) {
+            ASSERT(sc->fpstate != NULL); /* i#2438: we force-initialized xmm state */
             ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
             LOG(GLOBAL, LOG_ASYNCH, 1, "orig xstate size = " SZFMT"\n", xstate_size);
             if (sc->fpstate->sw_reserved.extended_size != xstate_size) {
@@ -545,6 +546,14 @@ signal_arch_init(void)
     if (YMM_ENABLED()) {
         kernel_sigaction_t act, oldact;
         int rc;
+        /* i#2438: it's possible that our init code to this point has not yet executed
+         * fpu or xmm operations and that thus fpstate will be NULL.  We force it
+         * with an explicit xmm ref here.  We mark it "asm volatile" to prevent the
+         * compiler from optimizing it away.
+         * XXX i#641, i#639: this breaks transparency to some extent until the
+         * app uses fpu/xmm but we live with it.
+         */
+        __asm__ __volatile__("movd %%xmm0, %0" : "=g"(rc));
         memset(&act, 0, sizeof(act));
         set_handler_sigact(&act, XSTATE_QUERY_SIG,
                            (handler_t) xstate_query_signal_handler);
