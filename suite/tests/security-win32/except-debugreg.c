@@ -78,12 +78,12 @@ main(void)
 
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 
-    print("start of test count = %d\n", count);
+    print("start of test, count = %d\n", count);
 
     set_debug_register();
     test_debug_register();
 
-    print("end of test count = %d\n", count);
+    print("end of test, count = %d\n", count);
 
     return 0;
 }
