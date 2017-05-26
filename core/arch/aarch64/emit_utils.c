@@ -107,6 +107,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
+        /* We put a NOP here for future linking. */
+        *pc++ = 0xd503201f;
         /* stp x0, x1, [x(stolen), #(offs)] */
         *pc++ = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  TLS_REG0_SLOT >> 3 << 15);
@@ -119,6 +121,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     } else {
+        /* We put a NOP here for trace building. */
+        *pc++ = 0xd503201f;
         /* Stub starts out unlinked. */
         cache_pc exit_target = get_unlinked_entry(dcontext,
                                                   EXIT_TARGET_TAG(dcontext, f, l));
@@ -184,9 +188,8 @@ stub_is_patched(fragment_t *f, cache_pc stub_pc)
 void
 unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    /* Restore the stp x0, x1, [x28] instruction. */
-    *(uint *)stub_pc = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                        TLS_REG0_SLOT >> 3 << 15);
+    /* Restore the NOP instruction. */
+    *(uint *)stub_pc = 0xd503201f;
     if (hot_patch)
         machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
 }
@@ -269,8 +272,14 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     cache_pc cti = EXIT_CTI_PC(f, l);
     if (!EXIT_HAS_STUB(l->flags, f->flags))
         return NULL;
-    ASSERT(decode_raw_is_jmp(dcontext, cti));
-    return decode_raw_jmp_target(dcontext, cti);
+    if (decode_raw_is_jmp(dcontext, cti))
+        return decode_raw_jmp_target(dcontext, cti);
+    /* In trace, we might have cbz/cbnz to indirect linkstubs. */
+    if (decode_raw_is_cond_branch_zero(dcontext, cti))
+        return decode_raw_cond_branch_zero_target(dcontext, cti);
+    /* There should be no other types of branch to linkstubs. */
+    ASSERT_NOT_REACHED();
+    return NULL;
 }
 
 cache_pc
@@ -343,12 +352,25 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     /* Always use prefix on AArch64 as there is no load to PC. */
     byte *pc = (byte *)f->start_pc;
     ASSERT(f->prefix_size == 0);
-    /* ldr x0, [x(stolen), #(off)] */
-    *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
-                   (dr_reg_stolen - DR_REG_X0) << 5 |
-                   ENTRY_PC_SPILL_SLOT >> 3 << 10);
-    pc += 4;
-    f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
+    if (use_ibt_prefix(f->flags)) {
+        /* ldr x0, [x(stolen), #(off)] */
+        *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
+                       (dr_reg_stolen - DR_REG_X0) << 5 |
+                       ENTRY_PC_SPILL_SLOT >> 3 << 10);
+        pc += 4;
+        f->prefix_size = (byte)((cache_pc)pc - f->start_pc);
+    } else {
+#ifdef CLIENT_INTERFACE
+        /* FIXME i#1569 */
+#endif
+        /* ldr x0, [x(stolen), #(off)] */
+        *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
+                       (dr_reg_stolen - DR_REG_X0) << 5 |
+                       ENTRY_PC_SPILL_SLOT >> 3 << 10);
+        pc += 4;
+        f->prefix_size = (byte)((cache_pc)pc - f->start_pc);
+    }
+    /* Make sure emitted size matches size we requested. */
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
 

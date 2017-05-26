@@ -5936,6 +5936,144 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 }
 #endif
 
+#ifdef AARCH64
+/* Prior to indirect branch trace mangling, we check previous byte blocks
+ * before each indirect branch if they were mangled properly.
+ * An indirect branch:
+ *    br jump_target_reg
+ * is mangled into (see mangle_indirect_jump in mangle.c):
+ *    str IBL_TARGET_REG, TLS_REG2_SLOT
+ *    mov IBL_TARGET_REG, jump_target_reg
+ *    b ibl_routine or indirect_stub
+ * This function is used by mangle_indirect_branch_in_trace;
+ * it removes the two mangled instructions
+ * and returns the jump_target_reg id.
+ */
+# define STR_IMM_ENC 0xf9000000
+# define SAVE_IBL_REG_ENC \
+  ((STR_IMM_ENC | 16 >> 3 << 10) | \
+  (dr_reg_stolen - DR_REG_START_GPR) << 5 | \
+  (IBL_TARGET_REG - DR_REG_START_GPR))
+# define MOV_IBL_REG_ENC_MASK 0xff00ffff
+# define MOV_IBL_REG_MASK 0x001f0000
+# define MOV_IBL_REG_ENC (0xaa0003e0 | (IBL_TARGET_REG - DR_REG_START_GPR))
+
+static reg_id_t
+check_and_remove_patched_ibl(instrlist_t *trace, instr_t *targeter)
+{
+    int i, j;
+    instr_t *prev = instr_get_prev(targeter);
+    /* XXX: Currently we assume the previous instruction is undecoded. */
+    if (!instr_raw_bits_valid(prev)) {
+        ASSERT_CURIOSITY(false);
+        return DR_REG_NULL;
+    }
+    uint num_instr = prev->length / AARCH64_INSTR_SIZE;
+    if (num_instr < 2)
+        return DR_REG_NULL;
+
+    /* We start from last instruction to scan for str/mov pattern. */
+    for (i = num_instr - 2; i >= 0; i--) {
+        uint prev_prev_enc = ((uint *)prev->bytes)[i];
+        uint prev_enc = ((uint *)prev->bytes)[i + 1];
+        /* We bypass the decoder and compare the raw bytes directly. */
+        if (prev_prev_enc == SAVE_IBL_REG_ENC &&
+           (prev_enc & MOV_IBL_REG_ENC_MASK) == MOV_IBL_REG_ENC) {
+            /* If found, remove these two instructions. */
+            prev->length -= 2 * AARCH64_INSTR_SIZE;
+            /* Concatenate the rest of bytes. */
+            for (j = i; j < num_instr - 2; j++)
+                ((uint *)prev->bytes)[j] = ((uint *)prev->bytes)[j + 2];
+            /* Return jump target register id. */
+            return ((prev_enc & MOV_IBL_REG_MASK) >> 16) + DR_REG_START_GPR;
+        }
+    }
+    return DR_REG_NULL;
+}
+
+/* For AArch64 we have a special case if we cannot remove all code after
+ * the direct branch, which is mangled by cbz/cbnz stolen register.
+ * For example:
+ *    cbz x28, target
+ * would be mangled (see mangle_cbr_stolen_reg() in aarchxx/mangle.c) into:
+ *    str x0, [x28]
+ *    ldr x0, [x28, #32]
+ *    cbnz x0, fall       <- meta instr, not treated as exit cti
+ *    ldr x0, [x28]
+ *    b target            <- delete after
+ * fall:
+ *    ldr x0, [x28]
+ *    b fall_target
+ *    ...
+ * If we delete all code after "b target", then the "fall" path would
+ * be lost. Therefore we need to append the fall path at the end of
+ * the trace as a fake exit stub. Swapping them might be dangerous since
+ * a stub trace may be created on both paths.
+ */
+#define LDR_TLS_SLOT_MASK 0xffc003e0
+#define LDR_TLS_SLOT_ENC  0xf9400380
+#define CBZ_STOLEN_MASK   0x7e000000
+#define CBZ_STOLEN_ENC    0x34000000
+#define TBZ_STOLEN_MASK   0x7e000000
+#define TBZ_STOLEN_ENC    0x36000000
+
+static bool
+instr_is_cbr_stolen(instr_t *instr)
+{
+    if (!instr)
+        return false;
+    else {
+        uint enc = *(uint *)instr->bytes;
+        return ((enc & CBZ_STOLEN_MASK) == CBZ_STOLEN_ENC ||
+                (enc & TBZ_STOLEN_MASK) == TBZ_STOLEN_ENC);
+    }
+}
+
+static bool
+instr_is_load_tls(instr_t *instr)
+{
+    if (!instr || !instr_raw_bits_valid(instr))
+        return false;
+    else {
+        uint enc = *(uint *)instr->bytes;
+        return ((enc & LDR_TLS_SLOT_MASK) == LDR_TLS_SLOT_ENC);
+    }
+}
+
+static instr_t *
+fixup_cbr_on_stolen_reg(dcontext_t *dcontext, instrlist_t *trace,
+                        instr_t *targeter)
+{
+    /* We check prior to the targeter whether there is a pattern such as
+     *    cbz/cbnz ...
+     *    ldr reg, [x28, #SLOT]
+     * Otherwise, just return the previous instruction.
+     */
+    instr_t *prev = instr_get_prev(targeter);
+    if (!instr_is_load_tls(prev))
+        return prev;
+    instr_t *prev_prev = instr_get_prev(prev);
+    if (!instr_is_cbr_stolen(prev_prev))
+        return prev;
+
+    /* Now we confirm that this cbr stolen_reg was properly mangled. */
+    instr_t *next = instr_get_next(targeter);
+    if (!next)
+        return prev;
+    /* Next instruction must be a LDR TLS slot. */
+    ASSERT_CURIOSITY(instr_is_load_tls(next));
+    instr_t *next_next = instr_get_next(next);
+    if (!next_next)
+        return prev;
+    /* Next next instruction must be direct branch. */
+    ASSERT_CURIOSITY(instr_is_ubr(next_next));
+    /* Set the cbz/cbnz target to "fall" path. */
+    instr_set_target(prev_prev, instr_get_target(next_next));
+    /* Then we can safely remove the "fall" path. */
+    return prev;
+}
+#endif
+
 /* Mangles an indirect branch in a trace where a basic block with tag "tag"
  * is being added as the next block beyond the indirect branch.
  * Returns the size of instructions added to trace.
@@ -5946,7 +6084,6 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                                 instr_t **delete_after/*OUT*/, instr_t *end_instr)
 {
     int added_size = 0;
-#ifdef X86
     instr_t *next = instr_get_next(targeter);
     /* all indirect branches should be ubrs */
     ASSERT(instr_is_ubr(targeter));
@@ -5960,6 +6097,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 
     STATS_INC(trace_ib_cmp);
 
+#if defined(X86)
     /* Change jump to indirect_branch_lookup to a conditional jump
      * based on indirect target not equaling next block in trace
      *
@@ -6140,6 +6278,81 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         }
     }
 # endif
+#elif defined(AARCH64)
+    instr_t *instr;
+    reg_id_t jump_target_reg;
+    reg_id_t scratch;
+    /* Mangle jump to ibl routine,
+     * based on indirect target not being equal to next block in trace.
+     * Original ibl lookup:
+     *      str tgt_reg, TLS_REG2_SLOT
+     *      mov tgt_reg, jump_target
+     *      b ibl_routine
+     * Now we rewrite it into:
+     *      str x0, TLS_REG0_SLOT
+     *      mov x0, #trace_next_target
+     *      eor x0, x0, jump_target
+     *      cbnz x0, trace_exit (ibl routine)
+     *      ldr x0, TLS_REG0_SLOT
+     */
+
+    /* Check and remove previous two patched instructions. */
+    jump_target_reg = check_and_remove_patched_ibl(trace, targeter);
+    if (jump_target_reg == DR_REG_NULL) {
+        ASSERT_MESSAGE(2, "Failed to get branch target register in creating trace",
+                       false);
+        return added_size;
+    } else
+        added_size -= (2 * AARCH64_INSTR_SIZE);
+    LOG(THREAD, LOG_MONITOR, 4,
+        "fixup_last_cti: jump target reg is %s\n", reg_names[jump_target_reg]);
+
+    /* Choose any scratch register except the target reg. */
+    scratch = (jump_target_reg == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
+    /* str scratch, TLS_REG0_SLOT */
+    added_size +=
+        tracelist_add(dcontext, trace, next,
+                      instr_create_save_to_tls(dcontext,
+                                               scratch,
+                                               TLS_REG0_SLOT));
+    /* mov scratch, #trace_next_target */
+    instr_t *first = NULL;
+    instr_t *end = NULL;
+    instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)next_tag,
+                                     opnd_create_reg(scratch),
+                                     trace, next,
+                                     &first, &end);
+    /* Get the acutal number of mov imm instructions added. */
+    instr = first;
+    while (instr != end) {
+        added_size += AARCH64_INSTR_SIZE;
+        instr = instr_get_next(instr);
+    }
+    added_size += AARCH64_INSTR_SIZE;
+    /* eor scratch, scratch, jump_target */
+    added_size +=
+        tracelist_add(dcontext, trace, next,
+                      INSTR_CREATE_eor(dcontext, opnd_create_reg(scratch),
+                                       opnd_create_reg(jump_target_reg)));
+    /* cbnz scratch, trace_exit
+     * branch to original ibl lookup routine */
+    instr = INSTR_CREATE_cbnz(dcontext,
+                              instr_get_target(targeter),
+                              opnd_create_reg(scratch));
+    /* Set the exit type from the targeter. */
+    instr_exit_branch_set_type(instr, instr_exit_branch_type(targeter));
+    added_size += tracelist_add(dcontext, trace, next, instr);
+    /* If we do stay on the trace, restore x0 and x1. */
+    /* ldr scratch, TLS_REG0_SLOT */
+    added_size +=
+        tracelist_add(dcontext, trace, next,
+                      instr_create_restore_from_tls(dcontext,
+                                                    scratch,
+                                                    TLS_REG0_SLOT));
+    /* Remove the branch. */
+    instrlist_remove(trace, targeter);
+    instr_destroy(dcontext, targeter);
+    added_size -= AARCH64_INSTR_SIZE;
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
@@ -6307,7 +6520,11 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
             ASSERT(targeter == end_instr);
 #endif
             /* remove unnecessary ubr at end of block */
+#ifdef AARCH64
+            delete_after = fixup_cbr_on_stolen_reg(dcontext, trace, targeter);
+#else
             delete_after = instr_get_prev(targeter);
+#endif
             if (delete_after != NULL) {
                 LOG(THREAD, LOG_MONITOR, 4,     "fixup_last_cti: removed ubr\n");
             }
@@ -8187,3 +8404,152 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
     instr_free(dcontext, &instr);
     return next_pc;
 }
+
+#ifdef AARCH64
+/* Emit addtional code to fix up indirect trace exit for AArch64.
+ * For each indirect branch in trace we have the following code:
+ *      str x0, TLS_REG0_SLOT
+ *      mov x0, #trace_next_target
+ *      eor x0, x0, jump_target
+ *      cbnz x0, trace_exit (ibl_routine)
+ *      ldr x0, TLS_REG0_SLOT
+ * For the trace_exit (ibl_routine), it needs to conform to the
+ * protocol specified in emit_indirect_branch_lookup in
+ * aarch64/emit_utils.c.
+ * The ibl routine requires:
+ *     x2: contains indirect branch target
+ *     TLS_REG2_SLOT: contains app's x2
+ * Therefore we need to add addtional spill instructions
+ * before we actually jump to the ibl routine.
+ * We want the indirect hit path to have minimum instructions
+ * and also conform to the protocol of ibl routine
+ * Therefore we append the restore at the end of the trace
+ * after the backward jump to trace head.
+ * For example, the code will be fixed to:
+ *      eor x0, x0, jump_target
+ *      cbnz x0, trace_exit_label
+ *      ...
+ *      b trace_head
+ * trace_exit_label:
+ *      ldr x0, TLS_REG0_SLOT
+ *      str x2, TLS_REG2_SLOT
+ *      mov x2, jump_target
+ *      b ibl_routine
+ */
+int
+fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
+{
+    instr_t *instr, *prev, *branch;
+    instr_t *trace_exit_label;
+    app_pc target = 0;
+    app_pc ind_target = 0;
+    reg_id_t scratch;
+    reg_id_t jump_target_reg = DR_REG_NULL;
+    uint indirect_type = 0;
+    int added_size = 0;
+    trace_exit_label = NULL;
+    instr_t *delete_after = NULL;
+    /* We record the original trace end */
+    instr_t *trace_end = instrlist_last(trace);
+
+    LOG(THREAD, LOG_MONITOR, 4, "fixup the indirect trace exit\n");
+
+    for (instr = instrlist_first(trace);
+         instr != trace_end;
+         instr = instr_get_next(instr)) {
+        if (instr_is_exit_cti(instr)) {
+            target = instr_get_branch_target_pc(instr);
+            /* Check for indirect exit. */
+            if (is_indirect_branch_lookup_routine(dcontext, (cache_pc)target)) {
+                /* This branch must be a cbnz, or the last_cti was not fixed up. */
+                if (instr->opcode != OP_cbnz) {
+                    prev = instr_get_prev(instr);
+                    added_size +=
+                        mangle_indirect_branch_in_trace(dcontext, trace, instr,
+                                                        target, 0, &delete_after,
+                                                        instrlist_last(trace));
+                    /* re-check */
+                    instr = prev;
+                    continue;
+                }
+                trace_exit_label = INSTR_CREATE_label(dcontext);
+                ind_target = target;
+                /* Modify the target of the cbnz. */
+                instr_set_target(instr, opnd_create_instr(trace_exit_label));
+                indirect_type = instr_exit_branch_type(instr);
+                /* unset exit type */
+                instr->flags &=  ~EXIT_CTI_TYPES;
+                instr_set_our_mangling(instr, true);
+
+                /* Retrieve jump target reg from the xor instruction. */
+                prev = instr_get_prev(instr);
+                if (prev->opcode != OP_eor)
+                    return 0;
+                ASSERT(instr_num_srcs(prev) == 4 && opnd_is_reg(instr_get_src(prev, 1)));
+                jump_target_reg = opnd_get_reg(instr_get_src(prev, 1));
+
+                if (!ind_target || jump_target_reg == DR_REG_NULL)
+                    return 0;
+                /* Choose any scratch register except the target reg. */
+                scratch = (jump_target_reg == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
+                /* Add the trace exit label. */
+                instrlist_append(trace, trace_exit_label);
+                /* ldr x0, TLS_REG0_SLOT */
+                instrlist_append(trace,
+                                 instr_create_restore_from_tls(dcontext,
+                                                               scratch,
+                                                               TLS_REG0_SLOT));
+                added_size += AARCH64_INSTR_SIZE;
+                /* str x2, TLS_REG2_SLOT */
+                instrlist_append(trace,
+                                 instr_create_save_to_tls(dcontext,
+                                                          IBL_TARGET_REG,
+                                                          TLS_REG2_SLOT));
+                added_size += AARCH64_INSTR_SIZE;
+                /* mov IBL_TARGET_REG, jump_target */
+                ASSERT(jump_target_reg != DR_REG_NULL);
+                instrlist_append(trace,
+                                 XINST_CREATE_move(dcontext,
+                                                   opnd_create_reg(IBL_TARGET_REG),
+                                                   opnd_create_reg(jump_target_reg)));
+                added_size += AARCH64_INSTR_SIZE;
+                /* b ibl_target */
+                branch = XINST_CREATE_jump(dcontext, opnd_create_pc(ind_target));
+                instr_exit_branch_set_type(branch, indirect_type);
+                instrlist_append(trace, branch);
+                added_size += AARCH64_INSTR_SIZE;
+            }
+        /* Don't invoke the decoder; only mangled instruction reached here. */
+        } else if (instr->opcode == OP_cbz ||
+                   instr->opcode == OP_cbnz ||
+                   instr->opcode == OP_tbz ||
+                   instr->opcode == OP_tbnz) {
+            /* Next instruction should be a LDR_TLS_slot. */
+            instr_t *next = instr_get_next(instr);
+            if (!instr_is_load_tls(next))
+                continue;
+            /* Get the actual target of the cbz/cbnz. */
+            opnd_t fall_target = instr_get_target(instr);
+            /* Create new label. */
+            trace_exit_label = INSTR_CREATE_label(dcontext);
+            instr_set_target(instr, opnd_create_instr(trace_exit_label));
+            /* Insert restore at end of trace. */
+            instrlist_append(trace, trace_exit_label);
+            /* ldr cbz_reg, TLS_REG0_SLOT */
+            reg_id_t mangled_reg = ((*(uint *)next->bytes) & 31) + DR_REG_START_GPR;
+            instrlist_append(trace,
+                             instr_create_restore_from_tls(dcontext,
+                                                           mangled_reg,
+                                                           TLS_REG0_SLOT));
+            added_size += AARCH64_INSTR_SIZE;
+            /* b fall_target */
+            branch = XINST_CREATE_jump(dcontext, fall_target);
+            instrlist_append(trace, branch);
+            added_size += AARCH64_INSTR_SIZE;
+            /* Because of the jump, a new stub was created. */
+            added_size += DIRECT_EXIT_STUB_SIZE(0);
+        }
+    }
+    return added_size;
+}
+#endif

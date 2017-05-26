@@ -420,6 +420,10 @@ const instr_info_t * opcode_to_encoding_info(uint opc,
                                              _IF_ARM(bool it_block));
 bool decode_raw_is_jmp(dcontext_t *dcontext, byte *pc);
 byte *decode_raw_jmp_target(dcontext_t *dcontext, byte *pc);
+#ifdef AARCH64
+bool decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc);
+byte *decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc);
+#endif
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 

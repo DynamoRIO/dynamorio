@@ -1493,7 +1493,7 @@ decode_init(void);
 #  define AARCH64_INSTR_SIZE 4
 #  define FRAGMENT_BASE_PREFIX_SIZE(flags) AARCH64_INSTR_SIZE
 #  define DIRECT_EXIT_STUB_SIZE(flags) \
-    (7 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+    (8 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
 #  define DIRECT_EXIT_STUB_DATA_SZ 0
 # else
 #  define FRAGMENT_BASE_PREFIX_SIZE(flags) \
@@ -1839,6 +1839,9 @@ void interp(dcontext_t *dcontext);
 uint extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l);
 int append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
                                     app_pc speculate_next_tag, bool record_translation);
+#ifdef AARCH64
+int fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace);
+#endif
 
 uint
 forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);

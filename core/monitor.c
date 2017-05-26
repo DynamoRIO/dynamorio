@@ -1261,6 +1261,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         md->emitted_size -= local_exit_stub_size(dcontext, target, md->trace_flags);
     }
 
+    /* Fixup all indirect trace exits to comform ibl routine */
+    IF_AARCH64(md->emitted_size += fixup_indirect_trace_exit(dcontext, trace));
+
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
         || INTERNAL_OPTION(speculate_last_exit_stats)

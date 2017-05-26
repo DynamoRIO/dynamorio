@@ -1328,6 +1328,11 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 int
 fragment_prefix_size(uint flags)
 {
+#ifdef AARCH64
+    /* For AArch64, there is no need to save the flags
+     * so we always have the same ibt prefix. */
+    return fragment_ibt_prefix_size(flags);
+#endif
     if (use_ibt_prefix(flags)) {
         return fragment_ibt_prefix_size(flags);
     } else {
