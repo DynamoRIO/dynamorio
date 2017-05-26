@@ -231,6 +231,11 @@ test_all_opcodes_4(void *dc)
         instrlist_append(ilist, INSTR_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
         len_##name = instr_length(dc, instrlist_last(ilist)); \
     } } while (0);
+#   define XOPCODE_FOR_CREATE(name, opc, icnm, flags, arg1, arg2, arg3, arg4) do { \
+    if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0) { \
+        instrlist_append(ilist, XINST_CREATE_##icnm(dc, arg1, arg2, arg3, arg4)); \
+        len_##name = instr_length(dc, instrlist_last(ilist)); \
+    } } while (0);
 #   include "ir_x86_all_opc.h"
 #   undef OPCODE_FOR_CREATE
 #   undef INCLUDE_NAME

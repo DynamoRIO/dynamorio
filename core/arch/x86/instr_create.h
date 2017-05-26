@@ -304,6 +304,21 @@
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_jmp_short((dc), (t))
 
 /**
+ * This platform-independent macro creates an instr_t for a conditional
+ * branch instruction that branches if the previously-set condition codes
+ * indicate the condition indicated by \p pred.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param pred  The #dr_pred_type_t condition to match.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_jump_cond(dc, pred, t) \
+    (INSTR_CREATE_jcc((dc), (pred) - DR_PRED_O + OP_jo, (t)))
+
+/**
  * This platform-independent macro creates an instr_t for an unconditional
  * branch instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -346,6 +361,23 @@
 
 /**
  * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags and takes two register sources
+ * plus a destination, with one source being shifted logically left by
+ * an immediate scale that is limited to either 1, 2, 4, or 8.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s1  The opnd_t explicit first source operand for the instruction.  This
+ * must be a register.
+ * \param s2_toshift  The opnd_t explicit source operand for the instruction.  This
+ * must be a register.
+ * \param shift_amount  An integer value that must be either 1, 2, 4, or 8.
+ */
+#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
+  INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(s1), \
+    opnd_get_reg(s2_toshift), shift_amount, 0))
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
  * instruction that does affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
@@ -382,6 +414,15 @@
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_and((dc), (d), (s))
+
+/**
+ * This platform-independent macro creates an instr_t for a logical right shift
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_slr_s(dc, d, s) INSTR_CREATE_shr((dc), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a comparison

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +33,8 @@
 
 OPCODE(insertq_imm, insertq, insertq_imm, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_1),
        IMMARG(OPSZ_1))
+
+XOPCODE(add_sll, lea, add_sll, 0, REGARG(XAX), REGARG(XCX), REGARG(XDX), 8)
 
 /****************************************************************************/
 /* AVX */
