@@ -67,14 +67,11 @@
 #define OPND_CREATE_LSL() \
   opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
-/**
- * This platform-independent macro creates an instr_t for a comparison
- * instruction.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param s1  The opnd_t explicit source operand for the instruction.
- * \param s2  The opnd_t explicit source operand for the instruction.
+/****************************************************************************
+ * Platform-independent INSTR_CREATE_* macros
  */
-#define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp(dc, s1, s2)
+/** @name Platform-independent macros */
+/* @{ */ /* doxygen start group */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -92,6 +89,34 @@
  * \param m   The source memory opnd.
  */
 #define XINST_CREATE_load(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
+
+/**
+ * This platform-independent macro creates an instr_t which loads 1 byte
+ * from memory, zero-extends it to 4 bytes, and writes it to a 4 byte
+ * destination register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_ldrb(dc, r, m)
+
+/**
+ * This platform-independent macro creates an instr_t for a 1-byte
+ * memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_ldrb(dc, r, m)
+
+/**
+ * This platform-independent macro creates an instr_t for a 2-byte
+ * memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_ldrh(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -162,6 +187,14 @@
 #define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_str((dc), (m), (r))
 
 /**
+ * This platform-independent macro creates an instr_t for an indirect
+ * jump instruction through a register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The register opnd holding the target.
+ */
+#define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_br((dc), (r))
+
+/**
  * This platform-independent macro creates an instr_t for an immediate
  * integer load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -194,14 +227,6 @@
 #define XINST_CREATE_jump(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
- * This platform-independent macro creates an instr_t for an indirect
- * jump instruction through a register.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param r   The register opnd holding the target.
- */
-#define XINST_CREATE_jump_reg(dc, r) INSTR_CREATE_br((dc), (r))
-
-/**
  * This platform-independent macro creates an instr_t for an unconditional
  * branch instruction with the smallest available reach.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -214,14 +239,25 @@
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
+ * This platform-independent macro creates an instr_t for an unconditional
+ * branch instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_call(dc, t) INSTR_CREATE_bl(dc, t)
+
+/**
  * This platform-independent macro creates an instr_t for an addition
  * instruction that does not affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) \
-  INSTR_CREATE_add_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -234,8 +270,16 @@
  * \param s2  The opnd_t explicit source operand for the instruction. This
  * can be either a register or an immediate integer.
  */
-#define XINST_CREATE_add_2src(dc, d, s1, s2) \
-  INSTR_CREATE_add_shift(dc, d, s1, s2, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add(dc, d, s1, s2)
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -244,14 +288,50 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub(dc, d, s) \
-  INSTR_CREATE_sub_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub(dc, d, d, s)
+
+/**
+ * This platform-independent macro creates an instr_t for a subtraction
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_subs(dc, d, d, s)
+
+/**
+ * This platform-independent macro creates an instr_t for a bitwise and
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_ands(dc, d, d, s)
+
+/**
+ * This platform-independent macro creates an instr_t for a comparison
+ * instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param s1  The opnd_t explicit source operand for the instruction.
+ * \param s2  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_cmp(dc, s1, s2) INSTR_CREATE_cmp(dc, s1, s2)
+
+/**
+ * This platform-independent macro creates an instr_t for a software
+ * interrupt instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param i   The source integer constant opnd_t operand.
+ */
+#define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_svc(dc, (i))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
+
+/* @} */ /* end doxygen group */
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
@@ -271,11 +351,29 @@
     opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
   instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
-#define XINST_CREATE_and(dc, d, s) \
-  INSTR_CREATE_and_shift((dc), (d), (d), (s), \
-    OPND_CREATE_INT8(DR_SHIFT_LSL), OPND_CREATE_INT8(0))
+#define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_adds_extend(dc, rd, rn, rm, ext, exa) \
+  instr_create_1dst_4src(dc, OP_adds, rd, rn, \
+    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
+    exa)
+#define INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, sht, sha) \
+  opnd_is_reg(rm_or_imm) ? \
+  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), \
+    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
+    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
+  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), (rm_or_imm), (sht), (sha))
+#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_and, (rd), (rn), \
+    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+#define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha) \
+  instr_create_1dst_4src((dc), OP_ands, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) \
@@ -305,6 +403,10 @@
   instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) \
   instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+#define INSTR_CREATE_ldrb(dc, Rd, mem) \
+  instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
+#define INSTR_CREATE_ldrh(dc, Rd, mem) \
+  instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
   instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
@@ -344,6 +446,19 @@
     opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
   instr_create_1dst_4src((dc), OP_sub, (rd), (rn), (rm_or_imm), (sht), (sha))
+#define INSTR_CREATE_subs(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_subs_extend(dc, rd, rn, rm, ext, exa) \
+  instr_create_1dst_4src(dc, OP_subs, rd, rn, \
+    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
+    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
+    exa)
+#define INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, sht, sha) \
+  opnd_is_reg(rm_or_imm) ? \
+  instr_create_1dst_4src((dc), OP_subs, (rd), (rn), \
+    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
+    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
+  instr_create_1dst_4src((dc), OP_subs, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_svc(dc, imm) \
   instr_create_0dst_1src((dc), OP_svc, (imm))
 #define INSTR_CREATE_adr(dc, rt, imm) \
