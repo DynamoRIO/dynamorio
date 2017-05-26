@@ -110,13 +110,21 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_RETURN:
             have_memref = true;
             assert(cur_tid != 0 && cur_pid != 0);
-            cur_ref.instr.pid = cur_pid;
-            cur_ref.instr.tid = cur_tid;
-            cur_ref.instr.type = (trace_type_t) input_entry->type;
-            cur_ref.instr.size = input_entry->size;
-            cur_pc = input_entry->addr;
-            cur_ref.instr.addr = cur_pc;
-            next_pc = cur_pc + cur_ref.instr.size;
+            if (input_entry->size == 0) {
+                // Just an entry to tell us the PC of the subsequent memref,
+                // used with -L0_filter where we don't reliably have icache
+                // entries prior to data entries.
+                cur_pc = input_entry->addr;
+            } else {
+                have_memref = true;
+                cur_ref.instr.pid = cur_pid;
+                cur_ref.instr.tid = cur_tid;
+                cur_ref.instr.type = (trace_type_t) input_entry->type;
+                cur_ref.instr.size = input_entry->size;
+                cur_pc = input_entry->addr;
+                cur_ref.instr.addr = cur_pc;
+                next_pc = cur_pc + cur_ref.instr.size;
+            }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
             have_memref = true;

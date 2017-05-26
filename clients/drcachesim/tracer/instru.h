@@ -47,9 +47,11 @@ public:
     // The one dependence we have on the user is that we need to know how
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
-    explicit instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                              instr_t *, reg_id_t))
-        : insert_load_buf_ptr(insert_load_buf) {}
+    instru_t(void (*insert_load_buf)(void *, instrlist_t *,
+                                     instr_t *, reg_id_t),
+             bool memref_needs_info)
+        : insert_load_buf_ptr(insert_load_buf),
+        memref_needs_full_info(memref_needs_info) {}
     virtual ~instru_t() {}
 
     virtual size_t sizeof_entry() const = 0;
@@ -72,7 +74,8 @@ public:
     // These insert inlined code to add an entry into the trace buffer.
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                  opnd_t ref, bool write, dr_pred_type_t pred) = 0;
+                                  instr_t *app, opnd_t ref, bool write,
+                                  dr_pred_type_t pred) = 0;
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
@@ -88,9 +91,14 @@ public:
     static unsigned short instr_to_prefetch_type(instr_t *instr);
     static unsigned short instr_to_instr_type(instr_t *instr);
     static bool instr_is_flush(instr_t *instr);
+    virtual void insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                    reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref);
 
 protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
+    // Whether each data ref needs its own PC and type entry (i.e.,
+    // this info cannot be inferred from surrounding icache entries).
+    bool memref_needs_full_info;
 
 private:
     instru_t() {}
@@ -99,8 +107,9 @@ private:
 class online_instru_t : public instru_t
 {
 public:
-    explicit online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                     instr_t *, reg_id_t));
+    online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
+                                            instr_t *, reg_id_t),
+                    bool memref_needs_info);
     virtual ~online_instru_t();
 
     virtual size_t sizeof_entry() const;
@@ -119,7 +128,8 @@ public:
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                  opnd_t ref, bool write, dr_pred_type_t pred);
+                                  instr_t *app, opnd_t ref, bool write,
+                                  dr_pred_type_t pred);
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
@@ -146,6 +156,7 @@ class offline_instru_t : public instru_t
 public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                              instr_t *, reg_id_t),
+                     bool memref_needs_info,
                      ssize_t (*write_file)(file_t file,
                                            const void *data,
                                            size_t count),
@@ -168,7 +179,8 @@ public:
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                  opnd_t ref, bool write, dr_pred_type_t pred);
+                                  instr_t *app, opnd_t ref, bool write,
+                                  dr_pred_type_t pred);
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
@@ -186,10 +198,12 @@ public:
                                    void (*free_cb)(void *data));
 
 private:
-    void insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_ptr, reg_id_t scratch, int adjust, uint64_t value);
-    void insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref);
+    int insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
+                        uint instr_count);
+    int insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                         reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref,
+                         bool write);
     ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
 };

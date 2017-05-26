@@ -100,6 +100,24 @@ droption_t<unsigned int> op_LL_assoc
 (DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
  "Specifies the associativity of the unified last-level (L2) cache.");
 
+droption_t<bool> op_L0_filter
+(DROPTION_SCOPE_CLIENT, "L0_filter", false,
+ "Filter out zero-level hits during tracing",
+ "Filters out instruction and data hits in a 'zero-level' cache during tracing itself, "
+ "shrinking the final trace to only contain instruction and data accesses that miss in "
+ "this initial cache.  This cache is direct-mapped with sizes equal to -L0I_size and "
+ "-L0D_size.  It uses virtual addresses regardless of -use_physical.");
+
+droption_t<bytesize_t> op_L0I_size
+(DROPTION_SCOPE_CLIENT, "L0I_size", 32*1024U,
+ "If -L0_filter, filter out instruction hits during tracing",
+ "Specifies the size of the 'zero-level' instruction cache for -L0_filter.");
+
+droption_t<bytesize_t> op_L0D_size
+(DROPTION_SCOPE_CLIENT, "L0D_size", 32*1024U,
+ "If -L0_filter, filter out data hits during tracing",
+ "Specifies the size of the 'zero-level' data cache for -L0_filter.");
+
 droption_t<bool> op_use_physical
 (DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
  "If available, the default virtual addresses will be translated to physical.  "

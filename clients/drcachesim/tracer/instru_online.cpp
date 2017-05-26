@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,8 +42,9 @@
 #include <stddef.h> /* for offsetof */
 
 online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                         instr_t *, reg_id_t))
-    : instru_t(insert_load_buf)
+                                                         instr_t *, reg_id_t),
+                                 bool memref_needs_info)
+    : instru_t(insert_load_buf, memref_needs_info)
 {
 }
 
@@ -177,16 +178,9 @@ online_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *
                                   reg_id_t reg_ptr, reg_id_t reg_addr, int adjust,
                                   opnd_t ref)
 {
-    bool ok;
     int disp = adjust + offsetof(trace_entry_t, addr);
-    if (opnd_uses_reg(ref, reg_ptr))
-        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr);
-    if (opnd_uses_reg(ref, reg_addr))
-        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
-    /* we use reg_ptr as scratch to get addr */
-    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
-    DR_ASSERT(ok);
-    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need reload reg_ptr
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref);
+    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need to reload reg_ptr
     insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
@@ -266,12 +260,23 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 int
 online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                   opnd_t ref, bool write, dr_pred_type_t pred)
+                                   instr_t *app, opnd_t ref, bool write,
+                                   dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     instr_t *label = INSTR_CREATE_label(drcontext);
     MINSERT(ilist, where, label);
+    if (memref_needs_full_info) {
+        // When filtering we have to insert a PC entry for every memref.
+        // The 0 size indicates it's a non-icache entry.
+        insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                  TRACE_TYPE_INSTR, 0, adjust);
+        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
+                       instr_get_app_pc(app), adjust);
+        adjust += sizeof(trace_entry_t);
+    }
+    insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
     // Special handling for prefetch instruction
     if (instr_is_prefetch(where)) {
         type = instru_t::instr_to_prefetch_type(where);
@@ -284,9 +289,9 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
-    insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
 #ifdef ARM // X86 does not support general predicated execution
-    if (pred != DR_PRED_NONE) {
+    if (!memref_needs_full_info && // For full info we skip this for !pred.
+        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
         instr_t *instr;
         for (instr  = instr_get_prev(where);
              instr != label;

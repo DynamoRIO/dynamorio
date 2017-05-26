@@ -332,6 +332,12 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
+    bool skip_icache = false;
+    if (instr_count == 0) {
+        // L0 filtering adds a PC entry with a count of 0 prior to each memref.
+        skip_icache = true;
+        instr_count = 1;
+    }
     instr_init(dcontext, &instr);
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
@@ -364,7 +370,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
                 dr_print_instr(dcontext, STDOUT, &instr, "");
             });
             buf->type = instru_t::instr_to_instr_type(&instr);
-            buf->size = (ushort) instr_length(dcontext, &instr);
+            buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, &instr));
             buf->addr = (addr_t) orig_pc;
             ++buf;
         } else
@@ -374,6 +380,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         if (instr_reads_memory(&instr) || instr_writes_memory(&instr)) { // Check OP_lea.
             for (int i = 0; i < instr_num_srcs(&instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(&instr, i))) {
+//NOCHECKIN -L0_filter will peek and bail every time!  can we indicate in some way?
+// If we ever see a count-0 entry we set a global flag?
                     buf = append_memref(buf, tidx, &instr, instr_get_src(&instr, i),
                                         false);
                 }
@@ -405,7 +413,7 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL);
+    online_instru_t instru(NULL, false);
     bool last_bb_handled = true;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
     std::vector<uint64> times(thread_files.size(), 0);
