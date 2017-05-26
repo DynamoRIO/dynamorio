@@ -690,11 +690,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                                                TLS_MASK_SLOT(ibl_code->branch_type),
                                                OPSZ_16)));
     /* and x1, x1, x2 */
-    APP(&ilist, INSTR_CREATE_and_shift(dc, opnd_create_reg(DR_REG_X1),
-                                       opnd_create_reg(DR_REG_X1),
-                                       opnd_create_reg(DR_REG_X2),
-                                       OPND_CREATE_INT8(DR_SHIFT_LSL),
-                                       OPND_CREATE_INT8(0)));
+    APP(&ilist, INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1),
+                                 opnd_create_reg(DR_REG_X1),
+                                 opnd_create_reg(DR_REG_X2)));
     /* Get table entry. */
     /* add x1, x0, x1, LSL #4 */
     APP(&ilist, INSTR_CREATE_add_shift

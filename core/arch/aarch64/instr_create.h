@@ -257,8 +257,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) \
-  INSTR_CREATE_add_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -271,8 +270,7 @@
  * \param s2  The opnd_t explicit source operand for the instruction. This
  * can be either a register or an immediate integer.
  */
-#define XINST_CREATE_add_2src(dc, d, s1, s2) \
-  INSTR_CREATE_add_shift(dc, d, s1, s2, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add(dc, d, s1, s2)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -281,8 +279,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add_s(dc, d, s) \
-  INSTR_CREATE_adds_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -291,8 +288,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub(dc, d, s) \
-  INSTR_CREATE_sub_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -301,8 +297,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub_s(dc, d, s) \
-  INSTR_CREATE_subs_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_subs(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a bitwise and
@@ -311,8 +306,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_and_s(dc, d, s) \
-  INSTR_CREATE_ands_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_ands(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a comparison
@@ -370,10 +364,14 @@
     opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
   instr_create_1dst_4src((dc), OP_adds, (rd), (rn), (rm_or_imm), (sht), (sha))
+#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_and, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+#define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
+  INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_ands, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
