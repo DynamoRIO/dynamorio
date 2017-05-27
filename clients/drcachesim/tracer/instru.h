@@ -61,11 +61,14 @@ public:
 
     // All of these return how many bytes to advance the buffer pointer.
 
+    virtual int append_timestamp(byte *buf_ptr) = 0;
     virtual int append_pid(byte *buf_ptr, process_id_t pid) = 0;
     virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
+    // This is a per-profile-file header/footer.
+    virtual int append_file_header(byte *buf_ptr) = 0;
+    virtual int append_file_footer(byte *buf_ptr) = 0;
     // This is a per-buffer-writeout header.
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
 
@@ -110,11 +113,13 @@ public:
     virtual addr_t get_entry_addr(byte *buf_ptr) const;
     virtual void set_entry_addr(byte *buf_ptr, addr_t addr);
 
+    virtual int append_timestamp(byte *buf_ptr);
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_file_header(byte *buf_ptr);
+    virtual int append_file_footer(byte *buf_ptr);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -159,11 +164,13 @@ public:
     virtual addr_t get_entry_addr(byte *buf_ptr) const;
     virtual void set_entry_addr(byte *buf_ptr, addr_t addr);
 
+    virtual int append_timestamp(byte *buf_ptr);
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
-    virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
+    virtual int append_file_header(byte *buf_ptr);
+    virtual int append_file_footer(byte *buf_ptr);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,

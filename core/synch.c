@@ -1316,6 +1316,9 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                      */
                     synch_array[i] = SYNCH_WITH_ALL_SYNCHED;
                     threads[i]->dcontext->client_data->left_unsuspended = true;
+                    LOG(THREAD, LOG_SYNCH, 2,
+                        "Skipping synch with client thread "TIDFMT"\n",
+                        thread_ids_temp[i]);
                     continue;
                 }
 #endif

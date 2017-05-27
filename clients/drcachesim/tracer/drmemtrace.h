@@ -189,6 +189,10 @@ DR_EXPORT
  * \note The caller is responsible for the transparency and isolation of using
  * these functions, which will be called in the middle of arbitrary
  * application code.
+ *
+ * \note If the threading pool is used, i.e., \p -num_threads is not zero,
+ * \p drmemtrace_buffer_handoff will fail and return false.
+ *
  */
 drmemtrace_status_t
 drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,

@@ -2356,6 +2356,25 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
 
+      # i#2346 add delayed sideline thread exit on Windows
+      if (NOT WIN32)
+        torunonly_ci(tool.drcachesim.simple.1thd ${ci_shared_app} drcachesim
+          "drcachesim-simple.c" # for templatex basename
+          "-ipc_name drtestpipe7 -num_threads 1" "" "")
+        set(tool.drcachesim.simple.1thd_toolname "drcachesim")
+        set(tool.drcachesim.simple.1thd_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.simple.sync_rawtemp ON) # no preprocessor
+
+        torunonly_ci(tool.drcachesim.simple.2thd ${ci_shared_app} drcachesim
+          "drcachesim-simple.c" # for templatex basename
+          "-ipc_name drtestpipe8 -num_threads 2" "" "")
+        set(tool.drcachesim.simple.2thd_toolname "drcachesim")
+        set(tool.drcachesim.simple.2thd_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.simple.2thds_rawtemp ON) # no preprocessor
+      endif()
+
       # TLB simulator's single-thread sanity check
       torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
         "drcachesim-TLB-simple.c" # for templatex basename
@@ -2385,6 +2404,7 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
           "drcachesim-threads.c" # for templatex basename
+          # XXX: the threading pool seems slower than synched write-out
           "-ipc_name drtestpipe2" "" "${annotation_test_args}")
         set(tool.drcachesim.threads_toolname "drcachesim")
         set(tool.drcachesim.threads_basedir
@@ -2395,6 +2415,7 @@ if (CLIENT_INTERFACE)
         # TLB simulator's multi-thread sanity check
         torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
           "drcachesim-TLB-threads.c" # for templatex basename
+          # XXX: the threading pool seems slower than synched write-out
           "-ipc_name drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
         set(tool.drcachesim.TLB-threads_toolname "drcachesim")
         set(tool.drcachesim.TLB-threads_basedir
@@ -2402,6 +2423,20 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.TLB-threads_rawtemp ON) # no preprocessor
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
+
+        # FIXME i#2346 add delayed sideline thread exit on Windows
+        if (NOT WIN32)
+          torunonly_ci(tool.drcachesim.threads.2thd client.annotation-concurrency drcachesim
+            "drcachesim-threads.c" # for templatex basename
+            # XXX: the threading pool seems slower than synched write-out
+            "-ipc_name drtestpipe2 -num_threads 2" "" "${annotation_test_args}")
+          set(tool.drcachesim.threads.2thd_toolname "drcachesim")
+          set(tool.drcachesim.threads.2thd_basedir
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+          set(tool.drcachesim.threads.2thd_rawtemp ON) # no preprocessor
+          # FIXME i#2006 the online simulation with threading pool is slower!!!
+          set(tool.drcachesim.threads.2thd_timeout 200) # This test is long.
+        endif ()
       endif ()
 
       if (ARM)
@@ -2488,9 +2523,18 @@ if (CLIENT_INTERFACE)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
       macro (torunonly_drcacheoff testname exetgt)
+        set(toolops "-offline")
+        string(FIND "${testname}" "1thd" find1thd)
+        if (NOT ${find0thd} EQUAL -1)
+          set(toolops "${toolops} -num_threads 1")
+        endif ()
+        string(FIND "${testname}" "2thd" find2thd)
+        if (NOT ${find2thd} EQUAL -1)
+          set(toolops "${toolops} -num_threads 2")
+        endif ()
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline" "" "")
+          "${toolops}" "" "")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2506,10 +2550,15 @@ if (CLIENT_INTERFACE)
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
       torunonly_drcacheoff(simple ${ci_shared_app})
+      if (NOT WIN32)
+        torunonly_drcacheoff(simple.1thd ${ci_shared_app})
+        torunonly_drcacheoff(simple.2thd ${ci_shared_app})
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
+      # FIXME i#2006: add test for burst tracing with threading pool.
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
         torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
         set(tool.drcacheoff.burst_static_nodr ON)

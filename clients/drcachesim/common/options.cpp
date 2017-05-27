@@ -36,11 +36,37 @@
 #include "droption.h"
 #include "options.h"
 
+#ifdef WINDOWS
+# define IF_WINDOWS_ELSE(x, y) (x)
+#else
+# define IF_WINDOWS_ELSE(x, y) (y)
+#endif
+
 droption_t<bool> op_offline
 (DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
  "By default, traces are processed online, sent over a pipe to a simulator.  "
  "If this option is enabled, trace data is instead written to files in -outdir "
  "for later offline analysis.  No simulator is executed.");
+
+/* We set the default value as 0 for the following reasons:
+ * - FIXME i#2346: add delayed sideline thread exit support on Windows,
+ * - XXX: we need more experiments to decide the right default configuration,
+ *   It may be affected by many factors, e.g., online vs offline,
+ *   how many CPUs, and how many application threads, etc..
+ */
+droption_t<unsigned int> op_num_threads
+(DROPTION_SCOPE_CLIENT, "num_threads", 0,
+ "Number of sideline threads for writing traces",
+ "Specifies the number of sideline threads to be used to write trace files out.  "
+ "For the default online analysis mode, only 1 thread is supported.  "
+ "0 means synchronized write without any sideline threads.");
+
+droption_t<bytesize_t> op_queue_capacity
+(DROPTION_SCOPE_CLIENT, "queue_capacity", bytesize_t(8*1024*1024),
+ "The approximate maximum capacity of the queue for caching traces "
+ "while they are being written out",
+ "Specifies the approximate maximum capacity (number of bytes) of the queue for "
+ "caching traces while they are being written out by sideline threads.");
 
 droption_t<std::string> op_ipc_name
 (DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
