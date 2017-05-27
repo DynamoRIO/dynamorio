@@ -72,6 +72,11 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
+#define FATAL(...) do {                \
+    dr_fprintf(STDERR, __VA_ARGS__);   \
+    dr_abort();                        \
+} while (0)
+
 static char logsubdir[MAXIMUM_PATH];
 static file_t module_file;
 
@@ -224,8 +229,7 @@ create_buffer(per_thread_t *data)
     if (data->buf_base == NULL) {
         /* Switch to "reserve" buffer. */
         if (data->reserve_buf == NULL) {
-            NOTIFY(0, "Fatal error: out of memory and cannot recover.\n");
-            dr_abort();
+            FATAL("Fatal error: out of memory and cannot recover.\n");
         }
         NOTIFY(0, "Out of memory: truncating further tracing.\n");
         data->buf_base = data->reserve_buf;
@@ -275,12 +279,10 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
         if (file_ops_func.handoff_buf != NULL) {
             if (!file_ops_func.handoff_buf(data->file, towrite_start, size,
                                            max_buf_size)) {
-                NOTIFY(0, "Fatal error: failed to hand off trace\n");
-                dr_abort();
+                FATAL("Fatal error: failed to hand off trace\n");
             }
         } else if (file_ops_func.write_file(data->file, towrite_start, size) < size) {
-            NOTIFY(0, "Fatal error: failed to write trace\n");
-            dr_abort();
+            FATAL("Fatal error: failed to write trace\n");
         }
         return towrite_start;
     } else
@@ -624,8 +626,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, bb, instr, NULL, &reg_tmp) != DRREG_SUCCESS) {
         // We can't recover.
-        NOTIFY(0, "Fatal error: failed to reserve scratch registers\n");
-        dr_abort();
+        FATAL("Fatal error: failed to reserve scratch registers\n");
     }
     drvector_delete(&rvec);
     /* load buf ptr into reg_ptr */
@@ -810,8 +811,7 @@ event_thread_init(void *drcontext)
                 break;
         }
         if (i == NUM_OF_TRIES) {
-            NOTIFY(0, "Fatal error: failed to create trace file %s\n", buf);
-            dr_abort();
+            FATAL("Fatal error: failed to create trace file %s\n", buf);
         }
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
@@ -967,25 +967,21 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv,
                                        &parse_err, NULL)) {
-        NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
+        FATAL("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
     if (!op_offline.get_value() && op_ipc_name.get_value().empty()) {
-        NOTIFY(0, "Usage error: ipc name is required\nUsage:\n%s",
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
+        FATAL("Usage error: ipc name is required\nUsage:\n%s",
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
-        NOTIFY(0, "Usage error: outdir is required\nUsage:\n%s",
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
+        FATAL("Usage error: outdir is required\nUsage:\n%s",
+              droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
     if (op_offline.get_value()) {
         void *buf;
         if (!init_offline_dir()) {
-            NOTIFY(0, "Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
-            dr_abort();
+            FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
         }
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
@@ -1011,13 +1007,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         if (!ipc_pipe.open_for_write()) {
             if (GetLastError() == ERROR_PIPE_BUSY) {
                 // FIXME i#1727: add multi-process support to Windows named_pipe_t.
-                NOTIFY(0, "Fatal error: multi-process applications not yet supported "
-                       "for drcachesim on Windows\n");
+                FATAL("Fatal error: multi-process applications not yet supported "
+                      "for drcachesim on Windows\n");
             } else {
-                NOTIFY(0, "Fatal error: Failed to open pipe %s.\n",
-                       op_ipc_name.get_value().c_str());
+                FATAL("Fatal error: Failed to open pipe %s.\n",
+                      op_ipc_name.get_value().c_str());
             }
-            dr_abort();
         }
 #endif
         if (!ipc_pipe.maximize_buffer())
