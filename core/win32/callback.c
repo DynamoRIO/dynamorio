@@ -3780,17 +3780,17 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
          * FIXME should check dr7 upper bits, and maybe dr6
          * We ignore the potential race condition.
          */
-        if (TEST(cxt->ContextFlags, CONTEXT_DEBUG_REGISTERS)) {
-            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
+        if (TESTALL(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags)) {
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
                 debugRegister[0] = (app_pc) cxt->Dr0;
             }
-            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
                 debugRegister[1] = (app_pc) cxt->Dr1;
             }
-            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
                 debugRegister[2] = (app_pc) cxt->Dr2;
             }
-            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
                 debugRegister[3] = (app_pc) cxt->Dr3;
             }
             for (i=0; i<DEBUG_REGISTERS_NB; i++) {
