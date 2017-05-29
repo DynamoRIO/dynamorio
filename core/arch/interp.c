@@ -3214,11 +3214,11 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
 #ifdef X86
 /* Tells if instruction will trigger an exception because of debug register. */
 static bool
-instr_fires_debug_register(build_bb_t *bb) {
+debug_register_fire_on_addr(app_pc pc) {
     size_t i;
 
     for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-        if (bb->instr_start == debugRegister[i]) {
+        if (pc == debugRegister[i]) {
             return true;
         }
     }
@@ -3511,7 +3511,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break; /* before eflags analysis! */
 
 #ifdef X86
-            if (my_dcontext != NULL && instr_fires_debug_register(bb)) {
+            if (my_dcontext != NULL && debug_register_fire_on_addr(bb->instr_start)) {
                 my_dcontext->single_step_addr = bb->instr_start;
                 break;
             }

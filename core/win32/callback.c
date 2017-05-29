@@ -3777,17 +3777,28 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
         DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
 
         /* Updates debug register values.
-         * FIXME should check dr6 and dr7 values as well.
+         * FIXME should check dr7 upper bits, and maybe dr6
          * We ignore the potential race condition.
          */
-        debugRegister[0] = (app_pc) cxt->Dr0;
-        debugRegister[1] = (app_pc) cxt->Dr1;
-        debugRegister[2] = (app_pc) cxt->Dr2;
-        debugRegister[3] = (app_pc) cxt->Dr3;
-        for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-            if (debugRegister[i] != NULL) {
-                flush_fragments_from_region(dcontext, debugRegister[i], 1 /* size */,
-                                            false/*don't force synchall*/);
+        if (TEST(cxt->ContextFlags, CONTEXT_DEBUG_REGISTERS)) {
+            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
+                debugRegister[0] = (app_pc) cxt->Dr0;
+            }
+            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
+                debugRegister[1] = (app_pc) cxt->Dr1;
+            }
+            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
+                debugRegister[2] = (app_pc) cxt->Dr2;
+            }
+            if (TEST(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
+                debugRegister[3] = (app_pc) cxt->Dr3;
+            }
+            for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+                if (debugRegister[i] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[i],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
             }
         }
 

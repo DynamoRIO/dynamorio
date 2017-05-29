@@ -46,22 +46,30 @@ static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
-        //should get here with some of the nops
+        //should get here thanks to the int 3 instruction in set_debug_register
+        //sets Dr0 to the address where to add a breakpoint
         pExceptionInfo->ContextRecord->Dr0 = (unsigned int) single_step_addr;
         pExceptionInfo->ContextRecord->Dr6 = 0xfffe0ff0;
+        //Sets Dr7 to enable Dr0 breakpoint
         pExceptionInfo->ContextRecord->Dr7 = 0x00000101;
         print("set debug register\n");
-        //goto next instruction to avoid infinite loop
+        //increment pc pointer to go to next instruction and avoid infinite loop
 #ifndef X64
         pExceptionInfo->ContextRecord->Eip++;
 #else
         pExceptionInfo->ContextRecord->Rip++;
 #endif
         return EXCEPTION_CONTINUE_EXECUTION;
-    }
-    else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
-        count++;
+    } else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
         print("single step seen\n");
+        if (pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr) {
+            count++;
+        }
+        else {
+            print("got address "PFX", expected "PFX"\n",
+                  pExceptionInfo->ExceptionRecord->ExceptionAddress,
+                  single_step_addr);
+        }
         //deactivate breakpoint
         pExceptionInfo->ContextRecord->Dr0 = 0;
         pExceptionInfo->ContextRecord->Dr6 = 0;
