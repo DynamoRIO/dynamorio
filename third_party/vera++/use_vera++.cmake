@@ -107,12 +107,13 @@ function(add_vera_targets_for_dynamorio)
         # We also exclude files in make/style_checks/exclusions here to speed
         # up the build slightly and to handle vera++ 1.2.1 better (1.2.1 does not
         # support regex exclusions).
-        NOT s MATCHES "suite/tests" AND
-        NOT s MATCHES "libutil/" AND
-        NOT s MATCHES "tools/" AND
-        NOT s MATCHES "third_party/" AND
+        NOT s MATCHES "/suite/tests" AND
+        NOT s MATCHES "/libutil/" AND
+        NOT s MATCHES "/tools/" AND
+        NOT s MATCHES "/third_party/" AND
         # Somehow on Travis vera checks build-dir files.
-        NOT s MATCHES "/build_")
+        NOT s MATCHES "/build_" AND
+        NOT s MATCHES "/install/")
       get_filename_component(d ${s} PATH)
       if(NOT "${d}" STREQUAL "${currentDir}")
         # this is a new dir - lets generate everything needed for the previous dir
