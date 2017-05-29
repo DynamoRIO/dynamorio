@@ -30,11 +30,15 @@
 # DAMAGE.
 
 # Code style checks for use with vera++:
-rule=line_length_content
-rule=multi_line_body
-rule=break_after_return_type
-rule=no_space_after_control
-rule=space_after_call
+
+## 1.3.0 syntax is "rule=<name>" but Travis has 1.2.1 so we use the old syntax.
+set rules {
+    line_length_content
+    multi_line_body
+    break_after_return_type
+    no_space_after_control
+    space_after_call
+}
 
 # There are just too many instances of CamelCase, mostly in
 # Windows-related names and in some cases direct Windows API calls.

@@ -105,7 +105,8 @@ function(add_vera_targets_for_dynamorio)
   foreach(s ${srcs})
     if (NOT s MATCHES "\\.#" AND # avoid emacs backup files
         # We also exclude files in make/style_checks/exclusions here to speed
-        # up the build slightly.
+        # up the build slightly and to handle vera++ 1.2.1 better (1.2.1 does not
+        # support regex exclusions).
         NOT s MATCHES "suite/tests" AND
         NOT s MATCHES "libutil" AND
         NOT s MATCHES "tools" AND
