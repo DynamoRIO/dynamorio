@@ -3246,6 +3246,13 @@ if (NOT ANDROID)
   mark_execstack("${TestMemProtChg}")
 endif ()
 
+if (vera++_FOUND)
+  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
+  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
+    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
+  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
+endif ()
+
 ###########################################################################
 
 # We'll want the latest CTest (2.6.4) so we can use the -W parameter

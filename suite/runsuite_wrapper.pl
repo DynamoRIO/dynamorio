@@ -58,8 +58,9 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
-# We have no way to access the log files, so we use -VV to ensure
-# we can diagnose failures.
+# We have no way to access the log files, so we can -VV to ensure
+# we can diagnose failures, but it makes for too large of an online
+# result to have on by default.
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
 my $res = '';

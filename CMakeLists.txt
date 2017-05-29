@@ -1728,6 +1728,24 @@ else (CLIENT_INTERFACE OR APP_EXPORTS)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
 ###########################################################################
+# Style checks:
+
+find_package(vera++ QUIET)
+if (vera++_FOUND)
+  message(STATUS "Using vera++ for code style checks")
+  include(${VERA++_USE_FILE})
+  # We use our own modified copy in order to pass --error and for
+  # regex exclusions with vera++ 1.2.1.
+  include(third_party/vera++/use_vera++.cmake)
+  add_vera_targets_for_dynamorio(*.h *.c *.cpp
+    RECURSE
+    EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
+    ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+else ()
+  message(STATUS "WARNING: vera++ not found: disabling code style checks")
+endif ()
+
+###########################################################################
 
 DR_install(FILES
   ${PROJECT_SOURCE_DIR}/README
