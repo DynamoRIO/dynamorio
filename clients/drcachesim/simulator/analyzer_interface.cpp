@@ -56,7 +56,11 @@ drmemtrace_analysis_tool_create()
                                       op_L1D_assoc.get_value(),
                                       op_LL_size.get_value(),
                                       op_LL_assoc.get_value(),
-                                      op_replace_policy.get_value());
+                                      op_replace_policy.get_value(),
+                                      op_skip_refs.get_value(),
+                                      op_warmup_refs.get_value(),
+                                      op_sim_refs.get_value(),
+                                      op_verbose.get_value());
     } else if (op_simulator_type.get_value() == TLB) {
         return tlb_simulator_create(op_num_cores.get_value(),
                                     op_page_size.get_value(),
