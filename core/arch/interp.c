@@ -3511,6 +3511,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break; /* before eflags analysis! */
 
 #ifdef X86
+            /* If the next instruction at bb->cur_pc fires a debug register,
+             * then we should generate a single step exception before getting to it.
+             */
             if (my_dcontext != NULL && debug_register_fire_on_addr(bb->cur_pc)) {
                 my_dcontext->single_step_addr = bb->instr_start;
                 break;

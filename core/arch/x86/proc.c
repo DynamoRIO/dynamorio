@@ -371,7 +371,7 @@ proc_init_arch(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
     }
-    for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+    for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
         debugRegister[i] = NULL;
     }
 }

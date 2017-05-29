@@ -46,14 +46,17 @@ static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
-        //should get here thanks to the int 3 instruction in set_debug_register
-        //sets Dr0 to the address where to add a breakpoint
+        // FIXME : setting debug registers this way works only on 32 bit
+        // We should find another way compatible with 64-bit to be able to test it
+
+        // Should get here thanks to the int 3 instruction in set_debug_register
+        // Set Dr0 to the address where to add a breakpoint
         pExceptionInfo->ContextRecord->Dr0 = (unsigned int) single_step_addr;
         pExceptionInfo->ContextRecord->Dr6 = 0xfffe0ff0;
-        //Sets Dr7 to enable Dr0 breakpoint
+        // Set Dr7 to enable Dr0 breakpoint
         pExceptionInfo->ContextRecord->Dr7 = 0x00000101;
         print("set debug register\n");
-        //increment pc pointer to go to next instruction and avoid infinite loop
+        // Increment pc pointer to go to next instruction and avoid infinite loop
 #ifndef X64
         pExceptionInfo->ContextRecord->Eip++;
 #else
