@@ -751,6 +751,10 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       set(tgt_cflags "${tgt_cflags} /GS-")
       # FIXME: why isn't /debug showing up: is it
     endif (is_client)
+
+    # Shrink binaries and pdbs (/Gy should already be there)
+    set(tgt_link_flags "${tgt_link_flags} /opt:ref /opt:icf /pdbcompress")
+
     if (DynamoRIO_USE_LIBC OR tgt_cxx OR NOT is_client)
       # Take advantage of the Windows private loader: no longer need
       # /nodefaultlib or /noentry.
