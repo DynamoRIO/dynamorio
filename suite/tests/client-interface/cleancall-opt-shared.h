@@ -546,7 +546,7 @@ before_callee(app_pc func, const char *func_name)
 
 #ifdef TEST_INLINE
     ilist = instrlist_create(dc);
-#ifdef X86
+# if defined(X86)
     /* Patch the callee to be:
      * push xax
      * mov xax, &callee_inlined
@@ -561,7 +561,7 @@ before_callee(app_pc func, const char *func_name)
         (dc, OPND_CREATE_MEM32(DR_REG_XAX, 0), OPND_CREATE_INT32(0)));
     APP(ilist, INSTR_CREATE_pop(dc, scratch_reg));
     APP(ilist, INSTR_CREATE_ret(dc));
-#elif defined(AARCH64)
+# elif defined(AARCH64)
     APP(ilist, INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
 
 
@@ -574,7 +574,7 @@ before_callee(app_pc func, const char *func_name)
     APP(ilist, INSTR_CREATE_ldr(dc, scratch_reg, opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8)));
     APP(ilist, INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_SP), opnd_create_reg(DR_REG_SP), OPND_CREATE_INT16(16)));
     APP(ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X30)));
-#endif
+# endif /* X86 */
     end_pc = instrlist_encode(dc, ilist, func, false /* no jump targets */);
     instrlist_clear_and_destroy(dc, ilist);
     dr_log(dc, LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
@@ -587,7 +587,7 @@ before_callee(app_pc func, const char *func_name)
     DR_ASSERT_MSG(end_pc < func + CALLEE_ALIGNMENT,
                   "Patched code too big for smallest function!");
     callee_inlined = 1;
-#endif
+#endif /* ifdef TEST_INLINE */
 
     /* Reset instrumentation globals. */
     global_count = 0;
@@ -641,19 +641,14 @@ codegen_opnd_arg1(void)
 {
     /* FIXME: Perhaps DR should expose this.  It currently tracks this in
      * core/instr.h. */
-#ifdef AARCH64
+#if defined(AARCH64)
   return opnd_create_reg(DR_REG_X0);
 #elif defined(X64)
-# ifdef UNIX
-    int reg = DR_REG_RDI;
-# else /* WINDOWS */
-    int reg = DR_REG_RCX;
-# endif
-    return opnd_create_reg(reg);
+    return opnd_create_reg(IF_WINDOWS_ELSE(DR_REG_RCX, DR_REG_RDI));
 #else /* X86 */
     /* Stack offset accounts for an additional push in prologue. */
     return OPND_CREATE_MEMPTR(DR_REG_XBP, 2 * sizeof(reg_t));
-#endif
+#endif /* AARCH64 */
 }
 
 /* We want to test that we can auto-inline whatever the compiler generates for
