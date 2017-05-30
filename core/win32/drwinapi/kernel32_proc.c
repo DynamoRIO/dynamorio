@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,6 +73,16 @@ kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
          */
         IF_DEBUG(bool found =)
             strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
+        ASSERT(found);
+        /* i#2453: VS2013 checks other Fls routines as well so we clear them all. */
+        IF_DEBUG(found =)
+            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsFree");
+        ASSERT(found);
+        IF_DEBUG(found =)
+            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsGetValue");
+        ASSERT(found);
+        IF_DEBUG(found =)
+            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsSetValue");
         ASSERT(found);
     }
 }
