@@ -58,8 +58,10 @@ image: Visual Studio 2013
 build:
   verbosity: detailed
 
+# i#2406: Appveyor's global serialization makes it painful to use more than
+# one configuration.  We no longer build packages with VS2010 and are
+# dropping official support for it, meaning we only need to test VS2013 here.
 configuration:
-  - 2010
   - 2013
 
 install:
@@ -87,7 +89,6 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
 before_build:
-  - if "%configuration%"=="2010" call "c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat" x86
   - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
   - cd c:\projects\dynamorio
 
@@ -95,9 +96,5 @@ build_script:
   - mkdir build
   - cd build
   - echo %PATH%
-  # AppVeyor does not have the 64-bit toolchain installed for 2010.
-  # Given that, and the lack of parallel builds for free, we shorten
-  # the total time by not running the tests for 2010.
-  - if "%configuration%"=="2010" set EXTRA_ARGS=32_only;build_only
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
   - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
