@@ -271,13 +271,17 @@ if (NOT cross_only)
         ${install_path_cache}
         ")
     endif (DO_ALL_BUILDS)
-    testbuild("vps-debug-internal-32" OFF "
-      VMAP:BOOL=OFF
-      VPS:BOOL=ON
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ${install_path_cache}
-      ")
+    # i#2406: we skip the vps build to speed up PR's, using just the merge to
+    # master to catch breakage in vps.
+    if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+      testbuild("vps-debug-internal-32" OFF "
+        VMAP:BOOL=OFF
+        VPS:BOOL=ON
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif ()
     if (DO_ALL_BUILDS)
       testbuild("vps-release-external-32" OFF "
         VMAP:BOOL=OFF
