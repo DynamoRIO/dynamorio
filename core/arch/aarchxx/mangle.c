@@ -914,8 +914,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 {
     ASSERT(scratch != REG_NULL); /* required */
     /* load target into scratch register */
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)
-                           PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), target),
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)target,
                            opnd_create_reg(scratch), ilist, where, NULL, NULL);
     /* even if a call and not a jmp, we can skip this if it doesn't return */
     if (!jmp && returns) {
