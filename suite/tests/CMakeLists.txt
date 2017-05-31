@@ -2347,10 +2347,18 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
+      # i#2023: to avoid stale pipe files in /tmp from prior suite runs, we place them
+      # in the current build dir where they will be blown away on the next suite run.
+      if (UNIX)
+        set(IPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/")
+      else ()
+        set(IPC_PREFIX "")
+      endif ()
+
       # We have a couple of sanity checks that at least nothing crashes.
       torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
         "drcachesim-simple.c" # for templatex basename
-        "-ipc_name drtestpipe1" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe1" "" "")
       set(tool.drcachesim.simple_toolname "drcachesim")
       set(tool.drcachesim.simple_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2359,7 +2367,7 @@ if (CLIENT_INTERFACE)
       # TLB simulator's single-thread sanity check
       torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
         "drcachesim-TLB-simple.c" # for templatex basename
-        "-ipc_name drtesttlbpipe1 -simulator_type TLB" "" "")
+        "-ipc_name ${IPC_PREFIX}drtesttlbpipe1 -simulator_type TLB" "" "")
         set(tool.drcachesim.TLB-simple_toolname "drcachesim")
         set(tool.drcachesim.TLB-simple_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2368,7 +2376,7 @@ if (CLIENT_INTERFACE)
       if (NOT WIN32) # No physaddr access on Windows.
         torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
           "drcachesim-phys.c" # for templatex basename
-          "-ipc_name drtestpipe4 -use_physical" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe4 -use_physical" "" "")
         set(tool.drcachesim.phys_toolname "drcachesim")
         set(tool.drcachesim.phys_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2385,7 +2393,7 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
           "drcachesim-threads.c" # for templatex basename
-          "-ipc_name drtestpipe2" "" "${annotation_test_args}")
+          "-ipc_name ${IPC_PREFIX}drtestpipe2" "" "${annotation_test_args}")
         set(tool.drcachesim.threads_toolname "drcachesim")
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2395,7 +2403,7 @@ if (CLIENT_INTERFACE)
         # TLB simulator's multi-thread sanity check
         torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
           "drcachesim-TLB-threads.c" # for templatex basename
-          "-ipc_name drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
+          "-ipc_name ${IPC_PREFIX}drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
         set(tool.drcachesim.TLB-threads_toolname "drcachesim")
         set(tool.drcachesim.TLB-threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2408,7 +2416,7 @@ if (CLIENT_INTERFACE)
         # allasm_thumb test
         torunonly_ci(tool.drcachesim.thumb common.allasm_thumb drcachesim
           "allasm-thumb.c" # for expect basename
-          "-ipc_name drtestpipe_thumb" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_thumb" "" "")
         set(tool.drcachesim.thumb_toolname "drcachesim")
         set(tool.drcachesim.thumb_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2416,7 +2424,7 @@ if (CLIENT_INTERFACE)
         # allasm_arm test
         torunonly_ci(tool.drcachesim.arm common.allasm_arm drcachesim
           "allasm-arm.c" # for expect basename
-          "-ipc_name drtestpipe_arm" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_arm" "" "")
         set(tool.drcachesim.arm_toolname "drcachesim")
         set(tool.drcachesim.arm_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2426,7 +2434,7 @@ if (CLIENT_INTERFACE)
       if (AARCH64)
         torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
           "allasm-aarch64-cache.c" # for expect basename
-          "-ipc_name drtestpipe_aarch64" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64" "" "")
         set(tool.drcachesim.aarch64_toolname "drcachesim")
         set(tool.drcachesim.aarch64_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2442,7 +2450,7 @@ if (CLIENT_INTERFACE)
         get_target_path_for_execution(tool.multiproc_path tool.multiproc)
         torunonly_ci(tool.drcachesim.multiproc tool.multiproc drcachesim
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c
-          "-ipc_name drtestpipe3" "" "${tool.multiproc_path}")
+          "-ipc_name ${IPC_PREFIX}drtestpipe3" "" "${tool.multiproc_path}")
         set(tool.drcachesim.multiproc_toolname "drcachesim")
         set(tool.drcachesim.multiproc_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2452,14 +2460,14 @@ if (CLIENT_INTERFACE)
       # Test other analysis tools
       torunonly_ci(tool.histogram ${ci_shared_app} drcachesim
         "histogram.c" # for templatex basename
-        "-ipc_name drtestpipe5 -simulator_type histogram -report_top 20" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe5 -simulator_type histogram -report_top 20" "" "")
       set(tool.histogram_toolname "drcachesim")
       set(tool.histogram_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
       torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
         "reuse_distance.c" # for templatex basename
-        "-ipc_name drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
       set(tool.reuse_toolname "drcachesim")
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")

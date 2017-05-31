@@ -43,10 +43,12 @@ droption_t<bool> op_offline
  "for later offline analysis.  No simulator is executed.");
 
 droption_t<std::string> op_ipc_name
-(DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Base name of named pipe",
+(DROPTION_SCOPE_ALL, "ipc_name", "drcachesimpipe", "Name of named pipe",
  "For online tracing and simulation (the default, unless -offline is requested), "
- "specifies the base name of the named pipe used to communicate between the target "
- "application processes and the caching device simulator.  A unique name must be chosen "
+ "specifies the name of the named pipe used to communicate between the target "
+ "application processes and the caching device simulator.  On Linux this can include "
+ "an absolute path (if it doesn't, a default temp directory "
+ "will be used).  A unique name must be chosen "
  "for each instance of the simulator being run at any one time.  On Windows, the name "
  "is limited to 247 characters.");
 
