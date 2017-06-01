@@ -520,7 +520,7 @@ raw2trace_t::merge_and_process_thread_files()
             VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
             size += instru.append_iflush(buf, in_entry.addr.addr,
-                                         entry.addr.addr - in_entry.addr.addr);
+                                         (size_t)(entry.addr.addr - in_entry.addr.addr));
             buf += size;
         } else
             FATAL_ERROR("Unknown trace type %d", (int)in_entry.timestamp.type);
