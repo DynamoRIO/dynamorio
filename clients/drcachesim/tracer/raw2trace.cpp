@@ -512,6 +512,16 @@ raw2trace_t::merge_and_process_thread_files()
             VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
             size += instru.append_pid(buf, in_entry.pid.pid);
             buf += size;
+        } else if (in_entry.addr.type == OFFLINE_TYPE_IFLUSH) {
+            offline_entry_t entry;
+            if (!thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+                entry.addr.type != OFFLINE_TYPE_IFLUSH)
+                FATAL_ERROR("Flush missing 2nd entry");
+            VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
+                   (ptr_uint_t)entry.addr.addr);
+            size += instru.append_iflush(buf, in_entry.addr.addr,
+                                         (size_t)(entry.addr.addr - in_entry.addr.addr));
+            buf += size;
         } else
             FATAL_ERROR("Unknown trace type %d", (int)in_entry.timestamp.type);
         if (size > 0) {
