@@ -291,14 +291,14 @@
  * This platform-independent macro creates an instr_t for an addition
  * instruction that does not affect the status flags and takes two register sources
  * plus a destination, with one source being shifted logically left by
- * an immediate scale that is limited to either 1, 2, 4, or 8.
+ * an immediate amount that is limited to either 0, 1, 2, or 3.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s1  The opnd_t explicit first source operand for the instruction.  This
  * must be a register.
  * \param s2_toshift  The opnd_t explicit source operand for the instruction.  This
  * must be a register.
- * \param shift_amount  An integer value that must be either 1, 2, 4, or 8.
+ * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
  */
 #define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
   INSTR_CREATE_add_shift((dc), (d), (s1), (s2_toshift), \

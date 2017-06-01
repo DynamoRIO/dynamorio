@@ -34,7 +34,7 @@
 OPCODE(insertq_imm, insertq, insertq_imm, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_1),
        IMMARG(OPSZ_1))
 
-XOPCODE(add_sll, lea, add_sll, 0, REGARG(XAX), REGARG(XCX), REGARG(XDX), 8)
+XOPCODE(add_sll, lea, add_sll, 0, REGARG(XAX), REGARG(XCX), REGARG(XDX), 3)
 
 /****************************************************************************/
 /* AVX */
