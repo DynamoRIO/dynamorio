@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -91,6 +91,7 @@ reader_t::operator++()
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
             have_memref = true;
+            assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.data.pid = cur_pid;
             cur_ref.data.tid = cur_tid;
             cur_ref.data.type = (trace_type_t) input_entry->type;
@@ -108,6 +109,7 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_INDIRECT_CALL:
         case TRACE_TYPE_INSTR_RETURN:
             have_memref = true;
+            assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.instr.pid = cur_pid;
             cur_ref.instr.tid = cur_tid;
             cur_ref.instr.type = (trace_type_t) input_entry->type;
@@ -131,6 +133,7 @@ reader_t::operator++()
             break;
         case TRACE_TYPE_INSTR_FLUSH:
         case TRACE_TYPE_DATA_FLUSH:
+            assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.flush.pid = cur_pid;
             cur_ref.flush.tid = cur_tid;
             cur_ref.flush.type = (trace_type_t) input_entry->type;
@@ -146,11 +149,15 @@ reader_t::operator++()
             break;
         case TRACE_TYPE_THREAD:
             cur_tid = (memref_tid_t) input_entry->addr;
+            // tid2pid might not be filled in yet: if so, we expect a
+            // TRACE_TYPE_PID entry right after this one, and later asserts
+            // will complain if it wasn't there.
             cur_pid = tid2pid[cur_tid];
             break;
         case TRACE_TYPE_THREAD_EXIT:
             cur_tid = (memref_tid_t) input_entry->addr;
             cur_pid = tid2pid[cur_tid];
+            assert(cur_tid != 0 && cur_pid != 0);
             // We do pass this to the caller but only some fields are valid:
             cur_ref.exit.pid = cur_pid;
             cur_ref.exit.tid = cur_tid;
@@ -158,8 +165,9 @@ reader_t::operator++()
             have_memref = true;
             break;
         case TRACE_TYPE_PID:
+            cur_pid = (memref_pid_t) input_entry->addr;
             // We do want to replace, in case of tid reuse.
-            tid2pid[cur_tid] = (memref_pid_t) input_entry->addr;
+            tid2pid[cur_tid] = cur_pid;
             break;
         default:
             ERRMSG("Unknown trace entry type %d\n", input_entry->type);

@@ -443,12 +443,18 @@ raw2trace_t::merge_and_process_thread_files()
                    "\n", (uint)tids[next_tidx], times[next_tidx]);
             tidx = next_tidx;
             times[tidx] = 0; // Read from file for this thread's next timestamp.
-            size += instru.append_tid(buf, tids[tidx]);
-            // We have to write this now before we append any bb entries.
-            CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file.write((char*)buf_base, size))
-                FATAL_ERROR("Failed to write to output file");
-            buf = buf_base;
+            if (tids[tidx] != INVALID_THREAD_ID) {
+                // The initial read from a file may not have seen its tid entry
+                // yet.  We expect to hit that entry next.
+                size += instru.append_tid(buf, tids[tidx]);
+            }
+            if (size > 0) {
+                // We have to write this now before we append any bb entries.
+                CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
+                if (!out_file.write((char*)buf_base, size))
+                    FATAL_ERROR("Failed to write to output file");
+                buf = buf_base;
+            }
             size = 0;
         }
         VPRINT(4, "About to read thread %d at pos %d\n",
