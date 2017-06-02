@@ -767,6 +767,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     drvector_t rvec1, rvec2;
     bool is_memref;
 
+    if (op_L0_filter.get_value() && ud->repstr &&
+        drmgr_is_first_instr(drcontext, instr)) {
+        // XXX: the control flow added for repstr ends up jumping over the
+        // aflags spill for the memref, yet it hits the lazily-delayed aflags
+        // restore.  We don't have a great solution (repstr violates drreg's
+        // symmetric-paths requirement) so we work around it by forcing a
+        // spill up front before the internal jump.
+        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve aflags\n");
+        if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+                FATAL("Fatal error: failed to reserve aflags\n");
+    }
+
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
           * XXX: the expansion means our instr fetch trace is not perfect,
@@ -841,22 +854,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     drvector_delete(&rvec1);
     drvector_delete(&rvec2);
 
-    if (op_L0_filter.get_value()) {
-        if (ud->repstr) {
-            // XXX: the control flow added for repstr ends up jumping over the
-            // aflags spill for the memref, yet it hits the lazily-delayed aflags
-            // restore.  We don't have a great solution (repstr violates drreg's
-            // symmetric-paths requirement) so we work around it by forcing a
-            // spill up front before the internal jump.
-            if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-                FATAL("Fatal error: failed to reserve aflags\n");
-            if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-                FATAL("Fatal error: failed to reserve aflags\n");
-        }
-    } else {
-        /* load buf ptr into reg_ptr, unless we're filtering */
+    /* load buf ptr into reg_ptr, unless we're filtering */
+    if (!op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
-    }
 
     if (ud->num_delay_instrs != 0) {
         adjust = instrument_delay_instrs(drcontext, tag, bb, ud, instr,
