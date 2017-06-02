@@ -56,6 +56,8 @@ analyzer_multi_t::analyzer_multi_t()
         success = false;
         return;
     }
+    //NOCHECKIN either accum indir (what about spaces in paths??), or
+    // have test merge the two dirs (and assume modules.logs are identical)
     if (!op_indir.get_value().empty()) {
         // XXX: better to put in app name + pid, or rely on staying inside subdir?
         std::string tracefile = op_indir.get_value() + std::string(DIRSEP) +

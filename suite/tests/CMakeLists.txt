@@ -2495,10 +2495,10 @@ if (CLIENT_INTERFACE)
       get_target_path_for_execution(drcachesim_path drcachesim)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      macro (torunonly_drcacheoff testname exetgt)
+      macro (torunonly_drcacheoff testname exetgt app_args)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline" "" "")
+          "-offline" "" "${app_args}")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2513,28 +2513,36 @@ if (CLIENT_INTERFACE)
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
-      torunonly_drcacheoff(simple ${ci_shared_app})
+      torunonly_drcacheoff(simple ${ci_shared_app} "")
+
+      if (UNIX) # Enable on Windows once i#1727 is fixed.
+        # FIXME i#2384: we need to combine the subdir from the child with the
+        # parent in some way and update the templatex file to include both.
+        # Right now we're only ensuring this doesn't crash and that one of
+        # the processes produced traces.
+        torunonly_drcacheoff(multiproc tool.multiproc "${tool.multiproc_path}")
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "")
         set(tool.drcacheoff.burst_static_nodr ON)
 
-        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "")
         set(tool.drcacheoff.burst_replace_nodr ON)
 
-        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall)
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
-          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client)
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "")
           set(tool.drcacheoff.burst_client_nodr ON)
         endif ()
       endif ()
