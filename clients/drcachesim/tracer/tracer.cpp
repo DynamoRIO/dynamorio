@@ -963,6 +963,7 @@ init_offline_dir(void)
     return (module_file != INVALID_FILE);
 }
 
+#ifdef UNIX
 static void
 fork_init(void *drcontext)
 {
@@ -983,6 +984,7 @@ fork_init(void *drcontext)
     }
     init_thread_in_process(drcontext);
 }
+#endif
 
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
  * drmemtrace client by calling drmemtrace_client_main in a statically linked
@@ -1057,7 +1059,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
     /* register events */
     dr_register_exit_event(event_exit);
+#ifdef UNIX
     dr_register_fork_init_event(fork_init);
+#endif
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_pre_syscall_event(event_pre_syscall) ||
