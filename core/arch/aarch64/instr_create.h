@@ -364,10 +364,13 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-/* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available! */
+/* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
+ * Also, what about writing the flags?  Most users don't want to read the flag results,
+ * they just need to know whether they need to preserve the app's flags, so maybe
+ * we can just document that this may not write them.
+ */
 #define XINST_CREATE_slr_s(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_lsr, (d), (d), (s), \
-                         OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+  instr_create_1dst_2src((dc), OP_lsrv, (d), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
