@@ -768,24 +768,15 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+/* Initializes a thread either at process init or fork init, where we want
+ * a new offline file or a new thread,process registration pair for online.
+ */
 static void
-event_thread_init(void *drcontext)
+init_thread_in_process(void *drcontext)
 {
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     char buf[MAXIMUM_PATH];
     byte *proc_info;
-    per_thread_t *data = (per_thread_t *)
-        dr_thread_alloc(drcontext, sizeof(per_thread_t));
-    DR_ASSERT(data != NULL);
-    memset(data, 0, sizeof(*data));
-    drmgr_set_tls_field(drcontext, tls_idx, data);
-
-    /* Keep seg_base in a per-thread data structure so we can get the TLS
-     * slot and find where the pointer points to in the buffer.
-     */
-    data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
-    DR_ASSERT(data->seg_base != NULL);
-    create_buffer(data);
-
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
          * Since we're now in a subdir we could make the name simpler but this
@@ -835,6 +826,27 @@ event_thread_init(void *drcontext)
         /* put buf_base to TLS plus header slots as starting buf_ptr */
         BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     }
+
+    // XXX i#1729: gather and store an initial callstack for the thread.
+}
+
+static void
+event_thread_init(void *drcontext)
+{
+    per_thread_t *data = (per_thread_t *)
+        dr_thread_alloc(drcontext, sizeof(per_thread_t));
+    DR_ASSERT(data != NULL);
+    memset(data, 0, sizeof(*data));
+    drmgr_set_tls_field(drcontext, tls_idx, data);
+
+    /* Keep seg_base in a per-thread data structure so we can get the TLS
+     * slot and find where the pointer points to in the buffer.
+     */
+    data->seg_base = (byte *) dr_get_dr_segment_base(tls_seg);
+    DR_ASSERT(data->seg_base != NULL);
+    create_buffer(data);
+
+    init_thread_in_process(drcontext);
 
     // XXX i#1729: gather and store an initial callstack for the thread.
 }
@@ -951,6 +963,29 @@ init_offline_dir(void)
     return (module_file != INVALID_FILE);
 }
 
+#ifdef UNIX
+static void
+fork_init(void *drcontext)
+{
+    /* We use DR_FILE_CLOSE_ON_FORK, and we dumped outstanding data prior to the
+     * fork syscall, so we just need to create a new subdir, new module log, and
+     * a new initial thread file for offline, or register the new process for
+     * online.
+     */
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    /* Only count refs in the new process (plus, we use this to set up the
+     * initial header in memtrace() for offline).
+     */
+    data->num_refs = 0;
+    if (op_offline.get_value()) {
+        if (!init_offline_dir()) {
+            FATAL("Failed to create a subdir in %s\n", op_outdir.get_value().c_str());
+        }
+    }
+    init_thread_in_process(drcontext);
+}
+#endif
+
 /* We export drmemtrace_client_main so that a global dr_client_main can initialize
  * drmemtrace client by calling drmemtrace_client_main in a statically linked
  * multi-client executable.
@@ -1024,6 +1059,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 
     /* register events */
     dr_register_exit_event(event_exit);
+#ifdef UNIX
+    dr_register_fork_init_event(fork_init);
+#endif
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_pre_syscall_event(event_pre_syscall) ||
