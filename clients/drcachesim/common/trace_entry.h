@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -204,6 +204,7 @@ typedef enum {
 typedef enum {
     // The initial entry in the file.  The value field holds the version.
     OFFLINE_EXT_TYPE_HEADER,
+    // The final entry in the file.  The value field is 0.
     OFFLINE_EXT_TYPE_FOOTER,
 } offline_ext_type_t;
 
