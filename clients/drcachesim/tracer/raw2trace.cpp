@@ -337,7 +337,11 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         // L0 filtering adds a PC entry with a count of 0 prior to each memref.
         skip_icache = true;
         instr_count = 1;
+        // We set a flag to avoid peeking forward on instr entries.
+        if (!instrs_are_separate)
+            instrs_are_separate = true;
     }
+    CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
     instr_init(dcontext, &instr);
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
@@ -377,11 +381,12 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
             VPRINT(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
         decode_pc = pc;
         // We need to interleave instrs with memrefs.
-        if (instr_reads_memory(&instr) || instr_writes_memory(&instr)) { // Check OP_lea.
+        // There is no following memref for (instrs_are_separate && !skip_icache).
+        if ((!instrs_are_separate || skip_icache) &&
+            // Rule out OP_lea.
+            (instr_reads_memory(&instr) || instr_writes_memory(&instr))) {
             for (int i = 0; i < instr_num_srcs(&instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(&instr, i))) {
-//NOCHECKIN -L0_filter will peek and bail every time!  can we indicate in some way?
-// If we ever see a count-0 entry we set a global flag?
                     buf = append_memref(buf, tidx, &instr, instr_get_src(&instr, i),
                                         false);
                 }
@@ -568,7 +573,8 @@ raw2trace_t::do_conversion()
 }
 
 raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)
-    : indir(indir_in), outname(outname_in)
+    : indir(indir_in), outname(outname_in), prev_instr_was_rep_string(false),
+      instrs_are_separate(false)
 {
     // Support passing both base dir and raw/ subdir.
     if (indir.find(OUTFILE_SUBDIR) == std::string::npos)

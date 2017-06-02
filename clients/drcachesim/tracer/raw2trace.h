@@ -81,6 +81,9 @@ private:
     std::vector<std::ifstream*> thread_files;
     void *dcontext;
     bool prev_instr_was_rep_string;
+    // This indicates that each memref has its own PC entry and that each
+    // icache entry does not need to be considered a memref PC entry as well.
+    bool instrs_are_separate;
 };
 
 #endif /* _RAW2TRACE_H_ */
