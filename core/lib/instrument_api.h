@@ -5975,6 +5975,20 @@ DR_API
 void
 dr_switch_to_dr_state_ex(void *drcontext, dr_state_flags_t flags);
 
+DR_API
+/**
+ * Intended to be called between dr_app_setup() and dr_app_start() to
+ * pre-create code cache fragments for each basic block address in the
+ * \p tags array.  This speeds up the subsequent attach when
+ * dr_app_start() is called.
+ * If any code in the passed-in tags array is not readable, it is up to the
+ * caller to handle any fault, as DR's own signal handlers are not enabled
+ * at this point.
+ * Returns whether successful.
+ */
+bool
+dr_prepopulate_cache(app_pc *tags, size_t tags_count);
+
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
 
