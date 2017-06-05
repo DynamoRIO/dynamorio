@@ -129,7 +129,7 @@ foreach fname [getSourceFileNames] {
         }
         set line_start "#$spaces$token_string*"
         if {![string match $line_start $line]} {
-            report $fname $nline "Wrong indentation for macro, current indentation level is \
+            report $fname $nline "Wrong indentation for macro, current indentation level is\
                                   $num_if and line should start with '$line_start'"
         }
         if {$token_type == "pp_if" || $token_type == "pp_ifdef" || $token_type == "pp_ifndef"} {
