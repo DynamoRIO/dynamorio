@@ -2532,6 +2532,8 @@ if (CLIENT_INTERFACE)
       endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "")
+      # We're using the same app so we serialize to avoid racing trace dirs:
+      set(tool.drcacheoff.filter_depends tool.drcacheoff.simple)
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
