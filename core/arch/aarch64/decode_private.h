@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,11 +30,11 @@
  * DAMAGE.
  */
 
-#ifndef DECODE_PRIVATE_H
-#define DECODE_PRIVATE_H 1
+#ifndef DECODE_PRIVATE_H_
+#define DECODE_PRIVATE_H_ 1
 
 struct _decode_info_t {
     int XXX;
 };
 
-#endif /* DECODE_PRIVATE_H */
+#endif /* DECODE_PRIVATE_H_ */

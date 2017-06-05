@@ -37,8 +37,8 @@
 
 /* file "decode_private.h" */
 
-#ifndef DECODE_PRIVATE_H
-#define DECODE_PRIVATE_H
+#ifndef DECODE_PRIVATE_H_
+#define DECODE_PRIVATE_H_
 
 
 /* Non-public prefix constants.
@@ -476,4 +476,4 @@ extern const instr_info_t xop_extensions[];
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr[];
 
-#endif /* DECODE_PRIVATE_H */
+#endif /* DECODE_PRIVATE_H_ */

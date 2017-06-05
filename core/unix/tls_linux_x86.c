@@ -108,8 +108,8 @@ static bool on_WSL;
 bool return_stolen_lib_tls_gdt;
 
 #ifdef DEBUG
-#  define GDT_32BIT  8 /*  6=NPTL, 7=wine */
-#  define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+# define GDT_32BIT  8 /*  6=NPTL, 7=wine */
+# define GDT_64BIT 14 /* 12=NPTL, 13=wine */
 #endif
 
 static int

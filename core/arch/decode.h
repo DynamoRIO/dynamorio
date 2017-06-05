@@ -37,8 +37,8 @@
 
 /* file "decode.h" */
 
-#ifndef DECODE_H
-#define DECODE_H
+#ifndef DECODE_H_
+#define DECODE_H_
 
 
 /* Public prefix constants.  decode_private.h may define additional constants
@@ -648,4 +648,4 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc);
 extern const char * const type_names[];
 extern const char * const size_names[];
 
-#endif /* DECODE_H */
+#endif /* DECODE_H_ */

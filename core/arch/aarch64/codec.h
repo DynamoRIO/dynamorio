@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-#ifndef CODEC_H
-#define CODEC_H 1
+#ifndef CODEC_H_
+#define CODEC_H_ 1
 
 #define ENCFAIL (uint)0 /* a value that is not a valid instruction */
 

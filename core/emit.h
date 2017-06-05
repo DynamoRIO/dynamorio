@@ -69,10 +69,10 @@ fragment_t *
 emit_fragment_as_replacement(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
                              uint flags, void *vmlist, fragment_t *replace);
 
-# ifdef INTERNAL
+#ifdef INTERNAL
 void stress_test_recreate(dcontext_t *dcontext, fragment_t *f,
                           instrlist_t *ilist);
-# endif
+#endif
 
 bool
 final_exit_shares_prev_stub(dcontext_t *dcontext, instrlist_t *ilist, uint frag_flags);

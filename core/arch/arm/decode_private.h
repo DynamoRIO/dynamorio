@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 ARM Ltd.  All rights reserved.
  * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,8 +33,8 @@
 
 /* file "decode_private.h" */
 
-#ifndef DECODE_PRIVATE_H
-#define DECODE_PRIVATE_H
+#ifndef DECODE_PRIVATE_H_
+#define DECODE_PRIVATE_H_
 
 
 /* instr_info_t.type special codes: */
@@ -677,4 +678,4 @@ it_block_instr_predicate(it_block_info_t info, uint index)
              info.firstcond : (info.firstcond ^ 0x1)));
 }
 
-#endif /* DECODE_PRIVATE_H */
+#endif /* DECODE_PRIVATE_H_ */

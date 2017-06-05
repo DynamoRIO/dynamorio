@@ -2198,7 +2198,7 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
      *   .reload bbcount.dll=74ad0000;.echo "Loaded bbcount.dll";
      *
      */
-#define WINDBG_ADD_PATH ".block{.sympath+ "
+# define WINDBG_ADD_PATH ".block{.sympath+ "
     if (*sofar + strlen(WINDBG_ADD_PATH) + (last_dir - path) < WINDBG_CMD_MAX_LEN) {
         res = _snprintf(marker->windbg_cmds + *sofar,
                         strlen(WINDBG_ADD_PATH) + last_dir - path,

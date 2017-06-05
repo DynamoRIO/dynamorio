@@ -10,8 +10,8 @@
  ****************************************************************************
  ****************************************************************************/
 
-#ifndef _SIGNALFD_H
-#define _SIGNALFD_H
+#ifndef _SIGNALFD_H_
+#define _SIGNALFD_H_
 
 #include <unistd.h> /* needed for Ubuntu 10.04: i#1282 */
 #include <linux/types.h>
@@ -51,4 +51,4 @@ struct signalfd_siginfo {
         __u8 __pad[46];
 };
 
-#endif /* _SIGNALFD_H */
+#endif /* _SIGNALFD_H_ */

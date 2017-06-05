@@ -59,9 +59,9 @@
 #include <string.h>
 
 #if VERBOSE
-#define pf(fmt, args...) printf(fmt , ## args)
+# define pf(fmt, args...) printf(fmt , ## args)
 #else
-#define pf(...) /* C99 requires ... to mean at least one argument */
+# define pf(...) /* C99 requires ... to mean at least one argument */
 #endif /* VERBOSE */
 
 #if START_DYNAMO
@@ -98,7 +98,7 @@ take_over(const char *pname)
     char *plist;
     const char *runstr;
     bool app_specific, from_env, rununder_on;
-# ifdef INTERNAL
+#ifdef INTERNAL
     /* HACK just for our benchmark scripts:
      * do not take over a process whose executable is named "texec"
      */
@@ -106,7 +106,7 @@ take_over(const char *pname)
         pf("running texec, NOT taking over!\n");
         return false;
     }
-# endif
+#endif
 
     /* Guard against "" pname because strstr will return plist if so! */
     if (pname[0] == '\0')

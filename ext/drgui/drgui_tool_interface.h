@@ -41,8 +41,8 @@
 #include <QtPlugin>
 #include <QFile>
 
-#ifndef DRGUI_TOOL_INTERFACE_H
-#define DRGUI_TOOL_INTERFACE_H
+#ifndef DRGUI_TOOL_INTERFACE_H_
+#define DRGUI_TOOL_INTERFACE_H_
 
 #include "drgui_options_interface.h"
 

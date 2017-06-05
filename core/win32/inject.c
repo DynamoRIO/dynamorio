@@ -92,10 +92,10 @@ inject_init()
     ASSERT(addr_getprocaddr != 0);
     addr_loadlibrarya = (ptr_uint_t) GET_PROC_ADDR(kern32, "LoadLibraryA");
     ASSERT(addr_loadlibrarya != 0);
-# ifdef LOAD_DYNAMO_DEBUGBREAK
+#ifdef LOAD_DYNAMO_DEBUGBREAK
     addr_debugbreak = (ptr_uint_t) GET_PROC_ADDR(kern32, "DebugBreak");
     ASSERT(addr_debugbreak != NULL);
-# endif
+#endif
     inject_initialized = true;
 }
 

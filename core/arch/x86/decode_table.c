@@ -1452,7 +1452,7 @@ const instr_info_t * const op_instr[] =
 #define cF  TYPE_FLOATCONST, OPSZ_0
 
 #ifdef IA32_ON_IA64
-#define Av TYPE_A, OPSZ_4_short2
+# define Av TYPE_A, OPSZ_4_short2
 #endif
 
 /* registers that are base 32 but vary down or up */

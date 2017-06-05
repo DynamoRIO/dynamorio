@@ -36,7 +36,7 @@
  */
 
 #ifdef __CLASS__
-#  undef __CLASS__
+# undef __CLASS__
 #endif
 #define __CLASS__ "drgui_main_window_t::"
 

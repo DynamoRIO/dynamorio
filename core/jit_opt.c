@@ -604,7 +604,7 @@ jitopt_clear_span(app_pc start, app_pc end)
  * Fragment Tree Unit Test
  */
 
-#define FRAGMENT_TREE_TEST_NODE_COUNT 0x900
+# define FRAGMENT_TREE_TEST_NODE_COUNT 0x900
 
 static void
 unit_test_find_node_in_list(bb_node_t **node_list, bb_node_t *lookup, uint list_length)

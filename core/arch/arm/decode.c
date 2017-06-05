@@ -3041,7 +3041,7 @@ decode_check_opnds(int src_type[], uint num_srcs, int dst_type[], uint num_dsts)
 static void
 check_ISA(dr_isa_mode_t isa_mode)
 {
-#   define MAX_TYPES 8
+# define MAX_TYPES 8
     DOCHECK(2, {
         uint opc;
         uint i;

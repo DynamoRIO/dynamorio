@@ -554,11 +554,11 @@ drx_buf_insert_buf_store_4bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
     if (!opnd_is_reg(opnd) && !opnd_is_immed(opnd))
         return false;
     if (opnd_is_immed(opnd)) {
-#ifdef X86_64
+# ifdef X86_64
         instr = XINST_CREATE_store
             (drcontext,
              OPND_CREATE_MEM32(buf_ptr, offset), opnd);
-#elif defined(AARCH64)
+# elif defined(AARCH64)
         /* this will certainly not fault, so don't set a translation */
         instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(opnd),
                                          opnd_create_reg(scratch),
@@ -567,7 +567,7 @@ drx_buf_insert_buf_store_4bytes(void *drcontext, drx_buf_t *buf, instrlist_t *il
             (drcontext,
              OPND_CREATE_MEM32(buf_ptr, offset),
              opnd_create_reg(scratch));
-#endif
+# endif
     } else {
         instr = XINST_CREATE_store
             (drcontext,
@@ -670,9 +670,9 @@ insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
                  opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
         break;
     case OPSZ_4:
-#if defined(X86_64) || defined(AARCH64)
+# if defined(X86_64) || defined(AARCH64)
     case OPSZ_8:
-#endif
+# endif
         MINSERT(ilist, where, XINST_CREATE_load
                 (drcontext,
                  opnd_create_reg(reg_resize_to_opsz(dst, opsz)),

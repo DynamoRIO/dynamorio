@@ -274,7 +274,7 @@ typedef struct _post_call_entry_t {
      * retaddr check causes another flush.
      * Xref DrMemi#673, DRi#409, DrMemi#114, DrMemi#260.
      */
-# define POST_CALL_PRIOR_BYTES_STORED 6 /* max normal call size */
+#define POST_CALL_PRIOR_BYTES_STORED 6 /* max normal call size */
     byte prior[POST_CALL_PRIOR_BYTES_STORED];
 } post_call_entry_t;
 
@@ -665,7 +665,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
         default: return drwrap_stack_arg_addr(wrapcxt, arg, 4,
                                               1/*retaddr*/ + 4/*reserved*/);
         }
-#endif
+# endif
     case DRWRAP_CALLCONV_CDECL:
         return drwrap_stack_arg_addr(wrapcxt, arg, 0, 1/*retaddr*/);
     case DRWRAP_CALLCONV_FASTCALL:

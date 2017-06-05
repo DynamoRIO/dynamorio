@@ -34,8 +34,8 @@
  * have to include dwarf.h everywhere
  */
 
-#ifndef DRSYMS_ARCH_H
-#define DRSYMS_ARCH_H
+#ifndef DRSYMS_ARCH_H_
+#define DRSYMS_ARCH_H_
 
 #include "drsyms.h"
 #include "dwarf.h"
@@ -123,4 +123,4 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
 drsym_error_t
 drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);
 
-#endif /* DRSYMS_ARCH_H */
+#endif /* DRSYMS_ARCH_H_ */

@@ -32,8 +32,8 @@
 
 /* file "clean_call_opt.h" - arch-specific clean call optimisation */
 
-#ifndef _CLEAN_CALL_OPT_
-#define _CLEAN_CALL_OPT_ 1
+#ifndef _CLEAN_CALL_OPT_H_
+#define _CLEAN_CALL_OPT_H_ 1
 
 /****************************************************************************
  * Functions provided by clean_call_opt_shared.c.
@@ -81,4 +81,4 @@ void
 insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
                         instrlist_t *ilist, instr_t *where, opnd_t *args);
 
-#endif /* _CLEAN_CALL_OPT_ */
+#endif /* _CLEAN_CALL_OPT_H_ */

@@ -37,8 +37,8 @@
 
 /* file "decode_fast.h" */
 
-#ifndef DECODE_FAST_H
-#define DECODE_FAST_H
+#ifndef DECODE_FAST_H_
+#define DECODE_FAST_H_
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 DR_API
@@ -121,4 +121,4 @@ byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
 
-#endif /* DECODE_FAST_H */
+#endif /* DECODE_FAST_H_ */

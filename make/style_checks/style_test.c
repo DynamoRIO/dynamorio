@@ -59,3 +59,10 @@ static int CamelCase(int id) {
     foo   ("too many spaces");
     return val;
 }
+
+# define FOO 1
+#if FOO
+# define FOO 1
+# else
+#undef FOO
+ #endif

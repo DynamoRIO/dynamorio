@@ -1339,9 +1339,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
 #ifdef INTERNAL
     if (dynamo_options.optimize
-#  ifdef SIDELINE
+# ifdef SIDELINE
         && !dynamo_options.sideline
-#  endif
+# endif
         ) {
         optimize_trace(dcontext, tag, trace);
         externally_mangled = true;

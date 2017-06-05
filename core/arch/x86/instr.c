@@ -630,7 +630,7 @@ instr_is_wow64_syscall(instr_t *instr)
          * (might be tricky b/c we'd have to decode 64-bit code), or changing
          * the return addr?
          */
-#ifdef DEBUG
+#  ifdef DEBUG
         /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
             0x64,0x8b,0x15,0x30,0x00,0x00,0x00,  /* mov edx,dword ptr fs:[30h] */
@@ -641,7 +641,7 @@ instr_is_wow64_syscall(instr_t *instr)
             0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
-#endif
+#  endif
         if (instr_get_opcode(instr) != OP_call_ind)
             return false;
         tgt = instr_get_target(instr);

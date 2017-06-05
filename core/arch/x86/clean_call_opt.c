@@ -52,8 +52,8 @@
  * we mark everything we add as a meta-instr to avoid hitting
  * client asserts on setting translation fields
  */
-#define POST instrlist_meta_postinsert
-#define PRE  instrlist_meta_preinsert
+# define POST instrlist_meta_postinsert
+# define PRE  instrlist_meta_preinsert
 
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
@@ -785,7 +785,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
         insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
     }
 
-#ifndef X64
+# ifndef X64
     ASSERT(!cci->reg_skip[0]);
     /* Move xax to the scratch slot of the local.  We only allow at most one
      * local stack access, so the callee either does not use the argument, or
@@ -797,7 +797,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, where, INSTR_CREATE_mov_st
         (dcontext, callee_info_slot_opnd(ci, SLOT_LOCAL, 0),
          opnd_create_reg(DR_REG_XAX)));
-#endif
+# endif
 }
 
 #endif /* CLIENT_INTERFACE */

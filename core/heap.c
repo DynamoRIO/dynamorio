@@ -680,7 +680,7 @@ vmm_dump_map(vm_heap_t *vmh)
     });
 
     LOG(GLOBAL, LOG_HEAP, 1, "\nvmm_dump_map("PFX") virtual regions\n", vmh);
-#define VMM_DUMP_MAP_LOG(i, last_i)                                                     \
+# define VMM_DUMP_MAP_LOG(i, last_i)                                                     \
     LOG(GLOBAL, LOG_HEAP, 1, PFX"-"PFX" size=%d %s\n", vmm_block_to_addr(vmh, last_i),  \
         vmm_block_to_addr(vmh, i-1) + DYNAMO_OPTION(vmm_block_size) - 1,                \
         (i-last_i)*DYNAMO_OPTION(vmm_block_size),                                       \
@@ -2964,7 +2964,7 @@ threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size)
 }
 
 #ifdef HEAP_ACCOUNTING
-#define MAX_5_DIGIT 99999
+# define MAX_5_DIGIT 99999
 static void
 print_tu_heap_statistics(thread_units_t *tu, file_t logfile, const char *prefix)
 {
@@ -4856,7 +4856,7 @@ alloc_landing_pad(app_pc addr_to_hook)
                                   (void *)ALIGN_FORWARD(addr_to_hook,
                                                         LANDING_PAD_AREA_SIZE),
                                   LANDING_PAD_AREA_SIZE, &heap_error, true/*+x*/);
-#ifdef WINDOWS
+# ifdef WINDOWS
             if (lpad_area_start == NULL &&
                 /* We can only do this once w/ current interface.
                  * XXX: support multiple "allocs" inside libs.
@@ -4878,7 +4878,7 @@ alloc_landing_pad(app_pc addr_to_hook)
                 } else
                     lpad_area_start = NULL; /* not big enough */
             }
-#endif
+# endif
             if (lpad_area_start == NULL) {
                 /* Even at startup when there will be enough memory,
                  * theoretically 2 GB of dlls might get packed together before
@@ -4972,12 +4972,12 @@ landing_pads_to_executable_areas(bool add)
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-#ifdef WINDOWS
+# ifdef WINDOWS
     if (add && lpad_temp_writable_start != NULL) {
         make_unhookable(lpad_temp_writable_start, lpad_temp_writable_size, true);
         lpad_temp_writable_start = NULL;
     }
-#endif
+# endif
 
     /* With code cache, there should be only one landing pad area, just for
      * dr hooks in ntdll.  For 64-bit, the image entry hook will result in a

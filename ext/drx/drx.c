@@ -229,7 +229,7 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                      bool save_reg, bool save_oflag,
                      dr_spill_slot_t slot, reg_id_t reg)
 {
-#ifdef X86
+# ifdef X86
     instr_t *instr;
     /* save %eax if necessary */
     if (save_reg) {
@@ -254,7 +254,7 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr = INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL));
         MINSERT(ilist, where, instr);
     }
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     if (save_reg) {
         ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
@@ -264,7 +264,7 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     MINSERT(ilist, where, INSTR_CREATE_msr
             (drcontext, opnd_create_reg(DR_REG_CPSR), OPND_CREATE_INT_MSR_NZCVQG(),
              opnd_create_reg(reg)));
-#endif
+# endif
 }
 
 /* Insert arithmetic flags restore code with more control.
@@ -287,7 +287,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr_t *instr;
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
-#ifdef X86
+# ifdef X86
     if (restore_oflag) {
         /* add 0x7f, %al */
         instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_AL),
@@ -313,7 +313,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
             dr_restore_reg(drcontext, ilist, where, DR_REG_XAX, slot);
         }
     }
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     instr = INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg),
                              opnd_create_reg(DR_REG_CPSR));
@@ -324,7 +324,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                "wrong spill slot");
         dr_restore_reg(drcontext, ilist, where, reg, slot);
     }
-#endif
+# endif
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
 }
@@ -618,7 +618,7 @@ static int sysnum_Close;
 static int sysnum_DuplicateObject;
 
 /* Table of job handles for which the app set JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE */
-#define JOB_TABLE_HASH_BITS 6
+# define JOB_TABLE_HASH_BITS 6
 static hashtable_t job_table;
 
 /* Entry in job_table.  If it is present in the table, it should only be
@@ -653,12 +653,12 @@ typedef struct _cls_soft_t {
  */
 
 typedef LONG NTSTATUS;
-#define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
+# define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
 
 /* Since we invoke only in a client/privlib context, we can statically link
  * with ntdll to call these syscall wrappers:
  */
-#define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
+# define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
 GET_NTDLL(NtQueryInformationJobObject, (IN HANDLE JobHandle,
                                         IN JOBOBJECTINFOCLASS JobInformationClass,
@@ -666,9 +666,9 @@ GET_NTDLL(NtQueryInformationJobObject, (IN HANDLE JobHandle,
                                         IN ULONG JobInformationLength,
                                         OUT PULONG ReturnLength OPTIONAL));
 
-#define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005L)
+# define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005L)
 
-#define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
+# define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
 
 typedef LONG KPRIORITY;
 

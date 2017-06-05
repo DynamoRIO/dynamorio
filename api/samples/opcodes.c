@@ -135,15 +135,15 @@ compare_counts(const void *a_in, const void *b_in)
 static const char *
 get_isa_mode_name(uint isa_mode)
 {
-#ifdef X86
+# ifdef X86
     return (isa_mode == ISA_X86_32) ? "32-bit X86" : "64-bit AMD64";
-#elif defined(ARM)
+# elif defined(ARM)
     return (isa_mode == ISA_ARM_A32) ? "32-bit ARM" : "32-bit Thumb";
-#elif defined(AARCH64)
+# elif defined(AARCH64)
     return "64-bit AArch64";
-#else
+# else
     return "unknown";
-#endif
+# endif
 }
 #endif
 

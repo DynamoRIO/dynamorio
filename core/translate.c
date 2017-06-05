@@ -1438,7 +1438,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
      * final entry for the inserted jmp, have recreate_ know about it and cut
      * in half the typical storage reqts.
      */
-#   define NUM_INITIAL_TRANSLATIONS 2
+#define NUM_INITIAL_TRANSLATIONS 2
     num_entries = NUM_INITIAL_TRANSLATIONS;
     entries = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, translation_entry_t,
                                NUM_INITIAL_TRANSLATIONS, ACCT_OTHER, PROTECTED);

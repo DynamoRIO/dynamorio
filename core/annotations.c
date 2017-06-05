@@ -40,14 +40,14 @@
 
 #ifdef ANNOTATIONS /* around whole file */
 
-#if !(defined(WINDOWS) && defined(X64))
-# include "../third_party/valgrind/valgrind.h"
-# include "../third_party/valgrind/memcheck.h"
-#endif
+# if !(defined(WINDOWS) && defined(X64))
+#  include "../third_party/valgrind/valgrind.h"
+#  include "../third_party/valgrind/memcheck.h"
+# endif
 
-#ifdef UNIX
-# include <string.h>
-#endif
+# ifdef UNIX
+#  include <string.h>
+# endif
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.
  *
@@ -65,91 +65,91 @@
  *                                                 could encode the offset of the label's
  *                                                 GOT entry within the GOT table.
  */
-#ifdef WINDOWS
-# ifdef X64
-#  define IS_ANNOTATION_LABEL_INSTR(instr) \
+# ifdef WINDOWS
+#  ifdef X64
+#   define IS_ANNOTATION_LABEL_INSTR(instr) \
         (instr_is_mov(instr) || (instr_get_opcode(instr) == OP_prefetchw))
-#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(opnd)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+#   define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(opnd)
+#   define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+#  else
+#   define IS_ANNOTATION_LABEL_INSTR(instr) instr_is_mov(instr)
+#   define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(opnd)
+#   define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
+#  endif
 # else
 #  define IS_ANNOTATION_LABEL_INSTR(instr) instr_is_mov(instr)
 #  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(opnd)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
-# endif
-#else
-# define IS_ANNOTATION_LABEL_INSTR(instr) instr_is_mov(instr)
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(opnd)
-# ifdef X64
-#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
-# else
-#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
-# endif
-# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
+#  ifdef X64
+#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
+#  else
+#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
+#  endif
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
     ((app_pc) (opnd_get_disp(src) + (instr_pc) + \
                ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
-# define IS_ANNOTATION_LABEL_GOT_OFFSET_INSTR(instr) \
+#  define IS_ANNOTATION_LABEL_GOT_OFFSET_INSTR(instr) \
     (instr_get_opcode(scratch) == OP_bsf || instr_get_opcode(scratch) == OP_bsr)
-# define IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(opnd) opnd_is_base_disp(opnd)
-#endif
+#  define IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(opnd) opnd_is_base_disp(opnd)
+# endif
 
 /* Annotation label components. */
-#define DYNAMORIO_ANNOTATION_LABEL "dynamorio-annotation"
-#define DYNAMORIO_ANNOTATION_LABEL_LENGTH 20
-#define ANNOTATION_STATEMENT_LABEL "statement"
-#define ANNOTATION_STATEMENT_LABEL_LENGTH 9
-#define ANNOTATION_EXPRESSION_LABEL "expression"
-#define ANNOTATION_EXPRESSION_LABEL_LENGTH 10
-#define ANNOTATION_VOID_LABEL "void"
-#define ANNOTATION_VOID_LABEL_LENGTH 4
-#define IS_ANNOTATION_STATEMENT_LABEL(annotation_name) \
+# define DYNAMORIO_ANNOTATION_LABEL "dynamorio-annotation"
+# define DYNAMORIO_ANNOTATION_LABEL_LENGTH 20
+# define ANNOTATION_STATEMENT_LABEL "statement"
+# define ANNOTATION_STATEMENT_LABEL_LENGTH 9
+# define ANNOTATION_EXPRESSION_LABEL "expression"
+# define ANNOTATION_EXPRESSION_LABEL_LENGTH 10
+# define ANNOTATION_VOID_LABEL "void"
+# define ANNOTATION_VOID_LABEL_LENGTH 4
+# define IS_ANNOTATION_STATEMENT_LABEL(annotation_name) \
     (strncmp((const char *) (annotation_name), ANNOTATION_STATEMENT_LABEL, \
              ANNOTATION_STATEMENT_LABEL_LENGTH) == 0)
-#define IS_ANNOTATION_VOID(annotation_name) \
+# define IS_ANNOTATION_VOID(annotation_name) \
     (strncmp((const char *) (annotation_name), ANNOTATION_VOID_LABEL":", \
              ANNOTATION_VOID_LABEL_LENGTH) == 0)
 
 /* Annotation detection factors exclusive to Windows x64. */
-#if defined(WINDOWS) && defined(X64)
+# if defined(WINDOWS) && defined(X64)
 /* Instruction `int 2c` hints that the preceding cbr is probably an annotation head. */
-# define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
-# define X64_WINDOWS_ENCODED_ANNOTATION_HINT 0x2ccd
+#  define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
+#  define X64_WINDOWS_ENCODED_ANNOTATION_HINT 0x2ccd
 /* Instruction `int 3` acts as a boundary for compiler optimizations, to prevent the
  * the annotation from being transformed into something unrecognizable.
  */
-# define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
-# define IS_ANNOTATION_HEADER(scratch, pc) \
+#  define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
+#  define IS_ANNOTATION_HEADER(scratch, pc) \
     (instr_is_cbr(scratch) && (*(ushort *) (pc) == X64_WINDOWS_ENCODED_ANNOTATION_HINT))
-#endif
+# endif
 
 /* OPND_RETURN_VALUE: create the return value operand for `mov $return_value,%xax`. */
-#ifdef X64
-# define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT64(return_value)
-#else
-# define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT32(return_value)
-#endif
+# ifdef X64
+#  define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT64(return_value)
+# else
+#  define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT32(return_value)
+# endif
 
 /* FASTCALL_REGISTER_ARG_COUNT: Specifies the number of arguments passed in registers. */
-#ifdef X64
-# ifdef UNIX
-#  define FASTCALL_REGISTER_ARG_COUNT 6
-# else /* WINDOWS x64 */
-#  define FASTCALL_REGISTER_ARG_COUNT 4
+# ifdef X64
+#  ifdef UNIX
+#   define FASTCALL_REGISTER_ARG_COUNT 6
+#  else /* WINDOWS x64 */
+#   define FASTCALL_REGISTER_ARG_COUNT 4
+#  endif
+# else /* x86 (all) */
+#  define FASTCALL_REGISTER_ARG_COUNT 2
 # endif
-#else /* x86 (all) */
-# define FASTCALL_REGISTER_ARG_COUNT 2
-#endif
 
-#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
+# define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
 
-#define DYNAMORIO_ANNOTATE_LOG_NAME \
+# define DYNAMORIO_ANNOTATE_LOG_NAME \
     "dynamorio_annotate_log"
 
-#define DYNAMORIO_ANNOTATE_LOG_ARG_COUNT 20
+# define DYNAMORIO_ANNOTATE_LOG_ARG_COUNT 20
 
 /* Facilitates timestamp substitution in `dynamorio_annotate_log()`. */
-#define LOG_ANNOTATION_TIMESTAMP_TOKEN "${timestamp}"
-#define LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH 12
+# define LOG_ANNOTATION_TIMESTAMP_TOKEN "${timestamp}"
+# define LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH 12
 
 /* Constant factors of the Valgrind annotation, as defined in valgrind.h. */
 enum {
@@ -190,15 +190,15 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 typedef struct _vg_handlers_t {
     dr_annotation_handler_t *handlers[DR_VG_ID__LAST];
 } vg_handlers_t;
-#endif
+# endif
 
 static strhash_table_t *handlers;
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 /* locked under the `handlers` table lock */
 static vg_handlers_t *vg_handlers;
 
@@ -208,7 +208,7 @@ static vg_handlers_t *vg_handlers;
 static dr_annotation_handler_t vg_router;
 static dr_annotation_receiver_t vg_receiver; /* The sole receiver for `vg_router`. */
 static opnd_t vg_router_arg; /* The sole argument for the clean call to `vg_router`. */
-#endif
+# endif
 
 /* Required for passing the va_list in `dynamorio_annotate_log()` to the log function. */
 extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
@@ -217,7 +217,7 @@ extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
  * INTERNAL ROUTINE DECLARATIONS
  */
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 /* Valgrind dispatcher, called by the instrumentation of the Valgrind annotations. */
 static void
 handle_vg_annotation(app_pc request_args);
@@ -228,7 +228,7 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static ptr_uint_t
 valgrind_running_on_valgrind(dr_vg_client_request_t *request);
-#endif
+# endif
 
 static bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *start_pc, instr_t *scratch,
@@ -243,13 +243,13 @@ static void
 create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type);
 
-#ifdef DEBUG
+# ifdef DEBUG
 /* Implements `dynamorio_annotate_log()`, including substitution of the string literal
  * token "${timestamp}" with the current system time.
  */
 static ssize_t
 annotation_printf(const char *format, ...);
-#endif
+# endif
 
 /* Invoked during hashtable entry removal */
 static void
@@ -268,7 +268,7 @@ annotation_init()
                                    free_annotation_handler
                                    _IF_DEBUG("annotation handler hashtable"));
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
     vg_handlers = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, vg_handlers_t,
                                   ACCT_OTHER, UNPROTECTED);
     memset(vg_handlers, 0, sizeof(vg_handlers_t));
@@ -283,37 +283,37 @@ annotation_init()
     vg_receiver.instrumentation.callback = (void *) (void (*)()) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
-#endif
+# endif
 
     dr_annotation_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                                   (void *) (ptr_uint_t) true);
-#ifdef DEBUG
+# ifdef DEBUG
     /* The logging annotation requires a debug build of DR. Arbitrarily allows up to
      * 20 arguments, since the clean call must have a fixed number of them.
      */
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_LOG_NAME, (void *) annotation_printf,
                                 false, DYNAMORIO_ANNOTATE_LOG_ARG_COUNT,
                                 DR_ANNOTATION_CALL_TYPE_VARARG);
-#endif
+# endif
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
     /* DR pretends to be Valgrind. */
     dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     valgrind_running_on_valgrind);
-#endif
+# endif
 }
 
 void
 annotation_exit()
 {
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
     uint i;
     for (i = 0; i < DR_VG_ID__LAST; i++) {
         if (vg_handlers->handlers[i] != NULL)
             free_annotation_handler(vg_handlers->handlers[i]);
     }
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vg_handlers, vg_handlers_t, ACCT_OTHER, UNPROTECTED);
-#endif
+# endif
 
     strhash_hash_destroy(GLOBAL_DCONTEXT, handlers);
 }
@@ -327,11 +327,11 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
      * It is passed on the stack and its contents are considered void on function entry.
      */
     instr_t scratch;
-#if defined(WINDOWS) && defined(X64)
+# if defined(WINDOWS) && defined(X64)
     app_pc hint_pc = *start_pc;
     bool hint = true;
     byte hint_byte;
-#endif
+# endif
     /* We need to use the passed-in cxt for IR but we need a real one for TRY_EXCEPT. */
     dcontext_t *my_dcontext;
     if (dcontext == GLOBAL_DCONTEXT)
@@ -339,7 +339,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     else
         my_dcontext = dcontext;
 
-#if defined(WINDOWS) && defined(X64)
+# if defined(WINDOWS) && defined(X64)
     if (hint_is_safe) {
         hint_byte = *hint_pc;
     } else {
@@ -351,9 +351,9 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     /* The hint is the first byte of the 2-byte instruction `int 2c`. Skip both bytes. */
     layout.start_pc = hint_pc + INT_LENGTH;
     layout.substitution_xl8 = layout.start_pc;
-#else
+# else
     layout.start_pc = *start_pc;
-#endif
+# endif
 
     instr_init(dcontext, &scratch);
     TRY_EXCEPT(my_dcontext, {
@@ -430,7 +430,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     return (layout.type != ANNOTATION_TYPE_NONE);
 }
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 void
 instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
                                app_pc xchg_pc, app_pc next_pc, uint bb_instr_count)
@@ -488,7 +488,7 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
     instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
     instrlist_append(bb, return_placeholder);
 }
-#endif
+# endif
 
 /*********************************************************
  * ANNOTATION API FUNCTIONS
@@ -543,7 +543,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
     return result;
 }
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 bool
 dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
                                 ptr_uint_t (*annotation_callback)
@@ -575,7 +575,7 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
     TABLE_RWLOCK(handlers, write, unlock);
     return true;
 }
-#endif
+# endif
 
 bool
 dr_annotation_register_return(const char *annotation_name, void *return_value)
@@ -668,7 +668,7 @@ dr_annotation_unregister_return(const char *annotation_name)
     return found;
 }
 
-#if !(defined(WINDOWS) && defined(X64))
+# if !(defined(WINDOWS) && defined(X64))
 bool
 dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
                                   ptr_uint_t (*annotation_callback)
@@ -741,11 +741,11 @@ handle_vg_annotation(app_pc request_args)
     }
 
     /* Put the result in %xdx where the target app expects to find it. */
-# ifdef CLIENT_INTERFACE
+#  ifdef CLIENT_INTERFACE
     if (dcontext->client_data->mcontext_in_dcontext) {
         get_mcontext(dcontext)->xdx = result;
     } else
-# endif
+#  endif
     {
         priv_mcontext_t *state = get_priv_mcontext_from_dstack(dcontext);
         state->xdx = result;
@@ -773,7 +773,7 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
 {
     return 1; /* Pretend to be Valgrind. */
 }
-#endif
+# endif
 
 /*********************************************************
  * INTERNAL ROUTINES
@@ -842,7 +842,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
             char buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH + 1/*nul*/];
             app_pc buf_ptr;
             app_pc opnd_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
-#ifdef UNIX
+# ifdef UNIX
             app_pc got_ptr;
             instr_reset(dcontext, scratch);
             *cur_pc = decode(dcontext, *cur_pc, scratch);
@@ -855,8 +855,8 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
             if (!safe_read(opnd_ptr, sizeof(app_pc), &got_ptr))
                 return false;
             opnd_ptr = got_ptr;
-#endif
-#if defined(WINDOWS) && defined(X64)
+# endif
+# if defined(WINDOWS) && defined(X64)
             /* In Windows x64, if the `prefetch` instruction was found at
              * `*cur_pc` with no intervening `mov` instruction, the label
              * pointer must be an immediate operand to that `prefetch`.
@@ -872,7 +872,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                     return true;
                 }
             } /* else the label pointer is the usual `mov` operand: */
-#endif
+# endif
             if (!safe_read(opnd_ptr, sizeof(app_pc), &buf_ptr))             /* step 6 */
                 return false;
             if (!safe_read(buf_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
@@ -889,7 +889,7 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
     return false;
 }
 
-#if defined(WINDOWS) && defined(X64)
+# if defined(WINDOWS) && defined(X64)
 /* Identify the annotation at layout->start_pc, if any. On Windows x64, some flexibility
  * is required to recognize the annotation sequence because it is compiled instead of
  * explicitly inserted with inline asm (which is unavailable in MSVC for this platform).
@@ -961,7 +961,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         layout->name = strchr(layout->name, ':') + 1;                       /* step 8 */
     }
 }
-#else /* Windows x86 and all Unix  */
+# else /* Windows x86 and all Unix  */
 /* Identify the annotation at layout->start_pc, if any. In summary:
  *   (step 1) check if the instruction at layout->start_pc encodes an annotation label.
  *   (step 2) determine the annotation type based on instruction opcodes
@@ -979,11 +979,11 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 {
     app_pc cur_pc = layout->start_pc;
     if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {     /* step 1 */
-# ifdef WINDOWS
+#  ifdef WINDOWS
         if (*(cur_pc++) == RAW_OPCODE_pop_eax) {                            /* step 2 */
-# else
+#  else
         if (instr_get_opcode(scratch) == OP_bsf) {                          /* step 2 */
-# endif
+#  endif
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
@@ -997,10 +997,10 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
     }
 }
-#endif
+# endif
 
-#ifdef X64
-# ifdef UNIX
+# ifdef X64
+#  ifdef UNIX
 static inline void /* UNIX x64 */
 create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type)
@@ -1033,7 +1033,7 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XSP, arg_stack_location);
     }
 }
-# else /* WINDOWS x64 */
+#  else /* WINDOWS x64 */
 static inline void
 create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type)
@@ -1062,8 +1062,8 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XSP, arg_stack_location);
     }
 }
-# endif
-#else /* x86 (all) */
+#  endif
+# else /* x86 (all) */
 static inline void
 create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type)
@@ -1097,9 +1097,9 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         }
     }
 }
-#endif
+# endif
 
-#ifdef DEBUG
+# ifdef DEBUG
 static ssize_t
 annotation_printf(const char *format, ...)
 {
@@ -1151,7 +1151,7 @@ annotation_printf(const char *format, ...)
     }
     return count;
 }
-#endif
+# endif
 
 static void
 free_annotation_handler(void *p)

@@ -35,8 +35,8 @@
  * thread.h - thread synchronization
  */
 
-#ifndef SYNCH_H
-#define SYNCH_H
+#ifndef SYNCH_H_
+#define SYNCH_H_
 
 /*for synch */
 /* Given permissions */
@@ -270,4 +270,4 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp);
 void
 adjust_wait_at_safe_spot(dcontext_t *dcontext, int amt);
 
-#endif /* SYNCH_H */
+#endif /* SYNCH_H_ */

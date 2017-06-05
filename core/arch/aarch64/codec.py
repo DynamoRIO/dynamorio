@@ -205,8 +205,8 @@ def generate_opcodes(patterns):
     mns = dict()
     for p in patterns:
         mns[p[2]] = 1
-    c = ['#ifndef OPCODE_H',
-         '#define OPCODE_H 1',
+    c = ['#ifndef OPCODE_H_',
+         '#define OPCODE_H_ 1',
          '',
          '/* DR_API EXPORT TOFILE dr_ir_opcodes_aarch64.h */',
          '/* DR_API EXPORT BEGIN */',
@@ -254,15 +254,15 @@ def generate_opcodes(patterns):
           '**********************************************/',
           '/* DR_API EXPORT END */',
           '',
-          '#endif /* OPCODE_H */']
+          '#endif /* OPCODE_H_ */']
     return '\n'.join(c) + '\n'
 
 def generate_opcode_names(patterns):
     mns = dict()
     for p in patterns:
         mns[p[2]] = 1
-    c = ['#ifndef OPCODE_NAMES_H',
-         '#define OPCODE_NAMES_H 1',
+    c = ['#ifndef OPCODE_NAMES_H_',
+         '#define OPCODE_NAMES_H_ 1',
          '',
          'const char *opcode_names[] = {',
          '/*   0 */ "<invalid>",',
@@ -277,7 +277,7 @@ def generate_opcode_names(patterns):
           '          "xx",',
           '};',
           '',
-          '#endif /* OPCODE_NAMES_H */']
+          '#endif /* OPCODE_NAMES_H_ */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):

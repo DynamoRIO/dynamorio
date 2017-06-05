@@ -295,29 +295,29 @@ new_thread_setup(priv_mcontext_t *mc)
     mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
-#ifdef AARCHXX
+# ifdef AARCHXX
     /* set the stolen register's app value */
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
     set_thread_register_from_clone_record(crec);
-#endif
+# endif
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
                             _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-#ifdef AARCHXX
+# ifdef AARCHXX
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
-#endif
+# endif
     /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
      * but thread_starting() calls initialize_dynamo_context() so cache next_tag
      */
     next_tag = signal_thread_inherit(dcontext, (void *) crec);
     ASSERT(next_tag != NULL);
-#ifdef ARM
+# ifdef ARM
     dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
-#endif
+# endif
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
@@ -502,18 +502,18 @@ test_call_switch_stack(dcontext_t *dc)
 static void
 test_cpuid()
 {
-#ifdef X86
+# ifdef X86
     int cpuid_res[4] = {0};
-#endif
+# endif
     print_file(STDERR, "testing asm cpuid\n");
     EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
-#ifdef X86
+# ifdef X86
     our_cpuid(cpuid_res, 0, 0); /* get vendor id */
     /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
     EXPECT_NE(cpuid_res[1], 0);
     EXPECT_NE(cpuid_res[2], 0);
     EXPECT_NE(cpuid_res[3], 0);
-#endif
+# endif
 }
 
 void

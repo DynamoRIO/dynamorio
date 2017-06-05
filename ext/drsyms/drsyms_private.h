@@ -33,8 +33,8 @@
 /* drsyms private header.
  */
 
-#ifndef DRSYMS_PRIVATE_H
-#define DRSYMS_PRIVATE_H
+#ifndef DRSYMS_PRIVATE_H_
+#define DRSYMS_PRIVATE_H_
 
 #include "drsyms.h"
 
@@ -132,4 +132,4 @@ drsym_unix_get_module_debug_kind(void *moddata, drsym_debug_kind_t *kind OUT);
 drsym_error_t
 drsym_unix_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, void *data);
 
-#endif /* DRSYMS_PRIVATE_H */
+#endif /* DRSYMS_PRIVATE_H_ */

@@ -167,12 +167,12 @@ enum {
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
 
-#ifdef AVOID_API_EXPORT
+# ifdef AVOID_API_EXPORT
     /* Below here overlaps with OPSZ_ enum but all cases where the two
      * are used in the same field (instr_info_t operand sizes) have the type
      * and distinguish properly.
      */
-#endif
+# endif
     /* 256-BIT YMM */
     DR_REG_YMM0, DR_REG_YMM1, DR_REG_YMM2, DR_REG_YMM3,
     DR_REG_YMM4, DR_REG_YMM5, DR_REG_YMM6, DR_REG_YMM7,
@@ -918,12 +918,12 @@ enum {
     BASE_DISP_kind, /* optional DR_SEG_ reg + base reg + scaled index reg + disp */
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
-#if defined(X64) || defined(ARM)
+# if defined(X64) || defined(ARM)
     REL_ADDR_kind,  /* pc-relative address: ARM or 64-bit X86 only */
-#endif
-#ifdef X64
+# endif
+# ifdef X64
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
-#endif
+# endif
     MEM_INSTR_kind,
     LAST_kind,      /* sentinal; not a valid opnd kind */
 };

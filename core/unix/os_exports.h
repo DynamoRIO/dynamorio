@@ -313,9 +313,9 @@ void init_emulated_brk(app_pc exe_end);
 #define NUM_NONRT   32 /* includes 0 */
 #define OFFS_RT     32
 #ifdef LINUX
-#  define NUM_RT    33 /* RT signals are [32..64] inclusive, hence 33. */
+# define NUM_RT    33 /* RT signals are [32..64] inclusive, hence 33. */
 #else
-#  define NUM_RT     0 /* no RT signals */
+# define NUM_RT     0 /* no RT signals */
 #endif
 /* MAX_SIGNUM is the highest valid signum. */
 #define MAX_SIGNUM  ((OFFS_RT) + (NUM_RT) - 1)
