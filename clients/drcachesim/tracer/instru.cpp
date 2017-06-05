@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,8 @@
  */
 
 #include "dr_api.h"
+#include "drreg.h"
+#include "drutil.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
 
@@ -93,4 +95,17 @@ instru_t::instr_is_flush(instr_t *instr)
         return true;
 #endif
     return false;
+}
+
+void
+instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref)
+{
+    bool ok;
+    if (opnd_uses_reg(ref, reg_scratch))
+        drreg_get_app_value(drcontext, ilist, where, reg_scratch, reg_scratch);
+    if (opnd_uses_reg(ref, reg_addr))
+        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
+    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_scratch);
+    DR_ASSERT(ok);
 }

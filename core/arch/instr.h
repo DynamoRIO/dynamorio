@@ -257,6 +257,13 @@ typedef enum _dr_pred_type_t {
      * unconditionally written, unlike regular destination operands.
      */
     DR_PRED_COMPLEX,
+    /* Aliases for XINST_CREATE_jump_cond() and other cross-platform routines. */
+    DR_PRED_EQ = DR_PRED_Z,   /**< Condition code: equal. */
+    DR_PRED_NE = DR_PRED_NZ,  /**< Condition code: not equal. */
+    DR_PRED_LT = DR_PRED_L,   /**< Condition code: signed less than. */
+    /* DR_PRED_LE already matches aarchxx */
+    DR_PRED_GT = DR_PRED_NLE, /**< Condition code: signed greater than. */
+    DR_PRED_GE = DR_PRED_NL,  /**< Condition code: signed greater than or equal. */
 #elif defined(AARCHXX)
     DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
     DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
