@@ -3041,6 +3041,11 @@ else (UNIX)
   tobuild(security-win32.except-guard security-win32/except-guard.c)
   tobuild(security-win32.thread-setcontext security-win32/thread-setcontext.c)
   tobuild(security-win32.singlestep security-win32/singlestep.c)
+  if (NOT X64)
+    # 32-bit limitation is test only
+    # to get a test on x64, we should find a way to set debug registers
+    tobuild(security-win32.except-debugreg security-win32/except-debugreg.c)
+  endif (NOT X64)
 
   tobuild(win32.threadterm win32/threadterm.c)
 
