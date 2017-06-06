@@ -1,0 +1,9 @@
+.*make/style_checks/style_test.c:36: error: Missing newline after return type.
+.*make/style_checks/style_test.c:39: error: Body should be on its own line.
+.*make/style_checks/style_test.c:40: error: Line contains NOCHECKIN.
+.*make/style_checks/style_test.c:43: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:43: error: Missing space after control keyword: "if\(".
+.*make/style_checks/style_test.c:46: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:50: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:53: error: Multi-line body needs {}.
+.*make/style_checks/style_test.c:59: error: Extra space after function name: "foo ".

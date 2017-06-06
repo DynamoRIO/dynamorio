@@ -47,11 +47,13 @@ static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
+                                   bool memref_needs_info,
                                    ssize_t (*write_file)(file_t file,
                                                          const void *data,
                                                          size_t count),
                                    file_t module_file)
-    : instru_t(insert_load_buf), write_file_func(write_file), modfile(module_file)
+    : instru_t(insert_load_buf, memref_needs_info),
+      write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -198,97 +200,14 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     return sizeof(offline_entry_t);
 }
 
-void
+int
 offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
-                                 uint64_t value)
+                                 app_pc pc, uint instr_count)
 {
     int disp = adjust;
-#ifdef X64
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(scratch)));
-#else
-    instrlist_insert_mov_immed_ptrsz(drcontext, (int)value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(scratch)));
-    instrlist_insert_mov_immed_ptrsz(drcontext, (int)(value >> 32),
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp + 4),
-                               opnd_create_reg(scratch)));
-#endif
-}
-
-void
-offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_addr, int adjust,
-                                   opnd_t ref)
-{
-    bool ok;
-    int disp = adjust;
-    if (opnd_uses_reg(ref, reg_ptr))
-        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr);
-    if (opnd_uses_reg(ref, reg_addr))
-        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
-    // We use reg_ptr as scratch to get the address.
-    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
-    DR_ASSERT(ok);
-    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need to re-load reg_ptr.
-    // XXX i#2001: determine whether we have to and avoid it when we don't.
-    insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(reg_addr)));
-    // We allow either 0 or all 1's as the type so no need to write anything else.
-}
-
-int
-offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                    opnd_t ref, bool write, dr_pred_type_t pred)
-{
-    // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
-    insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
-#ifdef ARM // X86 does not support general predicated execution
-    if (pred != DR_PRED_NONE) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
-    return (adjust + sizeof(offline_entry_t));
-}
-
-// We stored the instr count in *bb_field in bb_analysis().
-int
-offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                   instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                   instr_t *app)
-{
-    app_pc pc, modbase;
+    app_pc modbase;
     uint modidx;
-    offline_entry_t entry;
-    // We write just once per bb.
-    if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
-        return adjust;
-
-    pc = dr_fragment_app_pc(tag);
     if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
         // FIXME i#2062: add non-module support.  The plan for instrs is to have
         // one entry w/ the start abs pc, and subsequent entries that pack the instr
@@ -298,16 +217,107 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
         modidx = 0;
         modbase = pc;
     }
+    offline_entry_t entry;
     entry.pc.type = OFFLINE_TYPE_PC;
     // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
     entry.pc.modoffs =
         dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
     entry.pc.modidx = modidx;
-    entry.pc.instr_count = (ptr_uint_t)*bb_field;
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
-                   entry.combined_value);
-    *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
-    return (adjust + sizeof(offline_entry_t));
+    entry.pc.instr_count = instr_count;
+
+#ifdef X64
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) entry.combined_value,
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(scratch)));
+#else
+    instrlist_insert_mov_immed_ptrsz(drcontext, (int)entry.combined_value,
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(scratch)));
+    instrlist_insert_mov_immed_ptrsz(drcontext, (int)(entry.combined_value >> 32),
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp + 4),
+                               opnd_create_reg(scratch)));
+#endif
+    return sizeof(offline_entry_t);
+}
+
+int
+offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                   reg_id_t reg_ptr, reg_id_t reg_addr, int adjust,
+                                   opnd_t ref, bool write)
+{
+    int disp = adjust;
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref);
+    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need to re-load reg_ptr.
+    // XXX i#2001: determine whether we have to and avoid it when we don't.
+    insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext,
+                               OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(reg_addr)));
+    return sizeof(offline_entry_t);
+}
+
+int
+offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                    instr_t *app, opnd_t ref, bool write,
+                                    dr_pred_type_t pred)
+{
+    // Post-processor distinguishes read, write, prefetch, flush, and finds size.
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    MINSERT(ilist, where, label);
+    // We allow either 0 or all 1's as the type so no need to write anything else,
+    // unless a filter is in place in which case we need a PC entry.
+    if (memref_needs_full_info) {
+        adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+                                 instr_get_app_pc(app), 0);
+    }
+    adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref,
+                              write);
+#ifdef ARM // X86 does not support general predicated execution
+    if (!memref_needs_full_info && // For full info we skip this for !pred.
+        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
+        instr_t *instr;
+        for (instr  = instr_get_prev(where);
+             instr != label;
+             instr  = instr_get_prev(instr)) {
+            DR_ASSERT(!instr_is_predicated(instr));
+            instr_set_predicate(instr, pred);
+        }
+    }
+#endif
+    return adjust;
+}
+
+// We stored the instr count in *bb_field in bb_analysis().
+int
+offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
+                                   instrlist_t *ilist, instr_t *where,
+                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   instr_t *app)
+{
+    app_pc pc;
+    if (!memref_needs_full_info) {
+        // We write just once per bb, if not filtering.
+        if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
+            return adjust;
+        pc = dr_fragment_app_pc(tag);
+    } else
+        pc = instr_get_app_pc(app);
+    adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+                           pc, memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
+    if (!memref_needs_full_info)
+        *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
+    return adjust;
 }
 
 int

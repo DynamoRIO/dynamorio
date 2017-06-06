@@ -332,6 +332,16 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
+    bool skip_icache = false;
+    if (instr_count == 0) {
+        // L0 filtering adds a PC entry with a count of 0 prior to each memref.
+        skip_icache = true;
+        instr_count = 1;
+        // We set a flag to avoid peeking forward on instr entries.
+        if (!instrs_are_separate)
+            instrs_are_separate = true;
+    }
+    CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
     instr_init(dcontext, &instr);
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
@@ -364,14 +374,17 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
                 dr_print_instr(dcontext, STDOUT, &instr, "");
             });
             buf->type = instru_t::instr_to_instr_type(&instr);
-            buf->size = (ushort) instr_length(dcontext, &instr);
+            buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, &instr));
             buf->addr = (addr_t) orig_pc;
             ++buf;
         } else
             VPRINT(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
         decode_pc = pc;
         // We need to interleave instrs with memrefs.
-        if (instr_reads_memory(&instr) || instr_writes_memory(&instr)) { // Check OP_lea.
+        // There is no following memref for (instrs_are_separate && !skip_icache).
+        if ((!instrs_are_separate || skip_icache) &&
+            // Rule out OP_lea.
+            (instr_reads_memory(&instr) || instr_writes_memory(&instr))) {
             for (int i = 0; i < instr_num_srcs(&instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(&instr, i))) {
                     buf = append_memref(buf, tidx, &instr, instr_get_src(&instr, i),
@@ -405,7 +418,7 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL);
+    online_instru_t instru(NULL, false);
     bool last_bb_handled = true;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
     std::vector<uint64> times(thread_files.size(), 0);
@@ -443,12 +456,18 @@ raw2trace_t::merge_and_process_thread_files()
                    "\n", (uint)tids[next_tidx], times[next_tidx]);
             tidx = next_tidx;
             times[tidx] = 0; // Read from file for this thread's next timestamp.
-            size += instru.append_tid(buf, tids[tidx]);
-            // We have to write this now before we append any bb entries.
-            CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file.write((char*)buf_base, size))
-                FATAL_ERROR("Failed to write to output file");
-            buf = buf_base;
+            if (tids[tidx] != INVALID_THREAD_ID) {
+                // The initial read from a file may not have seen its tid entry
+                // yet.  We expect to hit that entry next.
+                size += instru.append_tid(buf, tids[tidx]);
+            }
+            if (size > 0) {
+                // We have to write this now before we append any bb entries.
+                CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
+                if (!out_file.write((char*)buf_base, size))
+                    FATAL_ERROR("Failed to write to output file");
+                buf = buf_base;
+            }
             size = 0;
         }
         VPRINT(4, "About to read thread %d at pos %d\n",
@@ -512,6 +531,16 @@ raw2trace_t::merge_and_process_thread_files()
             VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
             size += instru.append_pid(buf, in_entry.pid.pid);
             buf += size;
+        } else if (in_entry.addr.type == OFFLINE_TYPE_IFLUSH) {
+            offline_entry_t entry;
+            if (!thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+                entry.addr.type != OFFLINE_TYPE_IFLUSH)
+                FATAL_ERROR("Flush missing 2nd entry");
+            VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
+                   (ptr_uint_t)entry.addr.addr);
+            size += instru.append_iflush(buf, in_entry.addr.addr,
+                                         (size_t)(entry.addr.addr - in_entry.addr.addr));
+            buf += size;
         } else
             FATAL_ERROR("Unknown trace type %d", (int)in_entry.timestamp.type);
         if (size > 0) {
@@ -544,7 +573,8 @@ raw2trace_t::do_conversion()
 }
 
 raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)
-    : indir(indir_in), outname(outname_in)
+    : indir(indir_in), outname(outname_in), prev_instr_was_rep_string(false),
+      instrs_are_separate(false)
 {
     // Support passing both base dir and raw/ subdir.
     if (indir.find(OUTFILE_SUBDIR) == std::string::npos)

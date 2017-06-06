@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -96,7 +96,10 @@ bool
 named_pipe_t::set_name(const char *name)
 {
     if (fd == -1) {
-        pipe_name = std::string(std::string(pipe_dir()) + "/" + name);
+        if (name[0] == '/')
+            pipe_name = name;
+        else
+            pipe_name = std::string(std::string(pipe_dir()) + "/" + name);
         return true;
     }
     return false;

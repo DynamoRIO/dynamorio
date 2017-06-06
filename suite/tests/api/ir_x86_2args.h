@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -107,6 +107,7 @@ OPCODE(rcr, rcr, rcr, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(shl, shl, shl, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(shr, shr, shr, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(sar, sar, sar, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+XOPCODE(slr, shr, slr_s, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 
 OPCODE(pmovmskb, pmovmskb, pmovmskb, 0, REGARG(EAX), REGARG(MM0))
 OPCODE(ptest, ptest, ptest, 0, REGARG(XMM0), MEMARG(OPSZ_16))
@@ -388,6 +389,12 @@ OPCODE(enter, enter, enter, 0, IMMARG(OPSZ_2), IMMARG(OPSZ_1))
 
 OPCODE(jnz, jnz, jcc, 0, OP_jnz, TGTARG)
 OPCODE(jno_short, jno_short, jcc_short, 0, OP_jno_short, TGTARG)
+XOPCODE(x_jz, jz, jump_cond, 0, DR_PRED_EQ, TGTARG)
+XOPCODE(x_jnz, jnz, jump_cond, 0, DR_PRED_NE, TGTARG)
+XOPCODE(x_jl, jl, jump_cond, 0, DR_PRED_LT, TGTARG)
+XOPCODE(x_jle, jle, jump_cond, 0, DR_PRED_LE, TGTARG)
+XOPCODE(x_jnle, jnle, jump_cond, 0, DR_PRED_GT, TGTARG)
+XOPCODE(x_jnl, jnl, jump_cond, 0, DR_PRED_GE, TGTARG)
 
 /****************************************************************************/
 /* XOP */

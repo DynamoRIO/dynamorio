@@ -90,8 +90,9 @@ endif ()
 
 ##################################################
 # Pre-commit source file checks.
-# Google Code does not support adding subversion hooks, so we
-# have checks here.
+# We do have some pre-commit hooks but we don't rely on them.
+# We also have vera++ style checking rules for C/C++ code, but we
+# keep a few checks here to cover cmake and other code.
 # We could do a GLOB_RECURSE and read every file, but that's slow, so
 # we try to construct the diff.
 if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.svn" OR
@@ -168,7 +169,7 @@ endif ()
 
 # CMake seems to remove carriage returns for us so we can't easily
 # check for them unless we switch to perl or python or something
-# to get the diff and check it.
+# to get the diff and check it.  The vera++ rules do check C/C++ code.
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.
@@ -270,13 +271,17 @@ if (NOT cross_only)
         ${install_path_cache}
         ")
     endif (DO_ALL_BUILDS)
-    testbuild("vps-debug-internal-32" OFF "
-      VMAP:BOOL=OFF
-      VPS:BOOL=ON
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=ON
-      ${install_path_cache}
-      ")
+    # i#2406: we skip the vps build to speed up PR's, using just the merge to
+    # master to catch breakage in vps.
+    if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+      testbuild("vps-debug-internal-32" OFF "
+        VMAP:BOOL=OFF
+        VPS:BOOL=ON
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif ()
     if (DO_ALL_BUILDS)
       testbuild("vps-release-external-32" OFF "
         VMAP:BOOL=OFF

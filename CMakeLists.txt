@@ -808,7 +808,7 @@ if (UNIX)
   if (NOT CMAKE_COMPILER_IS_CLANG)
     set(DBG_OPT "${DBG_OPT} -fno-builtin-strcmp")
   endif ()
-  set(LINK_DBG "")
+  set(LINK_EXTRA_FLAGS "")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
@@ -835,13 +835,15 @@ else (UNIX)
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  # Shrink binaries and pdbs (/Gy should already be there)
+  set(LINK_EXTRA_FLAGS "/opt:ref /opt:icf /pdbcompress")
   if (GENERATE_PDBS)
     set(DBG "/Zi")
-    set(LINK_DBG "/debug")
+    set(LINK_EXTRA_FLAGS "${LINK_EXTRA_FLAGS} /debug")
   else (GENERATE_PDBS)
     # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
     set(DBG "")
-    set(LINK_DBG "")
+    set(LINK_EXTRA_FLAGS "")
     # Default from cmake in DEBUG and RELWITHDEBINFO has /debug
     string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS
       "${CMAKE_EXE_LINKER_FLAGS}")
@@ -1071,9 +1073,9 @@ else (DEBUG)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
   set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
 endif (DEBUG)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_DBG}")
-set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_DBG}")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINK_DBG}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
@@ -1726,6 +1728,24 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
 else (CLIENT_INTERFACE OR APP_EXPORTS)
   message("no documentation will be built for this target")
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
+
+###########################################################################
+# Style checks:
+
+find_package(vera++ QUIET)
+if (vera++_FOUND)
+  message(STATUS "Using vera++ for code style checks")
+  include(${VERA++_USE_FILE})
+  # We use our own modified copy in order to pass --error and for
+  # regex exclusions with vera++ 1.2.1.
+  include(third_party/vera++/use_vera++.cmake)
+  add_vera_targets_for_dynamorio(*.h *.c *.cpp
+    RECURSE
+    EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
+    ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+else ()
+  message(STATUS "WARNING: vera++ not found: disabling code style checks")
+endif ()
 
 ###########################################################################
 

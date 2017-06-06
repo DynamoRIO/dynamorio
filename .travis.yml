@@ -86,7 +86,9 @@ install:
   - uname -a
   - if [[ "`uname`" == "Darwin" ]]; then brew install nasm; fi
   # ImageMagick is present but these are not:
-  - if [[ "`uname`" == "Linux" ]]; then sudo apt-get -y install doxygen transfig; fi
+  - >
+      if [[ "`uname`" == "Linux" ]]; then
+      sudo apt-get -y install doxygen transfig vera++; fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ONLY == no ]]; then

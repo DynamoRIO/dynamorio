@@ -2347,10 +2347,18 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
+      # i#2023: to avoid stale pipe files in /tmp from prior suite runs, we place them
+      # in the current build dir where they will be blown away on the next suite run.
+      if (UNIX)
+        set(IPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/")
+      else ()
+        set(IPC_PREFIX "")
+      endif ()
+
       # We have a couple of sanity checks that at least nothing crashes.
       torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
         "drcachesim-simple.c" # for templatex basename
-        "-ipc_name drtestpipe1" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe1" "" "")
       set(tool.drcachesim.simple_toolname "drcachesim")
       set(tool.drcachesim.simple_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2359,7 +2367,7 @@ if (CLIENT_INTERFACE)
       # TLB simulator's single-thread sanity check
       torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
         "drcachesim-TLB-simple.c" # for templatex basename
-        "-ipc_name drtesttlbpipe1 -simulator_type TLB" "" "")
+        "-ipc_name ${IPC_PREFIX}drtesttlbpipe1 -simulator_type TLB" "" "")
         set(tool.drcachesim.TLB-simple_toolname "drcachesim")
         set(tool.drcachesim.TLB-simple_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2368,12 +2376,20 @@ if (CLIENT_INTERFACE)
       if (NOT WIN32) # No physaddr access on Windows.
         torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
           "drcachesim-phys.c" # for templatex basename
-          "-ipc_name drtestpipe4 -use_physical" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe4 -use_physical" "" "")
         set(tool.drcachesim.phys_toolname "drcachesim")
         set(tool.drcachesim.phys_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
       endif ()
+
+      torunonly_ci(tool.drcachesim.filter ${ci_shared_app} drcachesim
+        "drcachesim-filter-simple.c" # for templatex basename
+        "-ipc_name drtestfilter -L0_filter" "" "")
+        set(tool.drcachesim.filter_toolname "drcachesim")
+        set(tool.drcachesim.filter_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.filter_rawtemp ON) # no preprocessor
 
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
@@ -2385,7 +2401,7 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
           "drcachesim-threads.c" # for templatex basename
-          "-ipc_name drtestpipe2" "" "${annotation_test_args}")
+          "-ipc_name ${IPC_PREFIX}drtestpipe2" "" "${annotation_test_args}")
         set(tool.drcachesim.threads_toolname "drcachesim")
         set(tool.drcachesim.threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2395,7 +2411,7 @@ if (CLIENT_INTERFACE)
         # TLB simulator's multi-thread sanity check
         torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
           "drcachesim-TLB-threads.c" # for templatex basename
-          "-ipc_name drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
+          "-ipc_name ${IPC_PREFIX}drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
         set(tool.drcachesim.TLB-threads_toolname "drcachesim")
         set(tool.drcachesim.TLB-threads_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2408,7 +2424,7 @@ if (CLIENT_INTERFACE)
         # allasm_thumb test
         torunonly_ci(tool.drcachesim.thumb common.allasm_thumb drcachesim
           "allasm-thumb.c" # for expect basename
-          "-ipc_name drtestpipe_thumb" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_thumb" "" "")
         set(tool.drcachesim.thumb_toolname "drcachesim")
         set(tool.drcachesim.thumb_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2416,7 +2432,7 @@ if (CLIENT_INTERFACE)
         # allasm_arm test
         torunonly_ci(tool.drcachesim.arm common.allasm_arm drcachesim
           "allasm-arm.c" # for expect basename
-          "-ipc_name drtestpipe_arm" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_arm" "" "")
         set(tool.drcachesim.arm_toolname "drcachesim")
         set(tool.drcachesim.arm_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2426,7 +2442,7 @@ if (CLIENT_INTERFACE)
       if (AARCH64)
         torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
           "allasm-aarch64-cache.c" # for expect basename
-          "-ipc_name drtestpipe_aarch64" "" "")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64" "" "")
         set(tool.drcachesim.aarch64_toolname "drcachesim")
         set(tool.drcachesim.aarch64_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2442,7 +2458,7 @@ if (CLIENT_INTERFACE)
         get_target_path_for_execution(tool.multiproc_path tool.multiproc)
         torunonly_ci(tool.drcachesim.multiproc tool.multiproc drcachesim
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c
-          "-ipc_name drtestpipe3" "" "${tool.multiproc_path}")
+          "-ipc_name ${IPC_PREFIX}drtestpipe3" "" "${tool.multiproc_path}")
         set(tool.drcachesim.multiproc_toolname "drcachesim")
         set(tool.drcachesim.multiproc_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2452,14 +2468,14 @@ if (CLIENT_INTERFACE)
       # Test other analysis tools
       torunonly_ci(tool.histogram ${ci_shared_app} drcachesim
         "histogram.c" # for templatex basename
-        "-ipc_name drtestpipe5 -simulator_type histogram -report_top 20" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe5 -simulator_type histogram -report_top 20" "" "")
       set(tool.histogram_toolname "drcachesim")
       set(tool.histogram_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
       torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
         "reuse_distance.c" # for templatex basename
-        "-ipc_name drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
       set(tool.reuse_toolname "drcachesim")
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2487,10 +2503,10 @@ if (CLIENT_INTERFACE)
       get_target_path_for_execution(drcachesim_path drcachesim)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      macro (torunonly_drcacheoff testname exetgt)
+      macro (torunonly_drcacheoff testname exetgt extra_ops app_args)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline" "" "")
+          "-offline ${extra_ops}" "" "${app_args}")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2505,28 +2521,40 @@ if (CLIENT_INTERFACE)
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
-      torunonly_drcacheoff(simple ${ci_shared_app})
+      torunonly_drcacheoff(simple ${ci_shared_app} "" "")
+
+      if (UNIX) # Enable on Windows once i#1727 is fixed.
+        # FIXME i#2384: we need to combine the subdir from the child with the
+        # parent in some way and update the templatex file to include both.
+        # Right now we're only ensuring this doesn't crash and that one of
+        # the processes produced traces.
+        torunonly_drcacheoff(multiproc tool.multiproc "" "${tool.multiproc_path}")
+      endif ()
+
+      torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "")
+      # We're using the same app so we serialize to avoid racing trace dirs:
+      set(tool.drcacheoff.filter_depends tool.drcacheoff.simple)
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static)
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "")
         set(tool.drcacheoff.burst_static_nodr ON)
 
-        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace)
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "")
         set(tool.drcacheoff.burst_replace_nodr ON)
 
-        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall)
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads)
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
-          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client)
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "")
           set(tool.drcacheoff.burst_client_nodr ON)
         endif ()
       endif ()
@@ -3249,6 +3277,13 @@ if (NOT ANDROID)
   tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
   tochcon("${TestMemProtChg}" wine_exec_t)
   mark_execstack("${TestMemProtChg}")
+endif ()
+
+if (vera++_FOUND)
+  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
+  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
+    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
+  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
 ###########################################################################
