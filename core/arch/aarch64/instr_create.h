@@ -370,10 +370,10 @@
  * we can just document that this may not write them.
  */
 #define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
-  opnd_is_reg(rm_or_imm) ? \
+  (opnd_is_reg(rm_or_imm) ? \
     instr_create_1dst_2src((dc), OP_lsrv, (d), (d), (rm_or_imm)) : \
     instr_create_1dst_3src((dc), OP_ubfm, (d), (d), (rm_or_imm), \
-                           (reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : OPND_CREATE_INT(63)))
+                           (reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : OPND_CREATE_INT(63))))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
