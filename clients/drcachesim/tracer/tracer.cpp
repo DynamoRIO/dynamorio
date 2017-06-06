@@ -1266,6 +1266,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: outdir is required\nUsage:\n%s",
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
+    if (op_L0_filter.get_value() &&
+        (!IS_POWER_OF_2(op_L0I_size.get_value()) ||
+         !IS_POWER_OF_2(op_L0D_size.get_value()))) {
+        FATAL("Usage error: L0I_size and L0D_size must be powers of 2.");
+    }
 
     if (op_offline.get_value()) {
         void *buf;
