@@ -74,31 +74,35 @@ droption_t<unsigned int> op_num_cores
 droption_t<unsigned int> op_line_size
 (DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
  "Specifies the cache line size, which is assumed to be identical for L1 and L2 "
- "caches.");
+ "caches.  Must be a power of 2.");
 
 droption_t<bytesize_t> op_L1I_size
 (DROPTION_SCOPE_FRONTEND, "L1I_size", 32*1024U, "Instruction cache total size",
- "Specifies the total size of each L1 instruction cache.");
+ "Specifies the total size of each L1 instruction cache.  Must be a power of 2 "
+ "and a multiple of -line_size.");
 
 droption_t<bytesize_t> op_L1D_size
 (DROPTION_SCOPE_FRONTEND, "L1D_size", bytesize_t(32*1024), "Data cache total size",
- "Specifies the total size of each L1 data cache.");
+ "Specifies the total size of each L1 data cache.  Must be a power of 2 "
+ "and a multiple of -line_size.");
 
 droption_t<unsigned int> op_L1I_assoc
 (DROPTION_SCOPE_FRONTEND, "L1I_assoc", 8, "Instruction cache associativity",
- "Specifies the associativity of each L1 instruction cache.");
+ "Specifies the associativity of each L1 instruction cache.  Must be a power of 2.");
 
 droption_t<unsigned int> op_L1D_assoc
 (DROPTION_SCOPE_FRONTEND, "L1D_assoc", 8, "Data cache associativity",
- "Specifies the associativity of each L1 data cache.");
+ "Specifies the associativity of each L1 data cache.  Must be a power of 2.");
 
 droption_t<bytesize_t> op_LL_size
 (DROPTION_SCOPE_FRONTEND, "LL_size", 8*1024*1024, "Last-level cache total size",
- "Specifies the total size of the unified last-level (L2) cache.");
+ "Specifies the total size of the unified last-level (L2) cache.  Must be a power of 2 "
+ "and a multiple of -line_size.");
 
 droption_t<unsigned int> op_LL_assoc
 (DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
- "Specifies the associativity of the unified last-level (L2) cache.");
+ "Specifies the associativity of the unified last-level (L2) cache.  "
+ "Must be a power of 2.");
 
 droption_t<bool> op_L0_filter
 (DROPTION_SCOPE_CLIENT, "L0_filter", false,
@@ -111,12 +115,14 @@ droption_t<bool> op_L0_filter
 droption_t<bytesize_t> op_L0I_size
 (DROPTION_SCOPE_CLIENT, "L0I_size", 32*1024U,
  "If -L0_filter, filter out instruction hits during tracing",
- "Specifies the size of the 'zero-level' instruction cache for -L0_filter.");
+ "Specifies the size of the 'zero-level' instruction cache for -L0_filter.  "
+ "Must be a power of 2 and a multiple of -line_size.");
 
 droption_t<bytesize_t> op_L0D_size
 (DROPTION_SCOPE_CLIENT, "L0D_size", 32*1024U,
  "If -L0_filter, filter out data hits during tracing",
- "Specifies the size of the 'zero-level' data cache for -L0_filter.");
+ "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
+ "Must be a power of 2 and a multiple of -line_size.");
 
 droption_t<bool> op_use_physical
 (DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
@@ -158,27 +164,27 @@ droption_t<bytesize_t> op_page_size
 
 droption_t<unsigned int> op_TLB_L1I_entries
 (DROPTION_SCOPE_FRONTEND, "TLB_L1I_entries", 32, "Number of entries in instruction TLB",
- "Specifies the number of entries in each L1 instruction TLB.");
+ "Specifies the number of entries in each L1 instruction TLB.  Must be a power of 2.");
 
 droption_t<unsigned int> op_TLB_L1D_entries
 (DROPTION_SCOPE_FRONTEND, "TLB_L1D_entries", 32, "Number of entries in data TLB",
- "Specifies the number of entries in each L1 data TLB.");
+ "Specifies the number of entries in each L1 data TLB.  Must be a power of 2.");
 
 droption_t<unsigned int> op_TLB_L1I_assoc
 (DROPTION_SCOPE_FRONTEND, "TLB_L1I_assoc", 32, "Instruction TLB associativity",
- "Specifies the associativity of each L1 instruction TLB.");
+ "Specifies the associativity of each L1 instruction TLB.  Must be a power of 2.");
 
 droption_t<unsigned int> op_TLB_L1D_assoc
 (DROPTION_SCOPE_FRONTEND, "TLB_L1D_assoc", 32, "Data TLB associativity",
- "Specifies the associativity of each L1 data TLB.");
+ "Specifies the associativity of each L1 data TLB.  Must be a power of 2.");
 
 droption_t<unsigned int> op_TLB_L2_entries
 (DROPTION_SCOPE_FRONTEND, "TLB_L2_entries", 1024, "Number of entries in L2 TLB",
- "Specifies the number of entries in each unified L2 TLB.");
+ "Specifies the number of entries in each unified L2 TLB.  Must be a power of 2.");
 
 droption_t<unsigned int> op_TLB_L2_assoc
 (DROPTION_SCOPE_FRONTEND, "TLB_L2_assoc", 4, "L2 TLB associativity",
- "Specifies the associativity of each unified L2 TLB.");
+ "Specifies the associativity of each unified L2 TLB.  Must be a power of 2.");
 
 droption_t<std::string> op_TLB_replace_policy
 (DROPTION_SCOPE_FRONTEND, "TLB_replace_policy", REPLACE_POLICY_LFU,
