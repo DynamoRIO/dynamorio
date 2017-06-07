@@ -32,67 +32,70 @@
 # Code style check for use with vera++:
 # Check that macros inside #if are indented properly.
 
-set indent_exempt [list {aarch64/instr_create.h}   {1} \
-                        {arch/arch.h}              {1} \
-                        {arch/instr.h}             {1} \
-                        {arch/instr_inline.h}      {1} \
-                        {arch/retcheck.c}          {1} \
-                        {arch/sideline.c}          {1} \
-                        {arch/steal_reg.c}         {1} \
-                        {arch/loadtoconst.h}       {1} \
-                        {arm/table_private.h}      {1} \
-                        {x86/optimize.c}           {1} \
-                        {x86/mangle.c}             {1} \
-                        {x86/emit_utils.c}         {1} \
-                        {core/config.c}            {1} \
-                        {core/dispatch.c}          {1} \
-                        {core/dynamo.c}            {1} \
-                        {core/fragment.c}          {1} \
-                        {core/globals.h}           {1} \
-                        {core/hashtable.h}         {1} \
-                        {core/hashtablex.h}        {1} \
-                        {core/hotpatch.c}          {1} \
-                        {core/link.h}              {1} \
-                        {core/module_shared.h}     {1} \
-                        {core/moduledb.c}          {1} \
-                        {core/options.c}           {1} \
-                        {core/options.h}           {1} \
-                        {core/optionsx.h}          {1} \
-                        {core/os_shared.h}         {1} \
-                        {core/stats.c}             {1} \
-                        {core/stats.h}             {1} \
-                        {core/utils.c}             {1} \
-                        {core/utils.h}             {1} \
-                        {core/vmareas.c}           {1} \
-                        {core/vmareas.h}           {1} \
-                        {lib/globals_shared.h}     {1} \
-                        {lib/hotpatch_interface.h} {1} \
-                        {lib/instrument.c}         {1} \
-                        {lib/instrument_api.h}     {1} \
-                        {lib/dr_helper.h}          {1} \
-                        {unix/os.c}                {1} \
-                        {unix/signal.c}            {1} \
-                        {unix/injector.c}          {1} \
-                        {unix/loader.c}            {1} \
-                        {unix/module.c}            {1} \
-                        {unix/module.h}            {1} \
-                        {unix/module_elf.c}        {1} \
-                        {unix/module_elf.h}        {1} \
-                        {win32/aslr.c}             {1} \
-                        {win32/aslr.h}             {1} \
-                        {win32/callback.c}         {1} \
-                        {win32/syscall.c}          {1} \
-                        {win32/pre_inject.c}       {1} \
-                        {win32/os_private.h}       {1} \
-                        {win32/os.c}               {1} \
-                        {win32/ntdll.h}            {1} \
-                        {win32/ntdll.c}            {1} \
-                        {win32/module.h}           {1} \
-                        {win32/inject_shared.h}    {1} \
-                        {win32/inject_shared.c}    {1} \
-                        {win32/gbop.h}             {1} \
-                        {win32/module.c}           {1} \
-                        {win32/module_shared.c}    {1} ]
+set indent_exempt [list {aarch64/instr_create.h}     {1} \
+                        {arch/arch.h}                {1} \
+                        {arch/instr_create_shared.h} {1} \
+                        {arch/instr.h}               {1} \
+                        {arch/instr_inline.h}        {1} \
+                        {arch/retcheck.c}            {1} \
+                        {arch/sideline.c}            {1} \
+                        {arch/steal_reg.c}           {1} \
+                        {arch/loadtoconst.h}         {1} \
+                        {arm/table_private.h}        {1} \
+                        {x86/optimize.c}             {1} \
+                        {x86/mangle.c}               {1} \
+                        {x86/emit_utils.c}           {1} \
+                        {core/config.c}              {1} \
+                        {core/dispatch.c}            {1} \
+                        {core/dynamo.c}              {1} \
+                        {core/fragment.c}            {1} \
+                        {core/globals.h}             {1} \
+                        {core/hashtable.h}           {1} \
+                        {core/hashtablex.h}          {1} \
+                        {core/hotpatch.c}            {1} \
+                        {core/link.h}                {1} \
+                        {core/module_shared.h}       {1} \
+                        {core/moduledb.c}            {1} \
+                        {core/options.c}             {1} \
+                        {core/options.h}             {1} \
+                        {core/optionsx.h}            {1} \
+                        {core/os_shared.h}           {1} \
+                        {core/stats.c}               {1} \
+                        {core/stats.h}               {1} \
+                        {core/utils.c}               {1} \
+                        {core/utils.h}               {1} \
+                        {core/vmareas.c}             {1} \
+                        {core/vmareas.h}             {1} \
+                        {lib/globals_shared.h}       {1} \
+                        {lib/hotpatch_interface.h}   {1} \
+                        {lib/instrument.c}           {1} \
+                        {lib/instrument_api.h}       {1} \
+                        {lib/dr_helper.h}            {1} \
+                        {unix/os.c}                  {1} \
+                        {unix/signal.c}              {1} \
+                        {unix/injector.c}            {1} \
+                        {unix/loader.c}              {1} \
+                        {unix/module.c}              {1} \
+                        {unix/module.h}              {1} \
+                        {unix/module_elf.c}          {1} \
+                        {unix/module_elf.h}          {1} \
+                        {win32/aslr.c}               {1} \
+                        {win32/aslr.h}               {1} \
+                        {win32/callback.c}           {1} \
+                        {win32/syscall.c}            {1} \
+                        {win32/pre_inject.c}         {1} \
+                        {win32/os_private.h}         {1} \
+                        {win32/os.c}                 {1} \
+                        {win32/ntdll.h}              {1} \
+                        {win32/ntdll.c}              {1} \
+                        {win32/module.h}             {1} \
+                        {win32/inject_shared.h}      {1} \
+                        {win32/inject_shared.c}      {1} \
+                        {win32/gbop.h}               {1} \
+                        {win32/module.c}             {1} \
+                        {win32/module_shared.c}      {1}]
+
+set indent_exempt_dirs [list {*ext/drsyms/libelftc/*}  {1}]
 
 foreach fname [getSourceFileNames] {
     # excluded filenames consist of filename and parent directory.
@@ -102,8 +105,21 @@ foreach fname [getSourceFileNames] {
         continue;
     }
 
+    set ignore_file 0
+    foreach dir $indent_exempt_dirs {
+        if {[string match $dir $fname]} {
+            set ignore_file 1
+        }
+    }
+    if {$ignore_file} {
+        continue
+    }
+
+    set first_ifndef 1
     set num_if 0
-    foreach token [getTokens $fname 1 0 -1 -1 {pp_if pp_ifdef pp_ifndef pp_define pp_endif pp_undef pp_elif}] {
+    foreach token [getTokens $fname 1 0 -1 -1 \
+                             {pp_if pp_ifdef pp_ifndef pp_define pp_endif \
+                              pp_undef pp_elif pp_else pp_include}] {
         set value [lindex $token 0]
         set nline [lindex $token 1]
         set ncol [lindex $token 2]
@@ -111,9 +127,15 @@ foreach fname [getSourceFileNames] {
         set toklen [string length $value]
         set line [getLine $fname $nline]
 
-        # Ignore indent for include guard #ifndef. This assumes that the
-        # closing #endif is at the end of the file.
-        if {$token_type == "pp_ifndef" && [string match "*_H_" $line]} {
+        # Ignore indent for first #ifndef in header files which commonly is the
+        # include guard spanning the whole file.
+        if {$token_type == "pp_ifndef" && $first_ifndef == 1 && [string match "*.h" $fname]} {
+            set first_ifndef 0;
+            continue
+        }
+
+        if {($token_type == "pp_ifndef" || $token_type == "pp_ifdef" || $token_type == "pp_if") &&
+            [string match "*/\* around whole file \*/" $line]} {
             continue
         }
 
@@ -122,7 +144,7 @@ foreach fname [getSourceFileNames] {
         }
 
         set token_string [string trim [string range $value 1 $toklen]]
-        if {$token_type == "pp_elif"} {
+        if {$token_type == "pp_else" || $token_type == "pp_elif"} {
             set spaces [string repeat " " [expr $num_if - 1] ]
         } else {
             set spaces [string repeat " " $num_if]
@@ -132,6 +154,7 @@ foreach fname [getSourceFileNames] {
             report $fname $nline "Wrong indentation for macro, current indentation level is\
                                   $num_if and line should start with '$line_start'"
         }
+
         if {$token_type == "pp_if" || $token_type == "pp_ifdef" || $token_type == "pp_ifndef"} {
             incr num_if
         }

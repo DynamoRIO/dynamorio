@@ -205,8 +205,8 @@ def generate_opcodes(patterns):
     mns = dict()
     for p in patterns:
         mns[p[2]] = 1
-    c = ['#ifndef OPCODE_H_',
-         '#define OPCODE_H_ 1',
+    c = ['#ifndef OPCODE_H',
+         '#define OPCODE_H 1',
          '',
          '/* DR_API EXPORT TOFILE dr_ir_opcodes_aarch64.h */',
          '/* DR_API EXPORT BEGIN */',
@@ -254,7 +254,7 @@ def generate_opcodes(patterns):
           '**********************************************/',
           '/* DR_API EXPORT END */',
           '',
-          '#endif /* OPCODE_H_ */']
+          '#endif /* OPCODE_H */']
     return '\n'.join(c) + '\n'
 
 def generate_opcode_names(patterns):

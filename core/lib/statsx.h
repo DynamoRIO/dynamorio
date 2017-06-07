@@ -40,6 +40,10 @@
  *
  */
 
+#ifndef _STATSX_H_
+#define _STATSX_H_
+
+
 /* This file is included multiple times
    - in dynamorio_stats.h once for structure definition,
    - in utils.c - dump_global_stats, dump_thread_stats
@@ -1205,3 +1209,4 @@
     STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
     STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
 #endif
+#endif /* _STATSX_H_ */

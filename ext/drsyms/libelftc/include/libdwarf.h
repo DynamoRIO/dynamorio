@@ -179,18 +179,18 @@ enum Dwarf_Form_Class {
 };
 
 #ifndef        DW_FRAME_HIGHEST_NORMAL_REGISTER
-# define       DW_FRAME_HIGHEST_NORMAL_REGISTER 63
+#define        DW_FRAME_HIGHEST_NORMAL_REGISTER 63
 #endif
 
 #define        DW_FRAME_RA_COL                (DW_FRAME_HIGHEST_NORMAL_REGISTER + 1)
 #define        DW_FRAME_STATIC_LINK        (DW_FRAME_HIGHEST_NORMAL_REGISTER + 2)
 
 #ifndef        DW_FRAME_LAST_REG_NUM
-# define DW_FRAME_LAST_REG_NUM        (DW_FRAME_HIGHEST_NORMAL_REGISTER + 3)
+#define DW_FRAME_LAST_REG_NUM        (DW_FRAME_HIGHEST_NORMAL_REGISTER + 3)
 #endif
 
 #ifndef        DW_FRAME_REG_INITIAL_VALUE
-# define       DW_FRAME_REG_INITIAL_VALUE DW_FRAME_SAME_VAL
+#define        DW_FRAME_REG_INITIAL_VALUE DW_FRAME_SAME_VAL
 #endif
 
 #define        DW_FRAME_UNDEFINED_VAL                1034
@@ -217,7 +217,7 @@ typedef struct {
 } Dwarf_Frame_Op;
 
 #ifndef        DW_REG_TABLE_SIZE
-# define       DW_REG_TABLE_SIZE        66
+#define        DW_REG_TABLE_SIZE        66
 #endif
 
 typedef struct {

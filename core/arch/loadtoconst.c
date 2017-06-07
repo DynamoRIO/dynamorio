@@ -35,7 +35,7 @@
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
 #include "configure.h"
-#ifdef LOAD_TO_CONST
+#ifdef LOAD_TO_CONST /* around whole file */
 
 #include "../globals.h"
 #include "arch.h"
@@ -56,17 +56,17 @@
 
 #include "loadtoconst.h"
 
-# ifdef SIDELINE
+#ifdef SIDELINE
 fragment_t *frags_waiting_LTC[MAX_TRACES_WAITING_FOR_LTC];
 int num_frags_waiting_LTC;
 DECLARE_CXTSWPROT_VAR(mutex_t waiting_LTC_lock, INIT_LOCK_FREE(waiting_LTC_lock));
-# endif
+#endif
 
-# ifdef LTC_STATS
+#ifdef LTC_STATS
 int safe_taken,opt_taken,addrs_analyzed,addrs_made_const,traces_analyzed,addrs_seen;
-# endif
+#endif
 
-# define NUM_TMP_OPNDS 200
+#define NUM_TMP_OPNDS 200
 static opnd_t tmpOpnds[NUM_TMP_OPNDS];
 
 void
@@ -80,14 +80,14 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
 
     LOG(THREAD, LOG_OPTS,3, "in analyze_memrefs\n");
-# ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD, LOG_OPTS,3, "before analyze_memrefs optimization:\n");
     if (stats->loglevel >= 3)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
-# ifdef LTC_STATS
+#endif
+#ifdef LTC_STATS
     traces_analyzed++;
-# endif
+#endif
 
     memset(regs_modified,0,sizeof(bool)*8);
 
@@ -160,9 +160,9 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 continue;
             }
 
-# ifdef LTC_STATS
+#ifdef LTC_STATS
             addrs_seen++;
-# endif
+#endif
 
             if (basereg!=REG_NULL) {
                 ASSERT(basereg>=REG_EAX&&basereg<=REG_EDI);
@@ -229,9 +229,9 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (removalpossibilities>0) {
         //if there actually might be any vals to make constant
         //save a list of the memory references for this trace in the fragment struct
-# ifdef LTC_STATS
+#ifdef LTC_STATS
         addrs_analyzed+=removalpossibilities;
-# endif
+#endif
 
         trace->ltc.mem_refs=heap_alloc(dcontext,sizeof(struct ltc_mem_ref_data)*removalpossibilities HEAPACCT(ACCT_OTHER));
         trace->ltc.num_mem_addresses=removalpossibilities;
@@ -246,18 +246,18 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         replace_self_loop_with_opnd(dcontext,(app_pc)tag,trace,opnd_create_instr(oldtracetop));
 
         LOG(THREAD, LOG_OPTS,3,"LTC: inserting clean call in trace tag= "PFX"\n",tag);
-# ifdef SIDELINE
+#ifdef SIDELINE
         if (dynamo_options.sideline)
             dr_insert_clean_call(dcontext, trace, oldtracetop, (app_pc) check_mem_refs,
                                  false/*!fp*/, 1, OPND_CREATE_INTPTR(tag));
         else {
-# endif
+#endif
             //if not sideline then insert code to do optimization immediately
             insert_clean_call_with_arg_jmp_if_ret_true(dcontext, trace, oldtracetop,
                        (app_pc) check_mem_refs, (int)tag, (app_pc)tag, NULL);
-# ifdef SIDELINE
+#ifdef SIDELINE
         }
-# endif
+#endif
 
 
         LOG(THREAD, LOG_OPTS,3,"inserted clean call to check_mem_refs tag= "PFX"\n",tag);
@@ -293,16 +293,16 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags,
     //this shouldn't happen very much, just waiting for sideline thread to remove call
 
     if (t_curfrag->ltc.num_mem_samples==NUM_VALUES_FOR_SPECULATION) {
-# ifdef SIDELINE
+#ifdef SIDELINE
         if (dynamo_options.sideline)
             return true;
         else {
-# endif
+#endif
             LOG(THREAD, LOG_OPTS,1,"should never get called unnecessarily if not -sideline tag="PFX,tag);
             ASSERT_NOT_REACHED();
-# ifdef SIDELINE
+#ifdef SIDELINE
         }
-# endif
+#endif
 
     }
 
@@ -330,7 +330,7 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags,
     if (++t_curfrag->ltc.num_mem_samples==NUM_VALUES_FOR_SPECULATION) {
         LOG(THREAD, LOG_OPTS,3,"fragment (tag="PFX") ready for optimization\n",curfrag->tag);
 
-# ifdef DEBUG
+#ifdef DEBUG
         //this block can be removed, its just printing...
         if (stats->loglevel>=4) {
             for (address=0; address<t_curfrag->ltc.num_mem_addresses; address++) {
@@ -345,9 +345,9 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags,
 
             }
         }
-# endif
+#endif
 
-# ifdef SIDELINE
+#ifdef SIDELINE
         if (dynamo_options.sideline) {   //only use the frags_waiting list if using sideline
             ASSERT_NOT_IMPLEMENTED(false && "this lock needs DELETE_LOCK");
             mutex_lock(&waiting_LTC_lock);
@@ -369,14 +369,14 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags,
             mutex_unlock(&waiting_LTC_lock);
         }
         else //if not doing sideline, then do the insertion immediately! (deterministically!)
-# endif
+#endif
             {
-# ifdef DEBUG
+#ifdef DEBUG
                 if (stats->loglevel>=3) {
                     LOG(THREAD, LOG_OPTS,3,"check mem refs returning true for tag "PFX"\n",tag);
                     disassemble_fragment(dcontext,curfrag,0);
                 }
-# endif
+#endif
             return true; //returning true
             }
 
@@ -428,12 +428,12 @@ LTC_online_optimize_and_replace(dcontext_t *dcontext,app_pc tag, fragment_t *cur
 
     //returning true means that it should jump back to the top of trace
     //need to make sure that the exit is not linked so that
-# ifdef DEBUG
+#ifdef DEBUG
     if (stats->loglevel>=3) {
         LOG(THREAD, LOG_OPTS,3,"new fragment after doing ltc\n");
         disassemble_fragment(dcontext,new_f,0);
     }
-# endif
+#endif
 }
 
 
@@ -503,7 +503,7 @@ get_mem_val(dcontext_t *dcontext,opnd_t mem_access,int address)
     return val;
 }
 
-# ifdef SIDELINE
+#ifdef SIDELINE
 void
 LTC_examine_traces()
 {
@@ -567,7 +567,7 @@ LTC_fragment_delete(fragment_t *frag)
 
     mutex_unlock(&waiting_LTC_lock);
 }
-# endif
+#endif
 
 void
 remove_mem_ref_check(dcontext_t *dcontext,instrlist_t *trace)
@@ -577,7 +577,7 @@ remove_mem_ref_check(dcontext_t *dcontext,instrlist_t *trace)
     ASSERT(instr_get_opcode(instrlist_last(trace))==OP_jmp);
 
 
-# ifdef SIDELINE
+#ifdef SIDELINE
     if (dynamo_options.sideline) {
         pop_instr_off_list(dcontext,trace,OP_mov_st); //first instr in clean_call_arg is a store
         pop_instr_off_list(dcontext,trace,OP_mov_ld); //then a load
@@ -591,7 +591,7 @@ remove_mem_ref_check(dcontext_t *dcontext,instrlist_t *trace)
         pop_instr_off_list(dcontext,trace,OP_mov_ld);
     }
     else {
-# endif
+#endif
         pop_instr_off_list(dcontext,trace,OP_mov_st); //first instr in clean_call_arg is a store
         pop_instr_off_list(dcontext,trace,OP_mov_ld); //then a load
         pop_instr_off_list(dcontext,trace,OP_pushf); // ...
@@ -608,9 +608,9 @@ remove_mem_ref_check(dcontext_t *dcontext,instrlist_t *trace)
         pop_instr_off_list(dcontext,trace,OP_popa);
         pop_instr_off_list(dcontext,trace,OP_popf);
         pop_instr_off_list(dcontext,trace,OP_mov_ld);
-# ifdef SIDELINE
+#ifdef SIDELINE
     }
-# endif
+#endif
 
 
     //find the pc that it used to jump to get below the inserted call
@@ -648,14 +648,14 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
         instrlist_first(trace)->bytes);
 
     LOG(THREAD, LOG_OPTS,3,"trace before ltc_trace\n");
-# ifdef DEBUG
+#ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
+#endif
 
-# ifdef SIDELINE
+#ifdef SIDELINE
     if (!dynamo_options.sideline)
-# endif
+#endif
         ASSERT(t_frag->ltc.mem_refs);
 
     LOG(THREAD, LOG_OPTS,3,"making self loop point to trace's tag");
@@ -680,9 +680,9 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
 
     instrlist_prepend_instrlist(dcontext,trace,restore_eflags_list(dcontext,frag));
 
-# ifdef LTC_STATS
+#ifdef LTC_STATS
     instrlist_prepend(trace,INSTR_CREATE_inc(dcontext,OPND_CREATE_MEM32(REG_NULL,(int)&safe_taken)));
-# endif
+#endif
 
     top_safe=instrlist_first(trace);
     top_opt_bytes=(size_t)instrlist_first(opt_trace)->bytes; //save old top
@@ -702,9 +702,9 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
             logopnd(dcontext,3,valop,"\tgets this value");
 
             do_single_LTC(dcontext,opt_trace,mem_ref,valop);
-# ifdef LTC_STATS
+#ifdef LTC_STATS
             addrs_made_const++;
-# endif
+#endif
 
 
             //rather than doing the lea stuff, check the register values directly
@@ -733,10 +733,10 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
     }
 
     LOG(THREAD, LOG_OPTS,3,"after ltc");
-# ifdef DEBUG
+#ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
+#endif
 
     if (!dynamo_options.safe_loads_to_const) {
         constant_propagate(dcontext,opt_trace,frag->tag);
@@ -760,18 +760,18 @@ ltc_trace(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trace)
     replace_self_loop_with_opnd(dcontext,(app_pc)frag->tag,opt_trace,opnd_create_instr(instrlist_first(opt_trace)));
 
     instrlist_prepend_instrlist(dcontext,opt_trace,restore_eflags_list(dcontext,frag));
-# ifdef LTC_STATS
+#ifdef LTC_STATS
     instrlist_prepend(opt_trace,INSTR_CREATE_inc(dcontext,OPND_CREATE_MEM32(REG_NULL,(int)&opt_taken)));
-# endif
+#endif
 
     instrlist_prepend_instrlist(dcontext,trace,opt_trace);
     instrlist_prepend_instrlist(dcontext,trace,comparisons); //comparisons should be first
 
-# ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD,LOG_OPTS, 3, "after LTC optimization:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
+#endif
 
 }
 
@@ -1161,7 +1161,7 @@ change_cbr_due_to_reversed_cmp(instr_t *in)
 }
 
 //currently the simple, conservative algorithm is commented out
-# if 0
+#if 0
 /* this function is now just a simple check to see if all the sampled
    values are the same.  later this could be changed to something
    more sophisticated
@@ -1192,7 +1192,7 @@ value_to_replace(struct ltc_mem_ref_data data)
 {
     return opnd_create_immed_int(data.vals[0],data.opnd.size);
 }
-# else
+#else
 /* this should_replace_load will replace the load if there are any values
    that appear more than half the time. much more aggressive
 */
@@ -1267,7 +1267,7 @@ value_to_replace(struct ltc_mem_ref_data data)
     return opnd_create_immed_int(vals[0],data.opnd.size);
 }
 
-# endif
+#endif
 
 /* saves eax to dcontext
    saves flags in ah and al. don't overwrite them! */
@@ -1339,10 +1339,10 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
     bool mov_immed_needed,reg_overwritten;
     opnd_t regop,orig1,orig2;
     LOG(THREAD, LOG_OPTS,3,"before constant_propagate\n");
-# ifdef DEBUG
+#ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
+#endif
 
     for (instr = instrlist_first(trace); instr!=NULL; instr = instr_get_next(instr)) {
         if (instr_get_opcode(instr)==OP_mov_imm) {
@@ -1380,11 +1380,11 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
                         loginst(dcontext,3,conwalker,"this CTI is NOT a self-loop");
                         instr_add_to_exitexec_list(dcontext,conwalker,instr_clone(dcontext,instr));
 
-# ifdef DEBUG
+#ifdef DEBUG
                         if (stats->loglevel >= 3)
                             for (foo=instr;foo!=conwalker->next;foo=instr_get_next(foo))
                                 loginst(dcontext,3,foo,"\twalking\t");
-# endif
+#endif
                     }
                 }
                 else if (instr_get_opcode(conwalker)==OP_lahf/*to catch ind branch*/) {
@@ -1469,10 +1469,10 @@ constant_propagate(dcontext_t *dcontext, instrlist_t *trace, app_pc tag)
 
 
     LOG(THREAD, LOG_OPTS,3,"after constant_propagate\n");
-# ifdef DEBUG
+#ifdef DEBUG
     if (stats->loglevel >= 3)
         instrlist_disassemble(dcontext, 0, trace, THREAD);
-# endif
+#endif
 }
 //returns true is all's good. (either replaced successfully, or no reg. reference)
 //returns false is there's a problem and the mov_immed is needed
@@ -1572,10 +1572,10 @@ opnd_replace_reg_with_val(opnd_t *opnd, int old_reg, int val)
     case INSTR_kind:
     case FAR_INSTR_kind:
     case MEM_INSTR_kind:
-# ifdef X64
+#ifdef X64
     case REL_ADDR_kind:
     case ABS_ADDR_kind:
-# endif
+#endif
         return false;
 
     case REG_kind:
@@ -1649,10 +1649,10 @@ replace_self_loop_with_opnd(dcontext_t *dcontext, app_pc tag,
 
 
     while (in!=NULL) {
-# ifdef DEBUG
+#ifdef DEBUG
         loginst(dcontext,3,in,"examining me in replace self loop");
         LOG(THREAD, LOG_OPTS,3,"my bytes are: "PFX"\n",in->bytes);
-# endif
+#endif
         if (instr_is_cbr(in)||instr_is_ubr(in)) {
             targetop=instr_get_target(in);
             if (opnd_is_near_pc(targetop)&&opnd_get_pc(targetop)==tag) {
@@ -1976,13 +1976,13 @@ instrlist_setup_pseudo_exitstubs(dcontext_t *dcontext,instrlist_t *trace)
             ASSERT(instr_is_encoding_possible(instr));
 
             instr->exitlist=NULL;
-# ifdef DEBUG
+#ifdef DEBUG
             if (stats->loglevel >= 3) {
                 loginst(dcontext,3,instr,"after setting");
                 instrlist_disassemble(dcontext, 0, trace, THREAD);
                 instrlist_disassemble(dcontext, 0, exitlist, THREAD);
             }
-# endif
+#endif
 
         }
     }
@@ -1992,4 +1992,4 @@ instrlist_setup_pseudo_exitstubs(dcontext_t *dcontext,instrlist_t *trace)
 }
 
 
-#endif
+#endif /* LOAD_TO_CONST */

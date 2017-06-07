@@ -829,7 +829,7 @@ clean_call_opt_exit(void)
     callee_info_table_destroy();
 }
 
-# else /* CLIENT_INTERFACE */
+#else /* CLIENT_INTERFACE */
 
 /* Stub implementation ifndef CLIENT_INTERFACE.  Initializes cci and returns
  * false for no inlining.  We use dr_insert_clean_call internally, but we don't
