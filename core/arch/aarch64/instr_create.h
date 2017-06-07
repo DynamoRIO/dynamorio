@@ -362,7 +362,7 @@
  * instruction that does affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
+ * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
  * Also, what about writing the flags?  Most users don't want to read the flag results,
@@ -371,9 +371,10 @@
  */
 #define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
   (opnd_is_reg(rm_or_imm) ? \
-    instr_create_1dst_2src((dc), OP_lsrv, (d), (d), (rm_or_imm)) : \
-    instr_create_1dst_3src((dc), OP_ubfm, (d), (d), (rm_or_imm), \
-                           (reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : OPND_CREATE_INT(63))))
+    instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm) : \
+    instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm, \
+                           reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : \
+                                                           OPND_CREATE_INT(63)))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
