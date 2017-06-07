@@ -37,8 +37,8 @@
 
 /* file "disassemble.h" */
 
-#ifndef DISASSEMBLE_H_
-#define DISASSEMBLE_H_
+#ifndef DISASSEMBLE_H
+#define DISASSEMBLE_H
 
 #include "../globals.h"
 
@@ -298,4 +298,4 @@ instrlist_disassemble(dcontext_t *dcontext, app_pc tag,
 
 #endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 
-#endif /* DISASSEMBLE_H_ */
+#endif /* DISASSEMBLE_H */

@@ -32,8 +32,8 @@
 
 /* Shared utilities for Extension implementations */
 
-#ifndef EXT_UTILS_H_
-#define EXT_UTILS_H_
+#ifndef EXT_UTILS_H
+#define EXT_UTILS_H
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
@@ -53,4 +53,4 @@
 #define ALIGN_BACKWARD(x, alignment) \
     (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 
-#endif /* EXT_UTILS_H_ */
+#endif /* EXT_UTILS_H */

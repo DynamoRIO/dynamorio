@@ -35,8 +35,8 @@
  * Defines the interface for options pages for tools
  */
 
-#ifndef DRGUI_OPTIONS_INTERFACE_H_
-#define DRGUI_OPTIONS_INTERFACE_H_
+#ifndef DRGUI_OPTIONS_INTERFACE_H
+#define DRGUI_OPTIONS_INTERFACE_H
 
 #include <QWidget>
 

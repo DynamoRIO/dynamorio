@@ -35,8 +35,8 @@
  * Defines a main interface for users to adjust options for tools
  */
 
-#ifndef DRGUI_OPTIONS_WINDOW_H_
-#define DRGUI_OPTIONS_WINDOW_H_
+#ifndef DRGUI_OPTIONS_WINDOW_H
+#define DRGUI_OPTIONS_WINDOW_H
 
 #include <QDialog>
 

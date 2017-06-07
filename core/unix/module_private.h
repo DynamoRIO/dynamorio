@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-#ifndef MODULE_PRIVATE_H_
-#define MODULE_PRIVATE_H_
+#ifndef MODULE_PRIVATE_H
+#define MODULE_PRIVATE_H
 
 #include "configure.h"
 
@@ -113,4 +113,4 @@ module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd,
                                      ptr_int_t load_delta);
 #endif
 
-#endif /* MODULE_PRIVATE_H_ */
+#endif /* MODULE_PRIVATE_H */

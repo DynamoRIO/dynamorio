@@ -36,8 +36,8 @@
  * rct.h - RCT policy exports
  */
 
-#ifndef RCT_H_
-#define RCT_H_
+#ifndef RCT_H
+#define RCT_H
 
 enum {RCT_CACHE_EXEMPT_NONE = 0,
       RCT_CACHE_EXEMPT_MODULES = 1,
@@ -99,4 +99,4 @@ extern mutex_t rct_module_lock;
 
 #endif /* RCT_IND_BRANCH */
 
-#endif /* RCT_H_ */
+#endif /* RCT_H */

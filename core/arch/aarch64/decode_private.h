@@ -30,11 +30,11 @@
  * DAMAGE.
  */
 
-#ifndef DECODE_PRIVATE_H_
-#define DECODE_PRIVATE_H_ 1
+#ifndef DECODE_PRIVATE_H
+#define DECODE_PRIVATE_H 1
 
 struct _decode_info_t {
     int XXX;
 };
 
-#endif /* DECODE_PRIVATE_H_ */
+#endif /* DECODE_PRIVATE_H */

@@ -40,8 +40,8 @@
  *
  */
 
-#ifndef _STATSX_H_
-#define _STATSX_H_
+#ifndef STATSX_H
+#define STATSX_H
 
 
 /* This file is included multiple times
@@ -1209,4 +1209,4 @@
     STATS_DEF("Reg spills for non-mbr mangling", non_mbr_spills)
     STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
 #endif
-#endif /* _STATSX_H_ */
+#endif /* STATSX_H */

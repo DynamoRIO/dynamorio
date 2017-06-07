@@ -35,7 +35,7 @@
  * Defines a main structure for users to interface with tools.
  */
 
-#ifndef DRGUI_MAIN_WINDOW_H_
+#ifndef DRGUI_MAIN_WINDOW_H
 #define DRGUI_MAIN_WINDOW_H_
 
 #include <QDir>

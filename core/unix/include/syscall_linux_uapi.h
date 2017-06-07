@@ -3,8 +3,8 @@
  * These UAPI syscall numbers are shared by several current architectures.
  */
 
-#ifndef SYSCALL_LINUX_UAPI_H_
-#define SYSCALL_LINUX_UAPI_H_ 1
+#ifndef SYSCALL_LINUX_UAPI_H
+#define SYSCALL_LINUX_UAPI_H 1
 
 #ifndef LINUX
 # error Only use this file on Linux
@@ -551,4 +551,4 @@
 #define SYS_write __NR_write
 #define SYS_writev __NR_writev
 
-#endif /* SYSCALL_LINUX_UAPI_H_ */
+#endif /* SYSCALL_LINUX_UAPI_H */

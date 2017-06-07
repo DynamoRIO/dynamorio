@@ -36,8 +36,8 @@
 
 /* file "x86/steal_reg.h" */
 
-#ifndef X86_STEAL_REG_H_
-#define X86_STEAL_REG_H_
+#ifndef X86_STEAL_REG_H
+#define X86_STEAL_REG_H
 
 /* This header file declares the tables and functions that help decode
    x86 instructions so that we can steal edi for our own uses. */
@@ -59,4 +59,4 @@ void restore_state(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
 #define EDI_VAL_IN_EBX 1
 #define EDI_VAL_IN_EBX_AND_MEM 3
 
-#endif /* X86_STEAL_REG_H_ */
+#endif /* X86_STEAL_REG_H */
