@@ -175,7 +175,14 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
      * address of an operand using an incorrect register value, as drreg will elide the
      * save/restore.
      */
-    if (drreg_get_app_value(drcontext, ilist, where, reg_tmp, reg_tmp)
+    if (opnd_uses_reg(ref, reg_tmp) &&
+        drreg_get_app_value(drcontext, ilist, where, reg_tmp, reg_tmp)
+        != DRREG_SUCCESS) {
+        DR_ASSERT(false);
+        return DR_REG_NULL;
+    }
+    if (opnd_uses_reg(ref, reg_ptr) &&
+        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr)
         != DRREG_SUCCESS) {
         DR_ASSERT(false);
         return DR_REG_NULL;
