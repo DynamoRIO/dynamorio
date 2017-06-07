@@ -170,6 +170,17 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
         return DR_REG_NULL;
     }
 
+    /* i#2449: In the situation that instrument_post_write, instrument_mem and ref all
+     * have the same register reserved, drutil_insert_get_mem_addr will compute the
+     * address of an operand using an incorrect register value, as drreg will elide the
+     * save/restore.
+     */
+    if (drreg_get_app_value(drcontext, ilist, where, reg_tmp, reg_tmp)
+        != DRREG_SUCCESS) {
+        DR_ASSERT(false);
+        return DR_REG_NULL;
+    }
+
     /* We use reg_ptr as scratch to get addr. Note we do this first as reg_ptr or reg_tmp
      * may be used in ref.
      */
@@ -403,7 +414,7 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 3 /*max slots needed*/, false};
+    drreg_options_t ops = {sizeof(ops), 3 /*max slots needed*/, true};
 
     dr_set_client_name("DynamoRIO Sample Client 'memval_simple'",
                        "http://dynamorio.org/issues");
