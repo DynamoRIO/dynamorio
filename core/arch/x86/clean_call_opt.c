@@ -38,8 +38,6 @@
 
 /* file "clean_call_opt.c" */
 
-#ifdef CLIENT_INTERFACE /* around whole file */
-
 #include "../globals.h"
 #include "arch.h"
 #include "instrument.h"
@@ -47,6 +45,8 @@
 #include "disassemble.h"
 #include "instr_create.h"
 #include "../clean_call_opt.h"
+
+#ifdef CLIENT_INTERFACE /* around whole file */
 
 /* make code more readable by shortening long lines
  * we mark everything we add as a meta-instr to avoid hitting

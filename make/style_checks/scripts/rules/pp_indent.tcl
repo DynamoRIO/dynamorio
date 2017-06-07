@@ -71,7 +71,7 @@ set indent_exempt [list {aarch64/instr_create.h}     {1} \
                         {lib/instrument.c}           {1} \
                         {lib/instrument_api.h}       {1} \
                         {lib/dr_helper.h}            {1} \
-                        {ib/statsx.h}                 {1} \
+                        {lib/statsx.h}                 {1} \
                         {unix/os.c}                  {1} \
                         {unix/signal.c}              {1} \
                         {unix/injector.c}            {1} \
