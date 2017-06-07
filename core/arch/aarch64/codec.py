@@ -261,8 +261,8 @@ def generate_opcode_names(patterns):
     mns = dict()
     for p in patterns:
         mns[p[2]] = 1
-    c = ['#ifndef OPCODE_NAMES_H_',
-         '#define OPCODE_NAMES_H_ 1',
+    c = ['#ifndef OPCODE_NAMES_H',
+         '#define OPCODE_NAMES_H 1',
          '',
          'const char *opcode_names[] = {',
          '/*   0 */ "<invalid>",',
@@ -277,7 +277,7 @@ def generate_opcode_names(patterns):
           '          "xx",',
           '};',
           '',
-          '#endif /* OPCODE_NAMES_H_ */']
+          '#endif /* OPCODE_NAMES_H */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):

@@ -46,12 +46,12 @@
 /* We want to build on older toolchains so we have our own copy of signal
  * data structures
  */
-#  include "include/sigcontext.h"
-#  include "include/signalfd.h"
-#  include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+# include "include/sigcontext.h"
+# include "include/signalfd.h"
+# include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
-#  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
-#  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+# include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+# include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
 #endif
 
 #include "os_private.h"
