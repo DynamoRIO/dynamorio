@@ -360,8 +360,8 @@
 /**
  * This platform-independent macro creates an instr_t for a logical right shift
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param dc         The void * dcontext used to allocate memory for the instr_t.
+ * \param d          The opnd_t explicit destination operand for the instruction.
  * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
