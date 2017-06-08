@@ -88,7 +88,7 @@ typedef struct _dr_statistics_t {
 # else
 #  define RSTATS_DEF(desc, name) single_stat_t name##_pair;
 # endif
-#  include "statsx.h"
+# include "statsx.h"
 # undef STATS_DEF
 # undef RSTATS_DEF
 #endif

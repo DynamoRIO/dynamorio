@@ -40,7 +40,7 @@ struct _os_privmod_data_t;
 typedef struct _os_privmod_data_t os_privmod_data_t;
 
 #ifdef LINUX
-#  include "module_elf.h"
+# include "module_elf.h"
 #endif
 
 typedef void (*fp_t)(int argc, char **argv, char **env);

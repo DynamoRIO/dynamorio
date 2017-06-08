@@ -46,7 +46,7 @@
 #include "fcache.h"
 #include "monitor.h"
 #ifdef CUSTOM_TRACES
-#  include "instrument.h"
+# include "instrument.h"
 #endif
 #include <string.h> /* for memset */
 #include "instr.h"

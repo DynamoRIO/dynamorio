@@ -57,7 +57,7 @@
  */
 #define USE_SYMTAB 0
 #if USE_SYMTAB
-#include "symtab.h"
+# include "symtab.h"
 static bool valid_symtab;
 #endif
 

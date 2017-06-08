@@ -356,7 +356,7 @@ void pcprofile_fork_init(dcontext_t *dcontext);
 void os_request_live_coredump(const char *msg);
 
 #ifdef VMX86_SERVER
-#  include "vmkuw.h"
+# include "vmkuw.h"
 #endif
 
 /* in loader.c */

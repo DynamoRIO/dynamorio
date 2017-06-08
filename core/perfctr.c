@@ -36,7 +36,7 @@
 
 #include "globals.h"
 
-#ifdef PAPI /* around entire file */
+#ifdef PAPI /* around whole file */
 
 #include "perfctr.h"
 #include "x86-events.h"
@@ -88,9 +88,9 @@ hardware_perfctr_init()
 
     ASSERT(NUM_EVENTS==(sizeof(papi_events)/8));
 
-# ifdef UNIX
+#ifdef UNIX
     ASSERT(!INTERNAL_OPTION(profile_pcs));
-# endif
+#endif
 
     LOG(GLOBAL, LOG_TOP, 1,"Initializing PAPI\n");
 

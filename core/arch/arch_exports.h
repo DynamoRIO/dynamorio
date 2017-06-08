@@ -2048,7 +2048,7 @@ void print_optimization_stats(void);
 
 #ifdef SIDELINE
 /* exact overlap with sideline.h */
-#include "sideline.h"
+# include "sideline.h"
 #endif
 
 #include "../link.h"

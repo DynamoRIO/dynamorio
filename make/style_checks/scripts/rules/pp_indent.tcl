@@ -32,6 +32,7 @@
 # Code style check for use with vera++:
 # Check that macros inside #if are indented properly.
 
+# FIXME i#2473: fix macro indentation style violations in exempt files
 set indent_exempt [list {aarch64/instr_create.h}     {1} \
                         {arch/arch.h}                {1} \
                         {arch/instr_create_shared.h} {1} \
@@ -120,7 +121,7 @@ foreach fname [getSourceFileNames] {
     set num_if 0
     foreach token [getTokens $fname 1 0 -1 -1 \
                              {pp_if pp_ifdef pp_ifndef pp_define pp_endif \
-                              pp_undef pp_elif pp_else pp_include}] {
+                              pp_undef pp_elif pp_else pp_qheader}] {
         set value [lindex $token 0]
         set nline [lindex $token 1]
         set ncol [lindex $token 2]
@@ -150,10 +151,10 @@ foreach fname [getSourceFileNames] {
         } else {
             set spaces [string repeat " " $num_if]
         }
-        set line_start "#$spaces$token_string*"
-        if {![string match $line_start $line]} {
+        set line_start "#$spaces$token_string"
+        if {![string match "$line_start*" $line]} {
             report $fname $nline "Wrong indentation for macro, current indentation level is\
-                                  $num_if and line should start with '$line_start'"
+                                  $num_if and line should start with '$line_start'."
         }
 
         if {$token_type == "pp_if" || $token_type == "pp_ifdef" || $token_type == "pp_ifndef"} {
