@@ -46,7 +46,7 @@
 #include "fcache.h"
 #include "monitor.h"
 #ifdef CUSTOM_TRACES
-#  include "instrument.h"
+# include "instrument.h"
 #endif
 #include <string.h> /* for memset */
 #include "instr.h"
@@ -1339,9 +1339,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
 #ifdef INTERNAL
     if (dynamo_options.optimize
-#  ifdef SIDELINE
+# ifdef SIDELINE
         && !dynamo_options.sideline
-#  endif
+# endif
         ) {
         optimize_trace(dcontext, tag, trace);
         externally_mangled = true;

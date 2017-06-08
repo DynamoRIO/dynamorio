@@ -230,7 +230,7 @@ DR_API
 void
 instrlist_remove(instrlist_t *ilist, instr_t *instr);
 
-# ifdef CLIENT_INTERFACE
+#ifdef CLIENT_INTERFACE
 DR_API
 /**
  * Specifies the fall-through target of a basic block if its last
@@ -264,6 +264,6 @@ instrlist_set_return_target(instrlist_t *bb, app_pc tgt);
  */
 app_pc
 instrlist_get_return_target(instrlist_t *bb);
-# endif /* CLIENT_INTERFACE */
+#endif /* CLIENT_INTERFACE */
 
 #endif /* _INSTRLIST_H_ */

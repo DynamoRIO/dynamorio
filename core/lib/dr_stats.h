@@ -88,7 +88,7 @@ typedef struct _dr_statistics_t {
 # else
 #  define RSTATS_DEF(desc, name) single_stat_t name##_pair;
 # endif
-#  include "statsx.h"
+# include "statsx.h"
 # undef STATS_DEF
 # undef RSTATS_DEF
 #endif
@@ -118,15 +118,15 @@ typedef struct {
      * Used for other threads to be able to request thread local stats,
      * and also for the not fully explained self-interruption on linux?
      */
-#ifdef DEBUG
-# define STATS_DEF(desc, name) stats_int_t name##_thread;
-#else
-# define RSTATS_DEF(desc, name) stats_int_t name##_thread;
-#endif
+# ifdef DEBUG
+#  define STATS_DEF(desc, name) stats_int_t name##_thread;
+# else
+#  define RSTATS_DEF(desc, name) stats_int_t name##_thread;
+# endif
 # include "statsx.h"
 } thread_local_statistics_t;
-#undef STATS_DEF
-#undef RSTATS_DEF
+# undef STATS_DEF
+# undef RSTATS_DEF
 #endif /* !NOT_DYNAMORIO_CORE */
 
 #endif /* _DR_STATS_H_ */

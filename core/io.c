@@ -52,12 +52,12 @@ void dr_fpu_exception_init(void);
 #include <stdarg.h> /* for varargs */
 
 #ifdef UNIX
-#  ifdef MACOS
+# ifdef MACOS
 /* request extern functions to avoid conflicts with our own tolower() */
-#    define _EXTERNALIZE_CTYPE_INLINES_TOP_
-#    define _EXTERNALIZE_CTYPE_INLINES_
-#  endif
-#  include <wchar.h>
+#  define _EXTERNALIZE_CTYPE_INLINES_TOP_
+#  define _EXTERNALIZE_CTYPE_INLINES_
+# endif
+# include <wchar.h>
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -1109,7 +1109,7 @@ unit_test_io(void)
     wbuf[6] = L'\0';
     EXPECT(wcscmp(wbuf, L"narrow"), 0);
 
-#ifdef WINDOWS
+# ifdef WINDOWS
     /* test UTF-16 to UTF-8 */
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
                        L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
@@ -1152,7 +1152,7 @@ unit_test_io(void)
                             "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
     EXPECT(res == 2, true);
     EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == L'\0', true);
-#endif
+# endif
 
     test_integer();
 
@@ -1161,14 +1161,14 @@ unit_test_io(void)
     test_sscanf_maps_x64();
     test_sscanf_all_specs();
 
-#ifdef UNIX
+# ifdef UNIX
     /* memcpy tests */
     test_our_memcpy();
     our_memcpy_vs_libc();
 
     /* memset tests */
     test_our_memset();
-#endif /* UNIX */
+# endif /* UNIX */
 
     /* XXX: add more tests */
 

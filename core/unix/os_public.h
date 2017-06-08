@@ -47,9 +47,9 @@
 #endif
 
 #ifdef MACOS
-#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
-#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
-#  include <ucontext.h>
+# define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
+# define __need_struct_ucontext64 /* seems to be missing from Mac headers */
+# include <ucontext.h>
 #endif
 
 #ifdef MACOS
@@ -57,11 +57,11 @@
 /* We need room for avx.  If we end up with !YMM_ENABLED() we'll just end
  * up wasting some space in synched thread allocations.
  */
-#  ifdef X64
+# ifdef X64
 typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
-#  else
+# else
 typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
-#  endif
+# endif
 #else
 typedef kernel_sigcontext_t sigcontext_t;
 #endif

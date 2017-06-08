@@ -2704,9 +2704,9 @@ removed_fragment_stats(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f->flags))
             continue; /* it's kept elsewhere */
         sz = linkstub_size(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
+# ifdef CUSTOM_EXIT_STUBS
         sz += l->fixed_stub_offset;
-#endif
+# endif
         if (LINKSTUB_INDIRECT(l->flags))
             STATS_FCACHE_ADD(cache, indirect_stubs, -sz);
         else {
@@ -4265,9 +4265,9 @@ fcache_reset_all_caches_proactively(uint target)
         /* monitor only has thread-private data */
         /* arch and os data is all persistent */
         vm_areas_reset_free();
-# ifdef HOT_PATCHING_INTERFACE
+#ifdef HOT_PATCHING_INTERFACE
         hotp_reset_free();
-# endif
+#endif
         /* now we throw out all non-persistent global heap units */
         heap_reset_free();
 

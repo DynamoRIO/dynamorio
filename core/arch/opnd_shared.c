@@ -42,7 +42,7 @@
 #include "arch.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #ifndef AARCH64
-#include "x86/decode_private.h"
+# include "x86/decode_private.h"
 #endif
 
 #include <string.h> /* for memcpy */

@@ -96,13 +96,13 @@ hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
 { /* nothing */
 }
 
-# ifdef DEBUG
+#ifdef DEBUG
 static void
 hashtable_generic_study_custom(dcontext_t *dcontext, generic_table_t *htable,
                               uint entries_inc/*amnt table->entries was pre-inced*/)
 { /* nothing */
 }
-# endif
+#endif
 
 static void
 hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
@@ -301,13 +301,13 @@ hashtable_strhash_resized_custom(dcontext_t *dcontext, strhash_table_t *htable,
 { /* nothing */
 }
 
-# ifdef DEBUG
+#ifdef DEBUG
 static void
 hashtable_strhash_study_custom(dcontext_t *dcontext, strhash_table_t *htable,
                                uint entries_inc/*amnt table->entries was pre-inced*/)
 { /* nothing */
 }
-# endif
+#endif
 
 static void
 hashtable_strhash_free_entry(dcontext_t *dcontext, strhash_table_t *htable,

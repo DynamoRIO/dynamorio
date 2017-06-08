@@ -469,7 +469,7 @@ must_escape_from(app_pc pc)
      * because of stubs, etc. that end up doing indirect jumps to them!
      */
     bool res = false
-#ifdef DR_APP_EXPORTS
+# ifdef DR_APP_EXPORTS
         || (automatic_startup &&
             (pc == (app_pc)dynamorio_app_init ||
              pc == (app_pc)dr_app_start ||
@@ -477,11 +477,11 @@ must_escape_from(app_pc pc)
              pc == (app_pc)dynamorio_app_exit ||
              /* dr_app_stop is a nop already */
              pc == (app_pc)dynamo_thread_exit))
-#endif
+# endif
         ;
-#ifdef DEBUG
+# ifdef DEBUG
     if (res) {
-# ifdef DR_APP_EXPORTS
+#  ifdef DR_APP_EXPORTS
         LOG(THREAD_GET, LOG_INTERP, 3, "must_escape_from: found ");
         if (pc == (app_pc)dynamorio_app_init)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamorio_app_init\n");
@@ -494,9 +494,9 @@ must_escape_from(app_pc pc)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamorio_app_exit\n");
         else if (pc ==  (app_pc)dynamo_thread_exit)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamo_thread_exit\n");
-# endif
+#  endif
     }
-#endif
+# endif
 
     return res;
 }
@@ -1084,12 +1084,12 @@ static inline bool
 bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
 {
     byte *callee = (byte *)opnd_get_pc(instr_get_target(bb->instr));
-# ifdef CUSTOM_TRACES_RET_REMOVAL
+#ifdef CUSTOM_TRACES_RET_REMOVAL
     if (callee == bb->instr_start + 5) {
         LOG(THREAD, LOG_INTERP, 4, "found call to next instruction\n");
     } else
         dcontext->num_calls++;
-# endif
+#endif
     STATS_INC(num_all_calls);
     BBPRINT(bb, 4, "interp: direct call at "PFX"\n", bb->instr_start);
     if (leave_call_native(callee)) {
@@ -2760,11 +2760,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
     app_pc trailing_annotation_pc = NULL, instrumentation_pc = NULL;
     bool found_instrumentation_pc = false;
     instr_t *annotation_label = NULL;
-#endif
+# endif
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2866,7 +2866,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         }
 
         if (instr_is_meta(inst)) {
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
             /* Save the trailing_annotation_pc in case a client truncated the bb there. */
             if (is_annotation_label(inst) && last_app_instr == NULL) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
@@ -2874,15 +2874,15 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 instrumentation_pc = GET_ANNOTATION_INSTRUMENTATION_PC(label_data);
                 annotation_label = inst;
             }
-#endif
+# endif
             continue;
         }
 
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
         if (instrumentation_pc != NULL && !found_instrumentation_pc &&
             instr_get_translation(inst) == instrumentation_pc)
             found_instrumentation_pc = true;
-#endif
+# endif
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2972,11 +2972,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                                   "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
-#ifdef ARM
+# ifdef ARM
                     if (instr_get_opcode(inst) == OP_blx)
                         bb->ibl_branch_type = IBL_INDCALL;
                     else
-#endif
+# endif
                         bb->ibl_branch_type = get_ibl_branch_type(inst);
                     bb->exit_target = get_ibl_routine(dcontext,
                                                       get_ibl_entry_type(bb->exit_type),
@@ -3053,7 +3053,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (last_app_instr != NULL) {
         bool adjusted_cur_pc = false;
         app_pc xl8 = instr_get_translation(last_app_instr);
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
         if (annotation_label != NULL) {
             if (found_instrumentation_pc) {
                 /* i#1613: if the last app instruction precedes an annotation, extend the
@@ -3078,8 +3078,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 }
             }
         }
-#endif
-#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
+# endif
+# if defined(WINDOWS) && !defined(STANDALONE_DECODER)
         /* i#1632: if the last app instruction was taken from an intercept because it was
          * occluded by the corresponding hook, `bb->cur_pc` should point to the original
          * app pc (where that instruction was copied from). Cannot use `decode_next_pc()`
@@ -3098,7 +3098,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     "to intercept instr at "PFX"\n", intercept_pc, bb->cur_pc);
             }
         }
-#endif
+# endif
         /* We do not take instr_length of what the client put in, but rather
          * the length of the translation target
          */

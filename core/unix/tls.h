@@ -181,14 +181,14 @@ write_thread_register(void *val)
 #endif
 
 #if defined(LINUX) && defined(X86) && defined(X64) && !defined(ARCH_SET_GS)
-#  define ARCH_SET_GS 0x1001
-#  define ARCH_SET_FS 0x1002
-#  define ARCH_GET_FS 0x1003
-#  define ARCH_GET_GS 0x1004
+# define ARCH_SET_GS 0x1001
+# define ARCH_SET_FS 0x1002
+# define ARCH_GET_FS 0x1003
+# define ARCH_GET_GS 0x1004
 #endif
 
 #ifdef LINUX
-#  define GDT_NUM_TLS_SLOTS 3
+# define GDT_NUM_TLS_SLOTS 3
 #elif defined(MACOS)
 /* XXX: rename to APP_SAVED_TLS_SLOTS or sthg?
  *
@@ -197,7 +197,7 @@ write_thread_register(void *val)
  * only need to save the ones the app might use which we assume will
  * be <= 3.
  */
-#  define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
+# define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
 #endif
 
 #define MAX_NUM_CLIENT_TLS 64
@@ -224,9 +224,9 @@ typedef struct _os_local_state_t {
     /* Magic number for is_thread_tls_initialized() (i#2089).
      * XXX: keep the offset of this consistent with TLS_MAGIC_OFFSET_ASM in x86.asm.
      */
-#   define TLS_MAGIC_VALID   0x244f4952 /* RIO$ */
+# define TLS_MAGIC_VALID   0x244f4952 /* RIO$ */
     /* This value is used for os_thread_take_over() re-takeover. */
-#   define TLS_MAGIC_INVALID 0x2d4f4952 /* RIO- */
+# define TLS_MAGIC_INVALID 0x2d4f4952 /* RIO- */
     uint magic;
 #endif
     /* store what type of TLS this is so we can clean up properly */

@@ -71,12 +71,12 @@ typedef enum {
 } cxt_type_t;
 
 /* Leak to handle case 9593.  This should go if we find a cleaner solution. */
-#ifdef HEAP_ACCOUNTING
+# ifdef HEAP_ACCOUNTING
 DEBUG_DECLARE(extern int hotp_only_tramp_bytes_leaked;)
-#endif
-#ifdef DEBUG_MEMORY
+# endif
+# ifdef DEBUG_MEMORY
 DEBUG_DECLARE(bool hotp_only_contains_leaked_trampoline(byte *pc, size_t size);)
-#endif
+# endif
 /*----------------------------------------------------------------------------*/
 /* Exported function prototypes */
 bool hotp_does_region_need_patch(const app_pc start, const app_pc end,

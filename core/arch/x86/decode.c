@@ -2244,7 +2244,7 @@ unit_check_decode_ff_opcode() {
 /* Standalone building is still broken so I tested this by calling
  * from a real DR build.
  */
-#define CHECK_ENCODE_OPCODE(dcontext, instr, pc, opc, ...) \
+# define CHECK_ENCODE_OPCODE(dcontext, instr, pc, opc, ...) \
     instr = INSTR_CREATE_##opc(dcontext, ## __VA_ARGS__);  \
     instr_encode(dcontext, instr, pc);                 \
     instr_reset(dcontext, instr);                      \

@@ -46,12 +46,12 @@
 /* We want to build on older toolchains so we have our own copy of signal
  * data structures
  */
-#  include "include/sigcontext.h"
-#  include "include/signalfd.h"
-#  include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+# include "include/sigcontext.h"
+# include "include/signalfd.h"
+# include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
-#  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
-#  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+# include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+# include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
 #endif
 
 #include "os_private.h"
@@ -191,7 +191,7 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
 
-#define RETCODE_SIZE 8
+# define RETCODE_SIZE 8
 
 typedef struct sigframe {
 # ifdef X86
@@ -234,10 +234,10 @@ typedef struct rt_sigframe {
 #   ifdef VMX86_SERVER
     siginfo_t info;
     kernel_ucontext_t uc;
-#    else
+#   else
     kernel_ucontext_t uc;
     siginfo_t info;
-#    endif
+#   endif
 #  else
     int sig;
     siginfo_t *pinfo;

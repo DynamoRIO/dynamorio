@@ -2006,7 +2006,7 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
     opnd_t curop;
     if (!instr_valid(instr))
         return false;
-#ifdef X86_64
+# ifdef X86_64
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
         if (instr_get_rip_rel_pos(instr) > 0) {
@@ -2017,8 +2017,8 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
             return true;
         } else
             return false;
-    }
-#endif
+   }
+# endif
     /* else go to level 3 operands */
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
@@ -3093,13 +3093,13 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
-#ifdef AARCH64
+# ifdef AARCH64
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
-#else
+# else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     return XINST_CREATE_jump_mem(dcontext, memopnd);
-#endif
+# endif
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -3116,9 +3116,9 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
 bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
-#ifdef X86
+# ifdef X86
     ASSERT_NOT_IMPLEMENTED(reg != REG_XAX);
-# ifdef X64
+#  ifdef X64
     /* match insert_jmp_to_ibl */
     if     (*pc == TLS_SEG_OPCODE &&
             *(pc+1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
@@ -3131,7 +3131,7 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
     /* we also check for 32-bit.  we could take in flags and only check for one
      * version, but we're not worried about false positives.
      */
-# endif
+#  endif
     /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
     /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
     return (*pc == ADDR_PREFIX_OPCODE &&
@@ -3146,11 +3146,11 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
          *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
          *((uint*)(pc+4)) == os_tls_offset(offs));
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif /* X86/ARM */
+# endif /* X86/ARM */
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -3170,26 +3170,26 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
-#ifdef X86
+# ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
-#endif
+# endif
     } else
         return false;
     if (opnd_is_reg(regop) &&
-#ifdef X86
+# ifdef X86
         opnd_is_far_base_disp(memop) &&
         opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
         opnd_is_base_disp(memop) &&
         opnd_get_base(memop) == dr_reg_stolen &&
         opnd_get_index(memop) == DR_REG_NULL
-#endif
+# endif
         ) {
         if (reg != NULL)
             *reg = opnd_get_reg(regop);
@@ -3233,18 +3233,18 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
 bool
 instr_is_tls_xcx_spill(instr_t *instr)
 {
-#ifdef X86
+# ifdef X86
     if (instr_raw_bits_valid(instr)) {
         /* avoid upgrading instr */
         return instr_raw_is_tls_spill(instr_get_raw_bits(instr),
                                       REG_ECX, MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif
+# endif
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -3252,10 +3252,10 @@ static bool
 instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
                                    bool *spill, reg_id_t *reg, int *offs)
 {
-#ifdef X64
+# ifdef X64
     /* PR 244737: we always use tls for x64 */
     return false;
-#else
+# else
     opnd_t regop, memop;
     if (instr_get_opcode(instr) == OP_store) {
         regop = instr_get_src(instr, 0);
@@ -3267,14 +3267,14 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
-# ifdef X86
+#  ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
-# endif /* X86 */
+#  endif /* X86 */
     } else
         return false;
     if (opnd_is_near_base_disp(memop) &&
@@ -3291,7 +3291,7 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
         }
     }
     return false;
-#endif
+# endif
 }
 
 static bool
@@ -3378,7 +3378,7 @@ instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2
     return XINST_CREATE_move(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
-#ifdef X86_64
+# ifdef X86_64
 /* Returns NULL if pc is not the start of a rip-rel lea.
  * If it could be, returns the address it refers to (which we assume is
  * never NULL).
@@ -3401,7 +3401,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end)
     }
     return NULL;
 }
-#endif
+# endif
 
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32)

@@ -107,7 +107,7 @@ typedef struct _kernel_fpstate_t {
         };
 } kernel_fpstate_t;
 
-#define X86_FXSR_MAGIC          0x0000
+# define X86_FXSR_MAGIC          0x0000
 
 /*
  * User-space might still rely on the old definition:
@@ -266,7 +266,7 @@ typedef struct _kernel_sys_user_vfp_exc_t {
     unsigned long fpinst2;
 } kernel_sys_user_vfp_exc_t;
 
-#define VFP_MAGIC 0x56465001
+# define VFP_MAGIC 0x56465001
 
 typedef struct _kernel_vfp_sigframe_t {
     unsigned long magic;

@@ -316,7 +316,7 @@ sigfd_pipe_free(dcontext_t *dcontext, void *ptr)
 void
 signalfd_init(void)
 {
-#   define SIGNALFD_HTABLE_INIT_SIZE 6
+#define SIGNALFD_HTABLE_INIT_SIZE 6
     sigfd_table =
         generic_hash_create(GLOBAL_DCONTEXT, SIGNALFD_HTABLE_INIT_SIZE,
                             80 /* load factor: not perf-critical */,

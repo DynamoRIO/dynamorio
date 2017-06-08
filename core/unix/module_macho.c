@@ -351,7 +351,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
     while (cmd < cmd_stop) {
         if (cmd->cmd == LC_UNIXTHREAD) {
             /* There's no nice struct for this: see thread_command in loader.h. */
-#           define LC_UNIXTHREAD_REGS_OFFS 16
+#define LC_UNIXTHREAD_REGS_OFFS 16
 #ifdef X64
             const x86_thread_state64_t *reg = (const x86_thread_state64_t *)
                 ((char*)cmd + LC_UNIXTHREAD_REGS_OFFS);

@@ -38,6 +38,7 @@ set rules {
     break_after_return_type
     no_space_after_control
     space_after_call
+    pp_indent
 }
 
 # There are just too many instances of CamelCase, mostly in

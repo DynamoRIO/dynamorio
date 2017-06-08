@@ -73,13 +73,13 @@
  */
 #define BATCH_MODE 0
 #if BATCH_MODE
-#define DEBUGGER_COMMAND "where\nquit\n"
+# define DEBUGGER_COMMAND "where\nquit\n"
 #else
 /* FIXME: want to have some <enter>s to handle multi-page,
  * but don't want to repeat where cmd, so I use pwd, which is
  * useful.  Hopefully two pages is enough.
  */
-#define DEBUGGER_COMMAND "where\npwd\nquit\n"
+# define DEBUGGER_COMMAND "where\npwd\nquit\n"
 #endif
 
 #ifndef WAIT_ANY
@@ -124,9 +124,9 @@ fork_syscall(void)
      */
 # if 0
     /* from /usr/include/bits/sched.h ifdef __USE_MISC: */
-#   define CLONE_CHILD_CLEARTID 0x00200000 /* Register exit futex and memory
+#  define CLONE_CHILD_CLEARTID 0x00200000 /* Register exit futex and memory
                                             * location to clear.  */
-#   define CLONE_CHILD_SETTID 0x01000000   /* Store TID in userlevel buffer in
+#  define CLONE_CHILD_SETTID 0x01000000   /* Store TID in userlevel buffer in
                                             * the child.  */
     /* i386/fork.c pass a 5th arg, &THREAD_SELF->tid, is it needed for SETTID? */
     static uint tid;

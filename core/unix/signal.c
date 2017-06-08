@@ -3045,20 +3045,20 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     }
 #if defined(X86) && defined(LINUX)
     else {
-#  ifdef X64
+# ifdef X64
         ASSERT_NOT_REACHED();
-#  else
+# else
         sigframe_plain_t *f_new = (sigframe_plain_t *) sp;
-#    ifndef VMX86_SERVER
+#  ifndef VMX86_SERVER
         sigframe_plain_t *f_old = (sigframe_plain_t *) frame;
-#    endif
+#  endif
         if (has_restorer)
             f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
         else {
-#    ifdef VMX86_SERVER
+#  ifdef VMX86_SERVER
             /* PR 404712: skip kernel's restorer code */
             f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
-#    else
+#  else
             /* see comments in rt case above */
             if (f_old->pretcode == f_old->retcode)
                 f_new->pretcode = f_new->retcode;
@@ -3069,7 +3069,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
                 f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
             } /* else, pointing at vsyscall most likely */
             LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
-#    endif
+#  endif
         }
         /* convert_frame_to_nonrt*() should have updated fpstate pointer.
          * The inlined fpstate is no longer used on new kernels, and we do that

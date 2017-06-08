@@ -62,7 +62,7 @@
 static generic_table_t  *callee_info_table;
 /* we only free callee info at exit, when callee_info_table_exit is true. */
 static bool callee_info_table_exit = false;
-#define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
+# define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
 
 static void
 callee_info_init(callee_info_t *ci)
@@ -211,7 +211,7 @@ callee_info_table_add(callee_info_t *ci)
 /* clean call optimization code */
 
 /* The max number of instructions the callee can have for inline. */
-#define MAX_NUM_INLINE_INSTRS 20
+# define MAX_NUM_INLINE_INSTRS 20
 
 /* Decode instruction from callee and return the next_pc to be decoded. */
 static app_pc
@@ -734,26 +734,26 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
 /* Thresholds for out-of-line calls. The values are based on a guess. The bar
  * for generating out-of-line calls is quite low, so the code size is kept low.
  */
-#ifdef X86
+# ifdef X86
   /* Use out-of-line calls if more than 3 SIMD registers need to be saved. */
-# define SIMD_SAVE_TRESHOLD 3
-# ifdef X64
+#  define SIMD_SAVE_TRESHOLD 3
+#  ifdef X64
    /* Use out-of-line calls if more than 3 GP registers need to be saved. */
-#  define GPR_SAVE_TRESHOLD 3
-# else
+#   define GPR_SAVE_TRESHOLD 3
+#  else
    /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
     * the number of GPRs that need saving into account.
     */
-#  define GPR_SAVE_TRESHOLD NUM_GP_REGS
-# endif
-#elif defined(AARCH64)
+#   define GPR_SAVE_TRESHOLD NUM_GP_REGS
+#  endif
+# elif defined(AARCH64)
   /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
-# define SIMD_SAVE_TRESHOLD 6
+#  define SIMD_SAVE_TRESHOLD 6
   /* Use out-of-line calls if more than 6 GP registers need to be saved. */
-# define GPR_SAVE_TRESHOLD 6
-#endif
+#  define GPR_SAVE_TRESHOLD 6
+# endif
 
-#if defined(X86) || defined(AARCH64)
+# if defined(X86) || defined(AARCH64)
     /* 9. derived fields */
     /* Use out-of-line calls if more than SIMD_SAVE_TRESHOLD SIMD registers have
      * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
@@ -763,7 +763,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
         (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD ||
         always_out_of_line)
         cci->out_of_line_swap = true;
-#endif
+# endif
 
     return should_inline;
 }
