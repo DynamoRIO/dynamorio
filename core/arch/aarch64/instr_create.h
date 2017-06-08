@@ -263,7 +263,7 @@
  * precisely where this instruction will be encoded).
  */
 #define XINST_CREATE_jump_cond(dc, pred, t) \
-    (INSTR_PRED(INSTR_CREATE_b((dc), (t)), (pred)))
+    (INSTR_PRED(INSTR_CREATE_bcond((dc), (t)), (pred)))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -360,17 +360,21 @@
 /**
  * This platform-independent macro creates an instr_t for a logical right shift
  * instruction that does affect the status flags.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
+ * \param dc         The void * dcontext used to allocate memory for the instr_t.
+ * \param d          The opnd_t explicit destination operand for the instruction.
+ * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
  * Also, what about writing the flags?  Most users don't want to read the flag results,
  * they just need to know whether they need to preserve the app's flags, so maybe
  * we can just document that this may not write them.
  */
-#define XINST_CREATE_slr_s(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_lsrv, (d), (d), (s))
+#define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
+  (opnd_is_reg(rm_or_imm) ? \
+    instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm) : \
+    instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm, \
+                           reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : \
+                                                           OPND_CREATE_INT(63)))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
@@ -425,7 +429,14 @@
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
-
+/**
+ * This macro creates an instr_t for a conditional branch instruction. The condition
+ * can be set using INSTR_PRED macro.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The opnd_t target operand containing the program counter to jump to.
+ */
+#define INSTR_CREATE_bcond(dc, pc) \
+  instr_create_0dst_1src((dc), OP_bcond, (pc))
 /**
  * This macro creates an instr_t for a BL (branch and link) instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
@@ -445,7 +456,7 @@
 #define INSTR_CREATE_cbz(dc, pc, reg) \
   instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
-  instr_create_1dst_2src(dc, OP_subs, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+  INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
   instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) \

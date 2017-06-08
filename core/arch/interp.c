@@ -827,6 +827,7 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
      * before the single step exception.
      */
     instrlist_append(bb->ilist, bb->instr);
+    instr_set_translation(bb->instr, bb->instr_start);
 
     /* Mark instruction as special exit. */
     instr_branch_set_special_exit(bb->instr, true);
@@ -3210,6 +3211,21 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
     return true;
 }
 
+#ifdef X86
+/* Tells if instruction will trigger an exception because of debug register. */
+static bool
+debug_register_fire_on_addr(app_pc pc) {
+    size_t i;
+
+    for (i=0; i<DEBUG_REGISTERS_NB; i++) {
+        if (pc == debugRegister[i]) {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
 
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
@@ -3494,6 +3510,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
+#ifdef X86
+            /* If the next instruction at bb->cur_pc fires a debug register,
+             * then we should generate a single step exception before getting to it.
+             */
+            if (my_dcontext != NULL && debug_register_fire_on_addr(bb->cur_pc)) {
+                my_dcontext->single_step_addr = bb->instr_start;
+                break;
+            }
+#endif
             /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag
@@ -3713,7 +3738,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 # endif /* X86 */
 #endif /* WINDOWS */
 
-        if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
+        if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->instr_start) {
             bb_process_single_step(dcontext, bb);
             /* Stops basic block right now. */
             break;
@@ -4204,7 +4229,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
-        && (my_dcontext == NULL || my_dcontext->single_step_addr != bb->start_pc)
+        && (my_dcontext == NULL || my_dcontext->single_step_addr != bb->instr_start)
        ) {
         /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
@@ -4234,7 +4259,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
     }
-    else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
+    else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->instr_start) {
         /* Field exit_type might have been cleared by client_process_bb. */
         bb->exit_type |= LINK_SPECIAL_EXIT;
     }

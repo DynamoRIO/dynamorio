@@ -1427,4 +1427,15 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
     MOV_IMM_EDX_OPCODE   = 0xba,
 };
 
+/* Debug registers are used for breakpoint with x86.
+ * DynamoRIO needs to keep track of their values process-wide.
+ */
+#define DEBUG_REGISTERS_NB 4
+/* Dr7 flags mask to enable debug registers */
+#define DEBUG_REGISTERS_FLAG_ENABLE_DR0 0x3
+#define DEBUG_REGISTERS_FLAG_ENABLE_DR1 0xc
+#define DEBUG_REGISTERS_FLAG_ENABLE_DR2 0x30
+#define DEBUG_REGISTERS_FLAG_ENABLE_DR3 0xc0
+extern app_pc debugRegister[DEBUG_REGISTERS_NB];
+
 #endif /* _OPCODE_H_ */
