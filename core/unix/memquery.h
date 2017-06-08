@@ -64,7 +64,7 @@ typedef struct _memquery_iter_t {
      * without using static data and limiting to one iterator (and having
      * to unprotect and reprotect if in .data).
      */
-#   define MEMQUERY_INTERNAL_DATA_LEN 96 /* 84 bytes needed for Mac 10.9.1 */
+#define MEMQUERY_INTERNAL_DATA_LEN 96 /* 84 bytes needed for Mac 10.9.1 */
     char internal[MEMQUERY_INTERNAL_DATA_LEN];
 } memquery_iter_t;
 

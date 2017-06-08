@@ -36,7 +36,7 @@
  */
 
 #ifndef DRGUI_MAIN_WINDOW_H
-#define DRGUI_MAIN_WINDOW_H
+#define DRGUI_MAIN_WINDOW_H_
 
 #include <QDir>
 #include <QMainWindow>

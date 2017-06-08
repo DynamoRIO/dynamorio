@@ -67,8 +67,8 @@ get_pthread_tls_offs(void)
 void
 init_android_version(void)
 {
-#   define VER_FILE "/system/build.prop"
-#   define VER_PROP "ro.build.version.release="
+#define VER_FILE "/system/build.prop"
+#define VER_PROP "ro.build.version.release="
     file_t fd = os_open(VER_FILE, OS_OPEN_READ);
     uint read_ver = 0;
     if (fd != INVALID_FILE) {

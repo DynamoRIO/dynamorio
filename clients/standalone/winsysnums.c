@@ -635,7 +635,7 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
      * We must use the same modname as in full_path.
      */
     char fullpath[MAX_PATH];
-# define MAX_SYM_WITH_MOD_LEN 256
+#define MAX_SYM_WITH_MOD_LEN 256
     char sym_with_mod[MAX_SYM_WITH_MOD_LEN];
     int len;
     drsym_error_t symres;

@@ -128,14 +128,14 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 {
     byte *last_pc;
     /* FIXME i#1551: merge w/ GENCODE_IS_X86 below */
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode)) {
         /* parts of x86 gencode are 64-bit but it's hard to know which here
          * so we dump all as x86
          */
         set_x86_mode(dcontext, true/*x86*/);
     }
-#endif
+# endif
 
     print_file(file, "%s routines created:\n", code_description);
     {
@@ -218,10 +218,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                    code->commit_end_pc - code->gen_start_pc);
     }
 
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode))
         set_x86_mode(dcontext, false/*x64*/);
-#endif
+# endif
 }
 
 void
@@ -1998,23 +1998,23 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
         if (type != NULL) {
             type->branch_type = IBL_SHARED_SYSCALL;
             type->source_fragment_type = DEFAULT_IBL_BB();
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
-#endif
+# endif
                 if (target == unlinked_shared_syscall_routine_ex(dcontext
                                                                  _IF_X86_64(mode)))
                     type->link_state = IBL_UNLINKED;
                 else IF_X64(if (target ==
                                 shared_syscall_routine_ex(dcontext _IF_X86_64(mode))))
                     type->link_state = IBL_LINKED;
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
                 else
                     continue;
                 if (mode_out != NULL)
                     *mode_out = mode;
                 break;
             }
-#endif
+# endif
         }
         return true;
     }
@@ -2568,12 +2568,12 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
 cache_pc
 get_new_thread_start(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-#ifdef HAVE_TLS
+# ifdef HAVE_TLS
     /* for HAVE_TLS we use the shared version; w/o TLS we don't
      * make any shared routines (PR 361894)
      */
     dcontext = GLOBAL_DCONTEXT;
-#endif
+# endif
     generated_code_t *gen = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     return gen->new_thread_dynamo_start;
 }
@@ -2814,12 +2814,12 @@ unhook_vsyscall(void)
  * and control on asynch in/out events.
  */
 
-#define VSYS_DISPLACED_LEN 4
+# define VSYS_DISPLACED_LEN 4
 
 bool
 hook_vsyscall(dcontext_t *dcontext, bool method_changing)
 {
-#ifdef X86
+# ifdef X86
     bool res = true;
     instr_t instr;
     byte *pc;
@@ -2847,7 +2847,7 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
            instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
     /* We fail if the pattern looks different */
-# define CHECK(x) do {                                \
+#  define CHECK(x) do {                                \
     if (!(x)) {                                       \
         ASSERT(false && "vsyscall pattern mismatch"); \
         res = false;                                  \
@@ -2933,20 +2933,20 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
  hook_vsyscall_return:
     instr_free(dcontext, &instr);
     return res;
-# undef CHECK
-#elif defined(AARCHXX)
+#  undef CHECK
+# elif defined(AARCHXX)
     /* No vsyscall support needed for our ARM targets -- still called on
      * os_process_under_dynamorio().
      */
     ASSERT(!method_changing);
     return false;
-#endif /* X86/ARM */
+# endif /* X86/ARM */
 }
 
 bool
 unhook_vsyscall(void)
 {
-#ifdef X86
+# ifdef X86
     uint prot;
     bool res;
     uint len = VSYS_DISPLACED_LEN;
@@ -2970,10 +2970,10 @@ unhook_vsyscall(void)
         ASSERT(res);
     }
     return true;
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
-#endif /* X86/ARM */
+# endif /* X86/ARM */
 }
 #endif /* LINUX */
 
@@ -3473,19 +3473,19 @@ set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
 
 #ifdef PROFILE_RDTSC
 /* This only works on Pentium I or later */
-#ifdef UNIX
+# ifdef UNIX
 __inline__ uint64 get_time()
 {
     uint64 res;
     RDTSC_LL(res);
     return res;
 }
-#else /* WINDOWS */
+# else /* WINDOWS */
 uint64 get_time()
 {
     return __rdtsc(); /* compiler intrinsic */
 }
-#endif
+# endif
 #endif /* PROFILE_RDTSC */
 
 

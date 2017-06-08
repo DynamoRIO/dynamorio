@@ -43,17 +43,17 @@
 #include "globals.h"
 #ifdef RCT_IND_BRANCH
 
-#include "fragment.h"
-#include "rct.h"
-#include "module_shared.h"
+# include "fragment.h"
+# include "rct.h"
+# include "module_shared.h"
 
-#ifdef WINDOWS
-# include "nudge.h" /* for generic_nudge_target() */
-#endif
+# ifdef WINDOWS
+#  include "nudge.h" /* for generic_nudge_target() */
+# endif
 
-#ifdef X64
+# ifdef X64
 #  include "instr.h" /* for instr_raw_is_rip_rel_lea */
-#endif
+# endif
 
 /* General assumption all indirect branch targets on X86 will have an
  * absolute address encoded in the code or data sections of the binary
@@ -130,7 +130,7 @@ find_address_references(dcontext_t *dcontext,
                     references_already_known++;
             });
         }
-#ifdef X64
+# ifdef X64
         /* PR 215408: look for "lea reg, [rip+disp]" */
         ref = instr_raw_is_rip_rel_lea(cur_addr, text_end);
         if (ref != NULL) {
@@ -150,7 +150,7 @@ find_address_references(dcontext_t *dcontext,
                 });
             }
         }
-#endif
+# endif
     }
     KSTOP(rct_no_reloc);
 
@@ -317,7 +317,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             LOG(THREAD, LOG_SYMBOLS, 2, "\t%s\n", symbuf);
         });
 
-#ifdef DR_APP_EXPORTS
+# ifdef DR_APP_EXPORTS
         /* case 9195: Allow certain API calls so we don't get security violations
          * when using DR with the start / stop interface.
          * NOTE: this is a security hole so should never be in product build
@@ -328,7 +328,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             target_addr == (app_pc) dr_app_stop_and_cleanup ||
             target_addr == (app_pc) dr_app_cleanup)
             goto good;
-#endif
+# endif
         if (!is_ind_call) {
             /* for DYNAMO_OPTION(rct_ind_jump) we need to allow an
              * after call location (normally a target of return) to be
@@ -539,7 +539,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
     return 1;
 }
 
-#ifdef WINDOWS
+# ifdef WINDOWS
 /* Add allowed targets in dynamorio.dll.
  * Note: currently only needed for WINDOWS
  * Note: needs dynamo_dll_start to be initialized (currently done by
@@ -562,7 +562,7 @@ rct_known_targets_init(void)
 
     mutex_unlock(&rct_module_lock);
 }
-#endif
+# endif
 
 void
 rct_init(void)

@@ -709,10 +709,10 @@
 
 #ifdef IA32_ON_IA64
 /* DR_API EXPORT BEGIN */
-#define INSTR_CREATE_jmpe(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmpe, (t))
-#define INSTR_CREATE_jmpe_abs(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
+# define INSTR_CREATE_jmpe(dc, t) \
+   instr_create_0dst_1src((dc), OP_jmpe, (t))
+# define INSTR_CREATE_jmpe_abs(dc, t) \
+   instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
 #endif
 
 /* floating-point */

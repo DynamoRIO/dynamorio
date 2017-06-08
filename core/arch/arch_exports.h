@@ -958,13 +958,13 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch);
 /* in arch.c */
 
 #ifdef PROFILE_RDTSC
-#ifdef UNIX
+# ifdef UNIX
 /* This only works on Pentium I or later */
 __inline__ uint64 get_time();
-#else /* WINDOWS */
+# else /* WINDOWS */
 /* This only works on Pentium I or later */
 uint64 get_time(void);
-#endif
+# endif
 #endif
 
 void arch_init(void);
@@ -1113,10 +1113,10 @@ byte *get_app_sysenter_addr(void);
  */
 void call_switch_stack(void *func_arg, byte *stack, void (*func) (void *arg),
                        void *mutex_to_free, bool return_on_return);
-# if defined (WINDOWS) && !defined(X64)
+#if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64
 dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
-# endif
+#endif
 void unexpected_return(void);
 void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
@@ -1551,10 +1551,10 @@ bool fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 
 /* evaluates to true if region crosses at most 1 padding boundary */
-# define WITHIN_PAD_REGION(lower, upper) \
+#define WITHIN_PAD_REGION(lower, upper) \
     ((upper)-(lower) <= PAD_JMPS_ALIGNMENT)
 
-# define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
+#define STATS_PAD_JMPS_ADD(flags, stat, val) DOSTATS({    \
     if (TEST(FRAG_SHARED, (flags))) {                     \
         if (TEST(FRAG_IS_TRACE, (flags)))                 \
             STATS_ADD(pad_jmps_shared_trace_##stat, val); \
@@ -2048,7 +2048,7 @@ void print_optimization_stats(void);
 
 #ifdef SIDELINE
 /* exact overlap with sideline.h */
-#include "sideline.h"
+# include "sideline.h"
 #endif
 
 #include "../link.h"
@@ -2157,12 +2157,12 @@ app_pc safe_read_resume_pc(void);
 
 #ifdef UNIX
 /* i#46: Private string routines for libc isolation. */
-#  ifdef memcpy
-#    undef memcpy
-#  endif
-#  ifdef memset
-#    undef memset
-#  endif
+# ifdef memcpy
+#  undef memcpy
+# endif
+# ifdef memset
+#  undef memset
+# endif
 void *memcpy(void *dst, const void *src, size_t n);
 void *memset(void *dst, int val, size_t n);
 #endif /* UNIX */

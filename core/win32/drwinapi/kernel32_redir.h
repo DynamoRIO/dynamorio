@@ -94,7 +94,7 @@ typedef enum _FILE_INFO_BY_HANDLE_CLASS {
 #endif
 
 #if defined(X64) && !defined(UNWIND_HISTORY_TABLE_SIZE)
-#define UNWIND_HISTORY_TABLE_SIZE 12
+# define UNWIND_HISTORY_TABLE_SIZE 12
 
 typedef struct _UNWIND_HISTORY_TABLE_ENTRY {
     DWORD64 ImageBase;

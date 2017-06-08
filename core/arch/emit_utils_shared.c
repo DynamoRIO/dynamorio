@@ -77,7 +77,7 @@
 
 #ifdef TRACE_HEAD_CACHE_INCR
 /* linkstub_t field */
-#  define LINKSTUB_TARGET_FRAG_OFFS  (offsetof(direct_linkstub_t, target_fragment))
+# define LINKSTUB_TARGET_FRAG_OFFS  (offsetof(direct_linkstub_t, target_fragment))
 #endif
 
 /* N.B.: I decided to not keep supporting DCONTEXT_IN_EDI
@@ -1280,11 +1280,11 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     generated_code_t *code = get_emitted_routines_code
         (dcontext _IF_X86_64(FRAGMENT_GENCODE_MODE(f->flags)));
-# ifdef CUSTOM_EXIT_STUBS
+#ifdef CUSTOM_EXIT_STUBS
     byte *start_pc = (byte *) EXIT_FIXED_STUB_PC(dcontext, f, l);
-# else
+#else
     byte *start_pc = (byte *) EXIT_STUB_PC(dcontext, f, l);
-# endif
+#endif
     ibl_branch_type_t branch_type;
 
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
@@ -1507,13 +1507,13 @@ build_profile_call_buffer()
     /* save eflags (call will clobber) */
     APP(&ilist, INSTR_CREATE_RAW_pushf(dcontext));
 
-#ifdef WINDOWS
+# ifdef WINDOWS
     /* must preserve the LastErrorCode (if the profile procedure
      * calls a Win32 API routine it could overwrite the app's error code)
      * currently this is done in the profile routine itself --
      * if you want to move it here, look at the code in profile.c
      */
-#endif
+# endif
 
     /* push time as 2nd argument for call */
     APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_EDX)));
@@ -2781,9 +2781,9 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
                          uint counter_offset,
                          reg_id_t scratch_register)
 {
-#ifdef X86
+# ifdef X86
     instr_t *counter;
-#endif
+# endif
     bool absolute = !ibl_code->thread_shared_routine;
     /* no support for absolute addresses on x64: we always use tls/reg */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute));
@@ -2836,15 +2836,15 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
             counter_opnd = OPND_CREATE_MEM32(SCRATCH_REG5/*xdi/r5*/, counter_offset);
         }
 
-#ifdef X86
+# ifdef X86
         counter = INSTR_CREATE_inc(dcontext, counter_opnd);
         APP(ilist, counter);
-#elif defined(ARM)
+# elif defined(ARM)
         /* FIXMED i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
-#endif
+# endif
     } else {
-#ifdef X86
+# ifdef X86
         /* TAKE_ADDRESS will in fact add the necessary base to the statistics structure,
            hence no explicit indirection needed here */
         opnd_t counter_opnd = OPND_CREATE_MEMPTR(entry_register, counter_offset);
@@ -2865,10 +2865,10 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
                             (ibl_code->unprot_stats_offset << 16) | counter_offset);
         }
         APP(ilist, counter);
-#elif defined(ARM)
+# elif defined(ARM)
         /* FIXMED i#1551: NYI on ARM */
         ASSERT_NOT_IMPLEMENTED(false);
-#endif
+# endif
     }
 }
 #endif /* HASHTABLE_STATISTICS */
@@ -3059,15 +3059,15 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                             MANGLE_XCX_SPILL_SLOT));
             } else
                 APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
-#ifdef AARCH64
+# ifdef AARCH64
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-#else
+# else
             APP(ilist, XINST_CREATE_jump_mem(dcontext,
                                              OPND_DC_FIELD(absolute,
                                                            dcontext,
                                                            OPSZ_PTR,
                                                            SCRATCH_REG2_OFFS)));
-#endif
+# endif
 #elif defined(ARM)
             /* FIXMED i#1551: NYI on ARM */
             ASSERT_NOT_REACHED();
@@ -4254,11 +4254,11 @@ link_shared_syscall(dcontext_t *dcontext)
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
         link_shared_syscall_common(SHARED_GENCODE(GENCODE_X64));
-#ifdef X64
+# ifdef X64
         /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
         if (DYNAMO_OPTION(x86_to_x64))
             link_shared_syscall_common(SHARED_GENCODE(GENCODE_X86_TO_X64));
-#endif
+# endif
     } else
         link_shared_syscall_common(THREAD_GENCODE(dcontext));
 }
@@ -4291,11 +4291,11 @@ unlink_shared_syscall(dcontext_t *dcontext)
     ASSERT(IS_SHARED_SYSCALL_THREAD_SHARED || dcontext != GLOBAL_DCONTEXT);
     if (dcontext == GLOBAL_DCONTEXT) {
         unlink_shared_syscall_common(SHARED_GENCODE(GENCODE_X64));
-#ifdef X64
+# ifdef X64
         /* N.B.: there are no 32-bit syscalls for WOW64 with 64-bit DR (i#821) */
         if (DYNAMO_OPTION(x86_to_x64))
             unlink_shared_syscall_common(SHARED_GENCODE(GENCODE_X86_TO_X64));
-#endif
+# endif
     } else
         unlink_shared_syscall_common(THREAD_GENCODE(dcontext));
 }
@@ -4912,14 +4912,14 @@ update_syscalls(dcontext_t *dcontext)
     byte *pc;
     pc = get_do_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
-#ifdef X64
+# ifdef X64
     /* PR 286922: for 32-bit, we do NOT update the clone syscall as it
      * always uses int (since can't use call to vsyscall when swapping
      * stacks!)
      */
     pc = get_do_clone_syscall_entry(dcontext);
     update_syscall(dcontext, pc);
-#endif
+# endif
 }
 #endif /* !WINDOWS */
 
@@ -5009,7 +5009,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                         * a race w/ the parent's use of it!
                                         */
                                        SCRATCH_REG0 _IF_AARCH64(false));
-#ifndef AARCH64
+# ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == sizeof(priv_mcontext_t));
     APP(&ilist, XINST_CREATE_add_2src
@@ -5019,7 +5019,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(SCRATCH_REG0)));
 
-# ifdef X86
+#  ifdef X86
     if (!INTERNAL_OPTION(safe_read_tls_init)) {
         /* We avoid get_thread_id syscall in get_thread_private_dcontext()
          * by clearing the segment register here (cheaper check than syscall)
@@ -5032,19 +5032,19 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         APP(&ilist, INSTR_CREATE_mov_seg
             (dcontext, opnd_create_reg(SEG_TLS), opnd_create_reg(REG_AX)));
     }
-# endif
+#  endif
 
     /* stack grew down, so priv_mcontext_t at tos */
     APP(&ilist, XINST_CREATE_move
         (dcontext, opnd_create_reg(SCRATCH_REG0), opnd_create_reg(REG_XSP)));
-#else
+# else
     /* For AArch64, SP was already saved by insert_push_all_registers and
      * pointing to priv_mcontext_t. Move sp to the first argument:
      * mov x0, sp
      */
     APP(&ilist, XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                                   opnd_create_reg(DR_REG_XSP)));
-#endif
+# endif
     dr_insert_call_noreturn(dcontext, &ilist, NULL, (void *)new_thread_setup,
                             1, opnd_create_reg(SCRATCH_REG0));
 

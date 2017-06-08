@@ -118,9 +118,9 @@ void internal_error(const char *file, int line, const char *msg);
 #ifdef DEBUG
 void display_error(char *msg);
 # ifdef INTERNAL
-#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, #x); }
+#  define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, #x); }
 # else
-#   define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, ""); }
+#  define ASSERT(x)         if (!(x)) { internal_error(__FILE__, __LINE__, ""); }
 # endif /* INTERNAL */
 #else
 # define display_error(msg) ((void) 0)

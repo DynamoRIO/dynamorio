@@ -36,7 +36,7 @@
 
 #include "globals.h"
 
-#ifdef PAPI /* around entire file */
+#ifdef PAPI /* around whole file */
 
 #include "perfctr.h"
 #include "x86-events.h"

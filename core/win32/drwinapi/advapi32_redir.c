@@ -376,7 +376,7 @@ unit_test_drwinapi_advapi32(void)
     HKEY key;
     DWORD type, size, handle_count = 0;
     /* NetworkService gets bigger then 512 so we go for 1024 */
-#   define REG_KEY_DATA_SZ 1024
+# define REG_KEY_DATA_SZ 1024
     char buf[REG_KEY_DATA_SZ];
     BOOL ok;
 

@@ -35,7 +35,7 @@
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
 #include "configure.h"
-#ifdef LOAD_TO_CONST
+#ifdef LOAD_TO_CONST /* around whole file */
 
 #include "../globals.h"
 #include "arch.h"
@@ -1992,4 +1992,4 @@ instrlist_setup_pseudo_exitstubs(dcontext_t *dcontext,instrlist_t *trace)
 }
 
 
-#endif
+#endif /* LOAD_TO_CONST */

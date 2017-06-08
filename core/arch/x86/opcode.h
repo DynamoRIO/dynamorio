@@ -1272,7 +1272,7 @@ enum {
 
 #ifdef IA32_ON_IA64
 /* redefine instead of if else so works with genapi.pl script */
-#define OP_LAST OP_jmpe_abs
+# define OP_LAST OP_jmpe_abs
 #endif
 
 /* alternative names */

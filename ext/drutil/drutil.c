@@ -334,7 +334,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                       opnd_create_reg(dst),
                                       opnd_create_reg(base),
                                       OPND_CREATE_INT(disp));
-#           define MAX_ADD_IMM_DISP (1 << 12)
+# define MAX_ADD_IMM_DISP (1 << 12)
             if (IF_ARM_ELSE(instr_is_encoding_possible(instr),
                             disp < MAX_ADD_IMM_DISP)) {
                 PRE(bb, where, instr);

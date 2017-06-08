@@ -401,7 +401,7 @@ RPC_VERSION_BOGUS   /* Version: Should be 5, but we set it to a bogus value
 // debugging facility
 
 #ifdef DEBUG
-#define PRINT(form, arg) LOG(GLOBAL, LOG_TOP, 3, form, arg)
+# define PRINT(form, arg) LOG(GLOBAL, LOG_TOP, 3, form, arg)
 static void
 print_buffer_as_bytes (unsigned char *buf, size_t len)
 {
@@ -426,7 +426,7 @@ print_buffer_as_bytes (unsigned char *buf, size_t len)
     PRINT ("%s", "\"");
     PRINT ("%s", ";\n");
 }
-#undef PRINT
+# undef PRINT
 #endif /* DEBUG */
 
 /* see comments above, the response message length changed in Vista */

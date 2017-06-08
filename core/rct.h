@@ -73,7 +73,7 @@ void rct_exit(void);
  * these routines can be moved from fragment.c and be static in rct.c
  */
 
-#include "fragment.h"
+# include "fragment.h"
 
 /* returns NULL if not found */
 app_pc
@@ -88,11 +88,11 @@ rct_flush_ind_branch_target_entry(dcontext_t *dcontext, app_pc tag);
 bool
 rct_is_exported_function(app_pc tag);  /* in module.c */
 
-#ifdef X64
+# ifdef X64
 /* in module.c */
 bool
 rct_add_rip_rel_addr(dcontext_t *dcontext, app_pc tgt _IF_DEBUG(app_pc src));
-#endif
+# endif
 
 /* exported for ASSERT's to verify it's held */
 extern mutex_t rct_module_lock;
