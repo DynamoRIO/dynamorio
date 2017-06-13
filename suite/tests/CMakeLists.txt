@@ -2305,7 +2305,14 @@ if (CLIENT_INTERFACE)
                 "-thread_private -prof_pcs -opt_cleancall 0" "")
             endif (NOT X64)
           endif (UNIX AND NOT ARM)
-        endif ()
+        elseif (sample STREQUAL "memval_simple")
+          # i#2449: only witnessed crash on 32-bit linux
+          if (X86 AND (NOT X64) AND UNIX)
+            tobuild(client.memval-test client-interface/memval-test.c)
+            torunonly_ci(sample.${sample} client.memval-test ${sample}
+                client-interface/memval-test.c "" "" "")
+          endif(X86 AND (NOT X64) AND UNIX)
+        endif()
       endforeach ()
     endif (NOT ANDROID)
 
