@@ -100,7 +100,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      [REG_XBX + REG_XAX*4], REG_XDX
         mov      REG_XBX, REG_XSI
         pop      REG_XCX
-        push     [REG_XBP - 100]
+        push     PTRSZ [REG_XBP - 100]
         jmp      epilog
 
      epilog:
