@@ -64,44 +64,43 @@ GLOBAL_LABEL(FUNCNAME:)
         PUSH_SEH(REG_XDI)
         sub      REG_XSP, FRAME_PADDING /* align */
         mov      REG_XBP, REG_XSP
-        sub      REG_XSP, 0x100
+        sub      REG_XSP, 256
         END_PROLOG
         jmp      setup_test
 
-# if 0
-- i#2449: We target the following basic block, which caused a failure on memval_simple
-  once:
-      mov ecx, dword [edi + 0xc]
-      mov edx, dword [local_48h]
-      mov ebx, dword [local_50h]
-      mov dword [local_48h], ecx    [1]
-      mov dword [ebx + eax*4], edx  [2]
-      mov ebx, esi
-      pop ecx
-      push dword [local_64h]
-      call sub.std.__once_call_c50
-- Specifically, immediately after line [1] drreg reserved %eax to get the app value
-  written at [1]. On line [2], drreg also reserved reg %eax to get the app address of
-  the operand [ebx + eax*4]. This caused drreg to elide the app value save/restore of
-  eax, causing [ebx + eax*4] to be computed with a meta value rather than an app value
-# endif
-
+        /* i#2449: We target the following basic block, which caused a failure on
+         * memval_simple:
+         *   mov ecx, dword [edi + 0xc]
+         *   mov edx, dword [local_48h]
+         *   mov ebx, dword [local_50h]
+         *   mov dword [local_48h], ecx    [1]
+         *   mov dword [ebx + eax*4], edx  [2]
+         *   mov ebx, esi
+         *   pop ecx
+         *   push dword [local_64h]
+         *   call sub.std.__once_call_c50
+         * Specifically, immediately after line [1] drreg reserved %eax to get the app
+         * value written at [1]. On line [2], drreg also reserved reg %eax to get the app
+         * address of the operand [ebx + eax*4]. This caused drreg to elide the app value
+         * save/restore of eax, causing [ebx + eax*4] to be computed with a meta value
+         * rather than an app value
+         */
      setup_test:
         xor      REG_XAX, REG_XAX
         mov      REG_XDI, REG_XBP
-        sub      REG_XDI, 0x0c
-        mov      -0x50[REG_XBP], REG_XBP
+        sub      REG_XDI, 12
+        mov      [REG_XBP - 80], REG_XBP
         jmp      test
 
      test:
-        mov      REG_XCX,  0x0c[REG_XDI]
-        mov      REG_XDX, -0x48[REG_XBP]
-        mov      REG_XBX, -0x50[REG_XBP]
-        mov      -0x48[REG_XBP], REG_XCX
+        mov      REG_XCX, [REG_XDI + 12]
+        mov      REG_XDX, [REG_XBP - 72]
+        mov      REG_XBX, [REG_XBP - 80]
+        mov      [REG_XBP - 72], REG_XCX
         mov      [REG_XBX + REG_XAX*4], REG_XDX
         mov      REG_XBX, REG_XSI
         pop      REG_XCX
-        push     -0x64[REG_XBP]
+        push     [REG_XBP - 100]
         jmp      epilog
 
      epilog:
