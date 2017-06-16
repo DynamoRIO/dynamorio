@@ -68,7 +68,7 @@ main(void)
     INIT();
 
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-    
+
     print("start of test, count = %d\n", count);
     count+=foo();
     print("end of test, count = %d\n", count);
