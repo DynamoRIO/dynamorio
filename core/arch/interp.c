@@ -3748,7 +3748,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             instr_get_opcode(bb->instr) == OP_int &&
             get_syscall_method() != SYSCALL_METHOD_INT) {
             instr_t * i2 = INSTR_CREATE_nop(dcontext);
-            LOG(THREAD, LOG_INTERP, 3, "Changing interruption to nop at "PFX"\n", bb->instr_start);
+            LOG(THREAD, LOG_INTERP, 3,
+                "Changing interruption to nop at "PFX"\n", bb->instr_start);
             instr_set_translation(i2, bb->instr_start);
             instrlist_append(bb->ilist, i2);
             instr_free(dcontext, bb->instr);
