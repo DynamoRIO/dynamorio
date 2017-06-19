@@ -3744,7 +3744,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
-# ifdef X86
+#ifdef X86
         if (my_dcontext != NULL && instr_is_syscall(bb->instr) &&
             instr_get_opcode(bb->instr) == OP_int &&
             get_syscall_method() != SYSCALL_METHOD_INT) {
@@ -3757,7 +3757,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             instrlist_append(bb->ilist, bb->instr);
             continue;
         }
-# endif /* X86 */
+#endif /* X86 */
 
         /* far direct is treated as indirect (i#823) */
         if (instr_is_near_ubr(bb->instr)) {
