@@ -468,8 +468,7 @@ GLOBAL_LABEL(dr_try_start:)
 GLOBAL_LABEL(dr_setjmp:)
         mov      REG_R2, ARG1
         stm      REG_R2!, {REG_R4-REG_R11, sp, lr}
-        vst1.64  {d8-d11},[REG_R2]!
-        vst1.64  {d12-d15},[REG_R2]!
+        vstm     REG_R2!, {d8-d15}
         push     {r12,lr} /* save two registers for SP-alignment */
         CALLC1(GLOBAL_REF(dr_setjmp_sigmask), ARG1)
         mov      REG_R0, #0
@@ -483,8 +482,7 @@ GLOBAL_LABEL(dr_longjmp:)
         mov      REG_R2, ARG1
         mov      REG_R0, ARG2
         ldm      REG_R2!, {REG_R4-REG_R11, sp, lr}
-        vld1.64  {d8-d11},[REG_R2]!
-        vld1.64  {d12-d15},[REG_R2]!
+        vldm     REG_R2!, {d8-d15}
         bx       lr
         END_FUNC(dr_longjmp)
 
