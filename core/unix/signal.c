@@ -5692,10 +5692,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     }
 #ifdef LINUX
     else {
+# ifndef AARCH64
         /* FIXME: libc's restorer pops prior to calling sigreturn, I have
          * no idea why, but kernel asks for xsp-8 not xsp-4...weird!
          */
         kernel_sigset_t prevset;
+# endif
         sigframe_plain_t *frame = (sigframe_plain_t *) (xsp IF_X86(-8));
         /* We don't trust frame->sig (app sometimes clobbers it), and for
          * plain frame there's no other place that sig is stored,
@@ -5722,8 +5724,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
-# endif
         set_blocked(dcontext, &prevset, true/*absolute*/);
+# endif
     }
 #endif /* LINUX */
 
