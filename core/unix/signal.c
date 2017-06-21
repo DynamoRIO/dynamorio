@@ -5716,6 +5716,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         /* discard blocked signals, re-set from prev mask stored in frame */
 # ifdef AARCH64
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+        /* Avoid build failure with GCC 7 due to uninitialized value */
+        prevset.sig[0] = 0;
 # else
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
