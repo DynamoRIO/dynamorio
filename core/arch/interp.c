@@ -3745,7 +3745,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 
 #ifdef X86
-        if (my_dcontext != NULL && instr_is_syscall(bb->instr) &&
+        if (instr_is_syscall(bb->instr) &&
             instr_get_opcode(bb->instr) == OP_int &&
             get_syscall_method() != SYSCALL_METHOD_INT) {
             instr_t * i2 = INSTR_CREATE_nop(dcontext);

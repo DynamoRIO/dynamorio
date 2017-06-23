@@ -48,8 +48,8 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #else
         pExceptionInfo->ContextRecord->Rip++;
 #endif
-#if 0
-        //prints information about exception
+#if VERBOSE
+        // prints information about exception
         print("exception code=%x address=%x eip=%x, info = %d, %x\n",
               pExceptionInfo->ExceptionRecord->ExceptionCode,
               pExceptionInfo->ExceptionRecord->ExceptionAddress,
