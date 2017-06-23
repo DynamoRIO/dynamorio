@@ -600,4 +600,14 @@ Application %1!s! (%2!s!). A fixed memory map (%3!s!) overlaps with DynamoRIO li
 .
 ;#endif
 
+;#ifdef UNIX
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_CANNOT_FIND_VFP_FRAME
+Language=English
+Application %1!s! (%2!s!). Cannot identify VFP frame offset.
+.
+;#endif
+
 ;// ADD NEW MESSAGES HERE

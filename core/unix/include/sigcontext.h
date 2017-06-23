@@ -274,6 +274,19 @@ typedef struct _kernel_vfp_sigframe_t {
     kernel_sys_user_vfp_t ufp;
     kernel_sys_user_vfp_exc_t ufp_exc;
 } __attribute__((__aligned__(8))) kernel_vfp_sigframe_t;
+
+typedef struct _kernel_iwmmxt_struct_t {
+    unsigned int save[38];
+} kernel_iwmmxt_struct_t;
+
+# define IWMMXT_MAGIC 0x12ef842a
+
+typedef struct _kernel_iwmmxt_sigframe_t {
+    unsigned long magic;
+    unsigned long size;
+    kernel_iwmmxt_struct_t storage;
+} __attribute__((__aligned__(8))) kernel_iwmmxt_sigframe_t;
+
 #endif /* __arm__ */
 
 #ifdef __aarch64__
