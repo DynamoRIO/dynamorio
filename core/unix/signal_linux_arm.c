@@ -146,9 +146,9 @@ vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                       vfp1->size == sizeof(kernel_vfp_sigframe_t));
     ASSERT(offset == 160);
     if (vfp0_good == vfp1_good) {
-        ASSERT(false && "Cannot identify VFP frame offset");
-        /* It is safer not to continue. */
-        exit_process_syscall(1);
+        SYSLOG(SYSLOG_CRITICAL, CANNOT_FIND_VFP_FRAME, 2,
+               get_application_name(), get_application_pid());
+        os_terminate(NULL, TERMINATE_PROCESS);
     }
     vfp_offset = vfp0_good ? 0 : offset;
     /* Detect if we unexpectedly have a filled-in IWMMXT frame. */
