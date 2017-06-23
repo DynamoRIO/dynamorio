@@ -133,14 +133,18 @@ signal_frame_extra_size(bool include_alignment)
 static void
 vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 {
-    uint offset = 160; /* size of IWMMXT frame */
+    uint offset = sizeof(kernel_iwmmxt_sigframe_t);
     char *coproc = (char *)&ucxt->coproc;
+    /* We look for the VFP frame in two places, hoping to find it in
+     * exactly one of them. See longer comment above.
+     */
     kernel_vfp_sigframe_t *vfp0 = (kernel_vfp_sigframe_t *)coproc;
     kernel_vfp_sigframe_t *vfp1 = (kernel_vfp_sigframe_t *)(coproc + offset);
     bool vfp0_good = (vfp0->magic == VFP_MAGIC &&
                       vfp0->size == sizeof(kernel_vfp_sigframe_t));
     bool vfp1_good = (vfp1->magic == VFP_MAGIC &&
                       vfp1->size == sizeof(kernel_vfp_sigframe_t));
+    ASSERT(offset == 160);
     if (vfp0_good == vfp1_good) {
         ASSERT(false && "Cannot identify VFP frame offset");
         /* It is safer not to continue. */
@@ -148,7 +152,6 @@ vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
     }
     vfp_offset = vfp0_good ? 0 : offset;
     /* Detect if we unexpectedly have a filled-in IWMMXT frame. */
-#define IWMMXT_MAGIC 0x12ef842a
     ASSERT(!(vfp0->magic == IWMMXT_MAGIC && vfp0->size == offset));
 }
 
