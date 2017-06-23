@@ -279,7 +279,7 @@ typedef struct _kernel_iwmmxt_struct_t {
     unsigned int save[38];
 } kernel_iwmmxt_struct_t;
 
-#define IWMMXT_MAGIC 0x12ef842a
+# define IWMMXT_MAGIC 0x12ef842a
 
 typedef struct _kernel_iwmmxt_sigframe_t {
     unsigned long magic;
