@@ -476,7 +476,7 @@
      * later.
      */
     /* FIXME i#1621: NYI on ARM, partly implemented on AArch64 */
-    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, IF_AARCH64_ELSE(1, 0)),
+    OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, IF_X86_ELSE(2, IF_AARCH64_ELSE(2, 0)),
                             "optimization level on optimizing clean call sequences")
     /* Assuming the client's clean call does not rely on the cleared eflags,
      * i.e., initialize the eflags before using it, we can skip the eflags

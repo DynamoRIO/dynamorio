@@ -301,7 +301,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
     }
 }
 
-static void
+void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                       bool is_gpr) {
@@ -309,7 +309,7 @@ insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                      first_reg, true /* save */, is_gpr);
 }
 
-static void
+void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                          bool is_gpr) {

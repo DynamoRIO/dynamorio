@@ -1,6 +1,5 @@
 /* *******************************************************************************
  * Copyright (c) 2017 ARM Limited. All rights reserved.
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -31,37 +30,18 @@
  * DAMAGE.
  */
 
-/* Export instrumented functions so we can easily find them in client.  */
-#ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
-#else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
-#endif
-
-/* List of instrumented functions. */
 #define FUNCTIONS() \
         FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(modify_gprs) \
+        FUNCTION(empty_1arg) \
         FUNCTION(inscount) \
+        FUNCTION(gcc47_inscount) \
+        FUNCTION(callpic_pop) \
+        FUNCTION(callpic_mov) \
+        FUNCTION(nonleaf) \
+        FUNCTION(cond_br) \
+        FUNCTION(tls_clobber) \
+        FUNCTION(aflags_clobber) \
         FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
         LAST_FUNCTION()
 
-/* Definitions for every function. */
-#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
-#define LAST_FUNCTION()
-FUNCTIONS()
-#undef FUNCTION
-#undef LAST_FUNCTION
-
-int
-main(void)
-{
-    /* Calls to every function. */
-#define FUNCTION(FUNCNAME) FUNCNAME();
-#define LAST_FUNCTION()
-    FUNCTIONS()
-#undef FUNCTION
-#undef LAST_FUNCTION
-}
+#include "cleancall-opt-2-inline.h"

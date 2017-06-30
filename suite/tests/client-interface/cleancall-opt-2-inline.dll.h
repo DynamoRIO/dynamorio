@@ -43,6 +43,7 @@
 #endif
 
 /* List of instrumentation functions. */
+#ifdef X86
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(empty_1arg) \
@@ -57,6 +58,15 @@
         FUNCTION(compiler_inscount) \
         FUNCTION(bbcount) \
         LAST_FUNCTION()
+#elif defined(AARCH64)
+#define FUNCTIONS() \
+        FUNCTION(empty) \
+        FUNCTION(empty_1arg) \
+        FUNCTION(inscount) \
+        FUNCTION(compiler_inscount) \
+        FUNCTION(bbcount) \
+        LAST_FUNCTION()
+#endif
 
 #define TEST_INLINE 1
 static dr_emit_flags_t event_basic_block(void *dc, void *tag, instrlist_t *bb,
@@ -106,6 +116,7 @@ check_aflags(int actual, int expected)
     dr_fprintf(STDERR, "passed for %04x\n", expected);
 }
 
+#ifdef X86
 static instr_t *
 test_aflags(void *dc, instrlist_t *bb, instr_t *where, int aflags,
             instr_t *before_label, instr_t *after_label)
@@ -161,6 +172,7 @@ test_aflags(void *dc, instrlist_t *bb, instr_t *where, int aflags,
     PRE(bb, where, INSTR_CREATE_popf(dc));
     return where;
 }
+#endif
 
 static dr_emit_flags_t
 event_basic_block(void *dc, void *tag, instrlist_t *bb,
@@ -194,19 +206,30 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
         /* Default behavior is to call instrumentation with no-args and
          * assert it gets inlined.
          */
+        /* FIXME i#1569: passing instruction operands is NYI on AArch64.
+         * We use a workaround involving ADR. */
+        IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
         PRE(bb, entry, before_label);
         dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 0);
         PRE(bb, entry, after_label);
+        IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_end_pc, after_label));
         break;
     case FN_empty_1arg:
     case FN_inscount:
-    case FN_gcc47_inscount:
     case FN_compiler_inscount:
+#ifdef X86
+    case FN_gcc47_inscount:
+#endif
+        /* FIXME i#1569: passing instruction operands is NYI on AArch64.
+         * We use a workaround involving ADR. */
+        IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_start_pc, before_label));
         PRE(bb, entry, before_label);
         dr_insert_clean_call(dc, bb, entry, func_ptrs[i], false, 1,
                              OPND_CREATE_INT32(0xDEAD));
         PRE(bb, entry, after_label);
+        IF_AARCH64(save_current_pc(dc, bb, entry, &cleancall_end_pc, after_label));
         break;
+#ifdef X86
     case FN_nonleaf:
     case FN_cond_br:
         /* These functions cannot be inlined (yet). */
@@ -231,22 +254,29 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
         entry = test_aflags(dc, bb, entry, 0xD701, before_label, after_label);
         (void)test_aflags(dc, bb, entry, 0x00200, NULL, NULL);
         break;
+#endif
     }
-    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, 6,
+
+    dr_insert_clean_call(dc, bb, entry, (void*)after_callee, false, IF_X86_ELSE(6, 4),
+#ifdef X86
                          opnd_create_instr(before_label),
                          opnd_create_instr(after_label),
+#endif
                          OPND_CREATE_INT32(inline_expected),
                          OPND_CREATE_INT32(false),
                          OPND_CREATE_INT32(i),
                          OPND_CREATE_INTPTR(func_names[i]));
 
+#ifdef X86
     if (i == FN_inscount || i == FN_empty_1arg) {
         test_inlined_call_args(dc, bb, entry, i);
     }
+#endif
 
     return DR_EMIT_DEFAULT;
 }
 
+#ifdef X86
 /* For all regs, pass arguments of the form:
  * %reg
  * (%reg, %xax, 1)-0xDEAD
@@ -351,257 +381,8 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
                              OPND_CREATE_INTPTR(0));
     }
 }
-
+#endif
 /*****************************************************************************/
 /* Instrumentation function code generation. */
 
-/* i#988: We fail to inline if the number of arguments to the same clean call
- * routine increases. empty is used for a 0 arg clean call, so we add empty_1arg
- * for test_inlined_call_args(), which passes 1 arg.
- */
-static instrlist_t *
-codegen_empty_1arg(void *dc)
-{
-    return codegen_empty(dc);
-}
 
-/*
-callpic_pop:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    call Lnext_label
-    Lnext_label:
-    pop REG_XBX
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_callpic_pop(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    instr_t *next_label = INSTR_CREATE_label(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(next_label)));
-    APP(ilist, next_label);
-    APP(ilist, INSTR_CREATE_pop(dc, opnd_create_reg(DR_REG_XBX)));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/*
-callpic_mov:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    call Lnext_instr_mov
-    Lnext_instr_mov:
-    mov REG_XBX, [REG_XSP]
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_callpic_mov(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    instr_t *next_label = INSTR_CREATE_label(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(next_label)));
-    APP(ilist, next_label);
-    APP(ilist, INSTR_CREATE_mov_ld
-        (dc, opnd_create_reg(DR_REG_XBX), OPND_CREATE_MEMPTR(DR_REG_XSP, 0)));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/* Non-leaf functions cannot be inlined.
-nonleaf:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    call other_func
-    leave
-    ret
-other_func:
-    ret
-*/
-static instrlist_t *
-codegen_nonleaf(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    instr_t *other_func = INSTR_CREATE_label(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(other_func)));
-    codegen_epilogue(dc, ilist);
-    APP(ilist, other_func);
-    APP(ilist, INSTR_CREATE_ret(dc));
-    return ilist;
-}
-
-/* Conditional branches cannot be inlined.  Avoid flags usage to make test case
- * more specific.
-cond_br:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    mov REG_XCX, ARG1
-    jecxz Larg_zero
-        mov REG_XAX, HEX(DEADBEEF)
-        mov SYMREF(global_count), REG_XAX
-    Larg_zero:
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_cond_br(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    instr_t *arg_zero = INSTR_CREATE_label(dc);
-    opnd_t xcx = opnd_create_reg(DR_REG_XCX);
-    codegen_prologue(dc, ilist);
-    /* If arg1 is non-zero, write 0xDEADBEEF to global_count. */
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xcx, codegen_opnd_arg1()));
-    APP(ilist, INSTR_CREATE_jecxz(dc, opnd_create_instr(arg_zero)));
-    APP(ilist, INSTR_CREATE_mov_imm(dc, xcx, OPND_CREATE_INTPTR(&global_count)));
-    APP(ilist, INSTR_CREATE_mov_st(dc, OPND_CREATE_MEMPTR(DR_REG_XCX, 0),
-                                   OPND_CREATE_INT32((int)0xDEADBEEF)));
-    APP(ilist, arg_zero);
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/* A function that uses 2 registers and 1 local variable, which should fill all
- * of the scratch slots that the inliner uses.  This used to clobber the scratch
- * slots exposed to the client.
-tls_clobber:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    sub REG_XSP, ARG_SZ
-    mov REG_XAX, HEX(DEAD)
-    mov REG_XDX, HEX(BEEF)
-    mov [REG_XSP], REG_XAX
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_tls_clobber(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    opnd_t xax = opnd_create_reg(DR_REG_XAX);
-    opnd_t xdx = opnd_create_reg(DR_REG_XDX);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_sub
-        (dc, opnd_create_reg(DR_REG_XSP), OPND_CREATE_INT8(sizeof(reg_t))));
-    APP(ilist, INSTR_CREATE_mov_imm(dc, xax, OPND_CREATE_INT32(0xDEAD)));
-    APP(ilist, INSTR_CREATE_mov_imm(dc, xdx, OPND_CREATE_INT32(0xBEEF)));
-    APP(ilist, INSTR_CREATE_mov_st(dc, OPND_CREATE_MEMPTR(DR_REG_XSP, 0), xax));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/* Zero the aflags.  Inliner must ensure they are restored.
-aflags_clobber:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    mov REG_XAX, 0
-    add al, HEX(7F)
-    sahf
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_aflags_clobber(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_mov_imm
-        (dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INTPTR(0)));
-    APP(ilist, INSTR_CREATE_add
-        (dc, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7F)));
-    APP(ilist, INSTR_CREATE_sahf(dc));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/*
-bbcount:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    inc [global_count]
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_bbcount(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_inc(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR)));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/* Reduced code from inscount generated by gcc47 -O0.
-gcc47_inscount:
-#ifdef X64
-    push   %rbp
-    mov    %rsp,%rbp
-    mov    %rdi,-0x8(%rbp)
-    mov    global_count(%rip),%rdx
-    mov    -0x8(%rbp),%rax
-    add    %rdx,%rax
-    mov    %rax,global_count(%rip)
-    pop    %rbp
-    retq
-#else
-    push   %ebp
-    mov    %esp,%ebp
-    call   pic_thunk
-    add    $0x1c86,%ecx
-    mov    global_count(%ecx),%edx
-    mov    0x8(%ebp),%eax
-    add    %edx,%eax
-    mov    %eax,global_count(%ecx)
-    pop    %ebp
-    ret
-pic_thunk:
-    mov    (%esp),%ecx
-    ret
-#endif
-*/
-static instrlist_t *
-codegen_gcc47_inscount(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    opnd_t global;
-    opnd_t xax = opnd_create_reg(DR_REG_XAX);
-    opnd_t xdx = opnd_create_reg(DR_REG_XDX);
-#ifdef X64
-    /* This local is past TOS.  That's OK by the sysv x64 ABI. */
-    opnd_t local = OPND_CREATE_MEMPTR(DR_REG_XBP, -(int)sizeof(reg_t));
-    codegen_prologue(dc, ilist);
-    global = opnd_create_rel_addr(&global_count, OPSZ_PTR);
-    APP(ilist, INSTR_CREATE_mov_st(dc, local, codegen_opnd_arg1()));
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xdx, global));
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xax, local));
-    APP(ilist, INSTR_CREATE_add(dc, xax, xdx));
-    APP(ilist, INSTR_CREATE_mov_st(dc, global, xax));
-    codegen_epilogue(dc, ilist);
-#else
-    instr_t *pic_thunk = INSTR_CREATE_mov_ld
-        (dc, opnd_create_reg(DR_REG_XCX), OPND_CREATE_MEMPTR(DR_REG_XSP, 0));
-    codegen_prologue(dc, ilist);
-    /* XXX: Do a real 32-bit PIC-style access.  For now we just use an absolute
-     * reference since we're 32-bit and everything is reachable.
-     */
-    global = opnd_create_abs_addr(&global_count, OPSZ_PTR);
-    APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(pic_thunk)));
-    APP(ilist, INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_XCX),
-                                OPND_CREATE_INT32(0x0)));
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xdx, global));
-    APP(ilist, INSTR_CREATE_mov_ld(dc, xax, codegen_opnd_arg1()));
-    APP(ilist, INSTR_CREATE_add(dc, xax, xdx));
-    APP(ilist, INSTR_CREATE_mov_st(dc, global, xax));
-    codegen_epilogue(dc, ilist);
-
-    APP(ilist, pic_thunk);
-    APP(ilist, INSTR_CREATE_ret(dc));
-#endif
-    return ilist;
-}

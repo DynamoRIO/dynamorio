@@ -34,9 +34,16 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "instr_create.h"
+#include "instrument.h" /* instrlist_meta_preinsert */
 #include "../clean_call_opt.h"
+#include "disassemble.h"
 
 #ifdef CLIENT_INTERFACE
+
+/* Shorten code generation lines. */
+#define PRE   instrlist_meta_preinsert
+#define OPREG opnd_create_reg
 
 /* For fast recognition we do not check the instructions operand by operand.
  * Instead we test the encoding directly.
@@ -166,7 +173,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          instr  = instr_get_next(instr)) {
 
         /* General purpose registers */
-        for (i = 0; i < NUM_GP_REGS; i++) {
+        for (i = 0; i < (NUM_GP_REGS-1); i++) {
             reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
             if (!ci->reg_used[i] &&
                 instr_uses_reg(instr, reg)) {
@@ -363,9 +370,21 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
 void
 analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
 {
-    /* FIXME i#1621: NYI on AArch64
-     * Non-essential for cleancall_opt=1 optimizations.
-     */
+    instr_t *instr;
+    ci->tls_used = false;
+    for (instr  = instrlist_first(ci->ilist);
+         instr != NULL;
+         instr  = instr_get_next(instr)) {
+        if (instr_reads_thread_register(instr) ||
+            instr_writes_thread_register(instr)) {
+            ci->tls_used = true;
+            break;
+        }
+    }
+    if (ci->tls_used) {
+        LOG(THREAD, LOG_CLEANCALL, 2,
+            "CLEANCALL: callee "PFX" accesses far memory\n", ci->start);
+    }
 }
 
 app_pc
@@ -379,8 +398,120 @@ check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_p
 bool
 check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
-    return false;
+    instr_t *instr, *next_instr;
+    opnd_t opnd, mem_ref, slot;
+    bool opt_inline = true;
+    int i;
+
+    mem_ref = opnd_create_null();
+
+    /* Now we need scan instructions in the list,
+     * check if possible for inline, and convert memory reference
+     */
+    ci->has_locals = false;
+    for (instr  = instrlist_first(ci->ilist);
+         instr != NULL;
+         instr  = next_instr) {
+        next_instr = instr_get_next(instr);
+        DOLOG(3, LOG_CLEANCALL, {
+            disassemble_with_bytes(dcontext, instr_get_app_pc(instr), THREAD);
+        });
+
+        if (ci->standard_fp &&
+            instr_writes_to_reg(instr, DR_REG_X29, DR_QUERY_INCLUDE_ALL)) {
+            /* x29 must not be changed if x29 is used for frame pointer */
+            LOG(THREAD, LOG_CLEANCALL, 1,
+                "CLEANCALL: callee "PFX" cannot be inlined: X29 is updated.\n",
+                ci->start);
+            opt_inline = false;
+            break;
+        } else if (instr_writes_to_reg(instr, DR_REG_XSP, DR_QUERY_INCLUDE_ALL)) {
+            /* SP must not be changed */
+            LOG(THREAD, LOG_CLEANCALL, 1,
+                "CLEANCALL: callee "PFX" cannot be inlined: XSP is updated.\n",
+                ci->start);
+            opt_inline = false;
+            break;
+        }
+
+        if ((instr_reg_in_src(instr, DR_REG_XSP) ||
+            (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
+            instr_reads_memory(instr)) {
+            /* We only allow SP as the base in memory reference */
+                for (i = 0; i < instr_num_srcs(instr); i++) {
+                    opnd = instr_get_src(instr, i);
+                    if (!opnd_is_base_disp(opnd))
+                        continue;
+                    if (!ci->has_locals) {
+                        mem_ref = opnd;
+                        callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
+                        if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
+                            LOG(THREAD, LOG_CLEANCALL, 1,
+                                "CLEANCALL: callee "PFX" cannot be inlined: "
+                                "not enough slots for local.\n",
+                                ci->start);
+                            break;
+                        }
+                        ci->has_locals = true;
+                    } else if (!opnd_same(opnd, mem_ref)) {
+                        /* Check if it is the same stack var as the one we saw.
+                         * If different, no inline.
+                         */
+                        LOG(THREAD, LOG_CLEANCALL, 1,
+                            "CLEANCALL: callee "PFX" cannot be inlined: "
+                            "more than one stack location is accessed "PFX".\n",
+                            ci->start, instr_get_app_pc(instr));
+                        break;
+                    }
+                    /* replace the stack location with the scratch slot. */
+                    slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
+                    opnd_set_size(&slot, opnd_get_size(mem_ref));
+                    instr_set_src(instr, i, slot);
+                }
+                if (i != instr_num_srcs(instr)) {
+                    opt_inline = false;
+                    break;
+                }
+            }
+        if ((instr_reg_in_dst(instr, DR_REG_XSP) ||
+            (instr_reg_in_dst(instr, DR_REG_X29) && ci->standard_fp)) &&
+            instr_writes_memory(instr)) {
+            for (i = 0; i < instr_num_dsts(instr); i++) {
+                opnd = instr_get_dst(instr, i);
+                if (!opnd_is_base_disp(opnd))
+                    continue;
+                if (!ci->has_locals) {
+                    mem_ref = opnd;
+                    callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
+                    if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
+                        LOG(THREAD, LOG_CLEANCALL, 1,
+                            "CLEANCALL: callee "PFX" cannot be inlined: "
+                            "not enough slots for local.\n",
+                            ci->start);
+                        break;
+                    }
+                    ci->has_locals = true;
+                } else if (!opnd_same(opnd, mem_ref)) {
+                    /* currently we only allows one stack refs */
+                    LOG(THREAD, LOG_CLEANCALL, 1,
+                        "CLEANCALL: callee "PFX" cannot be inlined: "
+                        "more than one stack location is accessed "PFX".\n",
+                        ci->start, instr_get_app_pc(instr));
+                    break;
+                }
+                /* replace the stack location with the scratch slot. */
+                slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
+                opnd_set_size(&slot, opnd_get_size(mem_ref));
+                instr_set_dst(instr, i, slot);
+            }
+            if (i != instr_num_srcs(instr)) {
+                opt_inline = false;
+                break;
+            }
+        }
+    }
+    if (instr != NULL) opt_inline = false;
+    return opt_inline;
 }
 
 void
@@ -396,21 +527,98 @@ void
 insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
                        instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    callee_info_t *ci = cci->callee_info;
+    int i;
+    /* Don't spill anything if we don't have to. */
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
+        return;
+    }
+    /* Spill a register to TLS and point it at our unprotected_context_t.*/
+    PRE(ilist, where, instr_create_save_to_tls
+        (dcontext, ci->spill_reg, TLS_REG2_SLOT));
+    insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
+    /* We use stp to spill consecutive registers and str to spill a single reg
+     * XXX remove duplication */
+
+    int disp = 0;
+    for (i = 0; i < NUM_GP_REGS; i+=1) {
+        reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
+        if (!cci->reg_skip[i]) {
+            opnd_t memref = callee_info_slot_opnd(ci, SLOT_REG, reg_id);
+            disp = opnd_get_disp(memref);
+            break;
+        }
+    }
+    PRE(ilist, where, XINST_CREATE_add
+        (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
+
+    insert_save_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg, DR_REG_X0, true);
+
+
+    /* Save nzcv, fpcr, fpsr, */
 }
 
 void
 insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *where)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    callee_info_t *ci = cci->callee_info;
+
+    /* Don't restore regs if we don't have to. */
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
+        !ci->has_locals) {
+        return;
+    }
+    /* Restore nzcv, fpcr, fpsr */
+    /* We use ldp to spill consecutive registers and ldr to spill a single reg
+     * XXX remove duplication */
+
+    insert_restore_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg, DR_REG_X0, true);
+
+    /* Restore reg used for unprotected_context_t pointer. */
+    PRE(ilist, where, instr_create_restore_from_tls
+        (dcontext, ci->spill_reg, TLS_REG2_SLOT));
 }
 
 void
 insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
                         instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
+    callee_info_t *ci = cci->callee_info;
+    reg_id_t regparm = regparms[0];
+    opnd_t arg;
+
+    if (cci->num_args == 0)
+        return;
+
+    /* If the arg is un-referenced, don't set it up.  This is actually necessary
+     * for correctness because we will not have spilled regparm[0].
+     */
+    if (IF_X64_ELSE(!ci->reg_used[regparms[0] - DR_REG_START_GPR],
+                    !ci->has_locals)) {
+        LOG(THREAD, LOG_CLEANCALL, 2,
+            "CLEANCALL: callee "PFX" doesn't read arg, skipping arg setup.\n",
+            ci->start);
+        return;
+    }
+
+    ASSERT(cci->num_args == 1);
+    arg = args[0];
+
+    if (opnd_uses_reg(arg, ci->spill_reg))
+        ASSERT_NOT_IMPLEMENTED(false);
+
+    LOG(THREAD, LOG_CLEANCALL, 2,
+        "CLEANCALL: inlining clean call "PFX", passing arg via reg %s.\n",
+        ci->start, reg_names[regparm]);
+    if (opnd_is_immed_int(arg)) {
+        insert_mov_immed_ptrsz(dcontext,
+                               opnd_get_immed_int(arg), opnd_create_reg(regparm),
+                               ilist, where, NULL, NULL);
+    } else {
+        ASSERT_NOT_IMPLEMENTED(false);
+    }
 }
 
 #endif /* CLIENT_INTERFACE */

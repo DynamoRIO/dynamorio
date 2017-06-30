@@ -1,5 +1,4 @@
 /* *******************************************************************************
- * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -38,15 +37,6 @@
 # define EXPORT __attribute__((visibility("default")))
 #endif
 
-/* List of instrumented functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(modify_gprs) \
-        FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
-        LAST_FUNCTION()
 
 /* Definitions for every function. */
 #define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
@@ -54,6 +44,16 @@
 FUNCTIONS()
 #undef FUNCTION
 #undef LAST_FUNCTION
+
+/* For bbcount, do arithmetic to clobber flags so the flag saving optimization
+ * kicks in.
+ */
+EXPORT void
+bbcount(void)
+{
+    static int count;
+    count++;
+}
 
 int
 main(void)
@@ -64,4 +64,5 @@ main(void)
     FUNCTIONS()
 #undef FUNCTION
 #undef LAST_FUNCTION
+    bbcount();
 }
