@@ -346,6 +346,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 # ifdef AARCH64
+    /* X0 is used to hold the stack pointer. */
+    cci->reg_skip[DR_REG_X0 - DR_REG_START_GPR] = false;
     /* X1 and X2 are used to save and restore the status and control registers. */
     cci->reg_skip[DR_REG_X1 - DR_REG_START_GPR] = false;
     cci->reg_skip[DR_REG_X2 - DR_REG_START_GPR] = false;
