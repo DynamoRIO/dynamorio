@@ -61,8 +61,8 @@ callee_info_t default_callee_info;
 int
 get_clean_call_switch_stack_size(void)
 {
-#ifdef AARCH64
-    /* Stack size needs to be 16 byte aligned on ARM */
+#if defined(AARCH64) || defined(X64)
+    /* Stack size needs to be 16 byte aligned on ARM and x64. */
     return ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
 #else
     return sizeof(priv_mcontext_t);
@@ -282,11 +282,12 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
+
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
-        if ((num_slots % 2) == 1) {
+        if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
             ASSERT((dstack_offs % 16) == 8);
             PRE(ilist, instr, INSTR_CREATE_lea
                 (dcontext, opnd_create_reg(REG_XSP),
@@ -296,6 +297,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             ASSERT((dstack_offs % 16) == 0);
         }
     }
+#elif defined(AARCH64)
+    ASSERT((dstack_offs % 16) == 0);
 #endif
     ASSERT(cci->skip_save_flags    ||
            cci->num_simd_skip != 0 ||
@@ -319,7 +322,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
-        if ((num_slots % 2) == 1) {
+        if (!cci->out_of_line_swap && (num_slots % 2) == 1 ) {
             PRE(ilist, instr, INSTR_CREATE_lea
                 (dcontext, opnd_create_reg(REG_XSP),
                  OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, XSP_SZ)));
