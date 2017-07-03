@@ -1423,9 +1423,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     {OP_vmov_i64,       0xf3800e70, "vmov.i64",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xf0 */
     {INVALID,           0xf3800f00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,           0xf3800f10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_f32,       0xf3800f10, "vmov.f32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,           0xf3800f30, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,           0xf3800f50, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_f32,       0xf3800f50, "vmov.f32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,           0xf3800f70, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   },
 };
