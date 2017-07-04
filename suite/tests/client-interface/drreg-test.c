@@ -254,7 +254,8 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_3_ASM
         movw     TEST_REG_ASM, DRREG_TEST_3_ASM
         nop
-        .word 0xe7f000f0 /* udf */
+        .inst    0xf2800f00 /* unallocated encoding */
+        mov      lr, #0 /* this should not be executed */
 
         b        epilog2
     epilog2:
@@ -266,7 +267,8 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_3_ASM
         movz     TEST_REG_ASM, DRREG_TEST_3_ASM
         nop
-        .inst 0xf36d19 /* udf */
+        .inst    0x00f36d19 /* unallocated encoding */
+        mov      x30, #0 /* this should not be executed */
 
         b        epilog2
     epilog2:
