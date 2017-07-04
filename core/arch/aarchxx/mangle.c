@@ -222,8 +222,8 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 # ifdef AARCH64
 /* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
-create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
-                                  bool is_single_reg, bool is_gpr, uint num_saved)
+create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, bool is_gpr,
+                                  uint num_saved)
 {
     /* opzs depends on the kind of register and whether a single register or
      * a pair of registers is saved/restored using stp/ldp.
@@ -268,7 +268,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         if (reg1 == UINT_MAX)
             reg1 = i;
         else {
-            opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
+            opnd_t mem = create_base_disp_for_save_restore(base_reg,
                                                            false /* is_single_reg */,
                                                            is_gpr, saved_regs);
             if (save) {
@@ -289,7 +289,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      * of registers to save/restore is odd.
      */
     if (reg1 != UINT_MAX) {
-        opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
+        opnd_t mem = create_base_disp_for_save_restore(base_reg,
                                                        true /* is_single_reg */,
                                                        is_gpr, saved_regs);
         if (save) {
