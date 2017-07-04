@@ -2893,8 +2893,12 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
         byte buf[THUMB_LONG_INSTR_SIZE];
         instr_t tmp;
         byte *pc, *npc;
-        app_pc addr = instr_get_raw_bits(check);
-        int check_len = instr_length(dcontext, check);
+        app_pc addr;
+        int check_len;
+        if (check->opcode == OP_UNDECODED)
+            continue;
+        addr = instr_get_raw_bits(check);
+        check_len = instr_length(dcontext, check);
         instr_set_raw_bits_valid(check, false);
         pc = instr_encode_to_copy(dcontext, check, buf, addr);
         instr_init(dcontext, &tmp);
