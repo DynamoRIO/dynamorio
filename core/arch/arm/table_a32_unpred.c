@@ -298,11 +298,11 @@ const instr_info_t A32_ext_bit7[][2] = {
  */
 const instr_info_t A32_ext_bit19[][2] = {
   { /* 0 */
-    {EXT_SIMD8,         0xf2800000, "(ext simd8  0)", xx, xx, xx, xx, xx, no, x, 0},
-    {EXT_SIMD5,         0xf2880000, "(ext simd5  0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_SIMD8,         0xf2800010, "(ext simd8  0)", xx, xx, xx, xx, xx, no, x, 0},
+    {EXT_SIMD5,         0xf2880010, "(ext simd5  0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 1 */
-    {EXT_SIMD8,         0xf3800000, "(ext simd8  1)", xx, xx, xx, xx, xx, no, x, 1},
-    {EXT_SIMD5,         0xf3880000, "(ext simd5  1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_SIMD8,         0xf3800010, "(ext simd8  1)", xx, xx, xx, xx, xx, no, x, 1},
+    {EXT_SIMD5,         0xf3880010, "(ext simd5  1)", xx, xx, xx, xx, xx, no, x, 1},
   },
 };
 
@@ -1364,9 +1364,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x50 */
     {OP_vabal_u8,       0xf3800500, "vabal.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf3800510, "vorr.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800530, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf3800530, "vbic.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf3800550, "vorr.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800570, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf3800570, "vbic.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x60 */
     {OP_vrsubhn_i16,    0xf3800600, "vrsubhn.i16",    VBq, xx, VAdq, VCdq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf3800610, "vmov.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1376,9 +1376,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x70 */
     {OP_vabdl_u8,       0xf3800700, "vabdl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vorr_i32,       0xf3800710, "vorr.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800730, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf3800730, "vbic.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i32,       0xf3800750, "vorr.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800770, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i32,       0xf3800770, "vbic.i32",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0x80 */
     {OP_vmlal_u8,       0xf3800800, "vmlal.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i16,       0xf3800810, "vmov.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1388,9 +1388,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0x90 */
     {INVALID,           0xf3800900, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vorr_i16,       0xf3800910, "vorr.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800930, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf3800930, "vbic.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i16,       0xf3800950, "vorr.i16",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800970, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf3800970, "vbic.i16",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xa0 */
     {OP_vmlsl_u8,       0xf3800a00, "vmlsl.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i16,       0xf3800a10, "vmov.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1400,9 +1400,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     /* 0xb0 */
     {INVALID,           0xf3800b00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
     {OP_vorr_i16,       0xf3800b10, "vorr.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800b30, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf3800b30, "vbic.i16",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     {OP_vorr_i16,       0xf3800b50, "vorr.i16",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
-    {INVALID,           0xf3800b70, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vbic_i16,       0xf3800b70, "vbic.i16",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xc0 */
     {OP_vmull_u8,       0xf3800c00, "vmull.u8",       VBdq, xx, VAq, VCq, xx, no, x, END_LIST},
     {OP_vmov_i32,       0xf3800c10, "vmov.i32",       VBq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
@@ -1423,9 +1423,9 @@ const instr_info_t A32_ext_simd8[][80] = {
     {OP_vmov_i64,       0xf3800e70, "vmov.i64",       VBdq, xx, i12x8_24_16_0, xx, xx, no, x, DUP_ENTRY},
     /* 0xf0 */
     {INVALID,           0xf3800f00, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,           0xf3800f10, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_f32,       0xf3800f10, "vmov.f32",       VBq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,           0xf3800f30, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,           0xf3800f50, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmov_f32,       0xf3800f50, "vmov.f32",       VBdq, xx, i12x8_28_16_0, xx, xx, no, x, DUP_ENTRY},
     {INVALID,           0xf3800f70, "(bad)",          xx, xx, xx, xx, xx, no, x, NA},
   },
 };
