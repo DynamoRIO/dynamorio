@@ -218,7 +218,6 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
     instrlist_t *ilist = ci->ilist;
     instr_t *top, *bot, *instr;
     reg_id_t reg1, reg2;
-    bool not_found;
     /* pointers to instructions of interest */
     instr_t *enter = NULL, *leave = NULL;
 
@@ -306,54 +305,46 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
             instr_is_cti(top) || instr_is_cti(bot))
             break;
         if (instr_is_push_reg_pair(top, &reg1, &reg2)) {
-            not_found = true;
-            /* If a save reg pair is found and the register,
-             * search from the bottom for restore.
+            /* If a save reg pair is found and the register, check if the last
+             * instruction is a corresponding load.
              */
-            for (instr = bot; !instr_is_cti(instr); instr = instr_get_prev(instr)) {
-                reg_id_t reg1_c, reg2_c;
-                if (instr_is_pop_reg_pair(instr, &reg1_c, &reg2_c) &&
-                    reg1 == reg1_c &&
-                    reg2 == reg2_c) {
-                    /* found a save/restore pair */
-                    ci->callee_save_regs[reg1] = true;
-                    ci->callee_save_regs[reg2] = true;
-                    ci->num_callee_save_regs += 2;
-                    /* remove & destroy the pairs */
-                    instrlist_remove(ilist, top);
-                    instr_destroy(GLOBAL_DCONTEXT, top);
-                    instrlist_remove(ilist, instr);
-                    instr_destroy(GLOBAL_DCONTEXT, instr);
-                    /* get next pair */
-                    top = instrlist_first(ilist);
-                    bot = instrlist_last(ilist);
-                    not_found = false;
-                }
-            }
-            if (not_found)
+            reg_id_t reg1_c, reg2_c;
+            if (instr_is_pop_reg_pair(bot, &reg1_c, &reg2_c) &&
+                reg1 == reg1_c &&
+                reg2 == reg2_c) {
+                /* found a save/restore pair */
+                ci->callee_save_regs[reg1] = true;
+                ci->callee_save_regs[reg2] = true;
+                ci->num_callee_save_regs += 2;
+                /* remove & destroy the pairs */
+                instrlist_remove(ilist, top);
+                instr_destroy(GLOBAL_DCONTEXT, top);
+                instrlist_remove(ilist, bot);
+                instr_destroy(GLOBAL_DCONTEXT, bot);
+                /* get next pair */
+                top = instrlist_first(ilist);
+                bot = instrlist_last(ilist);
+            } else
                 break;
         } else if (instr_is_push_reg(top, &reg1)) {
-            not_found = true;
-            /* If a save reg is found, search from the bottom for restore. */
-            for (instr = bot; instr != top; instr = instr_get_prev(instr)) {
-                reg_id_t reg1_c;
-                if (instr_is_pop_reg(instr, &reg1_c) &&
-                    reg1 == reg1_c) {
-                    /* found a save/restore pair */
-                    ci->callee_save_regs[reg1] = true;
-                    ci->num_callee_save_regs += 1;
-                    /* remove & destroy the pairs */
-                    instrlist_remove(ilist, top);
-                    instr_destroy(GLOBAL_DCONTEXT, top);
-                    instrlist_remove(ilist, instr);
-                    instr_destroy(GLOBAL_DCONTEXT, instr);
-                    /* get next pair */
-                    top = instrlist_first(ilist);
-                    bot = instrlist_last(ilist);
-                    break;
-                }
-            }
-            if (not_found)
+            /* If a save reg pair is found and the register, check if the last
+             * instruction is a corresponding restore.
+             */
+            reg_id_t reg1_c;
+            if (instr_is_pop_reg(bot, &reg1_c) &&
+                reg1 == reg1_c) {
+                /* found a save/restore pair */
+                ci->callee_save_regs[reg1] = true;
+                ci->num_callee_save_regs += 1;
+                /* remove & destroy the pairs */
+                instrlist_remove(ilist, top);
+                instr_destroy(GLOBAL_DCONTEXT, top);
+                instrlist_remove(ilist, bot);
+                instr_destroy(GLOBAL_DCONTEXT, bot);
+                /* get next pair */
+                top = instrlist_first(ilist);
+                bot = instrlist_last(ilist);
+            } else
                 break;
         } else
             break;
