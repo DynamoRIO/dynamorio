@@ -1100,6 +1100,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     /* Roll back greedy reglist if necessary */
     if (di->reglist_stop > 0 && optype_is_reg(optype) &&
         (!di->reglist_simd || !optype_is_gpr(optype)) &&
+        di->reglist_stop - 1 > di->reglist_start &&
         di->reglist_stop - di->reglist_start > di->reglist_min_num &&
         di->reglist_stop == opnum) {
         if ((is_dst &&
