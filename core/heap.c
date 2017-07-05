@@ -2703,6 +2703,7 @@ void *
 global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
+#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -2712,6 +2713,7 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
         !heapmgt->global_heap_writable) {
         standalone_init();
     }
+#endif
     p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
     ASSERT(p != NULL);
     LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: "PFX" (%d bytes)\n", p, size);
