@@ -2392,7 +2392,7 @@ if (CLIENT_INTERFACE)
 
       torunonly_ci(tool.drcachesim.filter ${ci_shared_app} drcachesim
         "drcachesim-filter-simple.c" # for templatex basename
-        "-ipc_name drtestfilter -L0_filter" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestfilter -L0_filter" "" "")
         set(tool.drcachesim.filter_toolname "drcachesim")
         set(tool.drcachesim.filter_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
