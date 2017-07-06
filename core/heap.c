@@ -1532,7 +1532,7 @@ heap_init()
      * our post-init heapmgt struct
      */
     ASSERT(heapmgt == &temp_heapmgt);
-    heapmgt->global_heap_writable = true;
+    heapmgt->global_heap_writable = true; /* this is relied on in global_heap_alloc */
     threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_units, GLOBAL_UNIT_MIN_SIZE);
 
     heapmgt = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, heap_management_t, ACCT_MEM_MGT,
@@ -2702,7 +2702,19 @@ common_global_heap_free(thread_units_t *tu, void *p, size_t size
 void *
 global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
-    void *p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
+    void *p;
+#ifdef CLIENT_INTERFACE
+    /* We pay the cost of this branch to support using DR's decode routines from the
+     * regular DR library and not just drdecode, to support libraries that would use
+     * drdecode but that also have to work with full DR (i#2499).
+     */
+    if (heapmgt == &temp_heapmgt &&
+        /* We prevent recrusion by checking for a field that heap_init writes. */
+        !heapmgt->global_heap_writable) {
+        standalone_init();
+    }
+#endif
+    p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
     ASSERT(p != NULL);
     LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: "PFX" (%d bytes)\n", p, size);
     return p;

@@ -222,8 +222,8 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 # ifdef AARCH64
 /* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
-create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
-                                  bool is_single_reg, bool is_gpr)
+create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, bool is_gpr,
+                                  uint num_saved)
 {
     /* opzs depends on the kind of register and whether a single register or
      * a pair of registers is saved/restored using stp/ldp.
@@ -241,7 +241,7 @@ create_base_disp_for_save_restore(uint base_reg, uint first_reg, uint reg,
             opsz = OPSZ_32;
     }
 
-    uint offset = is_gpr ? REG_OFFSET(DR_REG_X0 + reg) : reg * sizeof(dr_simd_t);
+    uint offset = num_saved * (is_gpr ? sizeof(reg_t) : sizeof(dr_simd_t));
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
 }
 
@@ -256,6 +256,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
                                  bool save, bool is_gpr)
 {
     uint i, reg1 = UINT_MAX, num_regs = is_gpr ? 30 : 32;
+    uint saved_regs = 0;
     instr_t *new_instr;
     /* Use stp/ldp to save/restore as many register pairs to memory, skipping
      * registers according to reg_skip.
@@ -267,9 +268,9 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         if (reg1 == UINT_MAX)
             reg1 = i;
         else {
-            opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
+            opnd_t mem = create_base_disp_for_save_restore(base_reg,
                                                            false /* is_single_reg */,
-                                                           is_gpr);
+                                                           is_gpr, saved_regs);
             if (save) {
                 new_instr = INSTR_CREATE_stp(dcontext, mem,
                                              opnd_create_reg(first_reg + reg1),
@@ -280,6 +281,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
             }
             PRE(ilist, instr, new_instr);
             reg1 = UINT_MAX;
+            saved_regs += 2;
         }
     }
 
@@ -287,9 +289,9 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      * of registers to save/restore is odd.
      */
     if (reg1 != UINT_MAX) {
-        opnd_t mem = create_base_disp_for_save_restore(base_reg, first_reg, reg1,
+        opnd_t mem = create_base_disp_for_save_restore(base_reg,
                                                        true /* is_single_reg */,
-                                                       is_gpr);
+                                                       is_gpr, saved_regs);
         if (save) {
             new_instr = INSTR_CREATE_str(dcontext, mem,
                                          opnd_create_reg(first_reg + reg1));

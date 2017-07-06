@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -93,6 +93,11 @@ main(int argc, char *argv[])
     uint64 file_size;
     size_t map_size;
     byte *map_base;
+
+    /* Test i#2499: heap alloc prior to standalone init. */
+    void *temp = dr_global_alloc(sizeof(void*));
+    dr_global_free(temp, sizeof(void*));
+
     void *drcontext = dr_standalone_init();
 
 #ifdef ARM

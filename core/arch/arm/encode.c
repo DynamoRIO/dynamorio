@@ -639,6 +639,7 @@ encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
         opnd_size_in_bytes(size_temp);
     di->reglist_itemsz = size_temp; /* in case of rollback */
     di->reglist_simd = is_simd; /* in case of rollback */
+    di->reglist_min_num = min_num; /* in case of rollback */
     /* For T32.16, the base reg should appear either in the reglist or as
      * a writeback reg once and only once.
      */
@@ -665,6 +666,7 @@ encode_simd_reglist_single_entry(decode_info_t *di, byte optype, opnd_size_t siz
         /* There should be no rollback, but just to be complete: */
         di->reglist_itemsz = size_temp;
         di->reglist_simd = true;
+        di->reglist_min_num = 0;
         return true;
     }
     return false;
@@ -1098,7 +1100,9 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     /* Roll back greedy reglist if necessary */
     if (di->reglist_stop > 0 && optype_is_reg(optype) &&
         (!di->reglist_simd || !optype_is_gpr(optype)) &&
-        di->reglist_stop - 1 > di->reglist_start && di->reglist_stop == opnum) {
+        di->reglist_stop - 1 > di->reglist_start &&
+        di->reglist_stop - di->reglist_start > di->reglist_min_num &&
+        di->reglist_stop == opnum) {
         if ((is_dst &&
              (opnum >= instr_num_dsts(in) || !opnd_is_reg(instr_get_dst(in, opnum)))) ||
             (!is_dst &&
