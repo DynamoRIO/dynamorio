@@ -27,6 +27,8 @@ Called func aflags_clobber.
 #endif
 Calling func compiler_inscount...
 Called func compiler_inscount.
+#ifdef X86
 Calling func bbcount...
 Called func bbcount.
+#endif
 PASSED

@@ -37,12 +37,28 @@
 # define EXPORT __attribute__((visibility("default")))
 #endif
 
+#ifdef X86
+#define FUNCTIONS() \
+        FUNCTION(empty) \
+        FUNCTION(empty_1arg) \
+        FUNCTION(inscount) \
+        FUNCTION(gcc47_inscount) \
+        FUNCTION(callpic_pop) \
+        FUNCTION(callpic_mov) \
+        FUNCTION(nonleaf) \
+        FUNCTION(cond_br) \
+        FUNCTION(tls_clobber) \
+        FUNCTION(aflags_clobber) \
+        FUNCTION(compiler_inscount) \
+        LAST_FUNCTION()
+#else
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(empty_1arg) \
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
         LAST_FUNCTION()
+#endif
 
 /* Definitions for every function. */
 #define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }

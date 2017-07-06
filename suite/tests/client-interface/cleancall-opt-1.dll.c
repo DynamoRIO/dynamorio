@@ -47,7 +47,6 @@
         FUNCTION(out_of_line) \
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
         LAST_FUNCTION()
 
 static void compiler_inscount(ptr_uint_t count);
