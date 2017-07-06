@@ -100,7 +100,7 @@
 -----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
 -----------xxxxx----------------  x16p1      # ... add 1
 -----------xxxxx----------------  x16immvr   # computes immed from 21, 13 and 11:10
------------xxxxx----------------  x16immvs   # computes immed 21, 15:13 and 11:10
+-----------xxxxx----------------  x16immvs   # computes immed from 21, 15:13 and 11:10
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9       # gets size from 31:30
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
@@ -134,7 +134,7 @@
 -x-----------------x------------  index2     # index of S subreg in Q: 0-3
 -x-----------------xx-----------  index1     # index of H subreg in Q: 0-7
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
--x---------xxxxx----------------  x16imm     # computes immed from 30 and 15:12
+-----------xxxxx----------------  x16imm     # computes immed from 30 and 15:12
 x--------------------------xxxxx  wx0        # W/X register (or WZR/XZR)
 x--------------------------xxxxx  wx0sp      # W/X register or WSP/XSP
 x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
@@ -737,21 +737,37 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 
 ## Advanced SIMD load/store multiple structures (post-indexed)
 
-0x001100100xxxxx0000xxxxxxxxxxxx  st4    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x001100100xxxxx0010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x001100100xxxxx0100xxxxxxxxxxxx  st3    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x001100100xxxxx0110xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x001100100xxxxx0111xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 x5sp x16imm
-0x001100100xxxxx1000xxxxxxxxxxxx  st2    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
-0x001100100xxxxx1010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+00001100100xxxxx0000xxxxxxxxxxxx  st4    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+00001100100xxxxx0010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+00001100100xxxxx0100xxxxxxxxxxxx  st3    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+00001100100xxxxx0110xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+00001100100xxxxx0111xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 x5sp x16imm
+00001100100xxxxx1000xxxxxxxxxxxx  st2    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+00001100100xxxxx1010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
 
-0x001100110xxxxx0000xxxxxxxxxxxx  ld4    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0010xxxxxxxxxxxx  ld1    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0100xxxxxxxxxxxx  ld3    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0110xxxxxxxxxxxx  ld1    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0111xxxxxxxxxxxx  ld1    vt0 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx1000xxxxxxxxxxxx  ld2    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx1010xxxxxxxxxxxx  ld1    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx0000xxxxxxxxxxxx  ld4    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx0010xxxxxxxxxxxx  ld1    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx0100xxxxxxxxxxxx  ld3    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx0110xxxxxxxxxxxx  ld1    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx0111xxxxxxxxxxxx  ld1    vt0 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx1000xxxxxxxxxxxx  ld2    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+00001100110xxxxx1010xxxxxxxxxxxx  ld1    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+
+01001100100xxxxx0000xxxxxxxxxxxx  st4    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+01001100100xxxxx0010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+01001100100xxxxx0100xxxxxxxxxxxx  st3    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+01001100100xxxxx0110xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+01001100100xxxxx0111xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 x5sp x16imm
+01001100100xxxxx1000xxxxxxxxxxxx  st2    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+01001100100xxxxx1010xxxxxxxxxxxx  st1    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+
+01001100110xxxxx0000xxxxxxxxxxxx  ld4    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx0010xxxxxxxxxxxx  ld1    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx0100xxxxxxxxxxxx  ld3    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx0110xxxxxxxxxxxx  ld1    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx0111xxxxxxxxxxxx  ld1    vt0 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx1000xxxxxxxxxxxx  ld2    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+01001100110xxxxx1010xxxxxxxxxxxx  ld1    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
 
 ## Advanced SIMD load/store single structure
 
