@@ -141,11 +141,11 @@ encode_opndsgen_0a000000(byte *pc, instr_t *instr, uint enc)
     int opcode = instr->opcode;
     uint dst0, src0, src1, src2, src3;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 4 &&
-        encode_opnd_wx0(enc & 0xff20001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_wx5(enc & 0xff2003e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
-        encode_opnd_wx16(enc & 0xff3f0000, opcode, pc, instr_get_src(instr, 1), &src1) &&
-        encode_opnd_shift4(enc & 0x7fe00000, opcode, pc, instr_get_src(instr, 2), &src2) &&
-        encode_opnd_imm6(enc & 0x7f20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
+        encode_opnd_wx0(enc & 0xff20801f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
+        encode_opnd_wx5(enc & 0xff2083e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
+        encode_opnd_wx16(enc & 0xff3f8000, opcode, pc, instr_get_src(instr, 1), &src1) &&
+        encode_opnd_shift4(enc & 0xffe08000, opcode, pc, instr_get_src(instr, 2), &src2) &&
+        encode_opnd_imm6(enc & 0xff20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
         ASSERT((dst0 & 0x7fffffe0) == 0);
         ASSERT((src0 & 0x7ffffc1f) == 0);
         ASSERT((src1 & 0x7fe0ffff) == 0);
@@ -168,11 +168,11 @@ encode_opndsgen_0b000000(byte *pc, instr_t *instr, uint enc)
     int opcode = instr->opcode;
     uint dst0, src0, src1, src2, src3;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 4 &&
-        encode_opnd_wx0(enc & 0xff20001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_wx5(enc & 0xff2003e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
-        encode_opnd_wx16(enc & 0xff3f0000, opcode, pc, instr_get_src(instr, 1), &src1) &&
-        encode_opnd_shift3(enc & 0x7fe00000, opcode, pc, instr_get_src(instr, 2), &src2) &&
-        encode_opnd_imm6(enc & 0x7f20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
+        encode_opnd_wx0(enc & 0xff20801f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
+        encode_opnd_wx5(enc & 0xff2083e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
+        encode_opnd_wx16(enc & 0xff3f8000, opcode, pc, instr_get_src(instr, 1), &src1) &&
+        encode_opnd_shift3(enc & 0xffe08000, opcode, pc, instr_get_src(instr, 2), &src2) &&
+        encode_opnd_imm6(enc & 0xff20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
         ASSERT((dst0 & 0x7fffffe0) == 0);
         ASSERT((src0 & 0x7ffffc1f) == 0);
         ASSERT((src1 & 0x7fe0ffff) == 0);
@@ -5071,6 +5071,60 @@ encode_opndsgen_88600000(byte *pc, instr_t *instr, uint enc)
 }
 
 static uint
+encode_opndsgen_8a000000(byte *pc, instr_t *instr, uint enc)
+{
+    int opcode = instr->opcode;
+    uint dst0, src0, src1, src2, src3;
+    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 4 &&
+        encode_opnd_wx0(enc & 0xff20001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
+        encode_opnd_wx5(enc & 0xff2003e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
+        encode_opnd_wx16(enc & 0xff3f0000, opcode, pc, instr_get_src(instr, 1), &src1) &&
+        encode_opnd_shift4(enc & 0xffe00000, opcode, pc, instr_get_src(instr, 2), &src2) &&
+        encode_opnd_imm6(enc & 0xff20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
+        ASSERT((dst0 & 0x7fffffe0) == 0);
+        ASSERT((src0 & 0x7ffffc1f) == 0);
+        ASSERT((src1 & 0x7fe0ffff) == 0);
+        ASSERT((src2 & 0xff3fffff) == 0);
+        ASSERT((src3 & 0xffff03ff) == 0);
+        enc |= dst0 | src0 | src1 | src2 | src3;
+        if (dst0 == (enc & 0x8000001f) &&
+            src0 == (enc & 0x800003e0) &&
+            src1 == (enc & 0x801f0000) &&
+            src2 == (enc & 0x00c00000) &&
+            src3 == (enc & 0x0000fc00))
+            return enc;
+    }
+    return ENCFAIL;
+}
+
+static uint
+encode_opndsgen_8b000000(byte *pc, instr_t *instr, uint enc)
+{
+    int opcode = instr->opcode;
+    uint dst0, src0, src1, src2, src3;
+    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 4 &&
+        encode_opnd_wx0(enc & 0xff20001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
+        encode_opnd_wx5(enc & 0xff2003e0, opcode, pc, instr_get_src(instr, 0), &src0) &&
+        encode_opnd_wx16(enc & 0xff3f0000, opcode, pc, instr_get_src(instr, 1), &src1) &&
+        encode_opnd_shift3(enc & 0xffe00000, opcode, pc, instr_get_src(instr, 2), &src2) &&
+        encode_opnd_imm6(enc & 0xff20fc00, opcode, pc, instr_get_src(instr, 3), &src3)) {
+        ASSERT((dst0 & 0x7fffffe0) == 0);
+        ASSERT((src0 & 0x7ffffc1f) == 0);
+        ASSERT((src1 & 0x7fe0ffff) == 0);
+        ASSERT((src2 & 0xff3fffff) == 0);
+        ASSERT((src3 & 0xffff03ff) == 0);
+        enc |= dst0 | src0 | src1 | src2 | src3;
+        if (dst0 == (enc & 0x8000001f) &&
+            src0 == (enc & 0x800003e0) &&
+            src1 == (enc & 0x801f0000) &&
+            src2 == (enc & 0x00c00000) &&
+            src3 == (enc & 0x0000fc00))
+            return enc;
+    }
+    return ENCFAIL;
+}
+
+static uint
 encode_opndsgen_90000000(byte *pc, instr_t *instr, uint enc)
 {
     int opcode = instr->opcode;
@@ -6482,24 +6536,24 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0b000000(pc, instr, 0x0b000000);
         if (enc != ENCFAIL)
             return enc;
-        enc = encode_opndsgen_0b000000(pc, instr, 0x8b000000);
-        if (enc != ENCFAIL)
-            return enc;
         enc = encode_opndsgen_0b200000(pc, instr, 0x0b200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_11000000(pc, instr, 0x11000000);
-    case OP_adds:
-        enc = encode_opndsgen_0b000000(pc, instr, 0x2b000000);
+        enc = encode_opndsgen_11000000(pc, instr, 0x11000000);
         if (enc != ENCFAIL)
             return enc;
-        enc = encode_opndsgen_0b000000(pc, instr, 0xab000000);
+        return encode_opndsgen_8b000000(pc, instr, 0x8b000000);
+    case OP_adds:
+        enc = encode_opndsgen_0b000000(pc, instr, 0x2b000000);
         if (enc != ENCFAIL)
             return enc;
         enc = encode_opndsgen_2b200000(pc, instr, 0x2b200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_31000000(pc, instr, 0x31000000);
+        enc = encode_opndsgen_31000000(pc, instr, 0x31000000);
+        if (enc != ENCFAIL)
+            return enc;
+        return encode_opndsgen_8b000000(pc, instr, 0xab000000);
     case OP_adr:
         return encode_opndsgen_10000000(pc, instr, 0x10000000);
     case OP_adrp:
@@ -6511,7 +6565,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x0a000000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0x8a000000);
+        return encode_opndsgen_8a000000(pc, instr, 0x8a000000);
     case OP_ands:
         enc = encode_opnds_logic_imm(pc, instr, 0x72000000);
         if (enc != ENCFAIL)
@@ -6519,7 +6573,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x6a000000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xea000000);
+        return encode_opndsgen_8a000000(pc, instr, 0xea000000);
     case OP_asrv:
         return encode_opndsgen_1a000000(pc, instr, 0x1ac02800);
     case OP_b:
@@ -6535,12 +6589,12 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x0a200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0x8a200000);
+        return encode_opndsgen_8a000000(pc, instr, 0x8a200000);
     case OP_bics:
         enc = encode_opndsgen_0a000000(pc, instr, 0x6a200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xea200000);
+        return encode_opndsgen_8a000000(pc, instr, 0xea200000);
     case OP_bl:
         return encode_opnds_b(pc, instr, 0x94000000);
     case OP_blr:
@@ -6657,7 +6711,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x4a200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xca200000);
+        return encode_opndsgen_8a000000(pc, instr, 0xca200000);
     case OP_eor:
         enc = encode_opnds_logic_imm(pc, instr, 0x52000000);
         if (enc != ENCFAIL)
@@ -6665,7 +6719,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x4a000000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xca000000);
+        return encode_opndsgen_8a000000(pc, instr, 0xca000000);
     case OP_extr:
         enc = encode_opndsgen_13800000(pc, instr, 0x13800000);
         if (enc != ENCFAIL)
@@ -7528,7 +7582,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x2a200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xaa200000);
+        return encode_opndsgen_8a000000(pc, instr, 0xaa200000);
     case OP_orr:
         enc = encode_opnds_logic_imm(pc, instr, 0x32000000);
         if (enc != ENCFAIL)
@@ -7536,7 +7590,7 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0a000000(pc, instr, 0x2a000000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_0a000000(pc, instr, 0xaa000000);
+        return encode_opndsgen_8a000000(pc, instr, 0xaa000000);
     case OP_prfm:
         enc = encode_opndsgen_d8000000(pc, instr, 0xd8000000);
         if (enc != ENCFAIL)
@@ -7956,24 +8010,24 @@ encoder(byte *pc, instr_t *instr)
         enc = encode_opndsgen_0b000000(pc, instr, 0x4b000000);
         if (enc != ENCFAIL)
             return enc;
-        enc = encode_opndsgen_0b000000(pc, instr, 0xcb000000);
-        if (enc != ENCFAIL)
-            return enc;
         enc = encode_opndsgen_0b200000(pc, instr, 0x4b200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_11000000(pc, instr, 0x51000000);
-    case OP_subs:
-        enc = encode_opndsgen_0b000000(pc, instr, 0x6b000000);
+        enc = encode_opndsgen_11000000(pc, instr, 0x51000000);
         if (enc != ENCFAIL)
             return enc;
-        enc = encode_opndsgen_0b000000(pc, instr, 0xeb000000);
+        return encode_opndsgen_8b000000(pc, instr, 0xcb000000);
+    case OP_subs:
+        enc = encode_opndsgen_0b000000(pc, instr, 0x6b000000);
         if (enc != ENCFAIL)
             return enc;
         enc = encode_opndsgen_2b200000(pc, instr, 0x6b200000);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_31000000(pc, instr, 0x71000000);
+        enc = encode_opndsgen_31000000(pc, instr, 0x71000000);
+        if (enc != ENCFAIL)
+            return enc;
+        return encode_opndsgen_8b000000(pc, instr, 0xeb000000);
     case OP_svc:
         return encode_opndsgen_d4000001(pc, instr, 0xd4000001);
     case OP_swp:
