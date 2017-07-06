@@ -501,7 +501,8 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
     }
-    if (instr != NULL) opt_inline = false;
+    if (instr != NULL)
+        opt_inline = false;
     return opt_inline;
 }
 
@@ -544,7 +545,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, where, XINST_CREATE_add
         (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
 
-    insert_save_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg, DR_REG_X0, true);
+    insert_save_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg,
+                          DR_REG_X0, true);
 
 
     /* Save nzcv, fpcr, fpsr, */
@@ -565,7 +567,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     /* We use ldp to spill consecutive registers and ldr to spill a single reg
      * XXX remove duplication */
 
-    insert_restore_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg, DR_REG_X0, true);
+    insert_restore_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg,
+                             DR_REG_X0, true);
 
     /* Restore reg used for unprotected_context_t pointer. */
     PRE(ilist, where, instr_create_restore_from_tls
