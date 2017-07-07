@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include "configure.h"
+
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
 # define EXPORT __declspec(dllexport)
@@ -51,7 +53,7 @@
         FUNCTION(aflags_clobber) \
         FUNCTION(compiler_inscount) \
         LAST_FUNCTION()
-#else
+#elif defined(AARCH64)
 #define FUNCTIONS() \
         FUNCTION(empty) \
         FUNCTION(empty_1arg) \
