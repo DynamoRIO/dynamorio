@@ -2770,7 +2770,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     decode_info_init_for_instr(&di, instr);
-    di.opcode = instr_get_opcode(instr);
+    di.opcode = instr->opcode;
     di.check_reachable = check_reachable;
     di.start_pc = copy_pc;
     di.final_pc = final_pc;
