@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -286,6 +286,9 @@ dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
 dr_isa_mode_t
 dr_get_isa_mode(dcontext_t *dcontext)
 {
+#if !defined(STANDALONE_DECODER) && defined(DEBUG)
+    dcontext_t *orig_dcontext = dcontext;
+#endif
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();
@@ -293,7 +296,7 @@ dr_get_isa_mode(dcontext_t *dcontext)
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
 #if !defined(STANDALONE_DECODER)
         CLIENT_ASSERT(!dynamo_initialized || dynamo_exited ||
-                      dcontext == GLOBAL_DCONTEXT, "internal isa mode error");
+                      orig_dcontext == GLOBAL_DCONTEXT, "internal isa mode error");
 #endif
         return initexit_isa_mode;
     } else

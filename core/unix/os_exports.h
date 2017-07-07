@@ -305,6 +305,8 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
 void init_emulated_brk(app_pc exe_end);
 
+bool is_DR_segment_reader_entry(app_pc pc);
+
 /***************************************************************************/
 /* in signal.c */
 

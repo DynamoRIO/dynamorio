@@ -841,6 +841,8 @@ dcontext_t *
 standalone_init(void)
 {
     dcontext_t *dcontext;
+    if (dynamo_initialized)
+        return GLOBAL_DCONTEXT;
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
     stats = &nonshared_stats;

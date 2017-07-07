@@ -7346,6 +7346,61 @@ dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
 #endif
 }
 
+DR_API
+bool
+dr_prepopulate_cache(app_pc *tags, size_t tags_count)
+{
+    /* We expect get_thread_private_dcontext() to return NULL b/c we're between
+     * dr_app_setup() and dr_app_start() and are considered a "native" thread
+     * with disabled TLS.  We do set up TLS as too many routines fail (e.g.,
+     * clean call analysis) with NULL from TLS, but we do not set up signal
+     * handling: the caller has to handle decode faults, as we do not
+     * want to enable our signal handlers, which might disrupt the app running
+     * natively in parallel with us.
+     */
+    thread_record_t *tr = thread_lookup(get_thread_id());
+    dcontext_t *dcontext = tr->dcontext;
+    uint i;
+    if (dcontext == NULL)
+        return false;
+    SHARED_BB_LOCK();
+    SYSLOG_INTERNAL_INFO("pre-building code cache from %d tags", tags_count);
+#ifdef UNIX
+    os_swap_context(dcontext, false/*to dr*/, DR_STATE_GO_NATIVE);
+#endif
+    for (i = 0; i < tags_count; i++) {
+        /* There could be duplicates if sthg was deleted and re-added during profiling */
+        fragment_t coarse_f;
+        fragment_t *f;
+#ifdef UNIX
+        /* We silently skip DR-segment-reading addresses to help out a caller
+         * who sampled and couldn't avoid self-sampling for decoding.
+         */
+        if (is_DR_segment_reader_entry(tags[i]))
+            continue;
+#endif
+        f = fragment_lookup_fine_and_coarse(dcontext, tags[i], &coarse_f, NULL);
+        if (f == NULL) {
+            /* For coarse-grain we won't link as that's done during execution,
+             * but for fine-grained this should produce a fully warmed cache.
+             */
+            f = build_basic_block_fragment(dcontext, tags[i],
+                                           0, true/*link*/, true/*visible*/
+                                           _IF_CLIENT(false/*!for_trace*/)
+                                           _IF_CLIENT(NULL));
+        }
+        ASSERT(f != NULL);
+        /* We're ok making a thread-private fragment: might be a waste if this
+         * thread never runs it, but simpler than trying to skip them or sthg.
+         */
+    }
+#ifdef UNIX
+    os_swap_context(dcontext, true/*to app*/, DR_STATE_GO_NATIVE);
+#endif
+    SHARED_BB_UNLOCK();
+    return true;
+}
+
 /***************************************************************************
  * PERSISTENCE
  */
