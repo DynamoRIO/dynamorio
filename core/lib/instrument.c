@@ -7365,7 +7365,9 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
         return false;
     SHARED_BB_LOCK();
     SYSLOG_INTERNAL_INFO("pre-building code cache from %d tags", tags_count);
+#ifdef UNIX
     os_swap_context(dcontext, false/*to dr*/, DR_STATE_GO_NATIVE);
+#endif
     for (i = 0; i < tags_count; i++) {
         /* There could be duplicates if sthg was deleted and re-added during profiling */
         fragment_t coarse_f;
@@ -7392,7 +7394,9 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
          * thread never runs it, but simpler than trying to skip them or sthg.
          */
     }
+#ifdef UNIX
     os_swap_context(dcontext, true/*to app*/, DR_STATE_GO_NATIVE);
+#endif
     SHARED_BB_UNLOCK();
     return true;
 }
