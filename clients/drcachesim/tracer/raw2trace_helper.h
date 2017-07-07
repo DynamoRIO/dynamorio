@@ -43,12 +43,14 @@
 
 class raw2trace_helper_t {
 public:
-    raw2trace_helper_t(const std::string& indir, const std::string& outname, unsigned int verbosity = 0);
+    raw2trace_helper_t(const std::string& indir, const std::string& outname,
+                       unsigned int verbosity = 0);
     ~raw2trace_helper_t();
 
     char* modfile_bytes;
     std::vector<std::istream*> thread_files;
     std::ofstream out_file;
+
 private:
     void open_thread_files();
     void open_thread_log_file(const char *basename);

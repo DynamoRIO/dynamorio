@@ -58,7 +58,8 @@ struct module_t {
 
 class raw2trace_t {
 public:
-    // module_map, thread_files and out_file are all owned and opened/closed by the caller.
+    // module_map, thread_files and out_file are all owned and opened/closed by the
+    // caller.
     raw2trace_t(const char* module_map, const std::vector<std::istream*>& thread_files,
                 std::ostream *out_file, void *dcontext = NULL,
                 unsigned int verbosity = 0);

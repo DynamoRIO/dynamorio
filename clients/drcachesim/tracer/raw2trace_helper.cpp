@@ -143,7 +143,9 @@ raw2trace_helper_t::open_thread_log_file(const char *basename)
     VPRINT(1, "Opened thread log file %s\n", path);
 }
 
-raw2trace_helper_t::raw2trace_helper_t(const std::string& indir_in, const std::string& outname_in, unsigned int verbosity_in)
+raw2trace_helper_t::raw2trace_helper_t(const std::string& indir_in,
+                                       const std::string& outname_in,
+                                       unsigned int verbosity_in)
     : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
 {
     // Support passing both base dir and raw/ subdir.
