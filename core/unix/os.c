@@ -1539,6 +1539,28 @@ is_thread_tls_initialized(void)
 #endif
 }
 
+bool
+is_DR_segment_reader_entry(app_pc pc)
+{
+    /* This routine is used to avoid problems with dr_prepopulate_cache() building
+     * bbs for DR code that reads DR segments when DR is a static library.
+     * It's a little ugly but it's not clear there's a better solution.
+     * See the discussion in i#2463 c#2.
+     */
+#ifdef X86
+    if (INTERNAL_OPTION(safe_read_tls_init)) {
+        return pc == (app_pc)safe_read_tls_magic ||
+            pc == (app_pc)safe_read_tls_self;
+    }
+#endif
+    /* XXX i#2463: for ARM and for -no_safe_read_tls_init it may be
+     * more complicated as the PC may not be a function entry but the
+     * start of a bb after a branch in our C code that uses inline asm
+     * to read the TLS.
+     */
+    return false;
+}
+
 #if defined(X86) || defined(DEBUG)
 static bool
 is_thread_tls_allocated(void)

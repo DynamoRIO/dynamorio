@@ -1,0 +1,10 @@
+pre-DR init
+in dr_client_main
+bb asm_func
+bb asm_label1
+bb asm_label2
+bb asm_label3
+pre-DR start
+pre-DR detach
+Exit event
+all done
