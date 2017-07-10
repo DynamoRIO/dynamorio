@@ -2823,8 +2823,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 }
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
-            CLIENT_ASSERT(!assert_reachable,
-                          "instr_encode error: no encoding found (see log)");
             return NULL;
         }
         /* We need to clear all the checking fields for each new template */
