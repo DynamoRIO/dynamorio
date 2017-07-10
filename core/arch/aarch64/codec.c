@@ -1195,7 +1195,7 @@ encode_opnd_imms(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_imm_bf(10, enc, opnd, enc_out);
 }
 
-/* impx30: implicit X30 operand, used by BLR. */
+/* impx30: implicit X30 operand, used by BLR */
 
 static inline bool
 decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -2363,10 +2363,12 @@ decode_opnds_b(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opc
 static inline uint
 encode_opnds_b(byte *pc, instr_t *instr, uint enc)
 {
-    uint off;
-    if (((instr_get_opcode(instr) == OP_bl && instr_num_dsts(instr) == 1) ||
-         instr_num_dsts(instr) == 0) &&
+    int opcode = instr_get_opcode(instr);
+    bool is_bl = (opcode == OP_bl);
+    uint off, x30;
+    if (instr_num_dsts(instr) == (is_bl ? 1 : 0) &&
         instr_num_srcs(instr) == 1 &&
+        (!is_bl || encode_opnd_impx30(enc, opcode, pc, instr_get_dst(instr, 0), &x30)) &&
         encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0)))
         return (enc | off);
     return ENCFAIL;
@@ -2648,15 +2650,6 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 uint
 encode_common(byte *pc, instr_t *i)
 {
-    uint enc;
     ASSERT(((ptr_int_t)pc & 3) == 0);
-    enc = encoder(pc, i);
-    if (enc != ENCFAIL)
-        return enc;
-    /* We use OP_xx for instructions not yet handled by the decoder. */
-    if (instr_get_opcode(i) == OP_xx) {
-        ASSERT(instr_num_srcs(i) >= 1 && opnd_is_immed_int(instr_get_src(i, 0)));
-        return opnd_get_immed_int(instr_get_src(i, 0));
-    }
-    return enc;
+    return encoder(pc, i);
 }
