@@ -124,14 +124,6 @@ def generate_decoder(patterns, opndsgen, opndtypes):
     c.append('}')
     return '\n'.join(c) + '\n'
 
-
-def maybe_instr(opnd):
-    if opnd in ('adr', 'adrp'):
-        return ', instr'
-    else:
-        return ''
-
-
 def generate_encoder(patterns, opndsgen, opndtypes):
     c = []
     for name in sorted(opndsgen):
@@ -152,11 +144,11 @@ def generate_encoder(patterns, opndsgen, opndtypes):
             tests = (['instr_num_dsts(instr) == %d && instr_num_srcs(instr) == %d' %
                       (len(dsts), len(srcs))] +
                      ['encode_opnd_%s(enc & 0x%08x, opcode, '
-                      'pc, instr_get_dst(instr, %d), &dst%d%s)' %
-                      (dsts[i], f | opndtypes[dsts[i]], i, i, maybe_instr(dsts[i])) for i in range(len(dsts))] +
+                      'pc, instr_get_dst(instr, %d), &dst%d)' %
+                      (dsts[i], f | opndtypes[dsts[i]], i, i) for i in range(len(dsts))] +
                      ['encode_opnd_%s(enc & 0x%08x, opcode, '
-                      'pc, instr_get_src(instr, %d), &src%d%s)' %
-                      (srcs[i], f | opndtypes[srcs[i]], i, i, maybe_instr(srcs[i])) for i in range(len(srcs))])
+                      'pc, instr_get_src(instr, %d), &src%d)' %
+                      (srcs[i], f | opndtypes[srcs[i]], i, i) for i in range(len(srcs))])
             tests2 = (['dst%d == (enc & 0x%08x)' % (i, opndtypes[dsts[i]])
                        for i in range(len(dsts))] +
                       ['src%d == (enc & 0x%08x)' % (i, opndtypes[srcs[i]])

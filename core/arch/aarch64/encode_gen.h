@@ -2953,24 +2953,6 @@ encode_opndsgen_0de0e000(byte *pc, instr_t *instr, uint enc)
 }
 
 static uint
-encode_opndsgen_10000000(byte *pc, instr_t *instr, uint enc)
-{
-    int opcode = instr->opcode;
-    uint dst0, src0;
-    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
-        encode_opnd_x0(enc & 0x9f00001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_adr(enc & 0xffffffe0, opcode, pc, instr_get_src(instr, 0), &src0, instr)) {
-        ASSERT((dst0 & 0xffffffe0) == 0);
-        ASSERT((src0 & 0x9f00001f) == 0);
-        enc |= dst0 | src0;
-        if (dst0 == (enc & 0x0000001f) &&
-            src0 == (enc & 0x60ffffe0))
-            return enc;
-    }
-    return ENCFAIL;
-}
-
-static uint
 encode_opndsgen_11000000(byte *pc, instr_t *instr, uint enc)
 {
     int opcode = instr->opcode;
@@ -5071,24 +5053,6 @@ encode_opndsgen_88600000(byte *pc, instr_t *instr, uint enc)
 }
 
 static uint
-encode_opndsgen_90000000(byte *pc, instr_t *instr, uint enc)
-{
-    int opcode = instr->opcode;
-    uint dst0, src0;
-    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
-        encode_opnd_x0(enc & 0x9f00001f, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_adrp(enc & 0xffffffe0, opcode, pc, instr_get_src(instr, 0), &src0, instr)) {
-        ASSERT((dst0 & 0xffffffe0) == 0);
-        ASSERT((src0 & 0x9f00001f) == 0);
-        enc |= dst0 | src0;
-        if (dst0 == (enc & 0x0000001f) &&
-            src0 == (enc & 0x60ffffe0))
-            return enc;
-    }
-    return ENCFAIL;
-}
-
-static uint
 encode_opndsgen_92800000(byte *pc, instr_t *instr, uint enc)
 {
     int opcode = instr->opcode;
@@ -6501,9 +6465,9 @@ encoder(byte *pc, instr_t *instr)
             return enc;
         return encode_opndsgen_31000000(pc, instr, 0x31000000);
     case OP_adr:
-        return encode_opndsgen_10000000(pc, instr, 0x10000000);
+        return encode_opnds_adr(pc, instr, 0x10000000);
     case OP_adrp:
-        return encode_opndsgen_90000000(pc, instr, 0x90000000);
+        return encode_opnds_adr(pc, instr, 0x90000000);
     case OP_and:
         enc = encode_opnds_logic_imm(pc, instr, 0x12000000);
         if (enc != ENCFAIL)
