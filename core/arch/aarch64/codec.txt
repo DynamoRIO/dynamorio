@@ -258,7 +258,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 ## Unconditional branch (register)
 
 1101011000011111000000xxxxx00000  br     : x5
-1101011000111111000000xxxxx00000  blr    impx30: x5
+1101011000111111000000xxxxx00000  blr    impx30 : x5
 1101011001011111000000xxxxx00000  ret    : x5
 
 # Loads and Stores
