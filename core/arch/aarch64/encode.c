@@ -144,6 +144,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
                   _IF_DEBUG(bool assert_reachable))
 {
+    uint enc;
+
     if (has_instr_opnds != NULL)
         *has_instr_opnds = false;
 
@@ -159,18 +161,26 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
 
-    *(uint *)copy_pc = encode_common(final_pc, instr);
-    if (*(uint *)copy_pc == ENCFAIL) {
-        /* We were unable to encode this instruction. */
-        IF_DEBUG({
-            char disas_instr[MAX_INSTR_DIS_SZ];
-            instr_disassemble_to_buffer(dcontext, instr, disas_instr,
-                                        MAX_INSTR_DIS_SZ);
-            SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
-                                  " '%s'\n", disas_instr);
-        });
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    enc = encode_common(final_pc, instr);
+    if (enc == ENCFAIL) {
+        /* This is to make decoding reversible. We would not normally encode an OP_xx. */
+        if (instr_get_opcode(instr) == OP_xx &&
+            instr_num_srcs(instr) > 0 &&
+            opnd_is_immed_int(instr_get_src(instr, 0))) {
+            enc = (uint)opnd_get_immed_int(instr_get_src(instr, 0));
+        } else {
+            /* We were unable to encode this instruction. */
+            IF_DEBUG({
+                char disas_instr[MAX_INSTR_DIS_SZ];
+                instr_disassemble_to_buffer(dcontext, instr, disas_instr,
+                                            MAX_INSTR_DIS_SZ);
+                SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
+                                      " '%s'\n", disas_instr);
+            });
+            return NULL;
+        }
     }
+    *(uint *)copy_pc = enc;
     return copy_pc + 4;
 }
 
