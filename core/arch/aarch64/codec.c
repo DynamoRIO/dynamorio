@@ -2648,15 +2648,6 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 uint
 encode_common(byte *pc, instr_t *i)
 {
-    uint enc;
     ASSERT(((ptr_int_t)pc & 3) == 0);
-    enc = encoder(pc, i);
-    if (enc != ENCFAIL)
-        return enc;
-    /* We use OP_xx for instructions not yet handled by the decoder. */
-    if (instr_get_opcode(i) == OP_xx) {
-        ASSERT(instr_num_srcs(i) >= 1 && opnd_is_immed_int(instr_get_src(i, 0)));
-        return opnd_get_immed_int(instr_get_src(i, 0));
-    }
-    return enc;
+    return encoder(pc, i);
 }
