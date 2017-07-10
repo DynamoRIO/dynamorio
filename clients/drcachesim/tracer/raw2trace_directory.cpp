@@ -137,9 +137,10 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (!(*thread_files.back()))
         FATAL_ERROR("Failed to open thread log file %s", path);
     std::string error = raw2trace_t::check_thread_file(thread_files.back());
-    if (!error.empty())
+    if (!error.empty()) {
         FATAL_ERROR("Failed sanity checks for thread log file %s: %s", path,
                     error.c_str());
+    }
     VPRINT(1, "Opened thread log file %s\n", path);
 }
 
