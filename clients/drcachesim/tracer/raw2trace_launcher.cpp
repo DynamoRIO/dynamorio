@@ -42,7 +42,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "raw2trace.h"
-#include "raw2trace_helper.h"
+#include "raw2trace_directory.h"
 
 static droption_t<std::string> op_indir
 (DROPTION_SCOPE_FRONTEND, "indir", "", "[Required] Directory with trace input files",
@@ -80,10 +80,10 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    raw2trace_helper_t helper(op_indir.get_value(), op_out.get_value(),
+    raw2trace_directory_t dir(op_indir.get_value(), op_out.get_value(),
                               op_verbose.get_value());
-    raw2trace_t raw2trace(helper.modfile_bytes, helper.thread_files, &helper.out_file,
-                          NULL, op_verbose.get_value());
+    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL,
+                          op_verbose.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

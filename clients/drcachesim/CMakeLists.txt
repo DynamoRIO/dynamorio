@@ -89,7 +89,7 @@ add_executable(drcachesim
   simulator/analyzer_interface.cpp
   # We embed the raw2trace conversion for convenience:
   tracer/raw2trace.cpp
-  tracer/raw2trace_helper.cpp
+  tracer/raw2trace_directory.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
   )
@@ -164,7 +164,7 @@ add_drmemtrace(drmemtrace_static STATIC)
 install_client_header(tracer/drmemtrace.h)
 
 add_executable(drraw2trace
-  tracer/raw2trace_helper.cpp
+  tracer/raw2trace_directory.cpp
   tracer/raw2trace_launcher.cpp
   tracer/raw2trace.cpp
   tracer/instru.cpp

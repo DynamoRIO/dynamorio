@@ -60,20 +60,21 @@ class raw2trace_t {
 public:
     // module_map, thread_files and out_file are all owned and opened/closed by the
     // caller.
-    raw2trace_t(const char* module_map, const std::vector<std::istream*>& thread_files,
+    raw2trace_t(const char *module_map, const std::vector<std::istream*> &thread_files,
                 std::ostream *out_file, void *dcontext = NULL,
                 unsigned int verbosity = 0);
     ~raw2trace_t();
     // Returns non-empty error message on failure.
     std::string do_conversion();
-    static std::string check_thread_file(std::istream* fi);
+    static std::string check_thread_file(std::istream *f);
 
 private:
-    std::string read_and_map_modules(const char* module_map);
+    std::string read_and_map_modules(const char *module_map);
     std::string unmap_modules(void);
     std::string merge_and_process_thread_files();
-    std::string append_bb_entries(uint tidx, offline_entry_t *in_entry, bool *handled);
-    std::string append_memref(trace_entry_t **buf_in, uint tidx, instr_t *instr,
+    std::string append_bb_entries(uint tidx, offline_entry_t *in_entry,
+                                  OUT bool *handled);
+    std::string append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                               opnd_t ref, bool write);
 
     static const uint MAX_COMBINED_ENTRIES = 64;

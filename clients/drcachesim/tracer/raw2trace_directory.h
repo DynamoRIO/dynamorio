@@ -41,11 +41,11 @@
 
 #include "dr_api.h"
 
-class raw2trace_helper_t {
+class raw2trace_directory_t {
 public:
-    raw2trace_helper_t(const std::string& indir, const std::string& outname,
-                       unsigned int verbosity = 0);
-    ~raw2trace_helper_t();
+    raw2trace_directory_t(const std::string &indir, const std::string &outname,
+                          unsigned int verbosity = 0);
+    ~raw2trace_directory_t();
 
     char* modfile_bytes;
     std::vector<std::istream*> thread_files;

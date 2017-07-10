@@ -31,7 +31,8 @@
  */
 
 /* raw2trace helper to iterate directories and open files.
- * Separate from raw2trace_t, so that raw2trace doesn't depend on dr_frontend. */
+ * Separate from raw2trace_t, so that raw2trace doesn't depend on dr_frontend.
+ */
 
 #include <cstring>
 #include <iostream>
@@ -52,7 +53,8 @@
 #include "dr_api.h"
 #include "dr_frontend.h"
 #include "raw2trace.h"
-#include "raw2trace_helper.h"
+#include "raw2trace_directory.h"
+#include "utils.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -61,19 +63,19 @@
 } while (0)
 
 #define CHECK(val, msg, ...) do { \
-      if (!(val)) FATAL_ERROR(msg, ##__VA_ARGS__); \
+    if (!(val)) FATAL_ERROR(msg, ##__VA_ARGS__); \
 } while (0)
 
 #define VPRINT(level, ...) do { \
-      if (this->verbosity >= (level)) { \
-                fprintf(stderr, "[drmemtrace]: "); \
-                fprintf(stderr, __VA_ARGS__); \
-            } \
+    if (this->verbosity >= (level)) { \
+        fprintf(stderr, "[drmemtrace]: "); \
+        fprintf(stderr, __VA_ARGS__); \
+    } \
 } while (0)
 
 #ifdef UNIX
 void
-raw2trace_helper_t::open_thread_files()
+raw2trace_directory_t::open_thread_files()
 {
     struct dirent *ent;
     DIR *dir = opendir(indir.c_str());
@@ -86,7 +88,7 @@ raw2trace_helper_t::open_thread_files()
 }
 #else
 void
-raw2trace_helper_t::open_thread_files()
+raw2trace_directory_t::open_thread_files()
 {
     HANDLE find = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATAW data;
@@ -114,13 +116,8 @@ raw2trace_helper_t::open_thread_files()
 }
 #endif
 
-/***************************************************************************
- * Directory iterator
- */
-
-// We open each thread log file in a vector so we can read from them simultaneously.
 void
-raw2trace_helper_t::open_thread_log_file(const char *basename)
+raw2trace_directory_t::open_thread_log_file(const char *basename)
 {
     char path[MAXIMUM_PATH];
     CHECK(basename[0] != '/',
@@ -139,13 +136,16 @@ raw2trace_helper_t::open_thread_log_file(const char *basename)
     thread_files.push_back(new std::ifstream(path, std::ifstream::binary));
     if (!(*thread_files.back()))
         FATAL_ERROR("Failed to open thread log file %s", path);
-    raw2trace_t::check_thread_file(thread_files.back());
+    std::string error = raw2trace_t::check_thread_file(thread_files.back());
+    if (!error.empty())
+        FATAL_ERROR("Failed sanity checks for thread log file %s: %s", path,
+                    error.c_str());
     VPRINT(1, "Opened thread log file %s\n", path);
 }
 
-raw2trace_helper_t::raw2trace_helper_t(const std::string& indir_in,
-                                       const std::string& outname_in,
-                                       unsigned int verbosity_in)
+raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
+                                             const std::string &outname_in,
+                                             unsigned int verbosity_in)
     : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
 {
     // Support passing both base dir and raw/ subdir.
@@ -171,7 +171,7 @@ raw2trace_helper_t::raw2trace_helper_t(const std::string& indir_in,
     open_thread_files();
 }
 
-raw2trace_helper_t::~raw2trace_helper_t()
+raw2trace_directory_t::~raw2trace_directory_t()
 {
     delete[] modfile_bytes;
     dr_close_file(modfile);

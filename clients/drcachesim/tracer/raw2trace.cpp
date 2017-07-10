@@ -76,7 +76,7 @@
  */
 
 std::string
-raw2trace_t::read_and_map_modules(const char* module_map)
+raw2trace_t::read_and_map_modules(const char *module_map)
 {
     // Read and load all of the modules.
     uint num_mods;
@@ -127,7 +127,7 @@ raw2trace_t::read_and_map_modules(const char* module_map)
         }
     }
     VPRINT(1, "Successfully read %d modules\n", num_mods);
-    return std::string();
+    return "";
 }
 
 std::string
@@ -143,7 +143,7 @@ raw2trace_t::unmap_modules(void)
                 WARN("Failed to unmap module %s", mvi->path);
         }
     }
-    return std::string();
+    return "";
 }
 
 /***************************************************************************
@@ -164,7 +164,7 @@ instr_is_rep_string(instr_t *instr)
 }
 
 std::string
-raw2trace_t::append_memref(trace_entry_t **buf_in, uint tidx, instr_t *instr,
+raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
@@ -205,7 +205,7 @@ raw2trace_t::append_memref(trace_entry_t **buf_in, uint tidx, instr_t *instr,
 }
 
 std::string
-raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, bool *handled)
+raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
     instr_t instr;
@@ -458,16 +458,16 @@ raw2trace_t::merge_and_process_thread_files()
                 return "Failed to write to output file";
         }
     } while (thread_count > 0);
-    return std::string();
+    return "";
 }
 
 std::string
-raw2trace_t::check_thread_file(std::istream* fi)
+raw2trace_t::check_thread_file(std::istream *f)
 {
     // Check version header.
     offline_entry_t ver_entry;
-    if (!fi->read((char*)&ver_entry, sizeof(ver_entry))) {
-        return "Unable to read thread log file ";
+    if (!f->read((char*)&ver_entry, sizeof(ver_entry))) {
+        return "Unable to read thread log file";
     }
     if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
         ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER) {
@@ -479,7 +479,7 @@ raw2trace_t::check_thread_file(std::istream* fi)
            << (int)ver_entry.extended.value;
         return ss.str();
     }
-    return std::string();
+    return "";
 }
 
 std::string
@@ -493,7 +493,7 @@ raw2trace_t::do_conversion()
     entry.size = 0;
     entry.addr = TRACE_ENTRY_VERSION;
     if (!out_file->write((char*)&entry, sizeof(entry)))
-        return "Failed to write header to output file ";
+        return "Failed to write header to output file";
 
     merge_and_process_thread_files();
 
@@ -501,25 +501,25 @@ raw2trace_t::do_conversion()
     entry.size = 0;
     entry.addr = 0;
     if (!out_file->write((char*)&entry, sizeof(entry)))
-        return "Failed to write footer to output file ";
-    return std::string();
+        return "Failed to write footer to output file";
+    return "";
 }
 
-raw2trace_t::raw2trace_t(const char* module_map_in,
-                         const std::vector<std::istream*>& thread_files_in,
-                         std::ostream* out_file_in,
-                         void* dcontext_in,
+raw2trace_t::raw2trace_t(const char *module_map_in,
+                         const std::vector<std::istream*> &thread_files_in,
+                         std::ostream *out_file_in,
+                         void *dcontext_in,
                          unsigned int verbosity_in)
     : modmap(module_map_in), thread_files(thread_files_in), out_file(out_file_in),
       dcontext(dcontext_in), prev_instr_was_rep_string(false), instrs_are_separate(false),
       verbosity(verbosity_in)
 {
     if (dcontext == NULL) {
-      dcontext = dr_standalone_init();
+        dcontext = dr_standalone_init();
 #ifdef ARM
-      // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
-      // to trigger Thumb decoding.
-      dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
+        // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
+        // to trigger Thumb decoding.
+        dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
 #endif
     }
 }

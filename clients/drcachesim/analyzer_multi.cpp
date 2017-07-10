@@ -40,7 +40,7 @@
 # include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
-#include "tracer/raw2trace_helper.h"
+#include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
 
 analyzer_multi_t::analyzer_multi_t()
@@ -66,9 +66,8 @@ analyzer_multi_t::analyzer_multi_t()
             trace_iter = existing;
         else {
             delete existing;
-            raw2trace_helper_t helper(op_indir.get_value(), tracefile);
-            raw2trace_t raw2trace(helper.modfile_bytes, helper.thread_files,
-                                  &helper.out_file);
+            raw2trace_directory_t dir(op_indir.get_value(), tracefile);
+            raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file);
             std::string error = raw2trace.do_conversion();
             if (!error.empty())
                 ERRMSG("raw2trace failed: %s", error.c_str());
