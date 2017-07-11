@@ -75,7 +75,9 @@ install:
 
   ##################################################
   # Install packages for docs.
-  - choco install -y doxygen.portable imagemagick.tool ghostscript
+  # The doxygen package does not come with a checksum.
+  - choco install -y --allow-empty-checksums doxygen.portable
+  - choco install -y imagemagick.tool ghostscript
   # The ghostscript package is an install that doesn't add to PATH.
   # FIXME i#2145: fig2dev is failing to launch ghostscript, so for now
   # we're disabling to get the initial AppVeyor to be green.
