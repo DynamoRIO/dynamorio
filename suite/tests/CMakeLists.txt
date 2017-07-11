@@ -2562,6 +2562,27 @@ if (CLIENT_INTERFACE)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
+          # Test the standalone raw2trace tool.
+          get_target_path_for_execution(drraw2trace_path drraw2trace)
+          prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
+          macro (torunonly_raw2trace testname exetgt extra_ops app_args)
+            torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
+              "raw2trace-${testname}.c" # for templatex basename
+              "-offline ${extra_ops}" "" "${app_args}")
+            set(tool.raw2trace.${testname}_toolname "drcachesim")
+            set(tool.raw2trace.${testname}_nodr ON)
+            set(tool.raw2trace.${testname}_basedir
+              "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+            set(tool.raw2trace.${testname}_rawtemp ON) # no preprocessor
+            set(tool.raw2trace.${testname}_runcmp
+              "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+            set(tool.raw2trace.${testname}_precmd
+              "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
+            set(tool.raw2trace.${testname}_postcmd
+              "${drraw2trace_path}@-indir@drmemtrace.${exetgt}.*.dir/raw@-out@drraw2trace.${exetgt}.out@-verbose@2")
+          endmacro()
+          torunonly_raw2trace(burst_threads tool.drcacheoff.burst_threads "" "")
+
           # FIXME i#2099: the weak symbol is not supported not work on Windows
           torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "")
           set(tool.drcacheoff.burst_client_nodr ON)

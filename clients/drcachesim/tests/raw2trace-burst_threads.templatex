@@ -1,0 +1,16 @@
+.*
+all done
+\[drmemtrace\]: Writing to drraw2trace.tool.drcacheoff.burst_threads.out
+\[drmemtrace\]: Iterating dir .*drmemtrace.tool.drcacheoff.burst_threads.*/raw
+.*
+\[drmemtrace\]: Opened thread log file .*drmemtrace.tool.drcacheoff.burst_threads.*/raw/drmemtrace.tool.drcacheoff.burst_threads.*.raw
+.*
+\[drmemtrace\]: Successfully read [0-9]+ modules
+.*
+\[drmemtrace\]: Thread [0-9]+ entry
+.*
+\[drmemtrace\]: Next thread in timestamp order is .*
+.*
+\[drmemtrace\]: Thread [0-9]+ exit
+.*
+\[drmemtrace\]: Successfully converted 9 thread files

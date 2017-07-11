@@ -502,6 +502,7 @@ raw2trace_t::do_conversion()
     entry.addr = 0;
     if (!out_file->write((char*)&entry, sizeof(entry)))
         return "Failed to write footer to output file";
+    VPRINT(1, "Successfully converted %zu thread files\n", thread_files.size());
     return "";
 }
 
