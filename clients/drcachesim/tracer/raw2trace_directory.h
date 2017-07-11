@@ -47,7 +47,7 @@ public:
                           unsigned int verbosity = 0);
     ~raw2trace_directory_t();
 
-    char* modfile_bytes;
+    char *modfile_bytes;
     std::vector<std::istream*> thread_files;
     std::ofstream out_file;
 

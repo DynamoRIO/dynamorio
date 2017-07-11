@@ -57,9 +57,9 @@ static droption_t<unsigned int> op_verbose
  "Verbosity level for diagnostic output.");
 
 #define FATAL_ERROR(msg, ...) do { \
-      fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-      fflush(stderr); \
-      exit(1); \
+    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
+    fflush(stderr); \
+    exit(1); \
 } while (0)
 
 int
