@@ -428,7 +428,6 @@ event_exit(void)
      * because the callback is called on thread_exit(). Finally, two more for
      * drx_buf_insert_buf_memcpy().
      */
-
     CHECK(num_faults == NUM_ITER * 2 + 2 + 2,
             "the number of faults don't match up");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
