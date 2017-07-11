@@ -160,8 +160,9 @@ raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
     uint64 modfile_size;
     if (!dr_file_size(modfile, &modfile_size))
         FATAL_ERROR("Failed to get module file size: %s", modfilename.c_str());
-    modfile_bytes = new char[(size_t)modfile_size];
-    if (dr_read_file(modfile, modfile_bytes, modfile_size) < (ssize_t)modfile_size)
+    size_t modfile_size_ = (size_t)modfile_size;
+    modfile_bytes = new char[modfile_size_];
+    if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_)
         FATAL_ERROR("Didn't read whole module file %s", modfilename.c_str());
 
     out_file.open(outname.c_str(), std::ofstream::binary);
