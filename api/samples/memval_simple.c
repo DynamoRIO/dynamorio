@@ -266,6 +266,11 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     reg_id_t reg_ptr;
     ushort stride = (ushort)drutil_opnd_mem_size_in_bytes(memref, write);
 
+    /* We want to use the same predicate as write when inserting the following
+     * instrumentation.
+     */
+    instrlist_set_auto_predicate(ilist, instr_get_predicate(write));
+
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr)
         != DRREG_SUCCESS) {
         DR_ASSERT(false);
@@ -273,7 +278,7 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     }
 
     drx_buf_insert_load_buf_ptr(drcontext, write_buffer, ilist, where, reg_ptr);
-    /* drx_buf_insert_memcpy() internally updates the buffer pointer */
+    /* drx_buf_insert_buf_memcpy() internally updates the buffer pointer */
     drx_buf_insert_buf_memcpy(drcontext, write_buffer, ilist, where, reg_ptr, reg_addr,
                               stride);
 
@@ -281,6 +286,9 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
         DR_ASSERT(false);
     if (drreg_unreserve_register(drcontext, ilist, where, reg_addr) != DRREG_SUCCESS)
         DR_ASSERT(false);
+
+    /* Set the predicate back to the default */
+    instrlist_set_auto_predicate(ilist, instr_get_predicate(where));
 }
 
 static void
@@ -297,7 +305,10 @@ handle_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t 
      */
     for (i = 0; i < instr_num_dsts(prev_instr); ++i) {
         if (opnd_is_memory_reference(instr_get_dst(prev_instr, i))) {
-            DR_ASSERT_MSG(!seen_memref, "Found inst with multiple memory destinations");
+            if (seen_memref) {
+                DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
+                break;
+            }
             seen_memref = true;
             instrument_post_write(drcontext, ilist, where, instr_get_dst(prev_instr, i),
                                   prev_instr, reg_addr);
@@ -347,7 +358,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      */
     for (i = 0; i < instr_num_dsts(instr); ++i) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-            DR_ASSERT_MSG(!seen_memref, "Found inst with multiple memory destinations");
+            if (seen_memref) {
+                DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
+                break;
+            }
             *reg_next = instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i));
             seen_memref = true;
         }
@@ -421,7 +435,7 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = {sizeof(ops), 3 /*max slots needed*/, false};
+    drreg_options_t ops = {sizeof(ops), 4 /*max slots needed*/, false};
 
     dr_set_client_name("DynamoRIO Sample Client 'memval_simple'",
                        "http://dynamorio.org/issues");
