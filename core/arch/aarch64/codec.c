@@ -843,36 +843,6 @@ encode_opnd_wxnp(bool is_x, int plus, int pos, opnd_t opnd, OUT uint *enc_out)
  * previous section.
  */
 
-/* adr: operand of ADR */
-
-static inline bool
-decode_opnd_adr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_adr_page(0, enc, pc, opnd);
-}
-
-static inline bool
-encode_opnd_adr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
-                instr_t *instr)
-{
-    return encode_opnd_adr_page(0, pc, opnd, enc_out, instr);
-}
-
-/* adrp: operand of ADRP */
-
-static inline bool
-decode_opnd_adrp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_adr_page(12, enc, pc, opnd);
-}
-
-static inline bool
-encode_opnd_adrp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
-                 instr_t *instr)
-{
-    return encode_opnd_adr_page(12, pc, opnd, enc_out, instr);
-}
-
 /* b0: B register at bit position 0 */
 
 static inline bool
@@ -2344,6 +2314,35 @@ encode_opnd_x5sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
  * Pairs of functions for decoding and encoding opndsets, as listed in "codec.txt".
  * Currently all branch instructions are handled in this way.
  */
+
+/* adr: used for ADR and ADRP */
+
+static inline bool
+decode_opnds_adr(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    opnd_t opnd;
+    if (!decode_opnd_adr_page(opcode == OP_adrp ? 12 : 0, enc, pc, &opnd))
+        return false;
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 1);
+    instr_set_dst(instr, 0, opnd_create_reg(decode_reg(extract_uint(enc, 0, 5),
+                                                       true, false)));
+    instr_set_src(instr, 0, opnd);
+    return true;
+}
+
+static inline uint
+encode_opnds_adr(byte *pc, instr_t *instr, uint enc)
+{
+    int opcode = instr_get_opcode(instr);
+    uint rd, adr;
+    if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
+        encode_opnd_adr_page(opcode == OP_adrp ? 12 : 0,
+                             pc, instr_get_src(instr, 0), &adr, instr) &&
+        encode_opnd_wxn(true, false, 0, instr_get_dst(instr, 0), &rd))
+        return (enc | adr | rd);
+    return ENCFAIL;
+}
 
 /* b: used for B and BL */
 
