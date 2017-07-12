@@ -1131,7 +1131,7 @@ mangle_remove_from_it_block(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
  */
 int
 reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
-                    instr_t *end)
+                    instr_t *end, bool for_mangle)
 {
     instr_t *instr, *block_start = NULL;
     app_pc block_xl8 = NULL;
@@ -1143,10 +1143,14 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
             /* A label instruction may be used as a cti target, so we stop
              * the IT block on label instructions.
              */
-            !instr_is_label(instr) &&
-            /* Do not put OP_b exit cti into block: patch_branch can't handle */
-            instr_get_opcode(instr) != OP_b &&
-            instr_get_opcode(instr) != OP_b_short;
+            !instr_is_label(instr);
+        if (for_mangle) {
+            /* Do not put OP_b exit cti into block when mangling: patch_branch can't
+             * handle. Otherwise we do want predicated cti's to be put in the block.
+             */
+            instr_predicated &= instr_get_opcode(instr) != OP_b &&
+                                instr_get_opcode(instr) != OP_b_short;
+        }
         if (block_start != NULL) {
             bool matches = true;
             ASSERT(block_count < IT_BLOCK_MAX_INSTRS);
@@ -1157,7 +1161,9 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
                 else
                     block_pred[block_count++] = instr_get_predicate(instr);
             }
-            if (!matches || !instr_predicated || block_count == IT_BLOCK_MAX_INSTRS) {
+            if (!matches || !instr_predicated || block_count == IT_BLOCK_MAX_INSTRS ||
+                /* i#1702: a cti must end the IT-block */
+                instr_is_cti(instr)) {
                 res++;
                 instrlist_preinsert
                     (ilist, block_start, INSTR_XL8(instr_it_block_create
@@ -1215,7 +1221,7 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
 {
     if (dr_get_isa_mode(dcontext) != DR_ISA_ARM_THUMB)
         return; /* nothing to do */
-    reinstate_it_blocks(dcontext, ilist, start, end);
+    reinstate_it_blocks(dcontext, ilist, start, end, true);
     DOLOG(5, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after reinstating IT blocks:\n");
         instrlist_disassemble(dcontext, NULL, ilist, THREAD);

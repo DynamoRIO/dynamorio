@@ -2141,6 +2141,10 @@ if (CLIENT_INTERFACE)
   endif (X86)
 
   if (ARM)
+    tobuild_api(api.it api/it_arm.c "" "" OFF OFF)
+  endif(ARM)
+
+  if (ARM)
     set(sfx "arm")
   elseif (AARCH64)
     set(sfx "aarch64")

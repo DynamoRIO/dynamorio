@@ -452,7 +452,7 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 #ifdef ARM
 int
 reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
-                    instr_t *end);
+                    instr_t *end, bool for_mangle);
 #endif
 
 void

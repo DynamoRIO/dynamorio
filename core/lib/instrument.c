@@ -7342,7 +7342,7 @@ dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
     if (first == NULL || instr_get_isa_mode(first) != DR_ISA_ARM_THUMB)
         return 0;
     return reinstate_it_blocks((dcontext_t*)drcontext, ilist,
-                               instrlist_first(ilist), NULL);
+                               instrlist_first(ilist), NULL, false);
 #endif
 }
 
