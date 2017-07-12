@@ -135,7 +135,8 @@ def generate_encoder(patterns, opndsgen, opndtypes):
             vars = (['dst%d' % i for i in range(len(dsts))] +
                     ['src%d' % i for i in range(len(srcs))])
             c += ['    int opcode = instr->opcode;']
-            c += ['    uint ' + ', '.join(vars) + ';']
+            # The initial values are only required to silence a bad compiler warning:
+            c += ['    uint ' + ' = 0, '.join(vars) + ' = 0;']
             tests = (['instr_num_dsts(instr) == %d && instr_num_srcs(instr) == %d' %
                       (len(dsts), len(srcs))] +
                      ['encode_opnd_%s(enc & 0x%08x, opcode, '
