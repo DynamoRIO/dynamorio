@@ -103,8 +103,12 @@ bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
 
 /* Checks if instruction is a syscall, using the registered method
  */
+#ifdef X86
 #define INSTR_IS_SYSCALL_RIGHT_METHOD(i) (instr_is_syscall(i) && \
     (get_syscall_method() == SYSCALL_METHOD_INT || instr_get_opcode(i) != OP_int))
+#else
+#define INSTR_IS_SYSCALL_RIGHT_METHOD(i) (instr_is_syscall(i))
+#endif
 
 /* we limit total bb size to handle cases like infinite loop or sequence
  * of calls.
