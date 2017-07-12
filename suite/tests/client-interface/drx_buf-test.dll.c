@@ -58,14 +58,12 @@ static char cmp[] = "ABCDEFGHABCDEFGH";
 static char cmp[] = "ABCDEFGH";
 #endif
 
-#ifndef AARCH64
 static const char test_copy[TRACE_SZ] =
     "12345678911234567892123456789312345678941234567895123456789612"
     "12345678911234567892123456789312345678941234567895123456789612"
     "12345678911234567892123456789312345678941234567895123456789612"
     "12345678911234567892123456789312345678941234567895123456789612";
 static const char test_null[TRACE_SZ];
-#endif
 
 static drx_buf_t *circular_fast;
 static drx_buf_t *circular_slow;
@@ -129,7 +127,6 @@ verify_store(drx_buf_t *client)
     memset(buf_base, 0, drx_buf_get_buffer_size(drcontext, client));
 }
 
-#ifndef AARCH64
 static void
 verify_memcpy(drx_buf_t *client)
 {
@@ -147,7 +144,6 @@ verify_buffers_nulled(drx_buf_t *client)
     byte *buf_base = drx_buf_get_buffer_base(drcontext, client);
     CHECK(memcmp(buf_base, test_null, sizeof(test_null)) == 0, "buffer not nulled");
 }
-#endif
 
 static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
@@ -371,7 +367,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_insert_clean_call(drcontext, bb, inst, verify_store, false, 1,
                              OPND_CREATE_INTPTR(circular_fast));
     } else if (subtest == DRX_BUF_TEST_6_C) {
-#ifndef AARCH64
         /* Currently, the fast circular buffer does not recommend variable-size
          * writes, for good reason. We don't test the memcpy operation on the
          * fast circular buffer.
@@ -421,9 +416,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* verify buffer was NULLed */
         dr_insert_clean_call(drcontext, bb, inst, (void *)verify_buffers_nulled, false, 1,
                              OPND_CREATE_INTPTR(trace));
-#else
-    /* FIXME i#1569: NYI on AArch64 */
-#endif
     }
 
     return DR_EMIT_DEFAULT;
@@ -436,7 +428,7 @@ event_exit(void)
      * because the callback is called on thread_exit(). Finally, two more for
      * drx_buf_insert_buf_memcpy().
      */
-    CHECK(num_faults == NUM_ITER * 2 + 2 + IF_AARCH64_ELSE(0, 2),
+    CHECK(num_faults == NUM_ITER * 2 + 2 + 2,
             "the number of faults don't match up");
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction))
         CHECK(false, "exit failed");
