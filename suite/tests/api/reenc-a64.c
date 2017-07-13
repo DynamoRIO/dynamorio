@@ -33,7 +33,9 @@
 /* Test the AArch64 encoder and decoder by decoding and reencoding all words
  * in a given range. The user is expected to run multiple instances of this
  * program on a multicore system or cluster using whatever tools are locally
- * available.
+ * available. For example, on a single machine with two cores one could run:
+ *    api.reenc-a64 0x00000000 0x7fffffff > log0 &
+ *    api.reenc-a64 0x80000000 0xffffffff > log1 &
  */
 
 #include "configure.h"
