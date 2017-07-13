@@ -650,8 +650,6 @@ drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
     }
 }
 
-#ifndef AARCH64
-/* FIXME i#1569: NYI on AArch64 */
 static void
 insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
                     reg_id_t dst, reg_id_t src, opnd_size_t opsz)
@@ -670,9 +668,9 @@ insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
                  opnd_create_base_disp(src, DR_REG_NULL, 0, 0, opsz)));
         break;
     case OPSZ_4:
-# if defined(X86_64) || defined(AARCH64)
+#if defined(X86_64) || defined(AARCH64)
     case OPSZ_8:
-# endif
+#endif
         MINSERT(ilist, where, XINST_CREATE_load
                 (drcontext,
                  opnd_create_reg(reg_resize_to_opsz(dst, opsz)),
@@ -758,7 +756,6 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
         drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
     }
 }
-#endif
 
 /* assumes that the instruction writes memory relative to some buffer pointer */
 static reg_id_t
