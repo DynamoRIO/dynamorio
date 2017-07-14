@@ -60,11 +60,11 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
                                       "[Required] Path to output file",
                                       "Specifies the path to the output file.");
 #if defined(X64)
-#define SYS_NUM(r) (r).orig_rax
+# define SYS_NUM(r) (r).orig_rax
 #elif defined(X86)
-#define SYS_NUM(r) (r).orig_eax
+# define SYS_NUM(r) (r).orig_eax
 #else
-#error "Test only supports x86"
+# error "Test only supports x86"
 #endif
 
 int
