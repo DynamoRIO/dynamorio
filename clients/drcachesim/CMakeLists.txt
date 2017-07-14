@@ -336,20 +336,21 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
 
-    add_executable(tool.drcacheoff.raw2trace_io tests/raw2trace_io.cpp
-                tracer/instru.cpp
-                tracer/instru_online.cpp)
-    configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_io)
-    add_win32_flags(tool.drcacheoff.raw2trace_io)
-    target_link_libraries(tool.drcacheoff.raw2trace_io raw2trace)
-    use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io droption)
-    target_link_libraries(tool.drcacheoff.raw2trace_io drdecode)
-    use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drcovlib_static)
-    # Because we're leveraging instru_online code we have to link with drutil:
-    use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drutil_static)
-
-    # FIXME i#2099: the weak symbol is not supported on Windows.
     if (UNIX)
+      # uses ptrace, which is unix-only
+      add_executable(tool.drcacheoff.raw2trace_io tests/raw2trace_io.cpp
+                  tracer/instru.cpp
+                  tracer/instru_online.cpp)
+      configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_io)
+      add_win32_flags(tool.drcacheoff.raw2trace_io)
+      target_link_libraries(tool.drcacheoff.raw2trace_io raw2trace)
+      use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io droption)
+      target_link_libraries(tool.drcacheoff.raw2trace_io drdecode)
+      use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drcovlib_static)
+      # Because we're leveraging instru_online code we have to link with drutil:
+      use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drutil_static)
+
+      # FIXME i#2099: the weak symbol is not supported on Windows.
       add_executable(tool.drcacheoff.burst_client tests/burst_static.cpp)
       append_property_list(TARGET tool.drcacheoff.burst_client
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
