@@ -35,12 +35,12 @@
  */
 
 #include "dr_api.h"
-#include "droption.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <vector>

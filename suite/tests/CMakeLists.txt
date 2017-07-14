@@ -2562,15 +2562,14 @@ if (CLIENT_INTERFACE)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
-          # Test the standalone raw2trace tool.
-          get_target_path_for_execution(drraw2trace_path drraw2trace)
-          prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
+          # Test that raw2trace doesn't do more IO than it should.
+          get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io)
+          prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
           macro (torunonly_raw2trace testname exetgt extra_ops app_args)
             torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
               "raw2trace-${testname}.c" # for templatex basename
               "-offline ${extra_ops}" "" "${app_args}")
             set(tool.raw2trace.${testname}_toolname "drcachesim")
-            set(tool.raw2trace.${testname}_nodr ON)
             set(tool.raw2trace.${testname}_basedir
               "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
             set(tool.raw2trace.${testname}_rawtemp ON) # no preprocessor
@@ -2579,9 +2578,10 @@ if (CLIENT_INTERFACE)
             set(tool.raw2trace.${testname}_precmd
               "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
             set(tool.raw2trace.${testname}_postcmd
-              "${drraw2trace_path}@-indir@drmemtrace.${exetgt}.*.dir/raw@-out@drraw2trace.${exetgt}.out@-verbose@2")
+            "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir@-out@drraw2trace.${exetgt}.out")
           endmacro()
-          torunonly_raw2trace(burst_threads tool.drcacheoff.burst_threads "" "")
+          # actual trace processing not important -- set a very small limit for speed
+          torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
           torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "")
