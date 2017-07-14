@@ -3920,6 +3920,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        /* OP_isb, when mangled, has a potential side exit. */
+        else if (instr_get_opcode(bb->instr) == OP_isb)
+            break;
+#endif
 #if 0/*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to
