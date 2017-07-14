@@ -218,7 +218,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     instrument_instr(drcontext, bb, instr);
 
     /* insert code once per bb to call clean_call for processing the buffer */
-    if (drmgr_is_first_instr(drcontext, instr) &&
+    if (drmgr_is_first_instr(drcontext, instr)
         /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * We're relying a bit on the typical code sequence with either ldrex..strex
@@ -229,7 +229,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * Using a fault to handle a full buffer should be more robust, and the
          * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_AARCHXX_ELSE(!instr_is_exclusive_store(instr), true))
+        IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;
