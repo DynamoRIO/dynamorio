@@ -88,15 +88,16 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     }
     dr_insert_it_instrs(dcontext, ilist);
 
-    /* make sure it was encoded properly
-     *  itt    #9, #12
+    /* Make sure it was encoded properly, noting that the branches
+     * should *not* be in any IT-block.
+     *  it
      *  mov.ls r1, r2
      *  b.ls   @0x47366864
-     *  ittt   #9, #14
+     *  itt
      *  mov.ls r1, r2
      *  mov.ls r1, r2
      *  b.ls   @0x47366864
-     *  itttt  #9, #15
+     *  ittt
      *  mov.ls r1, r2
      *  mov.ls r1, r2
      *  mov.ls r1, r2
@@ -106,9 +107,89 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     instr_it2 = instr_get_next(instr_get_next(instr_get_next(instr_it1)));
     instr_it3 = instr_get_next(instr_get_next(instr_get_next(instr_get_next(instr_it2))));
     ASSERT(instr_get_opcode(instr_it1) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it1) == 1);
     ASSERT(instr_get_opcode(instr_it2) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it2) == 2);
     ASSERT(instr_get_opcode(instr_it3) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it3) == 3);
+    instrlist_encode(dcontext, ilist, buffer, true);
+}
 
+void
+test_dr_insert_it_instrs_cti(void *dcontext)
+{
+    instrlist_t *ilist = instrlist_create(dcontext);
+    instr_t *where = INSTR_CREATE_label(dcontext);
+
+    instr_t *instr_it1, *instr_it2, *instr_it3;
+    byte buffer[4096];
+
+    instrlist_append(ilist, where);
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_call
+            (dcontext,
+             opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_call
+            (dcontext,
+             opnd_create_instr(where)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_move
+            (dcontext,
+             opnd_create_reg(DR_REG_R1),
+             opnd_create_reg(DR_REG_R2)));
+    instrlist_preinsert(ilist, where, XINST_CREATE_call
+            (dcontext,
+             opnd_create_instr(where)));
+    /* set them all to be predicated and reinstate it instrs */
+    for (where = instrlist_first(ilist); where; where = instr_get_next(where)) {
+        bool ok = instr_set_isa_mode(where, DR_ISA_ARM_THUMB);
+        ASSERT(ok);
+        instr_set_predicate(where, DR_PRED_LS);
+    }
+    dr_insert_it_instrs(dcontext, ilist);
+
+    /* Make sure it was encoded properly, noting that the calls
+     * should terminate their respective IT-blocks.
+     *  itt
+     *  mov.ls r1, r2
+     *  bl.ls  lr, @0x47366c78
+     *  ittt
+     *  mov.ls r1, r2
+     *  mov.ls r1, r2
+     *  bl.ls  lr, @0x47366c78
+     *  itttt
+     *  mov.ls r1, r2
+     *  mov.ls r1, r2
+     *  mov.ls r1, r2
+     *  bl.ls  lr, @0x47366c78
+     */
+    instr_it1 = instrlist_first(ilist);
+    instr_it2 = instr_get_next(instr_get_next(instr_get_next(instr_it1)));
+    instr_it3 = instr_get_next(instr_get_next(instr_get_next(instr_get_next(instr_it2))));
+    ASSERT(instr_get_opcode(instr_it1) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it1) == 2);
+    ASSERT(instr_get_opcode(instr_it2) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it2) == 3);
+    ASSERT(instr_get_opcode(instr_it3) == OP_it);
+    ASSERT(instr_it_block_get_count(instr_it3) == 4);
     instrlist_encode(dcontext, ilist, buffer, true);
 }
 
@@ -117,7 +198,11 @@ main(int argc, char *argv[])
 {
     void *dcontext = dr_standalone_init();
 
-    /* i#1702: test that a cbr is correctly made to end an IT-block */
+    /* i#1702: test that a cbr is outside the IT-block */
     test_dr_insert_it_instrs_cbr(dcontext);
+
+    /* i#1702: test that a cti terminates the IT-block */
+    test_dr_insert_it_instrs_cti(dcontext);
+
     return 0;
 }
