@@ -756,13 +756,10 @@ codegen_bbcount(void *dc)
 #ifdef X86
     APP(ilist, INSTR_CREATE_inc(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR)));
 #else
-    instrlist_insert_mov_immed_ptrsz(dc, (ptr_int_t)&global_count,
-                                     opnd_create_reg(reg1),
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_int_t)&global_count, opnd_create_reg(reg1),
                                      ilist, NULL, NULL, NULL);
-    APP(ilist, XINST_CREATE_load(dc, opnd_create_reg(reg2),
-                                 OPND_CREATE_MEMPTR(reg1, 0)));
-    APP(ilist, XINST_CREATE_add(dc, opnd_create_reg(reg2),
-                                OPND_CREATE_INT(1)));
+    APP(ilist, XINST_CREATE_load(dc, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
+    APP(ilist, XINST_CREATE_add(dc, opnd_create_reg(reg2), OPND_CREATE_INT(1)));
     APP(ilist, XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(reg1, 0),
                                   opnd_create_reg(reg2)));
 #endif
