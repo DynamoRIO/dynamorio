@@ -748,8 +748,8 @@ codegen_bbcount(void *dc)
 {
     instrlist_t *ilist = instrlist_create(dc);
 #ifndef X86
-  reg_t reg1 = DR_REG_X0;
-  reg_t reg2 = DR_REG_X1;
+    reg_t reg1 = DR_REG_X0;
+    reg_t reg2 = DR_REG_X1;
 #endif
 
     codegen_prologue(dc, ilist);

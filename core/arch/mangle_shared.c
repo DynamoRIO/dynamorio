@@ -286,6 +286,9 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
+        /* For out-of-line calls, the stack size gets aligned by
+         * get_clean_call_switch_stack_size.
+         */
         if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
             ASSERT((dstack_offs % 16) == 8);
             PRE(ilist, instr, INSTR_CREATE_lea
@@ -321,6 +324,9 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
+        /* For out-of-line calls, the stack size gets aligned by
+         * get_clean_call_switch_stack_size.
+         */
         if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
             PRE(ilist, instr, INSTR_CREATE_lea
                 (dcontext, opnd_create_reg(REG_XSP),
