@@ -2205,10 +2205,9 @@ encode_opnd_x16imm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
         return true;
     } else if (opnd_is_immed_int(opnd)) {
         ptr_int_t bytes = opnd_get_immed_int(opnd);
-        int regs = multistruct_regcount(enc);
-        if (bytes != regs * 8 && bytes != regs * 16)
+        if (bytes != (8 << extract_uint(enc, 30, 1)) * multistruct_regcount(enc))
             return false;
-        *enc_out = 31U << 16 | (uint)(bytes == regs * 16) << 30;
+        *enc_out = 31U << 16;
         return true;
     }
     return false;
