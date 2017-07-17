@@ -67,6 +67,10 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
 # error "Test only supports x86"
 #endif
 
+#ifndef LINUX
+# error "Test only supports Linux"
+#endif
+
 int
 main(int argc, const char *argv[])
 {
@@ -111,7 +115,8 @@ main(int argc, const char *argv[])
                 return 1;
             }
             /* We don't distinguish syscall entry/exit because orig_rax is set
-             * on both. */
+             * on both.
+             */
             if (SYS_NUM(regs) == __NR_open || SYS_NUM(regs) == __NR_openat ||
                 SYS_NUM(regs) == __NR_creat) {
                 std::cerr << "open\n";
