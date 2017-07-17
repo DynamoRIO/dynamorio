@@ -512,6 +512,21 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr _IF_X86_64(gencode_mode_t mode));
+/* Returns the number of bytes the stack pointer has to be aligned to. */
+static inline uint
+get_ABI_stack_alignment() {
+#ifdef X86
+ #if defined(X64) || defined(MACOS)
+    return 16;
+ #else
+    return 1;
+ #endif
+#elif defined(AARCH64)
+    return 16;
+#elif defined(ARM)
+    return 8;
+#endif
+}
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
