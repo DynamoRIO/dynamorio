@@ -64,6 +64,7 @@
         FUNCTION(empty_1arg) \
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
+        FUNCTION(bbcount) \
         LAST_FUNCTION()
 #endif
 

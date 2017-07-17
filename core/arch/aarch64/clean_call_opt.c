@@ -168,6 +168,18 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     ci->num_simd_used = 0;
     memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
 
+    num_regparm = MIN(ci->num_args, NUM_REGPARM);
+    for (i = 0; i < num_regparm; i++) {
+        reg_id_t reg = regparms[i];
+        if (!ci->reg_used[reg - DR_REG_START_GPR]) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n",
+                ci->start, reg_names[reg]);
+            ci->reg_used[reg - DR_REG_START_GPR] = true;
+            callee_info_reserve_slot(ci, SLOT_REG, reg);
+        }
+    }
+
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
@@ -199,17 +211,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
     }
 
-    num_regparm = MIN(ci->num_args, NUM_REGPARM);
-    for (i = 0; i < num_regparm; i++) {
-        reg_id_t reg = regparms[i];
-        if (!ci->reg_used[reg - DR_REG_START_GPR]) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n",
-                ci->start, reg_names[reg]);
-            ci->reg_used[reg - DR_REG_START_GPR] = true;
-            callee_info_reserve_slot(ci, SLOT_REG, reg);
-        }
-    }
     /* FIXME i#1621: the following checks are still missing:
      *    - analysis of eflags (depends on i#2263)
      */
@@ -534,7 +535,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
      * XXX remove duplication */
 
     int disp = 0;
-    for (i = 0; i < NUM_GP_REGS; i+=1) {
+    for (i = 0; i < NUM_GP_REGS; i += 1) {
         reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
         if (!cci->reg_skip[i]) {
             opnd_t memref = callee_info_slot_opnd(ci, SLOT_REG, reg_id);
@@ -542,6 +543,17 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
             break;
         }
     }
+#ifdef DEBUG
+    int disp2 = disp;
+    for (; i < NUM_GP_REGS; i += 1) {
+        reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
+        if (!cci->reg_skip[i]) {
+            opnd_t memref = callee_info_slot_opnd(ci, SLOT_REG, reg_id);
+            ASSERT(disp2 == opnd_get_disp(memref));
+            disp2 += XSP_SZ;
+        }
+    }
+#endif
     PRE(ilist, where, XINST_CREATE_add
         (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
 
