@@ -54,6 +54,7 @@ typedef enum {
     DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
 } drmemtrace_status_t;
 
+DR_EXPORT
 /**
  * To support statically linking multiple clients on UNIX, dr_client_main() inside
  * drmemtrace is a weak symbol which just calls the real initializer
