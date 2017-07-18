@@ -120,9 +120,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t bb_building_lock, INIT_LOCK_FREE(bb_building_lock)
 /* i#1111: we do not use the lock until the 2nd thread is created */
 volatile bool bb_lock_start;
 
-#ifdef INTERNAL
-file_t bbdump_file = INVALID_FILE;
-#endif
+static file_t bbdump_file = INVALID_FILE;
 
 #ifdef DEBUG
 DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
@@ -132,12 +130,10 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 void
 interp_init()
 {
-#ifdef INTERNAL
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
         ASSERT(bbdump_file != INVALID_FILE);
     }
-#endif
 }
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
@@ -151,11 +147,9 @@ static int num_rets_removed;
 void
 interp_exit()
 {
-#ifdef INTERNAL
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);
     }
-#endif
     DELETE_LOCK(bb_building_lock);
 
     LOG(GLOBAL, LOG_INTERP|LOG_STATS, 1, "Total application code seen: %d KB\n",
@@ -5246,11 +5240,9 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             disassemble_fragment(dcontext, f, false);
         }
     });
-#ifdef INTERNAL
     if (INTERNAL_OPTION(bbdump_tags)) {
         disassemble_fragment_header(dcontext, f, bbdump_file);
     }
-#endif
 
 #ifdef INTERNAL
     DODEBUG({
