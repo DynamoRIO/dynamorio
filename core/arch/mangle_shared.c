@@ -908,7 +908,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #ifdef AARCH64
         if (instr_is_icache_op(instr) && instr_is_app(instr)) {
             next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
-                                          get_app_instr_xl8(next_instr));
+                                          get_app_instr_xl8(instr) + AARCH64_INSTR_SIZE);
             continue;
         }
 #endif
