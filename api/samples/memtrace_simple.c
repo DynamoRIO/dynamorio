@@ -313,12 +313,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     /* insert code to call clean_call for processing the buffer */
-    if (/* XXX i#1702: We cannot insert a clean call inside an IT block.
-         * It is ok to skip a few clean calls on predicated instructions,
-         * since the buffer will be dumped later by other clean calls.
-         */
-        IF_ARM_ELSE(!instr_is_predicated(instr), true)
-        /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
+    if (/* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * As we're only inserting instrumentation on a memory reference, and the
          * app should be avoiding memory accesses in between the ldrex...strex,
@@ -328,7 +323,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          * Using a fault to handle a full buffer should be more robust, and the
          * forthcoming buffer filling API (i#513) will provide that.
          */
-        IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
+        IF_AARCHXX_ELSE(!instr_is_exclusive_store(instr), true))
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
     return DR_EMIT_DEFAULT;

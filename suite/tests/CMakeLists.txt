@@ -117,10 +117,10 @@ set(vmap_run_list
   "X86::-prof_pcs -thread_private"                 # i#1884: ARM thread_private NYI
   "X86::LIN::ONLY::^common::-code_api -no_early_inject" # ARM only supports early
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
-  "ONLY::^common::-code_api -stack_size 120k"
+  "ONLY::^common::-code_api -stack_size 128k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
-  "DEBUG::WIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1 -no_hide"
-  "DEBUG::LIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1"
+  "DEBUG::WIN::ONLY::^(common|client)::-code_api -stack_size 128K -loglevel 1 -no_hide"
+  "DEBUG::LIN::ONLY::^(common|client)::-code_api -stack_size 128K -loglevel 1"
   "ONLY::^common::"
   "X86::LIN::ONLY::^${osname}::-code_api -sysenter_is_int80"
 
@@ -2186,6 +2186,7 @@ if (CLIENT_INTERFACE)
     add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
     torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
       "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
+    add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"
       "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF)
@@ -2562,6 +2563,29 @@ if (CLIENT_INTERFACE)
           # FIXME i#2040: this hits static client issues on Windows
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
+
+          if (NOT APPPLE)
+            # Test that raw2trace doesn't do more IO than it should.
+            get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io)
+            prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
+            macro (torunonly_raw2trace testname exetgt extra_ops app_args)
+              torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
+                "raw2trace-${testname}.c" # for templatex basename
+                "-offline ${extra_ops}" "" "${app_args}")
+              set(tool.raw2trace.${testname}_toolname "drcachesim")
+              set(tool.raw2trace.${testname}_basedir
+                "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+              set(tool.raw2trace.${testname}_rawtemp ON) # no preprocessor
+              set(tool.raw2trace.${testname}_runcmp
+                "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+              set(tool.raw2trace.${testname}_precmd
+                "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
+              set(tool.raw2trace.${testname}_postcmd
+              "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir@-out@drraw2trace.${exetgt}.out")
+            endmacro()
+            # actual trace processing not important -- set a very small limit for speed
+            torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
+          endif()
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
           torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "")

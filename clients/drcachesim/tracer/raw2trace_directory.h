@@ -1,7 +1,6 @@
-/* *******************************************************************************
- * Copyright (c) 2017 ARM Limited. All rights reserved.
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
- * *******************************************************************************/
+/* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -14,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of MIT nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL MIT OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,37 +30,32 @@
  * DAMAGE.
  */
 
-/* Export instrumented functions so we can easily find them in client.  */
-#ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
-#else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
-#endif
+#ifndef _RAW2TRACE_HELPER_H_
+#define _RAW2TRACE_HELPER_H_ 1
 
-/* List of instrumented functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(modify_gprs) \
-        FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
-        LAST_FUNCTION()
+#endif  /* _RAW2TRACE_HELPER_H_ */
 
-/* Definitions for every function. */
-#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
-#define LAST_FUNCTION()
-FUNCTIONS()
-#undef FUNCTION
-#undef LAST_FUNCTION
+#include <fstream>
+#include <string>
+#include <vector>
 
-int
-main(void)
-{
-    /* Calls to every function. */
-#define FUNCTION(FUNCNAME) FUNCNAME();
-#define LAST_FUNCTION()
-    FUNCTIONS()
-#undef FUNCTION
-#undef LAST_FUNCTION
-}
+#include "dr_api.h"
+
+class raw2trace_directory_t {
+public:
+    raw2trace_directory_t(const std::string &indir, const std::string &outname,
+                          unsigned int verbosity = 0);
+    ~raw2trace_directory_t();
+
+    char *modfile_bytes;
+    std::vector<std::istream*> thread_files;
+    std::ofstream out_file;
+
+private:
+    void open_thread_files();
+    void open_thread_log_file(const char *basename);
+    file_t modfile;
+    std::string indir;
+    std::string outname;
+    unsigned int verbosity;
+};

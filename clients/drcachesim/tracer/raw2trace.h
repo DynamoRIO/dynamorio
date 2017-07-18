@@ -38,7 +38,7 @@
 
 #include "dr_api.h"
 #include "drmemtrace.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
 #include <fstream>
 #include <vector>
 
@@ -58,32 +58,37 @@ struct module_t {
 
 class raw2trace_t {
 public:
-    raw2trace_t(std::string indir, std::string outname);
+    // module_map, thread_files and out_file are all owned and opened/closed by the
+    // caller.
+    raw2trace_t(const char *module_map, const std::vector<std::istream*> &thread_files,
+                std::ostream *out_file, void *dcontext = NULL,
+                unsigned int verbosity = 0);
     ~raw2trace_t();
-    void do_conversion();
+    // Returns non-empty error message on failure.
+    std::string do_conversion();
+    static std::string check_thread_file(std::istream *f);
 
 private:
-    void read_and_map_modules(void);
-    void unmap_modules(void);
-    void open_thread_log_file(const char *basename);
-    void open_thread_files();
-    void merge_and_process_thread_files();
-    bool append_bb_entries(uint tidx, offline_entry_t *in_entry);
-    trace_entry_t *append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
-                                 opnd_t ref, bool write);
+    std::string read_and_map_modules(const char *module_map);
+    std::string unmap_modules(void);
+    std::string merge_and_process_thread_files();
+    std::string append_bb_entries(uint tidx, offline_entry_t *in_entry,
+                                  OUT bool *handled);
+    std::string append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
+                              opnd_t ref, bool write);
 
-    std::string indir;
-    std::string outname;
-    std::ofstream out_file;
     static const uint MAX_COMBINED_ENTRIES = 64;
+    const char *modmap;
     void *modhandle;
     std::vector<module_t> modvec;
-    std::vector<std::ifstream*> thread_files;
+    std::vector<std::istream*> thread_files;
+    std::ostream *out_file;
     void *dcontext;
     bool prev_instr_was_rep_string;
     // This indicates that each memref has its own PC entry and that each
     // icache entry does not need to be considered a memref PC entry as well.
     bool instrs_are_separate;
+    unsigned int verbosity;
 };
 
 #endif /* _RAW2TRACE_H_ */
