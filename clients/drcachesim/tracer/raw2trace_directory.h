@@ -30,10 +30,8 @@
  * DAMAGE.
  */
 
-#ifndef _RAW2TRACE_HELPER_H_
-#define _RAW2TRACE_HELPER_H_ 1
-
-#endif  /* _RAW2TRACE_HELPER_H_ */
+#ifndef _RAW2TRACE_DIRECTORY_H_
+#define _RAW2TRACE_DIRECTORY_H_ 1
 
 #include <fstream>
 #include <string>
@@ -59,3 +57,5 @@ private:
     std::string outname;
     unsigned int verbosity;
 };
+
+#endif  /* _RAW2TRACE_DIRECTORY_H_ */
