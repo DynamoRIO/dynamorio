@@ -2852,13 +2852,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
-# ifdef AARCH64
-        if (inst != instrlist_last(bb->ilist)) {
-            CLIENT_ASSERT(instr_get_opcode(inst) != OP_isb,
-                          "OP_isb must be last instruction in block");
-        }
-# endif
-
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
@@ -2913,6 +2906,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                       IF_WINDOWS(|| dr_fragment_app_pc(bb->start_pc) != bb->start_pc),
                       "block's app sources (instr_set_translation() targets) "
                       "must remain within original bounds");
+
+# ifdef AARCH64
+        if (instr_get_opcode(inst) == OP_isb) {
+            CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                          "OP_isb must be last instruction in block");
+        }
+# endif
 
         /* PR 307284: we didn't process syscalls and ints pre-client
          * so do so now to get bb->flags and bb->exit_type set
