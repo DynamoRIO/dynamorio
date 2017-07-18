@@ -129,6 +129,7 @@ set(vmap_run_list
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins"
   "ONLY::^common::-code_api -tracedump_text -tracedump_origins -syntax_intel"
   "X86::ONLY::^common::-code_api -thread_private -tracedump_binary" # i#1884: ARM NYI
+  "ONLY::^common::-code_api -bbdump_tags"
 
   # make sure we at least sometimes exercise non-default -checklevel
   "DEBUG::ONLY::^common::-checklevel 4"
