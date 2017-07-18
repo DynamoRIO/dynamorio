@@ -34,46 +34,23 @@
  * by the cache simulator and other analysis tools.
  */
 
-#define UNICODE
-
 #include "dr_api.h"
-#include "droption.h"
 #include "drcovlib.h"
-#include "dr_frontend.h"
 #include "raw2trace.h"
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#include <cstring>
 #include <fstream>
+#include <sstream>
 #include <vector>
-
-#ifdef UNIX
-# include <dirent.h> /* opendir, readdir */
-# include <unistd.h> /* getcwd */
-#else
-# include <windows.h>
-# include <direct.h> /* _getcwd */
-# pragma comment(lib, "User32.lib")
-#endif
-
-// XXX: currently the error handling and diagnostics are *not* modular:
-// this class assumes an option op_verbose, and for errors it just
-// prints directly and exits the process.
-// The original plan was to have drcachesim launch this as a separate
-// executable.
-extern droption_t<unsigned int> op_verbose;
 
 // XXX: DR should export this
 #define INVALID_THREAD_ID 0
 
-#define FATAL_ERROR(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-    exit(1); \
-} while (0)
-
-#define CHECK(val, msg, ...) do { \
-    if (!(val)) FATAL_ERROR(msg, ##__VA_ARGS__); \
+// Assumes we return an error string by convention.
+#define CHECK(val, msg) do { \
+    if (!(val)) return msg; \
 } while (0)
 
 #define WARN(msg, ...) do {                                  \
@@ -82,14 +59,14 @@ extern droption_t<unsigned int> op_verbose;
 } while (0)
 
 #define VPRINT(level, ...) do { \
-    if (op_verbose.get_value() >= (level)) { \
+    if (this->verbosity >= (level)) { \
         fprintf(stderr, "[drmemtrace]: "); \
         fprintf(stderr, __VA_ARGS__); \
     } \
 } while (0)
 
 #define DO_VERBOSE(level, x) do { \
-    if (op_verbose.get_value() >= (level)) { \
+    if (this->verbosity >= (level)) { \
         x \
     } \
 } while (0)
@@ -98,24 +75,19 @@ extern droption_t<unsigned int> op_verbose;
  * Module list
  */
 
-void
-raw2trace_t::read_and_map_modules(void)
+std::string
+raw2trace_t::read_and_map_modules(const char *module_map)
 {
     // Read and load all of the modules.
-    std::string modfilename = indir + std::string(DIRSEP) +
-        DRMEMTRACE_MODULE_LIST_FILENAME;
     uint num_mods;
-    VPRINT(1, "Reading module file %s\n", modfilename.c_str());
-    file_t modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
-    if (modfile == INVALID_FILE)
-        FATAL_ERROR("Failed to open module file %s", modfilename.c_str());
-    if (drmodtrack_offline_read(modfile, NULL, NULL, &modhandle, &num_mods) !=
+    VPRINT(1, "Reading module file from memory\n");
+    if (drmodtrack_offline_read(INVALID_FILE, module_map, NULL, &modhandle, &num_mods) !=
         DRCOVLIB_SUCCESS)
-        FATAL_ERROR("Failed to parse module file %s", modfilename.c_str());
+        return "Failed to parse module file";
     for (uint i = 0; i < num_mods; i++) {
         drmodtrack_info_t info = {sizeof(info),};
         if (drmodtrack_offline_lookup(modhandle, i, &info) != DRCOVLIB_SUCCESS)
-            FATAL_ERROR("Failed to query module file");
+            return "Failed to query module file";
         if (strcmp(info.path, "<unknown>") == 0 ||
             // i#2062: VDSO is hard to decode so for now we treat is as non-module.
             // FIXME: currently we're dropping the ifetch data: we need the tracer
@@ -146,7 +118,7 @@ raw2trace_t::read_and_map_modules(void)
                 if (strstr(info.path, "dynamorio") != NULL)
                     modvec.push_back(module_t(info.path, info.start, NULL, 0));
                 else
-                    FATAL_ERROR("Failed to map module %s", info.path);
+                    return "Failed to map module " + std::string(info.path);
             } else {
                 VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
                        (ptr_uint_t)base_pc, info.path);
@@ -155,13 +127,14 @@ raw2trace_t::read_and_map_modules(void)
         }
     }
     VPRINT(1, "Successfully read %d modules\n", num_mods);
+    return "";
 }
 
-void
+std::string
 raw2trace_t::unmap_modules(void)
 {
     if (drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS)
-        FATAL_ERROR("Failed to clean up module table data");
+        return "Failed to clean up module table data";
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
         if (mvi->map_base != NULL && mvi->map_size != 0) {
@@ -170,89 +143,8 @@ raw2trace_t::unmap_modules(void)
                 WARN("Failed to unmap module %s", mvi->path);
         }
     }
+    return "";
 }
-
-/***************************************************************************
- * Directory iterator
- */
-
-// We open each thread log file in a vector so we can read from them simultaneously.
-void
-raw2trace_t::open_thread_log_file(const char *basename)
-{
-    char path[MAXIMUM_PATH];
-    CHECK(basename[0] != '/',
-          "dir iterator entry %s should not be an absolute path\n", basename);
-    // Skip the module list log.
-    if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
-        return;
-    // Skip any non-.raw in case someone put some other file in there.
-    if (strstr(basename, OUTFILE_SUFFIX) == NULL)
-        return;
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s",
-                    indir.c_str(), DIRSEP, basename) <= 0) {
-        FATAL_ERROR("Failed to get full path of file %s", basename);
-    }
-    NULL_TERMINATE_BUFFER(path);
-    thread_files.push_back(new std::ifstream(path, std::ifstream::binary));
-    if (!(*thread_files.back()))
-        FATAL_ERROR("Failed to open thread log file %s", path);
-    // Check version header.
-    offline_entry_t ver_entry;
-    if (!thread_files.back()->read((char*)&ver_entry, sizeof(ver_entry)))
-        FATAL_ERROR("Unable to read thread log file %s", path);
-    if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
-        ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER)
-        FATAL_ERROR("Thread log file %s is corrupted: missing version entry", path);
-    if (ver_entry.extended.value != OFFLINE_FILE_VERSION) {
-        FATAL_ERROR("Version mismatch: expect %d vs %d in file %s",
-                    OFFLINE_FILE_VERSION, (int)ver_entry.extended.value, path);
-    }
-    VPRINT(1, "Opened thread log file %s\n", path);
-}
-
-#ifdef UNIX
-void
-raw2trace_t::open_thread_files()
-{
-    struct dirent *ent;
-    DIR *dir = opendir(indir.c_str());
-    VPRINT(1, "Iterating dir %s\n", indir.c_str());
-    if (dir == NULL)
-        FATAL_ERROR("Failed to list directory %s", indir.c_str());
-    while ((ent = readdir(dir)) != NULL)
-        open_thread_log_file(ent->d_name);
-    closedir (dir);
-}
-#else
-void
-raw2trace_t::open_thread_files()
-{
-    HANDLE find = INVALID_HANDLE_VALUE;
-    WIN32_FIND_DATAW data;
-    char path[MAXIMUM_PATH];
-    TCHAR wpath[MAXIMUM_PATH];
-    VPRINT(1, "Iterating dir %s\n", indir.c_str());
-    // Append \*
-    dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s\\*", indir.c_str());
-    NULL_TERMINATE_BUFFER(path);
-    if (drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath)) !=
-        DRFRONT_SUCCESS)
-        FATAL_ERROR("Failed to convert from utf-8 to utf-16");
-    find = FindFirstFileW(wpath, &data);
-    if (find == INVALID_HANDLE_VALUE)
-        FATAL_ERROR("Failed to list directory %s\n", indir.c_str());
-    do {
-        if (!TESTANY(data.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY)) {
-            if (drfront_tchar_to_char(data.cFileName, path, BUFFER_SIZE_ELEMENTS(path)) !=
-                DRFRONT_SUCCESS)
-                FATAL_ERROR("Failed to convert from utf-16 to utf-8");
-            open_thread_log_file(path);
-        }
-    } while (FindNextFile(find, &data) != 0);
-    FindClose(find);
-}
-#endif
 
 /***************************************************************************
  * Disassembly to fill in instr and memref entries
@@ -271,14 +163,14 @@ instr_is_rep_string(instr_t *instr)
 #endif
 }
 
-trace_entry_t *
-raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
+std::string
+raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
 {
-    trace_entry_t *buf = buf_in;
+    trace_entry_t *buf = *buf_in;
     offline_entry_t in_entry;
     if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry)))
-        FATAL_ERROR("Trace ends mid-block");
+        return "Trace ends mid-block";
     if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
         in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
         // This happens when there are predicated memrefs in the bb.
@@ -290,7 +182,7 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
         // Put back the entry.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
                                   thread_files[tidx]->cur);
-        return buf;
+        return "";
     }
     if (instr_is_prefetch(instr)) {
         buf->type = instru_t::instr_to_prefetch_type(instr);
@@ -308,12 +200,12 @@ raw2trace_t::append_memref(trace_entry_t *buf_in, uint tidx, instr_t *instr,
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
     VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
-    ++buf;
-    return buf;
+    *buf_in = ++buf;
+    return "";
 }
 
-bool
-raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
+std::string
+raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
     instr_t instr;
@@ -326,7 +218,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
         // Once that support is in we can remove the bool return value and handle
         // the memrefs up here.
         VPRINT(3, "Skipping ifetch for %u instrs not in a module\n", instr_count);
-        return false;
+        *handled = false;
+        return "";
     } else {
         VPRINT(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
@@ -387,30 +280,35 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry)
             (instr_reads_memory(&instr) || instr_writes_memory(&instr))) {
             for (int i = 0; i < instr_num_srcs(&instr); i++) {
                 if (opnd_is_memory_reference(instr_get_src(&instr, i))) {
-                    buf = append_memref(buf, tidx, &instr, instr_get_src(&instr, i),
-                                        false);
+                    std::string error = append_memref(&buf, tidx, &instr,
+                                                      instr_get_src(&instr, i), false);
+                    if (!error.empty())
+                        return error;
                 }
             }
             for (int i = 0; i < instr_num_dsts(&instr); i++) {
                 if (opnd_is_memory_reference(instr_get_dst(&instr, i))) {
-                    buf = append_memref(buf, tidx, &instr, instr_get_dst(&instr, i),
-                                        true);
+                    std::string error = append_memref(&buf, tidx, &instr,
+                                                      instr_get_dst(&instr, i), true);
+                    if (!error.empty())
+                        return error;
                 }
             }
         }
         CHECK((size_t)(buf - buf_start) < MAX_COMBINED_ENTRIES, "Too many entries");
-        if (!out_file.write((char*)buf_start, (buf - buf_start)*sizeof(trace_entry_t)))
-            FATAL_ERROR("Failed to write to output file");
+        if (!out_file->write((char*)buf_start, (buf - buf_start)*sizeof(trace_entry_t)))
+            return "Failed to write to output file";
     }
     instr_free(dcontext, &instr);
-    return true;
+    *handled = true;
+    return "";
 }
 
 /***************************************************************************
  * Top-level
  */
 
-void
+std::string
 raw2trace_t::merge_and_process_thread_files()
 {
     // The current thread we're processing is tidx.  If it's set to thread_files.size()
@@ -440,9 +338,9 @@ raw2trace_t::merge_and_process_thread_files()
                 if (times[i] == 0 && !thread_files[i]->eof()) {
                     offline_entry_t entry;
                     if (!thread_files[i]->read((char*)&entry, sizeof(entry)))
-                        FATAL_ERROR("Failed to read from input file");
+                        return "Failed to read from input file";
                     if (entry.timestamp.type != OFFLINE_TYPE_TIMESTAMP)
-                        FATAL_ERROR("Missing timestamp entry");
+                        return "Missing timestamp entry";
                     times[i] = entry.timestamp.usec;
                     VPRINT(3, "Thread %u timestamp is @0x" ZHEX64_FORMAT_STRING
                            "\n", (uint)tids[i], times[i]);
@@ -464,8 +362,8 @@ raw2trace_t::merge_and_process_thread_files()
             if (size > 0) {
                 // We have to write this now before we append any bb entries.
                 CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-                if (!out_file.write((char*)buf_base, size))
-                    FATAL_ERROR("Failed to write to output file");
+                if (!out_file->write((char*)buf_base, size))
+                    return "Failed to write to output file";
                 buf = buf_base;
             }
             size = 0;
@@ -474,13 +372,16 @@ raw2trace_t::merge_and_process_thread_files()
                (uint)tids[tidx], (int)thread_files[tidx]->tellg());
         if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
             if (thread_files[tidx]->eof()) {
-                // Rather than a FATAL_ERROR we try to continue to provide partial
+                // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
                 WARN("Input file for thread %d is truncated", (uint)tids[tidx]);
                 in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-            } else
-                FATAL_ERROR("Failed to read from file for thread %d", (uint)tids[tidx]);
+            } else {
+                std::stringstream ss;
+                ss << "Failed to read from file for thread " << (uint)tids[tidx];
+                return ss.str();
+            }
         }
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
@@ -488,15 +389,18 @@ raw2trace_t::merge_and_process_thread_files()
                 offline_entry_t entry;
                 if (thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
                     !thread_files[tidx]->eof())
-                    FATAL_ERROR("Footer is not the final entry");
+                    return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
                 size += instru.append_thread_exit(buf, tids[tidx]);
                 buf += size;
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
-            } else
-                FATAL_ERROR("Invalid extension type %d", (int)in_entry.extended.ext);
+            } else {
+                std::stringstream ss;
+                ss << "Invalid extension type " << (int)in_entry.extended.ext;
+                return ss.str();
+            }
         } else if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tids[tidx], in_entry.timestamp.usec);
@@ -517,10 +421,12 @@ raw2trace_t::merge_and_process_thread_files()
                 buf += size;
             } else {
                 // We should see an instr entry first
-                CHECK(false, "memref entry found outside of bb");
+                return "memref entry found outside of bb";
             }
         } else if (in_entry.pc.type == OFFLINE_TYPE_PC) {
-            last_bb_handled = append_bb_entries(tidx, &in_entry);
+          std::string result = append_bb_entries(tidx, &in_entry, &last_bb_handled);
+          if (!result.empty())
+              return result;
         } else if (in_entry.tid.type == OFFLINE_TYPE_THREAD) {
             VPRINT(2, "Thread %u entry\n", (uint)in_entry.tid.tid);
             if (tids[tidx] == INVALID_THREAD_ID)
@@ -535,68 +441,91 @@ raw2trace_t::merge_and_process_thread_files()
             offline_entry_t entry;
             if (!thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
                 entry.addr.type != OFFLINE_TYPE_IFLUSH)
-                FATAL_ERROR("Flush missing 2nd entry");
+                return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
             size += instru.append_iflush(buf, in_entry.addr.addr,
                                          (size_t)(entry.addr.addr - in_entry.addr.addr));
             buf += size;
-        } else
-            FATAL_ERROR("Unknown trace type %d", (int)in_entry.timestamp.type);
+        } else {
+            std::stringstream ss;
+            ss << "Unknown trace type " << (int)in_entry.timestamp.type;
+            return ss.str();
+        }
         if (size > 0) {
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file.write((char*)buf_base, size))
-                FATAL_ERROR("Failed to write to output file");
+            if (!out_file->write((char*)buf_base, size))
+                return "Failed to write to output file";
         }
     } while (thread_count > 0);
+    return "";
 }
 
-void
+std::string
+raw2trace_t::check_thread_file(std::istream *f)
+{
+    // Check version header.
+    offline_entry_t ver_entry;
+    if (!f->read((char*)&ver_entry, sizeof(ver_entry))) {
+        return "Unable to read thread log file";
+    }
+    if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
+        ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER) {
+        return "Thread log file is corrupted: missing version entry";
+    }
+    if (ver_entry.extended.value != OFFLINE_FILE_VERSION) {
+        std::stringstream ss;
+        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
+           << (int)ver_entry.extended.value;
+        return ss.str();
+    }
+    return "";
+}
+
+std::string
 raw2trace_t::do_conversion()
 {
+    std::string error = read_and_map_modules(modmap);
+    if (!error.empty())
+        return error;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
     entry.addr = TRACE_ENTRY_VERSION;
-    if (!out_file.write((char*)&entry, sizeof(entry)))
-        FATAL_ERROR("Failed to write header to output file %s", outname.c_str());
+    if (!out_file->write((char*)&entry, sizeof(entry)))
+        return "Failed to write header to output file";
 
-    read_and_map_modules();
-    open_thread_files();
     merge_and_process_thread_files();
 
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
     entry.addr = 0;
-    if (!out_file.write((char*)&entry, sizeof(entry)))
-        FATAL_ERROR("Failed to write footer to output file %s", outname.c_str());
+    if (!out_file->write((char*)&entry, sizeof(entry)))
+        return "Failed to write footer to output file";
+    VPRINT(1, "Successfully converted %zu thread files\n", thread_files.size());
+    return "";
 }
 
-raw2trace_t::raw2trace_t(std::string indir_in, std::string outname_in)
-    : indir(indir_in), outname(outname_in), prev_instr_was_rep_string(false),
-      instrs_are_separate(false)
+raw2trace_t::raw2trace_t(const char *module_map_in,
+                         const std::vector<std::istream*> &thread_files_in,
+                         std::ostream *out_file_in,
+                         void *dcontext_in,
+                         unsigned int verbosity_in)
+    : modmap(module_map_in), thread_files(thread_files_in), out_file(out_file_in),
+      dcontext(dcontext_in), prev_instr_was_rep_string(false), instrs_are_separate(false),
+      verbosity(verbosity_in)
 {
-    // Support passing both base dir and raw/ subdir.
-    if (indir.find(OUTFILE_SUBDIR) == std::string::npos)
-        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-    out_file.open(outname.c_str(), std::ofstream::binary);
-    if (!out_file)
-        FATAL_ERROR("Failed to open output file %s", outname.c_str());
-    VPRINT(1, "Writing to %s\n", outname.c_str());
-
-    dcontext = dr_standalone_init();
+    if (dcontext == NULL) {
+        dcontext = dr_standalone_init();
 #ifdef ARM
-    // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
-    // to trigger Thumb decoding.
-    dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
+        // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
+        // to trigger Thumb decoding.
+        dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
 #endif
+    }
 }
 
 raw2trace_t::~raw2trace_t()
 {
-    out_file.close();
-    for (std::vector<std::ifstream*>::iterator fi = thread_files.begin();
-         fi != thread_files.end(); ++fi)
-        (*fi)->close();
     unmap_modules();
 }
