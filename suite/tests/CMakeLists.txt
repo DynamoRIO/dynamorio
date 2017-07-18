@@ -117,10 +117,10 @@ set(vmap_run_list
   "X86::-prof_pcs -thread_private"                 # i#1884: ARM thread_private NYI
   "X86::LIN::ONLY::^common::-code_api -no_early_inject" # ARM only supports early
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
-  "ONLY::^common::-code_api -stack_size 120k"
+  "ONLY::^common::-code_api -stack_size 128k"
   "WIN::ONLY::^(runall|client)::-enable_full_api"
-  "DEBUG::WIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1 -no_hide"
-  "DEBUG::LIN::ONLY::^(common|client)::-code_api -stack_size 120K -loglevel 1"
+  "DEBUG::WIN::ONLY::^(common|client)::-code_api -stack_size 128K -loglevel 1 -no_hide"
+  "DEBUG::LIN::ONLY::^(common|client)::-code_api -stack_size 128K -loglevel 1"
   "ONLY::^common::"
   "X86::LIN::ONLY::^${osname}::-code_api -sysenter_is_int80"
 

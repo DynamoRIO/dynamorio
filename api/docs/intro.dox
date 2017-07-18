@@ -1576,14 +1576,15 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    is specified.
 
  - \b -stack_size \e \<number\>: \anchor op_stack_size
-   DynamoRIO's per-thread stack is limited to 56KB by default (this may
-   seem small, but this is much larger than its size when no client is
-   present).  This parameter can be used to increase the size; however,
-   larger stack sizes use significantly more memory when targeting
+   DynamoRIO's per-thread stack is limited to 56KB by default on systems
+   with a 4K page size (this may seem small, but this is much larger than its size
+   when no client is present). For systems with different page sizes, it defaults
+   to 2 * page size. This parameter can be used to increase the size;
+   however, larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
-   suffix, and must be a multiple of the page size (4K).  This stack is
-   used \if vmsafe for probe callbacks and by the Code Manipulation
-   API \else by the \endif routines dr_insert_clean_call(),
+   suffix, and must be a multiple of the page size (4K, 16K or 64K depending on
+   the system).  This stack is used \if vmsafe for probe callbacks and by
+   the Code Manipulation API \else by the \endif routines dr_insert_clean_call(),
    dr_swap_to_clean_stack(), dr_prepare_for_call(),
    dr_insert_call_instrumentation(), dr_insert_mbr_instrumentation(),
    dr_insert_cbr_instrumentation(), and dr_insert_ubr_instrumentation().
