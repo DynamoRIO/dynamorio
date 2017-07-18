@@ -2852,6 +2852,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
+# ifdef AARCH64
+        if (inst != instrlist_last(bb->ilist)) {
+            CLIENT_ASSERT(instr_get_opcode(inst) != OP_isb,
+                          "OP_isb must be last instruction in block");
+        }
+# endif
+
         if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
