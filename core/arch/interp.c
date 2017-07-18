@@ -2907,6 +2907,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                       "block's app sources (instr_set_translation() targets) "
                       "must remain within original bounds");
 
+# ifdef AARCH64
+        if (instr_get_opcode(inst) == OP_isb) {
+            CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                          "OP_isb must be last instruction in block");
+        }
+# endif
+
         /* PR 307284: we didn't process syscalls and ints pre-client
          * so do so now to get bb->flags and bb->exit_type set
          */
@@ -3920,6 +3927,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        /* OP_isb, when mangled, has a potential side exit. */
+        else if (instr_get_opcode(bb->instr) == OP_isb)
+            break;
+#endif
 #if 0/*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to

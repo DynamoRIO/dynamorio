@@ -500,6 +500,8 @@ internal operation requires that we impose the following limitations:
    a basic block, and it must be the final application branch in the block.
  - The exit control-flow of a block ending in a system call cannot be
    changed.
+ - On AArch64, an ISB instruction (#OP_isb) must be the last instruction
+   in its block.
 
 Application instructions, or non-meta instructions, in addition to being
 processed (and followed if control flow), are also considered safe points
