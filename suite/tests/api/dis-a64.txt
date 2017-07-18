@@ -511,6 +511,7 @@
 4c4067ff : ld1    {v31.8h, v0.8h, v1.8h}, [sp]: ld1    (%sp)[48byte] $0x01 -> %q31 %q0 %q1
 4c4077ff : ld1    {v31.8h}, [sp]          : ld1    (%sp)[16byte] $0x01 -> %q31
 4c40a7ff : ld1    {v31.8h, v0.8h}, [sp]   : ld1    (%sp)[32byte] $0x01 -> %q31 %q0
+4c800000 : st4    {v0.16b-v3.16b}, [x0], x0: st4    $0x00 %q0 %q1 %q2 %q3 %x0 %x0 -> (%x0)[64byte] %x0
 4c9f07ff : st4    {v31.8h, v0.8h, v1.8h, v2.8h}, [sp], #64: st4    $0x01 %q31 %q0 %q1 %q2 %sp $0x40 -> (%sp)[64byte] %sp
 4c9f67ff : st1    {v31.8h, v0.8h, v1.8h}, [sp], #48: st1    $0x01 %q31 %q0 %q1 %sp $0x30 -> (%sp)[48byte] %sp
 4c9f77ff : st1    {v31.8h}, [sp], #16     : st1    $0x01 %q31 %sp $0x10 -> (%sp)[16byte] %sp

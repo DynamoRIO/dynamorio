@@ -317,13 +317,13 @@ decode_opndsgen_0c800000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, dst1, src0, src1, src2, src3, src4, src5, src6;
     if (!decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst1) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src0) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst1) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src0) ||
         !decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &src1) ||
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &src2) ||
         !decode_opnd_vt2(enc & 0xffe0f01f, opcode, pc, &src3) ||
         !decode_opnd_vt3(enc & 0xffe0f01f, opcode, pc, &src4) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src5) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src5) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src6))
         return false;
     instr_set_opcode(instr, opcode);
@@ -345,12 +345,12 @@ decode_opndsgen_0c804000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, dst1, src0, src1, src2, src3, src4, src5;
     if (!decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst1) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src0) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst1) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src0) ||
         !decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &src1) ||
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &src2) ||
         !decode_opnd_vt2(enc & 0xffe0f01f, opcode, pc, &src3) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src4) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src4) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src5))
         return false;
     instr_set_opcode(instr, opcode);
@@ -371,10 +371,10 @@ decode_opndsgen_0c807000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, dst1, src0, src1, src2, src3;
     if (!decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst1) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src0) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst1) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src0) ||
         !decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &src1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src2) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src2) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src3))
         return false;
     instr_set_opcode(instr, opcode);
@@ -393,11 +393,11 @@ decode_opndsgen_0c808000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, dst1, src0, src1, src2, src3, src4;
     if (!decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst1) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src0) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst1) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src0) ||
         !decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &src1) ||
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &src2) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src3) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src3) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src4))
         return false;
     instr_set_opcode(instr, opcode);
@@ -420,10 +420,10 @@ decode_opndsgen_0cc00000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &dst1) ||
         !decode_opnd_vt2(enc & 0xffe0f01f, opcode, pc, &dst2) ||
         !decode_opnd_vt3(enc & 0xffe0f01f, opcode, pc, &dst3) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst4) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst4) ||
         !decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &src0) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src2) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src1) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src2) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src3))
         return false;
     instr_set_opcode(instr, opcode);
@@ -447,10 +447,10 @@ decode_opndsgen_0cc04000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
     if (!decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &dst0) ||
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &dst1) ||
         !decode_opnd_vt2(enc & 0xffe0f01f, opcode, pc, &dst2) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst3) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst3) ||
         !decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &src0) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src2) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src1) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src2) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src3))
         return false;
     instr_set_opcode(instr, opcode);
@@ -471,10 +471,10 @@ decode_opndsgen_0cc07000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, dst1, src0, src1, src2, src3;
     if (!decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst1) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst1) ||
         !decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &src0) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src2) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src1) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src2) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src3))
         return false;
     instr_set_opcode(instr, opcode);
@@ -494,10 +494,10 @@ decode_opndsgen_0cc08000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
     opnd_t dst0, dst1, dst2, src0, src1, src2, src3;
     if (!decode_opnd_vt0(enc & 0xffe0f01f, opcode, pc, &dst0) ||
         !decode_opnd_vt1(enc & 0xffe0f01f, opcode, pc, &dst1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &dst2) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &dst2) ||
         !decode_opnd_memvm(enc & 0xffe0f3e0, opcode, pc, &src0) ||
-        !decode_opnd_vmsz(enc & 0xbfe0fc00, opcode, pc, &src1) ||
-        !decode_opnd_x5sp(enc & 0xbfe0f3e0, opcode, pc, &src2) ||
+        !decode_opnd_vmsz(enc & 0xffe0fc00, opcode, pc, &src1) ||
+        !decode_opnd_x5sp(enc & 0xffe0f3e0, opcode, pc, &src2) ||
         !decode_opnd_x16imm(enc & 0xfffff000, opcode, pc, &src3))
         return false;
     instr_set_opcode(instr, opcode);
@@ -5132,193 +5132,33 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                     }
                 }
             } else {
-                if ((enc >> 28 & 1) == 0) {
+                if ((enc >> 24 & 1) == 0) {
                     if ((enc >> 23 & 1) == 0) {
-                        if ((enc >> 13 & 1) == 0) {
-                            if ((enc >> 15 & 1) == 0) {
-                                if ((enc >> 14 & 1) == 0) {
-                                    if ((enc & 0xbfffe000) == 0x0d000000)
-                                        return decode_opndsgen_0d000000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfffe000) == 0x0d200000)
-                                        return decode_opndsgen_0d200000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbffff000) == 0x0c000000)
-                                        return decode_opndsgen_0c000000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc & 0xbfffe400) == 0x0d004000)
-                                        return decode_opndsgen_0d004000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfffe400) == 0x0d204000)
-                                        return decode_opndsgen_0d204000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbffff000) == 0x0c004000)
-                                        return decode_opndsgen_0c004000(enc, dc, pc, instr, OP_st3);
-                                }
-                            } else {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc & 0xbfffec00) == 0x0d008000)
-                                        return decode_opndsgen_0d008000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbffff000) == 0x0c008000)
-                                        return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbfffec00) == 0x0d208000)
-                                        return decode_opndsgen_0d208000(enc, dc, pc, instr, OP_st2);
-                                } else {
-                                    if ((enc & 0xbffffc00) == 0x0d008400)
-                                        return decode_opndsgen_0d008400(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbffff000) == 0x0c008000)
-                                        return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbffffc00) == 0x0d208400)
-                                        return decode_opndsgen_0d208400(enc, dc, pc, instr, OP_st2);
-                                }
-                            }
-                        } else {
-                            if ((enc >> 15 & 1) == 0) {
-                                if ((enc >> 14 & 1) == 0) {
-                                    if ((enc & 0xbffff000) == 0x0c002000)
-                                        return decode_opndsgen_0c000000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfffe000) == 0x0d002000)
-                                        return decode_opndsgen_0d002000(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbfffe000) == 0x0d202000)
-                                        return decode_opndsgen_0d202000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc >> 24 & 1) == 0) {
-                                        if ((enc & 0xbffff000) == 0x0c006000)
-                                            return decode_opndsgen_0c004000(enc, dc, pc, instr, OP_st1);
-                                        if ((enc & 0xbffff000) == 0x0c007000)
-                                            return decode_opndsgen_0c007000(enc, dc, pc, instr, OP_st1);
-                                    } else {
-                                        if ((enc & 0xbfffe400) == 0x0d006000)
-                                            return decode_opndsgen_0d006000(enc, dc, pc, instr, OP_st3);
-                                        if ((enc & 0xbfffe400) == 0x0d206000)
-                                            return decode_opndsgen_0d206000(enc, dc, pc, instr, OP_st4);
-                                    }
-                                }
-                            } else {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc & 0xbffff000) == 0x0c00a000)
-                                        return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfffec00) == 0x0d00a000)
-                                        return decode_opndsgen_0d00a000(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbfffec00) == 0x0d20a000)
-                                        return decode_opndsgen_0d20a000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc & 0xbffff000) == 0x0c00a000)
-                                        return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbffffc00) == 0x0d00a400)
-                                        return decode_opndsgen_0d00a400(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbffffc00) == 0x0d20a400)
-                                        return decode_opndsgen_0d20a400(enc, dc, pc, instr, OP_st4);
-                                }
-                            }
-                        }
-                    } else {
-                        if ((enc >> 13 & 1) == 0) {
-                            if ((enc >> 15 & 1) == 0) {
-                                if ((enc >> 14 & 1) == 0) {
-                                    if ((enc & 0xbfe0e000) == 0x0d800000)
-                                        return decode_opndsgen_0d800000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0e000) == 0x0da00000)
-                                        return decode_opndsgen_0da00000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbfe0f000) == 0x0c800000)
-                                        return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc & 0xbfe0e400) == 0x0d804000)
-                                        return decode_opndsgen_0d804000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0e400) == 0x0da04000)
-                                        return decode_opndsgen_0da04000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbfe0f000) == 0x0c804000)
-                                        return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st3);
-                                }
-                            } else {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc & 0xbfe0ec00) == 0x0d808000)
-                                        return decode_opndsgen_0d808000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0f000) == 0x0c808000)
-                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbfe0ec00) == 0x0da08000)
-                                        return decode_opndsgen_0da08000(enc, dc, pc, instr, OP_st2);
-                                } else {
-                                    if ((enc & 0xbfe0fc00) == 0x0d808400)
-                                        return decode_opndsgen_0d808400(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0f000) == 0x0c808000)
-                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st2);
-                                    if ((enc & 0xbfe0fc00) == 0x0da08400)
-                                        return decode_opndsgen_0da08400(enc, dc, pc, instr, OP_st2);
-                                }
-                            }
-                        } else {
-                            if ((enc >> 15 & 1) == 0) {
-                                if ((enc >> 14 & 1) == 0) {
-                                    if ((enc & 0xbfe0f000) == 0x0c802000)
-                                        return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0e000) == 0x0d802000)
-                                        return decode_opndsgen_0d802000(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbfe0e000) == 0x0da02000)
-                                        return decode_opndsgen_0da02000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc >> 24 & 1) == 0) {
-                                        if ((enc & 0xbfe0f000) == 0x0c806000)
-                                            return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st1);
-                                        if ((enc & 0xbfe0f000) == 0x0c807000)
-                                            return decode_opndsgen_0c807000(enc, dc, pc, instr, OP_st1);
-                                    } else {
-                                        if ((enc & 0xbfe0e400) == 0x0d806000)
-                                            return decode_opndsgen_0d806000(enc, dc, pc, instr, OP_st3);
-                                        if ((enc & 0xbfe0e400) == 0x0da06000)
-                                            return decode_opndsgen_0da06000(enc, dc, pc, instr, OP_st4);
-                                    }
-                                }
-                            } else {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc & 0xbfe0f000) == 0x0c80a000)
-                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0ec00) == 0x0d80a000)
-                                        return decode_opndsgen_0d80a000(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbfe0ec00) == 0x0da0a000)
-                                        return decode_opndsgen_0da0a000(enc, dc, pc, instr, OP_st4);
-                                } else {
-                                    if ((enc & 0xbfe0f000) == 0x0c80a000)
-                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st1);
-                                    if ((enc & 0xbfe0fc00) == 0x0d80a400)
-                                        return decode_opndsgen_0d80a400(enc, dc, pc, instr, OP_st3);
-                                    if ((enc & 0xbfe0fc00) == 0x0da0a400)
-                                        return decode_opndsgen_0da0a400(enc, dc, pc, instr, OP_st4);
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if ((enc >> 24 & 1) == 0) {
-                        if ((enc >> 30 & 1) == 0) {
-                            if ((enc >> 27 & 1) == 0) {
-                                if ((enc & 0xfc000000) == 0x14000000)
-                                    return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                if ((enc & 0xfc000000) == 0x94000000)
-                                    return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                            } else {
-                                if ((enc & 0xff000000) == 0x1c000000)
-                                    return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
-                                if ((enc & 0xff000000) == 0x9c000000)
-                                    return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
-                            }
-                        } else {
+                        if ((enc >> 27 & 1) == 0) {
                             if ((enc >> 0 & 1) == 0) {
                                 if ((enc >> 21 & 1) == 0) {
-                                    if ((enc >> 31 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
                                         if ((enc & 0xff000010) == 0x54000000)
                                             return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                        if ((enc & 0xff000000) == 0x5c000000)
-                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                    } else {
                                         if ((enc & 0xfffffc1f) == 0xd61f0000)
                                             return decode_opndsgen_d61f0000(enc, dc, pc, instr, OP_br);
                                         if ((enc & 0xffe0001f) == 0xd4000002)
                                             return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hvc);
                                     }
                                 } else {
-                                    if ((enc >> 31 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
                                         if ((enc & 0xff000010) == 0x54000000)
                                             return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                        if ((enc & 0xff000000) == 0x5c000000)
-                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                    } else {
                                         if ((enc & 0xfffffc1f) == 0xd63f0000)
                                             return decode_opndsgen_d63f0000(enc, dc, pc, instr, OP_blr);
                                         if ((enc & 0xffe0001f) == 0xd4200000)
@@ -5326,241 +5166,419 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                     }
                                 }
                             } else {
-                                if ((enc >> 31 & 1) == 0) {
+                                if ((enc >> 30 & 1) == 0) {
+                                    if ((enc & 0xfc000000) == 0x14000000)
+                                        return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                    if ((enc & 0xfc000000) == 0x94000000)
+                                        return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                } else {
                                     if ((enc & 0xff000010) == 0x54000000)
                                         return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                    if ((enc & 0xff000000) == 0x5c000000)
-                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                } else {
                                     if ((enc & 0xffe0001f) == 0xd4000003)
                                         return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_smc);
                                     if ((enc & 0xffe0001f) == 0xd4000001)
                                         return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_svc);
                                 }
                             }
+                        } else {
+                            if ((enc >> 13 & 1) == 0) {
+                                if ((enc >> 28 & 1) == 0) {
+                                    if ((enc & 0xbffff000) == 0x0c008000)
+                                        return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st2);
+                                    if ((enc & 0xbffff000) == 0x0c004000)
+                                        return decode_opndsgen_0c004000(enc, dc, pc, instr, OP_st3);
+                                    if ((enc & 0xbffff000) == 0x0c000000)
+                                        return decode_opndsgen_0c000000(enc, dc, pc, instr, OP_st4);
+                                } else {
+                                    if ((enc & 0xff000000) == 0x1c000000)
+                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x5c000000)
+                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x9c000000)
+                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
+                                }
+                            } else {
+                                if ((enc >> 28 & 1) == 0) {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xbffff000) == 0x0c002000)
+                                            return decode_opndsgen_0c000000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbffff000) == 0x0c00a000)
+                                            return decode_opndsgen_0c008000(enc, dc, pc, instr, OP_st1);
+                                    } else {
+                                        if ((enc & 0xbffff000) == 0x0c006000)
+                                            return decode_opndsgen_0c004000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbffff000) == 0x0c007000)
+                                            return decode_opndsgen_0c007000(enc, dc, pc, instr, OP_st1);
+                                    }
+                                } else {
+                                    if ((enc & 0xff000000) == 0x1c000000)
+                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x5c000000)
+                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x9c000000)
+                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
+                                }
+                            }
                         }
                     } else {
-                        if ((enc >> 7 & 1) == 0) {
-                            if ((enc >> 5 & 1) == 0) {
-                                if ((enc >> 19 & 1) == 0) {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfffff0ff) == 0xd503305f)
-                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_clrex);
-                                            if ((enc & 0xffffffff) == 0xd503201f)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_nop);
-                                            if ((enc & 0xffffffff) == 0xd503205f)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_wfe);
-                                        }
+                        if ((enc >> 30 & 1) == 0) {
+                            if ((enc >> 28 & 1) == 0) {
+                                if ((enc >> 13 & 1) == 0) {
+                                    if ((enc & 0xffe0f000) == 0x0c808000)
+                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st2);
+                                    if ((enc & 0xffe0f000) == 0x0c804000)
+                                        return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st3);
+                                    if ((enc & 0xffe0f000) == 0x0c800000)
+                                        return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st4);
+                                } else {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xffe0f000) == 0x0c802000)
+                                            return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xffe0f000) == 0x0c80a000)
+                                            return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st1);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc & 0xffe0f000) == 0x0c806000)
+                                            return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xffe0f000) == 0x0c807000)
+                                            return decode_opndsgen_0c807000(enc, dc, pc, instr, OP_st1);
+                                    }
+                                }
+                            } else {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc & 0xfc000000) == 0x14000000)
+                                        return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                    if ((enc & 0xfc000000) == 0x94000000)
+                                        return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                } else {
+                                    if ((enc & 0xff000000) == 0x1c000000)
+                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x9c000000)
+                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
+                                }
+                            }
+                        } else {
+                            if ((enc >> 13 & 1) == 0) {
+                                if ((enc >> 28 & 1) == 0) {
+                                    if ((enc & 0xffe0f000) == 0x4c808000)
+                                        return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st2);
+                                    if ((enc & 0xffe0f000) == 0x4c804000)
+                                        return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st3);
+                                    if ((enc & 0xffe0f000) == 0x4c800000)
+                                        return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st4);
+                                } else {
+                                    if ((enc & 0xff000010) == 0x54000000)
+                                        return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
+                                    if ((enc & 0xff000000) == 0x5c000000)
+                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                }
+                            } else {
+                                if ((enc >> 14 & 1) == 0) {
+                                    if ((enc >> 28 & 1) == 0) {
+                                        if ((enc & 0xffe0f000) == 0x4c802000)
+                                            return decode_opndsgen_0c800000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xffe0f000) == 0x4c80a000)
+                                            return decode_opndsgen_0c808000(enc, dc, pc, instr, OP_st1);
+                                    } else {
+                                        if ((enc & 0xff000010) == 0x54000000)
+                                            return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
+                                        if ((enc & 0xff000000) == 0x5c000000)
+                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    }
+                                } else {
+                                    if ((enc >> 28 & 1) == 0) {
+                                        if ((enc & 0xffe0f000) == 0x4c806000)
+                                            return decode_opndsgen_0c804000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xffe0f000) == 0x4c807000)
+                                            return decode_opndsgen_0c807000(enc, dc, pc, instr, OP_st1);
+                                    } else {
+                                        if ((enc & 0xff000010) == 0x54000000)
+                                            return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
+                                        if ((enc & 0xff000000) == 0x5c000000)
+                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if ((enc >> 21 & 1) == 0) {
+                        if ((enc >> 27 & 1) == 0) {
+                            if ((enc >> 7 & 1) == 0) {
+                                if ((enc >> 5 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc >> 6 & 1) == 0) {
                                             if ((enc & 0xfff00000) == 0xd5100000)
                                                 return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xffffffff) == 0xd503201f)
+                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_nop);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                        } else {
+                                            if ((enc >> 12 & 1) == 0) {
+                                                if ((enc & 0xfff00000) == 0xd5100000)
+                                                    return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                                if ((enc & 0xfff80000) == 0xd5080000)
+                                                    return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                                if ((enc & 0xffffffff) == 0xd503205f)
+                                                    return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_wfe);
+                                            } else {
+                                                if ((enc & 0xfffff0ff) == 0xd503305f)
+                                                    return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_clrex);
+                                                if ((enc & 0xfff00000) == 0xd5100000)
+                                                    return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                                if ((enc & 0xfff80000) == 0xd5080000)
+                                                    return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                            }
                                         }
                                     }
                                 } else {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff80000) == 0xd5080000)
-                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
-                                            if ((enc & 0xfff80000) == 0xd5280000)
-                                                return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
-                                        }
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc >> 6 & 1) == 0) {
                                             if ((enc & 0xfff00000) == 0xd5100000)
                                                 return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                            if ((enc & 0xffffffff) == 0xd503203f)
+                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_yield);
+                                        } else {
+                                            if ((enc & 0xfff00000) == 0xd5100000)
+                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                            if ((enc & 0xffffffff) == 0xd503207f)
+                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_wfi);
                                         }
                                     }
                                 }
                             } else {
-                                if ((enc >> 19 & 1) == 0) {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xffffffff) == 0xd503207f)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_wfi);
-                                            if ((enc & 0xffffffff) == 0xd503203f)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_yield);
-                                        }
+                                if ((enc >> 5 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                        if ((enc >> 6 & 1) == 0) {
+                                            if ((enc >> 12 & 1) == 0) {
+                                                if ((enc & 0xfff00000) == 0xd5100000)
+                                                    return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                                if ((enc & 0xffffffff) == 0xd503209f)
+                                                    return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_sev);
+                                                if ((enc & 0xfff80000) == 0xd5080000)
+                                                    return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                            } else {
+                                                if ((enc & 0xfffff0ff) == 0xd503309f)
+                                                    return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_dsb);
+                                                if ((enc & 0xfff00000) == 0xd5100000)
+                                                    return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                                if ((enc & 0xfff80000) == 0xd5080000)
+                                                    return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                            }
                                         } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                            if ((enc & 0xfffff0ff) == 0xd50330df)
+                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_isb);
                                             if ((enc & 0xfff00000) == 0xd5100000)
                                                 return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
                                         }
                                     }
                                 } else {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff80000) == 0xd5080000)
-                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
-                                            if ((enc & 0xfff80000) == 0xd5280000)
-                                                return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
-                                        }
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc >> 12 & 1) == 0) {
                                             if ((enc & 0xfff00000) == 0xd5100000)
                                                 return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xffffffff) == 0xd50320bf)
+                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_sevl);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
+                                        } else {
+                                            if ((enc & 0xfffff0ff) == 0xd50330bf)
+                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_dmb);
+                                            if ((enc & 0xfff00000) == 0xd5100000)
+                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
+                                            if ((enc & 0xfff80000) == 0xd5080000)
+                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
                                         }
                                     }
                                 }
                             }
                         } else {
-                            if ((enc >> 5 & 1) == 0) {
-                                if ((enc >> 19 & 1) == 0) {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfffff0ff) == 0xd503309f)
-                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_dsb);
-                                            if ((enc & 0xfffff0ff) == 0xd50330df)
-                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_isb);
-                                            if ((enc & 0xffffffff) == 0xd503209f)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_sev);
-                                        }
+                            if ((enc >> 13 & 1) == 0) {
+                                if ((enc >> 15 & 1) == 0) {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xbfffe000) == 0x0d000000)
+                                            return decode_opndsgen_0d000000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbfe0e000) == 0x0d800000)
+                                            return decode_opndsgen_0d800000(enc, dc, pc, instr, OP_st1);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
-                                            if ((enc & 0xfff00000) == 0xd5100000)
-                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
-                                        }
+                                        if ((enc & 0xbfffe400) == 0x0d004000)
+                                            return decode_opndsgen_0d004000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbfe0e400) == 0x0d804000)
+                                            return decode_opndsgen_0d804000(enc, dc, pc, instr, OP_st1);
                                     }
                                 } else {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff80000) == 0xd5080000)
-                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
-                                            if ((enc & 0xfff80000) == 0xd5280000)
-                                                return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
-                                        }
+                                    if ((enc >> 10 & 1) == 0) {
+                                        if ((enc & 0xbfffec00) == 0x0d008000)
+                                            return decode_opndsgen_0d008000(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbfe0ec00) == 0x0d808000)
+                                            return decode_opndsgen_0d808000(enc, dc, pc, instr, OP_st1);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
-                                            if ((enc & 0xfff00000) == 0xd5100000)
-                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
-                                        }
+                                        if ((enc & 0xbffffc00) == 0x0d008400)
+                                            return decode_opndsgen_0d008400(enc, dc, pc, instr, OP_st1);
+                                        if ((enc & 0xbfe0fc00) == 0x0d808400)
+                                            return decode_opndsgen_0d808400(enc, dc, pc, instr, OP_st1);
                                     }
                                 }
                             } else {
-                                if ((enc >> 19 & 1) == 0) {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfffff0ff) == 0xd50330bf)
-                                                return decode_opndsgen_d503305f(enc, dc, pc, instr, OP_dmb);
-                                            if ((enc & 0xffffffff) == 0xd50320bf)
-                                                return decode_opndsgen_d503201f(enc, dc, pc, instr, OP_sevl);
-                                        }
+                                if ((enc >> 15 & 1) == 0) {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xbfffe000) == 0x0d002000)
+                                            return decode_opndsgen_0d002000(enc, dc, pc, instr, OP_st3);
+                                        if ((enc & 0xbfe0e000) == 0x0d802000)
+                                            return decode_opndsgen_0d802000(enc, dc, pc, instr, OP_st3);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
-                                            if ((enc & 0xfff00000) == 0xd5100000)
-                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
-                                        }
+                                        if ((enc & 0xbfffe400) == 0x0d006000)
+                                            return decode_opndsgen_0d006000(enc, dc, pc, instr, OP_st3);
+                                        if ((enc & 0xbfe0e400) == 0x0d806000)
+                                            return decode_opndsgen_0d806000(enc, dc, pc, instr, OP_st3);
                                     }
                                 } else {
-                                    if ((enc >> 20 & 1) == 0) {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff80000) == 0xd5080000)
-                                                return decode_opndsgen_d5080000(enc, dc, pc, instr, OP_sys);
-                                            if ((enc & 0xfff80000) == 0xd5280000)
-                                                return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
-                                        }
+                                    if ((enc >> 10 & 1) == 0) {
+                                        if ((enc & 0xbfffec00) == 0x0d00a000)
+                                            return decode_opndsgen_0d00a000(enc, dc, pc, instr, OP_st3);
+                                        if ((enc & 0xbfe0ec00) == 0x0d80a000)
+                                            return decode_opndsgen_0d80a000(enc, dc, pc, instr, OP_st3);
                                     } else {
-                                        if ((enc >> 30 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xfff00000) == 0xd5300000)
-                                                return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
-                                            if ((enc & 0xfff00000) == 0xd5100000)
-                                                return decode_opnds_msr(enc, dc, pc, instr, OP_msr);
-                                        }
+                                        if ((enc & 0xbffffc00) == 0x0d00a400)
+                                            return decode_opndsgen_0d00a400(enc, dc, pc, instr, OP_st3);
+                                        if ((enc & 0xbfe0fc00) == 0x0d80a400)
+                                            return decode_opndsgen_0d80a400(enc, dc, pc, instr, OP_st3);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if ((enc >> 13 & 1) == 0) {
+                            if ((enc >> 15 & 1) == 0) {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xfff00000) == 0xd5300000)
+                                            return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc & 0xfff80000) == 0xd5280000)
+                                            return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
+                                    }
+                                } else {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xbfffe000) == 0x0d200000)
+                                            return decode_opndsgen_0d200000(enc, dc, pc, instr, OP_st2);
+                                        if ((enc & 0xbfe0e000) == 0x0da00000)
+                                            return decode_opndsgen_0da00000(enc, dc, pc, instr, OP_st2);
+                                    } else {
+                                        if ((enc & 0xbfffe400) == 0x0d204000)
+                                            return decode_opndsgen_0d204000(enc, dc, pc, instr, OP_st2);
+                                        if ((enc & 0xbfe0e400) == 0x0da04000)
+                                            return decode_opndsgen_0da04000(enc, dc, pc, instr, OP_st2);
+                                    }
+                                }
+                            } else {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xfff00000) == 0xd5300000)
+                                            return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc & 0xfff80000) == 0xd5280000)
+                                            return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
+                                    }
+                                } else {
+                                    if ((enc >> 10 & 1) == 0) {
+                                        if ((enc & 0xbfffec00) == 0x0d208000)
+                                            return decode_opndsgen_0d208000(enc, dc, pc, instr, OP_st2);
+                                        if ((enc & 0xbfe0ec00) == 0x0da08000)
+                                            return decode_opndsgen_0da08000(enc, dc, pc, instr, OP_st2);
+                                    } else {
+                                        if ((enc & 0xbffffc00) == 0x0d208400)
+                                            return decode_opndsgen_0d208400(enc, dc, pc, instr, OP_st2);
+                                        if ((enc & 0xbfe0fc00) == 0x0da08400)
+                                            return decode_opndsgen_0da08400(enc, dc, pc, instr, OP_st2);
+                                    }
+                                }
+                            }
+                        } else {
+                            if ((enc >> 15 & 1) == 0) {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xfff00000) == 0xd5300000)
+                                            return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc & 0xfff80000) == 0xd5280000)
+                                            return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
+                                    }
+                                } else {
+                                    if ((enc >> 14 & 1) == 0) {
+                                        if ((enc & 0xbfffe000) == 0x0d202000)
+                                            return decode_opndsgen_0d202000(enc, dc, pc, instr, OP_st4);
+                                        if ((enc & 0xbfe0e000) == 0x0da02000)
+                                            return decode_opndsgen_0da02000(enc, dc, pc, instr, OP_st4);
+                                    } else {
+                                        if ((enc & 0xbfffe400) == 0x0d206000)
+                                            return decode_opndsgen_0d206000(enc, dc, pc, instr, OP_st4);
+                                        if ((enc & 0xbfe0e400) == 0x0da06000)
+                                            return decode_opndsgen_0da06000(enc, dc, pc, instr, OP_st4);
+                                    }
+                                }
+                            } else {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xfff00000) == 0xd5300000)
+                                            return decode_opndsgen_d5300000(enc, dc, pc, instr, OP_mrs);
+                                        if ((enc & 0xfff80000) == 0xd5280000)
+                                            return decode_opndsgen_d5280000(enc, dc, pc, instr, OP_sys);
+                                    }
+                                } else {
+                                    if ((enc >> 10 & 1) == 0) {
+                                        if ((enc & 0xbfffec00) == 0x0d20a000)
+                                            return decode_opndsgen_0d20a000(enc, dc, pc, instr, OP_st4);
+                                        if ((enc & 0xbfe0ec00) == 0x0da0a000)
+                                            return decode_opndsgen_0da0a000(enc, dc, pc, instr, OP_st4);
+                                    } else {
+                                        if ((enc & 0xbffffc00) == 0x0d20a400)
+                                            return decode_opndsgen_0d20a400(enc, dc, pc, instr, OP_st4);
+                                        if ((enc & 0xbfe0fc00) == 0x0da0a400)
+                                            return decode_opndsgen_0da0a400(enc, dc, pc, instr, OP_st4);
                                     }
                                 }
                             }
@@ -7704,43 +7722,50 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                     }
                 }
             } else {
-                if ((enc >> 13 & 1) == 0) {
-                    if ((enc >> 14 & 1) == 0) {
+                if ((enc >> 14 & 1) == 0) {
+                    if ((enc >> 13 & 1) == 0) {
                         if ((enc >> 24 & 1) == 0) {
-                            if ((enc >> 27 & 1) == 0) {
-                                if ((enc >> 30 & 1) == 0) {
-                                    if ((enc & 0xfc000000) == 0x14000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                    if ((enc & 0xfc000000) == 0x94000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                            if ((enc >> 28 & 1) == 0) {
+                                if ((enc >> 15 & 1) == 0) {
+                                    if ((enc & 0xbffff000) == 0x0c400000)
+                                        return decode_opndsgen_0c400000(enc, dc, pc, instr, OP_ld4);
+                                    if ((enc & 0xffe0f000) == 0x0cc00000)
+                                        return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld4);
+                                    if ((enc & 0xffe0f000) == 0x4cc00000)
+                                        return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld4);
                                 } else {
-                                    if ((enc & 0xff000010) == 0x54000000)
-                                        return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                    if ((enc & 0xffe0001f) == 0xd4400000)
-                                        return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hlt);
-                                    if ((enc & 0xfffffc1f) == 0xd65f0000)
-                                        return decode_opndsgen_d61f0000(enc, dc, pc, instr, OP_ret);
+                                    if ((enc & 0xbffff000) == 0x0c408000)
+                                        return decode_opndsgen_0c408000(enc, dc, pc, instr, OP_ld2);
+                                    if ((enc & 0xffe0f000) == 0x0cc08000)
+                                        return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld2);
+                                    if ((enc & 0xffe0f000) == 0x4cc08000)
+                                        return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld2);
                                 }
                             } else {
-                                if ((enc >> 28 & 1) == 0) {
-                                    if ((enc >> 15 & 1) == 0) {
-                                        if ((enc & 0xbffff000) == 0x0c400000)
-                                            return decode_opndsgen_0c400000(enc, dc, pc, instr, OP_ld4);
-                                        if ((enc & 0xbfe0f000) == 0x0cc00000)
-                                            return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld4);
+                                if ((enc >> 30 & 1) == 0) {
+                                    if ((enc >> 27 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
                                     } else {
-                                        if ((enc & 0xbffff000) == 0x0c408000)
-                                            return decode_opndsgen_0c408000(enc, dc, pc, instr, OP_ld2);
-                                        if ((enc & 0xbfe0f000) == 0x0cc08000)
-                                            return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld2);
+                                        if ((enc & 0xff000000) == 0x1c000000)
+                                            return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
+                                        if ((enc & 0xff000000) == 0x9c000000)
+                                            return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
                                     }
                                 } else {
-                                    if ((enc & 0xff000000) == 0x1c000000)
-                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
-                                    if ((enc & 0xff000000) == 0x5c000000)
-                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                    if ((enc & 0xff000000) == 0x9c000000)
-                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc >> 31 & 1) == 0) {
+                                        if ((enc & 0xff000010) == 0x54000000)
+                                            return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
+                                        if ((enc & 0xff000000) == 0x5c000000)
+                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    } else {
+                                        if ((enc & 0xffe0001f) == 0xd4400000)
+                                            return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hlt);
+                                        if ((enc & 0xfffffc1f) == 0xd65f0000)
+                                            return decode_opndsgen_d61f0000(enc, dc, pc, instr, OP_ret);
+                                    }
                                 }
                             }
                         } else {
@@ -7807,8 +7832,24 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                             }
                         }
                     } else {
-                        if ((enc >> 21 & 1) == 0) {
-                            if ((enc >> 24 & 1) == 0) {
+                        if ((enc >> 24 & 1) == 0) {
+                            if ((enc >> 28 & 1) == 0) {
+                                if ((enc >> 15 & 1) == 0) {
+                                    if ((enc & 0xbffff000) == 0x0c402000)
+                                        return decode_opndsgen_0c400000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x0cc02000)
+                                        return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x4cc02000)
+                                        return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld1);
+                                } else {
+                                    if ((enc & 0xbffff000) == 0x0c40a000)
+                                        return decode_opndsgen_0c408000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x0cc0a000)
+                                        return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x4cc0a000)
+                                        return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld1);
+                                }
+                            } else {
                                 if ((enc >> 27 & 1) == 0) {
                                     if ((enc >> 30 & 1) == 0) {
                                         if ((enc & 0xfc000000) == 0x14000000)
@@ -7820,137 +7861,6 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                             return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
                                         if ((enc & 0xffe0001f) == 0xd4400000)
                                             return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hlt);
-                                    }
-                                } else {
-                                    if ((enc >> 28 & 1) == 0) {
-                                        if ((enc & 0xbffff000) == 0x0c404000)
-                                            return decode_opndsgen_0c404000(enc, dc, pc, instr, OP_ld3);
-                                        if ((enc & 0xbfe0f000) == 0x0cc04000)
-                                            return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld3);
-                                    } else {
-                                        if ((enc & 0xff000000) == 0x1c000000)
-                                            return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
-                                        if ((enc & 0xff000000) == 0x5c000000)
-                                            return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                        if ((enc & 0xff000000) == 0x9c000000)
-                                            return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
-                                    }
-                                }
-                            } else {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc >> 15 & 1) == 0) {
-                                        if ((enc >> 27 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xbfffe400) == 0x0d404000)
-                                                return decode_opndsgen_0d404000(enc, dc, pc, instr, OP_ld1);
-                                            if ((enc & 0xbfe0e400) == 0x0dc04000)
-                                                return decode_opndsgen_0dc04000(enc, dc, pc, instr, OP_ld1);
-                                        }
-                                    } else {
-                                        if ((enc >> 27 & 1) == 0) {
-                                            if ((enc & 0xfc000000) == 0x14000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                            if ((enc & 0xfc000000) == 0x94000000)
-                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                        } else {
-                                            if ((enc & 0xbffff000) == 0x0d40c000)
-                                                return decode_opndsgen_0d40c000(enc, dc, pc, instr, OP_ld1r);
-                                            if ((enc & 0xbfe0fc00) == 0x0dc0c000)
-                                                return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
-                                            if ((enc & 0xbfe0fc00) == 0x0dc0c800)
-                                                return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
-                                        }
-                                    }
-                                } else {
-                                    if ((enc >> 27 & 1) == 0) {
-                                        if ((enc & 0xfc000000) == 0x14000000)
-                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                        if ((enc & 0xfc000000) == 0x94000000)
-                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                    } else {
-                                        if ((enc & 0xbffff000) == 0x0d40c000)
-                                            return decode_opndsgen_0d40c000(enc, dc, pc, instr, OP_ld1r);
-                                        if ((enc & 0xbfe0fc00) == 0x0dc0c400)
-                                            return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
-                                        if ((enc & 0xbfe0fc00) == 0x0dc0cc00)
-                                            return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
-                                    }
-                                }
-                            }
-                        } else {
-                            if ((enc >> 28 & 1) == 0) {
-                                if ((enc >> 10 & 1) == 0) {
-                                    if ((enc >> 15 & 1) == 0) {
-                                        if ((enc & 0xbfffe400) == 0x0d604000)
-                                            return decode_opndsgen_0d604000(enc, dc, pc, instr, OP_ld2);
-                                        if ((enc & 0xbfe0e400) == 0x0de04000)
-                                            return decode_opndsgen_0de04000(enc, dc, pc, instr, OP_ld2);
-                                    } else {
-                                        if ((enc & 0xbffff000) == 0x0d60c000)
-                                            return decode_opndsgen_0d60c000(enc, dc, pc, instr, OP_ld2r);
-                                        if ((enc & 0xbfe0fc00) == 0x0de0c000)
-                                            return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
-                                        if ((enc & 0xbfe0fc00) == 0x0de0c800)
-                                            return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
-                                    }
-                                } else {
-                                    if ((enc & 0xbffff000) == 0x0d60c000)
-                                        return decode_opndsgen_0d60c000(enc, dc, pc, instr, OP_ld2r);
-                                    if ((enc & 0xbfe0fc00) == 0x0de0c400)
-                                        return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
-                                    if ((enc & 0xbfe0fc00) == 0x0de0cc00)
-                                        return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
-                                }
-                            } else {
-                                if ((enc >> 27 & 1) == 0) {
-                                    if ((enc & 0xfc000000) == 0x14000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                    if ((enc & 0xff000010) == 0x54000000)
-                                        return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                    if ((enc & 0xfc000000) == 0x94000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                } else {
-                                    if ((enc & 0xff000000) == 0x1c000000)
-                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
-                                    if ((enc & 0xff000000) == 0x5c000000)
-                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
-                                    if ((enc & 0xff000000) == 0x9c000000)
-                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if ((enc >> 14 & 1) == 0) {
-                        if ((enc >> 24 & 1) == 0) {
-                            if ((enc >> 27 & 1) == 0) {
-                                if ((enc >> 30 & 1) == 0) {
-                                    if ((enc & 0xfc000000) == 0x14000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_b);
-                                    if ((enc & 0xfc000000) == 0x94000000)
-                                        return decode_opnds_b(enc, dc, pc, instr, OP_bl);
-                                } else {
-                                    if ((enc & 0xff000010) == 0x54000000)
-                                        return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
-                                    if ((enc & 0xffe0001f) == 0xd4400000)
-                                        return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hlt);
-                                }
-                            } else {
-                                if ((enc >> 28 & 1) == 0) {
-                                    if ((enc >> 15 & 1) == 0) {
-                                        if ((enc & 0xbffff000) == 0x0c402000)
-                                            return decode_opndsgen_0c400000(enc, dc, pc, instr, OP_ld1);
-                                        if ((enc & 0xbfe0f000) == 0x0cc02000)
-                                            return decode_opndsgen_0cc00000(enc, dc, pc, instr, OP_ld1);
-                                    } else {
-                                        if ((enc & 0xbffff000) == 0x0c40a000)
-                                            return decode_opndsgen_0c408000(enc, dc, pc, instr, OP_ld1);
-                                        if ((enc & 0xbfe0f000) == 0x0cc0a000)
-                                            return decode_opndsgen_0cc08000(enc, dc, pc, instr, OP_ld1);
                                     }
                                 } else {
                                     if ((enc & 0xff000000) == 0x1c000000)
@@ -8024,7 +7934,9 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                 }
                             }
                         }
-                    } else {
+                    }
+                } else {
+                    if ((enc >> 13 & 1) == 0) {
                         if ((enc >> 24 & 1) == 0) {
                             if ((enc >> 27 & 1) == 0) {
                                 if ((enc >> 30 & 1) == 0) {
@@ -8040,16 +7952,142 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                                 }
                             } else {
                                 if ((enc >> 28 & 1) == 0) {
-                                    if ((enc >> 12 & 1) == 0) {
-                                        if ((enc & 0xbffff000) == 0x0c406000)
-                                            return decode_opndsgen_0c404000(enc, dc, pc, instr, OP_ld1);
-                                        if ((enc & 0xbfe0f000) == 0x0cc06000)
-                                            return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xbffff000) == 0x0c404000)
+                                        return decode_opndsgen_0c404000(enc, dc, pc, instr, OP_ld3);
+                                    if ((enc & 0xffe0f000) == 0x0cc04000)
+                                        return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld3);
+                                    if ((enc & 0xffe0f000) == 0x4cc04000)
+                                        return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld3);
+                                } else {
+                                    if ((enc & 0xff000000) == 0x1c000000)
+                                        return decode_opndsgen_1c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x5c000000)
+                                        return decode_opndsgen_5c000000(enc, dc, pc, instr, OP_ldr);
+                                    if ((enc & 0xff000000) == 0x9c000000)
+                                        return decode_opndsgen_9c000000(enc, dc, pc, instr, OP_ldr);
+                                }
+                            }
+                        } else {
+                            if ((enc >> 21 & 1) == 0) {
+                                if ((enc >> 10 & 1) == 0) {
+                                    if ((enc >> 15 & 1) == 0) {
+                                        if ((enc >> 27 & 1) == 0) {
+                                            if ((enc & 0xfc000000) == 0x14000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                            if ((enc & 0xfc000000) == 0x94000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                        } else {
+                                            if ((enc & 0xbfffe400) == 0x0d404000)
+                                                return decode_opndsgen_0d404000(enc, dc, pc, instr, OP_ld1);
+                                            if ((enc & 0xbfe0e400) == 0x0dc04000)
+                                                return decode_opndsgen_0dc04000(enc, dc, pc, instr, OP_ld1);
+                                        }
                                     } else {
-                                        if ((enc & 0xbffff000) == 0x0c407000)
-                                            return decode_opndsgen_0c407000(enc, dc, pc, instr, OP_ld1);
-                                        if ((enc & 0xbfe0f000) == 0x0cc07000)
-                                            return decode_opndsgen_0cc07000(enc, dc, pc, instr, OP_ld1);
+                                        if ((enc >> 27 & 1) == 0) {
+                                            if ((enc & 0xfc000000) == 0x14000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                            if ((enc & 0xfc000000) == 0x94000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                        } else {
+                                            if ((enc & 0xbffff000) == 0x0d40c000)
+                                                return decode_opndsgen_0d40c000(enc, dc, pc, instr, OP_ld1r);
+                                            if ((enc & 0xbfe0fc00) == 0x0dc0c000)
+                                                return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
+                                            if ((enc & 0xbfe0fc00) == 0x0dc0c800)
+                                                return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
+                                        }
+                                    }
+                                } else {
+                                    if ((enc >> 27 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xbffff000) == 0x0d40c000)
+                                            return decode_opndsgen_0d40c000(enc, dc, pc, instr, OP_ld1r);
+                                        if ((enc & 0xbfe0fc00) == 0x0dc0c400)
+                                            return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
+                                        if ((enc & 0xbfe0fc00) == 0x0dc0cc00)
+                                            return decode_opndsgen_0dc0c000(enc, dc, pc, instr, OP_ld1r);
+                                    }
+                                }
+                            } else {
+                                if ((enc >> 10 & 1) == 0) {
+                                    if ((enc >> 15 & 1) == 0) {
+                                        if ((enc >> 27 & 1) == 0) {
+                                            if ((enc & 0xfc000000) == 0x14000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                            if ((enc & 0xfc000000) == 0x94000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                        } else {
+                                            if ((enc & 0xbfffe400) == 0x0d604000)
+                                                return decode_opndsgen_0d604000(enc, dc, pc, instr, OP_ld2);
+                                            if ((enc & 0xbfe0e400) == 0x0de04000)
+                                                return decode_opndsgen_0de04000(enc, dc, pc, instr, OP_ld2);
+                                        }
+                                    } else {
+                                        if ((enc >> 27 & 1) == 0) {
+                                            if ((enc & 0xfc000000) == 0x14000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                            if ((enc & 0xfc000000) == 0x94000000)
+                                                return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                        } else {
+                                            if ((enc & 0xbffff000) == 0x0d60c000)
+                                                return decode_opndsgen_0d60c000(enc, dc, pc, instr, OP_ld2r);
+                                            if ((enc & 0xbfe0fc00) == 0x0de0c000)
+                                                return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
+                                            if ((enc & 0xbfe0fc00) == 0x0de0c800)
+                                                return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
+                                        }
+                                    }
+                                } else {
+                                    if ((enc >> 27 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xbffff000) == 0x0d60c000)
+                                            return decode_opndsgen_0d60c000(enc, dc, pc, instr, OP_ld2r);
+                                        if ((enc & 0xbfe0fc00) == 0x0de0c400)
+                                            return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
+                                        if ((enc & 0xbfe0fc00) == 0x0de0cc00)
+                                            return decode_opndsgen_0de0c000(enc, dc, pc, instr, OP_ld2r);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if ((enc >> 24 & 1) == 0) {
+                            if ((enc >> 28 & 1) == 0) {
+                                if ((enc >> 12 & 1) == 0) {
+                                    if ((enc & 0xbffff000) == 0x0c406000)
+                                        return decode_opndsgen_0c404000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x0cc06000)
+                                        return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x4cc06000)
+                                        return decode_opndsgen_0cc04000(enc, dc, pc, instr, OP_ld1);
+                                } else {
+                                    if ((enc & 0xbffff000) == 0x0c407000)
+                                        return decode_opndsgen_0c407000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x0cc07000)
+                                        return decode_opndsgen_0cc07000(enc, dc, pc, instr, OP_ld1);
+                                    if ((enc & 0xffe0f000) == 0x4cc07000)
+                                        return decode_opndsgen_0cc07000(enc, dc, pc, instr, OP_ld1);
+                                }
+                            } else {
+                                if ((enc >> 27 & 1) == 0) {
+                                    if ((enc >> 30 & 1) == 0) {
+                                        if ((enc & 0xfc000000) == 0x14000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_b);
+                                        if ((enc & 0xfc000000) == 0x94000000)
+                                            return decode_opnds_b(enc, dc, pc, instr, OP_bl);
+                                    } else {
+                                        if ((enc & 0xff000010) == 0x54000000)
+                                            return decode_opnds_bcond(enc, dc, pc, instr, OP_bcond);
+                                        if ((enc & 0xffe0001f) == 0xd4400000)
+                                            return decode_opndsgen_d4000001(enc, dc, pc, instr, OP_hlt);
                                     }
                                 } else {
                                     if ((enc & 0xff000000) == 0x1c000000)

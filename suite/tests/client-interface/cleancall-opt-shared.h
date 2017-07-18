@@ -460,6 +460,12 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
 
     /* Function-specific checks. */
     switch (func_index) {
+    case FN_bbcount:
+        if (global_count != 1) {
+            dr_fprintf(STDERR, "global_count not updated properly after bbcount!\n");
+            dump_cc_code(dc, start_inline, end_inline, func_index);
+        }
+        break;
     case FN_inscount:
     case FN_compiler_inscount:
         if (global_count != 0xDEAD) {
@@ -714,6 +720,48 @@ codegen_inscount(void *dc)
                                  scratch2));
 #else
 # error NYI
+#endif
+    codegen_epilogue(dc, ilist);
+    return ilist;
+}
+
+/*
+X86
+  bbcount:
+      push REG_XBP
+      mov REG_XBP, REG_XSP
+      inc [global_count]
+      leave
+      ret
+
+AArch64
+   bbcount:
+     x0 and x1 are used as scratch registers
+     mov &global_count to x0 using a series of movz and movk instructions
+     ldr x1, [x0]
+     add x1, x1, #1
+     str [x0], x1
+
+*/
+static instrlist_t *
+codegen_bbcount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+#ifndef X86
+    reg_t reg1 = DR_REG_X0;
+    reg_t reg2 = DR_REG_X1;
+#endif
+
+    codegen_prologue(dc, ilist);
+#ifdef X86
+    APP(ilist, INSTR_CREATE_inc(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR)));
+#else
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_int_t)&global_count, opnd_create_reg(reg1),
+                                     ilist, NULL, NULL, NULL);
+    APP(ilist, XINST_CREATE_load(dc, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
+    APP(ilist, XINST_CREATE_add(dc, opnd_create_reg(reg2), OPND_CREATE_INT(1)));
+    APP(ilist, XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(reg1, 0),
+                                  opnd_create_reg(reg2)));
 #endif
     codegen_epilogue(dc, ilist);
     return ilist;

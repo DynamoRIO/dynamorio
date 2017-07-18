@@ -218,12 +218,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     instrument_instr(drcontext, bb, instr);
 
     /* insert code once per bb to call clean_call for processing the buffer */
-    if (drmgr_is_first_instr(drcontext, instr) &&
-        /* XXX i#1702:  We cannot insert a clean call inside an IT block.
-         * It is ok to skip a few clean calls on predicated instructions,
-         * since the buffer will be dumped later by other clean calls.
-         */
-        IF_ARM_ELSE(!instr_is_predicated(instr), true)
+    if (drmgr_is_first_instr(drcontext, instr)
         /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * We're relying a bit on the typical code sequence with either ldrex..strex
