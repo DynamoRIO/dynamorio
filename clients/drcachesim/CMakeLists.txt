@@ -337,7 +337,7 @@ if (BUILD_TESTS)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
 
     if (UNIX)
-      if (NOT APPLE)
+      if (X86 AND NOT APPLE) # This test is x86-specific.
         # uses ptrace and looks for linux-specific syscalls
         add_executable(tool.drcacheoff.raw2trace_io tests/raw2trace_io.cpp
           tracer/instru.cpp
