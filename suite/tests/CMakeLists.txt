@@ -2564,7 +2564,7 @@ if (CLIENT_INTERFACE)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
-          if (NOT APPPLE)
+          if (X86 AND NOT APPPLE) # This test is x86-specific.
             # Test that raw2trace doesn't do more IO than it should.
             get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io)
             prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})

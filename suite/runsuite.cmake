@@ -311,6 +311,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF OFF "")
   testbuild_ex("arm-release-external-32" OFF "
@@ -321,6 +322,7 @@ if (UNIX AND ARCH_IS_X86)
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
     " OFF OFF "")
   testbuild_ex("arm-release-external-64" ON "
