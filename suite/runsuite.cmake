@@ -304,7 +304,11 @@ endif (NOT cross_only)
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
   # compilers are on the PATH.
-  set(optional_cross_compile ON)
+  if (NOT cross_only)
+    # For Travis cross_only builds, we want to fail on config failures.
+    # For user suite runs, we want to just skip if there's no cross setup.
+    set(optional_cross_compile ON)
+  endif ()
   set(ARCH_IS_X86 OFF)
   set(ENV{CFLAGS} "") # environment vars do not obey the normal scope rules--must reset
   set(ENV{CXXFLAGS} "")
