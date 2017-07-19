@@ -221,6 +221,8 @@ DR_API
  * - A system call or interrupt instruction can only be added
  * if it satisfies the above constraints: i.e., if it is the final
  * instruction in the block and the only system call or interrupt.
+ * - Any AArch64 #OP_isb instruction must be the last instruction
+ * in its block.
  * - All IT blocks must be legal.  For example, application instructions
  * inside an IT block cannot be removed or added to without also
  * updating the OP_it instruction itself.  Clients can use
