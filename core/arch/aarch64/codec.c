@@ -1128,12 +1128,16 @@ encode_opnd_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_imm6(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+    if (!TEST(1U << 31, enc) && TEST(1U << 15, enc))
+        return false;
     return decode_opnd_int(10, 6, false, 0, OPSZ_6b, 0, enc, opnd);
 }
 
 static inline bool
 encode_opnd_imm6(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+    if (!TEST(1U << 31, enc) && TEST(1U << 15, enc))
+        return false;
     return encode_opnd_int(10, 6, false, 0, 0, opnd, enc_out);
 }
 
@@ -1518,8 +1522,8 @@ decode_opnd_memvr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_memvr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    int bytes, regcount;
-    uint rn;
+    int regcount;
+    uint bytes, rn;
     if (!is_base_imm(opnd, &rn) || opnd_get_disp(opnd) != 0)
         return false;
     bytes = opnd_size_in_bytes(opnd_get_size(opnd));
@@ -1532,28 +1536,6 @@ encode_opnd_memvr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return false;
     *enc_out = (rn << 5 |
              (bytes == 1 ? 0 : bytes == 2 ? 1 : bytes == 4 ? 2 : 3) << 10);
-    return true;
-}
-
-/* memvrpost: post-indexed memvr */
-
-static inline bool
-decode_opnd_memvrpost(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    int bytes = memvr_regcount(enc) << extract_uint(enc, 10, 2);
-    *opnd = create_base_imm(enc, 0, bytes);
-    return true;
-}
-
-static inline bool
-encode_opnd_memvrpost(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    int bytes = memvr_regcount(enc) << extract_uint(enc, 10, 2);
-    uint rn;
-    if (!is_base_imm(opnd, &rn) || opnd_get_disp(opnd) != 0 ||
-        opnd_get_size(opnd) != opnd_size_from_bytes(bytes))
-        return false;
-    *enc_out = rn << 5;
     return true;
 }
 
