@@ -80,26 +80,26 @@ def generate_decoder(patterns, opndsettab, opndtab):
                 c += ['    opnd_t ' + ', '.join(vars) + ';']
                 c += ['    if (' + ' ||\n        '.join(tests) + ')']
                 c += ['        return false;']
-            c += ['    instr_set_opcode(instr, opcode);',
-                  '    instr_set_num_opnds(dcontext, instr, %d, %d);' %
-                  (len(dsts), len(srcs))]
-            c += ['    instr_set_dst(instr, %d, dst%d);' % (i, i)
-                  for i in range(len(dsts))]
-            c += ['    instr_set_src(instr, %d, src%d);' % (i, i)
-                  for i in range(len(srcs))]
-            c += ['    return true;',
-                  '}',
-                  '']
+            c.append('    instr_set_opcode(instr, opcode);')
+            c.append('    instr_set_num_opnds(dcontext, instr, %d, %d);' %
+                     (len(dsts), len(srcs)))
+            for i in range(len(dsts)):
+                c.append('    instr_set_dst(instr, %d, dst%d);' % (i, i))
+            for i in range(len(srcs)):
+                c.append('    instr_set_src(instr, %d, src%d);' % (i, i))
+            c.append('    return true;')
+            c.append('}')
+            c.append('')
 
     # Recursive function to generate nested conditionals in main decoder.
     def gen(c, pats, depth):
         indent = "    " * depth
         if len(pats) < 4:
             for (f, v, m, t) in sorted(pats, key = lambda (f, v, m, t): (m, t, f, v)):
-                c += ['%sif ((enc & 0x%08x) == 0x%08x)' %
-                      (indent, ((1 << N) - 1) & ~v, f),
-                      '%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
-                      (indent, t, m)]
+                c.append('%sif ((enc & 0x%08x) == 0x%08x)' %
+                         (indent, ((1 << N) - 1) & ~v, f))
+                c.append('%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
+                         (indent, t, m))
             return
         # Look for best bit to test. We aim to reduce the number of patterns remaining.
         best_b = -1
@@ -116,19 +116,19 @@ def generate_decoder(patterns, opndsettab, opndtab):
             if x < best_x:
                 best_b = b
                 best_x = x
-        c += ['%sif ((enc >> %d & 1) == 0) {' % (indent, best_b)]
+        c.append('%sif ((enc >> %d & 1) == 0) {' % (indent, best_b))
         pats0 = []
         pats1 = []
         for p in pats:
             (f, v, _, _) = p
             if (1 << best_b) & (~f | v):
-                pats0 += [p]
+                pats0.append(p)
             if (1 << best_b) & (f | v):
-                pats1 += [p]
+                pats1.append(p)
         gen(c, pats0, depth + 1)
-        c += ['%s} else {' % indent]
+        c.append('%s} else {' % indent)
         gen(c, pats1, depth + 1)
-        c += ['%s}' % indent]
+        c.append('%s}' % indent)
 
     c = []
     generate_opndset_decoders(c, opndsettab)
@@ -136,8 +136,8 @@ def generate_decoder(patterns, opndsettab, opndtab):
           'decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)',
           '{']
     gen(c, patterns, 1)
-    c += ['    return false;',
-          '}']
+    c.append('    return false;')
+    c.append('}')
     return '\n'.join(c) + '\n'
 
 def find_required(fixed, reordered, i, opndtab):
@@ -172,7 +172,7 @@ def generate_encoder(patterns, opndsettab, opndtab):
               ('encode_opnds%s' % name) + '(byte *pc, instr_t *instr, uint enc)',
               '{']
         if dsts + srcs == []:
-            c += ['    return enc;']
+            c.append('    return enc;')
         else:
             vars = (['dst%d' % i for i in range(len(dsts))] +
                     ['src%d' % i for i in range(len(srcs))])
@@ -198,14 +198,14 @@ def generate_encoder(patterns, opndsettab, opndtab):
             c += ['            return enc;']
             c += ['    }']
             c += ['    return ENCFAIL;']
-        c += ['}',
-              '']
+        c.append('}')
+        c.append('')
     case = dict()
     for p in patterns:
         (b, m, mn, f) = p
         if not mn in case:
             case[mn] = []
-        case[mn] += [p]
+        case[mn].append(p)
     c += ['static uint',
           'encoder(byte *pc, instr_t *instr)',
           '{',
@@ -213,16 +213,16 @@ def generate_encoder(patterns, opndsettab, opndtab):
           '    (void)enc;',
           '    switch (instr->opcode) {']
     for mn in sorted(case):
-        c += ['    case OP_%s:' % mn]
+        c.append('    case OP_%s:' % mn)
         pats = sorted(case[mn], key = lambda (b, m, mn, f): (mn, f, b, m))
         pat1 = pats.pop()
         for p in pats:
             (b, m, mn, f) = p
-            c += ['        enc = encode_opnds%s(pc, instr, 0x%08x);' % (f, b),
-                  '        if (enc != ENCFAIL)',
-                  '            return enc;']
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
+            c.append('        if (enc != ENCFAIL)')
+            c.append('            return enc;')
         (b, m, mn, f) = pat1
-        c += ['        return encode_opnds%s(pc, instr, 0x%08x);' % (f, b)]
+        c.append('        return encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
     c += ['    }',
           '    return ENCFAIL;',
           '}']
@@ -256,7 +256,7 @@ def generate_opcodes(patterns):
     for mn in sorted(mns):
         t = '/*%4d */     OP_%s,' % (i, mn)
         t += ' ' * max(0, 34 - len(t))
-        c += [t + '/**< AArch64 %s opcode.*/' % mn]
+        c.append(t + '/**< AArch64 %s opcode.*/' % mn)
         i += 1
     c += ['',
           '    OP_ldstex, /* single-entry single-exit block with exclusive load/store */',
@@ -298,7 +298,7 @@ def generate_opcode_names(patterns):
          '/*   3 */ "<label>",']
     i = 4
     for mn in sorted(mns):
-        c += ['/*%4d */ "%s",' % (i, mn)]
+        c.append('/*%4d */ "%s",' % (i, mn))
         i += 1
     c += ['          "ldstex",',
           '          "xx",',
