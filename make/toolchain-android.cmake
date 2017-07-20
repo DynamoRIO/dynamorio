@@ -47,7 +47,9 @@ set(CMAKE_SYSTEM_VERSION 1)
 if (NOT DEFINED TARGET_ABI)
   set(TARGET_ABI "arm-linux-androideabi")
 endif ()
-set(CMAKE_SYSTEM_PROCESSOR arm)
+if (TARGET_ABI MATCHES "^arm")
+  set(CMAKE_SYSTEM_PROCESSOR arm)
+endif ()
 
 # specify the cross compiler
 if (NOT DEFINED ANDROID_TOOLCHAIN)

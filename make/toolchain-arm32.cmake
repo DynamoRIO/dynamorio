@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,7 @@ SET(CMAKE_CXX_COMPILER arm-${TARGET_ABI}-g++)
 # To build the tests, we need to set where the target environment containing
 # the required library is. On Debian-like systems, this is
 # /usr/arm-linux-gnueabihf/.
-SET(CMAKE_FIND_ROOT_PATH "/usr/arm-linux-gnueabihf")
+SET(CMAKE_FIND_ROOT_PATH "/usr/arm-${TARGET_ABI}")
 # search for programs in the build host directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 # for libraries and headers in the target directories
