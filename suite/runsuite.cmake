@@ -339,6 +339,8 @@ if (UNIX AND ARCH_IS_X86)
   set(run_tests ${prev_run_tests})
 
   # Android cross-compilation and running of tests using "adb shell"
+  # FIXME i#2207: once we have Android cross-compilation working on Travis, remove this:
+  set(optional_cross_compile ON)
   find_program(ADB adb DOC "adb Android utility")
   if (ADB)
     execute_process(COMMAND ${ADB} get-state
