@@ -97,7 +97,7 @@ install:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ONLY == yes ]]; then
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
-      linux-libc-dev-arm64-cross linux-libc-dev-armhf-cross; fi
+      linux-libc-dev-arm64-cross linux-libc-dev-armhf-cross gcc-arm-linux-androideabi; fi
 
 script:
   - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
