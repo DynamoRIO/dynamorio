@@ -319,7 +319,7 @@ if (UNIX AND ARCH_IS_X86)
   set(ENV{CXXFLAGS} "")
   set(prev_run_tests ${run_tests})
   set(run_tests OFF) # build tests but don't run them
-  if (not cross_android_only)
+  if (NOT cross_android_only)
       testbuild_ex("arm-debug-internal-32" OFF "
         DEBUG:BOOL=ON
         INTERNAL:BOOL=ON
