@@ -1,0 +1,5 @@
+\[drmemtrace\]: Reading module file from memory
+open|close
+\[drmemtrace\]: Successfully read [0-9]+ modules
+\[drmemtrace\]: Successfully converted [0-9]+ thread files
+Processed
