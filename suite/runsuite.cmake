@@ -308,6 +308,7 @@ endif (NOT cross_only AND NOT cross_android_only)
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
   # compilers are on the PATH.
+  set(prev_optional_cross_compile ${optional_cross_compile})
   if (NOT cross_only)
     # For Travis cross_only builds, we want to fail on config failures.
     # For user suite runs, we want to just skip if there's no cross setup.
@@ -343,13 +344,9 @@ if (UNIX AND ARCH_IS_X86)
         " OFF OFF "")
   endif (NOT cross_android_only)
   set(run_tests ${prev_run_tests})
+  set(optional_cross_compile ${prev_optional_cross_compile})
 
   # Android cross-compilation and running of tests using "adb shell"
-  # For Travis cross_android_only builds, we want to fail on config failures.
-  # For user suite runs, we want to just skip if there's no cross setup.
-  if (NOT cross_android_only)
-      set(optional_cross_compile ON)
-  endif ()
   find_program(ADB adb DOC "adb Android utility")
   if (ADB)
     execute_process(COMMAND ${ADB} get-state
@@ -376,12 +373,18 @@ if (UNIX AND ARCH_IS_X86)
   endif ()
 
   # Pass through toolchain file.
-  if(DEFINED ENV{DYNAMORIO_ANDROID_TOOLCHAIN})
+  if (DEFINED ENV{DYNAMORIO_ANDROID_TOOLCHAIN})
     set(android_extra_dbg "${android_extra_dbg}
                            ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
     set(android_extra_rel "${android_extra_dbg}
                            ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   endif()
+
+  # For Travis cross_android_only builds, we want to fail on config failures.
+  # For user suite runs, we want to just skip if there's no cross setup.
+  if (NOT cross_android_only)
+      set(optional_cross_compile ON)
+  endif ()
 
   testbuild_ex("android-debug-internal-32" OFF "
     DEBUG:BOOL=ON
@@ -398,7 +401,7 @@ if (UNIX AND ARCH_IS_X86)
     " OFF OFF "")
   set(run_tests ${prev_run_tests})
 
-  set(optional_cross_compile OFF)
+  set(optional_cross_compile ${prev_optional_cross_compile})
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
 
