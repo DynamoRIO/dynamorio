@@ -104,6 +104,7 @@ install:
   # Fetch and install Android NDK for Andoid cross-compile build only.
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ANDROID_ONLY == yes ]]; then
+          cd /tmp
           wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
           unzip -q android-ndk-r10e-linux-x86_64.zip
           android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
@@ -114,6 +115,7 @@ install:
           rm /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
           ln -s /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld.bfd \
                 /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+          cd -
       fi
 
 
