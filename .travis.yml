@@ -112,9 +112,8 @@ install:
               --platform=android-21 \
               --install-dir=/tmp/android-gcc-arm-ndk-10e
           # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
-          rm /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
-          ln -s /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld.bfd \
-                /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+          ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+          ln -sf arm-linux-androideabi-ld.bfd /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
           cd -
       fi
 
