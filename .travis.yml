@@ -63,7 +63,7 @@ env:
   # With or without cross-compiling:
   - DYNAMORIO_CROSS_ONLY=yes
   # Cross-compile for Android only.
-  - DYNAMORIO_CROSS_ANDROID_ONLY=yes EXTRA_ARGS='-DANDROID_TOOLCHAIN=/tmp/android-gcc-arm-ndk-10e'
+  - DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
   # We run 32-bit and 64-bit in parallel to speed things up.
   - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=32_only
   - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
@@ -83,7 +83,7 @@ matrix:
     - compiler: clang
       env: DYNAMORIO_CROSS_ONLY=yes
     - compiler: clang
-      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes EXTRA_ARGS='-DANDROID_TOOLCHAIN=/tmp/android-gcc-arm-ndk-10e'
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:

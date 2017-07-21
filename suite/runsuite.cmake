@@ -56,7 +56,6 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
     endif()
-
   endif ()
 endforeach (arg)
 
@@ -342,7 +341,7 @@ if (UNIX AND ARCH_IS_X86)
         INTERNAL:BOOL=OFF
         CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
         " OFF OFF "")
-   endif (NOT cross_android_only)
+  endif (NOT cross_android_only)
   set(run_tests ${prev_run_tests})
 
   # Android cross-compilation and running of tests using "adb shell"
@@ -375,6 +374,15 @@ if (UNIX AND ARCH_IS_X86)
     set(android_extra_rel "")
     set(run_tests OFF) # build tests but don't run them
   endif ()
+
+  # Pass through toolchain file.
+  if(DEFINED ENV{DYNAMORIO_ANDROID_TOOLCHAIN})
+    set(android_extra_dbg "${android_extra_dbg}
+                           ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+    set(android_extra_rel "${android_extra_dbg}
+                           ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+  endif()
+
   testbuild_ex("android-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
