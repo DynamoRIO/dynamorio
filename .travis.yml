@@ -83,7 +83,7 @@ matrix:
     - compiler: clang
       env: DYNAMORIO_CROSS_ONLY=yes
     - compiler: clang
-      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes EXTRA_ARGS='-DANDROID_TOOLCHAIN=/tmp/android-gcc-arm-ndk-10e'
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -105,7 +105,7 @@ install:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ANDROID_ONLY == yes ]]; then
           wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-          unzip android-ndk-r10e-linux-x86_64.zip
+          unzip -q android-ndk-r10e-linux-x86_64.zip
           android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
               --toolchain=arm-linux-androideabi-4.9 \
               --platform=android-21 \
