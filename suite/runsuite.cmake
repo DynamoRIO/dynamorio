@@ -45,13 +45,13 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
-set(cross_only OFF)
+set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
-    if ($ENV{DYNAMORIO_CROSS_ONLY} MATCHES "yes")
-      set(cross_only ON)
+    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
+      set(cross_aarchxx_linux_only ON)
     endif()
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
@@ -191,7 +191,7 @@ endif ()
 # (since building takes forever on windows): so we only turn
 # on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
 
-if (NOT cross_only AND NOT cross_android_only)
+if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
@@ -303,14 +303,14 @@ if (NOT cross_only AND NOT cross_android_only)
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_only AND NOT cross_android_only)
+endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
   # compilers are on the PATH.
   set(prev_optional_cross_compile ${optional_cross_compile})
-  if (NOT cross_only)
-    # For Travis cross_only builds, we want to fail on config failures.
+  if (NOT cross_aarchxx_linux_only)
+    # For Travis cross_aarchxx_linux_only builds, we want to fail on config failures.
     # For user suite runs, we want to just skip if there's no cross setup.
     set(optional_cross_compile ON)
   endif ()
@@ -319,30 +319,28 @@ if (UNIX AND ARCH_IS_X86)
   set(ENV{CXXFLAGS} "")
   set(prev_run_tests ${run_tests})
   set(run_tests OFF) # build tests but don't run them
-  if (NOT cross_android_only)
-      testbuild_ex("arm-debug-internal-32" OFF "
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        BUILD_TESTS:BOOL=ON
-        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-        " OFF OFF "")
-      testbuild_ex("arm-release-external-32" OFF "
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-        " OFF OFF "")
-      testbuild_ex("arm-debug-internal-64" ON "
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        BUILD_TESTS:BOOL=ON
-        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-        " OFF OFF "")
-      testbuild_ex("arm-release-external-64" ON "
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-        " OFF OFF "")
-  endif (NOT cross_android_only)
+  testbuild_ex("arm-debug-internal-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+    " OFF OFF "")
+  testbuild_ex("arm-release-external-32" OFF "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+    " OFF OFF "")
+  testbuild_ex("arm-debug-internal-64" ON "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    " OFF OFF "")
+  testbuild_ex("arm-release-external-64" ON "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    " OFF OFF "")
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 
