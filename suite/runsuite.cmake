@@ -192,7 +192,7 @@ endif ()
 # (since building takes forever on windows): so we only turn
 # on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
 
-if (NOT cross_only)
+if (NOT cross_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
@@ -304,7 +304,7 @@ if (NOT cross_only)
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_only)
+endif (NOT cross_only AND NOT cross_android_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
@@ -319,28 +319,30 @@ if (UNIX AND ARCH_IS_X86)
   set(ENV{CXXFLAGS} "")
   set(prev_run_tests ${run_tests})
   set(run_tests OFF) # build tests but don't run them
-  testbuild_ex("arm-debug-internal-32" OFF "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
-  testbuild_ex("arm-release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
-  testbuild_ex("arm-debug-internal-64" ON "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
-  testbuild_ex("arm-release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
+  if (not cross_android_only)
+      testbuild_ex("arm-debug-internal-32" OFF "
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        BUILD_TESTS:BOOL=ON
+        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+        " OFF OFF "")
+      testbuild_ex("arm-release-external-32" OFF "
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=OFF
+        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+        " OFF OFF "")
+      testbuild_ex("arm-debug-internal-64" ON "
+        DEBUG:BOOL=ON
+        INTERNAL:BOOL=ON
+        BUILD_TESTS:BOOL=ON
+        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+        " OFF OFF "")
+      testbuild_ex("arm-release-external-64" ON "
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=OFF
+        CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+        " OFF OFF "")
+   endif (NOT cross_android_only)
   set(run_tests ${prev_run_tests})
 
   # Android cross-compilation and running of tests using "adb shell"
