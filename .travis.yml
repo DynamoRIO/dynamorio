@@ -62,6 +62,8 @@ compiler:
 env:
   # With or without cross-compiling:
   - DYNAMORIO_CROSS_ONLY=yes
+  # Cross-compile for Android only.
+  - DYNAMORIO_CROSS_ANDROID_ONLY=yes EXTRA_ARGS='-DANDROID_TOOLCHAIN=/tmp/android-gcc-arm-ndk-10e'
   # We run 32-bit and 64-bit in parallel to speed things up.
   - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=32_only
   - DYNAMORIO_CROSS_ONLY=no EXTRA_ARGS=64_only
@@ -80,6 +82,8 @@ matrix:
     # Cross-compile only with GCC:
     - compiler: clang
       env: DYNAMORIO_CROSS_ONLY=yes
+    - compiler: clang
+      env: DYNAMORIO_CROSS_ANDROID_ONLY=yes
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
@@ -97,6 +101,21 @@ install:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ONLY == yes ]]; then
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
+  # Fetch and install Android NDK for Andoid cross-compile build only.
+  - >
+      if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ANDROID_ONLY == yes ]]; then
+          wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+          unzip android-ndk-r10e-linux-x86_64.zip
+          android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
+              --toolchain=arm-linux-androideabi-4.9 \
+              --platform=android-21 \
+              --install-dir=/tmp/android-gcc-arm-ndk-10e
+          # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
+          rm /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+          ln -s /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld.bfd \
+                /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+      fi
+
 
 script:
   - suite/runsuite_wrapper.pl travis $EXTRA_ARGS

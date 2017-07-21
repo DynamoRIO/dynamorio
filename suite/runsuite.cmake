@@ -46,12 +46,17 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
 set(cross_only OFF)
+set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
     if ($ENV{DYNAMORIO_CROSS_ONLY} MATCHES "yes")
       set(cross_only ON)
     endif()
+    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
+      set(cross_android_only ON)
+    endif()
+
   endif ()
 endforeach (arg)
 
@@ -339,8 +344,11 @@ if (UNIX AND ARCH_IS_X86)
   set(run_tests ${prev_run_tests})
 
   # Android cross-compilation and running of tests using "adb shell"
-  # FIXME i#2207: once we have Android cross-compilation working on Travis, remove this:
-  set(optional_cross_compile ON)
+  # For Travis cross_android_only builds, we want to fail on config failures.
+  # For user suite runs, we want to just skip if there's no cross setup.
+  if (NOT cross_android_only)
+      set(optional_cross_compile ON)
+  endif ()
   find_program(ADB adb DOC "adb Android utility")
   if (ADB)
     execute_process(COMMAND ${ADB} get-state
