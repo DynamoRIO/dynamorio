@@ -54,6 +54,16 @@ typedef enum {
     DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
 } drmemtrace_status_t;
 
+DR_EXPORT
+/**
+ * To support statically linking multiple clients on UNIX, dr_client_main() inside
+ * drmemtrace is a weak symbol which just calls the real initializer
+ * drmemtrace_client_main().  An enclosing application can override dr_client_main()
+ * and invoke drmemtrace_client_main() explicitly at a time of its choosing.
+ */
+void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
+
 /**
  * Function for file open.
  * The file access mode is set by the \p mode_flags argument which is drawn from

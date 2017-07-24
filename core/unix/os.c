@@ -3209,7 +3209,7 @@ find_free_memory_in_region(byte *start, byte *end, size_t size,
             found = true;
             break;
         }
-        if (iter.vm_start >= end)
+        if (iter.vm_end >= end)
             break;
         last_end = iter.vm_end;
     }

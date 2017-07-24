@@ -120,8 +120,8 @@ DECLARE_CXTSWPROT_VAR(mutex_t bb_building_lock, INIT_LOCK_FREE(bb_building_lock)
 /* i#1111: we do not use the lock until the 2nd thread is created */
 volatile bool bb_lock_start;
 
-#ifdef INTERNAL
-file_t bbdump_file = INVALID_FILE;
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
+static file_t bbdump_file = INVALID_FILE;
 #endif
 
 #ifdef DEBUG
@@ -132,7 +132,7 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 void
 interp_init()
 {
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
         ASSERT(bbdump_file != INVALID_FILE);
@@ -151,7 +151,7 @@ static int num_rets_removed;
 void
 interp_exit()
 {
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);
     }
@@ -2907,6 +2907,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                       "block's app sources (instr_set_translation() targets) "
                       "must remain within original bounds");
 
+# ifdef AARCH64
+        if (instr_get_opcode(inst) == OP_isb) {
+            CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                          "OP_isb must be last instruction in block");
+        }
+# endif
+
         /* PR 307284: we didn't process syscalls and ints pre-client
          * so do so now to get bb->flags and bb->exit_type set
          */
@@ -3920,6 +3927,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        /* OP_isb, when mangled, has a potential side exit. */
+        else if (instr_get_opcode(bb->instr) == OP_isb)
+            break;
+#endif
 #if 0/*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to
@@ -5234,7 +5246,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             disassemble_fragment(dcontext, f, false);
         }
     });
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         disassemble_fragment_header(dcontext, f, bbdump_file);
     }
