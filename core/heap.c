@@ -719,8 +719,8 @@ vmm_heap_initialize_unusable(vm_heap_t *vmh)
 static void
 vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 {
-    ptr_uint_t preferred;
-    heap_error_code_t error_code;
+    ptr_uint_t preferred = 0;
+    heap_error_code_t error_code = 0;
     ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
 
     size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
@@ -736,8 +736,6 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 #ifdef X64
     /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
      * Next comes -vm_base_near_app.
-     * XXX: we're ignoring -vm_base and -vm_max_offset here: it may be possible to
-     * honor them along with -vm_base_near_app, so should we take the effort to try?
      */
     if (DYNAMO_OPTION(vm_base_near_app)) {
         /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
@@ -747,16 +745,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
          */
         app_pc app_base = get_application_base();
         app_pc app_end = get_application_end();
-        app_pc reach_base = REACHABLE_32BIT_START(app_base, app_end);
-        app_pc reach_end = REACHABLE_32BIT_END(app_base, app_end);
-        vmh->alloc_start = os_heap_reserve_in_region
-            ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
-             (void *)ALIGN_FORWARD(reach_end, PAGE_SIZE),
-             size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
-        if (vmh->alloc_start != NULL) {
-            vmh->start_addr = (heap_pc)
-                ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
-            request_region_be_heap_reachable(app_base, app_end - app_base);
+        /* To avoid ignoring -vm_base and -vm_max_offset we fall through to that
+         * code if the app base is near -vm_base.
+         */
+        if (!REL32_REACHABLE((ptr_uint_t)app_base, DYNAMO_OPTION(vm_base)) ||
+            !REL32_REACHABLE((ptr_uint_t)app_base, DYNAMO_OPTION(vm_base) +
+                             DYNAMO_OPTION(vm_max_offset))) {
+            app_pc reach_base = REACHABLE_32BIT_START(app_base, app_end);
+            app_pc reach_end = REACHABLE_32BIT_END(app_base, app_end);
+            vmh->alloc_start = os_heap_reserve_in_region
+                ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
+                 (void *)ALIGN_FORWARD(reach_end, PAGE_SIZE),
+                 size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
+            if (vmh->alloc_start != NULL) {
+                vmh->start_addr = (heap_pc)
+                    ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                request_region_be_heap_reachable(app_base, app_end - app_base);
+            }
         }
     }
 #endif /* X64 */
@@ -814,7 +819,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start,
                                                   DYNAMO_OPTION(vmm_block_size));
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
-            PFX" letting OS place sz=%dM addr="PFX" \n",
+            PFX" letting OS place sz=%dM addr="PFX"\n",
             preferred, size/(1024*1024), vmh->start_addr);
         if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
