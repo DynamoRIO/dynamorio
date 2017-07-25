@@ -83,7 +83,8 @@ main(int argc, const char *argv[])
 
     fill_up_heap();
 
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -vm_size 512M -no_reachable_client -client_lib ';;-offline'"))
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -vm_size 512M "
+                   "-no_reachable_client -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     /* We use an outer loop to test re-attaching (i#2157). */
