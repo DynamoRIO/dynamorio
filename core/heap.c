@@ -973,12 +973,24 @@ vmcode_get_end(void)
 byte *
 vmcode_unreachable_pc(void)
 {
+#ifdef X86_64
+    /* This is used to indicate something that is unreachable from *everything*
+     * for DR_CLEANCALL_INDIRECT, so ideally we want to not just provide an
+     * address that vmcode can't reach.
+     * We use a non-canonical address for x86_64.
+     */
+    return (byte *)0x8000000100000000ULL;
+#else
+    /* This is not really used for aarch* so we just go with vmcode reachability. */
     ptr_uint_t start, end;
     get_vmm_heap_bounds((byte **)&start, (byte **)&end);
     if (start > INT_MAX)
         return NULL;
-    else
-        return (byte *) PTR_UINT_MINUS_1;
+    else {
+        /* We do not use -1 to avoid wraparound from thinking it's reachable. */
+        return (byte *)end + INT_MAX + PAGE_SIZE;
+    }
+#endif
 }
 
 bool
