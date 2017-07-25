@@ -2559,7 +2559,7 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
 
-        if (X64)
+        if (X64 AND UNIX)
           torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "")
           set(tool.drcacheoff.burst_noreach_nodr ON)
         endif ()

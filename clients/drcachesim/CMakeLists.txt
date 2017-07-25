@@ -336,7 +336,7 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
 
-    if (X64)
+    if (X64 AND UNIX)
       add_executable(tool.drcacheoff.burst_noreach tests/burst_noreach.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_noreach)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_noreach drmemtrace_static)
