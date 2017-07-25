@@ -2277,6 +2277,7 @@ if (CLIENT_INTERFACE)
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+    tobuild_ci(client.translate_sandbox client-interface/translate_sandbox.c "" "" "")
   endif (X86)
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
