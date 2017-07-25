@@ -472,18 +472,16 @@ dynamorio_app_init(void)
         /* Must be before {vmm_,}heap_init() */
         vmk_init_lib();
 #endif
-        vmm_heap_init_constraints(); /* before client libs are loaded! */
-#ifdef CLIENT_INTERFACE
-        /* PR 200207: load the client lib before callback_interception_init
-         * since the client library load would hit our own hooks (xref hotpatch
-         * cases about that) -- though -private_loader removes that issue. */
-        /* Must be before [vmm_]heap_init() so we can register the client lib as
-         * reachable from the dr heap. Xref PR 215395. */
-        instrument_load_client_libs();
-#endif
 
         /* initialize components (CAUTION: order is important here) */
         vmm_heap_init(); /* must be called even if not using vmm heap */
+#ifdef CLIENT_INTERFACE
+        /* PR 200207: load the client lib before callback_interception_init
+         * since the client library load would hit our own hooks (xref hotpatch
+         * cases about that) -- though -private_loader removes that issue.
+         */
+        instrument_load_client_libs();
+#endif
         heap_init();
         dynamo_heap_initialized = true;
 

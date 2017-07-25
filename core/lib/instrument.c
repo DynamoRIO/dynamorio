@@ -482,7 +482,8 @@ add_client_lib(const char *path, const char *id_str, const char *options)
 
     LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
 
-    client_lib = load_shared_library(path, true/*reachable*/);
+    client_lib = load_shared_library(path, IF_X64_ELSE(DYNAMO_OPTION(reachable_client),
+                                                       true));
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
         char err[MAXIMUM_PATH*2];
@@ -536,9 +537,11 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             /* Now that we map the client within the constraints, this request
              * should always succeed.
              */
-            request_region_be_heap_reachable(client_libs[idx].start,
-                                             client_libs[idx].end -
-                                             client_libs[idx].start);
+            if (DYNAMO_OPTION(reachable_client)) {
+                request_region_be_heap_reachable(client_libs[idx].start,
+                                                 client_libs[idx].end -
+                                                 client_libs[idx].start);
+            }
 #endif
             strncpy(client_libs[idx].path, path,
                     BUFFER_SIZE_ELEMENTS(client_libs[idx].path));
