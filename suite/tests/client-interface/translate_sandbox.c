@@ -100,8 +100,8 @@ GLOBAL_LABEL(FUNCNAME:)
 ADDRTAKEN_LABEL(sandbox_immediate_addr_plus_four:)
         mov      REG_XAX, HEX(1)
         mov      REG_XBX, HEX(2)
-        lea      REG_XDX, SYMREF(usebx_immediate_addr_plus_four - 4)
-        mov      DWORD [REG_XDX], eax        /* selfmod write in another page */
+        lea      REG_XDI, SYMREF(usebx_immediate_addr_plus_four - 4)
+        stosd    /* stos selfmod write in another page */
         mov      REG_XAX, REG_XBX
         ret
 END_FUNC(FUNCNAME)
