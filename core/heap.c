@@ -748,19 +748,23 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         /* To avoid ignoring -vm_base and -vm_max_offset we fall through to that
          * code if the app base is near -vm_base.
          */
-        if (!REL32_REACHABLE((ptr_uint_t)app_base, DYNAMO_OPTION(vm_base)) ||
-            !REL32_REACHABLE((ptr_uint_t)app_base, DYNAMO_OPTION(vm_base) +
+        if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
+            !REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base) +
                              DYNAMO_OPTION(vm_max_offset))) {
-            app_pc reach_base = REACHABLE_32BIT_START(app_base, app_end);
-            app_pc reach_end = REACHABLE_32BIT_END(app_base, app_end);
-            vmh->alloc_start = os_heap_reserve_in_region
-                ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
-                 (void *)ALIGN_FORWARD(reach_end, PAGE_SIZE),
-                 size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
-            if (vmh->alloc_start != NULL) {
-                vmh->start_addr = (heap_pc)
-                    ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
-                request_region_be_heap_reachable(app_base, app_end - app_base);
+            byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
+                                   heap_allowable_region_start);
+            byte *reach_end = MIN(REACHABLE_32BIT_END(app_base, app_end),
+                                  heap_allowable_region_end);
+            if (reach_base < reach_end) {
+                vmh->alloc_start = os_heap_reserve_in_region
+                    ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
+                     (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE),
+                     size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
+                if (vmh->alloc_start != NULL) {
+                    vmh->start_addr = (heap_pc)
+                        ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                    request_region_be_heap_reachable(app_base, app_end - app_base);
+                }
             }
         }
     }
@@ -1380,7 +1384,7 @@ vmm_heap_init()
      * This is a hard requirement so we set it prior to locating the vmm region.
      */
     if (DYNAMO_OPTION(heap_in_lower_4GB))
-        request_region_be_heap_reachable((byte *)(ptr_uint_t)0x80000000/*middle*/, 1);
+        request_region_be_heap_reachable(0, 0x80000000);
 #endif
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));

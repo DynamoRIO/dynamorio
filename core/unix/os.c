@@ -3223,6 +3223,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
 {
     byte *p = NULL;
     byte *try_start = NULL, *try_end = NULL;
+    uint iters = 0;
 
     ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
     ASSERT(ALIGNED(size, PAGE_SIZE));
@@ -3235,6 +3236,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         return os_heap_reserve(NULL, size, error_code, executable);
 
     /* loop to handle races */
+#define RESERVE_IN_REGION_MAX_ITERS 128
     while (find_free_memory_in_region(start, end, size, &try_start, &try_end)) {
         /* If there's space we'd prefer the end, to avoid the common case of
          * a large binary + heap at attach where we're likely to reserve
@@ -3244,6 +3246,10 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         if (p != NULL) {
             ASSERT(*error_code == HEAP_ERROR_SUCCESS);
             ASSERT(p >= (byte *)start && p + size <= (byte *)end);
+            break;
+        }
+        if (++iters > RESERVE_IN_REGION_MAX_ITERS) {
+            ASSERT_NOT_REACHED();
             break;
         }
     }
