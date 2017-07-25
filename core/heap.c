@@ -939,8 +939,10 @@ vmcode_unreachable_pc(void)
     get_vmm_heap_bounds((byte **)&start, (byte **)&end);
     if (start > INT_MAX)
         return NULL;
-    else
-        return (byte *) PTR_UINT_MINUS_1;
+    else {
+        /* We do not use -1 to avoid wraparound from thinking it's reachable. */
+        return (byte *)end + INT_MAX + PAGE_SIZE;
+    }
 }
 
 bool

@@ -935,7 +935,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
-                                  instr_t *instr, bool save)
+                                  instr_t *instr, bool save, byte *encode_pc)
 {
 # ifdef AARCH64
     if (save) {

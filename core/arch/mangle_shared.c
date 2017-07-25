@@ -156,7 +156,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
 #define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *instr)
+                       instrlist_t *ilist, instr_t *instr, byte *encode_pc)
 {
     uint dstack_offs = 0;
 
@@ -259,7 +259,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (cci->out_of_line_swap) {
         dstack_offs +=
-            insert_out_of_line_context_switch(dcontext, ilist, instr, true);
+            insert_out_of_line_context_switch(dcontext, ilist, instr, true, encode_pc);
     } else {
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
@@ -311,7 +311,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
 void
 cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *instr)
+                         instrlist_t *ilist, instr_t *instr, byte *encode_pc)
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -337,7 +337,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* now restore everything */
     if (cci->out_of_line_swap) {
-        insert_out_of_line_context_switch(dcontext, ilist, instr, false);
+        insert_out_of_line_context_switch(dcontext, ilist, instr, false, encode_pc);
     } else {
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
