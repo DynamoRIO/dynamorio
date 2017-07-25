@@ -2270,7 +2270,7 @@ if (CLIENT_INTERFACE)
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  if (NOT ARM) # Tests x86 reachability.
+  if (X86) # Tests x86 reachability.
     tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
   endif ()
 
