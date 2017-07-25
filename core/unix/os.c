@@ -3222,7 +3222,7 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
-    byte *try_start = NULL;
+    byte *try_start = NULL, *try_end = NULL;
 
     ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
     ASSERT(ALIGNED(size, PAGE_SIZE));
@@ -3235,8 +3235,12 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         return os_heap_reserve(NULL, size, error_code, executable);
 
     /* loop to handle races */
-    while (find_free_memory_in_region(start, end, size, &try_start, NULL)) {
-        p = os_heap_reserve(try_start, size, error_code, executable);
+    while (find_free_memory_in_region(start, end, size, &try_start, &try_end)) {
+        /* If there's space we'd prefer the end, to avoid the common case of
+         * a large binary + heap at attach where we're likely to reserve
+         * right at the start of the brk: we'd prefer to leave more brk space.
+         */
+        p = os_heap_reserve(try_end - size, size, error_code, executable);
         if (p != NULL) {
             ASSERT(*error_code == HEAP_ERROR_SUCCESS);
             ASSERT(p >= (byte *)start && p + size <= (byte *)end);

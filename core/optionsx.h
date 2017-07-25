@@ -1413,7 +1413,8 @@
     OPTION_DEFAULT(bool, vm_allow_smaller, true, "if we can't allocate vm heap of "
                    "requested size, try smaller sizes instead of dying")
     OPTION_DEFAULT(bool, vm_base_near_app, true,
-                   "allocate vm region near the app")
+                   "allocate vm region near the app if possible (if not, if "
+                   "-vm_allow_not_at_base, will try elsewhere)")
 #ifdef X64
     /* We prefer low addresses in general, and only need this option if it's
      * an absolute requirement (XXX i#829: it is required for mixed-mode).
@@ -1424,8 +1425,10 @@
                    "it can be accessed directly as a 32bit address. See PR 215395.")
     /* XXX i#774: this will become false by default once we split vmheap and vmcode */
     OPTION_DEFAULT(bool, reachable_heap, true,
-                   "guarantee that all heap memory 32-bit-displacement "
+                   "guarantee that all heap memory is 32-bit-displacement "
                    "reachable from the code cache.")
+    OPTION_DEFAULT(bool, reachable_client, true,
+                   "guarantee that clients are reachable from the code cache.")
 #endif
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as

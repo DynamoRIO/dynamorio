@@ -2559,6 +2559,11 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
 
+        if (X64)
+          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "")
+          set(tool.drcacheoff.burst_noreach_nodr ON)
+        endif ()
+
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
