@@ -336,6 +336,13 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
 
+    if (X64 AND UNIX)
+      add_executable(tool.drcacheoff.burst_noreach tests/burst_noreach.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_noreach)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_noreach drmemtrace_static)
+      add_win32_flags(tool.drcacheoff.burst_noreach)
+    endif ()
+
     if (UNIX)
       if (X86 AND NOT APPLE) # This test is x86-specific.
         # uses ptrace and looks for linux-specific syscalls
@@ -358,7 +365,7 @@ if (BUILD_TESTS)
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
       configure_DynamoRIO_static(tool.drcacheoff.burst_client)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
-      # A nop, keep it for the furture Windows support.
+      # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
   endif ()

@@ -716,54 +716,92 @@ vmm_heap_initialize_unusable(vm_heap_t *vmh)
     vmh->num_free_blocks = vmh->num_blocks = 0;
 }
 
-static
-void
+static void
 vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
 {
-    ptr_uint_t preferred;
-    heap_error_code_t error_code;
+    ptr_uint_t preferred = 0;
+    heap_error_code_t error_code = 0;
     ASSIGN_INIT_LOCK_FREE(vmh->lock, vmh_lock);
 
     size = ALIGN_FORWARD(size, DYNAMO_OPTION(vmm_block_size));
     ASSERT(size <= MAX_VMM_HEAP_UNIT_SIZE);
     vmh->alloc_size = size;
+    vmh->start_addr = NULL;
 
     if (size == 0) {
         vmm_heap_initialize_unusable(&heapmgt->vmheap);
         return;
     }
 
-    /* Out of 32 bits = 12 bits are page offset, windows wastes 4 more
-     * since its allocation base is 64KB, and if we want to stay
-     * safely in say 0x20000000-0x2fffffff we're left with only 12
-     * bits of randomness - which may be too little.  On the other
-     * hand changing any of the lower 16 bits will make our bugs
-     * non-deterministic. */
-    /* Make sure we don't waste the lower bits from our random number */
-    preferred = (DYNAMO_OPTION(vm_base)
-                 + get_random_offset(DYNAMO_OPTION(vm_max_offset) /
-                                     DYNAMO_OPTION(vmm_block_size)) *
-                 DYNAMO_OPTION(vmm_block_size));
-    preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
-    /* overflow check: w/ vm_base shouldn't happen so debug-only check */
-    ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
-
-    /* let's assume a single chunk is sufficient to reserve */
-    vmh->start_addr = NULL;
 #ifdef X64
-    if ((byte *)preferred < heap_allowable_region_start ||
-        (byte *)preferred + size > heap_allowable_region_end) {
-        error_code = HEAP_ERROR_NOT_AT_PREFERRED;
-    } else {
-#endif
-        vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
-                                          true/*+x*/);
-        LOG(GLOBAL, LOG_HEAP, 1,
-            "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
-            preferred, vmh->start_addr);
-#ifdef X64
+    /* -heap_in_lower_4GB takes top priority and has already set heap_allowable_region_*.
+     * Next comes -vm_base_near_app.
+     */
+    if (DYNAMO_OPTION(vm_base_near_app)) {
+        /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
+         * Non-static: still a good idea for fewer rip-rel manglings.
+         * Asking for app base means we'll prefer before the app, which
+         * has less of an impact on its heap.
+         */
+        app_pc app_base = get_application_base();
+        app_pc app_end = get_application_end();
+        /* To avoid ignoring -vm_base and -vm_max_offset we fall through to that
+         * code if the app base is near -vm_base.
+         */
+        if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
+            !REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base) +
+                             DYNAMO_OPTION(vm_max_offset))) {
+            byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
+                                   heap_allowable_region_start);
+            byte *reach_end = MIN(REACHABLE_32BIT_END(app_base, app_end),
+                                  heap_allowable_region_end);
+            if (reach_base < reach_end) {
+                vmh->alloc_start = os_heap_reserve_in_region
+                    ((void *)ALIGN_FORWARD(reach_base, PAGE_SIZE),
+                     (void *)ALIGN_BACKWARD(reach_end, PAGE_SIZE),
+                     size + DYNAMO_OPTION(vmm_block_size), &error_code, true/*+x*/);
+                if (vmh->alloc_start != NULL) {
+                    vmh->start_addr = (heap_pc)
+                        ALIGN_FORWARD(vmh->alloc_start, DYNAMO_OPTION(vmm_block_size));
+                    request_region_be_heap_reachable(app_base, app_end - app_base);
+                }
+            }
+        }
     }
+#endif /* X64 */
+
+    /* Next we try the -vm_base value plus a random offset. */
+    if (vmh->start_addr == NULL) {
+        /* Out of 32 bits = 12 bits are page offset, windows wastes 4 more
+         * since its allocation base is 64KB, and if we want to stay
+         * safely in say 0x20000000-0x2fffffff we're left with only 12
+         * bits of randomness - which may be too little.  On the other
+         * hand changing any of the lower 16 bits will make our bugs
+         * non-deterministic. */
+        /* Make sure we don't waste the lower bits from our random number */
+        preferred = (DYNAMO_OPTION(vm_base)
+                     + get_random_offset(DYNAMO_OPTION(vm_max_offset) /
+                                         DYNAMO_OPTION(vmm_block_size)) *
+                     DYNAMO_OPTION(vmm_block_size));
+        preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
+        /* overflow check: w/ vm_base shouldn't happen so debug-only check */
+        ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
+        /* let's assume a single chunk is sufficient to reserve */
+#ifdef X64
+        if ((byte *)preferred < heap_allowable_region_start ||
+            (byte *)preferred + size > heap_allowable_region_end) {
+            error_code = HEAP_ERROR_NOT_AT_PREFERRED;
+        } else {
 #endif
+            vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
+                                              true/*+x*/);
+            LOG(GLOBAL, LOG_HEAP, 1,
+                "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
+                preferred, vmh->start_addr);
+#ifdef X64
+        }
+#endif
+    }
     while (vmh->start_addr == NULL && DYNAMO_OPTION(vm_allow_not_at_base)) {
         /* Since we prioritize low-4GB or near-app over -vm_base, we do not
          * syslog or assert here
@@ -785,7 +823,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
         vmh->start_addr = (heap_pc) ALIGN_FORWARD(vmh->alloc_start,
                                                   DYNAMO_OPTION(vmm_block_size));
         LOG(GLOBAL, LOG_HEAP, 1, "vmm_heap_unit_init unable to allocate at preferred="
-            PFX" letting OS place sz=%dM addr="PFX" \n",
+            PFX" letting OS place sz=%dM addr="PFX"\n",
             preferred, size/(1024*1024), vmh->start_addr);
         if (vmh->alloc_start == NULL && DYNAMO_OPTION(vm_allow_smaller)) {
             /* Just a little smaller might fit */
@@ -953,7 +991,7 @@ rel32_reachable_from_vmcode(byte *tgt)
     ptr_int_t new_offs = (tgt > heap_allowable_region_start) ?
         (tgt - heap_allowable_region_start) : (heap_allowable_region_end - tgt);
     ASSERT(vmcode_get_start() >= heap_allowable_region_start);
-    ASSERT(vmcode_get_end() <= heap_allowable_region_end);
+    ASSERT(vmcode_get_end() <= heap_allowable_region_end+1/*closed*/);
     return REL32_REACHABLE_OFFS(new_offs);
 #else
     return true;
@@ -1333,47 +1371,21 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code)
     return p;
 }
 
-/* set reachability constraints before loading any client libs */
-void
-vmm_heap_init_constraints()
-{
-#ifdef X64
-    /* add reachable regions before we allocate the heap, xref PR 215395 */
-    /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
-     * reachable by the vmheap reservation.  But, for -heap_in_lower_4GB,
-     * we must call request_region_be_heap_reachable() up front.
-     */
-    if (DYNAMO_OPTION(heap_in_lower_4GB))
-        request_region_be_heap_reachable((byte *)(ptr_uint_t)0x80000000/*middle*/, 1);
-    else if (DYNAMO_OPTION(vm_base_near_app)) {
-        /* Required for STATIC_LIBRARY: must be near app b/c clients are there.
-         * Non-static: still a good idea for fewer rip-rel manglings.
-         * Asking for app base means we'll prefer before the app, which
-         * has less of an impact on its heap.
-         */
-        app_pc base = get_application_base();
-        request_region_be_heap_reachable(base, get_application_end() - base);
-    } else {
-        /* It seems silly to let the 1st client lib set the region, so we give
-         * -vm_base priority.
-         */
-        request_region_be_heap_reachable
-            ((byte *)DYNAMO_OPTION(vm_base), DYNAMO_OPTION(vm_size));
-    }
-    /* XXX: really we should iterate and try other options: right now we'll
-     * just fail if we run out of space.  E.g., if the app is quite large, we might
-     * fit the client near, and then our vm reservation could fail and at that
-     * point we'd just abort.  We need to restructure the code to allow
-     * iterating over the client lib loads and vm reservation at once.
-     */
-#endif /* X64 */
-}
-
 /* virtual memory manager initialization */
 void
 vmm_heap_init()
 {
     IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
+#ifdef X64
+    /* add reachable regions before we allocate the heap, xref PR 215395 */
+    /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
+     * reachable by the vmheap reservation.  But, for -heap_in_lower_4GB,
+     * we must call request_region_be_heap_reachable() up front.
+     * This is a hard requirement so we set it prior to locating the vmm region.
+     */
+    if (DYNAMO_OPTION(heap_in_lower_4GB))
+        request_region_be_heap_reachable(0, 0x80000000);
+#endif
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));
     }
