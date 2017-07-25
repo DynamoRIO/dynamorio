@@ -5281,10 +5281,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
-        encode_pc = vmcode_unreachable_pc();
-    else
-        encode_pc = vmcode_get_start();
     if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
     insert_meta_call_vargs(dcontext, ilist, where, call_flags,
