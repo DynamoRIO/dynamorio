@@ -46,8 +46,9 @@ int main(int argc, char *argv[])
     int count = 0;
     print("start of test, count = %d\n", count);
     protect_mem(sandbox, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
-    protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE);
     count = sandbox();
+    protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     count += usebx();
     print("end of test, count = %d\n", count);
     return 0;
