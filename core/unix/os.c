@@ -8771,8 +8771,9 @@ get_application_base(void)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
-            int count =
-                memquery_library_bounds(name, &executable_start, &executable_end, NULL, 0);
+            DEBUG_DECLARE(int count =)
+                memquery_library_bounds(name, &executable_start, &executable_end,
+                                        NULL, 0);
             ASSERT(count > 0 && executable_start != NULL);
         }
 #else

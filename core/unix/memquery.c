@@ -94,7 +94,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
         if (!found_library &&
             ((iter.comment[0] != '\0' &&
               strncmp(libname, iter.comment, BUFFER_SIZE_ELEMENTS(libname)) != 0) ||
-             (iter.comment[0] == '\0' && prev_end != NULL && prev_end != iter.vm_start))) {
+             (iter.comment[0] == '\0' && prev_end != NULL &&
+              prev_end != iter.vm_start))) {
             last_lib_base = iter.vm_start;
             /* Include a prior anon mapping if contiguous and a header.  This happens
              * for some page mapping schemes (i#2566).
@@ -134,7 +135,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                 size_t mod_readable_sz;
                 if (src != dst) {
                     if (dst == fullpath) {
-                        /* Just the path.  We use strstr for name_cmp so still ok there. */
+                        /* Just the path.  We use strstr for name_cmp. */
                         char *slash = strrchr(src, '/');
                         ASSERT_CURIOSITY(slash != NULL);
                         ASSERT_CURIOSITY((slash - src) < dstsz);
