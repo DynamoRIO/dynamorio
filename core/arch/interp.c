@@ -3218,22 +3218,6 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
     return true;
 }
 
-#ifdef X86
-/* Tells if instruction will trigger an exception because of debug register. */
-static bool
-debug_register_fire_on_addr(app_pc pc) {
-    size_t i;
-
-    for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-        if (pc == debugRegister[i]) {
-            return true;
-        }
-    }
-
-    return false;
-}
-#endif
-
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
  * a fragment, but does not create the fragment, just returns the instrlist.
