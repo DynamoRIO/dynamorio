@@ -2274,6 +2274,10 @@ if (CLIENT_INTERFACE)
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
+  if (X86) # Tests x86 reachability.
+    tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+  endif ()
+
   if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
     tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
     use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
@@ -2562,6 +2566,15 @@ if (CLIENT_INTERFACE)
 
         torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
+
+        if (X64 AND UNIX)
+          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "")
+          set(tool.drcacheoff.burst_noreach_nodr ON)
+        endif ()
+        if (LINUX)
+          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "")
+          set(tool.drcacheoff.burst_maps_nodr ON)
+        endif ()
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
@@ -3300,7 +3313,8 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
         "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
     endif (UNIX)
   endif (CLIENT_INTERFACE)
-
+  torunonly(low4GB security-common.selfmod security-common/selfmod.c
+    "-heap_in_lower_4GB" "")
 endif (X64 AND NOT AARCH64)
 
 tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)

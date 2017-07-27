@@ -277,7 +277,7 @@ remangle_short_rewrite(dcontext_t *dcontext,
 
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
-                                  instr_t *instr, bool save)
+                                  instr_t *instr, bool save, byte *encode_pc)
 {
     if (save) {
         /* We adjust the stack so the return address will not be clobbered,
@@ -294,11 +294,13 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
                                           get_clean_call_temp_stack_size()),
                                    OPSZ_lea)));
     }
-    PRE(ilist, instr,
-        INSTR_CREATE_call
-        (dcontext, save ?
-         opnd_create_pc(get_clean_call_save(dcontext _IF_X64(GENCODE_X64))) :
-         opnd_create_pc(get_clean_call_restore(dcontext _IF_X64(GENCODE_X64)))));
+    /* We document to clients that we use r11 if we need an indirect call here. */
+    insert_reachable_cti(dcontext, ilist, instr, encode_pc,
+                         save ?
+                         get_clean_call_save(dcontext _IF_X64(GENCODE_X64)) :
+                         get_clean_call_restore(dcontext _IF_X64(GENCODE_X64)),
+                         false/*call*/, true/*returns*/,
+                         false/*!precise*/, DR_REG_R11, NULL);
     return get_clean_call_switch_stack_size();
 }
 
@@ -901,7 +903,8 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
                                            app_pc jmp_tag, instr_t *jmp_instr)
 {
     instr_t *false_popa, *jcc;
-    prepare_for_clean_call(dcontext, NULL, ilist, instr);
+    byte *encode_pc = vmcode_get_start();
+    prepare_for_clean_call(dcontext, NULL, ilist, instr, encode_pc);
 
     dr_insert_call(dcontext, ilist, instr, callee, 1, OPND_CREATE_INT32(arg));
 
@@ -915,7 +918,7 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
     /* if it falls through, then it's true, so restore and jmp to true tag
      * passed in by caller
      */
-    cleanup_after_clean_call(dcontext, NULL, ilist, instr);
+    cleanup_after_clean_call(dcontext, NULL, ilist, instr, encode_pc);
     if (jmp_instr == NULL) {
         /* an exit cti, not a meta instr */
         instrlist_preinsert
@@ -928,7 +931,7 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
     /* otherwise (if returned false), just do standard popf and continue */
     /* get 1st instr of cleanup path */
     false_popa = instr_get_prev(instr);
-    cleanup_after_clean_call(dcontext, NULL, ilist, instr);
+    cleanup_after_clean_call(dcontext, NULL, ilist, instr, encode_pc);
     false_popa = instr_get_next(false_popa);
     instr_set_target(jcc, opnd_create_instr(false_popa));
 }
