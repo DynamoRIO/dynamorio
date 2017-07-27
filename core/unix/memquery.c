@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -47,6 +47,10 @@
 
 /* See memquery.h for full interface specs, which are identical to
  * memquery_library_bounds().
+ *
+ * XXX: I'd like to make unit tests for these maps file readers, but we
+ * can't just supply mock maps file enries: this code also walks ELF headers
+ * which complicates things.  For now we just go with live tests.
  */
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
@@ -58,8 +62,12 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
     char libname[MAXIMUM_PATH];
     const char *name_cmp = name;
     memquery_iter_t iter;
-    app_pc last_base = NULL;
-    app_pc last_end = NULL;
+    app_pc target = *start;
+    app_pc last_lib_base = NULL;
+    app_pc last_lib_end = NULL;
+    app_pc prev_base = NULL;
+    app_pc prev_end = NULL;
+    uint prev_prot = 0;
     size_t image_size = 0;
     app_pc cur_end = NULL;
     app_pc mod_start = NULL;
@@ -84,13 +92,22 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
          * we find our target, when we'll clobber libpath
          */
         if (!found_library &&
-            strncmp(libname, iter.comment, BUFFER_SIZE_ELEMENTS(libname)) != 0) {
-            last_base = iter.vm_start;
-            /* last_end is used to know what's readable beyond last_base */
+            ((iter.comment[0] != '\0' &&
+              strncmp(libname, iter.comment, BUFFER_SIZE_ELEMENTS(libname)) != 0) ||
+             (iter.comment[0] == '\0' && prev_end != NULL &&
+              prev_end != iter.vm_start))) {
+            last_lib_base = iter.vm_start;
+            /* Include a prior anon mapping if contiguous and a header.  This happens
+             * for some page mapping schemes (i#2566).
+             */
+            if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ|MEMPROT_EXEC) &&
+                module_is_header(prev_base, prev_end - prev_base))
+                last_lib_base = prev_base;
+            /* last_lib_end is used to know what's readable beyond last_lib_base */
             if (TEST(MEMPROT_READ, iter.prot))
-                last_end = iter.vm_end;
+                last_lib_end = iter.vm_end;
             else
-                last_end = last_base;
+                last_lib_end = last_lib_base;
             /* remember name so we can find the base of a multiply-mapped so */
             strncpy(libname, iter.comment, BUFFER_SIZE_ELEMENTS(libname));
             NULL_TERMINATE_BUFFER(libname);
@@ -106,35 +123,45 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                */
               (found_library && iter.comment[0] == '\0' && image_size != 0 &&
                iter.vm_end - mod_start < image_size))) ||
-            (name == NULL && *start >= iter.vm_start && *start < iter.vm_end)) {
-            if (!found_library) {
-                size_t mod_readable_sz;
+            (name == NULL && target >= iter.vm_start && target < iter.vm_end)) {
+            if (!found_library && iter.comment[0] == '\0' && last_lib_base == NULL) {
+                /* Wait for the next entry which should have a file backing. */
+                target = iter.vm_end;
+            } else if (!found_library) {
                 char *dst = (fullpath != NULL) ? fullpath : libname;
+                const char *src = (iter.comment[0] == '\0') ? libname : iter.comment;
                 size_t dstsz = (fullpath != NULL) ? path_size :
                     BUFFER_SIZE_ELEMENTS(libname);
-                char *slash = strrchr(iter.comment, '/');
-                ASSERT_CURIOSITY(slash != NULL);
-                ASSERT_CURIOSITY((slash - iter.comment) < dstsz);
-                /* we keep the last '/' at end */
-                ++slash;
-                strncpy(dst, iter.comment, MIN(dstsz, (slash - iter.comment)));
-                /* if max no null */
-                dst[dstsz - 1] = '\0';
+                size_t mod_readable_sz;
+                if (src != dst) {
+                    if (dst == fullpath) {
+                        /* Just the path.  We use strstr for name_cmp. */
+                        char *slash = strrchr(src, '/');
+                        ASSERT_CURIOSITY(slash != NULL);
+                        ASSERT_CURIOSITY((slash - src) < dstsz);
+                        /* we keep the last '/' at end */
+                        ++slash;
+                        strncpy(dst, src, MIN(dstsz, (slash - src)));
+                    } else
+                        strncpy(dst, src, dstsz);
+                    /* if max no null */
+                    dst[dstsz - 1] = '\0';
+                }
                 if (name == NULL)
                     name_cmp = dst;
                 found_library = true;
-                /* Most library have multiple segments, and some have the
+                /* Most libraries have multiple segments, and some have the
                  * ELF header repeated in a later mapping, so we can't rely
                  * on is_elf_so_header() and header walking.
                  * We use the name tracking to remember the first entry
                  * that had this name.
                  */
-                if (last_base == NULL) {
+                if (last_lib_base == NULL) {
                     mod_start = iter.vm_start;
                     mod_readable_sz = iter.vm_end - iter.vm_start;
                 } else {
-                    mod_start = last_base;
-                    mod_readable_sz = last_end - last_base;
+                    mod_start = last_lib_base;
+                    mod_readable_sz = last_lib_end - last_lib_base;
                 }
                 if (module_is_header(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
@@ -161,6 +188,9 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
             /* hit non-matching, we expect module segments to be adjacent */
             break;
         }
+        prev_base = iter.vm_start;
+        prev_end = iter.vm_end;
+        prev_prot = iter.prot;
     }
 
     /* Xref PR 208443: .bss sections are anonymous (no file name listed in
@@ -185,6 +215,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
     }
     memquery_iterator_stop(&iter);
 
+    if (name == NULL && *start < mod_start)
+        count = 0; /* Our target adjustment missed: we never found a file-backed entry */
     if (start != NULL)
         *start = mod_start;
     if (end != NULL)

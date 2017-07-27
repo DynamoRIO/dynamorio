@@ -7660,6 +7660,11 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
             ASSERT_CURIOSITY(inode == 0 /*see above comment*/||
                              module_contains_addr(ma, base+size-1));
         }
+        /* Handle cases like transparent huge pages where there are anon regions on top
+         * of the file mapping (i#2566).
+         */
+        if (ma->names.inode == 0)
+            ma->names.inode = inode;
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
         DOCHECK(1, {
             if (readable && module_is_header(base, size)) {
@@ -8766,16 +8771,10 @@ get_application_base(void)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
-            memquery_iter_t iter;
-            memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
-            while (memquery_iterator_next(&iter)) {
-                if (strcmp(iter.comment, name) == 0) {
-                    executable_start = iter.vm_start;
-                    executable_end = iter.vm_end;
-                    break;
-                }
-            }
-            memquery_iterator_stop(&iter);
+            DEBUG_DECLARE(int count =)
+                memquery_library_bounds(name, &executable_start, &executable_end,
+                                        NULL, 0);
+            ASSERT(count > 0 && executable_start != NULL);
         }
 #else
         /* We have to fail.  Should we dl_iterate this early? */
@@ -9012,7 +9011,10 @@ find_executable_vm_areas(void)
                 iter.vm_start, iter.vm_end, TEST(MEMPROT_EXEC, iter.prot) ? " +x": "",
                 iter.inode, iter.comment);
 #ifdef LINUX
-            ASSERT_CURIOSITY(iter.inode != 0); /* mapped images should have inodes */
+            /* Mapped images should have inodes, except for cases where an anon
+             * map is placed on top (i#2566)
+             */
+            ASSERT_CURIOSITY(iter.inode != 0 || iter.comment[0] == '\0');
 #endif
             ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
             /* Get size by walking the program headers.  This includes .bss. */
@@ -9034,6 +9036,10 @@ find_executable_vm_areas(void)
             exec_match = get_application_name();
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
+            /* Handle an anon region for the header (i#2566) */
+            if (!found_exec && executable_start != NULL &&
+                executable_start == iter.vm_start)
+                found_exec = true;
 #else
             /* We don't have a nice normalized name: it can have ./ or ../ inside
              * it.  But, we can distinguish an exe from a lib here, even for PIE,
