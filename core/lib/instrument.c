@@ -5189,6 +5189,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
     if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cspr.
@@ -5198,6 +5199,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                  instr_invert_predicate(auto_pred),
                  opnd_create_instr(label)));
     }
+#endif
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
