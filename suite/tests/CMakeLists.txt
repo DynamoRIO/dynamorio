@@ -2567,6 +2567,10 @@ if (CLIENT_INTERFACE)
           torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "")
           set(tool.drcacheoff.burst_noreach_nodr ON)
         endif ()
+        if (LINUX)
+          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "")
+          set(tool.drcacheoff.burst_maps_nodr ON)
+        endif ()
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows

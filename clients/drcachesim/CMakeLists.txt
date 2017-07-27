@@ -342,6 +342,12 @@ if (BUILD_TESTS)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_noreach drmemtrace_static)
       add_win32_flags(tool.drcacheoff.burst_noreach)
     endif ()
+    if (LINUX) # Uses mremap.
+      add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
+      add_win32_flags(tool.drcacheoff.burst_maps)
+    endif ()
 
     if (UNIX)
       if (X86 AND NOT APPLE) # This test is x86-specific.
