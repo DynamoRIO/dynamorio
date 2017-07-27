@@ -38,6 +38,16 @@
 int sandbox();
 int usebx();
 
+/* top-level exception handler */
+static LONG
+our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+{
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        print("access violation exception\n");
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
+}
 
 int main(int argc, char *argv[])
 {
@@ -46,7 +56,7 @@ int main(int argc, char *argv[])
     int count = 0;
     print("start of test, count = %d\n", count);
     protect_mem(sandbox, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
-    protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE);
+    protect_mem(usebx, 1024, ALLOW_READ);
     count = sandbox();
     protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     count += usebx();
