@@ -73,7 +73,9 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters/3;
     static int iter_stop = iter_start + 4;
 
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))
+    /* We also test -rstats_to_stderr */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
+                   "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     /* We use an outer loop to test re-attaching (i#2157). */
