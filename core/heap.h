@@ -265,7 +265,7 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
 #define NONPERSISTENT_HEAP_TYPE_FREE(dc, p, type, which) \
     NONPERSISTENT_HEAP_ARRAY_FREE(dc, p, type, 1, which)
 
-#define MIN_VMM_BLOCK_SIZE (16 * 1024)
+#define MIN_VMM_BLOCK_SIZE IF_WINDOWS_ELSE(16*1024, 4*1024)
 
 /* special heap of same-sized blocks that avoids global locks */
 void *special_heap_init(uint block_size, bool use_lock, bool executable,
