@@ -1047,7 +1047,7 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in)
 
     if (first_block != BITMAP_NOT_FOUND) {
         p = vmm_block_to_addr(vmh, first_block);
-        STATS_ADD_PEAK(vmm_vsize_used, size);
+        RSTATS_ADD_PEAK(vmm_vsize_used, size);
         STATS_ADD_PEAK(vmm_vsize_blocks_used, request);
         STATS_ADD_PEAK(vmm_vsize_wasted, size - size_in);
         DOSTATS({
@@ -1088,7 +1088,7 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in)
     mutex_unlock(&vmh->lock);
 
     ASSERT(vmh->num_free_blocks <= vmh->num_blocks);
-    STATS_SUB(vmm_vsize_used, size);
+    RSTATS_SUB(vmm_vsize_used, size);
     STATS_SUB(vmm_vsize_blocks_used, request);
     STATS_SUB(vmm_vsize_wasted, size - size_in);
 }
@@ -1587,7 +1587,7 @@ heap_init()
 static void
 really_free_unit(heap_unit_t *u)
 {
-    STATS_SUB(heap_capacity, UNIT_COMMIT_SIZE(u));
+    RSTATS_SUB(heap_capacity, UNIT_COMMIT_SIZE(u));
     STATS_ADD(heap_reserved_only,
               (stats_int_t)(UNIT_COMMIT_SIZE(u) - UNIT_RESERVED_SIZE(u)));
     /* remember that u itself is inside unit, not separately allocated */
@@ -1851,7 +1851,7 @@ static inline void
 account_for_memory(void *p, size_t size, uint prot, bool add_vm, bool image
                    _IF_DEBUG(const char *comment))
 {
-    STATS_ADD_PEAK(memory_capacity, size);
+    RSTATS_ADD_PEAK(memory_capacity, size);
 
     /* case 3045: areas inside the vmheap reservation are not added to the list
      * for clients that use DR-allocated memory, we have get_memory_info()
@@ -1988,10 +1988,8 @@ release_real_memory(void *p, size_t size, bool remove_vm)
     release_memory_and_update_areas((app_pc)p, size, false/*free*/, remove_vm);
 
     /* avoid problem w/ being called by cleanup_and_terminate after dynamo_process_exit */
-    DOSTATS({
-        if (!dynamo_exited_log_and_stats)
-            STATS_SUB(memory_capacity, size);
-    });
+    if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
+        RSTATS_SUB(memory_capacity, size);
 }
 
 static void
@@ -2139,13 +2137,11 @@ release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guard
     release_memory_and_update_areas((app_pc)p, size, false/*free*/, remove_vm);
 
     /* avoid problem w/ being called by cleanup_and_terminate after dynamo_process_exit */
-    DOSTATS({
-        if (!dynamo_exited_log_and_stats) {
-            STATS_SUB(memory_capacity, size);
-            STATS_SUB(reserved_memory_capacity, size);
-            STATS_ADD(guard_pages, -2);
-        }
-    });
+    if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true)) {
+        RSTATS_SUB(memory_capacity, size);
+        STATS_SUB(reserved_memory_capacity, size);
+        STATS_ADD(guard_pages, -2);
+    }
 }
 
 /* use heap_mmap to allocate large chunks of executable memory
@@ -2457,8 +2453,7 @@ stack_alloc(size_t size, byte *min_addr)
 # endif
 #endif
 
-    STATS_ADD(stack_capacity, size);
-    STATS_MAX(peak_stack_capacity, stack_capacity);
+    RSTATS_ADD_PEAK(stack_capacity, size);
     /* stack grows from high to low */
     return (void *) ((ptr_uint_t)p + size);
 }
@@ -2472,10 +2467,8 @@ stack_free(void *p, size_t size)
     p = (void *) ((vm_addr_t)p - size);
     release_guarded_real_memory((vm_addr_t)p, size, true/*update DR areas immediately*/,
                                 true);
-    DOSTATS({
-        if (!dynamo_exited_log_and_stats)
-            STATS_SUB(stack_capacity, size);
-    });
+    if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
+        RSTATS_SUB(stack_capacity, size);
 }
 
 #ifdef STACK_GUARD_PAGE
@@ -2837,8 +2830,7 @@ heap_create_unit(thread_units_t *tu, size_t size, bool must_be_new)
         u->end_pc = ((heap_pc)u) + commit_size;
         u->reserved_end_pc = ((heap_pc)u) + size;
         u->in_vmarea_list = false;
-        STATS_ADD(heap_capacity, commit_size);
-        STATS_MAX(peak_heap_capacity, heap_capacity);
+        RSTATS_ADD_PEAK(heap_capacity, commit_size);
         /* FIXME: heap sizes are not always page-aligned so stats will be off */
         STATS_ADD_PEAK(heap_reserved_only, (u->reserved_end_pc - u->end_pc));
     }
@@ -3308,7 +3300,7 @@ common_heap_extend_commitment(heap_pc cur_pc, heap_pc end_pc, heap_pc reserved_e
         memset(end_pc, HEAP_UNALLOCATED_BYTE, commit_size);
 #endif
         /* caller should do end_pc += commit_size */
-        STATS_ADD_PEAK(heap_capacity, commit_size);
+        RSTATS_ADD_PEAK(heap_capacity, commit_size);
         /* FIXME: heap sizes are not always page-aligned so stats will be off */
         STATS_SUB(heap_reserved_only, commit_size);
         ASSERT(end_pc <= reserved_end_pc);
@@ -4168,8 +4160,8 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
     /* N.B.: if STATS macros ever change to grab a mutex, we could deadlock
      * if !su->use_lock!
      */
-    STATS_ADD_PEAK(heap_capacity, commit_size);
-    STATS_ADD_PEAK(heap_special_capacity, commit_size);
+    RSTATS_ADD_PEAK(heap_capacity, commit_size);
+    RSTATS_ADD_PEAK(heap_special_capacity, commit_size);
     STATS_ADD_PEAK(heap_special_units, 1);
     STATS_ADD_PEAK(heap_reserved_only, (u->reserved_end_pc - u->end_pc));
 
@@ -4402,7 +4394,7 @@ special_heap_exit(void *special)
         }
 #endif
         STATS_ADD(heap_special_units, -1);
-        STATS_SUB(heap_special_capacity, SPECIAL_UNIT_COMMIT_SIZE(u));
+        RSTATS_SUB(heap_special_capacity, SPECIAL_UNIT_COMMIT_SIZE(u));
         if (su->heap_areas != NULL) {
             vmvector_remove(su->heap_areas, u->alloc_pc, u->reserved_end_pc);
         }
@@ -4504,10 +4496,10 @@ special_heap_calloc(void *special, uint num)
         if (u->cur_pc + su->block_size*num > u->end_pc ||
             POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
             /* simply extend commitment, if possible */
-            DEBUG_DECLARE(size_t pre_commit_size = SPECIAL_UNIT_COMMIT_SIZE(u);)
+            size_t pre_commit_size = SPECIAL_UNIT_COMMIT_SIZE(u);
             special_unit_extend_commitment(u, su->block_size*num, get_prot(su));
-            STATS_ADD_PEAK(heap_special_capacity,
-                           SPECIAL_UNIT_COMMIT_SIZE(u) - pre_commit_size);
+            RSTATS_ADD_PEAK(heap_special_capacity,
+                            SPECIAL_UNIT_COMMIT_SIZE(u) - pre_commit_size);
             /* check again after extending commit */
             if (u->cur_pc + su->block_size*num > u->end_pc ||
                 POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size*num)) {
