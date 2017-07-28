@@ -1566,6 +1566,7 @@ vm_areas_reset_init(void)
 void
 dynamo_vm_areas_init()
 {
+    vm_areas_exited = false;
     VMVECTOR_ALLOC_VECTOR(dynamo_areas, GLOBAL_DCONTEXT, VECTOR_SHARED,
                           dynamo_areas);
 }
