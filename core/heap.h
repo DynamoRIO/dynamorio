@@ -125,6 +125,7 @@ bool rel32_reachable_from_vmcode(byte *target);
 /* heap management */
 void heap_init(void);
 void heap_exit(void);
+void heap_post_exit(void); /* post exit to support reattach */
 void heap_reset_init(void);
 void heap_reset_free(void);
 void heap_thread_init(dcontext_t *dcontext);

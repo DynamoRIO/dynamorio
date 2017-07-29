@@ -1706,6 +1706,12 @@ heap_exit()
         heapmgt = &temp_heapmgt;
 }
 
+void
+heap_post_exit()
+{
+    heap_exiting = false;
+}
+
 /* FIXME:
  * detect if the app is who we're fighting for memory, if so, don't
  * free memory, else the app will just keep grabbing more.
