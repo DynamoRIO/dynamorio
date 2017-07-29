@@ -2759,14 +2759,14 @@ DR_API
 void *
 dr_nonheap_alloc(size_t size, uint prot)
 {
-    return heap_mmap_ex(size, size, prot, false/*no guard pages*/);
+    return heap_mmap_ex(size, size, prot, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 DR_API
 void
 dr_nonheap_free(void *mem, size_t size)
 {
-    heap_munmap_ex(mem, size, false/*no guard pages*/);
+    heap_munmap_ex(mem, size, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 static void *

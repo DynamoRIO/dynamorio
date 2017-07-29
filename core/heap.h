@@ -109,6 +109,14 @@ vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
 #endif
 
 /* virtual heap manager */
+typedef enum {
+    VMM_HEAP = 0,
+    VMM_CACHE,
+    VMM_STACK,
+    VMM_SPECIAL_HEAP,
+    VMM_SPECIAL_MMAP,
+} which_vmm_t;
+
 void vmm_heap_init(void);
 void vmm_heap_exit(void);
 void print_vmm_heap_data(file_t outf);
@@ -145,12 +153,13 @@ void *global_heap_realloc(void *ptr, size_t old_num, size_t new_num,
 bool lockwise_safe_to_allocate_memory(void);
 
 /* use heap_mmap to allocate large chunks of executable memory */
-void *heap_mmap(size_t size);
-void heap_munmap(void *p, size_t size);
-void *heap_mmap_reserve(size_t reserve_size, size_t commit_size);
+void *heap_mmap(size_t size, which_vmm_t which);
+void heap_munmap(void *p, size_t size, which_vmm_t which);
+void *heap_mmap_reserve(size_t reserve_size, size_t commit_size, which_vmm_t which);
 
-void *heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded);
-void heap_munmap_ex(void *p, size_t size, bool guarded);
+void *heap_mmap_ex(size_t reserve_size, size_t commit_size, uint prot, bool guarded,
+                   which_vmm_t which);
+void heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
@@ -164,18 +173,20 @@ unmap_file(byte *map, size_t size);
  */
 void *
 heap_mmap_reserve_post_stack(dcontext_t *dcontext,
-                             size_t reserve_size, size_t commit_size);
+                             size_t reserve_size, size_t commit_size, which_vmm_t which);
 void
-heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size);
+heap_munmap_post_stack(dcontext_t *dcontext, void *p, size_t reserve_size,
+                       which_vmm_t which);
 
 /* It is up to the caller to ensure commit_size is a page size multiple,
  * and that it does not extend beyond the initial reservation.
  */
 void
-heap_mmap_extend_commitment(void *p, size_t commit_size);
+heap_mmap_extend_commitment(void *p, size_t commit_size, which_vmm_t which);
 
 void
-heap_mmap_retract_commitment(void *retract_start, size_t decommit_size);
+heap_mmap_retract_commitment(void *retract_start, size_t decommit_size,
+                             which_vmm_t which);
 
 /* use stack_alloc to build a stack -- it returns TOS */
 void *stack_alloc(size_t size, byte *min_addr);

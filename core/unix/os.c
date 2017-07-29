@@ -1947,7 +1947,7 @@ os_tls_init(void)
      * segments need to watch modify_ldt syscall
      */
     /* FIXME: heap_mmap marks as exec, we just want RW */
-    byte *segment = heap_mmap(PAGE_SIZE);
+    byte *segment = heap_mmap(PAGE_SIZE, VMM_SPECIAL_MMAP);
     os_local_state_t *os_tls = (os_local_state_t *) segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "TIDFMT"\n", get_thread_id());
@@ -2083,7 +2083,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
         os_tls_thread_exit(local_state);
 
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
-    heap_munmap(os_tls->self, PAGE_SIZE);
+    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
 #else
     global_heap_free(tls_table, MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
