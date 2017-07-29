@@ -295,7 +295,7 @@ typedef struct _heap_t {
     uint num_dead;
 } heap_t;
 
-/* protected by dynamo_vm_areas_lock() */
+/* no synch needed since only written once */
 static bool heap_exiting = false;
 
 #ifdef DEBUG
@@ -1401,9 +1401,6 @@ vmm_heap_init()
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vm_size));
     }
-    dynamo_vm_areas_lock();
-    heap_exiting = false;
-    dynamo_vm_areas_unlock();
 }
 
 void
@@ -1550,6 +1547,8 @@ heap_init()
      * FIXME: ensure that release build aligns ok?
      * I would be quite surprised if static vars were not 4-byte-aligned!
      */
+    ASSERT(ALIGN_BACKWARD(&heap_exiting, CACHE_LINE_SIZE()) ==
+           ALIGN_BACKWARD(&heap_exiting + 1, CACHE_LINE_SIZE()));
     ASSERT(ALIGN_BACKWARD(&heap_unit_lock.owner, CACHE_LINE_SIZE()) ==
            ALIGN_BACKWARD(&heap_unit_lock.owner + 1, CACHE_LINE_SIZE()));
 
@@ -1646,9 +1645,9 @@ heap_exit()
     heap_unit_t *u, *next_u;
     heap_management_t *temp;
 
+    heap_exiting = true;
     /* FIXME: we shouldn't need either lock if executed last */
     dynamo_vm_areas_lock();
-    heap_exiting = true;
     acquire_recursive_lock(&heap_unit_lock);
 
 #ifdef WINDOWS
