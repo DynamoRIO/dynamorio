@@ -237,19 +237,22 @@ instrlist_last_app(instrlist_t *ilist)
 static inline void
 check_translation(instrlist_t *ilist, instr_t *inst)
 {
-    if (ilist->translation_target != NULL && instr_get_translation(inst) == NULL)
+    if (ilist->translation_target != NULL && instr_get_translation(inst) == NULL) {
         instr_set_translation(inst, ilist->translation_target);
+    }
     if (instrlist_get_our_mangling(ilist))
         instr_set_our_mangling(inst, true);
-#if defined(ARM) && defined(CLIENT_INTERFACE)
+#if defined(CLIENT_INTERFACE) && defined(ARM)
     if (instr_is_meta(inst)) {
         dr_pred_type_t auto_pred = ilist->auto_pred;
         if (auto_pred != DR_PRED_AL && auto_pred != DR_PRED_NONE) {
             CLIENT_ASSERT(!instr_is_cti(inst), "auto-predication does not support cti's");
             CLIENT_ASSERT(!TESTANY(EFLAGS_WRITE_NZCV,
-                             instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS)),
+                                   instr_get_arith_flags(inst,
+                                                         DR_QUERY_INCLUDE_COND_SRCS)),
                     "cannot auto predicate a meta-inst that writes to NZCV");
-            instr_set_predicate(inst, auto_pred);
+            if (!instr_is_predicated(inst))
+                instr_set_predicate(inst, auto_pred);
         }
     }
 #endif

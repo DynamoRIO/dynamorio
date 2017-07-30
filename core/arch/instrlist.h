@@ -125,9 +125,14 @@ DR_API
 /**
  * All future instructions inserted into \p ilist will be predicated
  * with \p pred. This is a convenience routine to make it easy to have
- * emitted code from internal dr components predicated.
+ * emitted code from internal DR components predicated.
  *
  * \note only has an effect on ARM
+ *
+ * \note clients may not emit instrumentation that writes to flags, nor
+ * may clients insert cti's. Internal DR components as
+ * \p dr_insert_clean_call() handle auto predication gracefully and are
+ * thus safe for use with auto predication.
  */
 void
 instrlist_set_auto_predicate(instrlist_t *ilist, dr_pred_type_t pred);

@@ -32,11 +32,6 @@
 
 #include "dr_api.h"
 
-#define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-         dr_abort(), 0) : 0))
-
 void
 test_dr_insert_it_instrs_cbr(void *dcontext)
 {
@@ -83,7 +78,7 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     /* set them all to be predicated and reinstate it instrs */
     for (where = instrlist_first(ilist); where; where = instr_get_next(where)) {
         bool ok = instr_set_isa_mode(where, DR_ISA_ARM_THUMB);
-        ASSERT(ok);
+        DR_ASSERT(ok);
         instr_set_predicate(where, DR_PRED_LS);
     }
     dr_insert_it_instrs(dcontext, ilist);
@@ -106,12 +101,12 @@ test_dr_insert_it_instrs_cbr(void *dcontext)
     instr_it1 = instrlist_first(ilist);
     instr_it2 = instr_get_next(instr_get_next(instr_get_next(instr_it1)));
     instr_it3 = instr_get_next(instr_get_next(instr_get_next(instr_get_next(instr_it2))));
-    ASSERT(instr_get_opcode(instr_it1) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it1) == 1);
-    ASSERT(instr_get_opcode(instr_it2) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it2) == 2);
-    ASSERT(instr_get_opcode(instr_it3) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it3) == 3);
+    DR_ASSERT(instr_get_opcode(instr_it1) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it1) == 1);
+    DR_ASSERT(instr_get_opcode(instr_it2) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it2) == 2);
+    DR_ASSERT(instr_get_opcode(instr_it3) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it3) == 3);
     instrlist_encode(dcontext, ilist, buffer, true);
 }
 
@@ -161,7 +156,7 @@ test_dr_insert_it_instrs_cti(void *dcontext)
     /* set them all to be predicated and reinstate it instrs */
     for (where = instrlist_first(ilist); where; where = instr_get_next(where)) {
         bool ok = instr_set_isa_mode(where, DR_ISA_ARM_THUMB);
-        ASSERT(ok);
+        DR_ASSERT(ok);
         instr_set_predicate(where, DR_PRED_LS);
     }
     dr_insert_it_instrs(dcontext, ilist);
@@ -184,12 +179,12 @@ test_dr_insert_it_instrs_cti(void *dcontext)
     instr_it1 = instrlist_first(ilist);
     instr_it2 = instr_get_next(instr_get_next(instr_get_next(instr_it1)));
     instr_it3 = instr_get_next(instr_get_next(instr_get_next(instr_get_next(instr_it2))));
-    ASSERT(instr_get_opcode(instr_it1) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it1) == 2);
-    ASSERT(instr_get_opcode(instr_it2) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it2) == 3);
-    ASSERT(instr_get_opcode(instr_it3) == OP_it);
-    ASSERT(instr_it_block_get_count(instr_it3) == 4);
+    DR_ASSERT(instr_get_opcode(instr_it1) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it1) == 2);
+    DR_ASSERT(instr_get_opcode(instr_it2) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it2) == 3);
+    DR_ASSERT(instr_get_opcode(instr_it3) == OP_it);
+    DR_ASSERT(instr_it_block_get_count(instr_it3) == 4);
     instrlist_encode(dcontext, ilist, buffer, true);
 }
 
