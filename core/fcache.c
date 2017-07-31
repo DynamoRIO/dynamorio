@@ -946,7 +946,7 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
         RSTATS_DEC(fcache_num_free);
         STATS_SUB(fcache_free_capacity, u->size);
     }
-    STATS_SUB(fcache_combined_capacity, u->size);
+    RSTATS_SUB(fcache_combined_capacity, u->size);
     /* remove from interval data struct first to avoid races w/ it
      * being re-used and not showing up in in_fcache
      */
@@ -1331,8 +1331,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
         u->end_pc = u->start_pc + commit_size;
         u->reserved_end_pc = u->start_pc + size;
         vmvector_add(fcache_unit_areas, u->start_pc, u->reserved_end_pc, (void *) u);
-        STATS_ADD(fcache_combined_capacity, u->size);
-        STATS_MAX(peak_fcache_combined_capacity, fcache_combined_capacity);
+        RSTATS_ADD_PEAK(fcache_combined_capacity, u->size);
 
 #ifdef WINDOWS_PC_SAMPLE
         if (dynamo_options.profile_pcs &&
@@ -1852,7 +1851,7 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
     unit->full = false;
     STATS_FCACHE_ADD(unit->cache, capacity, commit_size);
     STATS_FCACHE_MAX(unit->cache, capacity_peak, capacity);
-    STATS_ADD(fcache_combined_capacity, commit_size);
+    RSTATS_ADD_PEAK(fcache_combined_capacity, commit_size);
     ASSERT(unit->end_pc <= unit->reserved_end_pc);
     ASSERT(unit->size <= UNIT_RESERVED_SIZE(unit));
 }
@@ -1951,7 +1950,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 tu->pending_unmap_pc = unit->start_pc;
                 tu->pending_unmap_size = UNIT_RESERVED_SIZE(unit);
                 STATS_FCACHE_SUB(cache, capacity, unit->size);
-                STATS_SUB(fcache_combined_capacity, unit->size);
+                RSTATS_SUB(fcache_combined_capacity, unit->size);
 #ifdef WINDOWS_PC_SAMPLE
                 if (u->profile != NULL) {
                     free_profile(u->profile);
@@ -1986,9 +1985,8 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         STATS_FCACHE_SUB(cache, capacity, unit->size);
         STATS_FCACHE_ADD(cache, capacity, commit_size);
         STATS_FCACHE_MAX(cache, capacity_peak, capacity);
-        STATS_SUB(fcache_combined_capacity, unit->size);
-        STATS_ADD(fcache_combined_capacity, commit_size);
-        STATS_MAX(peak_fcache_combined_capacity, fcache_combined_capacity);
+        RSTATS_SUB(fcache_combined_capacity, unit->size);
+        RSTATS_ADD_PEAK(fcache_combined_capacity, commit_size);
         LOG(THREAD, LOG_HEAP, 3, "fcache_increase_size -> "PFX"\n", new_memory);
         ASSERT(new_memory != NULL);
         ASSERT(proc_is_cache_aligned((void *)new_memory));

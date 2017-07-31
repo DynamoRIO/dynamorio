@@ -2825,6 +2825,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             add_dynamo_vm_area((app_pc)p, ((app_pc)p)+size, prot,
                                true _IF_DEBUG("fls cb in private lib"));
         }
+        RSTATS_ADD_PEAK(client_raw_mmap_size, size);
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
@@ -2864,6 +2865,8 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
+    if (res)
+        RSTATS_SUB(client_raw_mmap_size, size);
     return res;
 }
 
