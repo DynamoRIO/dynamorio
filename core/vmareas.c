@@ -1802,6 +1802,12 @@ vm_areas_exit()
 }
 
 void
+vm_areas_post_exit()
+{
+    vm_areas_exited = false;
+}
+
+void
 vm_areas_thread_reset_init(dcontext_t *dcontext)
 {
     thread_data_t *data = (thread_data_t *) dcontext->vm_areas_field;
