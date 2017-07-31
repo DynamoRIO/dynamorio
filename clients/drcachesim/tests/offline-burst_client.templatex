@@ -2,6 +2,25 @@ pre-DR init
 app dr_client_main
 pre-DR start
 pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+app dr_client_main
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+app dr_client_main
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
 all done
 Cache simulation results:
 Core #0 \(1 thread\(s\)\)

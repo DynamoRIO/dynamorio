@@ -2030,6 +2030,8 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only);
 
 #endif /* DEBUG */
 
+void dump_global_rstats_to_stderr(void);
+
 bool
 under_internal_exception(void);
 

@@ -1115,6 +1115,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
          */
         dump_global_stats(false);
     });
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
 
     statistics_exit();
 #ifdef DEBUG
@@ -1516,6 +1518,9 @@ dynamo_process_exit(void)
 # endif
     /* so make sure eventlog connection is terminated (if present)  */
     os_fast_exit();
+
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
 
     return SUCCESS;
 #endif /* !DEBUG */

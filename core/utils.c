@@ -3281,8 +3281,28 @@ print_timestamp(file_t logfile)
         print_file(logfile, buffer);
     return len;
 }
-
 #endif /* DEBUG */
+
+void
+dump_global_rstats_to_stderr(void)
+{
+    if (GLOBAL_STATS_ON()) {
+        print_file(STDERR, "%s statistics:\n", PRODUCT_NAME);
+#undef RSTATS_DEF
+        /* It doesn't make sense to print Current stats.  We assume no rstat starts
+         * with "Cu".
+         */
+#define RSTATS_DEF(desc, stat) \
+        if (GLOBAL_STAT(stat) && (desc[0] != 'C' || desc[1] != 'u')) { \
+            print_file(STDERR, "%50s :"IF_X64_ELSE("%18","%9")SSZFC    \
+                       "\n", desc, GLOBAL_STAT(stat));                 \
+        }
+#define RSTATS_ONLY
+#include "statsx.h"
+#undef RSTATS_ONLY
+#undef RSTATS_DEF
+    }
+}
 
 static void
 dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)

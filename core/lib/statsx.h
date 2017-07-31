@@ -54,6 +54,9 @@
 #endif
 #undef STATS_DEF
 #undef RSTATS_DEF
+
+RSTATS_DEF should start the description with Current for stats to not print
+under -rstats_to_stderr.
 */
 
 /* Add new statistics at the end so that older GUIs can still show old statistics */
@@ -65,14 +68,14 @@
 /* use RSTATS_DEF for statistics that are available in release build as well
  * as debug (you must use RSTATS_INC, etc. as well with such stats)
  */
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(RSTATS_ONLY)
 # define RSTATS_DEF STATS_DEF
 #else
 # define STATS_DEF(desc, name) /* nothing */
 #endif
 
     STATS_DEF("Application exited", exited)
-    RSTATS_DEF("Threads under DynamoRIO control", num_threads)
+    RSTATS_DEF("Current threads under DynamoRIO control", num_threads)
     RSTATS_DEF("Peak threads under DynamoRIO control", peak_num_threads)
     RSTATS_DEF("Threads ever created", num_threads_created)
     STATS_DEF("Threads killed", num_threads_killed)
@@ -571,7 +574,7 @@
     STATS_DEF("Branches linked, indirect", num_indirect_links)
     STATS_DEF("Branches already linked, indirect", num_indirect_already_linked)
 
-    RSTATS_DEF("Coarse-grain units", num_coarse_units)
+    RSTATS_DEF("Current coarse-grain units", num_coarse_units)
     RSTATS_DEF("Peak coarse-grain units", peak_num_coarse_units)
     STATS_DEF("Coarse-grain fragments generated", num_coarse_fragments)
     STATS_DEF("Coarse-grain fragments in secondary units", num_coarse_secondary)
@@ -870,9 +873,9 @@
     STATS_DEF("Fcache combined claimed (bytes)", fcache_combined_claimed)
     STATS_DEF("Fcache combined capacity (bytes)", fcache_combined_capacity)
     STATS_DEF("Peak fcache combined capacity (bytes)", peak_fcache_combined_capacity)
-    RSTATS_DEF("Fcache units on live list", fcache_num_live)
+    RSTATS_DEF("Current fcache units on live list", fcache_num_live)
     RSTATS_DEF("Peak fcache units on live list", peak_fcache_num_live)
-    RSTATS_DEF("Fcache units on free list", fcache_num_free)
+    RSTATS_DEF("Current fcache units on free list", fcache_num_free)
     RSTATS_DEF("Peak fcache units on free list", peak_fcache_num_free)
     STATS_DEF("Fcache unit lookups", fcache_unit_lookups)
 
@@ -890,9 +893,9 @@
     STATS_DEF("Special heap capacity (bytes)", heap_special_capacity)
     STATS_DEF("Peak special heap capacity (bytes)", peak_heap_special_capacity)
 
-    RSTATS_DEF("Heap units on live list", heap_num_live)
+    RSTATS_DEF("Current heap units on live list", heap_num_live)
     RSTATS_DEF("Peak heap units on live list", peak_heap_num_live)
-    RSTATS_DEF("Heap units on free list", heap_num_free)
+    RSTATS_DEF("Current heap units on free list", heap_num_free)
     RSTATS_DEF("Peak heap units on free list", peak_heap_num_free)
     STATS_DEF("Heap headers (bytes)", heap_headers)
     STATS_DEF("Heap align space (bytes)", heap_align)
