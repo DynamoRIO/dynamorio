@@ -667,6 +667,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             }
             /* XXX: add checks that cb followed the rules */
         }
+        /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
+         * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
+         * instrlist_set_auto_predicate() has been written to address this, but
+         * has not been enabled yet by default.
+         */
     }
 
     /* Pass 4: final */

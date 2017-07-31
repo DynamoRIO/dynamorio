@@ -130,7 +130,7 @@ DR_API
  * \note only has an effect on ARM
  *
  * \note clients may not emit instrumentation that writes to flags, nor
- * may clients insert cti's. Internal DR components as
+ * may clients insert cti's. Internal DR components such as
  * \p dr_insert_clean_call() handle auto predication gracefully and are
  * thus safe for use with auto predication.
  */
