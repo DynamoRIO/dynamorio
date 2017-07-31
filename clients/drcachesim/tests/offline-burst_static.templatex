@@ -2,21 +2,21 @@ pre-DR init
 pre-DR start
 pre-DR detach
 DynamoRIO statistics:
-              Peak threads under DynamoRIO control :                 1
+ *Peak threads under DynamoRIO control : *1
 .*
 all done
 pre-DR init
 pre-DR start
 pre-DR detach
 DynamoRIO statistics:
-              Peak threads under DynamoRIO control :                 1
+ *Peak threads under DynamoRIO control : *1
 .*
 all done
 pre-DR init
 pre-DR start
 pre-DR detach
 DynamoRIO statistics:
-              Peak threads under DynamoRIO control :                 1
+ *Peak threads under DynamoRIO control : *1
 .*
 all done
 Cache simulation results:
