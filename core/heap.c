@@ -2100,7 +2100,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot,
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     if (!try_vmm || p < (vm_addr_t)min_addr) {
         if (p != NULL)
-            vmm_heap_free(p, reserve_size, &error_code);
+            vmm_heap_free(p, reserve_size, &error_code, which);
         p = os_heap_reserve_in_region
             ((void *)ALIGN_FORWARD(min_addr, PAGE_SIZE),
              (void *)PAGE_START(POINTER_MAX),
@@ -4892,7 +4892,7 @@ alloc_landing_pad(app_pc addr_to_hook)
                      ASSERT(lpad_area->allocated);
                      extend_commitment(lpad_area->commit_end, PAGE_SIZE,
                                        MEMPROT_READ|MEMPROT_EXEC,
-                                       false /* not initial commit */);
+                                       false /* not initial commit */, VMM_SPECIAL_MMAP);
                      lpad_area->commit_end += PAGE_SIZE;
                  }
 
@@ -4971,7 +4971,7 @@ alloc_landing_pad(app_pc addr_to_hook)
          */
         if (allocated) {
             extend_commitment(lpad_area_start, PAGE_SIZE, MEMPROT_READ|MEMPROT_EXEC,
-                              true /* initial commit */);
+                              true /* initial commit */, VMM_SPECIAL_MMAP);
         }
 
         lpad_area = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, landing_pad_area_t,
