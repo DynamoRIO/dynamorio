@@ -3790,7 +3790,12 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
             }
             else {
                 /* Disable debug register. */
-                debugRegister[0] = NULL;
+                if (debugRegister[0] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[0],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[0] = NULL;
+                }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
                 if (debugRegister[1] != (app_pc) cxt->Dr1) {
@@ -3801,7 +3806,13 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 }
             }
             else {
-                debugRegister[1] = NULL;
+                /* Disable debug register. */
+                if (debugRegister[1] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[1] = NULL;
+                }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
                 if (debugRegister[2] != (app_pc) cxt->Dr2) {
@@ -3812,7 +3823,13 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 }
             }
             else {
-                debugRegister[2] = NULL;
+                /* Disable debug register. */
+                if (debugRegister[2] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[2] = NULL;
+                }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
                 if (debugRegister[3] != (app_pc) cxt->Dr3) {
@@ -3823,7 +3840,13 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 }
             }
             else {
-                debugRegister[3] = NULL;
+                /* Disable debug register. */
+                if (debugRegister[3] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[3] = NULL;
+                }
             }
         }
 
@@ -5737,9 +5760,6 @@ intercept_exception(app_state_at_intercept_t *state)
                     /* Checks that exception address translate on a popf. */
                     if (instr_get_opcode(&instr) == OP_popf ||
                         instr_get_opcode(&instr) == OP_iret) {
-                        LOG(THREAD, LOG_ASYNCH, 2,
-                            "Caught generated single step exception at "PFX"\n",
-                            pExcptRec->ExceptionAddress);
                         /* Will continue after one byte popf or iret. */
                         if (instr_get_opcode(&instr) == OP_popf) {
                             dcontext->next_tag = mcontext.pc + POPF_LENGTH;
@@ -5756,6 +5776,9 @@ intercept_exception(app_state_at_intercept_t *state)
                                                     false/*don't force synchall*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
+                        LOG(THREAD, LOG_ASYNCH, 2,
+                            "Caught generated single step exception at "PFX" to "PFX"\n",
+                            pExcptRec->ExceptionAddress, dcontext->next_tag);
                         /* Will return to execute instruction
                          * where single step exception will be forged.
                          */

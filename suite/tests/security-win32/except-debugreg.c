@@ -59,11 +59,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         pExceptionInfo->ContextRecord->Dr7 = 0x00000505;
         print("set debug register\n");
         // Increment pc pointer to go to next instruction and avoid infinite loop
-#ifndef X64
-        pExceptionInfo->ContextRecord->Eip++;
-#else
-        pExceptionInfo->ContextRecord->Rip++;
-#endif
+        pExceptionInfo->ContextRecord->CXT_XIP++;
         return EXCEPTION_CONTINUE_EXECUTION;
     } else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
         // Prints eax to check if "inc eax" instruction was executed
@@ -72,11 +68,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
             pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr1) {
             count++;
             // Increment pc pointer to go to next instruction and avoid infinite loop
-#ifndef X64
-            pExceptionInfo->ContextRecord->Eip++;
-#else
-            pExceptionInfo->ContextRecord->Rip++;
-#endif
+            pExceptionInfo->ContextRecord->CXT_XIP++;
         }
         else {
             print("got address "PFX", expected "PFX" or "PFX"\n",
