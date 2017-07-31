@@ -952,7 +952,7 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
      */
     vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
     if (dealloc_unit)
-        heap_munmap((void*)u->start_pc, UNIT_RESERVED_SIZE(u));
+        heap_munmap((void*)u->start_pc, UNIT_RESERVED_SIZE(u), VMM_CACHE);
     /* always dealloc the metadata */
     nonpersistent_heap_free(GLOBAL_DCONTEXT, u, sizeof(fcache_unit_t)
                             HEAPACCT(ACCT_MEM_MGT));
@@ -1322,7 +1322,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
             /* allocate new unit */
             commit_size = DYNAMO_OPTION(cache_commit_increment);
             ASSERT(commit_size <= size);
-            u->start_pc = (cache_pc) heap_mmap_reserve(size, commit_size);
+            u->start_pc = (cache_pc) heap_mmap_reserve(size, commit_size, VMM_CACHE);
         }
         ASSERT(u->start_pc != NULL);
         ASSERT(proc_is_cache_aligned((void *)u->start_pc));
@@ -1844,7 +1844,7 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
 {
     ASSERT(unit != NULL);
     ASSERT(ALIGNED(commit_size, DYNAMO_OPTION(cache_commit_increment)));
-    heap_mmap_extend_commitment(unit->end_pc, commit_size);
+    heap_mmap_extend_commitment(unit->end_pc, commit_size, VMM_CACHE);
     unit->end_pc += commit_size;
     unit->size += commit_size;
     unit->cache->size += commit_size;
@@ -1981,7 +1981,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         ASSERT(commit_size >= slot_size);
         commit_size += unit->size;
         ASSERT(commit_size <= new_size);
-        new_memory = (cache_pc) heap_mmap_reserve(new_size, commit_size);
+        new_memory = (cache_pc) heap_mmap_reserve(new_size, commit_size, VMM_CACHE);
         STATS_FCACHE_SUB(cache, capacity, unit->size);
         STATS_FCACHE_ADD(cache, capacity, commit_size);
         STATS_FCACHE_MAX(cache, capacity_peak, capacity);
@@ -2152,7 +2152,7 @@ fcache_thread_reset_free(dcontext_t *dcontext)
          */
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
                         tu->pending_unmap_pc+tu->pending_unmap_size);
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
         tu->pending_unmap_pc = NULL;
     }
     if (tu->bb != NULL) {
@@ -3605,7 +3605,7 @@ fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
                         tu->pending_unmap_pc+tu->pending_unmap_size);
         /* caller must dec stats since here we don't know type of cache */
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
         tu->pending_unmap_pc = NULL;
     }
 
