@@ -38,7 +38,8 @@
 static int count = 0;
 void set_debug_register();
 void test_debug_register();
-void single_step_addr(void);
+void single_step_addr0(void);
+void single_step_addr1(void);
 
 
 /* top-level exception handler */
@@ -50,33 +51,36 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         // We should find another way compatible with 64-bit to be able to test it
 
         // Should get here thanks to the int 3 instruction in set_debug_register
-        // Set Dr0 to the address where to add a breakpoint
-        pExceptionInfo->ContextRecord->Dr0 = (unsigned int) single_step_addr;
+        // Set Dr0 and Dr1 to the address where to add a breakpoint
+        pExceptionInfo->ContextRecord->Dr0 = (unsigned int) single_step_addr0;
+        pExceptionInfo->ContextRecord->Dr1 = (unsigned int) single_step_addr1;
         pExceptionInfo->ContextRecord->Dr6 = 0xfffe0ff0;
-        // Set Dr7 to enable Dr0 breakpoint
-        pExceptionInfo->ContextRecord->Dr7 = 0x00000101;
+        // Set Dr7 to enable Dr0 and Dr1 breakpoint
+        pExceptionInfo->ContextRecord->Dr7 = 0x00000505;
         print("set debug register\n");
         // Increment pc pointer to go to next instruction and avoid infinite loop
-#ifndef X64
-        pExceptionInfo->ContextRecord->Eip++;
-#else
-        pExceptionInfo->ContextRecord->Rip++;
-#endif
+        pExceptionInfo->ContextRecord->CXT_XIP++;
         return EXCEPTION_CONTINUE_EXECUTION;
     } else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
-        print("single step seen\n");
-        if (pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr) {
+        // Prints eax to check if "inc eax" instruction was executed
+        print("single step seen eax = %x\n", pExceptionInfo->ContextRecord->Eax);
+        if (pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr0 ||
+            pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr1) {
             count++;
+            // Increment pc pointer to go to next instruction and avoid infinite loop
+            pExceptionInfo->ContextRecord->CXT_XIP++;
         }
         else {
-            print("got address "PFX", expected "PFX"\n",
+            print("got address "PFX", expected "PFX" or "PFX"\n",
                   pExceptionInfo->ExceptionRecord->ExceptionAddress,
-                  single_step_addr);
+                  single_step_addr0, single_step_addr1);
         }
-        //deactivate breakpoint
-        pExceptionInfo->ContextRecord->Dr0 = 0;
-        pExceptionInfo->ContextRecord->Dr6 = 0;
-        pExceptionInfo->ContextRecord->Dr7 = 0;
+        if (count == 2) {
+            //deactivate breakpoints
+            pExceptionInfo->ContextRecord->Dr0 = 0;
+            pExceptionInfo->ContextRecord->Dr6 = 0;
+            pExceptionInfo->ContextRecord->Dr7 = 0;
+        }
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
@@ -121,14 +125,22 @@ END_FUNC(FUNCNAME)
 #define FUNCNAME test_debug_register
 DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        nop
-        nop
-DECLARE_GLOBAL(single_step_addr)
-ADDRTAKEN_LABEL(single_step_addr:)
-        nop
         xor      eax, eax
-        test     eax, eax
+        // Sets eax to some value
+        mov      eax, 1
+        // Modifies eax with a one byte instruction at a single step
+DECLARE_GLOBAL(single_step_addr0)
+ADDRTAKEN_LABEL(single_step_addr0:)
+        inc      eax
         nop
+        inc      eax
+        jmp      eaxEquals2
+        ret
+        // Check debug register at the start of a new basic block
+    eaxEquals2:
+DECLARE_GLOBAL(single_step_addr1)
+ADDRTAKEN_LABEL(single_step_addr1:)
+        inc      eax
         nop
         ret
 END_FUNC(FUNCNAME)

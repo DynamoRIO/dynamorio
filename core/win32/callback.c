@@ -3764,8 +3764,6 @@ NtContinue:
 void
 intercept_nt_continue(CONTEXT *cxt, int flag)
 {
-    size_t i;
-
     if (intercept_asynch_for_self(false/*no unknown threads*/)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -3782,22 +3780,72 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
          */
         if (TESTALL(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags)) {
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
-                debugRegister[0] = (app_pc) cxt->Dr0;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
-                debugRegister[1] = (app_pc) cxt->Dr1;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
-                debugRegister[2] = (app_pc) cxt->Dr2;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
-                debugRegister[3] = (app_pc) cxt->Dr3;
-            }
-            for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-                if (debugRegister[i] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[i],
+                /* Flush only when debug register value changes. */
+                if (debugRegister[0] != (app_pc) cxt->Dr0) {
+                    debugRegister[0] = (app_pc) cxt->Dr0;
+                    flush_fragments_from_region(dcontext, debugRegister[0],
                                                 1 /* size */,
                                                 false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[0] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[0],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[0] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
+                if (debugRegister[1] != (app_pc) cxt->Dr1) {
+                    debugRegister[1] = (app_pc) cxt->Dr1;
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[1] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[1] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
+                if (debugRegister[2] != (app_pc) cxt->Dr2) {
+                    debugRegister[2] = (app_pc) cxt->Dr2;
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[2] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[2] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
+                if (debugRegister[3] != (app_pc) cxt->Dr3) {
+                    debugRegister[3] = (app_pc) cxt->Dr3;
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[3] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[3] = NULL;
                 }
             }
         }
@@ -5712,9 +5760,6 @@ intercept_exception(app_state_at_intercept_t *state)
                     /* Checks that exception address translate on a popf. */
                     if (instr_get_opcode(&instr) == OP_popf ||
                         instr_get_opcode(&instr) == OP_iret) {
-                        LOG(THREAD, LOG_ASYNCH, 2,
-                            "Caught generated single step exception at "PFX"\n",
-                            pExcptRec->ExceptionAddress);
                         /* Will continue after one byte popf or iret. */
                         if (instr_get_opcode(&instr) == OP_popf) {
                             dcontext->next_tag = mcontext.pc + POPF_LENGTH;
@@ -5731,6 +5776,9 @@ intercept_exception(app_state_at_intercept_t *state)
                                                     false/*don't force synchall*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
+                        LOG(THREAD, LOG_ASYNCH, 2,
+                            "Caught generated single step exception at "PFX" to "PFX"\n",
+                            pExcptRec->ExceptionAddress, dcontext->next_tag);
                         /* Will return to execute instruction
                          * where single step exception will be forged.
                          */
