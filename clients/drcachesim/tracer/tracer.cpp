@@ -1345,7 +1345,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     uint64 max_bb_instrs;
     if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
         max_bb_instrs = 256; /* current default */
-    redzone_size = instru->sizeof_entry() * max_bb_instrs * 2;
+    redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
 
     max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
     /* Mark any padding as redzone as well */
