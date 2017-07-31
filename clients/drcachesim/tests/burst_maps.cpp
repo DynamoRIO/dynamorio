@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,18 +31,65 @@
  */
 
 /* This application links in drmemtrace_static and acquires a trace during
- * a "burst" of execution in the middle of the application.  It then detaches.
+ * a "burst" of execution in the middle of the application.  Before attaching
+ * it allocates a lot of heap, preventing the statically linked client from
+ * being 32-bit reachable from any available space for the code cache.
  */
 
-/* We deliberately do not include configure.h here to simulate what an
- * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
- * for us.
- */
+/* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
+#include "../../common/utils.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <unistd.h>
+#define _GNU_SOURCE 1 /* for mremap */
+#include <sys/mman.h>
+#include <stdio.h>
+#include <string.h>
+
+/* XXX: share these with suite/tests/tools.c and the core? */
+#define MAPS_LINE_LENGTH      4096
+#define MAPS_LINE_FORMAT4     "%08lx-%08lx %s %*x %*s %*u %4096s"
+#define MAPS_LINE_MAX4        49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
+#define MAPS_LINE_FORMAT8     "%016lx-%016lx %s %*x %*s %*u %4096s"
+#define MAPS_LINE_MAX8        73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
+#define MAPS_LINE_MAX         MAPS_LINE_MAX8
+
+void *
+find_exe_base()
+{
+    pid_t pid = getpid();
+    char proc_pid_maps[64];        /* file name */
+    FILE *maps;
+    char line[MAPS_LINE_LENGTH];
+    int len = snprintf(proc_pid_maps, BUFFER_SIZE_ELEMENTS(proc_pid_maps),
+                       "/proc/%d/maps", pid);
+    if (len < 0 || len == sizeof(proc_pid_maps))
+        assert(0);
+    NULL_TERMINATE_BUFFER(proc_pid_maps);
+    maps = fopen(proc_pid_maps,"r");
+    while (!feof(maps)){
+        void *vm_start, *vm_end;
+        char perm[16];
+        char comment_buffer[MAPS_LINE_LENGTH];
+        if (fgets(line, sizeof(line), maps) == NULL)
+            break;
+        len = sscanf(line,
+                     sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
+                     (unsigned long*)&vm_start, (unsigned long*)&vm_end, perm,
+                     comment_buffer);
+        if (len < 4)
+            comment_buffer[0] = '\0';
+        if (strstr(comment_buffer, "burst_maps") != 0) {
+            fclose(maps);
+            return vm_start;
+        }
+    }
+    fclose(maps);
+    return NULL;
+}
 
 bool
 my_setenv(const char *var, const char *value)
@@ -65,6 +112,31 @@ do_some_work(int arg)
     return (val > 0);
 }
 
+static void
+copy_and_remap(void *base, size_t offs, size_t size)
+{
+    void *p = mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
+    assert(p != MAP_FAILED);
+    void *dst = (byte*)base + offs;
+    memcpy(p, dst, size);
+    int res = mprotect(p, size, PROT_EXEC|PROT_READ);
+    assert(res == 0);
+    void *loc = mremap(p, size, size, MREMAP_MAYMOVE|MREMAP_FIXED, dst);
+    assert(loc == dst);
+}
+
+static void
+clobber_mapping()
+{
+    /* Test placing anonymous regions in the exe mapping (i#2566) */
+    const size_t clobber_size = 4096;
+    void *exe = find_exe_base();
+    assert(exe != NULL);
+    copy_and_remap(exe, 0, clobber_size);
+    copy_and_remap(exe, 4*clobber_size, clobber_size);
+    copy_and_remap(exe, 8*clobber_size, clobber_size);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -73,8 +145,9 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters/3;
     static int iter_stop = iter_start + 4;
 
-    /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
+    clobber_mapping();
+
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -vm_size 512M "
                    "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
@@ -104,29 +177,3 @@ main(int argc, const char *argv[])
     }
     return 0;
 }
-
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
-#if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
-# ifdef __cplusplus
-extern "C" {
-# endif
-
-/* Test if the drmemtrace_client_main() in drmemtrace will be called. */
-DR_EXPORT WEAK void
-drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "wrong drmemtrace_client_main\n";
-}
-
-/* This dr_client_main should be called instead of the one in tracer.cpp */
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "app dr_client_main\n";
-    drmemtrace_client_main(id, argc, argv);
-}
-
-# ifdef __cplusplus
-}
-# endif
-#endif  /* UNIX && TEST_APP_DR_CLIENT_MAIN */

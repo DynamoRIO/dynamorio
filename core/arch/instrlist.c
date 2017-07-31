@@ -75,6 +75,9 @@ instrlist_init(instrlist_t *ilist)
     ilist->translation_target = NULL;
 #ifdef CLIENT_INTERFACE
     ilist->fall_through_bb = NULL;
+# ifdef ARM
+    ilist->auto_pred = DR_PRED_NONE;
+# endif
 #endif
 }
 
@@ -168,6 +171,24 @@ instrlist_set_our_mangling(instrlist_t *ilist, bool ours)
         ilist->flags &= ~INSTR_OUR_MANGLING;
 }
 
+void
+instrlist_set_auto_predicate(instrlist_t *ilist, dr_pred_type_t pred)
+{
+#if defined(CLIENT_INTERFACE) && defined(ARM)
+    ilist->auto_pred = pred;
+#endif
+}
+
+dr_pred_type_t
+instrlist_get_auto_predicate(instrlist_t *ilist)
+{
+#if defined(CLIENT_INTERFACE) && defined(ARM)
+    return ilist->auto_pred;
+#else
+    return DR_PRED_NONE;
+#endif
+}
+
 bool
 instrlist_get_our_mangling(instrlist_t *ilist)
 {
@@ -221,6 +242,20 @@ check_translation(instrlist_t *ilist, instr_t *inst)
     }
     if (instrlist_get_our_mangling(ilist))
         instr_set_our_mangling(inst, true);
+#if defined(CLIENT_INTERFACE) && defined(ARM)
+    if (instr_is_meta(inst)) {
+        dr_pred_type_t auto_pred = ilist->auto_pred;
+        if (auto_pred != DR_PRED_AL && auto_pred != DR_PRED_NONE) {
+            CLIENT_ASSERT(!instr_is_cti(inst), "auto-predication does not support cti's");
+            CLIENT_ASSERT(!TESTANY(EFLAGS_WRITE_NZCV,
+                                   instr_get_arith_flags(inst,
+                                                         DR_QUERY_INCLUDE_COND_SRCS)),
+                    "cannot auto predicate a meta-inst that writes to NZCV");
+            if (!instr_is_predicated(inst))
+                instr_set_predicate(inst, auto_pred);
+        }
+    }
+#endif
 }
 
 /* appends inst to the list ("inst" can be a chain of insts) */

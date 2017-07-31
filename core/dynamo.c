@@ -472,18 +472,16 @@ dynamorio_app_init(void)
         /* Must be before {vmm_,}heap_init() */
         vmk_init_lib();
 #endif
-        vmm_heap_init_constraints(); /* before client libs are loaded! */
-#ifdef CLIENT_INTERFACE
-        /* PR 200207: load the client lib before callback_interception_init
-         * since the client library load would hit our own hooks (xref hotpatch
-         * cases about that) -- though -private_loader removes that issue. */
-        /* Must be before [vmm_]heap_init() so we can register the client lib as
-         * reachable from the dr heap. Xref PR 215395. */
-        instrument_load_client_libs();
-#endif
 
         /* initialize components (CAUTION: order is important here) */
         vmm_heap_init(); /* must be called even if not using vmm heap */
+#ifdef CLIENT_INTERFACE
+        /* PR 200207: load the client lib before callback_interception_init
+         * since the client library load would hit our own hooks (xref hotpatch
+         * cases about that) -- though -private_loader removes that issue.
+         */
+        instrument_load_client_libs();
+#endif
         heap_init();
         dynamo_heap_initialized = true;
 
@@ -1117,6 +1115,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
          */
         dump_global_stats(false);
     });
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
 
     statistics_exit();
 #ifdef DEBUG
@@ -1519,6 +1519,9 @@ dynamo_process_exit(void)
     /* so make sure eventlog connection is terminated (if present)  */
     os_fast_exit();
 
+    if (INTERNAL_OPTION(rstats_to_stderr))
+        dump_global_rstats_to_stderr();
+
     return SUCCESS;
 #endif /* !DEBUG */
 }
@@ -1549,6 +1552,8 @@ dynamo_exit_post_detach(void)
 #ifdef UNIX
     post_execve = false;
 #endif
+    vm_areas_post_exit();
+    heap_post_exit();
 }
 
 dcontext_t *

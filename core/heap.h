@@ -109,7 +109,6 @@ vmcode_get_reachable_region(byte **region_start OUT, byte **region_end OUT);
 #endif
 
 /* virtual heap manager */
-void vmm_heap_init_constraints();
 void vmm_heap_init(void);
 void vmm_heap_exit(void);
 void print_vmm_heap_data(file_t outf);
@@ -126,6 +125,7 @@ bool rel32_reachable_from_vmcode(byte *target);
 /* heap management */
 void heap_init(void);
 void heap_exit(void);
+void heap_post_exit(void); /* post exit to support reattach */
 void heap_reset_init(void);
 void heap_reset_free(void);
 void heap_thread_init(dcontext_t *dcontext);

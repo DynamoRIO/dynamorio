@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,18 +31,18 @@
  */
 
 /* This application links in drmemtrace_static and acquires a trace during
- * a "burst" of execution in the middle of the application.  It then detaches.
+ * a "burst" of execution in the middle of the application.  Before attaching
+ * it allocates a lot of heap, preventing the statically linked client from
+ * being 32-bit reachable from any available space for the code cache.
  */
 
-/* We deliberately do not include configure.h here to simulate what an
- * actual app will look like.  configure_DynamoRIO_static sets DR_APP_EXPORTS
- * for us.
- */
+/* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 bool
 my_setenv(const char *var, const char *value)
@@ -65,6 +65,14 @@ do_some_work(int arg)
     return (val > 0);
 }
 
+static void
+fill_up_heap()
+{
+    void *cur_brk = sbrk(0);
+    void *new_brk = (byte*)cur_brk + 2*1024*1024*1024ULL;
+    int res = brk(new_brk);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -73,9 +81,10 @@ main(int argc, const char *argv[])
     static int iter_start = outer_iters/3;
     static int iter_stop = iter_start + 4;
 
-    /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
-                   "-client_lib ';;-offline'"))
+    fill_up_heap();
+
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -vm_size 512M "
+                   "-no_reachable_client -client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     /* We use an outer loop to test re-attaching (i#2157). */
@@ -104,29 +113,3 @@ main(int argc, const char *argv[])
     }
     return 0;
 }
-
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
-#if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
-# ifdef __cplusplus
-extern "C" {
-# endif
-
-/* Test if the drmemtrace_client_main() in drmemtrace will be called. */
-DR_EXPORT WEAK void
-drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "wrong drmemtrace_client_main\n";
-}
-
-/* This dr_client_main should be called instead of the one in tracer.cpp */
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "app dr_client_main\n";
-    drmemtrace_client_main(id, argc, argv);
-}
-
-# ifdef __cplusplus
-}
-# endif
-#endif  /* UNIX && TEST_APP_DR_CLIENT_MAIN */
