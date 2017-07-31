@@ -1552,6 +1552,8 @@ dynamo_exit_post_detach(void)
 #ifdef UNIX
     post_execve = false;
 #endif
+    vm_areas_post_exit();
+    heap_post_exit();
 }
 
 dcontext_t *

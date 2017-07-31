@@ -247,6 +247,10 @@ vm_areas_init(void);
 int
 vm_areas_exit(void);
 
+/* post cleanup to support reattach */
+void
+vm_areas_post_exit(void);
+
 /* thread-shared initialization that should be repeated after a reset */
 void
 vm_areas_reset_init(void);
