@@ -5183,9 +5183,23 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     meta_call_flags_t call_flags = META_CALL_CLEAN | META_CALL_RETURNS;
     byte *encode_pc;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cspr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
@@ -5196,6 +5210,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
         insert_inline_clean_call(dcontext, &cci, ilist, where, args);
+        MINSERT(ilist, where, label);
+        instrlist_set_auto_predicate(ilist, auto_pred);
         return;
 #else /* CLIENT_INTERFACE */
         ASSERT_NOT_REACHED();
@@ -5295,6 +5311,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
     cleanup_after_call_ex(dcontext, &cci, ilist, where, 0, encode_pc);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 void
