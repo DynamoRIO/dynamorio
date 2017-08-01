@@ -5061,7 +5061,7 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 #ifdef ARM
     if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
         /* auto_predicate is set, though we handle the clean call with a cbr
-         * because we require inserting instrumentation which modifies cspr.
+         * because we require inserting instrumentation which modifies cpsr.
          */
         MINSERT(ilist, where, XINST_CREATE_jump_cond
                 (drcontext,
@@ -5213,7 +5213,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #ifdef ARM
     if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
         /* auto_predicate is set, though we handle the clean call with a cbr
-         * because we require inserting instrumentation which modifies cspr.
+         * because we require inserting instrumentation which modifies cpsr.
          */
         MINSERT(ilist, where, XINST_CREATE_jump_cond
                 (drcontext,
