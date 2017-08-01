@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Simorfo, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,13 +38,15 @@
 int sandbox();
 int usebx();
 
+#define MEMCHANGE_SIZE 1024
+
 /* top-level exception handler */
 static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         print("access violation exception\n");
-        protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+        protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
@@ -55,11 +57,17 @@ int main(int argc, char *argv[])
     INIT();
     int count = 0;
 
+    assert(PAGE_SIZE <= 4096);
+
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 
     print("start of test, count = %d\n", count);
-    protect_mem(sandbox, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
-    protect_mem(usebx, 1024, ALLOW_READ);
+    protect_mem(sandbox, MEMCHANGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ);
+    /* Sets dynamrio in sandboxing mode and generates an exception.
+     * With a client storing translations, it is tested that
+     * dynamoRIO manages to restore spilled ebx register.
+     */
     count = sandbox();
     count += usebx();
     print("end of test, count = %d\n", count);

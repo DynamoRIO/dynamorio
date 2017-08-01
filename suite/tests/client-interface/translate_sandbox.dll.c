@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Simorfo, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,10 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     instr_t *instr;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_writes_memory(instr) && !instr_uses_reg(instr, DR_REG_XBX)) {
+            /* This non standard return value is being tested.
+             * DynamoRIO should manage to restore spilled register by sandboxing
+             * when an instruction generates an exception.
+             */
             return DR_EMIT_STORE_TRANSLATIONS;
         }
     }
