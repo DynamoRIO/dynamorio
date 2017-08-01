@@ -767,6 +767,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     drvector_t rvec1, rvec2;
     bool is_memref;
 
+    // XXX: Make use of auto predication feature instead of just disabling
+    // globally.
+    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
+
     if (op_L0_filter.get_value() && ud->repstr &&
         drmgr_is_first_instr(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the

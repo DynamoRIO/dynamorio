@@ -652,6 +652,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             e = &iter_insert.cbs.bb[i];
             if (!e->pri.valid)
                 continue;
+            instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
             if (e->has_quartet) {
                 res |= (*e->cb.pair_ex.insertion_ex_cb)
                     (drcontext, tag, bb, inst, for_trace, translating,
@@ -665,13 +666,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                 }
                 pair_idx++;
             }
+            instrlist_set_auto_predicate(bb, DR_PRED_NONE);
             /* XXX: add checks that cb followed the rules */
         }
-        /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
-         * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
-         * instrlist_set_auto_predicate() has been written to address this, but
-         * has not been enabled yet by default.
-         */
     }
 
     /* Pass 4: final */

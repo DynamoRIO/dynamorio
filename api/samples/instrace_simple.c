@@ -184,6 +184,8 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     /* We need two scratch registers */
     reg_id_t reg_ptr, reg_tmp;
+    /* we don't want to predicate this, because an instruction fetch always occurs */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ptr) !=
         DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
@@ -203,6 +205,7 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where)
     if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
         DR_ASSERT(false);
+    instrlist_set_auto_predicate(ilist, instr_get_predicate(where));
 }
 
 /* For each app instr, we insert inline code to fill the buffer. */
