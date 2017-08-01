@@ -2141,9 +2141,11 @@ if (CLIENT_INTERFACE)
     set(client.pcache-use_depends client.pcache)
   endif (X86)
 
-  if (ARM)
+  if (ARM AND NOT ANDROID)
+    # i#2580: DT_RUNPATH is not yet supported on android so we disable this test on
+    # android
     tobuild_api(api.it api/it_arm.c "" "" OFF OFF)
-  endif(ARM)
+  endif(ARM AND NOT ANDROID)
 
   if (ARM)
     set(sfx "arm")
