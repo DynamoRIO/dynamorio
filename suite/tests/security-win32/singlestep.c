@@ -67,6 +67,7 @@ main(void)
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 
     print("start of test, count = %d\n", count);
+    protect_mem(foo, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     count+=foo();
     print("end of test, count = %d\n", count);
 
