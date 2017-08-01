@@ -44,6 +44,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         print("access violation exception\n");
+        protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
@@ -52,13 +53,14 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int main(int argc, char *argv[])
 {
     INIT();
-
     int count = 0;
+
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+
     print("start of test, count = %d\n", count);
     protect_mem(sandbox, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     protect_mem(usebx, 1024, ALLOW_READ);
     count = sandbox();
-    protect_mem(usebx, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     count += usebx();
     print("end of test, count = %d\n", count);
     return 0;
