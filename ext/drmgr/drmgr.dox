@@ -140,7 +140,7 @@ condtional instructions are legal in Thumb mode.
 
 Most client instrumentation wants to be predicated to match the app instruction,
 so we do it by default. Clients may opt-out by calling
-drmgr_disable_auto_predicate() at the start of the insertion bb event. Clients
+drmgr_disable_auto_predication() at the start of the insertion bb event. Clients
 may also control auto predication with finer granularity by directly calling
 instrlist_set_auto_predicate() and instrlist_get_auto_predicate().
 

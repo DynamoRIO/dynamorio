@@ -654,7 +654,7 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                 continue;
             /* Most client instrumentation wants to be predicated to match the app
              * instruction, so we do it by default (i#1723). Clients may opt-out
-             * by calling drmgr_disable_auto_predicate() at the start of the
+             * by calling drmgr_disable_auto_predication() at the start of the
              * insertion bb event.
              */
             instrlist_set_auto_predicate(bb, instr_get_predicate(inst));

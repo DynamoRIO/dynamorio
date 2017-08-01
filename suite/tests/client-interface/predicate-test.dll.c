@@ -73,10 +73,14 @@ instrument_mem(void *drcontext, instrlist_t *bb, instr_t *inst,
     ok = drutil_insert_get_mem_addr(drcontext, bb, inst, ref,
                                     reg_ptr, reg_tmp);
     CHECK(ok, "drutil_insert_get_mem_addr() failed");
-    /* test that a clean call is predicated correctly */
+    /* Test that a clean call is predicated correctly; if this clean call
+     * is not predicated correctly then DR will crash.
+     */
     dr_insert_clean_call(drcontext, bb, inst, (void *)dereference_app,
                          false, 1, opnd_create_reg(reg_ptr));
-    /* test that regular meta-instrumentation is predicated correctly */
+    /* Test that regular meta-instrumentation is predicated correctly; if
+     * this load is not predicated correctly then DR will crash.
+     */
     MINSERT(bb, inst, XINST_CREATE_load_1byte
             (drcontext,
              opnd_create_reg(reg_tmp),
