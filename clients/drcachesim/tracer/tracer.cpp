@@ -767,7 +767,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     drvector_t rvec1, rvec2;
     bool is_memref;
 
-    // XXX: Make use of auto predication feature instead of just disabling
+    // XXX i#2584: Make use of auto predication feature instead of just disabling
     // globally.
     drmgr_disable_auto_predication(drcontext, bb);
 
