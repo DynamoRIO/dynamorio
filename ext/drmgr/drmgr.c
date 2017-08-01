@@ -652,6 +652,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             e = &iter_insert.cbs.bb[i];
             if (!e->pri.valid)
                 continue;
+            /* Most client instrumentation wants to be predicated to match the app
+             * instruction, so we do it by default (i#1723). Clients may opt-out
+             * by calling drmgr_disable_auto_predicate() at the start of the
+             * insertion bb event.
+             */
             instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
             if (e->has_quartet) {
                 res |= (*e->cb.pair_ex.insertion_ex_cb)
@@ -2300,4 +2305,14 @@ drmgr_reserve_note_range(size_t size)
         res = DRMGR_NOTE_NONE;
     dr_mutex_unlock(note_lock);
     return res;
+}
+
+DR_EXPORT
+bool
+drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
+{
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return false;
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    return true;
 }

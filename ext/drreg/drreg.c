@@ -397,6 +397,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     drreg_status_t res;
     dr_pred_type_t pred = instrlist_get_auto_predicate(bb);
 
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(bb, DR_PRED_NONE);
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
@@ -832,6 +833,7 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             return res;
     }
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
                                      false, reg_out);
@@ -850,6 +852,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             return res;
     }
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
                                      true, reg_out);
@@ -867,6 +870,7 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (!reg_is_pointer_sized(app_reg) || !reg_is_pointer_sized(dst_reg))
         return DRREG_ERROR_INVALID_PARAMETER;
 
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 
     /* check if app_reg is stolen reg */
@@ -936,6 +940,7 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     int i;
 
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
@@ -1014,6 +1019,7 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
         drreg_status_t res;
 
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
         instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         res = drreg_restore_reg_now(drcontext, ilist, where, pt, reg);
         instrlist_set_auto_predicate(ilist, pred);
@@ -1321,6 +1327,7 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
      * xchg-null but xax-in-use won't happen b/c we'll use un-restored above.
      */
     pt->aflags.xchg = DR_REG_NULL;
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_spill_aflags(drcontext, ilist, where, pt);
     instrlist_set_auto_predicate(ilist, pred);
@@ -1344,6 +1351,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         /* We have no way to lazily restore.  We do not bother at this point
          * to try and eliminate back-to-back spill/restore pairs.
          */
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
         instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         if (pt->aflags.xchg != DR_REG_NULL)
             drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
@@ -1400,6 +1408,7 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": restoring app aflags as requested\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
         instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         res = drreg_restore_aflags(drcontext, ilist, where, pt, false/*keep slot*/);
         instrlist_set_auto_predicate(ilist, pred);

@@ -2019,6 +2019,15 @@ if (CLIENT_INTERFACE)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
+  if (ARM)
+    tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
+    use_DynamoRIO_extension(client.predicate-test.dll drmgr)
+    use_DynamoRIO_extension(client.predicate-test.dll drutil)
+    use_DynamoRIO_extension(client.predicate-test.dll drreg)
+    target_include_directories(client.predicate-test PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif (ARM)
+
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)

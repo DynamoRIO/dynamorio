@@ -769,7 +769,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     // XXX: Make use of auto predication feature instead of just disabling
     // globally.
-    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
+    drmgr_disable_auto_predication(drcontext, bb);
 
     if (op_L0_filter.get_value() && ud->repstr &&
         drmgr_is_first_instr(drcontext, instr)) {
