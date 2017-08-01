@@ -94,6 +94,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     bool aflags_dead;
 #endif
 
+    drmgr_disable_auto_predication(drcontext, bb);
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
 

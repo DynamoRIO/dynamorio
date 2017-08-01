@@ -67,6 +67,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* We need a 2nd scratch reg for several operations on AArch32 and AArch64 only. */
     reg_id_t reg2 = DR_REG_NULL;
 
+    drmgr_disable_auto_predication(drcontext, bb);
+
     /* We do all our work at the start of the block prior to the first instr */
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
