@@ -1334,8 +1334,22 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
-    redzone_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
-    max_buf_size = trace_buf_size + redzone_size;
+
+    /* The redzone needs to hold one bb's worth of data, until we
+     * reach the clean call at the bottom of the bb that dumps the
+     * buffer if full.  We leave room for each of the maximum count of
+     * instructions accessing memory once, which is fairly
+     * pathological as by default that's 256 memrefs for one bb.  We double
+     * it to ensure we cover skipping clean calls for sthg like strex.
+     */
+    uint64 max_bb_instrs;
+    if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
+        max_bb_instrs = 256; /* current default */
+    redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
+
+    max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
+    /* Mark any padding as redzone as well */
+    redzone_size = max_buf_size - trace_buf_size;
     buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
 
     client_id = id;
