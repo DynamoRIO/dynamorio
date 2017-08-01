@@ -46,6 +46,8 @@
     }                                    \
 } while (0);
 
+#define MINSERT instrlist_meta_preinsert
+
 static app_pc app;
 
 static void
@@ -71,8 +73,14 @@ instrument_mem(void *drcontext, instrlist_t *bb, instr_t *inst,
     ok = drutil_insert_get_mem_addr(drcontext, bb, inst, ref,
                                     reg_ptr, reg_tmp);
     CHECK(ok, "drutil_insert_get_mem_addr() failed");
+    /* test that a clean call is predicated correctly */
     dr_insert_clean_call(drcontext, bb, inst, (void *)dereference_app,
                          false, 1, opnd_create_reg(reg_ptr));
+    /* test that regular meta-instrumentation is predicated correctly */
+    MINSERT(bb, inst, XINST_CREATE_load_1byte
+            (drcontext,
+             opnd_create_reg(reg_tmp),
+             OPND_CREATE_MEM8(reg_ptr, 0)));
 
     if (drreg_unreserve_register(drcontext, bb, inst, reg_ptr) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, bb, inst, reg_tmp) != DRREG_SUCCESS)
