@@ -217,6 +217,10 @@ adjust_defaults_for_page_size(options_t *options)
         ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size =
         MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+# ifdef UNIX
+    options->signal_stack_size =
+        MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), 2 * page_size);
+# endif
     options->initial_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
             3 * page_size);
@@ -814,6 +818,13 @@ options_enable_code_api_dependences(options_t *options)
      * tail end of a multi-64K-region stack.
      */
     options->stack_size = MAX(options->stack_size, 56*1024);
+# ifdef UNIX
+    /* We assume that clients avoid private library code, within reason, and
+     * don't need as much space when handling signals.  We still raise the
+     * limit a little while saving some per-thread space.
+     */
+    options->signal_stack_size = MAX(options->signal_stack_size, 32*1024);
+# endif
 
     /* For CI builds we'll disable elision by default since we
      * expect most CI users will prefer a view of the

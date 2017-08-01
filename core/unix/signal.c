@@ -128,8 +128,7 @@ sig_is_alarm_signal(int sig)
  * we end up calling many core routines and so want more space
  * (though currently non-debug stack size == SIGSTKSZ (8KB))
  */
-/* this size is assumed in heap.c's threadunits_exit leak relaxation */
-#define SIGSTACK_SIZE DYNAMORIO_STACK_SIZE
+#define SIGSTACK_SIZE (DYNAMO_OPTION(signal_stack_size))
 
 /* this flag not defined in our headers */
 #define SA_RESTORER 0x04000000
