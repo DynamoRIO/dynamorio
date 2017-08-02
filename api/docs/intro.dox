@@ -1065,7 +1065,10 @@ DynamoRIO loads client libraries and Extensions (but not copies of system
 libraries) within 32-bit reachability of its code caches.  Typically, the
 code cache region is located in the low 4GB of the address space; thus, to
 avoid relocations at client library load time, it is recommended to set a
-preferred client library base in the low 4GB.
+preferred client library base in the low 4GB.  The \ref op_reachable_client
+"-reachable_client runtime option" can be used to remove this guarantee,
+though this would normally not be done unless the client is statically
+linked with the application.
 
 The net result is that any static data or code in a client library, or any
 data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
@@ -1075,7 +1078,7 @@ malloc, operator new, and HeapAlloc), as well as DynamoRIO's own
 internally-used heap memory, is *not* guaranteed to be reachable: only
 memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
 "-reachable_heap runtime option" can be used to guarantee that all memory
-is reachable, at the risk of running out memory due to the smaller space
+is reachable, at the risk of running out of memory due to the smaller space
 of available memory.
 
 To make more space available for the code caches when running larger
@@ -1634,6 +1637,13 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    the heap memory such that it is all guaranteed to be reachable from the
    code cache, at the risk of running out memory due to the smaller space
    of available memory.
+
+ - \b -reachable_client: \anchor op_reachable_client
+   By default, DynamoRIO guarantees that client libraries are reachable
+   from its code caches by a 32-bit displacement.  Disabling this option
+   removes that guarantee and allows a client to be located elsewhere.
+   This would typically be used with client that is statically-linked
+   into the application.
 
  - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application

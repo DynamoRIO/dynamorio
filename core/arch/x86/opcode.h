@@ -1438,4 +1438,13 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
 #define DEBUG_REGISTERS_FLAG_ENABLE_DR3 0xc0
 extern app_pc debugRegister[DEBUG_REGISTERS_NB];
 
+/* Tells if instruction will trigger an exception because of debug register. */
+static inline bool
+debug_register_fire_on_addr(app_pc pc)
+{
+    ASSERT(DEBUG_REGISTERS_NB == 4);
+    return (pc != NULL && (pc == debugRegister[0] || pc == debugRegister[1] ||
+                           pc == debugRegister[2] || pc == debugRegister[3]));
+}
+
 #endif /* _OPCODE_H_ */

@@ -177,6 +177,7 @@ Further non-compatibility-affecting changes include:
  - Added drcachesim customization via drmemtrace_replace_file_ops(),
    drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
  - Added a set_value() function to the \ref page_droption.
+ - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
 
 **************************************************
 <hr>

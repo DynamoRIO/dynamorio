@@ -5027,7 +5027,8 @@ typedef enum {
     /** Skip saving any XMM or YMM registers that are never used as return values. */
     DR_CLEANCALL_NOSAVE_XMM_NONRET      = 0x0010,
     /**
-     * Requests that an indirect call be used to ensure reachability.
+     * Requests that an indirect call be used to ensure reachability, both for
+     * reaching the callee and for any out-of-line helper routine calls.
      * Only honored for 64-bit mode, where r11 will be used for the indirection.
      */
     DR_CLEANCALL_INDIRECT               = 0x0020,

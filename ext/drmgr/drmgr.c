@@ -669,8 +669,8 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
         }
         /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
          * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
-         * To re-add the feature, we should have it apply to both Thumb and ARM,
-         * and have it controllable by the client.
+         * instrlist_set_auto_predicate() has been written to address this, but
+         * has not been enabled yet by default.
          */
     }
 
