@@ -1020,7 +1020,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                  dcontext->single_step_addr == instr->translation) {
             instr_t * last_addr = instr_get_next_app(instr);
             /* Checks if sandboxing added another app instruction. */
-            if (!last_addr || last_addr->translation != instr->translation) {
+            if (last_addr == NULL || last_addr->translation != instr->translation) {
                 mangle_single_step(dcontext, ilist, *flags, instr);
                 /* Resets to generate single step exception only once. */
                 dcontext->single_step_addr = NULL;
