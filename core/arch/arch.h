@@ -541,10 +541,10 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *where, reg_id_t reg);
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *instr);
+                       instrlist_t *ilist, instr_t *instr, byte *encode_pc);
 void
 cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *instr);
+                         instrlist_t *ilist, instr_t *instr, byte *encode_pc);
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);
@@ -557,7 +557,7 @@ int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 /* in mangle.c  but not exported to non-arch files */
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
-                                  instr_t *instr, bool save);
+                                  instr_t *instr, bool save, byte *encode_pc);
 #ifdef X86
 # ifdef UNIX
 /* Mangle reference of fs/gs semgents, reg must not be used in the oldop. */

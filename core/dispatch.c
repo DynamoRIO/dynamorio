@@ -874,6 +874,17 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         if (get_at_syscall(dcontext))
             handle_post_system_call(dcontext);
 
+#ifdef X86
+        /* If the next basic block starts at a debug register value,
+         * we fire a single step exception before getting to the basic block. */
+        if (debug_register_fire_on_addr(dcontext->next_tag)) {
+            LOG(THREAD, LOG_DISPATCH, 2, "Generates single step before "PFX"\n",
+                dcontext->next_tag);
+            os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
+            ASSERT_NOT_REACHED();
+        }
+#endif
+
         /* A non-ignorable syscall or cb return ending a bb must be acted on
          * We do it here to avoid becoming couldbelinking twice.
          *
