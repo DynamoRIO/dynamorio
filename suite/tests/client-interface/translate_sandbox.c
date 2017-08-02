@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 Simorfo, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,9 +65,9 @@ int main(int argc, char *argv[])
     print("start of test, count = %d\n", count);
     protect_mem(sandbox, MEMCHANGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ);
-    /* Sets dynamrio in sandboxing mode and generates an exception.
+    /* Sets DynamoRIO in sandboxing mode and generates an exception.
      * With a client storing translations, it is tested that
-     * dynamoRIO manages to restore spilled ebx register.
+     * DynamoRIO manages to restore spilled ebx register.
      */
     count = sandbox();
     count += usebx();
