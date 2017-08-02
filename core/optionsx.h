@@ -649,6 +649,8 @@
 
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
+    OPTION_DEFAULT(uint, max_pending_signals, 8,
+                   "maximum count of pending signals per thread")
 
     /* i#2080: we have had some problems using sigreturn to set a thread's
      * context to a given state.  Turning this off will instead use a direct

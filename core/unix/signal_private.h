@@ -401,6 +401,10 @@ typedef struct _thread_sig_info_t {
     /* rest of app state */
     stack_t app_sigstack;
     sigpending_t *sigpending[SIGARRAY_SIZE];
+    /* count of pending signals */
+    int num_pending;
+    /* are the pending still on one special heap unit? */
+    bool multiple_pending_units;
     /* "lock" to prevent interrupting signal from messing up sigpending array */
     bool accessing_sigpending;
     kernel_sigset_t app_sigblocked;

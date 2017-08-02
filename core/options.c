@@ -1716,6 +1716,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 # endif
 #endif /* CLIENT_INTERFACE */
+#ifdef UNIX
+    if (DYNAMO_OPTION(max_pending_signals) < 1) {
+        USAGE_ERROR("-max_pending_signals must be at least 1");
+        dynamo_options.max_pending_signals = 1;
+        changed_options = true;
+    }
+#endif
 #ifdef CALL_PROFILE
     if (DYNAMO_OPTION(prof_caller) >  MAX_CALL_PROFILE_DEPTH) {
         USAGE_ERROR("-prof_caller must be <= %d",  MAX_CALL_PROFILE_DEPTH);

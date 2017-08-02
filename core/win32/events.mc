@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -249,6 +249,14 @@ Facility = DRCore
 SymbolicName = MSG_OUT_OF_MEMORY
 Language=English
 Application %1!s! (%2!s!).  Out of memory.  Program aborted. Status %3!s! 0x%4!s!
+.
+
+MessageId =
+Severity = Warning
+Facility = DRCore
+SymbolicName = MSG_MAX_PENDING_SIGNALS
+Language=English
+Application %1!s! (%2!s!).  Reached the soft maximum number (%3!s!) of pending signals: further accumulation prior to delivery may cause problems.  Consider raising -max_pending_signals.
 .
 
 MessageId =
