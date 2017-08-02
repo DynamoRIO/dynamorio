@@ -67,6 +67,7 @@ main(void)
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 
     print("start of test, count = %d\n", count);
+    protect_mem(foo, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
     count+=foo();
     print("end of test, count = %d\n", count);
 
@@ -78,12 +79,18 @@ main(void)
 START_FILE
 
 /* int foo()
- *   Generates a single step execution on jump and should return 1.
+ *   Generates a single step execution on jump and should return 2.
  */
 #define FUNCNAME foo
 DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        xor      eax, eax
+/* sets sandoxing mode in dynamorio by doing a self modification. */
+        mov      REG_XAX, HEX(1)
+        lea      REG_XDX, SYMREF(sandbox_immediate_addr_plus_four - 4)
+        mov      DWORD [REG_XDX], eax        /* selfmod write */
+        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
+ADDRTAKEN_LABEL(sandbox_immediate_addr_plus_four:)
+        mov      REG_XAX, REG_XDX
 /* push flags on the stack */
         PUSHF
 /* setting the trap flag to 1 on top of the stack */
