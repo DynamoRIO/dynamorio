@@ -340,7 +340,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
  * On ARM the labels are from drx_insert_counter_update.
  */
 static instr_t *
-merge_prev_drx_spill(instr_t *where, bool aflags)
+merge_prev_drx_spill(instrlist_t *ilist, instr_t *where, bool aflags)
 {
     instr_t *instr;
 #ifdef DEBUG
@@ -359,6 +359,11 @@ merge_prev_drx_spill(instr_t *where, bool aflags)
      * might be a target of internal cti.
      */
     if (instr_get_note(instr) != NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END))
+        return NULL;
+    /* On ARM we do not want to merge two drx spills if they are
+     * predicated differently.
+     */
+    if (instr_get_predicate(instr) != instrlist_get_auto_predicate(ilist))
         return NULL;
 
     /* find DRX_NOTE_AFLAGS_RESTORE_BEGIN */
@@ -454,7 +459,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* if save_aflags, check if we can merge with the prev aflags save */
         save_aflags = !drx_aflags_are_dead(where);
         if (save_aflags) {
-            instr = merge_prev_drx_spill(where, true/*aflags*/);
+            instr = merge_prev_drx_spill(ilist, where, true/*aflags*/);
             if (instr != NULL) {
                 save_aflags = false;
                 where = instr;
@@ -511,7 +516,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         reg2 = SCRATCH_REG1;
         /* merge w/ prior restore */
         if (save_regs) {
-            instr = merge_prev_drx_spill(where, false/*!aflags*/);
+            instr = merge_prev_drx_spill(ilist, where, false/*!aflags*/);
             if (instr != NULL) {
                 save_regs = false;
                 where = instr;
