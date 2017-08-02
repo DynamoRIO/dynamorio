@@ -531,6 +531,8 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         prev_cpc = cpc;
         cpc = decode(tdcontext, cpc, &instr);
         instr_set_our_mangling(&instr, ours);
+        /* Sets the translation so that spilled registers can be restored. */
+        instr_set_translation(&instr, answer);
         translate_walk_track(tdcontext, &instr, &walk);
 
         /* advance translation by the stride: either instr length or 0 */
