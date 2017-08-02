@@ -49,12 +49,15 @@ static client_id_t client_id;
 
 static uint counterA;
 static uint counterB;
+static uint counterC;
+static uint counterD;
 
 static void
 event_exit(void)
 {
     drx_exit();
     CHECK(counterB == 2*counterA, "counter inc messed up");
+    CHECK(counterD == 2*counterA, "counter inc messed up");
     dr_fprintf(STDERR, "event_exit\n");
 }
 
@@ -95,6 +98,20 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     drx_insert_counter_update(drcontext, bb, first,
                               SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
                               &counterB, 2, IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    instrlist_meta_preinsert(bb, first, INSTR_CREATE_label(drcontext));
+    /* Exercise drx's optimization bail-out in the presence of predication */
+    /* XXX: For a more thorough test, we should save/restore aflags, and set
+     * flags so that next counter update never occurs.
+     */
+    instrlist_set_auto_predicate(bb, DR_PRED_LS);
+    drx_insert_counter_update(drcontext, bb, first,
+                              SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
+                              &counterC, 1,
+                              IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
+    drx_insert_counter_update(drcontext, bb, first,
+                              SPILL_SLOT_1, IF_NOT_X86_(SPILL_SLOT_2)
+                              &counterD, 2, IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
     /* Exercise drx's basic block termination with a zero-cost label */
     drx_tail_pad_block(drcontext, bb);
     last = instrlist_last(bb);
