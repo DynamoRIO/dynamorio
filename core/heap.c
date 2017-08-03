@@ -2453,44 +2453,54 @@ heap_munmap(void *p, size_t size, which_vmm_t which)
     heap_munmap_ex(p, size, true/*guarded*/, which);
 }
 
-#ifdef STACK_GUARD_PAGE
-# define STACK_GUARD_PAGES 1
-#endif
-
 /* use stack_alloc to build a stack -- it returns TOS
- * For STACK_GUARD_PAGE, it also marks the bottom STACK_GUARD_PAGES==1
- * to detect overflows when used.
+ * For -stack_guard_pages, also allocates an extra page
+ * on the bottom and uses it to detect overflows when accessed.
  */
 void *
 stack_alloc(size_t size, byte *min_addr)
 {
     void *p;
-
     /* we reserve and commit at once for now
      * FIXME case 2330: commit-on-demand could allow larger max sizes w/o
      * hurting us in the common case
      */
-    p = get_guarded_real_memory(size, size, MEMPROT_READ|MEMPROT_WRITE, true, true,
-                                min_addr, VMM_STACK _IF_DEBUG("stack_alloc"));
+    size_t alloc_size = size;
+    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+        alloc_size += PAGE_SIZE;
+    p = get_guarded_real_memory(alloc_size, alloc_size, MEMPROT_READ|MEMPROT_WRITE, true,
+                                true, min_addr, VMM_STACK _IF_DEBUG("stack_alloc"));
+    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+        p = (byte *)p + PAGE_SIZE;
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, size);
 #endif
 
-#ifdef STACK_GUARD_PAGE
-    /* mark the bottom page non-accessible to trap stack overflow */
-    /* NOTE: the guard page should be included in the total memory requested */
-# ifdef WINDOWS
-    mark_page_as_guard((byte *)p + ((STACK_GUARD_PAGES - 1) * PAGE_SIZE));
-# else
-    /* FIXME: make no access, not just no write -- and update signal.c to
-     * look at reads and not just writes -- though unwritable is nearly as good
-     */
-#  if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
-    if (!standalone_library)
-#  endif
-        make_unwritable(p, STACK_GUARD_PAGES * PAGE_SIZE);
-# endif
+    if (DYNAMO_OPTION(stack_guard_pages)) {
+        /* XXX: maybe we should this option a count of how many pages, to catch
+         * overflow that uses a large stride and skips over one page (UNIX-only
+         * since Windows code always uses chkstk to trigger guard pages).
+         */
+        /* We place a guard on UNIX signal stacks too: although we can't report
+         * such overflows, we'd rather have a clear crash than memory corruption
+         * from clobbering whatever memory is below the stack.
+         */
+        /* mark the bottom page non-accessible to trap stack overflow */
+        byte *guard = (byte *)p - PAGE_SIZE;
+#ifdef WINDOWS
+        /* Only a committed page can be a guard page. */
+        /* XXX: this doesn't work well with -vm_reserve where the kernel will
+         * auto-expand the stack into adjacent allocations below the stack.
+         */
+        heap_error_code_t error_code;
+        if (vmm_heap_commit(guard, PAGE_SIZE, MEMPROT_READ|MEMPROT_WRITE, &error_code))
+            mark_page_as_guard(guard);
+#else
+        /* For UNIX we just mark it as inaccessible. */
+        if (!DYNAMO_OPTION(guard_pages))
+            make_unwritable(guard, PAGE_SIZE);
 #endif
+    }
 
     RSTATS_ADD_PEAK(stack_capacity, size);
     /* stack grows from high to low */
@@ -2501,36 +2511,42 @@ stack_alloc(size_t size, byte *min_addr)
 void
 stack_free(void *p, size_t size)
 {
+    size_t alloc_size;
     if (size == 0)
         size = DYNAMORIO_STACK_SIZE;
+    alloc_size = size;
     p = (void *) ((vm_addr_t)p - size);
-    release_guarded_real_memory((vm_addr_t)p, size, true/*update DR areas immediately*/,
-                                true, VMM_STACK);
+    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages)) {
+        alloc_size += PAGE_SIZE;
+        p = (byte *)p - PAGE_SIZE;
+    }
+    release_guarded_real_memory((vm_addr_t)p, alloc_size,
+                                true/*update DR areas immediately*/, true, VMM_STACK);
     if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
         RSTATS_SUB(stack_capacity, size);
 }
 
-#ifdef STACK_GUARD_PAGE
 /* only checks initstack and current dcontext
  * does not check any dstacks on the callback stack (win32) */
 bool
 is_stack_overflow(dcontext_t *dcontext, byte *sp)
 {
     /* ASSUMPTION: size of stack is DYNAMORIO_STACK_SIZE = dynamo_options.stack_size
-     * currently sideline violates that for a thread stack
-     * but all dstacks and initstack should be this size
+     * Currently sideline violates that for a thread stack, and we have separated
+     * -signal_stack_size, but all dstacks and initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
+    if (!DYNAMO_OPTION(stack_guard_pages))
+        return false;
     /* see if in bottom guard page of dstack */
-    if (sp >= bottom && sp < bottom + (STACK_GUARD_PAGES * PAGE_SIZE))
+    if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
     /* now check the initstack */
     bottom = initstack - DYNAMORIO_STACK_SIZE;
-    if (sp >= bottom && sp < bottom + (STACK_GUARD_PAGES * PAGE_SIZE))
+    if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
     return false;
 }
-#endif
 
 byte *
 map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,

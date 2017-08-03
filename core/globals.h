@@ -483,7 +483,7 @@ extern byte *  initstack;
 extern mutex_t   initstack_mutex;
 extern byte *  initstack_app_xsp;
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
 extern byte *  exception_stack;
 #endif
