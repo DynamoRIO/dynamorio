@@ -2300,7 +2300,7 @@ if (CLIENT_INTERFACE)
 
   if (X86 AND WIN32) # FIXME port test application to other systems
     tobuild_ci(client.translate_sandbox client-interface/translate_sandbox.c "" "" "")
-  endif (X86)
+  endif ()
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
