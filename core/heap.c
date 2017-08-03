@@ -673,7 +673,7 @@ vmm_dump_map(vm_heap_t *vmh)
 
     LOG(GLOBAL, LOG_HEAP, 3, "vmm_dump_map("PFX")\n", vmh);
     /* raw dump first - if you really want binary dump use windbg's dyd */
-    DOLOG(3, LOG_HEAP, {
+    DOLOG(4, LOG_HEAP, {
         dump_buffer_as_bytes(GLOBAL, b,
                              BITMAP_INDEX(bitmap_size)*sizeof(bitmap_element_t),
                              DUMP_RAW|DUMP_ADDRESS);
