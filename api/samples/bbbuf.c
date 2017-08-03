@@ -67,6 +67,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* We need a 2nd scratch reg for several operations on AArch32 and AArch64 only. */
     reg_id_t reg2 = DR_REG_NULL;
 
+    /* By default drmgr enables auto-predication, which predicates all instructions with
+     * the predicate of the current instruction on ARM.
+     * We disable it here because we want to unconditionally execute the following
+     * instrumentation.
+     */
+    drmgr_disable_auto_predication(drcontext, bb);
+
     /* We do all our work at the start of the block prior to the first instr */
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
@@ -89,7 +96,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     /* load buffer pointer from TLS field */
     drx_buf_insert_load_buf_ptr(drcontext, buf, bb, inst, reg);
-
 
     /* store bb's start pc into the buffer */
     drx_buf_insert_buf_store(drcontext, buf, bb, inst, reg, reg2,

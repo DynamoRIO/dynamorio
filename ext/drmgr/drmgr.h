@@ -1090,6 +1090,15 @@ bool
 drmgr_unregister_restore_state_ex_event(bool (*func)(void *drcontext, bool restore_memory,
                                                      dr_restore_state_info_t *info));
 
+DR_EXPORT
+/**
+ * Disables auto predication globally for this basic block.
+ * \return whether successful.
+ * \note Only to be used in the drmgr insertion event.
+ */
+bool
+drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist);
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

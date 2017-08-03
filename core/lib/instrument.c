@@ -5053,8 +5053,22 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     opnd_t *args = NULL;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cpsr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5064,6 +5078,8 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                            vmcode_get_start(), callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 bool
@@ -5096,6 +5112,8 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call_noreturn: drcontext cannot be NULL");
+    CLIENT_ASSERT(instrlist_get_auto_predicate(ilist) == DR_PRED_NONE,
+                  "Does not support auto-predication");
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5195,7 +5213,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #ifdef ARM
     if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
         /* auto_predicate is set, though we handle the clean call with a cbr
-         * because we require inserting instrumentation which modifies cspr.
+         * because we require inserting instrumentation which modifies cpsr.
          */
         MINSERT(ilist, where, XINST_CREATE_jump_cond
                 (drcontext,

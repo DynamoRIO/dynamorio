@@ -395,7 +395,10 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
+    dr_pred_type_t pred = instrlist_get_auto_predicate(bb);
 
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(bb, DR_PRED_NONE);
     /* For unreserved regs still spilled, we lazily do the restore here.  We also
      * update reserved regs wrt app uses.
      */
@@ -601,7 +604,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         }
     }
 #endif
-
+    instrlist_set_auto_predicate(bb, pred);
     return DR_EMIT_DEFAULT;
 }
 
@@ -823,26 +826,38 @@ drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
+    dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
+    drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         drreg_status_t res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
-    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
-                                      false, reg_out);
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
+                                     false, reg_out);
+    instrlist_set_auto_predicate(ilist, pred);
+    return res;
 }
 
 drreg_status_t
 drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                             drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
+    dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
+    drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         drreg_status_t res = drreg_forward_analysis(drcontext, where);
         if (res != DRREG_SUCCESS)
             return res;
     }
-    return drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
-                                      true, reg_out);
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed,
+                                     true, reg_out);
+    instrlist_set_auto_predicate(ilist, pred);
+    return res;
 }
 
 drreg_status_t
@@ -850,19 +865,29 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                     reg_id_t app_reg, reg_id_t dst_reg)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
+
     if (!reg_is_pointer_sized(app_reg) || !reg_is_pointer_sized(dst_reg))
         return DRREG_ERROR_INVALID_PARAMETER;
+
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 
     /* check if app_reg is stolen reg */
     if (app_reg == dr_get_stolen_reg()) {
         /* DR will refuse to load into the same reg (the caller must use
          * opnd_replace_reg() with a scratch reg in that case).
          */
-        if (dst_reg == app_reg)
+        if (dst_reg == app_reg) {
+            instrlist_set_auto_predicate(ilist, pred);
             return DRREG_ERROR_INVALID_PARAMETER;
-        if (dr_insert_get_stolen_reg_value(drcontext, ilist, where, dst_reg))
+        }
+        if (dr_insert_get_stolen_reg_value(drcontext, ilist, where, dst_reg)) {
+            instrlist_set_auto_predicate(ilist, pred);
             return DRREG_SUCCESS;
+        }
         ASSERT(false, "internal error on getting stolen reg app value");
+        instrlist_set_auto_predicate(ilist, pred);
         return DRREG_ERROR;
     }
 
@@ -875,6 +900,7 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
                                                 opnd_create_reg(dst_reg),
                                                 opnd_create_reg(app_reg)));
         }
+        instrlist_set_auto_predicate(ilist, pred);
         return DRREG_SUCCESS;
     }
 
@@ -882,11 +908,13 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (!pt->reg[GPR_IDX(app_reg)].ever_spilled) {
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": reg %s never spilled\n", __FUNCTION__,
             pt->live_idx, instr_get_app_pc(where), get_register_name(app_reg));
+        instrlist_set_auto_predicate(ilist, pred);
         return DRREG_ERROR_NO_APP_VALUE;
     }
     /* restore app value back to app_reg */
     if (pt->reg[GPR_IDX(app_reg)].xchg != DR_REG_NULL) {
         /* XXX i#511: NYI */
+        instrlist_set_auto_predicate(ilist, pred);
         return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
     }
     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": getting app value for %s\n",
@@ -898,6 +926,7 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         restore_reg(drcontext, pt, app_reg, pt->reg[GPR_IDX(app_reg)].slot,
                     ilist, where, false);
     }
+    instrlist_set_auto_predicate(ilist, pred);
     return DRREG_SUCCESS;
 }
 
@@ -908,7 +937,11 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
     drreg_status_t res;
     bool no_app_value = false;
     int num_op = opnd_num_regs_used(opnd);
+    dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     int i;
+
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     for (i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
         reg_id_t dst;
@@ -917,24 +950,33 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
         reg = reg_to_pointer_sized(reg);
         dst = reg;
         if (reg == dr_get_stolen_reg()) {
-            if (swap == NULL)
+            if (swap == NULL) {
+                instrlist_set_auto_predicate(ilist, pred);
                 return DRREG_ERROR_INVALID_PARAMETER;
+            }
             if (*swap == DR_REG_NULL) {
                 res = drreg_reserve_register(drcontext, ilist, where, NULL, &dst);
-                if (res != DRREG_SUCCESS)
+                if (res != DRREG_SUCCESS) {
+                    instrlist_set_auto_predicate(ilist, pred);
                     return res;
+                }
             } else
                 dst = *swap;
-            if (!opnd_replace_reg(&opnd, reg, dst))
+            if (!opnd_replace_reg(&opnd, reg, dst)) {
+                instrlist_set_auto_predicate(ilist, pred);
                 return DRREG_ERROR;
+            }
             *swap = dst;
         }
         res = drreg_get_app_value(drcontext, ilist, where, reg, dst);
         if (res == DRREG_ERROR_NO_APP_VALUE)
             no_app_value = true;
-        else if (res != DRREG_SUCCESS)
+        else if (res != DRREG_SUCCESS) {
+            instrlist_set_auto_predicate(ilist, pred);
             return res;
+        }
     }
+    instrlist_set_auto_predicate(ilist, pred);
     return (no_app_value ? DRREG_ERROR_NO_APP_VALUE : DRREG_SUCCESS);
 }
 
@@ -974,7 +1016,13 @@ drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* We have no way to lazily restore.  We do not bother at this point
          * to try and eliminate back-to-back spill/restore pairs.
          */
-        drreg_status_t res = drreg_restore_reg_now(drcontext, ilist, where, pt, reg);
+        dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
+        drreg_status_t res;
+
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+        instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+        res = drreg_restore_reg_now(drcontext, ilist, where, pt, reg);
+        instrlist_set_auto_predicate(ilist, pred);
         if (res != DRREG_SUCCESS)
             return res;
     } else {
@@ -1237,6 +1285,7 @@ drreg_status_t
 drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     uint aflags;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
@@ -1278,7 +1327,10 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
      * xchg-null but xax-in-use won't happen b/c we'll use un-restored above.
      */
     pt->aflags.xchg = DR_REG_NULL;
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_spill_aflags(drcontext, ilist, where, pt);
+    instrlist_set_auto_predicate(ilist, pred);
     if (res != DRREG_SUCCESS)
         return res;
     pt->aflags.in_use = true;
@@ -1295,15 +1347,19 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         return DRREG_ERROR_INVALID_PARAMETER;
     pt->aflags.in_use = false;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
+        dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
         /* We have no way to lazily restore.  We do not bother at this point
          * to try and eliminate back-to-back spill/restore pairs.
          */
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+        instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         if (pt->aflags.xchg != DR_REG_NULL)
             drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
         else if (!pt->aflags.native) {
             drreg_restore_aflags(drcontext, ilist, where, pt, true/*release*/);
             pt->aflags.native = true;
         }
+        instrlist_set_auto_predicate(ilist, pred);
         pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
     }
     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX"\n", __FUNCTION__,
@@ -1349,9 +1405,13 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     drreg_status_t res = DRREG_SUCCESS;
     if (!pt->aflags.native) {
+        dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
         LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": restoring app aflags as requested\n",
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
+        /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+        instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         res = drreg_restore_aflags(drcontext, ilist, where, pt, false/*keep slot*/);
+        instrlist_set_auto_predicate(ilist, pred);
     }
     return res;
 }

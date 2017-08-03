@@ -218,6 +218,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
+    drmgr_disable_auto_predication(drcontext, bb);
     if (drmgr_is_first_instr(drcontext, instr)) {
         instr_t *ins;
         uint isa_idx = get_count_isa_idx(drcontext);

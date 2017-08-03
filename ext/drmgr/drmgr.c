@@ -652,6 +652,12 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             e = &iter_insert.cbs.bb[i];
             if (!e->pri.valid)
                 continue;
+            /* Most client instrumentation wants to be predicated to match the app
+             * instruction, so we do it by default (i#1723). Clients may opt-out
+             * by calling drmgr_disable_auto_predication() at the start of the
+             * insertion bb event.
+             */
+            instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
             if (e->has_quartet) {
                 res |= (*e->cb.pair_ex.insertion_ex_cb)
                     (drcontext, tag, bb, inst, for_trace, translating,
@@ -665,13 +671,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                 }
                 pair_idx++;
             }
+            instrlist_set_auto_predicate(bb, DR_PRED_NONE);
             /* XXX: add checks that cb followed the rules */
         }
-        /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
-         * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
-         * instrlist_set_auto_predicate() has been written to address this, but
-         * has not been enabled yet by default.
-         */
     }
 
     /* Pass 4: final */
@@ -2303,4 +2305,14 @@ drmgr_reserve_note_range(size_t size)
         res = DRMGR_NOTE_NONE;
     dr_mutex_unlock(note_lock);
     return res;
+}
+
+DR_EXPORT
+bool
+drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
+{
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return false;
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    return true;
 }
