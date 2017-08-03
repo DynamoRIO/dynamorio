@@ -3233,7 +3233,8 @@ heap_thread_reset_init(dcontext_t *dcontext)
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
     if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
-        threadunits_init(dcontext, th->nonpersistent_heap, HEAP_UNIT_MIN_SIZE);
+        threadunits_init(dcontext, th->nonpersistent_heap,
+                         DYNAMO_OPTION(initial_heap_nonpers_size));
     }
 }
 
