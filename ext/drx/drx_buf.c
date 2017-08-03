@@ -760,7 +760,7 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
 static reg_id_t
 deduce_buf_ptr(instr_t *instr)
 {
-    ushort opcode = instr_get_opcode(instr);
+    ushort opcode = (ushort)instr_get_opcode(instr);
 
     /* drx_buf will only emit these instructions to store a value */
     if (IF_X86_ELSE(opcode == OP_mov_st, opcode == OP_str  ||
@@ -774,9 +774,10 @@ deduce_buf_ptr(instr_t *instr)
         }
         DR_ASSERT_MSG(false, "fault occured, but instruction did not have "
                              "memory reference destination operand");
-    } else
+    } else {
         DR_ASSERT_MSG(false, "fault occured, but instruction was not compatible "
                              "with drx_buf");
+    }
     /* If we got here, then the write had no base reg, and there's
      * nothing for us to do.
      */
