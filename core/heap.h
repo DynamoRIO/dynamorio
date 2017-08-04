@@ -271,7 +271,8 @@ void global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t whi
 void *special_heap_init(uint block_size, bool use_lock, bool executable,
                         bool persistent);
 void *special_heap_init_aligned(uint block_size, uint alignment, bool use_lock,
-                                bool executable, bool persistent);
+                                bool executable, bool persistent,
+                                size_t initial_unit_size);
 void special_heap_exit(void *special);
 void *special_heap_alloc(void *special);
 void *special_heap_calloc(void *special, uint num);

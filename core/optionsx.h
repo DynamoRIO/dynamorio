@@ -649,6 +649,8 @@
 
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
+    OPTION_DEFAULT(uint, max_pending_signals, 8,
+                   "maximum count of pending signals per thread")
 
     /* i#2080: we have had some problems using sigreturn to set a thread's
      * context to a given state.  Turning this off will instead use a direct
@@ -710,6 +712,12 @@
                     */
                    IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
                    "size of thread-private stacks, in KB")
+#ifdef UNIX
+    /* signal_stack_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, signal_stack_size,
+                   IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
+                   "size of signal handling stacks, in KB")
+#endif
     /* PR 415959: smaller vmm block size makes this both not work and not needed
      * on Linux.
      * FIXME PR 403008: stack_shares_gencode fails on vmkernel
@@ -1145,7 +1153,14 @@
     OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,4)*1024),
                    "allocation unit for virtual memory manager")
     /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024,
+                   "initial private heap unit size")
+    /* We avoid wasted space for every thread on UNIX for the
+     * non-persistent heap which often stays under 12K (i#2575) (+8K for guards).
+     */
+    /* initial_heap_nonpers_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(32,20)*1024,
+                   "initial private non-persistent heap unit size")
     /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many

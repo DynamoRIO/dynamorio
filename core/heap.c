@@ -272,7 +272,7 @@ typedef struct _thread_units_t {
  * of clean calls out of the cache that might allocate IR memory (which does not
  * use nonpersistent heap).  Any client actions that involve fragments or linking
  * should require couldbelinking status, which makes them safe wrt unlink flushing.
- * Xref i#1791.
+ * Xref DrMi#1791.
  */
 #define SEPARATE_NONPERSISTENT_HEAP() \
     (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
@@ -3172,10 +3172,10 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
             LOG(THREAD,
                 LOG_HEAP|LOG_STATS, 1,
                 "Heap unit %d @"PFX"-"PFX" [-"PFX"] ("SZFMT" [/"SZFMT"] KB): used "
-                SZFMT" KB\n",
+                SZFMT" bytes\n",
                 u->id, u, UNIT_COMMIT_END(u),
                 UNIT_RESERVED_END(u), (UNIT_COMMIT_SIZE(u))/1024,
-                (UNIT_RESERVED_SIZE(u))/1024, num_used/1024);
+                (UNIT_RESERVED_SIZE(u))/1024, num_used);
         });
         next_u = u->next_local;
         heap_free_unit(u, dcontext);
@@ -3233,7 +3233,8 @@ heap_thread_reset_init(dcontext_t *dcontext)
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
     if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
-        threadunits_init(dcontext, th->nonpersistent_heap, HEAP_UNIT_MIN_SIZE);
+        threadunits_init(dcontext, th->nonpersistent_heap,
+                         DYNAMO_OPTION(initial_heap_nonpers_size));
     }
 }
 
@@ -4153,13 +4154,18 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         /* create new unit */
         /* Since vmm lock, dynamo_vm_areas lock, all_memory_areas lock (on
          * linux), etc. will be acquired, and presumably !su->use_lock means
-         * user can't handle ANY lock being acquired, we assert here: xref PR
+         * user can't handle ANY lock being acquired, we warn here: xref PR
          * 596768.  In release build, we try to acqure the memory anyway.  I'm
          * worried about pcprofile: can only fit ~1K in one unit and so will
          * easily run out...should it allocate additional units up front?
          * => PR 596808.
          */
-        ASSERT(su->top_unit == NULL/*init*/ || su->use_lock);
+        DODEBUG({
+            if (su->top_unit != NULL/*init*/ && !su->use_lock) {
+                SYSLOG_INTERNAL_WARNING_ONCE("potentially unsafe: allocating a new "
+                                             "fragile special heap unit!");
+            }
+        });
         u = (special_heap_unit_t *)
             get_guarded_real_memory(size, commit_size, prot, true, true, NULL,
                                     VMM_SPECIAL_HEAP _IF_DEBUG("special_heap"));
@@ -4226,17 +4232,24 @@ special_heap_init_internal(uint block_size, uint block_alignment,
                            byte *heap_region, size_t heap_size, bool unit_full)
 {
     special_units_t *su;
-    size_t unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ?
-        (block_size * 16) : HEAP_UNIT_MIN_SIZE;
-    /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
-     * space, and our main uses (stubs, whether global or coarse, and signal
-     * pending queue) don't need a lot of space, so shrinking.
-     * This tuning is a little fragile (just like for regular heap units and
-     * fcache units) so be careful when changing default parameters.
-     */
-    unit_size = (size_t) ALIGN_FORWARD(unit_size, PAGE_SIZE);
-    ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
-    unit_size -= GUARD_PAGE_ADJUSTMENT;
+    size_t unit_size = heap_size;
+    if (unit_size == 0) {
+        unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ?
+            (block_size * 16) : HEAP_UNIT_MIN_SIZE;
+        /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
+         * space, and our main uses (stubs, whether global or coarse, and signal
+         * pending queue) don't need a lot of space, so shrinking.
+         * This tuning is a little fragile (just like for regular heap units and
+         * fcache units) so be careful when changing default parameters.
+         */
+        if (unit_size == HEAP_UNIT_MIN_SIZE) {
+            ASSERT(unit_size > (size_t) GUARD_PAGE_ADJUSTMENT);
+            unit_size -= GUARD_PAGE_ADJUSTMENT;
+        }
+    }
+    if (heap_region == NULL) {
+        unit_size = (size_t) ALIGN_FORWARD(unit_size, PAGE_SIZE);
+    }
     su = (special_units_t *)
         (persistent ? global_heap_alloc(sizeof(special_units_t) HEAPACCT(ACCT_MEM_MGT)) :
          nonpersistent_heap_alloc(GLOBAL_DCONTEXT, sizeof(special_units_t)
@@ -4267,9 +4280,7 @@ special_heap_init_internal(uint block_size, uint block_alignment,
      * private to this routine.
      */
     su->use_lock = false; /* we set to real value below */
-    su->top_unit = special_heap_create_unit(su, heap_region,
-                                            heap_size == 0 ? unit_size : heap_size,
-                                            unit_full);
+    su->top_unit = special_heap_create_unit(su, heap_region, unit_size, unit_full);
     su->use_lock = use_lock;
 #ifdef HEAP_ACCOUNTING
     memset(&su->acct, 0, sizeof(su->acct));
@@ -4306,10 +4317,11 @@ special_heap_init(uint block_size, bool use_lock, bool executable, bool persiste
 
 void *
 special_heap_init_aligned(uint block_size, uint alignment, bool use_lock,
-                          bool executable, bool persistent)
+                          bool executable, bool persistent, size_t initial_unit_size)
 {
     return special_heap_init_internal(block_size, alignment, use_lock, executable,
-                                      persistent, NULL, NULL, NULL, 0, false);
+                                      persistent, NULL, NULL, NULL, initial_unit_size,
+                                      false);
 }
 
 /* Special heap w/ a vector for lookups.  Also supports a pre-created heap region

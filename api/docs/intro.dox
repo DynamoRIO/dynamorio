@@ -1585,7 +1585,7 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    to 2 * page size. This parameter can be used to increase the size;
    however, larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
-   suffix, and must be a multiple of the page size (4K, 16K or 64K depending on
+   suffix, and must be a multiple of the page size (4K, 16K, or 64K depending on
    the system).  This stack is used \if vmsafe for probe callbacks and by
    the Code Manipulation API \else by the \endif routines dr_insert_clean_call(),
    dr_swap_to_clean_stack(), dr_prepare_for_call(),
@@ -1593,6 +1593,15 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    dr_insert_cbr_instrumentation(), and dr_insert_ubr_instrumentation().
    The stack is started fresh for each use, so <em>no persistent state may be
    stored on it</em>.
+ - \b -signal_stack_size \e \<number\>:
+   DynamoRIO uses an alternate signal handling stack which is smaller than
+   the regular stack by default, as signal handlers are called in
+   relatively fragile contexts and cannot safely use arbitrary library
+   routines: it is 32K for systems with a 4K page size. For systems with
+   different page sizes, it defaults to 2 * page size. This parameter can
+   be used to change the size.  The parameter can take a 'K' suffix, and
+   must be a multiple of the page size (4K, 16K, or 64K depending on the
+   system).
 \if vmsafe
 Options available only in Code Manipulation mode and Memory Firewall mode
 (see \ref dr_modes):
