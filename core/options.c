@@ -220,6 +220,9 @@ adjust_defaults_for_page_size(options_t *options)
     options->initial_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
             3 * page_size);
+    options->initial_heap_nonpers_size =
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size),
+            3 * page_size);
     options->initial_global_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size),
             3 * page_size);

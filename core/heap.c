@@ -272,7 +272,7 @@ typedef struct _thread_units_t {
  * of clean calls out of the cache that might allocate IR memory (which does not
  * use nonpersistent heap).  Any client actions that involve fragments or linking
  * should require couldbelinking status, which makes them safe wrt unlink flushing.
- * Xref i#1791.
+ * Xref DrMi#1791.
  */
 #define SEPARATE_NONPERSISTENT_HEAP() \
     (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
@@ -3172,10 +3172,10 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
             LOG(THREAD,
                 LOG_HEAP|LOG_STATS, 1,
                 "Heap unit %d @"PFX"-"PFX" [-"PFX"] ("SZFMT" [/"SZFMT"] KB): used "
-                SZFMT" KB\n",
+                SZFMT" bytes\n",
                 u->id, u, UNIT_COMMIT_END(u),
                 UNIT_RESERVED_END(u), (UNIT_COMMIT_SIZE(u))/1024,
-                (UNIT_RESERVED_SIZE(u))/1024, num_used/1024);
+                (UNIT_RESERVED_SIZE(u))/1024, num_used);
         });
         next_u = u->next_local;
         heap_free_unit(u, dcontext);
@@ -3233,7 +3233,8 @@ heap_thread_reset_init(dcontext_t *dcontext)
     thread_heap_t *th = (thread_heap_t *) dcontext->heap_field;
     if (SEPARATE_NONPERSISTENT_HEAP()) {
         ASSERT(th->nonpersistent_heap != NULL);
-        threadunits_init(dcontext, th->nonpersistent_heap, HEAP_UNIT_MIN_SIZE);
+        threadunits_init(dcontext, th->nonpersistent_heap,
+                         DYNAMO_OPTION(initial_heap_nonpers_size));
     }
 }
 
