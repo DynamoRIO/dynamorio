@@ -508,7 +508,8 @@ signal_thread_init(dcontext_t *dcontext)
                                   IF_X86_ELSE(AVX_ALIGNMENT, 0),
                                   false /* cannot have any locking */,
                                   false /* -x */,
-                                  true /* persistent */);
+                                  true /* persistent */,
+                                  pend_unit_size * DYNAMO_OPTION(max_pending_signals));
 
 #ifdef HAVE_SIGALTSTACK
     /* set up alternate stack
@@ -1108,6 +1109,7 @@ signal_fork_init(dcontext_t *dcontext)
             info->sigpending[i] = temp->next;
             special_heap_free(info->sigheap, temp);
         }
+        info->num_pending = 0;
     }
     if (INTERNAL_OPTION(profile_pcs)) {
         pcprofile_fork_init(dcontext);
@@ -1227,6 +1229,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
             info->sigpending[i] = temp->next;
             special_heap_free(info->sigheap, temp);
         }
+        info->num_pending = 0;
     }
     signal_swap_mask(dcontext, true/*to_app*/);
 #ifdef HAVE_SIGALTSTACK
@@ -4066,10 +4069,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             (blocked && info->sigpending[sig] == NULL)) {
             /* only have 1 pending for blocked non-rt signals */
 
-            /* special heap alloc always uses sizeof(sigpending_t) blocks */
-            pend = special_heap_alloc(info->sigheap);
-            ASSERT(sig > 0 && sig <= MAX_SIGNUM);
-
             /* to avoid accumulating signals if we're slow in presence of
              * a high-rate itimer we only keep 2 alarm signals (PR 596768)
              */
@@ -4083,11 +4082,35 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                      sigpending_t *temp = info->sigpending[sig];
                      info->sigpending[sig] = temp->next;
                      special_heap_free(info->sigheap, temp);
+                     info->num_pending--;
                      LOG(THREAD, LOG_ASYNCH, 2,
                          "3rd pending alarm %d => dropping 2nd\n", sig);
                      STATS_INC(num_signals_dropped);
                      SYSLOG_INTERNAL_WARNING_ONCE("dropping 3rd pending alarm signal");
                 }
+            }
+            /* special heap alloc always uses sizeof(sigpending_t) blocks */
+            pend = special_heap_alloc(info->sigheap);
+            ASSERT(sig > 0 && sig <= MAX_SIGNUM);
+            info->num_pending++;
+            if (info->num_pending > DYNAMO_OPTION(max_pending_signals) &&
+                !info->multiple_pending_units)
+                info->multiple_pending_units = true;
+            if (info->num_pending >= DYNAMO_OPTION(max_pending_signals)) {
+                /* We're at the limit of our special heap: one more and it will try to
+                 * allocate a new unit, which is unsafe as it acquires locks.  We take
+                 * several steps: we notify the user; we check for this on delivery as
+                 * well and proactively allocate a new unit in a safer context.
+                 * XXX: Perhaps we should drop some signals here?
+                 */
+                DO_ONCE({
+                    char max_string[32];
+                    snprintf(max_string, BUFFER_SIZE_ELEMENTS(max_string), "%d",
+                             DYNAMO_OPTION(max_pending_signals));
+                    NULL_TERMINATE_BUFFER(max_string);
+                    SYSLOG(SYSLOG_WARNING, MAX_PENDING_SIGNALS, 3,
+                           get_application_name(), get_application_pid(), max_string);
+                });
             }
 
             pend->next = info->sigpending[sig];
@@ -5574,6 +5597,21 @@ receive_pending_signal(dcontext_t *dcontext)
     info->accessing_sigpending = true;
     /* barrier to prevent compiler from moving the above write below the loop */
     __asm__ __volatile__("" : : : "memory");
+    if (!info->multiple_pending_units &&
+        info->num_pending + 2 >= DYNAMO_OPTION(max_pending_signals)) {
+        /* We're close to the limit: proactively get a new unit while it's safe
+         * to acquire locks.  We do that by pushing over the edge.
+         * We assume that filling up a 2nd unit is too pathological to plan for.
+         */
+        info->multiple_pending_units = true;
+        SYSLOG_INTERNAL_WARNING("many pending signals: asking for 2nd special unit");
+        sigpending_t *temp1 = special_heap_alloc(info->sigheap);
+        sigpending_t *temp2 = special_heap_alloc(info->sigheap);
+        sigpending_t *temp3 = special_heap_alloc(info->sigheap);
+        special_heap_free(info->sigheap, temp1);
+        special_heap_free(info->sigheap, temp2);
+        special_heap_free(info->sigheap, temp3);
+    }
     for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (info->sigpending[sig] != NULL) {
             bool executing = true;
@@ -5590,6 +5628,7 @@ receive_pending_signal(dcontext_t *dcontext)
             temp = info->sigpending[sig];
             info->sigpending[sig] = temp->next;
             special_heap_free(info->sigheap, temp);
+            info->num_pending--;
 
             /* only one signal at a time! */
             if (executing) {
