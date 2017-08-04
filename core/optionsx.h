@@ -712,6 +712,12 @@
                     */
                    IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
                    "size of thread-private stacks, in KB")
+#ifdef UNIX
+    /* signal_stack_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, signal_stack_size,
+                   IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
+                   "size of signal handling stacks, in KB")
+#endif
     /* PR 415959: smaller vmm block size makes this both not work and not needed
      * on Linux.
      * FIXME PR 403008: stack_shares_gencode fails on vmkernel
