@@ -535,14 +535,11 @@ mutex_collect_callstack(mutex_t *lock)
 
     /* only interested in DR addresses which should all be readable */
     while (depth < max_depth &&
-           (is_on_initstack(fp) || is_on_dstack(dcontext, fp))
-#ifdef STACK_GUARD_PAGE
+           (is_on_initstack(fp) || is_on_dstack(dcontext, fp)) &&
            /* is_on_initstack() and is_on_dstack() do include the guard pages
             * yet we cannot afford to call is_readable_without_exception()
             */
-           && !is_stack_overflow(dcontext, fp)
-#endif
-           ) {
+           !is_stack_overflow(dcontext, fp)) {
         app_pc our_ret = *((app_pc*)fp+1);
         fp = *(byte **)fp;
         if (skip) {
@@ -2142,6 +2139,7 @@ set_exception_strings(const char *override_label, const char *override_url)
         exception_report_url = override_url;
     if (override_label != NULL)
         exception_label_core = override_label;
+    ASSERT(strlen(CRASH_NAME) == strlen(STACK_OVERFLOW_NAME));
     snprintf(exception_prefix, BUFFER_SIZE_ELEMENTS(exception_prefix),
              "%s %s at PC "PFX, exception_label_core, CRASH_NAME, 0);
     NULL_TERMINATE_BUFFER(exception_prefix);
@@ -2171,7 +2169,7 @@ set_display_version(const char *ver)
 }
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
- * If dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION, does a full SYSLOG;
+ * If TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
  * else, does a SYSLOG_INTERNAL_ERROR.
  * Fine to pass NULL for report_ebp: will use current ebp for you.
  */
@@ -2253,7 +2251,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 
 #ifdef CLIENT_INTERFACE
     /* Only walk the module list if we think the data structs are safe */
-    if (dumpcore_flag != DUMPCORE_INTERNAL_EXCEPTION) {
+    if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
         size_t sofar = 0;
         /* We decided it's better to include the paths even if it means we may
          * not fit all the modules (i#968).  We plan to add the modules to the
@@ -2280,15 +2278,17 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION
-        IF_CLIENT_INTERFACE(|| dumpcore_flag == DUMPCORE_CLIENT_EXCEPTION)) {
+    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)
+        IF_CLIENT_INTERFACE(|| TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag))) {
         char saddr[IF_X64_ELSE(19,11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
-        if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION) {
+        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
             SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   exception_label_core, CRASH_NAME,
+                                   exception_label_core,
+                                   TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ?
+                                   STACK_OVERFLOW_NAME : CRASH_NAME,
                                    saddr, exception_report_url,
                                    /* skip the prefix since the event log string
                                     * already has it */
@@ -2298,19 +2298,21 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         else {
             SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   exception_label_client, CRASH_NAME,
+                                   exception_label_client,
+                                   TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ?
+                                   STACK_OVERFLOW_NAME : CRASH_NAME,
                                    saddr, exception_report_url,
                                    reportbuf + report_client_exception_skip_prefix());
         }
 #endif
-    } else if (dumpcore_flag == DUMPCORE_ASSERTION) {
+    } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(),
                                reportbuf);
-    } else if (dumpcore_flag == DUMPCORE_CURIOSITY) {
+    } else if (TEST(DUMPCORE_CURIOSITY, dumpcore_flag)) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "%s", reportbuf);
     } else {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_ERROR, "%s", reportbuf);
@@ -2332,7 +2334,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
      * for client and app crashes but not DR crashes.
      */
     DOLOG(1, LOG_ALL, {
-        if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION)
+        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
             dump_callstack(exception_addr, report_ebp, THREAD, DUMP_NOT_XML);
         else
             dump_dr_callstack(THREAD);

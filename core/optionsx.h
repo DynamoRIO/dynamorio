@@ -1644,6 +1644,14 @@
                             "use a safe read to identify uninit TLS")
 
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
+    /* Today we support just one stack guard page.  We may want to turn this
+     * option into a number in the future to catch larger strides beyond TOS.
+     * There are problems on Windows where the PAGE_GUARD pages must be used, yet
+     * the kernel's automated stack expansion does not do the right thing vs
+     * our -vm_reserve.
+     */
+    OPTION_DEFAULT(bool, stack_guard_pages, IF_WINDOWS_ELSE(false, true),
+                   "add guard pages to detect stack overflow")
 
 #ifdef PROGRAM_SHEPHERDING
     /* PR 200418: -security_api just turns on the bits of -security needed for the

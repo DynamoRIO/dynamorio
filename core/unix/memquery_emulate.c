@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -319,13 +319,11 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
     /* skip our own vmheap */
     if (pc >= our_heap_start && pc < our_heap_end)
         return our_heap_end;
-#ifdef STACK_GUARD_PAGE
     /* if no vmheap and we probe our own stack, the SIGSEGV handler will
      * report stack overflow as it checks that prior to handling TRY
      */
     if (is_stack_overflow(dcontext, pc))
         return pc + PAGE_SIZE;
-#endif
 #ifdef VMX86_SERVER
     /* Workaround for PR 380621 */
     if (is_vmkernel_addr_in_user_space(pc, &base)) {

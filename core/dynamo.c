@@ -140,7 +140,7 @@ bool    post_execve = false;
 /* initial stack so we don't have to use app's */
 byte *  initstack;
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
 #define EXCEPTION_STACK_SIZE (2 * PAGE_SIZE)
 DECLARE_NEVERPROT_VAR(byte *exception_stack, NULL);
@@ -523,7 +523,7 @@ dynamorio_app_init(void)
         LOG(GLOBAL, LOG_SYNCH, 2, "initstack is "PFX"-"PFX"\n",
             initstack - DYNAMORIO_STACK_SIZE, initstack);
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
         /* PR203701: separate stack for error reporting when the
          * dstack is exhausted
          */
@@ -1084,7 +1084,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     if (DYNAMO_OPTION(hot_patching))
         hotp_exit();
 #endif
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE) && defined(DEBUG)
+#ifdef WINDOWS
     /* Free exception stack before calling heap_exit */
     stack_free(exception_stack, EXCEPTION_STACK_SIZE);
     exception_stack = NULL;
