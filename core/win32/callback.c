@@ -4858,13 +4858,14 @@ void
 internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                         CONTEXT *cxt, bool dstack_overflow, bool is_client)
 {
-    report_internal_exception(dcontext, pExcptRec, cxt,
-                              (is_client ? DUMPCORE_CLIENT_EXCEPTION :
-                               DUMPCORE_INTERNAL_EXCEPTION) |
-                              (dstack_overflow ? DUMPCORE_STACK_OVERFLOW : 0),
-                              /* for clients we need to let them override the label */
-                              is_client ? exception_label_client : exception_label_core,
-                              dstack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME);
+    report_internal_exception
+        (dcontext, pExcptRec, cxt,
+         (IF_CLIENT_INTERFACE(is_client ? DUMPCORE_CLIENT_EXCEPTION :)
+          DUMPCORE_INTERNAL_EXCEPTION) |
+         (dstack_overflow ? DUMPCORE_STACK_OVERFLOW : 0),
+         /* for clients we need to let them override the label */
+         IF_CLIENT_INTERFACE(is_client ? exception_label_client :) exception_label_core,
+         dstack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME);
 }
 
 static void
