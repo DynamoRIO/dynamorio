@@ -398,7 +398,7 @@ event_thread_init(void *drcontext)
      * in a path as a client argument.
      */
     data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
-                              "memval_simple",
+                              "memval",
 #ifndef WINDOWS
                               DR_FILE_CLOSE_ON_FORK |
 #endif
@@ -437,7 +437,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     drreg_options_t ops = {sizeof(ops), 4 /*max slots needed*/, false};
 
-    dr_set_client_name("DynamoRIO Sample Client 'memval_simple'",
+    dr_set_client_name("DynamoRIO Sample Client 'memval'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || !drutil_init() || !drx_init())
         DR_ASSERT(false);
@@ -464,5 +464,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     DR_ASSERT(tls_idx != -1 && trace_buffer != NULL && write_buffer != NULL);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'memval_simple' initializing\n");
+    dr_log(NULL, LOG_ALL, 1, "Client 'memval' initializing\n");
 }
