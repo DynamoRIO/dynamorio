@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,11 +35,11 @@
 #define TOOLS_H
 
 /* i#1424: avoid pulling in features from recent versions to keep compatibility.
- * The core tries to stay at NT4 but some tests need 2K.
+ * The core may still support 2K but officially we only support XP+.
+ * Some tests need 0x0600, in particular condvar.h.
  */
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT _WIN32_WINNT_WIN2K
-#endif
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
 
 #include "configure.h"
 #include "dr_helper.h"
@@ -694,31 +694,6 @@ set_global_filter()
 }
 
 #endif /* UNIX */
-
-#ifdef UNIX
-typedef int thread_handle;
-typedef unsigned int (*fptr)(void *);
-#else
-typedef HANDLE thread_handle;
-typedef unsigned int (__stdcall *fptr)(void *);
-#endif
-
-#ifdef WINDOWS
-/* Thread related functions */
-thread_handle
-create_thread(fptr f);
-void
-suspend_thread(thread_handle th);
-
-void
-resume_thread(thread_handle th);
-
-void
-join_thread(thread_handle th);
-
-void
-thread_yield();
-#endif
 
 #ifdef WINDOWS
 static byte *
