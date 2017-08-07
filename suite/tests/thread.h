@@ -71,7 +71,7 @@ join_thread(thread_t thread)
 void
 thread_sleep(int ms)
 {
-    usleep(ms);
+    usleep(1000*ms);
 }
 
 void
