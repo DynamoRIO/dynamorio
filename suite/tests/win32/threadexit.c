@@ -164,7 +164,7 @@ main()
         global_finished = 0;
 
         for (t = 0; t < TOTAL_THREADS; t++) {
-            thread[t] = (HANDLE)create_thread(executor);
+            thread[t] = (HANDLE)create_thread(executor, NULL);
             if (thread[t] == NULL)
                 print("GLE: %d\n", GetLastError());
             assert(thread[t] != NULL);
