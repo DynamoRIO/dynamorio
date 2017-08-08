@@ -3627,7 +3627,7 @@ dr_event_wait(void *event)
     dcontext_t *dcontext = get_thread_private_dcontext();
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
-    wait_for_event((event_t)event);
+    wait_for_event((event_t)event, 0);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
     return true;

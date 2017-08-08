@@ -715,7 +715,7 @@ dynamorio_app_init(void)
     if (INTERNAL_OPTION(unsafe_hang_process)) {
         event_t never_signaled = create_event();
         SYSLOG_INTERNAL_ERROR("Hanging the process deliberately!");
-        wait_for_event(never_signaled);
+        wait_for_event(never_signaled, 0);
         destroy_event(never_signaled);
     }
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -326,10 +326,16 @@ void
 memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists)
 {
     memcache_lock();
-    ASSERT(!exists ||
-           vmvector_overlap(all_memory_areas, start, end) ||
-           /* we could synch up: instead we relax the assert if DR areas not in allmem */
-           are_dynamo_vm_areas_stale());
+    /* A curiosity as it can happen when attaching to a many-threaded
+     * app (e.g., the api.detach_spawn test), or when dr_app_setup is
+     * separate from dr_app_start (i#2037).
+     */
+    ASSERT_CURIOSITY(!exists ||
+                     vmvector_overlap(all_memory_areas, start, end) ||
+                     /* we could synch up: instead we relax the assert if DR areas not
+                      * in allmem
+                      */
+                     are_dynamo_vm_areas_stale());
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
         start, end, prot);
     memcache_update(start, end, prot, type);
