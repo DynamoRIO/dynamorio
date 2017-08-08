@@ -84,7 +84,6 @@ parent_func(void *arg)
 
 int main(void)
 {
-    thread_t thread;
     dr_app_setup();
     dr_app_start();
     parent_ready = create_cond_var();
