@@ -159,6 +159,8 @@ mutex_t initstack_mutex VAR_IN_SECTION(NEVER_PROTECTED_SECTION)
 byte * initstack_app_xsp VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 /* keeps track of how many threads are in cleanup_and_terminate */
 int exiting_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
+/* Tracks newly created threads not yet on the all_threads list. */
+int uninit_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 
 /* This is unprotected to allow stats to be written while the data
  * segment is still protected (right now the only ones are selfmod stats)
@@ -2161,6 +2163,9 @@ bool dynamo_thread_init_during_process_exit = false;
  * mc can be NULL for the initial thread
  * returns -1 if current thread has already been initialized
  */
+/* On UNIX, if dstack_in != NULL, the parent of this new thread must have
+ * increased uninit_thread_count.
+ */
 int
 dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
                    _IF_CLIENT_INTERFACE(bool client_thread))
@@ -2172,9 +2177,10 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     APP_EXPORT_ASSERT(dynamo_initialized || dynamo_exited ||
                       get_num_threads() == 0 IF_CLIENT_INTERFACE(|| client_thread),
                       PRODUCT_NAME" not initialized");
-
-    if (INTERNAL_OPTION(nullcalls))
+    if (INTERNAL_OPTION(nullcalls)) {
+        ASSERT(uninit_thread_count == 0);
         return SUCCESS;
+    }
 
     /* note that ENTERING_DR is assumed to have already happened: in apc handler
      * for win32, in new_thread_setup for linux, in main init for 1st thread
@@ -2258,6 +2264,12 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
      */
     add_thread(IF_WINDOWS_ELSE(NT_CURRENT_THREAD, get_process_id()), get_thread_id(),
                under_dynamo_control, dcontext);
+#ifdef UNIX /* i#2600: Not easy on Windows: we rely on init_apc_go_native there. */
+    if (dstack_in != NULL) { /* Else not a thread creation we observed */
+        ASSERT(uninit_thread_count > 0);
+        ATOMIC_DEC(int, uninit_thread_count);
+    }
+#endif
 #if defined(WINDOWS) && defined(DR_APP_EXPORTS)
     /* Now that the thread is in the main thread table we don't need to remember it */
     if (dr_api_entry)
