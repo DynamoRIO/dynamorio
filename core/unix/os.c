@@ -9719,6 +9719,15 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     thread_id_t *tids;
     uint threads_to_signal = 0;
 
+    /* We do not want to re-takeover a thread that's in between notifying us on
+     * the last call to this routine and getting onto the all_threads list as
+     * we'll self-interpret our own code leading to a lot of problems.
+     * XXX: should we use an event to avoid this inefficient loop?  We expect
+     * this to only happen in rare cases during attach when threads are in flux.
+     */
+    while (uninit_thread_count > 0) /* relying on volatile */
+        os_thread_yield();
+
     mutex_lock(&thread_initexit_lock);
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");

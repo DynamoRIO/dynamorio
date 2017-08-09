@@ -491,9 +491,9 @@ extern byte *  exception_stack;
 /* keeps track of how many threads are in cleanup_and_terminate so that we know
  * if any threads could still be using shared resources even if they aren't on
  * the all_threads list */
-extern int exiting_thread_count;
+extern volatile int exiting_thread_count;
 /* Tracks newly created threads not yet on the all_threads list. */
-extern int uninit_thread_count;
+extern volatile int uninit_thread_count;
 
 /* Called before a second thread is ever scheduled. */
 void pre_second_thread(void);

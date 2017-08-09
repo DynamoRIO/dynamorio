@@ -158,9 +158,9 @@ mutex_t initstack_mutex VAR_IN_SECTION(NEVER_PROTECTED_SECTION)
      = INIT_SPINLOCK_FREE(initstack_mutex);
 byte * initstack_app_xsp VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 /* keeps track of how many threads are in cleanup_and_terminate */
-int exiting_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
+volatile int exiting_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 /* Tracks newly created threads not yet on the all_threads list. */
-int uninit_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
+volatile int uninit_thread_count VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = 0;
 
 /* This is unprotected to allow stats to be written while the data
  * segment is still protected (right now the only ones are selfmod stats)
