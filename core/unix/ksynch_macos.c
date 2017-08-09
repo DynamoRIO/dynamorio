@@ -122,7 +122,7 @@ ksynch_wait(mac_synch_t *synch, int mustbe, int timeout_ms)
         mach_timespec_t timeout;
         timeout.tv_sec = (timeout_ms / 1000);
         timeout.tv_nsec = ((int64)timeout_ms % 1000) * 1000000;
-        res = semaphore_timedwait(synch->sem, &timeout);
+        res = semaphore_timedwait(synch->sem, timeout);
     } else
         res = semaphore_wait(synch->sem);
     return (res == KERN_SUCCESS ? 0 : -1);

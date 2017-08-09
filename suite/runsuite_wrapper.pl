@@ -82,7 +82,7 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest --output-on-failure -VV -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
 
@@ -126,6 +126,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.loader' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#1369
                                    'code_api|client.nudge_ex' => 1,
+                                   'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.static_noclient' => 1,
                                    'code_api|api.static_noinit' => 1);
             $issue_no = "#2145";
