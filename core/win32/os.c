@@ -8259,7 +8259,7 @@ os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_s
                 SYSLOG_INTERNAL_WARNING("WARNING - 2nd wait after deadlock timeout "
                                         "expired succeeded! Not really deadlocked.");
                 KSTOP(wait_event);
-                return;
+                return true;
             }
             ASSERT(res == WAIT_TIMEDOUT);
             report_dynamorio_problem(NULL, DUMPCORE_TIMEOUT, NULL, NULL,
