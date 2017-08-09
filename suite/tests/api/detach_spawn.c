@@ -90,7 +90,6 @@ int main(void)
     for (i = 0; i < NUM_PARENT_THREADS; ++i)
         threads[i] = create_thread(parent_func, NULL);
 
-    //NOCHECKIN ensure can still repro detach race
     /* We setup and start at once to avoid process memory changing much between
      * the two.
      */
