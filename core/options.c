@@ -1560,6 +1560,12 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #ifdef WINDOWS
+    if (DYNAMO_OPTION(stack_guard_pages)) {
+        /* XXX i#2595: this does not interact well with -vm_reserve. */
+        USAGE_ERROR("-stack_guard_pages is not supported on Windows");
+        dynamo_options.stack_guard_pages = false;
+        changed_options = true;
+    }
 # ifdef PROGRAM_SHEPHERDING
     if (DYNAMO_OPTION(IAT_convert) && !DYNAMO_OPTION(emulate_IAT_writes)) {
         /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */

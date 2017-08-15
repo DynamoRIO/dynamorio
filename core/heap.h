@@ -192,10 +192,8 @@ heap_mmap_retract_commitment(void *retract_start, size_t decommit_size,
 void *stack_alloc(size_t size, byte *min_addr);
 void stack_free(void *p, size_t size);
 
-#ifdef STACK_GUARD_PAGE
 /* checks if pc is in guard page on stack */
 bool is_stack_overflow(dcontext_t *dcontext, byte *sp);
-#endif
 
 /* these are for thread-local allocs
  * passing dcontext == GLOBAL_DCONTEXT will end up calling global_heap_{alloc,free}

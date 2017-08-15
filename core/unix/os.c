@@ -3688,6 +3688,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
+    ATOMIC_INC(int, uninit_thread_count);
     void *crec = create_clone_record(dcontext, (reg_t*)&xsp);
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
@@ -6965,6 +6966,7 @@ pre_system_call(dcontext_t *dcontext)
         if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
             os_clone_pre(dcontext);
+            ATOMIC_INC(int, uninit_thread_count);
         } else  /* This is really a fork. */
             os_fork_pre(dcontext);
         break;
@@ -6987,6 +6989,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t) func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t) new_bsdthread_intercept;
         *sys_param_addr(dcontext, 1) = (reg_t) clone_rec;
+        ATOMIC_INC(int, uninit_thread_count);
         break;
     }
     case SYS_posix_spawn: {
@@ -7019,6 +7022,7 @@ pre_system_call(dcontext_t *dcontext)
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
 # endif
         os_clone_pre(dcontext);
+        ATOMIC_INC(int, uninit_thread_count);
         break;
     }
 #endif
@@ -9714,6 +9718,15 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint num_threads;
     thread_id_t *tids;
     uint threads_to_signal = 0;
+
+    /* We do not want to re-takeover a thread that's in between notifying us on
+     * the last call to this routine and getting onto the all_threads list as
+     * we'll self-interpret our own code leading to a lot of problems.
+     * XXX: should we use an event to avoid this inefficient loop?  We expect
+     * this to only happen in rare cases during attach when threads are in flux.
+     */
+    while (uninit_thread_count > 0) /* relying on volatile */
+        os_thread_yield();
 
     mutex_lock(&thread_initexit_lock);
     CLIENT_ASSERT(thread_takeover_records == NULL,

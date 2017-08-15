@@ -36,16 +36,9 @@
 #include <math.h>
 #include <stdint.h>
 #include "configure.h"
-#ifdef WINDOWS
-/* Ensure the ConditionVariable routines are pulled in when using >VS2010 */
-# undef _WIN32_WINNT
-# define _WIN32_WINNT 0x0600
-# include <windows.h>
-#else
-# include <pthread.h>
-#endif
 #include "dr_api.h"
 #include "tools.h"
+#include "thread.h"
 #include "condvar.h"
 
 #define VERBOSE 0
@@ -98,11 +91,7 @@ static void *sideline_continue;
 static void *go_native;
 static void *sideline_ready[NUM_THREADS];
 
-#ifdef WINDOWS
-int __stdcall
-#else
-void *
-#endif
+THREAD_FUNC_RETURN_TYPE
 sideline_spinner(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
@@ -143,11 +132,7 @@ sideline_spinner(void *arg)
     }
     VPRINT("%d exiting\n", idx);
 
-#ifdef WINDOWS
-    return 0;
-#else
-    return NULL;
-#endif
+    return THREAD_FUNC_RETURN_ZERO;
 }
 
 void foo(void)
@@ -159,12 +144,7 @@ int main(void)
     double res = 0.;
     int i,j;
     void *stack = NULL;
-#ifdef UNIX
-    pthread_t pt[NUM_THREADS];  /* On Linux, the tid. */
-#else
-    uintptr_t thread[NUM_THREADS];  /* _beginthreadex doesn't return HANDLE? */
-    uint tid[NUM_THREADS];
-#endif
+    thread_t thread[NUM_THREADS];
 
     /* We could generate this via macros but that gets pretty obtuse */
     funcs[0] = &func_0;
@@ -183,12 +163,7 @@ int main(void)
 
     for (i = 0; i < NUM_THREADS; i++) {
         sideline_ready[i] = create_cond_var();
-#ifdef UNIX
-        pthread_create(&pt[i], NULL, sideline_spinner, (void*)(uintptr_t)i);
-#else
-        thread[i] = _beginthreadex(NULL, 0, sideline_spinner, (void*)(uintptr_t)i,
-                                   0, &tid[i]);
-#endif
+        thread[i] = create_thread(sideline_spinner, (void*)(uintptr_t)i);
     }
 
     /* Initialize DR */
@@ -268,14 +243,9 @@ int main(void)
     sideline_exit = true;  /* Break the loops. */
     signal_cond_var(sideline_continue);
     for (i = 0; i < NUM_THREADS; i++) {
-#ifdef UNIX
-        pthread_join(pt[i], NULL);
-#else
-        WaitForSingleObject((HANDLE)thread[i], INFINITE);
-#endif
+        join_thread(thread[i]);
         if (!took_over_thread[i]) {
-            print("failed to take over thread %d==%d!\n", i,
-                  IF_WINDOWS_ELSE(tid[i],pt[i]));
+            print("failed to take over thread %d!\n", i);
         }
     }
     dr_app_stop();

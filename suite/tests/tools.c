@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -122,50 +122,6 @@ is_wow64(HANDLE hProcess)
         return CAST_TO_bool(res);
     }
 }
-
-/* FIXME: Port these thread routines to Linux using the ones from linux/clone.c.
- * We'll have to change existing Windows tests to pass a stack out param or leak
- * the stack on Linux.
- */
-
-# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
-/* Thread related functions */
-thread_handle
-create_thread(fptr f)
-{
-    thread_handle th;
-
-    uint tid;
-    th = (thread_handle) _beginthreadex(NULL, 0, f, NULL, 0, &tid);
-    return th;
-}
-# endif
-
-void
-suspend_thread(thread_handle th)
-{
-    SuspendThread(th);
-}
-
-void
-resume_thread(thread_handle th)
-{
-    ResumeThread(th);
-}
-
-void
-join_thread(thread_handle th)
-{
-    WaitForSingleObject(th, INFINITE);
-}
-
-# ifndef STATIC_LIBRARY  /* FIXME i#975: conflicts with DR's symbols. */
-void
-thread_yield()
-{
-    Sleep(0); /* stay ready */
-}
-# endif
 #endif  /* WINDOWS */
 
 int

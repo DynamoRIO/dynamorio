@@ -468,6 +468,12 @@ function (set_cflags source)
   get_filename_component(abs ${source} ABSOLUTE)
   file(READ ${abs} srccode)
   set(srccode "${srccode}" PARENT_SCOPE)
+  if (WIN32 AND "${srccode}" MATCHES "condvar\\.h")
+    # Ensure the ConditionVariable routines are pulled in when using >VS2010.
+    # Because dr_api.h includes windows.h and must be included before tools.h we do
+    # this via command line flags.
+    set(cflags "${cflags} -D_WIN32_WINNT=0x0600")
+  endif ()
   # We support a test either getting defines from configure.h or
   # needing them passed in on cmd line.
   if ("${srccode}" MATCHES "tools\\.h" OR
@@ -1679,6 +1685,9 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
   endif (X86)
   tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+  if (UNIX) # XXX i#2595: NYI on Windows
+    tobuild_ci(client.stack-overflow client-interface/stack-overflow.c "" "" "")
+  endif ()
   # FIXME i#1360: implement Mach-O export iterator
   # FIXME i#2008: fix bugs on Android
   if (NOT MACOS AND NOT ANDROID)
@@ -2221,6 +2230,10 @@ if (CLIENT_INTERFACE)
     tobuild_api(api.detach api/detach.c "" "" OFF OFF)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.detach ${libpthread})
+    endif ()
+    tobuild_api(api.detach_spawn api/detach_spawn.c "" "" OFF OFF)
+    if (NOT ANDROID) # pthreads is inside Bionic on Android
+      target_link_libraries(api.detach_spawn ${libpthread})
     endif ()
   endif ()
   # test static decoder library

@@ -119,6 +119,7 @@ synch_init(void)
 void
 synch_exit(void)
 {
+    ASSERT(uninit_thread_count == 0);
     DELETE_LOCK(all_threads_synch_lock);
 }
 
@@ -1214,7 +1215,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
      */
-    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting) {
+    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting ||
+           uninit_thread_count > 0) {
         if (threads != NULL){
             /* Case 8941: must free here rather than when yield (below) since
              * termination condition can change between there and here
@@ -1358,12 +1360,17 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
          * process (current thread, though we could be here for detach or other
          * reasons) and an exiting thread (who might no longer be on the all
          * threads list) who is still using shared resources (ref case 3121) */
-        if (!all_synched || exiting_thread_count > expect_exiting) {
+        if (!all_synched || exiting_thread_count > expect_exiting ||
+            uninit_thread_count > 0) {
             DOSTATS({
                 if (all_synched && exiting_thread_count > expect_exiting) {
                     LOG(THREAD, LOG_SYNCH, 2, "Waiting for an exiting thread %d %d %d\n",
                         all_synched, exiting_thread_count, expect_exiting);
                     STATS_INC(synch_yields_for_exiting_thread);
+                } else if (all_synched && uninit_thread_count > 0) {
+                    LOG(THREAD, LOG_SYNCH, 2, "Waiting for an uninit thread %d %d\n",
+                        all_synched, uninit_thread_count);
+                    STATS_INC(synch_yields_for_uninit_thread);
                 }
             });
             STATS_INC(synch_yields);
@@ -1914,8 +1921,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     init_apc_go_native_pause = true;
     init_apc_go_native = true;
-    /* See FIXME below about threads caught between the lock and initialization:
-     * this just reduces the risk.
+    /* XXX i#2600: there is still a race for threads caught between init_apc_go_native
+     * and dynamo_thread_init adding to all_threads: this just reduces the risk.
+     * Unfortunately we can't easily use the UNIX solution of uninit_thread_count
+     * since we can't distinguish internally vs externally created threads.
      */
     os_thread_yield();
 # ifdef CLIENT_INTERFACE

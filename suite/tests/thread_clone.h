@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,16 +31,12 @@
  * DAMAGE.
  */
 
-#ifndef THREADS_H
-#define THREADS_H
+#ifndef THREAD_CLONE_H
+#define THREAD_CLONE_H
 
-/* FIXME: This should be folded into tools.c, but tools.c has Windows thread
- * routines with a different API.  One possibility is to remove the stack out
- * param and simply leak stack threads in these test apps.
- */
-
-/***************************************************************************/
-#ifdef UNIX
+#ifndef LINUX
+# error Only LINUX is supported
+#endif
 
 #define WINAPI
 
@@ -47,15 +44,12 @@
 #include <sys/wait.h>  /* for wait */
 #include <linux/sched.h>     /* for clone and CLONE_ flags */
 #include <sys/mman.h>  /* for mmap */
-#include <unistd.h>    /* for sleep */
 
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
 clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
 
 typedef pid_t thread_t;
-
-#define thread_sleep sleep
 
 #define THREAD_STACK_SIZE   (32*1024)
 
@@ -137,46 +131,4 @@ delete_thread(thread_t pid, void *stack)
     stack_free(stack, THREAD_STACK_SIZE);
 }
 
-/***************************************************************************/
-#else /* WINDOWS */
-
-#include <windows.h>
-#include <process.h> /* for _beginthreadex */
-
-typedef HANDLE thread_t;
-
-/* make it easier to write portable code --
- * we'll just ignore the stack stuff
- */
-#define stack_alloc(s) NULL
-#define stack_free(p, s) NULL
-#define THREAD_STACK_SIZE   (32*1024)
-
-/* Create a new thread. It should be passed "run_func", a function which
- * takes one argument ("arg"), for the thread to execute.
- * Ignores the stack argument.
- * Returns the tid of the new thread.
- */
-thread_t
-create_thread(int (WINAPI *run_func)(void *), void *arg, void **stack)
-{
-    int tid;
-    return (thread_t) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
-}
-
-void
-delete_thread(thread_t thread, void *stack)
-{
-    VERBOSE_PRINT("Waiting for child to exit\n");
-    WaitForSingleObject(thread, INFINITE);
-    VERBOSE_PRINT("Child has exited\n");
-}
-
-void
-thread_sleep(int s)
-{
-    Sleep(1000*s);
-}
-
-#endif /* WINDOWS */
-#endif /* THREADS_H */
+#endif /* THREAD_CLONE_H */

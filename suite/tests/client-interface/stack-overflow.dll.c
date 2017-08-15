@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,33 +30,27 @@
  * DAMAGE.
  */
 
-#include "tools.h"
-#include "thread.h"
-#include <windows.h>
-#include <process.h>
-#include <stdio.h>
+#include "dr_api.h"
 
-volatile long thread_started = 0;
-
-int WINAPI
-run_func(void * arg)
+static dr_emit_flags_t
+bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool translating)
 {
-    InterlockedIncrement(&thread_started);
-    SleepEx(20000, FALSE);
-    return 0;
+    /* Deliberate stack overflow crash */
+    char too_big[65*1024];
+    int i;
+    /* Overflow detection is limited to a single page so make sure we touch it: */
+    for (i = 1; i < sizeof(too_big); i+=1024)
+        too_big[sizeof(too_big) - i] = '\0';
+    /* Avoid optimizing away the array. */
+    dr_set_client_version_string(too_big);
+
+    return DR_EMIT_DEFAULT;
 }
 
-int
-main()
+DR_EXPORT
+void
+dr_init(client_id_t id)
 {
-    int tid;
-    HANDLE h;
-    _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
-    while (!thread_started)
-        thread_yield();
-    /* Deliberately do not ask for query privs to test DrMi#1884 */
-    h = OpenThread(THREAD_TERMINATE, FALSE, tid);
-    TerminateThread(h, 0);
-    print("all done\n");
-    return 0;
+    dr_register_bb_event(bb_event);
+    dr_set_client_name("My Fancy Tool", "http://myfancytool.com/bugtracker");
 }

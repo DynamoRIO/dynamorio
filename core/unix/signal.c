@@ -3346,12 +3346,13 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
 #endif
 
 static void
-abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc,
+abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target,
                int sig, sigframe_rt_t *frame,
                const char *prefix, const char *signame, const char *where)
 {
     kernel_ucontext_t *ucxt = &frame->uc;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+    bool stack_overflow = (sig == SIGSEGV && is_stack_overflow(dcontext, target));
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     uint orig_dumpcore_flag = dumpcore_flag;
@@ -3392,10 +3393,12 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc,
         dumpcore_flag = 0;
 #endif
 
-    report_dynamorio_problem(dcontext, dumpcore_flag,
+    report_dynamorio_problem(dcontext, dumpcore_flag |
+                             (stack_overflow ? DUMPCORE_STACK_OVERFLOW : 0),
                              pc, (app_pc) sc->SC_FP,
-                             fmt, prefix, CRASH_NAME, pc,
-                             signame, where, pc, get_thread_id(),
+                             fmt, prefix,
+                             stack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME,
+                             pc, signame, where, pc, get_thread_id(),
                              get_dynamorio_dll_start(),
 #ifdef X86
                              sc->SC_XAX, sc->SC_XBX, sc->SC_XCX, sc->SC_XDX,
@@ -3446,10 +3449,10 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc,
 }
 
 static void
-abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, int sig, sigframe_rt_t *frame,
-                  const char *signame, const char *where)
+abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, byte *target, int sig,
+                  sigframe_rt_t *frame, const char *signame, const char *where)
 {
-    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sig, frame,
+    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, target, sig, frame,
                    exception_label_core, signame, where);
     ASSERT_NOT_REACHED();
 }
@@ -3954,7 +3957,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * have accounted for everything
              */
             ASSERT_NOT_REACHED();
-            abort_on_DR_fault(dcontext, pc, sig, frame,
+            abort_on_DR_fault(dcontext, pc, NULL, sig, frame,
                               (sig == SIGSEGV) ? "SEGV" : "other", " unknown");
         }
     }
@@ -4733,7 +4736,7 @@ master_signal_handler_C(byte *xsp)
                 OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
                 break;
-            abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sig, frame,
+            abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
             ASSERT_NOT_REACHED();
@@ -4747,16 +4750,6 @@ master_signal_handler_C(byte *xsp)
          * triggers a stack overflow should recover on the longjmp, so
          * this order should be fine.
          */
-
-#ifdef STACK_GUARD_PAGE
-        if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
-            SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
-            /* options are already synchronized by the SYSLOG */
-            if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dynamo_options.dumpcore_mask))
-                os_dump_core("stack overflow");
-            os_terminate(dcontext, TERMINATE_PROCESS);
-        }
-#endif /* STACK_GUARD_PAGE */
 
         /* FIXME: share code with Windows callback.c */
         /* FIXME PR 205795: in_fcache and is_dynamo_address do grab locks! */
@@ -4831,7 +4824,7 @@ master_signal_handler_C(byte *xsp)
                     os_forge_exception(target, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
                     ASSERT_NOT_REACHED();
                 } else {
-                    abort_on_DR_fault(dcontext, pc, sig, frame,
+                    abort_on_DR_fault(dcontext, pc, target, sig, frame,
                                       (sig == SIGSEGV) ? "SEGV" : "BUS",
                                       in_generated_routine(dcontext, pc) ?
                                       " generated" : "");

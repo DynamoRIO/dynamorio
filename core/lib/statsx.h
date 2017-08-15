@@ -1113,6 +1113,7 @@ under -rstats_to_stderr.
     STATS_DEF("Num nops removed for tracing", num_nops_removed)
     STATS_DEF("Num bytes nops removed for tracing", num_nop_bytes_removed)
     STATS_DEF("Num synch yields for exiting threads", synch_yields_for_exiting_thread)
+    STATS_DEF("Num synch yields for uninit threads", synch_yields_for_uninit_thread)
     STATS_DEF("Num synch yields", synch_yields)
     STATS_DEF("Num synch loops in wait_at_safe_spot", synch_loops_wait_safe)
     STATS_DEF("Multiple setcontexts while in wait_at_safe_spot", wait_multiple_setcxt)
