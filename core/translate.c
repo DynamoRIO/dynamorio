@@ -189,11 +189,35 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
         for (r = 0; r < REG_SPILL_NUM; r++) {
+#ifndef ARM
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
             ASSERT(!walk->reg_spilled[r]);
             walk->reg_spilled[r] = false; /* be paranoid */
+#else
+            /* On ARM we do spill registers across app instrs and mangle
+             * regions, though right now only the following routines do this:
+             * - mangle_stolen_reg()
+             * - mangle_gpr_list_read()
+             * - mangle_reads_thread_register()
+             * Each of these cases is a tls restore, and we assert as much.
+             */
+            DOCHECK(1, {
+                if (walk->reg_spilled[r]) {
+                    instr_t *curr;
+                    bool spill_or_restore = false;
+                    for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
+                        spill_or_restore = instr_is_DR_reg_spill_or_restore(tdcontext,
+                            curr, &spill_tls, &spill, &reg);
+                        if (spill_or_restore)
+                            break;
+                    }
+                    ASSERT(spill_or_restore && r == reg - REG_START_SPILL &&
+                           !spill && spill_tls);
+                }
+            });
+#endif
         }
     }
 
