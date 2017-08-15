@@ -265,8 +265,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    if (!memref_needs_full_info) // For full info we skip this for !pred
+        instrlist_set_auto_predicate(ilist, pred);
     if (memref_needs_full_info) {
         // When filtering we have to insert a PC entry for every memref.
         // The 0 size indicates it's a non-icache entry.
@@ -289,18 +289,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
-#ifdef ARM // X86 does not support general predicated execution
-    if (!memref_needs_full_info && // For full info we skip this for !pred.
-        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return (adjust + sizeof(trace_entry_t));
 }
 
