@@ -388,6 +388,8 @@ parse_uint_size(uint *var, void *value)
         case 'k': factor = 1024; break;
         case 'M': // Mega (bytes)
         case 'm': factor = 1024*1024; break;
+        case 'G': // Giga (bytes)
+        case 'g': factor = 1024*1024*1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -597,11 +599,11 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %d, resetting from %d to %d",
+            USAGE_ERROR("%s must be >= %u, resetting from %u to %u",
                         name, min, *val, new_val);
         } else {
-            new_val = min;
-            USAGE_ERROR("%s must be >= %d and <= %d, resetting from %d to %d",
+            new_val = max;
+            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u",
                         name, min, max, *val, new_val);
         }
         *val = new_val;
@@ -611,7 +613,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %d KB\n", name, *val/1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val/1024);
         }
     });
     return ret;
@@ -637,14 +639,14 @@ PRINT_STRING_uint(char *optionbuff, uint value, const char *option)
     /* FIXME: 0x100 hack to get logmask printed in hex,
      * loglevel etc in decimal */
     snprintf(optionbuff, MAX_OPTION_LENGTH,
-             (value > 0x100 ? "-%s 0x%x " : "-%s %d "), option, value);
+             (value > 0x100 ? "-%s 0x%x " : "-%s %u "), option, value);
 }
 #define PRINT_STRING_uint_size(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option, \
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %u%s ", option, \
              ((value) % 1024 == 0 ? (value)/1024 : (value)), \
              ((value) % 1024 == 0 ? "K" : "B"))
 #define PRINT_STRING_uint_time(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d ", option, (value))
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %u ", option, (value))
 #define PRINT_STRING_uint_addr(optionbuff,value,option) \
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s "PFX" ", option, (value));
 #define PRINT_STRING_pathstring_t(optionbuff,value,option) \
