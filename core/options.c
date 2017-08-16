@@ -216,10 +216,10 @@ adjust_defaults_for_page_size(options_t *options)
     options->vmm_block_size =
         ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size =
-        MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+        MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
 # ifdef UNIX
     options->signal_stack_size =
-        MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), 2 * page_size);
+        MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
 # endif
     options->initial_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
