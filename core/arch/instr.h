@@ -1352,7 +1352,10 @@ instr_predicate_writes_eflags(dr_pred_type_t pred);
 
 DR_API
 /**
- * Returns true iff \p pred denotes a conditional predicate.
+ * Returns true iff \p pred denotes a truly conditional predicate: on all
+ * architectures, this excludes #DR_PRED_NONE. On ARM it also excludes
+ * #DR_PRED_AL and #DR_PRED_OP; on AArch64, it also excludes #DR_PRED_AL
+ * and #DR_PRED_NV.
  */
 bool
 instr_predicate_is_cond(dr_pred_type_t pred);
