@@ -1445,8 +1445,9 @@ vmm_heap_exit()
          */
         DOCHECK(1, {
             uint perstack =
-                ALIGN_FORWARD_UINT(dynamo_options.stack_size +
-                                   (dynamo_options.guard_pages ? (2*PAGE_SIZE) : 0),
+                ALIGN_FORWARD_UINT(DYNAMO_OPTION(stack_size) +
+                                   (DYNAMO_OPTION(guard_pages) ? (2*PAGE_SIZE) :
+                                    (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
                                    DYNAMO_OPTION(vmm_block_size)) /
                 DYNAMO_OPTION(vmm_block_size);
             uint unfreed_blocks = perstack * 1 /* initstack */ +
@@ -2536,7 +2537,7 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
      * -signal_stack_size, but all dstacks and initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
-    if (!DYNAMO_OPTION(stack_guard_pages))
+    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(guard_pages))
         return false;
     /* see if in bottom guard page of dstack */
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
