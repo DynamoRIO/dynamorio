@@ -597,7 +597,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
         DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve 3rd scratch register\n");
 #ifdef ARM
-    if (pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
+    if (instr_predicate_is_cond(pred)) {
         // We can't mark everything as predicated b/c we have a cond branch.
         // Instead we jump over it if the memref won't be executed.
         // We have to do that after spilling the regs for parity on all paths.

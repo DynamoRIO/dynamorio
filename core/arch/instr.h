@@ -1350,6 +1350,10 @@ instr_predicate_reads_srcs(dr_pred_type_t pred);
 bool
 instr_predicate_writes_eflags(dr_pred_type_t pred);
 
+DR_API
+/**
+ * Returns true iff \p pred denotes a conditional predicate.
+ */
 bool
 instr_predicate_is_cond(dr_pred_type_t pred);
 

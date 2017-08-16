@@ -183,6 +183,7 @@ Further non-compatibility-affecting changes include:
  - Added drmgr_disable_auto_predication().
  - Added a new option -signal_stack_size with a smaller default value than
    before, to save space on applications with many threads.
+ - Added instr_predicate_is_cond().
 
 **************************************************
 <hr>
