@@ -577,8 +577,8 @@ static void report_low_on_memory(oom_source_t source,
                                  heap_error_code_t os_error_code);
 
 enum {
-    /* maximum 512MB virtual memory units */
-    MAX_VMM_HEAP_UNIT_SIZE = 512*1024*1024,
+    /* maximum 512MB for 32-bit, 1GB for 64-bit */
+    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(1024*1024*1024, 512*1024*1024),
     /* We should normally have only one large unit, so this is in fact
      * the maximum we should count on in one process
      */
@@ -601,7 +601,10 @@ typedef struct {
        static therefore we don't grab locks on read accesses.  Anyways,
        currently the bitmap_t is used with no write intent only for ASSERTs. */
     uint    num_free_blocks;    /* currently free blocks */
-    /* Bitmap uses 1KB static data for granularity 64KB and static maximum 512MB */
+    /* Bitmap uses 2KB static data for granularity 64KB and static maximum 1GB on Windows,
+     * and 32KB on Linux where granularity is 4KB.  These amounts are halved for
+     * 32-bit, so 1KB Windows and 16KB Linux.
+     */
     /* Since we expect only two of these, for now it is ok for users
        to have static max rather than dynamically allocating with
        exact size - however this field is left last in the structure
@@ -1445,8 +1448,9 @@ vmm_heap_exit()
          */
         DOCHECK(1, {
             uint perstack =
-                ALIGN_FORWARD_UINT(dynamo_options.stack_size +
-                                   (dynamo_options.guard_pages ? (2*PAGE_SIZE) : 0),
+                ALIGN_FORWARD_UINT(DYNAMO_OPTION(stack_size) +
+                                   (DYNAMO_OPTION(guard_pages) ? (2*PAGE_SIZE) :
+                                    (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
                                    DYNAMO_OPTION(vmm_block_size)) /
                 DYNAMO_OPTION(vmm_block_size);
             uint unfreed_blocks = perstack * 1 /* initstack */ +
@@ -2536,7 +2540,7 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
      * -signal_stack_size, but all dstacks and initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
-    if (!DYNAMO_OPTION(stack_guard_pages))
+    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(guard_pages))
         return false;
     /* see if in bottom guard page of dstack */
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
