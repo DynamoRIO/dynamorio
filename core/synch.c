@@ -1921,7 +1921,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     init_apc_go_native_pause = true;
     init_apc_go_native = true;
-    /* XXX i#2600: there is still a race for threads caught between init_apc_go_native
+    /* XXX i#2611: there is still a race for threads caught between init_apc_go_native
      * and dynamo_thread_init adding to all_threads: this just reduces the risk.
      * Unfortunately we can't easily use the UNIX solution of uninit_thread_count
      * since we can't distinguish internally vs externally created threads.
