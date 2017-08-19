@@ -35,10 +35,16 @@
 static dr_emit_flags_t
 bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool translating)
 {
-    /* Deliberate stack overflow crash */
+    /* Deliberate stack overflow crash.  Unfortunately the compiler puts some locals
+     * *beyond* the array so we cannot always incrementally touch pages and handle
+     * any stack size, so we have this test run with -stack_size 64K (which is the min
+     * for systems with 64K pages).
+     */
     char too_big[65*1024];
     int i;
-    /* Overflow detection is limited to a single page so make sure we touch it: */
+    /* Overflow detection is limited to a single page so make sure we touch it if
+     * the compiler didn't touch a local beyond the array already:
+     */
     for (i = 1; i < sizeof(too_big); i+=1024)
         too_big[sizeof(too_big) - i] = '\0';
     /* Avoid optimizing away the array. */

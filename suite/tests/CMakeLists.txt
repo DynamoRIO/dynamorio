@@ -1686,7 +1686,9 @@ if (CLIENT_INTERFACE)
   endif (X86)
   tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
   if (UNIX) # XXX i#2595: NYI on Windows
-    tobuild_ci(client.stack-overflow client-interface/stack-overflow.c "" "" "")
+    tobuild_ci(client.stack-overflow client-interface/stack-overflow.c ""
+      # To avoid flakiness on different systems we nail down the stack size:
+      "-stack_size 64K" "")
   endif ()
   # FIXME i#1360: implement Mach-O export iterator
   # FIXME i#2008: fix bugs on Android

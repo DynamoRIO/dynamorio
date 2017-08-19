@@ -2889,6 +2889,7 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
      * like 1 long instr).
      */
     decode_state_reset(get_decode_state(dcontext));
+    encode_reset_it_block(dcontext);
     for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
         byte buf[THUMB_LONG_INSTR_SIZE];
         instr_t tmp;
