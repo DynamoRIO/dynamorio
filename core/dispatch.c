@@ -1808,8 +1808,10 @@ handle_system_call(dcontext_t *dcontext)
 #ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
     bool use_prev_dcontext = is_cb_return_syscall(dcontext);
+
     if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
-        if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_NI_SYSCALL_INT_0x2e) {
+        if (dcontext->upcontext.upcontext.exit_reason ==
+            EXIT_REASON_NI_SYSCALL_INT_0x2e) {
             do_syscall = (app_pc) get_do_int2e_syscall_entry(dcontext);
         }
     }
