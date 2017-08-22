@@ -43,11 +43,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         /* Go to next instruction. */
-#ifndef X64
-        pExceptionInfo->ContextRecord->Eip++;
-#else
-        pExceptionInfo->ContextRecord->Rip++;
-#endif
+        pExceptionInfo->ContextRecord->CXT_XIP++;
 #if VERBOSE
         // prints information about exception
         print("exception code=%x address=%x eip=%x, info = %d, %x\n",
@@ -91,6 +87,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      eax, 1
         ret
 END_FUNC(FUNCNAME)
+#undef FUNCNAME
 
 END_FILE
 #endif

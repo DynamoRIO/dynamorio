@@ -2257,6 +2257,27 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * like we do on Linux, to bound time in cache?
      */
 
+    if (TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
+        int num = instr_get_interrupt_number(instr);
+        ASSERT(instr_get_opcode(instr) == OP_int);
+        if (num == 0x2e) {
+            int reason = EXIT_REASON_NI_SYSCALL_INT_0x2e;
+            if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+                insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
+                PRE(ilist, instr, INSTR_CREATE_mov_st
+                    (dcontext,
+                     opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
+                                                           EXIT_REASON_OFFSET, OPSZ_2),
+                     OPND_CREATE_INT16(reason)));
+                insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+            } else {
+                PRE(ilist, instr,
+                    instr_create_save_immed16_to_dcontext(dcontext, reason,
+                                                          EXIT_REASON_OFFSET));
+            }
+        }
+    }
+
     if (does_syscall_ret_to_callsite()) {
         uint len = instr_length(dcontext, instr);
         if (TEST(INSTR_SHARED_SYSCALL, instr->flags)) {

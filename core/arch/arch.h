@@ -831,6 +831,8 @@ typedef struct _generated_code_t {
 #ifdef WINDOWS
     byte *fcache_enter_indirect;
     byte *do_callback_return;
+    byte *do_int2e_syscall;
+    uint do_int2e_syscall_offs; /* offs of pc after actual syscall instr */
 #else
     /* PR 286922: we both need an int and a sys{call,enter} do-syscall for
      * 32-bit apps on 64-bit kernels.  do_syscall is whatever is in

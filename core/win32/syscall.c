@@ -2747,25 +2747,28 @@ pre_system_call(dcontext_t *dcontext)
     DOLOG(2, LOG_SYSCALLS, {
           dump_mcontext(mc, THREAD, false/*not xml*/);
     });
-    /* we can't pass other than a numeric literal anymore */
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: "PFX"\n",
-        sys_param(dcontext, param_base, 0));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: "PFX"\n",
-        sys_param(dcontext, param_base, 1));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: "PFX"\n",
-        sys_param(dcontext, param_base, 2));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: "PFX"\n",
-        sys_param(dcontext, param_base, 3));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: "PFX"\n",
-        sys_param(dcontext, param_base, 4));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: "PFX"\n",
-        sys_param(dcontext, param_base, 5));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: "PFX"\n",
-        sys_param(dcontext, param_base, 6));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: "PFX"\n",
-        sys_param(dcontext, param_base, 7));
-    LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: "PFX"\n",
-        sys_param(dcontext, param_base, 8));
+    /* Needs to check readability before logging. */
+    if (is_readable_without_exception((byte *) param_base, 8 * sizeof(app_pc))) {
+        /* we can't pass other than a numeric literal anymore */
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 0: "PFX"\n",
+            sys_param(dcontext, param_base, 0));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 1: "PFX"\n",
+            sys_param(dcontext, param_base, 1));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 2: "PFX"\n",
+            sys_param(dcontext, param_base, 2));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 3: "PFX"\n",
+            sys_param(dcontext, param_base, 3));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 4: "PFX"\n",
+            sys_param(dcontext, param_base, 4));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 5: "PFX"\n",
+            sys_param(dcontext, param_base, 5));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 6: "PFX"\n",
+            sys_param(dcontext, param_base, 6));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 7: "PFX"\n",
+            sys_param(dcontext, param_base, 7));
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tparam 8: "PFX"\n",
+            sys_param(dcontext, param_base, 8));
+    }
     DOLOG(3, LOG_SYSCALLS, {
         /* ebp isn't in mcontext right now, so pass ebp */
         dump_callstack(POST_SYSCALL_PC(dcontext), (app_pc) mc->xbp, THREAD,

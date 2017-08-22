@@ -101,15 +101,6 @@ bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md);
  */
 #define BRANCH_LIMIT 1
 
-/* Checks if instruction is a syscall, using the registered method
- */
-#ifdef X86
-# define INSTR_IS_SYSCALL_RIGHT_METHOD(i) (instr_is_syscall(i) && \
-    (get_syscall_method() == SYSCALL_METHOD_INT || instr_get_opcode(i) != OP_int))
-#else
-# define INSTR_IS_SYSCALL_RIGHT_METHOD(i) (instr_is_syscall(i))
-#endif
-
 /* we limit total bb size to handle cases like infinite loop or sequence
  * of calls.
  * also, we have a limit on fragment body sizes, which should be impossible
@@ -1917,6 +1908,17 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
         "ending bb at syscall & removing the interrupt itself\n");
     /* Indicate that this is a non-ignorable syscall so mangle will remove */
     /* FIXME i#1551: maybe we should union int80 and svc as both are inline syscall? */
+
+#ifdef WINDOWS
+    /* Like int 81 on Linux. */
+    if (instr_get_opcode(bb->instr) == OP_int) {
+        int num = instr_get_interrupt_number(bb->instr);
+        if (num == 0x2e) {
+            bb->exit_type |= LINK_SPECIAL_EXIT;
+            bb->instr->flags |= INSTR_BRANCH_SPECIAL_EXIT;
+        }
+    }
+#endif
 #ifdef UNIX
     if (instr_get_opcode(bb->instr) == IF_X86_ELSE(OP_int, OP_svc)) {
 # if defined(MACOS) && defined(X86)
@@ -2031,6 +2033,12 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
         }
     }
 #ifdef WINDOWS
+    if (instr_get_opcode(bb->instr) == OP_int) {
+        if (instr_get_interrupt_number(bb->instr) == 0x2e) {
+            /* Special handling of int 2e when it is not the syscall method. */
+            return bb_process_non_ignorable_syscall(dcontext, bb, sysnum);
+        }
+    }
     if (sysnum != -1 && DYNAMO_OPTION(shared_syscalls) &&
         optimizable_system_call(sysnum)) {
         bb_process_shared_syscall(dcontext, bb, sysnum);
@@ -2724,7 +2732,7 @@ client_check_syscall(instrlist_t *ilist, instr_t *inst,
      * a syscall and a call*: PR 240258).
      */
     if (instr_is_syscall(inst) || instr_get_opcode(inst) == op_int) {
-        if (INSTR_IS_SYSCALL_RIGHT_METHOD(inst) && found_syscall != NULL)
+        if (instr_is_syscall(inst) && found_syscall != NULL)
             *found_syscall = true;
         /* Xref PR 313869 - we should be ignoring int 3 here. */
         if (instr_get_opcode(inst) == op_int && found_int != NULL)
@@ -2923,7 +2931,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             instr_get_opcode(inst) == IF_X86_ELSE(OP_int, OP_svc)) {
             instr_t *tmp = bb->instr;
             bb->instr = inst;
-            if (INSTR_IS_SYSCALL_RIGHT_METHOD(bb->instr))
+            if (instr_is_syscall(bb->instr))
                 bb_process_syscall(dcontext, bb);
             else if (instr_get_opcode(bb->instr) == IF_X86_ELSE(OP_int, OP_svc)) {
                 /* non-syscall int */
@@ -3920,7 +3928,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
         }
-        else if (INSTR_IS_SYSCALL_RIGHT_METHOD(bb->instr)) {
+        else if (instr_is_syscall(bb->instr)) {
             if (!bb_process_syscall(dcontext, bb))
                 break;
         } /* end syscall */

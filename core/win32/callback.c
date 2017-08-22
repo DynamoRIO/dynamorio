@@ -5438,6 +5438,15 @@ intercept_exception(app_state_at_intercept_t *state)
             cxt->CXT_XIP = (ptr_uint_t) dcontext->asynch_target;
             /* now handle the fault just like RaiseException */
             DODEBUG({ known_source = true; });
+        } else if ((app_pc) pExcptRec->ExceptionAddress ==
+                   get_do_int2e_syscall_entry(dcontext)) {
+            /* Restore original syscall address as exception address. */
+            ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
+            LOG(THREAD, LOG_ASYNCH, 1,
+                "Exception from int2e syscall at "PFX" redirected to "PFX"\n",
+                pExcptRec->ExceptionAddress, (dcontext->asynch_target - INT_LENGTH));
+            pExcptRec->ExceptionAddress = (PVOID) (dcontext->asynch_target - INT_LENGTH);
+            cxt->CXT_XIP = (ptr_uint_t) (dcontext->asynch_target - INT_LENGTH);
         }
 
         check_internal_exception(dcontext, cxt, pExcptRec, forged_exception_addr

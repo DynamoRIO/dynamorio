@@ -639,6 +639,7 @@ enum {
     EXIT_REASON_FLOAT_PC_XSAVE,
     EXIT_REASON_FLOAT_PC_XSAVE64,
     /* Additional types of system call gateways. */
+    EXIT_REASON_NI_SYSCALL_INT_0x2e,
     EXIT_REASON_NI_SYSCALL_INT_0x81,
     EXIT_REASON_NI_SYSCALL_INT_0x82,
     /* Single step exception needs to be forged. */
