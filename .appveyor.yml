@@ -75,11 +75,15 @@ install:
 
   ##################################################
   # Install packages for docs.
+  - choco install --timeout 600 -y doxygen.portable imagemagick.tool ghostscript || true
   # The ghostscript package is an install that doesn't add to PATH.
   # FIXME i#2145: fig2dev is failing to launch ghostscript, so for now
   # we're disabling to get the initial AppVeyor to be green.
   #- set PATH=C:\Program Files\gs\gs9.20\bin;%PATH%
   # Install fig2dev.
+  - appveyor DownloadFile http://www.winfig.com/WinFIG-Dateien/WinFIG62.zip
+  - 7z x WinFIG62.zip > nul
+  - set PATH=c:\projects\install\WinFig;%PATH%
 
   ##################################################
   # XXX i#2145: point at Qt5 for testing drgui build.
