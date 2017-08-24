@@ -5059,7 +5059,7 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
-    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+    if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
          */
@@ -5211,7 +5211,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
-    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+    if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
          */

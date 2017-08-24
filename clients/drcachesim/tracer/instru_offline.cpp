@@ -273,8 +273,8 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
                                     dr_pred_type_t pred)
 {
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    if (!memref_needs_full_info) // For full info we skip this for !pred
+        instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
     if (memref_needs_full_info) {
@@ -283,18 +283,7 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     }
     adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref,
                               write);
-#ifdef ARM // X86 does not support general predicated execution
-    if (!memref_needs_full_info && // For full info we skip this for !pred.
-        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return adjust;
 }
 
