@@ -75,6 +75,9 @@ install:
 
   ##################################################
   # Install packages for docs.
+  # i#2616: internet outages have caused builds to spin for tens of minutes, only to fail
+  # due to chocolatey and fig2dev download errors. We instead ignore errors here and
+  # continue to build and test anyway.
   - choco install --timeout 600 -y doxygen.portable imagemagick.tool ghostscript || true
   # The ghostscript package is an install that doesn't add to PATH.
   # FIXME i#2145: fig2dev is failing to launch ghostscript, so for now
