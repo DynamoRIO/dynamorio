@@ -1466,6 +1466,8 @@ is_thread_tls_initialized(void)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
+         * For standalone_library, first_thread_tls_initialized will always be false,
+         * so we'll return false here and use our check in get_thread_private_dcontext().
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
             return false;

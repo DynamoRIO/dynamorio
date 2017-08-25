@@ -543,7 +543,7 @@ void
 signal_arch_init(void)
 {
     xstate_size = sizeof(kernel_xstate_t) + 4 /* trailing FP_XSTATE_MAGIC2 */;
-    if (YMM_ENABLED()) {
+    if (YMM_ENABLED() && !standalone_library/* avoid SIGILL for standalone */) {
         kernel_sigaction_t act, oldact;
         int rc;
         /* i#2438: it's possible that our init code to this point has not yet executed
