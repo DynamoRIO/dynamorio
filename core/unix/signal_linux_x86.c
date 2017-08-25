@@ -526,8 +526,7 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
     ASSERT_CURIOSITY(sig == XSTATE_QUERY_SIG);
     if (sig == XSTATE_QUERY_SIG) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        if (YMM_ENABLED()) {
-            ASSERT(sc->fpstate != NULL); /* i#2438: we force-initialized xmm state */
+        if (YMM_ENABLED() && sc->fpstate != NULL) {
             ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
             LOG(GLOBAL, LOG_ASYNCH, 1, "orig xstate size = " SZFMT"\n", xstate_size);
             if (sc->fpstate->sw_reserved.extended_size != xstate_size) {
@@ -535,6 +534,12 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
                 xstate_has_extra_fields = true;
             }
             LOG(GLOBAL, LOG_ASYNCH, 1, "new xstate size = " SZFMT"\n", xstate_size);
+        } else {
+            /* i#2438: we force-initialized xmm state in signal_arch_init().
+             * But, on WSL it's still NULL (i#1896) so we make this just a curiosity
+             * until we've tackled signals on WSL.
+             */
+            ASSERT_CURIOSITY(sc->fpstate != NULL);
         }
     }
 }

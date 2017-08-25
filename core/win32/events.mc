@@ -268,14 +268,6 @@ Application %1!s! (%2!s!) is not supported due to dll %3!s!.  Program aborted.
 .
 
 MessageId =
-Severity = Warning
-Facility = DRCore
-SymbolicName = MSG_WSL_UNSUPPORTED
-Language=English
-Application %1!s! (%2!s!).  The Windows Subsystem for Linux is not yet fully supported due to missing kernel features.   Continuing, but may encounter problems.
-.
-
-MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_WSL_UNSUPPORTED_FATAL
