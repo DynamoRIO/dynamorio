@@ -1076,7 +1076,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         mov1 = INSTR_CREATE_mov_imm(dcontext, dst,
                                     (src_inst == NULL) ?
                                     OPND_CREATE_INTPTR(val) :
-                                    opnd_create_instr_ex(src_inst, OPSZ_4, 0));
+                                    opnd_create_instr_ex(src_inst, OPSZ_PTR, 0));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
 #ifdef X64
