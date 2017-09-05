@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -78,8 +78,11 @@ DR_EXPORT
  * All registers used in \p memref must hold their original
  * application values in order for the proper address to be computed
  * into \p dst.  The \p dst register may overlap with the registers
- * used in \p memref, but \p scratch must be different from those used
+ * used in \p memref.  On ARM, \p scratch must be different from those used
  * in \p memref (as well as from \p dst).
+ * On x86, \p scratch will not be used unless \p memref is a far reference
+ * that either uses \p dst or is a base-disp with both a base and an index,
+ * or \p memref is a reference in the #OP_xlat instruction.
  *
  * To obtain each memory address referenced in a single-instruction
  * string loop, use drutil_expand_rep_string() to transform such loops
