@@ -796,8 +796,9 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
             error_code = HEAP_ERROR_NOT_AT_PREFERRED;
         } else {
 #endif
-            vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
-                                              true/*+x*/);
+            vmh->alloc_start = os_heap_reserve((void*)preferred, size, &error_code,
+                                               true/*+x*/);
+            vmh->start_addr = vmh->alloc_start;
             LOG(GLOBAL, LOG_HEAP, 1,
                 "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
                 preferred, vmh->start_addr);
@@ -892,10 +893,15 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
     ASSERT(vmh->num_blocks * DYNAMO_OPTION(vmm_block_size) ==
            (ptr_uint_t)(vmh->end_addr - vmh->start_addr));
 
+#ifdef UNIX
+    bool free_heap = true;
+#else // Particularly WINDOWS
     /* In case there are no tombstones we can just free the unit and
      * that is what we'll do, otherwise it will stay up forever.
      */
-    if (vmh->num_free_blocks == vmh->num_blocks) {
+    bool free_heap = vmh->num_free_blocks == vmh->num_blocks;
+#endif
+    if (free_heap) {
         heap_error_code_t error_code;
         os_heap_free(vmh->alloc_start, vmh->alloc_size, &error_code);
         ASSERT(error_code == HEAP_ERROR_SUCCESS);
