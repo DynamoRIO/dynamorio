@@ -111,6 +111,7 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 # This is to avoid ../ and common/ in the #includes of headers that we
 # may want to install into a single dir for 3rd-party tool integration.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(file_analyzer_tool_srcs
