@@ -45,7 +45,8 @@ analyzer_t::analyzer_t() :
     /* Nothing else: child class needs to initialize. */
 }
 
-bool analyzer_t::init_file_reader(const std::string &trace_file)
+bool
+analyzer_t::init_file_reader(const std::string &trace_file)
 {
     if (trace_file.empty()) {
         ERRMSG("Trace file name is empty\n");
