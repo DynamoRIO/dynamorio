@@ -893,13 +893,20 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
     ASSERT(vmh->num_blocks * DYNAMO_OPTION(vmm_block_size) ==
            (ptr_uint_t)(vmh->end_addr - vmh->start_addr));
 
-#ifdef UNIX
-    bool free_heap = true;
-#else // Particularly WINDOWS
     /* In case there are no tombstones we can just free the unit and
      * that is what we'll do, otherwise it will stay up forever.
      */
     bool free_heap = vmh->num_free_blocks == vmh->num_blocks;
+#ifdef UNIX
+    /* On unix there's no fear of leftover tombstones, and as long as we're
+     * doing a detach we can be sure our stack is not actually in the heap.
+     */
+    if (doing_detach) {
+      byte *sp;
+      GET_STACK_PTR(sp);
+      ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
+      free_heap = true;
+    }
 #endif
     if (free_heap) {
         heap_error_code_t error_code;
