@@ -902,10 +902,12 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
      * doing a detach we can be sure our stack is not actually in the heap.
      */
     if (doing_detach) {
-      byte *sp;
-      GET_STACK_PTR(sp);
-      ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
-      free_heap = true;
+        DODEBUG({
+            byte *sp;
+            GET_STACK_PTR(sp);
+            ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
+        })
+        free_heap = true;
     }
 #endif
     if (free_heap) {
