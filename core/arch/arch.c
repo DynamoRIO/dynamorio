@@ -3145,8 +3145,10 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         }
     }
 #else
-    /* There is usually a single method. */
-    ASSERT_CURIOSITY(new_method == get_syscall_method());
+    /* There is usually a single method but we handle int 2e in an application
+     * even if syscall (or WOW64) is primarly used.
+     */
+    ASSERT(new_method == get_syscall_method() || new_method == SYSCALL_METHOD_INT);
 #endif
 }
 

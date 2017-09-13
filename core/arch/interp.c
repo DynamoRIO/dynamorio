@@ -1910,7 +1910,7 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     /* FIXME i#1551: maybe we should union int80 and svc as both are inline syscall? */
 
 #ifdef WINDOWS
-    /* Like int 81 on Linux. */
+    /* Like int 81 on Macos. */
     if (instr_get_opcode(bb->instr) == OP_int) {
         int num = instr_get_interrupt_number(bb->instr);
         if (num == 0x2e) {

@@ -2132,6 +2132,26 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 }
 #endif /* UNIX */
 
+/* Adds instruction for a special exit setting the reason in dcontext. */
+static void mangle_special_exit(dcontext_t *dcontext, instrlist_t *ilist,
+                                uint flags, instr_t *instr, int reason)
+{
+    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+        insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
+        PRE(ilist, instr, INSTR_CREATE_mov_st
+            (dcontext,
+             opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
+                                                   EXIT_REASON_OFFSET, OPSZ_2),
+             OPND_CREATE_INT16(reason)));
+        insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+    } else {
+        PRE(ilist, instr,
+            instr_create_save_immed16_to_dcontext(dcontext, reason,
+                                                  EXIT_REASON_OFFSET));
+    }
+}
+
+
 #ifdef WINDOWS
 /* Note that ignore syscalls processing for XP and 2003 is a two-phase operation.
  * For this reason, mangle_syscall() might be called with a 'next_instr' that's
@@ -2177,21 +2197,9 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         int num = instr_get_interrupt_number(instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
         if (num == 0x81 || num == 0x82) {
-            int reason = (num == 0x81) ? EXIT_REASON_NI_SYSCALL_INT_0x81 :
-                EXIT_REASON_NI_SYSCALL_INT_0x82;
-            if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
-                insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
-                PRE(ilist, instr, INSTR_CREATE_mov_st
-                    (dcontext,
-                     opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                           EXIT_REASON_OFFSET, OPSZ_2),
-                     OPND_CREATE_INT16(reason)));
-                insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
-            } else {
-                PRE(ilist, instr,
-                    instr_create_save_immed16_to_dcontext(dcontext, reason,
-                                                          EXIT_REASON_OFFSET));
-            }
+            mangle_special_exit(dcontext, ilist, flags, instr,
+                                (num == 0x81) ? EXIT_REASON_NI_SYSCALL_INT_0x81 :
+                                EXIT_REASON_NI_SYSCALL_INT_0x82);
         }
     }
 # endif
@@ -2260,22 +2268,9 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     if (TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
         int num = instr_get_interrupt_number(instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
-        if (num == 0x2e) {
-            int reason = EXIT_REASON_NI_SYSCALL_INT_0x2e;
-            if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
-                insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
-                PRE(ilist, instr, INSTR_CREATE_mov_st
-                    (dcontext,
-                     opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                           EXIT_REASON_OFFSET, OPSZ_2),
-                     OPND_CREATE_INT16(reason)));
-                insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
-            } else {
-                PRE(ilist, instr,
-                    instr_create_save_immed16_to_dcontext(dcontext, reason,
-                                                          EXIT_REASON_OFFSET));
-            }
-        }
+        ASSERT(num == 0x2e);
+        mangle_special_exit(dcontext, ilist, flags, instr,
+                            EXIT_REASON_NI_SYSCALL_INT_0x2e);
     }
 
     if (does_syscall_ret_to_callsite()) {
@@ -2441,20 +2436,8 @@ mangle_single_step(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                    instr_t *instr)
 {
     /* Sets exit reason dynamically. */
-    if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
-        insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
-        PRE(ilist, instr, INSTR_CREATE_mov_st
-            (dcontext,
-             opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
-                                                   EXIT_REASON_OFFSET, OPSZ_2),
-             OPND_CREATE_INT16(EXIT_REASON_SINGLE_STEP)));
-        insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
-    } else {
-        PRE(ilist, instr,
-            instr_create_save_immed16_to_dcontext(dcontext,
-                                                  EXIT_REASON_SINGLE_STEP,
-                                                  EXIT_REASON_OFFSET));
-    }
+    mangle_special_exit(dcontext, ilist, flags, instr,
+                        EXIT_REASON_SINGLE_STEP);
 }
 
 /***************************************************************************
