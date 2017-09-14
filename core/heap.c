@@ -906,7 +906,7 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
             byte *sp;
             GET_STACK_PTR(sp);
             ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
-        })
+        });
         free_heap = true;
     }
 #endif
