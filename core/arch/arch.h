@@ -519,7 +519,8 @@ get_ABI_stack_alignment() {
  #if defined(X64) || defined(MACOS)
     return 16;
  #else
-    return 1;
+    /* See i#847 for discussing the stack alignment on X86. */
+    return 4;
  #endif
 #elif defined(AARCH64)
     return 16;
