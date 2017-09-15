@@ -182,6 +182,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
+    /* By default drmgr enables auto-predication, which predicates all instructions with
+     * the predicate of the current instruction on ARM.
+     * We disable it here because we want to unconditionally execute the following
+     * instrumentation.
+     */
+    drmgr_disable_auto_predication(drcontext, bb);
     if (!drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
     /* Only insert calls for in-app BBs */

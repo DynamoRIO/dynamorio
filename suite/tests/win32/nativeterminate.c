@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,6 +37,7 @@
  */
 #include <windows.h>
 #include "tools.h"
+#include "thread.h"
 
 /* from nativeterminate.dll.dll */
 __declspec(dllimport) __stdcall import_me1(int x);
@@ -50,10 +51,10 @@ main()
     print("calling via IAT-style call\n");
     import_me1(57);
     print("calling in a thread\n");
-    join_thread(create_thread((fptr)import_me1));
+    join_thread(create_thread((unsigned int (__stdcall *)(void *))import_me1, NULL));
 
     print("calling in a thread that dies\n");
-    join_thread(create_thread((fptr)import_me_die));
+    join_thread(create_thread((unsigned int (__stdcall *)(void *))import_me_die, NULL));
     print("case 5455 regression passed\n");
 
     print("all done\n");

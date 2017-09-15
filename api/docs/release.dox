@@ -177,6 +177,13 @@ Further non-compatibility-affecting changes include:
  - Added drcachesim customization via drmemtrace_replace_file_ops(),
    drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
  - Added a set_value() function to the \ref page_droption.
+ - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
+ - Globally enabled auto predication in the drmgr instrumentation insertion event by
+   default.
+ - Added drmgr_disable_auto_predication().
+ - Added a new option -signal_stack_size with a smaller default value than
+   before, to save space on applications with many threads.
+ - Added instr_predicate_is_cond().
 
 **************************************************
 <hr>

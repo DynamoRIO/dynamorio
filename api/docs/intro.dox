@@ -1065,7 +1065,10 @@ DynamoRIO loads client libraries and Extensions (but not copies of system
 libraries) within 32-bit reachability of its code caches.  Typically, the
 code cache region is located in the low 4GB of the address space; thus, to
 avoid relocations at client library load time, it is recommended to set a
-preferred client library base in the low 4GB.
+preferred client library base in the low 4GB.  The \ref op_reachable_client
+"-reachable_client runtime option" can be used to remove this guarantee,
+though this would normally not be done unless the client is statically
+linked with the application.
 
 The net result is that any static data or code in a client library, or any
 data allocated using DynamoRIO's API routines (except dr_raw_mem_alloc() or
@@ -1075,7 +1078,7 @@ malloc, operator new, and HeapAlloc), as well as DynamoRIO's own
 internally-used heap memory, is *not* guaranteed to be reachable: only
 memory directly allocated via DynamoRIO's API.  The \ref op_reachable_heap
 "-reachable_heap runtime option" can be used to guarantee that all memory
-is reachable, at the risk of running out memory due to the smaller space
+is reachable, at the risk of running out of memory due to the smaller space
 of available memory.
 
 To make more space available for the code caches when running larger
@@ -1582,7 +1585,7 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    to 2 * page size. This parameter can be used to increase the size;
    however, larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
-   suffix, and must be a multiple of the page size (4K, 16K or 64K depending on
+   suffix, and must be a multiple of the page size (4K, 16K, or 64K depending on
    the system).  This stack is used \if vmsafe for probe callbacks and by
    the Code Manipulation API \else by the \endif routines dr_insert_clean_call(),
    dr_swap_to_clean_stack(), dr_prepare_for_call(),
@@ -1590,6 +1593,15 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    dr_insert_cbr_instrumentation(), and dr_insert_ubr_instrumentation().
    The stack is started fresh for each use, so <em>no persistent state may be
    stored on it</em>.
+ - \b -signal_stack_size \e \<number\>:
+   DynamoRIO uses an alternate signal handling stack which is smaller than
+   the regular stack by default, as signal handlers are called in
+   relatively fragile contexts and cannot safely use arbitrary library
+   routines: it is 32K for systems with a 4K page size. For systems with
+   different page sizes, it defaults to 2 * page size. This parameter can
+   be used to change the size.  The parameter can take a 'K' suffix, and
+   must be a multiple of the page size (4K, 16K, or 64K depending on the
+   system).
 \if vmsafe
 Options available only in Code Manipulation mode and Memory Firewall mode
 (see \ref dr_modes):
@@ -1634,6 +1646,13 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    the heap memory such that it is all guaranteed to be reachable from the
    code cache, at the risk of running out memory due to the smaller space
    of available memory.
+
+ - \b -reachable_client: \anchor op_reachable_client
+   By default, DynamoRIO guarantees that client libraries are reachable
+   from its code caches by a 32-bit displacement.  Disabling this option
+   removes that guarantee and allows a client to be located elsewhere.
+   This would typically be used with client that is statically-linked
+   into the application.
 
  - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application

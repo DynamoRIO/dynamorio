@@ -7930,7 +7930,7 @@ detach_handle_callbacks(int num_threads, thread_record_t **threads,
         /* FIXME - this should (along with any do/shared syscall containing gencode) be
          * allocated outside of our vmmheap so that we can free the vmmheap reservation
          * on detach. */
-        byte *callback_buf = (byte *)heap_mmap(callback_buf_size);
+        byte *callback_buf = (byte *)heap_mmap(callback_buf_size, VMM_SPECIAL_MMAP);
         detach_callback_stack_t *per_thread =
             (detach_callback_stack_t *)(callback_buf + DETACH_CALLBACK_CODE_SIZE);
         app_pc *callback_addrs = (app_pc *)(&per_thread[num_threads_with_callbacks]);

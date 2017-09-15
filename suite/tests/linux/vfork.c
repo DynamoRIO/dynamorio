@@ -37,7 +37,7 @@
 
 #include "tools.h"
 #ifdef LINUX
-# include "threads.h"
+# include "thread_clone.h"
 #endif
 
 #include <sys/types.h>

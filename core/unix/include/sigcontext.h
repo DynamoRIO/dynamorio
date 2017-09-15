@@ -287,6 +287,9 @@ typedef struct _kernel_iwmmxt_sigframe_t {
     kernel_iwmmxt_struct_t storage;
 } __attribute__((__aligned__(8))) kernel_iwmmxt_sigframe_t;
 
+/* Dummy padding block: a block with this magic should be skipped. */
+# define DUMMY_MAGIC 0xb0d9ed01
+
 #endif /* __arm__ */
 
 #ifdef __aarch64__

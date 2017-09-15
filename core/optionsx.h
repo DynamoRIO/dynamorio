@@ -238,6 +238,8 @@
     OPTION_INTERNAL(bool, bbdump_tags, "dump tags, sizes, and sharedness of all bbs")
     OPTION_INTERNAL(bool, gendump, "dump generated code")
     OPTION_DEFAULT(bool, global_rstats, true, "enable global release-build statistics")
+    OPTION_DEFAULT_INTERNAL(bool, rstats_to_stderr, false,
+                            "print the final global rstats to stderr")
 
     /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
     OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING,
@@ -647,6 +649,8 @@
 
     /* PR 304708: we intercept all signals for a better client interface */
     OPTION_DEFAULT(bool, intercept_all_signals, true, "intercept all signals")
+    OPTION_DEFAULT(uint, max_pending_signals, 8,
+                   "maximum count of pending signals per thread")
 
     /* i#2080: we have had some problems using sigreturn to set a thread's
      * context to a given state.  Turning this off will instead use a direct
@@ -708,6 +712,12 @@
                     */
                    IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
                    "size of thread-private stacks, in KB")
+#ifdef UNIX
+    /* signal_stack_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, signal_stack_size,
+                   IF_CLIENT_INTERFACE_ELSE(24*1024,IF_X64_ELSE(20*1024,12*1024)),
+                   "size of signal handling stacks, in KB")
+#endif
     /* PR 415959: smaller vmm block size makes this both not work and not needed
      * on Linux.
      * FIXME PR 403008: stack_shares_gencode fails on vmkernel
@@ -1127,23 +1137,30 @@
 
     /* Virtual memory manager.
      * Our current default allocation unit matches the allocation granularity on
-     * windows, to avoid worrying about external fragmentation
+     * Windows, to avoid worrying about external fragmentation.
      * Since most of our allocations fall within this range this makes the
      * common operation be finding a single empty block.
      *
      * On Linux we save a lot of wasted alignment space by using a smaller
-     * granularity (PR 415959).
+     * granularity (PR 415959, i#2575).
      *
-     * FIXME: for Windows, if we reserve the whole region up front and
+     * XXX: for Windows, if we reserve the whole region up front and
      * just commit pieces, why do we need to match the Windows kernel
-     * alloc granularity?
+     * alloc granularity while within the region?
      *
      * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
      */
-    OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,16)*1024),
+    OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64,4)*1024),
                    "allocation unit for virtual memory manager")
     /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024, "initial private heap unit size")
+    OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32*1024,
+                   "initial private heap unit size")
+    /* We avoid wasted space for every thread on UNIX for the
+     * non-persistent heap which often stays under 12K (i#2575) (+8K for guards).
+     */
+    /* initial_heap_nonpers_size may be adjusted by adjust_defaults_for_page_size(). */
+    OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(32,20)*1024,
+                   "initial private non-persistent heap unit size")
     /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
     OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32*1024, "initial global heap unit size")
     /* if this is too small then once past the vm reservation we have too many
@@ -1389,11 +1406,12 @@
     OPTION_DEFAULT_INTERNAL(bool, skip_out_of_vm_reserve_curiosity, false,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
-    /* FIXME - on 64bit probably will need more space */
-    OPTION_DEFAULT(uint_size, vm_size, 128*1024*1024,
-        "maximum virtual memory reserved, in KB or MB")
-        /* default size is in Kilobytes, Examples: 262144, 1024k, 256m, up to maximum of 512M */
-     /* FIXME: default value is currently not good enough for sqlserver, for which we need more than 256MB */
+    OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(256,128)*1024*1024,
+                   /* XXX: default value is currently not good enough for sqlserver,
+                    * for which we need more than 256MB.
+                    */
+                   "capacity of virtual memory region reserved (maximum supported is "
+                   "512MB for 32-bit and 1GB for 64-bit)")
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
@@ -1413,7 +1431,8 @@
     OPTION_DEFAULT(bool, vm_allow_smaller, true, "if we can't allocate vm heap of "
                    "requested size, try smaller sizes instead of dying")
     OPTION_DEFAULT(bool, vm_base_near_app, true,
-                   "allocate vm region near the app")
+                   "allocate vm region near the app if possible (if not, if "
+                   "-vm_allow_not_at_base, will try elsewhere)")
 #ifdef X64
     /* We prefer low addresses in general, and only need this option if it's
      * an absolute requirement (XXX i#829: it is required for mixed-mode).
@@ -1424,8 +1443,10 @@
                    "it can be accessed directly as a 32bit address. See PR 215395.")
     /* XXX i#774: this will become false by default once we split vmheap and vmcode */
     OPTION_DEFAULT(bool, reachable_heap, true,
-                   "guarantee that all heap memory 32-bit-displacement "
+                   "guarantee that all heap memory is 32-bit-displacement "
                    "reachable from the code cache.")
+    OPTION_DEFAULT(bool, reachable_client, true,
+                   "guarantee that clients are reachable from the code cache.")
 #endif
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as
@@ -1624,6 +1645,14 @@
                             "use a safe read to identify uninit TLS")
 
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
+    /* Today we support just one stack guard page.  We may want to turn this
+     * option into a number in the future to catch larger strides beyond TOS.
+     * There are problems on Windows where the PAGE_GUARD pages must be used, yet
+     * the kernel's automated stack expansion does not do the right thing vs
+     * our -vm_reserve.
+     */
+    OPTION_DEFAULT(bool, stack_guard_pages, IF_WINDOWS_ELSE(false, true),
+                   "add guard pages to detect stack overflow")
 
 #ifdef PROGRAM_SHEPHERDING
     /* PR 200418: -security_api just turns on the bits of -security needed for the

@@ -111,6 +111,7 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 # This is to avoid ../ and common/ in the #includes of headers that we
 # may want to install into a single dir for 3rd-party tool integration.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(file_analyzer_tool_srcs
@@ -336,6 +337,19 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
 
+    if (X64 AND UNIX)
+      add_executable(tool.drcacheoff.burst_noreach tests/burst_noreach.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_noreach)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_noreach drmemtrace_static)
+      add_win32_flags(tool.drcacheoff.burst_noreach)
+    endif ()
+    if (LINUX) # Uses mremap.
+      add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
+      configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
+      add_win32_flags(tool.drcacheoff.burst_maps)
+    endif ()
+
     if (UNIX)
       if (X86 AND NOT APPLE) # This test is x86-specific.
         # uses ptrace and looks for linux-specific syscalls
@@ -358,7 +372,7 @@ if (BUILD_TESTS)
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
       configure_DynamoRIO_static(tool.drcacheoff.burst_client)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
-      # A nop, keep it for the furture Windows support.
+      # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
   endif ()

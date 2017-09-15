@@ -216,9 +216,16 @@ adjust_defaults_for_page_size(options_t *options)
     options->vmm_block_size =
         ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size =
-        MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+        MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
+# ifdef UNIX
+    options->signal_stack_size =
+        MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
+# endif
     options->initial_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
+            3 * page_size);
+    options->initial_heap_nonpers_size =
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size),
             3 * page_size);
     options->initial_global_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size),
@@ -381,6 +388,8 @@ parse_uint_size(uint *var, void *value)
         case 'k': factor = 1024; break;
         case 'M': // Mega (bytes)
         case 'm': factor = 1024*1024; break;
+        case 'G': // Giga (bytes)
+        case 'g': factor = 1024*1024*1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -590,11 +599,11 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %d, resetting from %d to %d",
+            USAGE_ERROR("%s must be >= %u, resetting from %u to %u",
                         name, min, *val, new_val);
         } else {
-            new_val = min;
-            USAGE_ERROR("%s must be >= %d and <= %d, resetting from %d to %d",
+            new_val = max;
+            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u",
                         name, min, max, *val, new_val);
         }
         *val = new_val;
@@ -604,7 +613,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %d KB\n", name, *val/1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val/1024);
         }
     });
     return ret;
@@ -630,14 +639,14 @@ PRINT_STRING_uint(char *optionbuff, uint value, const char *option)
     /* FIXME: 0x100 hack to get logmask printed in hex,
      * loglevel etc in decimal */
     snprintf(optionbuff, MAX_OPTION_LENGTH,
-             (value > 0x100 ? "-%s 0x%x " : "-%s %d "), option, value);
+             (value > 0x100 ? "-%s 0x%x " : "-%s %u "), option, value);
 }
 #define PRINT_STRING_uint_size(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option, \
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %u%s ", option, \
              ((value) % 1024 == 0 ? (value)/1024 : (value)), \
              ((value) % 1024 == 0 ? "K" : "B"))
 #define PRINT_STRING_uint_time(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d ", option, (value))
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %u ", option, (value))
 #define PRINT_STRING_uint_addr(optionbuff,value,option) \
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s "PFX" ", option, (value));
 #define PRINT_STRING_pathstring_t(optionbuff,value,option) \
@@ -811,6 +820,13 @@ options_enable_code_api_dependences(options_t *options)
      * tail end of a multi-64K-region stack.
      */
     options->stack_size = MAX(options->stack_size, 56*1024);
+# ifdef UNIX
+    /* We assume that clients avoid private library code, within reason, and
+     * don't need as much space when handling signals.  We still raise the
+     * limit a little while saving some per-thread space.
+     */
+    options->signal_stack_size = MAX(options->signal_stack_size, 32*1024);
+# endif
 
     /* For CI builds we'll disable elision by default since we
      * expect most CI users will prefer a view of the
@@ -1546,6 +1562,12 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #ifdef WINDOWS
+    if (DYNAMO_OPTION(stack_guard_pages)) {
+        /* XXX i#2595: this does not interact well with -vm_reserve. */
+        USAGE_ERROR("-stack_guard_pages is not supported on Windows");
+        dynamo_options.stack_guard_pages = false;
+        changed_options = true;
+    }
 # ifdef PROGRAM_SHEPHERDING
     if (DYNAMO_OPTION(IAT_convert) && !DYNAMO_OPTION(emulate_IAT_writes)) {
         /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
@@ -1713,6 +1735,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 # endif
 #endif /* CLIENT_INTERFACE */
+#ifdef UNIX
+    if (DYNAMO_OPTION(max_pending_signals) < 1) {
+        USAGE_ERROR("-max_pending_signals must be at least 1");
+        dynamo_options.max_pending_signals = 1;
+        changed_options = true;
+    }
+#endif
 #ifdef CALL_PROFILE
     if (DYNAMO_OPTION(prof_caller) >  MAX_CALL_PROFILE_DEPTH) {
         USAGE_ERROR("-prof_caller must be <= %d",  MAX_CALL_PROFILE_DEPTH);

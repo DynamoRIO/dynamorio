@@ -482,7 +482,8 @@ add_client_lib(const char *path, const char *id_str, const char *options)
 
     LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
 
-    client_lib = load_shared_library(path, true/*reachable*/);
+    client_lib = load_shared_library(path, IF_X64_ELSE(DYNAMO_OPTION(reachable_client),
+                                                       true));
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
         char err[MAXIMUM_PATH*2];
@@ -536,9 +537,11 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             /* Now that we map the client within the constraints, this request
              * should always succeed.
              */
-            request_region_be_heap_reachable(client_libs[idx].start,
-                                             client_libs[idx].end -
-                                             client_libs[idx].start);
+            if (DYNAMO_OPTION(reachable_client)) {
+                request_region_be_heap_reachable(client_libs[idx].start,
+                                                 client_libs[idx].end -
+                                                 client_libs[idx].start);
+            }
 #endif
             strncpy(client_libs[idx].path, path,
                     BUFFER_SIZE_ELEMENTS(client_libs[idx].path));
@@ -2756,14 +2759,14 @@ DR_API
 void *
 dr_nonheap_alloc(size_t size, uint prot)
 {
-    return heap_mmap_ex(size, size, prot, false/*no guard pages*/);
+    return heap_mmap_ex(size, size, prot, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 DR_API
 void
 dr_nonheap_free(void *mem, size_t size)
 {
-    heap_munmap_ex(mem, size, false/*no guard pages*/);
+    heap_munmap_ex(mem, size, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 static void *
@@ -2822,6 +2825,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             add_dynamo_vm_area((app_pc)p, ((app_pc)p)+size, prot,
                                true _IF_DEBUG("fls cb in private lib"));
         }
+        RSTATS_ADD_PEAK(client_raw_mmap_size, size);
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
@@ -2861,6 +2865,8 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
+    if (res)
+        RSTATS_SUB(client_raw_mmap_size, size);
     return res;
 }
 
@@ -5047,8 +5053,22 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     opnd_t *args = NULL;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (instr_predicate_is_cond(auto_pred)) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cpsr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5058,6 +5078,8 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                            vmcode_get_start(), callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 bool
@@ -5090,6 +5112,8 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call_noreturn: drcontext cannot be NULL");
+    CLIENT_ASSERT(instrlist_get_auto_predicate(ilist) == DR_PRED_NONE,
+                  "Does not support auto-predication");
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5108,12 +5132,12 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
  */
 static uint
 prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
-                    instrlist_t *ilist, instr_t *where)
+                    instrlist_t *ilist, instr_t *where, byte *encode_pc)
 {
     instr_t *in;
     uint dstack_offs;
     in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
-    dstack_offs = prepare_for_clean_call(dcontext, cci, ilist, where);
+    dstack_offs = prepare_for_clean_call(dcontext, cci, ilist, where, encode_pc);
     /* now go through and mark inserted instrs as meta */
     if (in == NULL)
         in = instrlist_first(ilist);
@@ -5129,7 +5153,8 @@ prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
 /* Internal utility routine for inserting context restore for a clean call. */
 static void
 cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
-                      instrlist_t *ilist, instr_t *where, uint sizeof_param_area)
+                      instrlist_t *ilist, instr_t *where, uint sizeof_param_area,
+                      byte *encode_pc)
 {
     instr_t *in;
     in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
@@ -5142,7 +5167,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
             XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                              OPND_CREATE_INT8(sizeof_param_area)));
     }
-    cleanup_after_clean_call(dcontext, cci, ilist, where);
+    cleanup_after_clean_call(dcontext, cci, ilist, where, encode_pc);
     /* now go through and mark inserted instrs as meta */
     if (in == NULL)
         in = instrlist_first(ilist);
@@ -5179,9 +5204,23 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     meta_call_flags_t call_flags = META_CALL_CLEAN | META_CALL_RETURNS;
     byte *encode_pc;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (instr_predicate_is_cond(auto_pred)) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cpsr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
@@ -5192,6 +5231,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
         insert_inline_clean_call(dcontext, &cci, ilist, where, args);
+        MINSERT(ilist, where, label);
+        instrlist_set_auto_predicate(ilist, auto_pred);
         return;
 #else /* CLIENT_INTERFACE */
         ASSERT_NOT_REACHED();
@@ -5242,7 +5283,11 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         }
 #endif
     }
-    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where);
+    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
+        encode_pc = vmcode_unreachable_pc();
+    else
+        encode_pc = vmcode_get_start();
+    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
 #ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
      * aligned, which is what insert_meta_call_vargs requires. */
@@ -5273,10 +5318,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
-        encode_pc = vmcode_unreachable_pc();
-    else
-        encode_pc = vmcode_get_start();
     if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
     insert_meta_call_vargs(dcontext, ilist, where, call_flags,
@@ -5290,7 +5331,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         MINSERT(ilist, where, XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
-    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
+    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0, encode_pc);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 void
@@ -5342,7 +5385,8 @@ dr_prepare_for_call(void *drcontext, instrlist_t *ilist, instr_t *where)
     CLIENT_ASSERT(drcontext != NULL, "dr_prepare_for_call: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_prepare_for_call: drcontext is invalid");
-    return prepare_for_call_ex((dcontext_t *)drcontext, NULL, ilist, where);
+    return prepare_for_call_ex((dcontext_t *)drcontext, NULL, ilist, where,
+                               vmcode_get_start());
 }
 
 DR_API void
@@ -5353,7 +5397,7 @@ dr_cleanup_after_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_cleanup_after_call: drcontext is invalid");
     cleanup_after_call_ex((dcontext_t *)drcontext, NULL, ilist, where,
-                          sizeof_param_area);
+                          sizeof_param_area, vmcode_get_start());
 }
 
 #ifdef CLIENT_INTERFACE

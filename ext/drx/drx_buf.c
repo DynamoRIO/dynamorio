@@ -651,8 +651,8 @@ drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
 }
 
 static void
-insert_load(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t dst, reg_id_t src, opnd_size_t opsz)
+insert_load(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t dst,
+            reg_id_t src, opnd_size_t opsz)
 {
     switch (opsz) {
     case OPSZ_1:
@@ -703,7 +703,6 @@ safe_memcpy(drx_buf_t *buf, void *src, size_t len)
             (*buf->full_cb)(drcontext, cli_base, (size_t)(cli_ptr - cli_base));
         memcpy(cli_base, src, len);
     }
-    BUF_PTR(data->seg_base, buf->tls_offs) += len;
 }
 
 DR_EXPORT
@@ -752,22 +751,36 @@ drx_buf_insert_buf_memcpy(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
         ok = drx_buf_insert_buf_store(drcontext, buf, ilist, where, dst, DR_REG_NULL,
                                       src_opnd, opsz, 0);
         DR_ASSERT(ok);
-        /* update buf pointer, so client does not have to */
-        drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
     }
+    /* update buf ptr, so that client does not have to */
+    drx_buf_insert_update_buf_ptr(drcontext, buf, ilist, where, dst, src, len);
 }
 
 /* assumes that the instruction writes memory relative to some buffer pointer */
 static reg_id_t
 deduce_buf_ptr(instr_t *instr)
 {
-    int i;
-    for (i = 0; i < instr_num_dsts(instr); ++i) {
-        opnd_t dst = instr_get_dst(instr, i);
-        if (opnd_is_memory_reference(dst))
-            return opnd_get_base(dst);
+    ushort opcode = (ushort)instr_get_opcode(instr);
+
+    /* drx_buf will only emit these instructions to store a value */
+    if (IF_X86_ELSE(opcode == OP_mov_st, opcode == OP_str  ||
+                                         opcode == OP_strb ||
+                                         opcode == OP_strh)) {
+        int i;
+        for (i = 0; i < instr_num_dsts(instr); ++i) {
+            opnd_t dst = instr_get_dst(instr, i);
+            if (opnd_is_memory_reference(dst))
+                return opnd_get_base(dst);
+        }
+        DR_ASSERT_MSG(false, "fault occured, but instruction did not have "
+                             "memory reference destination operand");
+    } else {
+        DR_ASSERT_MSG(false, "fault occured, but instruction was not compatible "
+                             "with drx_buf");
     }
-    /* if we got here, then it's possible that the write had no base reg */
+    /* If we got here, then the write had no base reg, and there's
+     * nothing for us to do.
+     */
     return DR_REG_NULL;
 }
 

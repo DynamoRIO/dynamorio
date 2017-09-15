@@ -39,6 +39,8 @@
 #ifndef _INSTRLIST_H_
 #define _INSTRLIST_H_ 1
 
+#include "instr.h"
+
 struct _instr_list_t {
     instr_t *first;
     instr_t *last;
@@ -54,6 +56,9 @@ struct _instr_list_t {
      * However, we do here to avoid breaking backward compatibility
      */
     app_pc fall_through_bb;
+# ifdef ARM
+    dr_pred_type_t auto_pred;
+# endif /* ARM */
 #endif /* CLIENT_INTERFACE */
 }; /* instrlist_t */
 
@@ -115,6 +120,27 @@ instrlist_get_translation_target(instrlist_t *ilist);
 /* not exported: for PR 267260 */
 void
 instrlist_set_our_mangling(instrlist_t *ilist, bool ours);
+
+DR_API
+/**
+ * All future instructions inserted into \p ilist will be predicated
+ * with \p pred. This is a convenience routine to make it easy to have
+ * emitted code from internal DR components predicated.
+ *
+ * \note only has an effect on ARM
+ *
+ * \note clients may not emit instrumentation that writes to flags, nor
+ * may clients insert cti's. Internal DR components such as
+ * \p dr_insert_clean_call() handle auto predication gracefully and are
+ * thus safe for use with auto predication.
+ */
+void
+instrlist_set_auto_predicate(instrlist_t *ilist, dr_pred_type_t pred);
+
+DR_API
+/** Returns the predicate for \p ilist. */
+dr_pred_type_t
+instrlist_get_auto_predicate(instrlist_t *ilist);
 
 bool
 instrlist_get_our_mangling(instrlist_t *ilist);

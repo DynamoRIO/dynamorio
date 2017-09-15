@@ -211,6 +211,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
                       instr_t *instr, bool for_trace,
                       bool translating, void *user_data)
 {
+    /* we don't want to auto-predicate any instrumentation */
+    drmgr_disable_auto_predication(drcontext, bb);
+
     if (!instr_is_app(instr))
         return DR_EMIT_DEFAULT;
 

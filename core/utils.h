@@ -351,7 +351,7 @@ enum {
 
     LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
 #endif
     /* FIXME: grabbed on an exception, which could happen anywhere!
@@ -1854,7 +1854,9 @@ extern const char *exception_label_core;
 #ifdef CLIENT_INTERFACE
 extern const char *exception_label_client;
 #endif
-#define CRASH_NAME "internal crash"
+/* These should be the same size for our report_exception_skip_prefix() */
+#define CRASH_NAME          "internal crash"
+#define STACK_OVERFLOW_NAME "stack overflow"
 
 /* pass NULL to use defaults */
 void
@@ -2029,6 +2031,8 @@ void
 print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only);
 
 #endif /* DEBUG */
+
+void dump_global_rstats_to_stderr(void);
 
 bool
 under_internal_exception(void);

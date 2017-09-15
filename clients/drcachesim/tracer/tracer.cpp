@@ -417,26 +417,15 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     if (adjust == 0)
         return;
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    if (!op_L0_filter.get_value()) // Filter skips over this for !pred.
+        instrlist_set_auto_predicate(ilist, pred);
     MINSERT(ilist, where,
             XINST_CREATE_add(drcontext,
                              opnd_create_reg(reg_ptr),
                              OPND_CREATE_INT16(adjust)));
     dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                             tls_offs + MEMTRACE_TLS_OFFS_BUF_PTR, reg_ptr);
-#ifdef ARM // X86 does not support general predicated execution
-    if (!op_L0_filter.get_value() && // Filter skips over this for !pred.
-        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 }
 
 static int
@@ -608,7 +597,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
         DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve 3rd scratch register\n");
 #ifdef ARM
-    if (pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
+    if (instr_predicate_is_cond(pred)) {
         // We can't mark everything as predicated b/c we have a cond branch.
         // Instead we jump over it if the memref won't be executed.
         // We have to do that after spilling the regs for parity on all paths.
@@ -766,6 +755,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     reg_id_t reg_ptr, reg_tmp = DR_REG_NULL;
     drvector_t rvec1, rvec2;
     bool is_memref;
+
+    drmgr_disable_auto_predication(drcontext, bb);
 
     if (op_L0_filter.get_value() && ud->repstr &&
         drmgr_is_first_instr(drcontext, instr)) {
@@ -1334,8 +1325,22 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
-    redzone_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
-    max_buf_size = trace_buf_size + redzone_size;
+
+    /* The redzone needs to hold one bb's worth of data, until we
+     * reach the clean call at the bottom of the bb that dumps the
+     * buffer if full.  We leave room for each of the maximum count of
+     * instructions accessing memory once, which is fairly
+     * pathological as by default that's 256 memrefs for one bb.  We double
+     * it to ensure we cover skipping clean calls for sthg like strex.
+     */
+    uint64 max_bb_instrs;
+    if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
+        max_bb_instrs = 256; /* current default */
+    redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
+
+    max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
+    /* Mark any padding as redzone as well */
+    redzone_size = max_buf_size - trace_buf_size;
     buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
 
     client_id = id;

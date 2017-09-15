@@ -1200,6 +1200,16 @@ instr_num_dsts(), include all possible operands.  Clients should explicitly
 query instr_is_predicated() when using API routines that do not take in
 #dr_opnd_query_flags_t.
 
+As shorthand for emitting instrumentation that necessarily uses the same
+predicate as the current instruction, \p instrlist_set_auto_predicate() is
+provided which will predicate all instructions inserted into an instruction
+list. Although writing to aflags is strictly forbidden, as is meta control
+flow, internal DR components such as \p dr_insert_clean_call() will gracefully
+handle this auto-predication setting and are safe for use with it.
+
+\p instrlist_get_auto_predicate() similarly may be used to query the current
+predicate desired for auto predication.
+
 ********************
 \subsection sec_it_blocks IT Blocks
 

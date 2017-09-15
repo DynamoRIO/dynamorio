@@ -179,10 +179,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t map_intercept_pc_lock,
 DECLARE_CXTSWPROT_VAR(static mutex_t emulate_write_lock,
                       INIT_LOCK_FREE(emulate_write_lock));
 
-#ifdef STACK_GUARD_PAGE
 DECLARE_CXTSWPROT_VAR(static mutex_t exception_stack_lock,
                       INIT_LOCK_FREE(exception_stack_lock));
-#endif
 
 DECLARE_CXTSWPROT_VAR(static mutex_t intercept_hook_lock,
                       INIT_LOCK_FREE(intercept_hook_lock));
@@ -3764,8 +3762,6 @@ NtContinue:
 void
 intercept_nt_continue(CONTEXT *cxt, int flag)
 {
-    size_t i;
-
     if (intercept_asynch_for_self(false/*no unknown threads*/)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -3782,22 +3778,72 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
          */
         if (TESTALL(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags)) {
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
-                debugRegister[0] = (app_pc) cxt->Dr0;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
-                debugRegister[1] = (app_pc) cxt->Dr1;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
-                debugRegister[2] = (app_pc) cxt->Dr2;
-            }
-            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
-                debugRegister[3] = (app_pc) cxt->Dr3;
-            }
-            for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-                if (debugRegister[i] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[i],
+                /* Flush only when debug register value changes. */
+                if (debugRegister[0] != (app_pc) cxt->Dr0) {
+                    debugRegister[0] = (app_pc) cxt->Dr0;
+                    flush_fragments_from_region(dcontext, debugRegister[0],
                                                 1 /* size */,
                                                 false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[0] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[0],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[0] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
+                if (debugRegister[1] != (app_pc) cxt->Dr1) {
+                    debugRegister[1] = (app_pc) cxt->Dr1;
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[1] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[1] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
+                if (debugRegister[2] != (app_pc) cxt->Dr2) {
+                    debugRegister[2] = (app_pc) cxt->Dr2;
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[2] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[2] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
+                if (debugRegister[3] != (app_pc) cxt->Dr3) {
+                    debugRegister[3] = (app_pc) cxt->Dr3;
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[3] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[3] = NULL;
                 }
             }
         }
@@ -4254,15 +4300,13 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     ASSERT_NOT_REACHED(); /* should never get here */
 }
 
-#ifdef STACK_GUARD_PAGE
 static bool
 is_dstack_overflow(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                    CONTEXT *cxt)
 {
-    if (pExcptRec->ExceptionCode == EXCEPTION_GUARD_PAGE) {
-        /* Richter book says that only access violation fills in info array,
-         * but on win2k guard page seems to fill it in!
-         */
+    if (pExcptRec->ExceptionCode == EXCEPTION_GUARD_PAGE ||
+        pExcptRec->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+        /* Both of these seem to put the target in info slot 1. */
         if (pExcptRec->NumberParameters >= 2) {
             app_pc target = (app_pc) pExcptRec->ExceptionInformation[1];
             LOG(THREAD, LOG_ASYNCH, 2,
@@ -4272,7 +4316,6 @@ is_dstack_overflow(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     }
     return false;
 }
-#endif /* STACK_GUARD_PAGE */
 
 /* To allow execution from a writable memory region, we mark it read-only.
  * When we get a seg fault, we call this routine, which determines if it's
@@ -4731,7 +4774,8 @@ report_app_exception(dcontext_t *dcontext, uint appfault_flags,
 
 void
 report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                          CONTEXT *cxt, uint dumpcore_flag, const char *prefix)
+                          CONTEXT *cxt, uint dumpcore_flag, const char *prefix,
+                          const char *crash_label)
 {
     /* WARNING: a fault in DR means that potentially anything could be
      * inconsistent or corrupted!  Do not grab locks or traverse
@@ -4792,7 +4836,7 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     report_dynamorio_problem(dcontext, dumpcore_flag,
                              (app_pc) pExcptRec->ExceptionAddress,
                              (app_pc) cxt->CXT_XBP,
-                             fmt, prefix, CRASH_NAME,
+                             fmt, prefix, crash_label,
                              (app_pc) pExcptRec->ExceptionAddress,
                              pExcptRec->ExceptionCode, pExcptRec->ExceptionFlags,
                              cxt->CXT_XIP, pExcptRec->ExceptionAddress,
@@ -4812,23 +4856,26 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
 
 void
 internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                        CONTEXT *cxt, bool dstack_overflow)
+                        CONTEXT *cxt, bool dstack_overflow, bool is_client)
 {
-    report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_INTERNAL_EXCEPTION,
-                              /* for clients we need to let them override the label */
-                              IF_NOT_CLIENT_INTERFACE(dstack_overflow ?
-                                                      "Stack overflow" :)
-                              exception_label_core);
+    report_internal_exception
+        (dcontext, pExcptRec, cxt,
+         (IF_CLIENT_INTERFACE(is_client ? DUMPCORE_CLIENT_EXCEPTION :)
+          DUMPCORE_INTERNAL_EXCEPTION) |
+         (dstack_overflow ? DUMPCORE_STACK_OVERFLOW : 0),
+         /* for clients we need to let them override the label */
+         IF_CLIENT_INTERFACE(is_client ? exception_label_client :) exception_label_core,
+         dstack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME);
 }
 
 static void
-internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *cxt)
+internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *cxt,
+                          bool is_client)
 {
     /* recursive bailout: avoid infinite loop due to fault in fault handling
      * by using DO_ONCE
      * FIXME: any worries about lack of mutex w/ DO_ONCE?
      */
-#ifdef STACK_GUARD_PAGE
     /* PR 203701: If we've exhausted the dstack, then we'll switch
      * to a separate exception handling stack to make sure we have
      * enough space to report the problem.  One guard page is not
@@ -4841,12 +4888,9 @@ internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CON
             mutex_unlock(&exception_stack_lock);
         }
         else {
-            internal_exception_info(dcontext, pExcptRec, cxt, false);
+            internal_exception_info(dcontext, pExcptRec, cxt, false, is_client);
         }
     });
-#else
-    DO_ONCE({ internal_exception_info(dcontext, pExcptRec, cxt, false); });
-#endif
     os_terminate(dcontext, TERMINATE_PROCESS);
     ASSERT_NOT_REACHED();
 }
@@ -5116,7 +5160,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
             }
         }
 
-        internal_dynamo_exception(dcontext, pExcptRec, cxt);
+        internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
         ASSERT_NOT_REACHED();
     }
 }
@@ -5236,7 +5280,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* there is no good reason for this, other than DR error */
             ASSERT(is_dynamo_address((app_pc)pExcptRec->ExceptionAddress));
             pExcptRec->ExceptionFlags = 0xbadDC;
-            internal_dynamo_exception(dcontext, pExcptRec, cxt);
+            internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
             ASSERT_NOT_REACHED();
         }
 
@@ -5388,8 +5432,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 /* won't return if it was a made-read-only code page */
                 check_for_modified_code(dcontext, pExcptRec, cxt, MOD_CODE_APP_CXT, NULL);
             }
-            report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_CLIENT_EXCEPTION,
-                                      exception_label_client);
+            internal_dynamo_exception(dcontext, pExcptRec, cxt, true);
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
@@ -5712,9 +5755,6 @@ intercept_exception(app_state_at_intercept_t *state)
                     /* Checks that exception address translate on a popf. */
                     if (instr_get_opcode(&instr) == OP_popf ||
                         instr_get_opcode(&instr) == OP_iret) {
-                        LOG(THREAD, LOG_ASYNCH, 2,
-                            "Caught generated single step exception at "PFX"\n",
-                            pExcptRec->ExceptionAddress);
                         /* Will continue after one byte popf or iret. */
                         if (instr_get_opcode(&instr) == OP_popf) {
                             dcontext->next_tag = mcontext.pc + POPF_LENGTH;
@@ -5731,6 +5771,9 @@ intercept_exception(app_state_at_intercept_t *state)
                                                     false/*don't force synchall*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
+                        LOG(THREAD, LOG_ASYNCH, 2,
+                            "Caught generated single step exception at "PFX" to "PFX"\n",
+                            pExcptRec->ExceptionAddress, dcontext->next_tag);
                         /* Will return to execute instruction
                          * where single step exception will be forged.
                          */
@@ -5804,7 +5847,7 @@ intercept_exception(app_state_at_intercept_t *state)
                  * native or in the cache we hack the exception flags
                  */
                 pExcptRec->ExceptionFlags = 0xbadcad;
-                internal_dynamo_exception(dcontext, pExcptRec, cxt);
+                internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
                 ASSERT_NOT_REACHED();
             }
 
@@ -8482,9 +8525,7 @@ callback_exit()
 {
     DELETE_LOCK(emulate_write_lock);
     DELETE_LOCK(map_intercept_pc_lock);
-#ifdef STACK_GUARD_PAGE
     DELETE_LOCK(exception_stack_lock);
-#endif
     DELETE_LOCK(intercept_hook_lock);
 }
 

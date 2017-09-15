@@ -935,7 +935,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
-                                  instr_t *instr, bool save)
+                                  instr_t *instr, bool save, byte *encode_pc)
 {
 # ifdef AARCH64
     if (save) {
@@ -1157,7 +1157,9 @@ reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *start,
                 else
                     block_pred[block_count++] = instr_get_predicate(instr);
             }
-            if (!matches || !instr_predicated || block_count == IT_BLOCK_MAX_INSTRS) {
+            if (!matches || !instr_predicated || block_count == IT_BLOCK_MAX_INSTRS ||
+                /* i#1702: a cti must end the IT-block */
+                instr_is_cti(instr)) {
                 res++;
                 instrlist_preinsert
                     (ilist, block_start, INSTR_XL8(instr_it_block_create
