@@ -495,7 +495,9 @@ raw2trace_t::do_conversion()
     if (!out_file->write((char*)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
-    merge_and_process_thread_files();
+    error = merge_and_process_thread_files();
+    if (!error.empty())
+        return error;
 
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;

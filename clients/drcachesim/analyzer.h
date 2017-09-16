@@ -38,32 +38,48 @@
 #ifndef _ANALYZER_H_
 #define _ANALYZER_H_ 1
 
-#include "analysis_tool.h"
+#include <iterator>
 #include <string>
-
-// We avoid reader.h here to make it easier for standalone tools
-// along the lines of histogram_launcher.
-class reader_t;
+#include "analysis_tool.h"
+#include "reader.h"
 
 class analyzer_t
 {
  public:
-    // Usage: errors encountered during the constructor will set a flag that should
+    // Usage: errors encountered during a constructor will set a flag that should
     // be queried via operator!.
     analyzer_t();
+    virtual ~analyzer_t();
+    virtual bool operator!();
+
+    // We have two usage models: one where there are multiple tools and the
+    // trace iteration is performed by analyzer_t, and another where a single
+    // tool controls the iteration.
+
+    // The default, simpler, multiple-tool-supporting model uses this constructor.
     // The analyzer will reference the tools array passed in during its lifetime:
     // it does not make a copy.
     // The user must free them afterward.
     analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
                int num_tools);
-    virtual ~analyzer_t();
-    virtual bool operator!();
     virtual bool run();
     virtual bool print_stats();
 
+    // The alternate usage model exposes the iterator to a single tool.
+    analyzer_t(const std::string &trace_file);
+    // As the iterator is more heavyweight than regular container iterators
+    // we hold it internally and return a reference.  Copying will fail to compile
+    // as reader_t is virtual, reminding the caller of begin() to use a reference.
+    // This usage model supports only a single user of the iterator: the
+    // multi-tool model above should be used if multiple tools are involved.
+    virtual reader_t & begin();
+    virtual reader_t & end();
+
  protected:
+    bool init_file_reader(const std::string &trace_file);
+
     // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run().
+    // called at the top of run() or begin().
     bool start_reading();
 
     bool success;

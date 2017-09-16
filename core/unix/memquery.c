@@ -97,11 +97,13 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
              (iter.comment[0] == '\0' && prev_end != NULL &&
               prev_end != iter.vm_start))) {
             last_lib_base = iter.vm_start;
-            /* Include a prior anon mapping if contiguous and a header.  This happens
-             * for some page mapping schemes (i#2566).
+            /* Include a prior anon mapping if contiguous and a header and this
+             * mapping is not a header.  This happens for some page mapping
+             * schemes (i#2566).
              */
             if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ|MEMPROT_EXEC) &&
-                module_is_header(prev_base, prev_end - prev_base))
+                module_is_header(prev_base, prev_end - prev_base) &&
+                !module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
             /* last_lib_end is used to know what's readable beyond last_lib_base */
             if (TEST(MEMPROT_READ, iter.prot))

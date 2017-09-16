@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,8 +40,9 @@
 #include <assert.h>
 #include <iterator>
 #include <map>
-#include "../common/memref.h"
-#include "../common/utils.h"
+// For exporting we avoid "../common" and rely on -I.
+#include "memref.h"
+#include "utils.h"
 
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
 {
