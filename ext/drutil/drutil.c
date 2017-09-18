@@ -147,16 +147,17 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
         opnd_get_segment(memref) != DR_SEG_CS) {
         /* get segment base into dst, then add to memref base and lea */
         instr_t *near_in_scratch = NULL;
-        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref), dst)) {
+        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref), dst))
             return false;
-        }
         if (opnd_uses_reg(memref, dst) ||
             (opnd_get_base(memref) != DR_REG_NULL &&
              opnd_get_index(memref) != DR_REG_NULL)) {
             /* have to take two steps */
-            ASSERT(scratch != DR_REG_NULL, "missing scratch reg");
+            if (scratch == DR_REG_NULL)
+                return false;
             opnd_set_size(&memref, OPSZ_lea);
-            near_in_scratch = INSTR_CREATE_lea(drcontext, opnd_create_reg(scratch), memref);
+            near_in_scratch =
+                INSTR_CREATE_lea(drcontext, opnd_create_reg(scratch), memref);
             PRE(bb, where, near_in_scratch);
         }
         if (near_in_scratch != NULL) {
@@ -191,7 +192,8 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
         bool is_xlat = false;
         if (opnd_get_index(memref) == DR_REG_AL) {
             is_xlat = true;
-            ASSERT(scratch != DR_REG_NULL, "missing scratch reg");
+            if (scratch == DR_REG_NULL)
+                return false;
             if (scratch != DR_REG_XAX && dst != DR_REG_XAX) {
                 /* we do not have to save xax if it is saved by caller */
                 PRE(bb, where,
