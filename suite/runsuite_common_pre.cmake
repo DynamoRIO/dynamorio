@@ -648,7 +648,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         # env vars and not require registry
         set(RUN_PARALLEL OFF)
       else ()
-        set(RUN_PARALLEL ON)
+        set(RUN_PARALLEL OFF)#DO NOT CHECK IN
       endif ()
       if (RUN_PARALLEL)
         # i#111: run tests in parallel, supported on CTest 2.8.0+
