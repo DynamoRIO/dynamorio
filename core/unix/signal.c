@@ -6630,6 +6630,14 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         ASSERT(sizeof(notify_var->sem) == 4);
 #endif
 #ifdef X86
+# ifndef MACOS
+        /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
+         * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC.
+         * We do this first as it may end up clobbering a scratch reg like xax.
+         */
+        void (*asm_jmp_tgt)() = dynamorio_condvar_wake_and_jmp;
+        asm("mov  %0, %%"ASM_XDX : : "m"(asm_jmp_tgt));
+# endif
         asm("mov %0, %%"ASM_XAX : : "m"(notify_var));
         asm("mov %0, %%"ASM_XCX : : "m"(continuation));
         asm("mov %0, %%"ASM_XSP : : "m"(xsp));
@@ -6638,11 +6646,6 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("jmp _dynamorio_condvar_wake_and_jmp");
 # else
         asm("movl $1,(%"ASM_XAX")");
-        /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
-         * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC:
-         */
-        void (*asm_jmp_tgt)() = dynamorio_condvar_wake_and_jmp;
-        asm("mov  %0, %%"ASM_XDX : : "m"(asm_jmp_tgt));
         asm("jmp  *%"ASM_XDX);
 # endif
 #elif defined(AARCHXX)
