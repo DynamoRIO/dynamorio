@@ -590,11 +590,19 @@ if (UNIX)
           set(check_deps ON)
         endif ()
       endif ()
+      # i#2632: 32-bit recent clang release builds are inserting text relocs.
+      # XXX: We don't support clang for official package builds until this is fixed.
+      if (X64 OR DEBUG OR NOT CLANG)
+        set(check_textrel ON)
+      else ()
+        set(check_textrel OFF)
+      endif ()
       add_custom_command(TARGET dynamorio
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib=${lib_to_check}
+             -D check_textrel=${check_textrel}
              -D check_deps=${check_deps}
              -D check_libc=OFF
              -D check_interp=ON
@@ -838,6 +846,7 @@ if (UNIX)
       COMMAND ${CMAKE_COMMAND}
       # to work around i#84 be sure to put a space after -D for 1st arg at least
       ARGS -D lib=${lib_to_check}
+           -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON
            -D check_interp=ON

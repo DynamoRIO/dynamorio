@@ -101,7 +101,7 @@ try(uint64_t time)
         /* overflows for 32-bit so cast to pointer-sized */
         { (size_t)time / 1000000000, time % 1000000000 }
     };
-    struct timespec ts = { 3155760000, 0 };
+    struct timespec ts = { 3155760000U, 0 };
     int result;
 
     result = sigsetjmp(env, 1);

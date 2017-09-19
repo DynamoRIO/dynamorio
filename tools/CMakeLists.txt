@@ -187,6 +187,7 @@ foreach (deploytgt drconfig drrun drinject)
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       ARGS -D lib=${check_path}
+           -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON
            -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
