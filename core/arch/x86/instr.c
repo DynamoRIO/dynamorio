@@ -343,7 +343,8 @@ instr_is_mov(instr_t *instr)
             opc == OP_mov_ld ||
             opc == OP_mov_imm ||
             opc == OP_mov_seg ||
-            opc == OP_mov_priv);
+            opc == OP_mov_priv ||
+            opc == OP_movzx);
 }
 
 bool
