@@ -2455,6 +2455,14 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.filter_rawtemp ON) # no preprocessor
 
+      torunonly_ci(tool.drcachesim.delay ${ci_shared_app} drcachesim
+        "drcachesim-delay-simple.c" # for templatex basename
+        "-ipc_name ${IPC_PREFIX}drtestdelay -trace_after_instrs 50000" "" "")
+        set(tool.drcachesim.delay_toolname "drcachesim")
+        set(tool.drcachesim.delay_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.delay_rawtemp ON) # no preprocessor
+
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
       if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
