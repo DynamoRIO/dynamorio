@@ -1075,7 +1075,7 @@ else ()
   # security violations.
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
-set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
+set(dr_test_ops -stderr_mask 0xF ${dr_os_ops})
 
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
@@ -1118,6 +1118,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     if (UNIX)
       set(cmd ${cmd} -killpg)
     endif ()
+    set(cmd ${cmd} -v) # DO NOT CHECK IN
     if (UNIX AND TEST_SUITE AND TEST_32BIT_PATH)
       # In the Unix suite, use the DR install dir for cross-arch execve.
       set(cmd ${cmd} -dr_home "${CMAKE_INSTALL_PREFIX}")
