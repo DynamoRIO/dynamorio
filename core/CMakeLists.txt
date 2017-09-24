@@ -87,6 +87,9 @@ add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
   lib/dr_helper.c)
 # CMake on Windows fails to link unless we tell it to use the C linker:
 set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
+if (UNIX)
+  append_property_string(TARGET drhelper COMPILE_FLAGS "-fPIC")
+endif ()
 add_gen_events_deps(drhelper)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
