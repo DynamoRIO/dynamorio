@@ -188,6 +188,13 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
             cur_end = iter.vm_end;
         } else if (found_library) {
             /* hit non-matching, we expect module segments to be adjacent */
+#if 1//DO NOT CHECK IN
+# ifndef STANDALONE_UNIT_TEST
+            extern bool vvar_in_gap;
+            if (strstr(iter.comment, "vvar") != NULL)
+                vvar_in_gap = true;
+# endif
+#endif
             break;
         }
         prev_base = iter.vm_start;

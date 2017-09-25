@@ -66,6 +66,10 @@
 
 extern size_t wcslen(const wchar_t *str); /* in string.c */
 
+#if 1//DO NOT CHECK IN
+bool vvar_in_gap;
+#endif
+
 /* Written during initialization only */
 /* FIXME: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
@@ -1762,6 +1766,14 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         reload_dynamorio(sp, exe_map, exe_end);
         ASSERT_NOT_REACHED();
     }
+#if 1//DO NOT CHECK IN
+    // Can we have a single maps walk for get_dynamorio_dll_start() and this var,
+    // w/o sthg this hacky?
+    if (vvar_in_gap) {
+        reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
+        ASSERT_NOT_REACHED();
+    }
+#endif
 
     exe_map = elf_loader_map_phdrs(&exe_ld,
                                    /* fixed at preferred address,
