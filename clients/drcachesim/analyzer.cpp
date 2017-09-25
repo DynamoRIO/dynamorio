@@ -45,6 +45,26 @@ analyzer_t::analyzer_t() :
     /* Nothing else: child class needs to initialize. */
 }
 
+bool
+analyzer_t::init_file_reader(const std::string &trace_file)
+{
+    if (trace_file.empty()) {
+        ERRMSG("Trace file name is empty\n");
+        return false;
+    }
+#ifdef HAS_ZLIB
+    // Even if the file is uncompressed, zlib's gzip interface is faster than
+    // file_reader_t's fstream in our measurements, so we always use it when
+    // available.
+    trace_iter = new compressed_file_reader_t(trace_file.c_str());
+    trace_end = new compressed_file_reader_t();
+#else
+    trace_iter = new file_reader_t(trace_file.c_str());
+    trace_end = new file_reader_t();
+#endif
+    return true;
+}
+
 analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in,
                        int num_tools_in) :
     success(true), trace_iter(NULL), trace_end(NULL), num_tools(num_tools_in),
@@ -57,21 +77,15 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
             return;
         }
     }
-    if (trace_file.empty()) {
+    if (!init_file_reader(trace_file))
         success = false;
-        ERRMSG("Trace file name is empty\n");
-        return;
-    }
-#ifdef HAS_ZLIB
-    // Even if the file is uncompressed, zlib's gzip interface is faster than
-    // file_reader_t's fstream in our measurements, so we always use it when
-    // available.
-    trace_iter = new compressed_file_reader_t(trace_file.c_str());
-    trace_end = new compressed_file_reader_t();
-#else
-    trace_iter = new file_reader_t(trace_file.c_str());
-    trace_end = new file_reader_t();
-#endif
+}
+
+analyzer_t::analyzer_t(const std::string &trace_file) :
+    success(true), trace_iter(NULL), trace_end(NULL), num_tools(0), tools(NULL)
+{
+    if (!init_file_reader(trace_file))
+        success = false;
 }
 
 analyzer_t::~analyzer_t()
@@ -125,4 +139,18 @@ analyzer_t::print_stats()
         }
     }
     return res;
+}
+
+reader_t &
+analyzer_t::begin()
+{
+    if (!start_reading())
+        return *trace_end;
+    return *trace_iter;
+}
+
+reader_t &
+analyzer_t::end()
+{
+    return *trace_end;
 }
