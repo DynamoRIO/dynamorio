@@ -234,6 +234,13 @@ foreach (log ${all_logs})
     message("reading ${log}")
     file(READ ${log} string)
     if ("${string}" MATCHES "num_free_blocks")
+      # Get maps contents.
+      string(REGEX MATCHALL "\nstart=[^\n]*" maps "${string}")
+      message("\n\nmaps from ${log}:\n")
+      foreach (map ${maps})
+        message("${map}")
+      endforeach ()
+      # Get tail of thread logfile.
       get_filename_component(dir "${log}" PATH)
       file(GLOB thread_log ${dir}/log.0.*)
       file(READ ${thread_log} string)
