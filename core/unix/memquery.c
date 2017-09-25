@@ -202,7 +202,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
     if (image_size != 0 && cur_end - mod_start < image_size) {
         /* Found a .bss section. Check current mapping (note might only be
          * part of the mapping (due to os region merging? FIXME investigate). */
-#if 0 // FIXME i#2634: these fail on 4.4.0-93 w/ vvar+vdso in middle of libdynamorio
+#if 0 // FIXME i#2641: these fail on 4.4.0-93 w/ vvar+vdso in middle of libdynamorio
         ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
                                                    * a gap if the file has large
                                                    * alignment and no data section?

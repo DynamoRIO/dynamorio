@@ -226,3 +226,14 @@ endforeach (xml)
 
 file(READ ${outf} string)
 message("${string}")
+
+# DO NOT CHECK IN
+file(GLOB all_logs ${BINARY_BASE}/*/logs/*/log.0.*)
+foreach (log ${all_logs})
+  message("reading ${log}")
+  file(READ ${log} string)
+  if ("${string}" MATCHES "vmheap.num_free_blocks == heapmgt->vmheap.num_blocks")
+    string(REGEX MATCH "\nFragment 200.*" tail "${string}")
+    message("\n\ntail of ${log}:\n${tail}\n\n")
+  endif ()
+endforeach ()
