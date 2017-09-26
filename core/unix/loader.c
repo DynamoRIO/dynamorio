@@ -66,6 +66,10 @@
 
 extern size_t wcslen(const wchar_t *str); /* in string.c */
 
+#if 1//DO NOT CHECK IN
+bool vvar_in_gap;
+#endif
+
 /* Written during initialization only */
 /* FIXME: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
@@ -1587,6 +1591,34 @@ privload_mem_is_elf_so_header(byte *mem)
     return true;
 }
 
+static bool
+dynamorio_lib_gap_empty(void)
+{
+    /* XXX: get_dynamorio_dll_start() is already calling
+     * memquery_library_bounds_by_iterator() which is doing this maps walk: can we
+     * avoid this extra walk by somehow passing info back to us?  Have an
+     * "interrupted" output param or sthg and is_dynamorio_dll_interrupted()?
+     */
+    memquery_iter_t iter;
+    bool res = true;
+    if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start >= get_dynamorio_dll_start() &&
+                iter.vm_end <= get_dynamorio_dll_end() &&
+                iter.comment[0] != '\0' &&
+                strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
+                /* There's a non-.bss mapping inside: probably vvar and/or vdso. */
+                res = false;
+                break;
+            }
+            if (iter.vm_start >= get_dynamorio_dll_end())
+                break;
+        }
+        memquery_iterator_stop(&iter);
+    }
+    return res;
+}
+
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1659,7 +1691,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     ASSERT(is_elf_so_header(dr_map, 0));
 
     /* Relocate it */
-    /* Relocate it */
     memset(&opd, 0, sizeof(opd));
     module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
     /* XXX: we assume libdynamorio has no tls block b/c we're not calling
@@ -1727,8 +1758,23 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     }
 
     /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
-    if (old_libdr_base != NULL)
-        os_unmap_file(old_libdr_base, old_libdr_size);
+    if (old_libdr_base != NULL) {
+        /* i#2641: we can't blindly unload the whole region as vvar+vdso may be
+         * in the text-data gap.
+         */
+        if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+            while (memquery_iterator_next(&iter)) {
+                if (iter.vm_start >= old_libdr_base &&
+                    iter.vm_end <= old_libdr_base + old_libdr_size &&
+                    strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
+                }
+                if (iter.vm_start >= old_libdr_base + old_libdr_size)
+                    break;
+            }
+            memquery_iterator_stop(&iter);
+        }
+    }
 
     dynamorio_set_envp(envp);
 
@@ -1757,8 +1803,15 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
                                             exe_ld.ehdr->e_phnum, NULL, &exe_end);
     /* i#1227: on a conflict with the app: reload ourselves */
-    if (get_dynamorio_dll_start() < exe_end &&
-        get_dynamorio_dll_end() > exe_map) {
+    if ((get_dynamorio_dll_start() < exe_end &&
+         get_dynamorio_dll_end() > exe_map) ||
+        /* i#2641: we can't handle something in the text-data gap.
+         * Various parts of DR assume there's nothing inside (and we even fill the
+         * gap with a PROT_NONE mmap later: i#1659), so we reload to avoid it,
+         * under the assumption that it's rare and we're not paying this cost
+         * very often.
+         */
+        !dynamorio_lib_gap_empty()) {
         reload_dynamorio(sp, exe_map, exe_end);
         ASSERT_NOT_REACHED();
     }

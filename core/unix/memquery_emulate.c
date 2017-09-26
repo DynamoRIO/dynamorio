@@ -69,6 +69,12 @@ memquery_exit(void)
 }
 
 bool
+memquery_from_os_will_block(bool may_alloc)
+{
+    return false;
+}
+
+bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 {
     maps_iter_t *mi = (maps_iter_t *) &iter->internal;

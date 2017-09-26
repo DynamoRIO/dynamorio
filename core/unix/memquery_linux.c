@@ -124,6 +124,22 @@ memquery_exit(void)
 }
 
 bool
+memquery_from_os_will_block(void)
+{
+#ifdef DEADLOCK_AVOIDANCE
+    return memory_info_buf_lock.owner != INVALID_THREAD_ID;
+#else
+    /* "may_alloc" is false for memquery_from_os() */
+    bool res = true;
+    if (mutex_trylock(&memory_info_buf_lock)) {
+        res = false;
+        mutex_unlock(&memory_info_buf_lock);
+    }
+    return res;
+#endif
+}
+
+bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 {
     char maps_name[24]; /* should only need 16 for 5-digit tid */

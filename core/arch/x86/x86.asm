@@ -1164,6 +1164,7 @@ GLOBAL_LABEL(_start:)
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
+        mov     REG_XDI, 0 /* xdi should be callee-saved but is not always: i#2641 */
 
 reloaded_xfer:
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
