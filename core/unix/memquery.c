@@ -97,7 +97,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
              (iter.comment[0] == '\0' && prev_end != NULL &&
               prev_end != iter.vm_start))) {
             last_lib_base = iter.vm_start;
-            /* Include a prior anon mapping if contiguous and a header and this
+            /* Include a prior anon mapping if interrupted and a header and this
              * mapping is not a header.  This happens for some page mapping
              * schemes (i#2566).
              */
@@ -200,14 +200,20 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
      * header to know since we can't assume that a subsequent anonymous
      * region is .bss. */
     if (image_size != 0 && cur_end - mod_start < image_size) {
-        /* Found a .bss section. Check current mapping (note might only be
-         * part of the mapping (due to os region merging? FIXME investigate). */
-        ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
-                                                   * a gap if the file has large
-                                                   * alignment and no data section?
-                                                   * curiosity for now*/);
-        ASSERT_CURIOSITY(iter.inode == 0); /* .bss is anonymous */
-        ASSERT_CURIOSITY(iter.vm_end - mod_start >= image_size);/* should be big enough */
+        if (iter.comment[0] != '\0') {
+            /* There's something else in the text-data gap: xref i#2641. */
+        } else {
+            /* Found a .bss section. Check current mapping (note might only be
+             * part of the mapping (due to os region merging? FIXME investigate).
+             */
+            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
+                                                       * a gap if the file has large
+                                                       * alignment and no data section?
+                                                       * curiosity for now*/);
+            ASSERT_CURIOSITY(iter.inode == 0); /* .bss is anonymous */
+            /* should be big enough */
+            ASSERT_CURIOSITY(iter.vm_end - mod_start >= image_size);
+        }
         count++;
         cur_end = mod_start + image_size;
     } else {
