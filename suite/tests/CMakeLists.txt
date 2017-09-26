@@ -1118,7 +1118,6 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     if (UNIX)
       set(cmd ${cmd} -killpg)
     endif ()
-    set(cmd ${cmd} -loglevel 2) # DO NOT CHECK IN
     if (UNIX AND TEST_SUITE AND TEST_32BIT_PATH)
       # In the Unix suite, use the DR install dir for cross-arch execve.
       set(cmd ${cmd} -dr_home "${CMAKE_INSTALL_PREFIX}")

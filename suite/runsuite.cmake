@@ -232,12 +232,12 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   else ()
     set(32bit_path "")
   endif ()
-#  testbuild_ex("release-external-64" ON "
-#    DEBUG:BOOL=OFF
-#    INTERNAL:BOOL=OFF
-#    ${install_path_cache}
-#    ${32bit_path}
-#    " OFF OFF "${install_build_args}")
+  testbuild_ex("release-external-64" ON "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    ${install_path_cache}
+    ${32bit_path}
+    " OFF OFF "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options

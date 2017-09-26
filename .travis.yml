@@ -52,20 +52,20 @@ language:
 
 os:
   - linux
-#  - osx
+  - osx
 
 # We request 2 runs, one with clang and one with gcc:
 compiler:
-#  - clang
+  - clang
   - gcc
 
 env:
   # With or without cross-compiling:
-#  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes
+  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes
   # Cross-compile for Android only.
-#  - DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
+  - DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
   # We run 32-bit and 64-bit in parallel to speed things up.
-#  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
+  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
   - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=64_only
 
 matrix:

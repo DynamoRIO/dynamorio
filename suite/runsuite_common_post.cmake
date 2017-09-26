@@ -226,26 +226,3 @@ endforeach (xml)
 
 file(READ ${outf} string)
 message("${string}")
-
-# DO NOT CHECK IN
-file(GLOB all_logs ${BINARY_BASE}/*/logs/*/*.html)
-foreach (log ${all_logs})
-  if (NOT ${log} MATCHES "/log.[0-9]")
-    message("reading ${log}")
-    file(READ ${log} string)
-    if ("${string}" MATCHES "num_free_blocks")
-      # Get maps contents.
-      string(REGEX MATCHALL "\nstart=[^\n]*" maps "${string}")
-      message("\n\nmaps from ${log}:\n")
-      foreach (map ${maps})
-        message("${map}")
-      endforeach ()
-      # Get tail of thread logfile.
-      get_filename_component(dir "${log}" PATH)
-      file(GLOB thread_log ${dir}/log.0.*)
-      file(READ ${thread_log} string)
-      string(REGEX MATCH "\nFragment 200.*" tail "${string}")
-      message("\n\ntail of ${thread_log}:\n${tail}\n\n")
-    endif ()
-  endif ()
-endforeach ()

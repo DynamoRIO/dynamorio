@@ -181,13 +181,12 @@ internal_error(const char *file, int line, const char *expr)
                          "Internal "PRODUCT_NAME" Error: %s:%d %s"
 #endif
 #if defined(DEBUG) && defined(INTERNAL)
-                         "\n(Error occurred @%d frags; DR base = %p, dispatch = %p)"
+                         "\n(Error occurred @%d frags)"
 #endif
                          , file, line, expr
 #if defined(DEBUG) && defined(INTERNAL)
                              , stats == NULL ? -1 : GLOBAL_STAT(num_fragments)
 #endif
-                             , get_dynamorio_dll_start(), dispatch
                          );
 
     soft_terminate();
