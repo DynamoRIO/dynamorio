@@ -1663,7 +1663,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     ASSERT(is_elf_so_header(dr_map, 0));
 
     /* Relocate it */
-    /* Relocate it */
     memset(&opd, 0, sizeof(opd));
     module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
     /* XXX: we assume libdynamorio has no tls block b/c we're not calling
@@ -1732,7 +1731,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 
     /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
     if (old_libdr_base != NULL)
-        os_unmap_file(old_libdr_base, old_libdr_size);
+        ;// DO NOT CHECK IN: os_unmap_file(old_libdr_base, old_libdr_size);
 
     dynamorio_set_envp(envp);
 
