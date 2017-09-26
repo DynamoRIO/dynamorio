@@ -1607,6 +1607,8 @@ dynamorio_lib_gap_empty(void)
                 iter.comment[0] != '\0' &&
                 strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
                 /* There's a non-.bss mapping inside: probably vvar and/or vdso. */
+                print_file(STDERR, "DR text-data gap not empty: %p-%p %s\n",
+                           iter.vm_start, iter.vm_end, iter.comment);//NO CHECKIN
                 return false;
             }
             if (iter.vm_start >= get_dynamorio_dll_end())
@@ -1764,8 +1766,11 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
             while (memquery_iterator_next(&iter)) {
                 if (iter.vm_start >= old_libdr_base &&
                     iter.vm_end <= old_libdr_base + old_libdr_size &&
-                    strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)
+                    strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    print_file(STDERR, "unloading old DR segment %p-%p\n",
+                               iter.vm_start, iter.vm_end);//NO CHECKIN
                     os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
+                }
                 if (iter.vm_start >= old_libdr_base + old_libdr_size)
                     break;
             }
