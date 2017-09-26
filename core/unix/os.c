@@ -4682,6 +4682,14 @@ is_readable_without_exception_query_os(byte *pc, size_t size)
 }
 
 bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    if (memquery_from_os_will_block())
+        return false;
+    return is_readable_without_exception_internal(pc, size, true);
+}
+
+bool
 is_user_address(byte *pc)
 {
     /* FIXME: NYI */

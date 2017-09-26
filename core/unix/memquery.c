@@ -97,7 +97,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
              (iter.comment[0] == '\0' && prev_end != NULL &&
               prev_end != iter.vm_start))) {
             last_lib_base = iter.vm_start;
-            /* Include a prior anon mapping if contiguous and a header and this
+            /* Include a prior anon mapping if interrupted and a header and this
              * mapping is not a header.  This happens for some page mapping
              * schemes (i#2566).
              */
@@ -188,13 +188,6 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
             cur_end = iter.vm_end;
         } else if (found_library) {
             /* hit non-matching, we expect module segments to be adjacent */
-#if 1//DO NOT CHECK IN
-# ifndef STANDALONE_UNIT_TEST
-            extern bool vvar_in_gap;
-            if (strstr(iter.comment, "vvar") != NULL)
-                vvar_in_gap = true;
-# endif
-#endif
             break;
         }
         prev_base = iter.vm_start;
@@ -207,16 +200,20 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
      * header to know since we can't assume that a subsequent anonymous
      * region is .bss. */
     if (image_size != 0 && cur_end - mod_start < image_size) {
-        /* Found a .bss section. Check current mapping (note might only be
-         * part of the mapping (due to os region merging? FIXME investigate). */
-#if 0 // FIXME i#2641: these fail on 4.4.0-93 w/ vvar+vdso in middle of libdynamorio
-        ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
-                                                   * a gap if the file has large
-                                                   * alignment and no data section?
-                                                   * curiosity for now*/);
-        ASSERT_CURIOSITY(iter.inode == 0); /* .bss is anonymous */
-        ASSERT_CURIOSITY(iter.vm_end - mod_start >= image_size);/* should be big enough */
-#endif
+        if (iter.comment[0] != '\0') {
+            /* There's something else in the text-data gap: xref i#2641. */
+        } else {
+            /* Found a .bss section. Check current mapping (note might only be
+             * part of the mapping (due to os region merging? FIXME investigate).
+             */
+            ASSERT_CURIOSITY(iter.vm_start == cur_end /* no gaps, FIXME might there be
+                                                       * a gap if the file has large
+                                                       * alignment and no data section?
+                                                       * curiosity for now*/);
+            ASSERT_CURIOSITY(iter.inode == 0); /* .bss is anonymous */
+            /* should be big enough */
+            ASSERT_CURIOSITY(iter.vm_end - mod_start >= image_size);
+        }
         count++;
         cur_end = mod_start + image_size;
     } else {

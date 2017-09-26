@@ -1591,6 +1591,30 @@ privload_mem_is_elf_so_header(byte *mem)
     return true;
 }
 
+static bool
+dynamorio_lib_gap_empty(void)
+{
+    /* XXX: get_dynamorio_dll_start() is already calling
+     * memquery_library_bounds_by_iterator() which is doing this maps walk: can we
+     * avoid this extra walk by somehow passing info back to us?  Have an
+     * "interrupted" output param or sthg and is_dynamorio_dll_interrupted()?
+     */
+    memquery_iter_t iter;
+    memquery_iterator_start(&iter, NULL, false);
+    while (memquery_iterator_next(&iter)) {
+        if (iter.vm_start >= get_dynamorio_dll_start() &&
+            iter.vm_end <= get_dynamorio_dll_end() &&
+            iter.comment[0] != '\0' &&
+            strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
+            /* There's a non-.bss mapping inside: probably vvar and/or vdso. */
+            return false;
+        }
+        if (iter.vm_start >= get_dynamorio_dll_end())
+            break;
+    }
+    return true;
+}
+
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1730,8 +1754,21 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     }
 
     /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
-    if (old_libdr_base != NULL)
-        ;// DO NOT CHECK IN: os_unmap_file(old_libdr_base, old_libdr_size);
+    if (old_libdr_base != NULL) {
+        /* i#2641: we can't blindly unload the whole region as vvar+vdso may be
+         * in the text-data gap.
+         */
+        memquery_iter_t iter;
+        memquery_iterator_start(&iter, NULL, false);
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start >= old_libdr_base &&
+                iter.vm_end <= old_libdr_base + old_libdr_size &&
+                strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)
+                os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
+            if (iter.vm_start >= old_libdr_base + old_libdr_size)
+                break;
+        }
+    }
 
     dynamorio_set_envp(envp);
 
@@ -1760,19 +1797,18 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
                                             exe_ld.ehdr->e_phnum, NULL, &exe_end);
     /* i#1227: on a conflict with the app: reload ourselves */
-    if (get_dynamorio_dll_start() < exe_end &&
-        get_dynamorio_dll_end() > exe_map) {
+    if ((get_dynamorio_dll_start() < exe_end &&
+         get_dynamorio_dll_end() > exe_map) ||
+        /* i#2641: we can't handle something in the text-data gap.
+         * Various parts of DR assume there's nothing inside (and we even fill the
+         * gap with a PROT_NONE mmap later: i#1659), so we reload to avoid it,
+         * under the assumption that it's rare and we're not paying this cost
+         * very often.
+         */
+        !dynamorio_lib_gap_empty()) {
         reload_dynamorio(sp, exe_map, exe_end);
         ASSERT_NOT_REACHED();
     }
-#if 1//DO NOT CHECK IN
-    // Can we have a single maps walk for get_dynamorio_dll_start() and this var,
-    // w/o sthg this hacky?
-    if (vvar_in_gap) {
-        reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
-        ASSERT_NOT_REACHED();
-    }
-#endif
 
     exe_map = elf_loader_map_phdrs(&exe_ld,
                                    /* fixed at preferred address,
