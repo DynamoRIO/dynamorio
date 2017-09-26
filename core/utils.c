@@ -2240,10 +2240,6 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     if (report_ebp == NULL) {
         GET_FRAME_PTR(report_ebp);
     }
-#if 1//NO CHECKIN
-    *curbuf = '\0';
-    print_file(STDERR, "%s reporting: %s\n", get_application_name(), reportbuf);
-#endif
     for (num = 0, pc = (ptr_uint_t *) report_ebp;
          num < REPORT_NUM_STACK && pc != NULL &&
              is_readable_without_exception_query_os_noblock((app_pc) pc, 2*sizeof(reg_t));
