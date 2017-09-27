@@ -66,10 +66,6 @@
 
 extern size_t wcslen(const wchar_t *str); /* in string.c */
 
-#if 1//DO NOT CHECK IN
-bool vvar_in_gap;
-#endif
-
 /* Written during initialization only */
 /* FIXME: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
@@ -268,6 +264,15 @@ os_loader_init_prologue(void)
             size_t sz = libdr_opd->os_data.segments[i+1].start -
                 libdr_opd->os_data.segments[i].end;
             if (sz > 0) {
+                DODEBUG({
+                    dr_mem_info_t info;
+                    bool ok = query_memory_ex_from_os(libdr_opd->os_data.segments[i].end,
+                                                      &info);
+                    ASSERT(ok);
+                    ASSERT(info.base_pc == libdr_opd->os_data.segments[i].end &&
+                           info.size == sz &&
+                           info.type == DR_MEMTYPE_FREE);
+                });
                 DEBUG_DECLARE(byte *fill =)
                     os_map_file(-1, &sz, 0, libdr_opd->os_data.segments[i].end,
                                 MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE|MAP_FILE_FIXED);
