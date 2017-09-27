@@ -268,7 +268,25 @@ os_loader_init_prologue(void)
                     dr_mem_info_t info;
                     bool ok = query_memory_ex_from_os(libdr_opd->os_data.segments[i].end,
                                                       &info);
+                    print_file(STDERR, "in DR gap %d %p-%p: %p-%p %d\n", ok,
+                               libdr_opd->os_data.segments[i].end,
+                               libdr_opd->os_data.segments[i].end + sz,
+                               info.base_pc, info.base_pc + info.size,
+                               info.type);//NO CHECKIN
                     ASSERT(ok);
+                    if (!(info.base_pc == libdr_opd->os_data.segments[i].end &&
+                          info.size == sz &&
+                          info.type == DR_MEMTYPE_FREE)) {//NO CHECKIN
+                        memquery_iter_t iter;
+                        if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+                            while (memquery_iterator_next(&iter)) {
+                                print_file(STDERR, "MAPS: %p-%p %x %s\n",
+                                           iter.vm_start, iter.vm_end, iter.prot,
+                                           iter.comment);
+                            }
+                            memquery_iterator_stop(&iter);
+                        }
+                    }
                     ASSERT(info.base_pc == libdr_opd->os_data.segments[i].end &&
                            info.size == sz &&
                            info.type == DR_MEMTYPE_FREE);
@@ -1613,6 +1631,8 @@ dynamorio_lib_gap_empty(void)
                 iter.comment[0] != '\0' &&
                 strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
                 /* There's a non-.bss mapping inside: probably vvar and/or vdso. */
+                print_file(STDERR, "DR gap not empty: %p-%p %s\n",
+                           iter.vm_start, iter.vm_end, iter.comment);//NO CHECKIN
                 res = false;
                 break;
             }
@@ -1676,6 +1696,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
      */
     if (conflict_start < cur_dr_map) {
         temp1_size = cur_dr_map - conflict_start;
+        print_file(STDERR, "temp map %p-%p\n", conflict_start, cur_dr_map);//NO CHECKIN
         temp1_map = os_map_file(-1, &temp1_size, 0, conflict_start, MEMPROT_NONE,
                                 MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
         ASSERT(temp1_map != NULL);
@@ -1684,6 +1705,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
         /* Leave room for the brk */
         conflict_end += APP_BRK_GAP;
         temp2_size = conflict_end - cur_dr_end;
+        print_file(STDERR, "temp map %p-%p\n", cur_dr_end, conflict_end);//NO CHECKIN
         temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
                                 MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
         ASSERT(temp2_map != NULL);
@@ -1694,6 +1716,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
                                   os_unmap_file, os_set_protection, 0/*!reachable*/);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
+    print_file(STDERR, "reloaded old %p-%p to %p-%p\n", cur_dr_map, cur_dr_end,
+               dr_map, dr_map + dr_size);//NO CHECKIN
 
     /* Relocate it */
     memset(&opd, 0, sizeof(opd));
@@ -1771,7 +1795,10 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
             while (memquery_iterator_next(&iter)) {
                 if (iter.vm_start >= old_libdr_base &&
                     iter.vm_end <= old_libdr_base + old_libdr_size &&
-                    strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    (iter.comment[0] == '\0' /* .bss */ ||
+                     strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)) {
+                    print_file(STDERR, "unloading old DR %p-%p %s\n",
+                               iter.vm_start, iter.vm_end, iter.comment);//NO CHECKIN
                     os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
                 }
                 if (iter.vm_start >= old_libdr_base + old_libdr_size)
