@@ -1515,12 +1515,19 @@ byte *
 map_exe_file_and_brk(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
                      map_flags_t map_flags)
 {
-    size_t sz_with_brk = *size + APP_BRK_GAP;
-    byte *res = os_map_file(f, &sz_with_brk, offs, addr, prot, map_flags);
-    if (res != NULL)
-        os_unmap_file(res + sz_with_brk - APP_BRK_GAP, APP_BRK_GAP);
-    *size = sz_with_brk - APP_BRK_GAP;
-    return res;
+    /* A little hacky: we assume the MEMPROT_NONE is the overall mmap for the whole
+     * region, where our goal is to push it back for top-down PIE filling to leave
+     * room for a reasonable brk.
+     */
+    if (prot == MEMPROT_NONE && offs == 0) {
+        size_t sz_with_brk = *size + APP_BRK_GAP;
+        byte *res = os_map_file(f, &sz_with_brk, offs, addr, prot, map_flags);
+        if (res != NULL)
+            os_unmap_file(res + sz_with_brk - APP_BRK_GAP, APP_BRK_GAP);
+        *size = sz_with_brk - APP_BRK_GAP;
+        return res;
+    } else
+        return os_map_file(f, size, offs, addr, prot, map_flags);
 }
 
 /* XXX: This routine is called before dynamorio relocation when we are in a
