@@ -268,28 +268,12 @@ os_loader_init_prologue(void)
                     dr_mem_info_t info;
                     bool ok = query_memory_ex_from_os(libdr_opd->os_data.segments[i].end,
                                                       &info);
-                    print_file(STDERR, "in DR gap %d %p-%p: %p-%p %d\n", ok,
-                               libdr_opd->os_data.segments[i].end,
-                               libdr_opd->os_data.segments[i].end + sz,
-                               info.base_pc, info.base_pc + info.size,
-                               info.type);//NO CHECKIN
                     ASSERT(ok);
-                    if (!(info.base_pc == libdr_opd->os_data.segments[i].end &&
-                          info.size == sz &&
-                          info.type == DR_MEMTYPE_FREE)) {//NO CHECKIN
-                        memquery_iter_t iter;
-                        if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
-                            while (memquery_iterator_next(&iter)) {
-                                print_file(STDERR, "MAPS: %p-%p %x %s\n",
-                                           iter.vm_start, iter.vm_end, iter.prot,
-                                           iter.comment);
-                            }
-                            memquery_iterator_stop(&iter);
-                        }
-                    }
                     ASSERT(info.base_pc == libdr_opd->os_data.segments[i].end &&
                            info.size == sz &&
-                           info.type == DR_MEMTYPE_FREE);
+                           (info.type == DR_MEMTYPE_FREE ||
+                            /* If we reloaded DR, our own loader filled it in. */
+                            info.prot == DR_MEMPROT_NONE));
                 });
                 DEBUG_DECLARE(byte *fill =)
                     os_map_file(-1, &sz, 0, libdr_opd->os_data.segments[i].end,
@@ -1631,8 +1615,6 @@ dynamorio_lib_gap_empty(void)
                 iter.comment[0] != '\0' &&
                 strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
                 /* There's a non-.bss mapping inside: probably vvar and/or vdso. */
-                print_file(STDERR, "DR gap not empty: %p-%p %s\n",
-                           iter.vm_start, iter.vm_end, iter.comment);//NO CHECKIN
                 res = false;
                 break;
             }
@@ -1696,7 +1678,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
      */
     if (conflict_start < cur_dr_map) {
         temp1_size = cur_dr_map - conflict_start;
-        print_file(STDERR, "temp map %p-%p\n", conflict_start, cur_dr_map);//NO CHECKIN
         temp1_map = os_map_file(-1, &temp1_size, 0, conflict_start, MEMPROT_NONE,
                                 MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
         ASSERT(temp1_map != NULL);
@@ -1705,7 +1686,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
         /* Leave room for the brk */
         conflict_end += APP_BRK_GAP;
         temp2_size = conflict_end - cur_dr_end;
-        print_file(STDERR, "temp map %p-%p\n", cur_dr_end, conflict_end);//NO CHECKIN
         temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
                                 MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
         ASSERT(temp2_map != NULL);
@@ -1716,8 +1696,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
                                   os_unmap_file, os_set_protection, 0/*!reachable*/);
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
-    print_file(STDERR, "reloaded old %p-%p to %p-%p\n", cur_dr_map, cur_dr_end,
-               dr_map, dr_map + dr_size);//NO CHECKIN
 
     /* Relocate it */
     memset(&opd, 0, sizeof(opd));
@@ -1796,9 +1774,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                 if (iter.vm_start >= old_libdr_base &&
                     iter.vm_end <= old_libdr_base + old_libdr_size &&
                     (iter.comment[0] == '\0' /* .bss */ ||
+                     /* The kernel sometimes mis-labels our .bss as "[heap]". */
+                     strcmp(iter.comment, "[heap]") == 0 ||
                      strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)) {
-                    print_file(STDERR, "unloading old DR %p-%p %s\n",
-                               iter.vm_start, iter.vm_end, iter.comment);//NO CHECKIN
                     os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
                 }
                 if (iter.vm_start >= old_libdr_base + old_libdr_size)
@@ -1835,16 +1813,19 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
                                             exe_ld.ehdr->e_phnum, NULL, &exe_end);
     /* i#1227: on a conflict with the app: reload ourselves */
-    if ((get_dynamorio_dll_start() < exe_end &&
-         get_dynamorio_dll_end() > exe_map) ||
-        /* i#2641: we can't handle something in the text-data gap.
-         * Various parts of DR assume there's nothing inside (and we even fill the
-         * gap with a PROT_NONE mmap later: i#1659), so we reload to avoid it,
-         * under the assumption that it's rare and we're not paying this cost
-         * very often.
-         */
-        !dynamorio_lib_gap_empty()) {
+    if (get_dynamorio_dll_start() < exe_end &&
+        get_dynamorio_dll_end() > exe_map) {
         reload_dynamorio(sp, exe_map, exe_end);
+        ASSERT_NOT_REACHED();
+    }
+    /* i#2641: we can't handle something in the text-data gap.
+     * Various parts of DR assume there's nothing inside (and we even fill the
+     * gap with a PROT_NONE mmap later: i#1659), so we reload to avoid it,
+     * under the assumption that it's rare and we're not paying this cost
+     * very often.
+     */
+    if (!dynamorio_lib_gap_empty()) {
+        reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
         ASSERT_NOT_REACHED();
     }
 
