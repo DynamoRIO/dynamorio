@@ -131,7 +131,7 @@ static bool
 cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
                   const std::pair<int_least64_t, int_least64_t> &r)
 {
-    return (l.first < r.first);
+    return l.first < r.first;
 }
 
 static bool
@@ -144,7 +144,7 @@ cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
-    return false;
+    return l.first < r.first;
 }
 
 static bool
@@ -157,7 +157,7 @@ cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->total_refs > r.second->total_refs)
         return true;
-    return false;
+    return l.first < r.first;
 }
 
 bool
