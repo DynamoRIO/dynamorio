@@ -136,7 +136,7 @@ cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
 
 static bool
 cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
-                    const std::pair<addr_t, line_ref_t*> &r)
+               const std::pair<addr_t, line_ref_t*> &r)
 {
     if (l.second->total_refs > r.second->total_refs)
         return true;
@@ -144,12 +144,14 @@ cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
+    if (l.second->distant_refs < r.second->distant_refs)
+        return false;
     return l.first < r.first;
 }
 
 static bool
 cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
-                      const std::pair<addr_t, line_ref_t*> &r)
+                 const std::pair<addr_t, line_ref_t*> &r)
 {
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
@@ -157,6 +159,8 @@ cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
         return false;
     if (l.second->total_refs > r.second->total_refs)
         return true;
+    if (l.second->total_refs < r.second->total_refs)
+        return false;
     return l.first < r.first;
 }
 
@@ -184,8 +188,10 @@ reuse_distance_t::print_results()
     double sum_of_squares = 0;
     int_least64_t recount = 0;
     bool have_median = false;
-    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-         it != dist_map.end(); ++it) {
+    std::vector<std::pair<int_least64_t, int_least64_t> > sorted(dist_map.size());
+    std::partial_sort_copy(dist_map.begin(), dist_map.end(),
+                           sorted.begin(), sorted.end(), cmp_dist_key);
+    for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double diff = it->first - mean;
         sum_of_squares += (diff * diff) * it->second;
         if (!have_median) {
@@ -204,9 +210,6 @@ reuse_distance_t::print_results()
         std::cerr << "Distance" << std::setw(12) << "Count"
                   << "  Percent  Cumulative\n";
         double cum_percent = 0;
-        std::vector<std::pair<int_least64_t, int_least64_t> > sorted(dist_map.size());
-        std::partial_sort_copy(dist_map.begin(), dist_map.end(),
-                               sorted.begin(), sorted.end(), cmp_dist_key);
         for (auto it = sorted.begin(); it != sorted.end(); ++it) {
             double percent = it->second / static_cast<double>(count);
             cum_percent += percent;

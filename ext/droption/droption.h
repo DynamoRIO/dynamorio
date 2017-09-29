@@ -529,13 +529,13 @@ droption_t<std::string>::default_as_string() const
 template<> inline std::string
 droption_t<int>::default_as_string() const
 {
-    return dynamic_cast< std::ostringstream & >
+    return static_cast< std::ostringstream & >
         ((std::ostringstream() << std::dec << defval)).str();
 }
 template<> inline std::string
 droption_t<unsigned int>::default_as_string() const
 {
-    return dynamic_cast< std::ostringstream & >
+    return static_cast< std::ostringstream & >
         ((std::ostringstream() << std::dec << defval)).str();
 }
 template<> inline std::string
@@ -558,7 +558,7 @@ droption_t<bytesize_t>::default_as_string() const
         suffix = "K";
         val /= 1024;
     }
-    return dynamic_cast< std::ostringstream & >
+    return static_cast< std::ostringstream & >
         ((std::ostringstream() << std::dec << val)).str() + suffix;
 }
 template<> inline std::string
