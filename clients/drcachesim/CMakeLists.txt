@@ -42,6 +42,8 @@ else ()
   add_definitions(-DUNIX)
 endif ()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 # i#2277: we use zlib if available to read compressed trace files.
 # XXX: we could ship with a zlib for Windows: today we simply don't support
 # compressed traces on Windows.

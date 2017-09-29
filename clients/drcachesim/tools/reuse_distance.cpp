@@ -104,7 +104,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
         type_is_prefetch(memref.data.type)) {
         ++total_refs;
         addr_t tag = memref.data.addr >> line_size_bits;
-        std::map<addr_t, line_ref_t*>::iterator it = cache_map.find(tag);
+        std::unordered_map<addr_t, line_ref_t*>::iterator it = cache_map.find(tag);
         if (it == cache_map.end()) {
             line_ref_t *ref = new line_ref_t(tag);
             // insert into the map
@@ -113,7 +113,7 @@ reuse_distance_t::process_memref(const memref_t &memref)
             ref_list->add_to_front(ref);
         } else {
             int_least64_t dist = ref_list->move_to_front(it->second);
-            std::map<int_least64_t, int_least64_t>::iterator dist_it =
+            std::unordered_map<int_least64_t, int_least64_t>::iterator dist_it =
                 dist_map.find(dist);
             if (dist_it == dist_map.end())
                 dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
@@ -127,7 +127,15 @@ reuse_distance_t::process_memref(const memref_t &memref)
     return true;
 }
 
-bool cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
+static bool
+cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
+                  const std::pair<int_least64_t, int_least64_t> &r)
+{
+    return (l.first < r.first);
+}
+
+static bool
+cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
                     const std::pair<addr_t, line_ref_t*> &r)
 {
     if (l.second->total_refs > r.second->total_refs)
@@ -139,7 +147,8 @@ bool cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
     return false;
 }
 
-bool cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
+static bool
+cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
                       const std::pair<addr_t, line_ref_t*> &r)
 {
     if (l.second->distant_refs > r.second->distant_refs)
@@ -165,7 +174,7 @@ reuse_distance_t::print_results()
 
     double sum = 0.0;
     int_least64_t count = 0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
+    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
          it != dist_map.end(); ++it) {
         sum += it->first * it->second;
         count += it->second;
@@ -175,7 +184,7 @@ reuse_distance_t::print_results()
     double sum_of_squares = 0;
     int_least64_t recount = 0;
     bool have_median = false;
-    for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
+    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
          it != dist_map.end(); ++it) {
         double diff = it->first - mean;
         sum_of_squares += (diff * diff) * it->second;
@@ -195,8 +204,10 @@ reuse_distance_t::print_results()
         std::cerr << "Distance" << std::setw(12) << "Count"
                   << "  Percent  Cumulative\n";
         double cum_percent = 0;
-        for (std::map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-             it != dist_map.end(); ++it) {
+        std::vector<std::pair<int_least64_t, int_least64_t> > sorted(dist_map.size());
+        std::partial_sort_copy(dist_map.begin(), dist_map.end(),
+                               sorted.begin(), sorted.end(), cmp_dist_key);
+        for (auto it = sorted.begin(); it != sorted.end(); ++it) {
             double percent = it->second / static_cast<double>(count);
             cum_percent += percent;
             std::cerr << std::setw(8) << it->first
