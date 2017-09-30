@@ -60,7 +60,7 @@ simulator_t::~simulator_t() {}
 int
 simulator_t::core_for_thread(memref_tid_t tid)
 {
-    std::map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
+    std::unordered_map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
     if (exists != thread2core.end())
         return exists->second;
     // A new thread: we want to assign it to the least-loaded core,
@@ -89,7 +89,7 @@ simulator_t::core_for_thread(memref_tid_t tid)
 void
 simulator_t::handle_thread_exit(memref_tid_t tid)
 {
-    std::map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
+    std::unordered_map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
     assert(exists != thread2core.end());
     assert(thread_counts[exists->second] > 0);
     --thread_counts[exists->second];

@@ -36,7 +36,7 @@
 #ifndef _REUSE_DISTANCE_H_
 #define _REUSE_DISTANCE_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <assert.h>
 #include <iostream>
@@ -75,9 +75,9 @@ class reuse_distance_t : public analysis_tool_t
 
  protected:
     /* XXX i#2020: use unsorted_map (C++11) for faster lookup */
-    std::map<addr_t, line_ref_t*> cache_map;
+    std::unordered_map<addr_t, line_ref_t*> cache_map;
     // This is our reuse distance histogram.
-    std::map<int_least64_t, int_least64_t> dist_map;
+    std::unordered_map<int_least64_t, int_least64_t> dist_map;
     line_ref_list_t *ref_list;
 
     unsigned int knob_line_size;
