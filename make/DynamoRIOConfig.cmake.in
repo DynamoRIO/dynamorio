@@ -380,8 +380,11 @@ function (_DR_set_compile_flags target tgt_cflags)
       # We can't do a test of the entire flag set at once b/c we add
       # "-fno-stack-protector" for the client and not for standalone.
       get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
+      # Avoid -std=c++* from messing w/ our regex match.
+      string(REPLACE "++" "\\+\\+" cur_flags_esc ${cur_flags})
       foreach (flag ${tgt_flags})
-        if (NOT cur_flags MATCHES " ${flag}")
+        string(REPLACE "++" "\\+\\+" flag_esc ${flag})
+        if (NOT cur_flags_esc MATCHES " ${flag_esc}")
           _DR_append_property_string(SOURCE ${src} COMPILE_FLAGS "${flag}")
         endif ()
       endforeach ()

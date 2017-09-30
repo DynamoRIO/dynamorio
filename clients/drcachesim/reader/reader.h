@@ -39,7 +39,7 @@
 
 #include <assert.h>
 #include <iterator>
-#include <map>
+#include <unordered_map>
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "utils.h"
@@ -88,7 +88,7 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     addr_t cur_pc;
     addr_t next_pc;
     int bundle_idx;
-    std::map<memref_tid_t, memref_pid_t> tid2pid;
+    std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
 };
 
 #endif /* _READER_H_ */

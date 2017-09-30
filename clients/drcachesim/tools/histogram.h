@@ -36,7 +36,7 @@
 #ifndef _HISTOGRAM_H_
 #define _HISTOGRAM_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include <string>
 #include "../analysis_tool.h"
 #include "../common/memref.h"
@@ -53,8 +53,8 @@ class histogram_t : public analysis_tool_t
 
  protected:
     /* FIXME i#2020: use unsorted_map (C++11) for faster lookup */
-    std::map<addr_t, uint64_t> icache_map;
-    std::map<addr_t, uint64_t> dcache_map;
+    std::unordered_map<addr_t, uint64_t> icache_map;
+    std::unordered_map<addr_t, uint64_t> dcache_map;
 
     unsigned int knob_line_size;
     unsigned int knob_report_top; /* most accessed lines */
