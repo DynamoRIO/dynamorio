@@ -40,6 +40,7 @@
 #include "drmemtrace.h"
 #include "trace_entry.h"
 #include <fstream>
+#include "hashtable.h"
 #include <vector>
 
 #define OUTFILE_PREFIX "drmemtrace"
@@ -89,6 +90,11 @@ private:
     // icache entry does not need to be considered a memref PC entry as well.
     bool instrs_are_separate;
     unsigned int verbosity;
+    // We use a hashtable to cache decodings.  We compared the performance of
+    // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
+    // and c++11 std::unordered_map (including tuning its load factor, initial size,
+    // and hash function), and hashtable_t outperformed the others (i#2056).
+    hashtable_t decode_cache;
 };
 
 #endif /* _RAW2TRACE_H_ */
