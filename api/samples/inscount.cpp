@@ -145,7 +145,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     uint num_instrs;
 
 #ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
+    dr_printf("in dynamorio_basic_block(tag=" PFX")\n", tag);
 # ifdef VERBOSE_VERBOSE
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
@@ -171,7 +171,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     *user_data = (void *)(ptr_uint_t)num_instrs;
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished counting for dynamorio_basic_block(tag="PFX")\n", tag);
+    dr_printf("Finished counting for dynamorio_basic_block(tag=" PFX")\n", tag);
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 #endif
     return DR_EMIT_DEFAULT;

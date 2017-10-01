@@ -344,6 +344,19 @@ function (_DR_get_size is_cxx x64_var)
   endif (${sizeof_void} EQUAL 8)
 endfunction (_DR_get_size)
 
+
+function (_DR_get_x64 target x64_var)
+  _DR_get_lang(${target} tgt_lang)
+  if (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx ON)
+  else (${tgt_lang} MATCHES CXX)
+    set(tgt_cxx OFF)
+  endif (${tgt_lang} MATCHES CXX)
+  _DR_get_size(${tgt_cxx} tgt_x64)
+  set(${x64_var} ${tgt_x64} PARENT_SCOPE)
+endfunction (_DR_get_x64)
+
+
 # i#955: support a <basename>.drpath file for loader search paths
 function (_DR_get_drpath_name out target)
   get_target_property(client_path ${target} LOCATION${_DR_location_suffix})
@@ -351,48 +364,6 @@ function (_DR_get_drpath_name out target)
   string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
   set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
 endfunction (_DR_get_drpath_name)
-
-function (_DR_set_compile_flags target tgt_cflags)
-  # i#850: we do not want the C flags being used for asm objects so we only set
-  # on C/C++ files and not on the target.
-  # We do want the defines and include dirs to be global (or at least on the
-  # asm targets if using cpp2asm...)
-  # First, convert "/D FOO" to "/DFOO" for easier list conversion
-  string(REGEX REPLACE " /D " " /D" tgt_cflags_list "${tgt_cflags}")
-  # Now convert to list
-  string(REGEX REPLACE " " ";" tgt_cflags_list "${tgt_cflags_list}")
-  foreach (flag ${tgt_cflags_list})
-    if (flag MATCHES "^[-/]D" OR flag MATCHES "^[-/]I")
-      set(tgt_definc "${tgt_definc} ${flag}")
-    else ()
-      set(tgt_flags ${tgt_flags} ${flag})
-    endif ()
-  endforeach (flag)
-  get_target_property(srcs ${target} SOURCES)
-  foreach (src ${srcs})
-    get_source_file_property(lang ${src} LANGUAGE)
-    if ("${lang}" STREQUAL "C" OR "${lang}" STREQUAL "CXX" AND
-        # do not add COMPILE_FLAGS to an .obj file else VS2008 will try to
-        # compile the file!
-        NOT src MATCHES "\\.obj$")
-      # i#1396: don't double-add in case the same source file is in multiple
-      # DR client/standalone targets.
-      # We can't do a test of the entire flag set at once b/c we add
-      # "-fno-stack-protector" for the client and not for standalone.
-      get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
-      # Avoid -std=c++* from messing w/ our regex match.
-      string(REPLACE "++" "\\+\\+" cur_flags_esc ${cur_flags})
-      foreach (flag ${tgt_flags})
-        string(REPLACE "++" "\\+\\+" flag_esc ${flag})
-        if (NOT cur_flags_esc MATCHES " ${flag_esc}")
-          _DR_append_property_string(SOURCE ${src} COMPILE_FLAGS "${flag}")
-        endif ()
-      endforeach ()
-    endif ()
-  endforeach (src)
-
-  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_definc}")
-endfunction(_DR_set_compile_flags)
 
 if (NOT DynamoRIO_INTERNAL)
   # Global config once per project.
@@ -594,13 +565,20 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   set(${flags_out} "${extra_cflags}" PARENT_SCOPE)
 endfunction (DynamoRIO_extra_cflags)
 
-function (configure_DynamoRIO_common target is_client x64_var defs_var)
+
+function (_DR_set_compile_flags target is_client extra_flags)
+  # i#850: we do not want the C flags being used for asm objects so we only set
+  # on C/C++ files and not on the target.
+  # We do want the defines and include dirs to be global (or at least on the
+  # asm targets if using cpp2asm...)
+
   _DR_get_lang(${target} tgt_lang)
   if (${tgt_lang} MATCHES CXX)
     set(tgt_cxx ON)
   else (${tgt_lang} MATCHES CXX)
     set(tgt_cxx OFF)
   endif (${tgt_lang} MATCHES CXX)
+  _DR_get_x64(${target} tgt_x64)
 
   set(nested_scope ON) # for propagation
   configure_DynamoRIO_global(${tgt_cxx} ON)
@@ -623,55 +601,58 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
 
   # we ignore per-config flags here
   if (is_client)
-    if (tgt_cxx)
-      set(tgt_cflags
-        "${CLIENT_CMAKE_CXX_FLAGS} ${CLIENT_CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-    else (tgt_cxx)
-      set(tgt_cflags
-        "${CLIENT_CMAKE_C_FLAGS} ${CLIENT_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-    endif (tgt_cxx)
+    set(src_cxxflags
+      "${CLIENT_CMAKE_CXX_FLAGS} ${CLIENT_CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+    set(src_cflags
+      "${CLIENT_CMAKE_C_FLAGS} ${CLIENT_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
   else (is_client)
-    if (tgt_cxx)
-      set(tgt_cflags
-        "${ORIG_CMAKE_CXX_FLAGS} ${ORIG_CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-    else (tgt_cxx)
-      set(tgt_cflags
-        "${ORIG_CMAKE_C_FLAGS} ${ORIG_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-    endif (tgt_cxx)
+    set(src_cxxflags
+      "${ORIG_CMAKE_CXX_FLAGS} ${ORIG_CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+    set(src_cflags
+      "${ORIG_CMAKE_C_FLAGS} ${ORIG_CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
     if (WIN32)
       # For standalone we want the original flags, but we need to
       # explicitly link in static libc prior to dynamorio.lib to avoid
       # conflicts w/ ntdll forwards, so we don't support dynamic libc
       # (xref i#686) (or /MT since it puts libc last but we manipulate
       # that later).
-      if (tgt_cflags MATCHES "/MD")
-        string(REGEX REPLACE "/MD" "/MT" tgt_cflags "${tgt_cflags}")
+      if (src_cflags MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" src_cflags "${src_cflags}")
       else ()
-        set(tgt_cflags "${tgt_cflags} /MT")
+        set(src_cflags "${src_cflags} /MT")
+      endif ()
+      if (src_cxxflags MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" src_cxxflags "${src_cflags}")
+      else ()
+        set(src_cxxflags "${src_cxxflags} /MT")
       endif ()
     endif (WIN32)
   endif (is_client)
 
-  if (tgt_cflags MATCHES "/MT" AND tgt_cflags MATCHES "/MTd")
+  if (src_cflags MATCHES "/MT" AND src_cflags MATCHES "/MTd")
     # Avoid "Command line warning D9025 : overriding '/MT' with '/MTd'"
     # which we get due to our simple concat of CMAKE_C_FLAGS with the _DEBUG version.
-    string(REGEX REPLACE "/MT([^d]|$)" "\\1" tgt_cflags "${tgt_cflags}")
+    string(REGEX REPLACE "/MT([^d]|$)" "\\1" src_cflags "${src_cflags}")
+  endif ()
+  if (src_cxxflags MATCHES "/MT" AND src_cxxflags MATCHES "/MTd")
+    # Avoid "Command line warning D9025 : overriding '/MT' with '/MTd'"
+    # which we get due to our simple concat of CMAKE_C_FLAGS with the _DEBUG version.
+    string(REGEX REPLACE "/MT([^d]|$)" "\\1" src_cxxflags "${src_cxxflags}")
   endif ()
 
-  _DR_get_size(${tgt_cxx} tgt_x64)
-  DynamoRIO_extra_cflags(tgt_cflags "${tgt_cflags}" ${tgt_cxx})
+  DynamoRIO_extra_cflags(extra_flags "${extra_flags}" ${tgt_cxx})
 
   if (UNIX)
     if (is_client)
 
       if (NOT DEFINED DynamoRIO_VISATT)
         # Try to automatically determine visibility
-        if ("${tgt_cflags}" MATCHES "-fvisibility=hidden|-fvisibility=internal")
+        if ("${src_cflags}" MATCHES "-fvisibility=hidden|-fvisibility=internal")
           set(DynamoRIO_VISATT ON)
         endif()
       endif (NOT DEFINED DynamoRIO_VISATT)
       if (DynamoRIO_VISATT)
-        set(tgt_cflags "${tgt_cflags} -DUSE_VISIBILITY_ATTRIBUTES")
+        set(extra_flags "${extra_flags} -DUSE_VISIBILITY_ATTRIBUTES")
       endif (DynamoRIO_VISATT)
       if (tgt_cxx)
         set(tgt_link_flags "${tgt_link_flags}")
@@ -710,7 +691,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       endif (gcc_result)
       string(REGEX MATCH "fstack-protector" flag_present "${gcc_out}")
       if (flag_present)
-        set(tgt_cflags "${tgt_cflags} -fno-stack-protector")
+        set(extra_flags "${extra_flags} -fno-stack-protector")
       endif (flag_present)
 
     endif (is_client)
@@ -726,7 +707,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     # i#1800: '-mpreferred-stack-boundary' is not supported by clang,
     # so clang's build may not run legacy binaries.
     if (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-      set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
+      set(extra_flags "${extra_flags} -mpreferred-stack-boundary=2")
     endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
 
     if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
@@ -736,7 +717,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     endif ()
 
     if (NOT DynamoRIO_USE_LIBC AND NOT tgt_cxx AND is_client)
-      set(tgt_cflags "${tgt_cflags} -nostdlib")
+      set(extra_flags "${extra_flags} -nostdlib")
       if (APPLE)
         # Avoid errors about missing the _chk versions of memcpy, etc.
         set(tgt_link_flags "${tgt_link_flags} -undefined dynamic_lookup")
@@ -744,14 +725,16 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     endif ()
 
     # gcc is invoked for the link step so we have to repeat cflags as well
-    set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
-  else (UNIX)
     if (tgt_cxx)
-      set(tgt_cflags "${tgt_cflags} /EHsc")
-    endif (tgt_cxx)
+      set(tgt_link_flags "${src_cxxflags} ${extra_flags} ${tgt_link_flags}")
+    else ()
+      set(tgt_link_flags "${src_cflags} ${extra_flags} ${tgt_link_flags}")
+    endif ()
+  else (UNIX)
+    set(src_cxxflags "${src_cxxflags} /EHsc")
     if (is_client)
       # Avoid bringing in libc and/or kernel32 for stack checks
-      set(tgt_cflags "${tgt_cflags} /GS-")
+      set(extra_flags "${extra_flags} /GS-")
       # FIXME: why isn't /debug showing up: is it
     endif (is_client)
 
@@ -791,7 +774,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
           set(static_libc ${static_libc} libvcruntimed.lib libucrtd.lib)
         endif ()
         # libcmt has symbols libcmtd does not so we need all files compiled w/ _DEBUG
-        set(tgt_cflags "${tgt_cflags} -D_DEBUG")
+        set(extra_flags "${extra_flags} -D_DEBUG")
       else ()
         set(static_libc libcmt)
         if (tgt_cxx)
@@ -843,17 +826,72 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
   # Append LINK_FLAGS
   _DR_append_property_string(TARGET ${target} LINK_FLAGS "${tgt_link_flags}")
 
-  # Pass data to caller
-  set(${x64_var} ${tgt_x64} PARENT_SCOPE)
-  set(${defs_var} "${tgt_cflags}" PARENT_SCOPE)
+  # Now set the compile flags for each source file.
+  # First, convert "/D FOO" to "/DFOO" for easier list conversion
+  string(REGEX REPLACE " /D " " /D" src_cflags_list "${src_cflags} ${extra_flags}")
+  # Now convert to list
+  string(REGEX REPLACE " " ";" src_cflags_list "${src_cflags_list}")
+  foreach (flag ${src_cflags_list})
+    if (flag MATCHES "^[-/]D" OR flag MATCHES "^[-/]I")
+      if (NOT tgt_cxx)
+        set(tgt_definc "${tgt_definc} ${flag}")
+      endif ()
+    else ()
+      set(tgt_cflags ${tgt_cflags} ${flag})
+    endif ()
+  endforeach (flag)
+  # Ditto for cxxflags.
+  string(REGEX REPLACE " /D " " /D" src_cxxflags_list "${src_cxxflags} ${extra_flags}")
+  string(REGEX REPLACE " " ";" src_cxxflags_list "${src_cxxflags_list}")
+  foreach (flag ${src_cxxflags_list})
+    if (flag MATCHES "^[-/]D" OR flag MATCHES "^[-/]I")
+      if (tgt_cxx)
+        set(tgt_definc "${tgt_definc} ${flag}")
+      endif ()
+    else ()
+      set(tgt_cxxflags ${tgt_cxxflags} ${flag})
+    endif ()
+  endforeach (flag)
 
-endfunction (configure_DynamoRIO_common)
+  get_target_property(srcs ${target} SOURCES)
+  foreach (src ${srcs})
+    get_source_file_property(lang ${src} LANGUAGE)
+    if ("${lang}" STREQUAL "C" OR "${lang}" STREQUAL "CXX" AND
+        # do not add COMPILE_FLAGS to an .obj file else VS2008 will try to
+        # compile the file!
+        NOT src MATCHES "\\.obj$")
+      # i#1396: don't double-add in case the same source file is in multiple
+      # DR client/standalone targets.
+      # We can't do a test of the entire flag set at once b/c we add
+      # "-fno-stack-protector" for the client and not for standalone.
+      get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
+      # Avoid -std=c++* from messing w/ our regex match.
+      string(REPLACE "++" "\\+\\+" cur_flags_esc ${cur_flags})
+      if ("${lang}" STREQUAL "CXX")
+        set(tgt_flags ${tgt_cxxflags})
+      else ()
+        set(tgt_flags ${tgt_cflags})
+      endif ()
+      foreach (flag ${tgt_flags})
+        string(REPLACE "++" "\\+\\+" flag_esc ${flag})
+        if (NOT cur_flags_esc MATCHES " ${flag_esc}")
+          _DR_append_property_string(SOURCE ${src} COMPILE_FLAGS "${flag}")
+        endif ()
+      endforeach ()
+    endif ()
+  endforeach (src)
+
+  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_definc}")
+endfunction(_DR_set_compile_flags)
 
 
 function (configure_DynamoRIO_client target)
+  _DR_get_x64(${target} tgt_x64)
+
   # We clear LINK_FLAGS and let the helper routines append to them:
   set_target_properties(${target} PROPERTIES LINK_FLAGS "")
-  configure_DynamoRIO_common(${target} ON tgt_x64 tgt_cflags)
+
+  _DR_set_compile_flags(${target} ON "")
   if (just_configured)
     # get around lack of GLOBAL_SCOPE
     # do NOT set just_configured in global scope
@@ -938,8 +976,6 @@ function (configure_DynamoRIO_client target)
     _DR_append_property_string(TARGET ${target} LINK_FLAGS "${PREFERRED_BASE_FLAGS}")
   endif (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
 
-  _DR_set_compile_flags(${target} "${tgt_cflags}")
-
   # TODO: a nice feature would be to check the client for libc imports or
   # other not-recommended properties
 
@@ -949,7 +985,12 @@ endfunction (configure_DynamoRIO_client)
 function (configure_DynamoRIO_standalone target)
   # We don't clear LINK_FLAGS b/c we assume standalone doesn't need to have
   # flags removed.  Usually the target LINK_FLAGS is empty at this point anyway.
-  configure_DynamoRIO_common(${target} OFF tgt_x64 tgt_cflags)
+  set(extra_flags "-DDYNAMORIO_STANDALONE")
+  if (ANDROID)
+    set(extra_flags ${extra_flags} "-fPIE -pie")
+  endif (ANDROID)
+  _DR_set_compile_flags(${target} OFF "${extra_flags}")
+
   # get around lack of GLOBAL_SCOPE
   foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
     if ("${config}" STREQUAL "")
@@ -963,13 +1004,6 @@ function (configure_DynamoRIO_standalone target)
       set(${var} "${${var}}" PARENT_SCOPE)
     endforeach (var)
   endforeach (config)
-
-  if (ANDROID)
-    set(tgt_cflags ${tgt_cflags} "-fPIE -pie")
-  endif (ANDROID)
-  _DR_set_compile_flags(${target} "${tgt_cflags} -DDYNAMORIO_STANDALONE")
-  # LINK_FLAGS are appended by the helper routines above
-
 endfunction (configure_DynamoRIO_standalone)
 
 
