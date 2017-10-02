@@ -897,7 +897,7 @@ align_page_boundary(dcontext_t *dcontext,
 bool
 is_newly_created_process(HANDLE process_handle)
 {
-    uint remote_ldr_data;
+    int remote_ldr_data;
     /* We check based on - trait 3) PEB.Ldr
      *    The Ldr entry is created by the running process itself later */
 
