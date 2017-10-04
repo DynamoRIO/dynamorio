@@ -2580,6 +2580,15 @@ os_process_under_dynamorio_initiate(dcontext_t *dcontext)
     /* We only support regular process-wide signal handlers for delayed takeover. */
     /* i#2161: we ignore alarm signals during the attach process to avoid races. */
     signal_reinstate_handlers(dcontext, true/*ignore alarm*/);
+    /* XXX: there's a tradeoff here: we have a race when we remove the hook
+     * because dr_app_stop() has no barrier and a thread sent native might
+     * resume from vsyscall after we remove the hook.  However, if we leave the
+     * hook, then the next takeover signal might hit a native thread that's
+     * inside DR just to go back native after having hit the hook.  For now we
+     * remove the hook and rely on translate_from_synchall_to_dispatch() moving
+     * threads from vsyscall to our gencode and not relying on the hook being
+     * present to finish up their go-native code.
+     */
     hook_vsyscall(dcontext, false);
 }
 
