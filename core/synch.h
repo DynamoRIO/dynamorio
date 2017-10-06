@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -145,6 +145,9 @@ synch_thread_exit(dcontext_t *dcontext);
 
 bool
 thread_synch_state_no_xfer(dcontext_t *dcontext);
+
+bool
+thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm);
 
 /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set to
  * whether synch_with_thread was successful.

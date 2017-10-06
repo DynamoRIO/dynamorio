@@ -6978,6 +6978,10 @@ dr_fragment_app_pc(void *tag)
             SYSLOG_INTERNAL_WARNING_ONCE("dr_fragment_app_pc is a DR/client pc");
         }
     });
+#elif defined(LINUX) && defined(X86_32)
+    /* Point back at our hook, undoing the bb shift for SA_RESTART (i#2659). */
+    if ((app_pc)tag == vsyscall_sysenter_displaced_pc)
+        tag = vsyscall_sysenter_return_pc;
 #endif
     return tag;
 }

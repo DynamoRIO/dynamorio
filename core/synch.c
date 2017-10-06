@@ -172,6 +172,13 @@ thread_synch_state_no_xfer(dcontext_t *dcontext)
             tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
 }
 
+bool
+thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm)
+{
+    thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
+    return THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+}
+
 /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set to
  * whether synch_with_all_threads was successful in synching this thread.
  * Cannot be called when THREAD_SYNCH_*_AND_CLEANED was requested as the
@@ -187,6 +194,28 @@ thread_synch_successful(thread_record_t *tr)
     tsd = (thread_synch_data_t *) tr->dcontext->synch_field;
     return tsd->synch_with_success;
 }
+
+#ifdef UNIX
+/* i#2659: the kernel is now doing auto-restart so we have to check for the
+ * pc being at the syscall.
+ */
+static bool
+is_after_or_restarted_do_syscall(dcontext_t *dcontext, app_pc pc, bool check_vsyscall)
+{
+    if (is_after_do_syscall_addr(dcontext, pc))
+        return true;
+    if (check_vsyscall && pc == vsyscall_sysenter_return_pc)
+        return true;
+    if (!get_at_syscall(dcontext)) /* rule out having just reached the syscall */
+        return false;
+    int syslen = syscall_instr_length(dr_get_isa_mode(dcontext));
+    if (is_after_do_syscall_addr(dcontext, pc + syslen))
+        return true;
+    if (check_vsyscall && pc + syslen == vsyscall_sysenter_return_pc)
+        return true;
+    return false;
+}
+#endif
 
 bool
 is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
@@ -207,7 +236,7 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
             return pc == after_do_syscall_code(dcontext);
         }
 #else
-        return is_after_do_syscall_addr(dcontext, pc);
+        return is_after_or_restarted_do_syscall(dcontext, pc, false/*!vsys*/);
 #endif
     } else if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 #ifdef WINDOWS
@@ -231,8 +260,7 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
          * distinguish those: but for now if a sysenter instruction is used it
          * has to be do_syscall since DR's own syscalls are ints.
          */
-        return (pc == vsyscall_sysenter_return_pc ||
-                is_after_do_syscall_addr(dcontext, pc));
+        return is_after_or_restarted_do_syscall(dcontext, pc, true/*vsys*/);
 #endif
     }
     /* we can reach here w/ a fault prior to 1st syscall on Linux */
@@ -1599,8 +1627,29 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             "\tat syscall so not translating\n");
         /* sanity check */
         ASSERT(is_after_syscall_address(dcontext, pre_translation) ||
-               pre_translation == IF_WINDOWS_ELSE(vsyscall_after_syscall,
-                                                  vsyscall_sysenter_return_pc));
+               IF_WINDOWS_ELSE(pre_translation == vsyscall_after_syscall,
+                               is_after_or_restarted_do_syscall
+                               (dcontext, pre_translation, true/*vsys*/)));
+#if defined(UNIX) && defined(X86_32)
+        if (pre_translation == vsyscall_sysenter_return_pc ||
+            pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc) {
+            /* Because we remove the vsyscall hook on a send_all_other_threads_native()
+             * yet have no barrier to know the threads have run their own go-native
+             * code, we want to send them away from the hook, to our gencode.
+             */
+            if (pre_translation == vsyscall_sysenter_return_pc)
+                mc->pc = after_do_shared_syscall_addr(dcontext);
+            else if (pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)
+                mc->pc = get_do_int_syscall_entry(dcontext);
+            /* exit stub and subsequent fcache_return will save rest of state */
+            res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                             synch_state _IF_X64((void *)mc)
+                                             _IF_WINDOWS(NULL));
+            ASSERT(res);
+            /* cxt is freed by set_synched_thread_context() or target thread */
+            free_cxt = false;
+        }
+#endif
         IF_ARM({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
@@ -1831,10 +1880,13 @@ send_all_other_threads_native(void)
              * going to dispatch and then going native when its syscall exits.
              *
              * FIXME i#95: That means the time to go native is, unfortunately,
-             * unbounded.  this means that dr_app_cleanup() needs to synch the
+             * unbounded.  This means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
              * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
+             * This also means we have a race with unhook_vsyscall in
+             * os_process_not_under_dynamorio(), which we solve by redirecting
+             * threads at syscalls to our gencode.
              */
             translate_from_synchall_to_dispatch(threads[i], desired_state);
         }
