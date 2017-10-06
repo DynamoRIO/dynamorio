@@ -1354,15 +1354,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * mechanism) before the system call, and restore it afterwards.
      */
     ASSERT(DR_REG_STOLEN_MIN > DR_REG_SYSNUM);
-
-    /* We have to save r0 in case the syscall is interrupted.  To restart
-     * it, we need to replace the kernel's -EINTR in r0 with the original
-     * app arg.
-     * XXX optimization: we could try to get the syscall number and avoid
-     * this for non-auto-restart syscalls.
-     */
-    PRE(ilist, instr,
-        instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
 }
 
 # ifdef UNIX

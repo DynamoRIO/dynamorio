@@ -1305,6 +1305,10 @@ set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler)
 #ifdef HAVE_SIGALTSTACK
     act->flags |= SA_ONSTACK; /* use our sigstack */
 #endif
+    /* We want the kernel to help us auto-restart syscalls, esp. when our signals
+     * interrupt native code such as during attach or in client or DR code (i#2659).
+     */
+    act->flags |= SA_RESTART;
 
 #if defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
     /* PR 305020: must have SA_RESTORER for x64 */
@@ -3580,16 +3584,16 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
 /* i#1145: auto-restart syscalls interrupted by signals */
 static bool
 adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
-                           sigcontext_t *sc, fragment_t *f)
+                           sigcontext_t *sc, fragment_t *f, reg_t orig_retval_reg)
 {
     byte *pc = (byte *) sc->SC_XIP;
-    instr_t instr;
     int sys_inst_len;
 
     if (sc->IF_X86_ELSE(SC_XAX, SC_R0) != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
          * Some syscalls succeed on a signal coming in.
          * E.g., SYS_wait4 on SIGCHLD, or reading from a slow device.
+         * XXX: Now that we pass SA_RESTART we should never get here?
          */
         return false;
     }
@@ -3605,116 +3609,72 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     if (!DYNAMO_OPTION(restart_syscalls))
         return false;
 
-    /* For x86, the kernel has already put -EINTR into eax, so we must
-     * restore the syscall number.  We assume no other register or
-     * memory values have been clobbered from their pre-syscall
-     * values.
-     * For ARM, we want the sysnum to determine whether restartable.
+    /* Now that we use SA_RESTART we rely on that and ignore our own
+     * inaccurate check sysnum_is_not_restartable(sysnum).
+     * SA_RESTART also means we can just be passed in the register value to restore.
      */
-    int sysnum = -1;
-    if (f != NULL) {
-        /* Inlined syscall.  I'd use find_syscall_num() but we'd need to call
-         * decode_fragment() and tweak find_syscall_num() to handle the skip-syscall
-         * jumps, or grab locks and call recreate_fragment_ilist() -- both are
-         * heavyweight, so we do our own decode loop.
-         * We assume we'll find a mov-imm b/c otherwise we wouldn't have inlined this.
-         */
-        LOG(THREAD, LOG_ASYNCH, 3, "%s: decoding to find syscall #\n", __FUNCTION__);
-        instr_init(dcontext, &instr);
-        pc = FCACHE_ENTRY_PC(f);
-        do {
-            ptr_int_t val;
-            DOLOG(3, LOG_ASYNCH, {
-                disassemble_with_bytes(dcontext, pc, THREAD);
-            });
-            instr_reset(dcontext, &instr);
-            pc = decode(dcontext, pc, &instr);
-            if (instr_is_mov_constant(&instr, &val) &&
-                opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                reg_to_pointer_sized(opnd_get_reg(instr_get_dst(&instr, 0))) ==
-                reg_to_pointer_sized(DR_REG_SYSNUM)) {
-                sysnum = (int) val;
-                /* don't break: find last one before syscall */
-            }
-        } while (pc != NULL && instr_valid(&instr) && !instr_is_syscall(&instr) &&
-                 pc < FCACHE_ENTRY_PC(f) + f->size);
-        instr_free(dcontext, &instr);
-        ASSERT(DYNAMO_OPTION(ignore_syscalls));
-        ASSERT(sysnum > -1);
-   } else {
-        /* do_syscall => eax should be in mcontext */
-        sysnum = (int) MCXT_SYSNUM_REG(get_mcontext(dcontext));
-    }
-    LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall # is %d\n", __FUNCTION__, sysnum);
-    if (sysnum_is_not_restartable(sysnum)) {
-        LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall is non-restartable\n", __FUNCTION__);
-        return false;
-    }
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xax/r0 to %ld\n", __FUNCTION__,
+        orig_retval_reg);
 #ifdef X86
-    sc->SC_SYSNUM_REG = sysnum;
+    sc->SC_XAX = orig_retval_reg;
 #elif defined(AARCHXX)
-    /* We just need to restore the app's arg to the syscall into r0, which
-     * the kernel clobbered with -EINTR.  We stored r0 into TLS.
-     */
-    sc->SC_R0 = (reg_t) get_tls(os_tls_offset(TLS_REG0_SLOT));
-    LOG(THREAD, LOG_ASYNCH, 2, "%s: restored r0 to "PFX"\n", __FUNCTION__, sc->SC_R0);
+    sc->SC_R0 = orig_retval_reg;
 #else
 # error NYI
 #endif
 
     /* Now adjust the pc to point at the syscall instruction instead of after it,
      * so when we resume we'll go back to the syscall.
-     *
-     * XXX: this is a transparency issue: the app might expect a pc after the
-     * syscall.  We live with it for now.
+     * Adjusting solves transparency as well: natively the kernel adjusts
+     * the pc before setting up the signal frame.
+     * We don't pass in the post-syscall pc provided by the kernel because
+     * we want the app pc, not the raw pc.
      */
-#ifdef ARM
-    dr_isa_mode_t isa_mode, old_mode;
-    if (is_after_syscall_address(dcontext, pc)) {
-        /* We're going to walk back in the fragment, not gencode */
+    dr_isa_mode_t isa_mode;
+    if (is_after_syscall_address(dcontext, pc) ||
+        pc == vsyscall_sysenter_return_pc) {
         isa_mode = dr_get_isa_mode(dcontext);
     } else {
+        /* We're going to walk back in the fragment, not gencode */
         ASSERT(f != NULL);
         isa_mode = FRAG_ISA_MODE(f->flags);
     }
-    dr_set_isa_mode(dcontext, isa_mode, &old_mode);
-    sys_inst_len = (isa_mode == DR_ISA_ARM_THUMB) ? SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
-#else
-    ASSERT(INT_LENGTH == SYSCALL_LENGTH &&
-           INT_LENGTH == SYSENTER_LENGTH);
-    sys_inst_len = INT_LENGTH;
-#endif
+    sys_inst_len = syscall_instr_length(isa_mode);
+
     if (pc == vsyscall_sysenter_return_pc) {
 #ifdef X86
         sc->SC_XIP = (ptr_uint_t) (vsyscall_syscall_end_pc - sys_inst_len);
         /* To restart sysenter we must re-copy xsp into xbp, as xbp is
          * clobbered by the kernel.
+         * XXX: The kernel points at the int 0x80 in vsyscall on a restart
+         * and so doesn't have to do this: should we do that too?  If so we'll
+         * have to avoid interpreting our own hook which is right after the
+         * int 0x80.
          */
         sc->SC_XBP = sc->SC_XSP;
 #else
         ASSERT_NOT_REACHED();
 #endif
     } else if (is_after_syscall_address(dcontext, pc)) {
-        /* We're at do_syscall: point at app syscall instr */
+        /* We're at do_syscall: point at app syscall instr.  We want an app
+         * address b/c this signal will be delayed and the delivery will use
+         * a direct app context: no translation from the cache.
+         * The caller sets info->sigpending[sig]->use_sigcontext for us.
+         */
         sc->SC_XIP = (ptr_uint_t) (dcontext->asynch_target - sys_inst_len);
         DODEBUG({
+            instr_t instr;
+            dr_isa_mode_t old_mode;
+            dr_set_isa_mode(dcontext, isa_mode, &old_mode);
             instr_init(dcontext, &instr);
             ASSERT(decode(dcontext, (app_pc) sc->SC_XIP, &instr) != NULL &&
                    instr_is_syscall(&instr));
             instr_free(dcontext, &instr);
+            dr_set_isa_mode(dcontext, old_mode, NULL);
         });
     } else {
-        instr_init(dcontext, &instr);
-        pc = decode(dcontext, pc - sys_inst_len, &instr);
-        if (instr_is_syscall(&instr))
-            sc->SC_XIP -= sys_inst_len;
-        else
-            ASSERT_NOT_REACHED();
-        instr_free(dcontext, &instr);
+        ASSERT_NOT_REACHED(); /* Inlined syscalls no longer come here. */
     }
-#ifdef ARM
-    dr_set_isa_mode(dcontext, old_mode, NULL);
-#endif
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now "PFX"\n", __FUNCTION__,
         sc->SC_XIP);
     return true;
@@ -3735,7 +3695,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool receive_now = false;
     bool blocked = false;
     bool handled = false;
-    bool at_syscall = false;
+    bool at_auto_restart_syscall = false;
+    int syslen = 0;
+    reg_t orig_retval_reg = sc->IF_X86_ELSE(SC_XAX, SC_R0);
     sigpending_t *pend;
     fragment_t *f = NULL;
     fragment_t wrapper;
@@ -3791,6 +3753,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         }
 #endif
     }
+
+    if (get_at_syscall(dcontext))
+        syslen = syscall_instr_length(dr_get_isa_mode(dcontext));
 
     if (info->app_sigaction[sig] != NULL &&
         info->app_sigaction[sig]->handler == (handler_t)SIG_IGN
@@ -3852,7 +3817,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     receive_now = true;
                     LOG(THREAD, LOG_ASYNCH, 2,
                         "signal interrupted pre/post syscall itself so delivering now\n");
-                    at_syscall = true;
+                    /* We don't set at_auto_restart_syscall because we just leave
+                     * the SA_RESTART kernel-supplied resumption point: with no
+                     * post-syscall handler to worry about we have no need to
+                     * change anything.
+                     */
                 } else {
                     /* could get another signal but should be in same fragment */
                     ASSERT(info->interrupted == NULL || info->interrupted == f);
@@ -3880,19 +3849,35 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * the master_signal_handler, thus any error in a generated routine
          * is an asynch signal that can be delayed
          */
-        /* FIXME: dispatch on routine:
-         * if fcache_return, treat as dynamo
-         * if fcache_enter, unlink next frag, treat as dynamo
-         *   what if next frag has syscall in it?
-         * if indirect_branch_lookup prior to getting target...?!?
-         */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from gen routine or stub "PFX"\n", sig, pc);
-        /* i#1206: the syscall was interrupted, so we can go back to dispatch
-         * and don't need to receive it now (which complicates post-syscall handling)
-         * w/o any extra delay.
-         */
-        at_syscall = is_after_syscall_address(dcontext, pc);
+        if (get_at_syscall(dcontext)) {
+            /* i#1206: the syscall was interrupted, so we can go back to dispatch
+             * and don't need to receive it now (which complicates post-syscall handling)
+             * w/o any extra delay.
+             */
+            /* i#2659: we now use SA_RESTART to handle interrupting native
+             * auto-restart syscalls.  That means we have to adjust do_syscall
+             * interruption to give us control so we can deliver the signal.  Due to
+             * needing to run post-syscall handlers (we don't want to get into nested
+             * dcontexts like on Windows) it's simplest to go back to dispatch, which
+             * is most easily done by emulating the non-SA_RESTART behavior.
+             * XXX: This all seems backward: we should revisit this model and see if
+             * we can get rid of this emulation and the auto-restart emulation.
+             */
+            /* The get_at_syscall() check above distinguishes from just having
+             * arrived at the syscall instr.
+             */
+            if (is_after_syscall_address(dcontext, pc + syslen)) {
+                LOG(THREAD, LOG_ASYNCH, 2,
+                    "Adjusting interrupted auto-restart syscall from "PFX" to "PFX"\n",
+                    pc, pc + syslen);
+                at_auto_restart_syscall = true;
+                sc->SC_XIP += syslen;
+                sc->IF_X86_ELSE(SC_XAX, SC_R0) = -EINTR;
+                pc = (byte *) sc->SC_XIP;
+            }
+        }
         /* This could come from another thread's SYS_kill (via our gen do_syscall) */
         DOLOG(1, LOG_ASYNCH, {
             if (!is_after_syscall_address(dcontext, pc) &&
@@ -3943,13 +3928,28 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 }
             }
         }
+    } else if (get_at_syscall(dcontext) && pc == vsyscall_sysenter_return_pc - syslen) {
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "record_pending_signal(%d) from restart-vsyscall "PFX"\n", sig, pc);
+        /* While the kernel points at int 0x80 for a restart, we leverage our
+         * existing sysenter restart mechanism.
+         */
+        at_auto_restart_syscall = true;
+        sc->SC_XIP = (reg_t) vsyscall_sysenter_return_pc;
+        sc->IF_X86_ELSE(SC_XAX, SC_R0) = -EINTR;
+        pc = (byte *) sc->SC_XIP;
     } else if (pc == vsyscall_sysenter_return_pc) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from vsyscall "PFX"\n", sig, pc);
-        /* i#1206: the syscall was interrupted, so we can go back to dispatch
-         * and don't need to receive it now (which complicates post-syscall handling)
+        /* i#1206: the syscall was interrupted but is not auto-restart, so we can go
+         * back to dispatch and don't need to receive it now (which complicates
+         * post-syscall handling)
          */
-        at_syscall = true;
+    } else if (thread_synch_check_state(dcontext, THREAD_SYNCH_NO_LOCKS)) {
+        /* The signal interrupted DR or the client but it's at a safe spot so
+         * deliver it now.
+         */
+        receive_now = true;
     } else {
         /* the signal interrupted DR itself => do not run handler now! */
         LOG(THREAD, LOG_ASYNCH, 2,
@@ -3979,11 +3979,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         bool xl8_success;
 
-        /* i#1145: update the context for an auto-restart syscall
-         * before we make the sc_orig copy or translate.
-         */
-        if (at_syscall)
-            adjust_syscall_for_restart(dcontext, info, sig, sc, f);
+        ASSERT(!at_auto_restart_syscall); /* only used for delayed delivery */
 
         sc_orig = *sc;
         ASSERT(!forged);
@@ -4134,11 +4130,12 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             copy_frame_to_pending(dcontext, sig, frame _IF_CLIENT(access_address));
 
             /* i#1145: check whether we should auto-restart an interrupted syscall */
-            if (at_syscall) {
+            if (at_auto_restart_syscall) {
                 /* Adjust the pending frame to restart the syscall, if applicable */
                 sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
                 sigcontext_t *sc_pend = get_sigcontext_from_rt_frame(frame);
-                if (adjust_syscall_for_restart(dcontext, info, sig, sc_pend, f)) {
+                if (adjust_syscall_for_restart(dcontext, info, sig, sc_pend, f,
+                                               orig_retval_reg)) {
                     /* We're going to re-start this syscall after we go
                      * back to dispatch, run the post-syscall handler (for -EINTR),
                      * and deliver the signal.  We've adjusted the sigcontext
@@ -4912,7 +4909,8 @@ master_signal_handler_C(byte *xsp)
     }
     } /* end switch */
 
-    LOG(THREAD, LOG_ASYNCH, level, "\tmaster_signal_handler %d returning now\n\n", sig);
+    LOG(THREAD, LOG_ASYNCH, level,
+        "\tmaster_signal_handler %d returning now to "PFX"\n\n", sig, sc->SC_XIP);
 
     /* restore protections */
     if (local)

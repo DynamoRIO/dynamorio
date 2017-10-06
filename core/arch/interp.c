@@ -252,6 +252,14 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
               overlap_info_t *overlap_info)
 {
     memset(bb, 0, sizeof(*bb));
+#if defined(LINUX) && defined(X86_32)
+    /* With SA_RESTART (i#2659) we end up interpreting the int 0x80 in vsyscall,
+     * whose fall-through hits our hook.  We avoid interpreting our own hook
+     * by shifting it to the displaced pc.
+     */
+    if (start_pc == vsyscall_sysenter_return_pc)
+        start_pc = vsyscall_sysenter_displaced_pc;
+#endif
     bb->check_vm_area = true;
     bb->start_pc = start_pc;
     bb->app_interp = app_interp;

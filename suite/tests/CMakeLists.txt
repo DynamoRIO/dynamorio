@@ -1918,6 +1918,7 @@ if (CLIENT_INTERFACE)
     endif (X86 OR AARCH64)
     if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
+      target_link_libraries(client.signal ${libpthread})
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
   else (UNIX)

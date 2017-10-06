@@ -700,7 +700,6 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         sysnum_is_not_restartable(ilist_find_sysnum(ilist, instr))) {
         /* i#1216: we insert a nop instr right after inlined non-auto-restart
          * syscall to make it a safe point for suspending.
-         * XXX-i#1216-c#2: we still need handle auto-restart syscall
          */
         instr_t *nop = XINST_CREATE_nop(dcontext);
         /* We make a fake app nop instr for easy handling in recreate_app_state.

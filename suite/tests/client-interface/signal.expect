@@ -1,8 +1,8 @@
-Sending SIGURG
-signal event 0 sig=23
-Got SIGURG
+signal event 0 sig=17
+got 2 bytes == 97 98
 Sending SIGURG
 signal event 1 sig=23
+Got SIGURG
 Sending SIGURG
 signal event 2 sig=23
 Sending SIGURG
@@ -11,16 +11,18 @@ Sending SIGURG
 signal event 4 sig=23
 Sending SIGURG
 signal event 5 sig=23
+Sending SIGURG
+signal event 6 sig=23
 Sending SIGTERM
-signal event 6 sig=15
+signal event 7 sig=15
 Redirected
 Sending SIGUSR2
-signal event 7 sig=12
+signal event 8 sig=12
 Redirected
-signal event 8 sig=11
 signal event 9 sig=11
+signal event 10 sig=11
 Got SIGSEGV
 Sending SIGUSR1
-signal event 10 sig=10
+signal event 11 sig=10
 Got SIGUSR1
 Done
