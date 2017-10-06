@@ -147,12 +147,13 @@ void dr_init(client_id_t id)
      * It's hard to arrange this w/ an app thread and app signals so we use a
      * client thread and direct signals.
      */
-    int pipefd[2];
-    int res = pipe(pipefd);
-    ASSERT(res != -1);
     child_alive = dr_event_create();
     child_dead = dr_event_create();
     sigchld_received = dr_event_create();
+#ifdef LINUX
+    int pipefd[2];
+    int res = pipe(pipefd);
+    ASSERT(res != -1);
     bool success = dr_create_client_thread(thread_func, (void*)(long)pipefd[0]);
     ASSERT(success);
     dr_event_wait(child_alive);
@@ -168,7 +169,14 @@ void dr_init(client_id_t id)
     write(pipefd[1], "ab", 2);
     close(pipefd[1]);
     dr_event_wait(child_dead);
-
+#elif defined(MACOS)
+    /* FIXME i#58: dr_create_client_thread is NYI, and we need the
+     * thread port to use SYS___pthread_kill.
+     */
+    kill(getpid(), SIGCHLD);
+#else
+# error Unsupported OS
+#endif
     dr_event_destroy(child_alive);
     dr_event_destroy(child_dead);
     dr_event_destroy(sigchld_received);
