@@ -134,7 +134,7 @@ std::string
 raw2trace_t::unmap_modules(void)
 {
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
-    // may not have even initialized the modhandle yet
+    // may not have even initialized the modhandle yet.
     if (modhandle != NULL &&
         drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
           return "Failed to clean up module table data";
