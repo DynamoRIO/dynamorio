@@ -135,9 +135,10 @@ raw2trace_t::unmap_modules(void)
 {
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet
-    if (modhandle != NULL)
-      if (drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS)
+    if (modhandle != NULL &&
+        drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
           return "Failed to clean up module table data";
+    }
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
         if (mvi->map_base != NULL && mvi->map_size != 0) {
