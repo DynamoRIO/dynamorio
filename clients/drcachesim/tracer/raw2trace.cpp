@@ -133,8 +133,12 @@ raw2trace_t::read_and_map_modules(const char *module_map)
 std::string
 raw2trace_t::unmap_modules(void)
 {
-    if (drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS)
-        return "Failed to clean up module table data";
+    // drmodtrack_offline_exit requires the parameter to be non-null, but we
+    // may not have even initialized the modhandle yet.
+    if (modhandle != NULL &&
+        drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+          return "Failed to clean up module table data";
+    }
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
         if (mvi->map_base != NULL && mvi->map_size != 0) {
@@ -519,9 +523,10 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          std::ostream *out_file_in,
                          void *dcontext_in,
                          unsigned int verbosity_in)
-    : modmap(module_map_in), thread_files(thread_files_in), out_file(out_file_in),
-      dcontext(dcontext_in), prev_instr_was_rep_string(false), instrs_are_separate(false),
-      verbosity(verbosity_in)
+    : modmap(module_map_in), modhandle(NULL), thread_files(thread_files_in),
+    out_file(out_file_in), dcontext(dcontext_in),
+    prev_instr_was_rep_string(false), instrs_are_separate(false),
+    verbosity(verbosity_in)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();
