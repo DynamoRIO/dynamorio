@@ -7299,7 +7299,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                opnd_create_reg(reg),
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
                                                          0, SELF_TIB_OFFSET, OPSZ_PTR)));
-    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
+    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES || seg == SEG_SS) {
         /* XXX: we assume flat address space */
         instrlist_meta_preinsert
             (ilist, instr,
