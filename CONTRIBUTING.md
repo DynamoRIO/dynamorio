@@ -2,8 +2,10 @@
 
 We welcome contributions to the DynamoRIO project.
 
-If you would like to contribute code to DynamoRIO, you will need to first sign a
-[Contributor License Agreement](https://developers.google.com/open-source/cla/individual).
+If you would like to contribute code to DynamoRIO, we do not require a
+formal contributor license agreement.  Contributions are implicitly assumed
+to be offered under terms of [DynamoRIO's
+license](https://github.com/DynamoRIO/dynamorio/blob/master/License.txt).
 
 Our wiki contains further information on policies, how to check out the
 code, and how to add new code:
