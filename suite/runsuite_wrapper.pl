@@ -120,6 +120,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.pcache-use' => 1,
                                    'code_api|api.detach' => 1, # i#2246
+                                   'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|client.nudge_ex' => 1);
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
@@ -128,6 +129,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.drmgr-test' => 1, # i#1369
                                    'code_api|client.nudge_ex' => 1,
                                    'code_api|api.detach' => 1, # i#2246
+                                   'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|api.static_noclient' => 1,
                                    'code_api|api.static_noinit' => 1);
