@@ -2495,7 +2495,9 @@ if (CLIENT_INTERFACE)
       if (AARCH64)
         torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
           "allasm-aarch64-cache.c" # for expect basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64" "" "")
+          # XXX i#2676: We disable the data prefetcher until someone with A64
+          # hardware gets a chance to update the expected output.
+          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64 -data_prefetcher none" "" "")
         set(tool.drcachesim.aarch64_toolname "drcachesim")
         set(tool.drcachesim.aarch64_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")

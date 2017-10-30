@@ -39,6 +39,8 @@
 #define REPLACE_POLICY_LRU                      "LRU"
 #define REPLACE_POLICY_LFU                      "LFU"
 #define REPLACE_POLICY_FIFO                     "FIFO"
+#define PREFETCH_POLICY_NEXTLINE                "nextline"
+#define PREFETCH_POLICY_NONE                    "none"
 #define CPU_CACHE                               "cache"
 #define TLB                                     "TLB"
 #define HISTOGRAM                               "histogram"
@@ -69,6 +71,7 @@ extern droption_t<unsigned int> op_virt2phys_freq;
 extern droption_t<bytesize_t> op_max_trace_size;
 extern droption_t<bool> op_online_instr_types;
 extern droption_t<std::string> op_replace_policy;
+extern droption_t<std::string> op_data_prefetcher;
 extern droption_t<bytesize_t> op_page_size;
 extern droption_t<unsigned int> op_TLB_L1I_entries;
 extern droption_t<unsigned int> op_TLB_L1D_entries;

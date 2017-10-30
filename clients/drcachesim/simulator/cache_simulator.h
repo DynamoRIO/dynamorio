@@ -53,6 +53,7 @@ class cache_simulator_t : public simulator_t
                       uint64_t LL_size,
                       unsigned int LL_assoc,
                       std::string replace_policy,
+                      std::string data_prefetcher,
                       uint64_t skip_refs,
                       uint64_t warmup_refs,
                       uint64_t sim_refs,
@@ -76,6 +77,7 @@ class cache_simulator_t : public simulator_t
     uint64_t knob_LL_size;
     unsigned int knob_LL_assoc;
     std::string knob_replace_policy;
+    std::string knob_data_prefetcher;
 
     // Implement a set of ICaches and DCaches with pointer arrays.
     // This is useful for implementing polymorphism correctly.

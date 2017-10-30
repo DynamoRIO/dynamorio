@@ -154,9 +154,16 @@ droption_t<bool> op_online_instr_types
 
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
- "Cache replacement policy", "Specifies the replacement policy for caches. "
- "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
+ "Cache replacement policy (LRU, LFU, FIFO)", "Specifies the replacement policy for "
+ "caches. Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
  "FIFO (First-In-First-Out).");
+
+droption_t<std::string> op_data_prefetcher
+(DROPTION_SCOPE_FRONTEND, "data_prefetcher", PREFETCH_POLICY_NEXTLINE,
+ "Hardware data prefetcher policy (nextline, none)", "Specifies the hardware data "
+ "prefetcher policy.  The currently supported policies are 'nextline' (fetch the "
+ "subsequent cache line) and 'none' (disables hardware prefetching).  The prefetcher "
+ "is located between the L1D and LL caches.");
 
 droption_t<bytesize_t> op_page_size
 (DROPTION_SCOPE_FRONTEND, "page_size", bytesize_t(4*1024), "Virtual/physical page size",

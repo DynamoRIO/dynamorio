@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,28 +30,23 @@
  * DAMAGE.
  */
 
-/* cache: represents a single hardware cache.
+/* prefetcher: represents a hardware prefetching implementation.
  */
 
-#ifndef _CACHE_H_
-#define _CACHE_H_ 1
-
 #include "caching_device.h"
-#include "cache_line.h"
-#include "cache_stats.h"
+#include "../common/memref.h"
 
-class cache_t : public caching_device_t
+prefetcher_t::prefetcher_t(int block_size) : block_size(block_size)
 {
- public:
-    // Size, line size and associativity are generally used
-    // to describe a CPU cache.
-    virtual bool init(int associativity, int line_size, int total_size,
-                      caching_device_t *parent, caching_device_stats_t *stats,
-                      prefetcher_t *prefetcher = nullptr);
-    virtual void request(const memref_t &memref);
-    virtual void flush(const memref_t &memref);
- protected:
-    virtual void init_blocks();
-};
+    // Nothing else to do.
+}
 
-#endif /* _CACHE_H_ */
+void
+prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
+{
+    // We implement a simple next-line prefetcher.
+    memref_t memref = memref_in;
+    memref.data.addr += block_size;
+    memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
+    cache->request(memref);
+}
