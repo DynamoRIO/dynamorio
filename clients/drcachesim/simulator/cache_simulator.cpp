@@ -64,8 +64,9 @@ cache_simulator_create(unsigned int num_cores,
                        unsigned int L1D_assoc,
                        uint64_t LL_size,
                        unsigned int LL_assoc,
-                       std::string replace_policy,
-                       std::string data_prefetcher,
+                       const std::string &LL_miss_file,
+                       const std::string &replace_policy,
+                       const std::string &data_prefetcher,
                        uint64_t skip_refs,
                        uint64_t warmup_refs,
                        uint64_t sim_refs,
@@ -73,8 +74,8 @@ cache_simulator_create(unsigned int num_cores,
 {
     return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
                                  L1I_assoc, L1D_assoc, LL_size, LL_assoc,
-                                 replace_policy, data_prefetcher, skip_refs,warmup_refs,
-                                 sim_refs, verbose);
+                                 LL_miss_file, replace_policy, data_prefetcher,
+                                 skip_refs,warmup_refs, sim_refs, verbose);
 }
 
 cache_simulator_t::cache_simulator_t(unsigned int num_cores,
@@ -85,8 +86,9 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
                                      unsigned int L1D_assoc,
                                      uint64_t LL_size,
                                      unsigned int LL_assoc,
-                                     std::string replace_policy,
-                                     std::string data_prefetcher,
+                                     const std::string &LL_miss_file,
+                                     const std::string &replace_policy,
+                                     const std::string &data_prefetcher,
                                      uint64_t skip_refs,
                                      uint64_t warmup_refs,
                                      uint64_t sim_refs,
@@ -99,8 +101,11 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     knob_L1D_assoc(L1D_assoc),
     knob_LL_size(LL_size),
     knob_LL_assoc(LL_assoc),
+    knob_LL_miss_file(LL_miss_file),
     knob_replace_policy(replace_policy),
-    knob_data_prefetcher(data_prefetcher)
+    knob_data_prefetcher(data_prefetcher),
+    icaches(NULL),
+    dcaches(NULL)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
@@ -118,10 +123,10 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     }
 
     if (!llcache->init(knob_LL_assoc, (int)knob_line_size,
-                       (int)knob_LL_size, NULL, new cache_stats_t)) {
+                       (int)knob_LL_size, NULL, new cache_stats_t(knob_LL_miss_file))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
-               "associativity are powers of 2 "
-               "and that the total size is a multiple of the line size.\n");
+               "associativity are powers of 2, that the total size is a multiple "
+               "of the line size, and that any miss file path is writable.\n");
         success = false;
         return;
     }
@@ -165,16 +170,21 @@ cache_simulator_t::~cache_simulator_t()
     if (llcache == NULL)
         return;
     delete llcache->get_stats();
+    delete llcache->get_prefetcher();
     delete llcache;
+    if (icaches == NULL)
+        return;
     for (int i = 0; i < knob_num_cores; i++) {
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
         delete icaches[i]->get_stats();
+        delete icaches[i]->get_prefetcher();
         delete icaches[i];
         if (dcaches[i] == NULL)
             return;
         delete dcaches[i]->get_stats();
+        delete dcaches[i]->get_prefetcher();
         delete dcaches[i];
     }
     delete [] icaches;

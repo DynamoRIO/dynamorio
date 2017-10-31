@@ -38,13 +38,15 @@
 #include <assert.h>
 
 caching_device_t::caching_device_t() :
-    blocks(NULL), stats(NULL)
+    blocks(NULL), stats(NULL), prefetcher(NULL)
 {
     /* Empty. */
 }
 
 caching_device_t::~caching_device_t()
 {
+    if (blocks == NULL)
+        return;
     for (int i = 0; i < num_blocks; i++)
         delete blocks[i];
     delete [] blocks;
@@ -63,6 +65,8 @@ caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
         return false;
     if (stats_ == NULL)
         return false; // A stats must be provided for perf: avoid conditional code
+    else if (!*stats_)
+        return false;
     associativity = associativity_;
     block_size = block_size_;
     num_blocks = num_blocks_;
