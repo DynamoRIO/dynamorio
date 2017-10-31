@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,8 @@ class cache_fifo_t : public cache_t
 {
  public:
     virtual bool init(int associativity, int line_size, int total_size,
-                      caching_device_t *parent, caching_device_stats_t *stats);
+                      caching_device_t *parent, caching_device_stats_t *stats,
+                      prefetcher_t *prefetcher);
 
  protected:
     virtual void access_update(int line_idx, int way);

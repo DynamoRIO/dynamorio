@@ -57,6 +57,7 @@ drmemtrace_analysis_tool_create()
                                       op_LL_size.get_value(),
                                       op_LL_assoc.get_value(),
                                       op_replace_policy.get_value(),
+                                      op_data_prefetcher.get_value(),
                                       op_skip_refs.get_value(),
                                       op_warmup_refs.get_value(),
                                       op_sim_refs.get_value(),

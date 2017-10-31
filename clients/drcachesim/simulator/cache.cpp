@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,13 +36,14 @@
 
 bool
 cache_t::init(int associativity_, int line_size_, int total_size,
-              caching_device_t *parent_, caching_device_stats_t *stats_)
+              caching_device_t *parent_, caching_device_stats_t *stats_,
+              prefetcher_t *prefetcher_)
 {
     // convert total_size to num_blocks to fit for caching_device_t::init
     int num_lines = total_size / line_size_;
 
     return caching_device_t::init(associativity_, line_size_, num_lines,
-                                  parent_, stats_);
+                                  parent_, stats_, prefetcher_);
 }
 
 void

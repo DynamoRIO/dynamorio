@@ -65,6 +65,7 @@ cache_simulator_create(unsigned int num_cores,
                        uint64_t LL_size,
                        unsigned int LL_assoc,
                        std::string replace_policy,
+                       std::string data_prefetcher,
                        uint64_t skip_refs,
                        uint64_t warmup_refs,
                        uint64_t sim_refs,
@@ -72,7 +73,7 @@ cache_simulator_create(unsigned int num_cores,
 {
     return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
                                  L1I_assoc, L1D_assoc, LL_size, LL_assoc,
-                                 replace_policy, skip_refs,warmup_refs,
+                                 replace_policy, data_prefetcher, skip_refs,warmup_refs,
                                  sim_refs, verbose);
 }
 
@@ -85,6 +86,7 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
                                      uint64_t LL_size,
                                      unsigned int LL_assoc,
                                      std::string replace_policy,
+                                     std::string data_prefetcher,
                                      uint64_t skip_refs,
                                      uint64_t warmup_refs,
                                      uint64_t sim_refs,
@@ -97,12 +99,20 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     knob_L1D_assoc(L1D_assoc),
     knob_LL_size(LL_size),
     knob_LL_assoc(LL_assoc),
-    knob_replace_policy(replace_policy)
+    knob_replace_policy(replace_policy),
+    knob_data_prefetcher(data_prefetcher)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
     llcache = create_cache(knob_replace_policy);
     if (llcache == NULL) {
+        success = false;
+        return;
+    }
+
+    if (data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
+        data_prefetcher != PREFETCH_POLICY_NONE) {
+        // Unknown value.
         success = false;
         return;
     }
@@ -133,7 +143,9 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         if (!icaches[i]->init(knob_L1I_assoc, (int)knob_line_size,
                               (int)knob_L1I_size, llcache, new cache_stats_t) ||
             !dcaches[i]->init(knob_L1D_assoc, (int)knob_line_size,
-                              (int)knob_L1D_size, llcache, new cache_stats_t)) {
+                              (int)knob_L1D_size, llcache, new cache_stats_t,
+                              data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
+                              new prefetcher_t((int)knob_line_size) : nullptr)) {
             ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                    "associativity are powers of 2 "
                    "and that the total sizes are multiples of the line size.\n");
