@@ -184,6 +184,10 @@ Further non-compatibility-affecting changes include:
  - Added a new option -signal_stack_size with a smaller default value than
    before, to save space on applications with many threads.
  - Added instr_predicate_is_cond().
+ - Added a hardware data next-line prefetcher to drcachesim.  It is on by
+   default, so simulation results may not match those in prior releases.
+   It can be disabled by running with "-data_prefetcher none" (see \ref
+   sec_drcachesim_ops).
 
 **************************************************
 <hr>

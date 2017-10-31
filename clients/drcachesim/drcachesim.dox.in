@@ -161,6 +161,10 @@ considered separately, resulting in separate hit and miss statistics.  This
 can be changed by implementing a custom statistics gatherer (see \ref
 sec_drcachesim_extend).
 
+Software and hardware prefetches are combined in the prefetch hit and miss
+statistics, which are reported separately from regular loads and stores.
+To isolate software prefetch statistics, disable the hardware prefetcher by
+running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
 
 \section sec_drcachesim_phys Physical Addresses
 

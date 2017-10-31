@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,7 @@
 #include "caching_device.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
+#include "prefetcher.h"
 #include "../common/utils.h"
 #include <assert.h>
 
@@ -51,7 +52,8 @@ caching_device_t::~caching_device_t()
 
 bool
 caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
-                       caching_device_t *parent_, caching_device_stats_t *stats_)
+                       caching_device_t *parent_, caching_device_stats_t *stats_,
+                       prefetcher_t *prefetcher_)
 {
     if (!IS_POWER_OF_2(associativity_) ||
         !IS_POWER_OF_2(block_size_) ||
@@ -72,6 +74,7 @@ caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
         return false;
     parent = parent_;
     stats = stats_;
+    prefetcher = prefetcher_;
 
     blocks = new caching_device_block_t* [num_blocks];
     init_blocks();
@@ -109,6 +112,7 @@ caching_device_t::request(const memref_t &memref_in)
     for (; tag <= final_tag; ++tag) {
         int way;
         int block_idx = compute_block_idx(tag);
+        bool missed = false;
 
         if (tag + 1 <= final_tag)
             memref.data.size = ((tag + 1) << block_size_bits) - memref.data.addr;
@@ -124,6 +128,7 @@ caching_device_t::request(const memref_t &memref_in)
 
         if (way == associativity) {
             stats->access(memref, false/*miss*/);
+            missed = true;
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
                 parent->stats->child_access(memref, false);
@@ -138,11 +143,17 @@ caching_device_t::request(const memref_t &memref_in)
 
         access_update(block_idx, way);
 
+        // Issue a hardware prefetch, if any, before we remember the last tag,
+        // so we remember this line and not the prefetched line.
+        if (missed && !type_is_prefetch(memref.data.type) && prefetcher != nullptr)
+            prefetcher->prefetch(this, memref);
+
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits;
             memref.data.addr = next_addr;
             memref.data.size = final_addr - next_addr + 1/*undo the -1*/;
         }
+
         // Optimization: remember last tag
         last_tag = tag;
         last_way = way;
