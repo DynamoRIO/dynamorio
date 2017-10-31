@@ -72,6 +72,7 @@ add_library(simulator STATIC
   simulator/caching_device.cpp
   simulator/caching_device_stats.cpp
   simulator/cache_stats.cpp
+  simulator/prefetcher.cpp
   simulator/cache_simulator.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
