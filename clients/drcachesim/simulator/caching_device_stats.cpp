@@ -30,17 +30,39 @@
  * DAMAGE.
  */
 
+#include <assert.h>
 #include <iostream>
 #include <iomanip>
 #include "caching_device_stats.h"
 
-caching_device_stats_t::caching_device_stats_t() :
-    num_hits(0), num_misses(0), num_child_hits(0)
+caching_device_stats_t::caching_device_stats_t(const std::string &miss_file) :
+    success(true), num_hits(0), num_misses(0), num_child_hits(0), file(nullptr)
 {
+    if (miss_file.empty()) {
+        dump_misses = false;
+    } else {
+#ifdef HAS_ZLIB
+        file = gzopen(miss_file.c_str(), "w");
+#else
+        file = fopen(miss_file.c_str(), "w");
+#endif
+        if (file == nullptr) {
+            dump_misses = false;
+            success = false;
+        } else
+            dump_misses = true;
+    }
 }
 
 caching_device_stats_t::~caching_device_stats_t()
 {
+    if (file != nullptr) {
+#ifdef HAS_ZLIB
+        gzclose(file);
+#else
+        fclose(file);
+#endif
+    }
 }
 
 void
@@ -50,8 +72,11 @@ caching_device_stats_t::access(const memref_t &memref, bool hit)
     // We're only computing miss rate so we just inc counters here.
     if (hit)
         num_hits++;
-    else
+    else {
         num_misses++;
+        if (dump_misses)
+            dump_miss(memref);
+    }
 }
 
 void
@@ -60,6 +85,26 @@ caching_device_stats_t::child_access(const memref_t &memref, bool hit)
     if (hit)
         num_child_hits++;
     // else being computed in access()
+}
+
+void
+caching_device_stats_t::dump_miss(const memref_t &memref)
+{
+    addr_t pc, addr;
+    if (type_is_instr(memref.data.type))
+        pc = memref.instr.addr;
+    else { // data ref: others shouldn't get here
+        assert(type_is_prefetch(memref.data.type) ||
+               memref.data.type == TRACE_TYPE_READ ||
+               memref.data.type == TRACE_TYPE_WRITE);
+        pc = memref.data.pc;
+    }
+    addr = memref.data.addr;
+#ifdef HAS_ZLIB
+    gzprintf(file, "0x%zx,0x%zx\n", pc, addr);
+#else
+    fprintf(file, "0x%zx,0x%zx\n", pc, addr);
+#endif
 }
 
 void

@@ -2426,6 +2426,17 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.TLB-simple_rawtemp ON) # no preprocessor
 
+      # Test that -LL_miss_file at least doesn't crash.  It's not easy to test
+      # much further.
+      torunonly_ci(tool.drcachesim.missfile ${ci_shared_app} drcachesim
+        "drcachesim-simple.c" # for templatex basename
+        "-LL_miss_file ${CMAKE_CURRENT_BINARY_DIR}/drtestmf.gz -ipc_name ${IPC_PREFIX}drtestmfpipe1"
+        "" "")
+      set(tool.drcachesim.missfile_toolname "drcachesim")
+      set(tool.drcachesim.missfile_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.missfile_rawtemp ON) # no preprocessor
+
       if (NOT WIN32) # No physaddr access on Windows.
         torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
           "drcachesim-phys.c" # for templatex basename

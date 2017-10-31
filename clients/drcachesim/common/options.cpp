@@ -104,6 +104,13 @@ droption_t<unsigned int> op_LL_assoc
  "Specifies the associativity of the unified last-level (L2) cache.  "
  "Must be a power of 2.");
 
+droption_t<std::string> op_LL_miss_file
+(DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",
+ "Path for dumping LLC misses", "If non-empty, requests that every last-level "
+ "cache miss be written to a file at the specified path.  Each miss is written "
+ "in text format as a <program counter, address> pair.  If this tool is linked "
+ "with zlib, the file is written in gzip-compressed format.");
+
 droption_t<bool> op_L0_filter
 (DROPTION_SCOPE_CLIENT, "L0_filter", false,
  "Filter out zero-level hits during tracing",

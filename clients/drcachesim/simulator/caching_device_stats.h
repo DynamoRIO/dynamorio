@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,12 +38,15 @@
 
 #include <string>
 #include <stdint.h>
-#include "../common/memref.h"
+#ifdef HAS_ZLIB
+# include <zlib.h>
+#endif
+#include "memref.h"
 
 class caching_device_stats_t
 {
  public:
-    caching_device_stats_t();
+    explicit caching_device_stats_t(const std::string &miss_file);
     virtual ~caching_device_stats_t();
 
     // Called on each access.
@@ -58,15 +61,29 @@ class caching_device_stats_t
 
     virtual void reset();
 
+    virtual bool operator!() { return !success; }
+
  protected:
+    bool success;
+
     // print different groups of information, beneficial for code reuse
     virtual void print_counts(std::string prefix); // hit/miss numbers
     virtual void print_rates(std::string prefix); // hit/miss rates
     virtual void print_child_stats(std::string prefix); // child/total info
 
+    virtual void dump_miss(const memref_t &memref);
+
     int_least64_t num_hits;
     int_least64_t num_misses;
     int_least64_t num_child_hits;
+
+    // We provide a feature of dumping misses to a file.
+    bool dump_misses;
+#ifdef HAS_ZLIB
+    gzFile file;
+#else
+    FILE *file;
+#endif
 };
 
 #endif /* _CACHING_DEVICE_STATS_H_ */

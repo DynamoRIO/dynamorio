@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,12 +36,13 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
+#include <string>
 #include "caching_device_stats.h"
 
 class cache_stats_t : public caching_device_stats_t
 {
  public:
-    cache_stats_t();
+    explicit cache_stats_t(const std::string &miss_file = "");
 
     // In addition to caching_device_stats_t::access,
     // cache_stats_t::access processes prefetching requests.
