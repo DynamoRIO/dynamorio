@@ -38,7 +38,7 @@
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
-#include "../common/memref.h"
+#include "memref.h"
 #include "prefetcher.h"
 
 // Statistics collection is abstracted out into the caching_device_stats_t class.
@@ -60,6 +60,8 @@ class caching_device_t
     virtual void request(const memref_t &memref);
 
     caching_device_stats_t *get_stats() const { return stats; }
+    void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
+    prefetcher_t *get_prefetcher() const { return prefetcher; }
     caching_device_t *get_parent() const { return parent; }
 
  protected:

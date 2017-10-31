@@ -39,8 +39,8 @@
 #include <unordered_map>
 #include "caching_device_stats.h"
 #include "caching_device.h"
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
 class simulator_t : public analysis_tool_t
 {
