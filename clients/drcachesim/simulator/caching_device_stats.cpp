@@ -101,9 +101,9 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
     }
     addr = memref.data.addr;
 #ifdef HAS_ZLIB
-    gzprintf(file, "0x%lx,0x%lx\n", pc, addr);
+    gzprintf(file, "0x%zx,0x%zx\n", pc, addr);
 #else
-    fprintf(file, "0x%lx,0x%lx\n", pc, addr);
+    fprintf(file, "0x%zx,0x%zx\n", pc, addr);
 #endif
 }
 
