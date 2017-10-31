@@ -37,7 +37,7 @@
 #define _PREFETCHER_H_ 1
 
 #include "caching_device.h"
-#include "../common/memref.h"
+#include "memref.h"
 
 class caching_device_t;
 
@@ -45,6 +45,7 @@ class prefetcher_t
 {
  public:
     prefetcher_t(int block_size);
+    virtual ~prefetcher_t() {}
     virtual void prefetch(caching_device_t *cache, const memref_t &memref);
  private:
     int block_size;
