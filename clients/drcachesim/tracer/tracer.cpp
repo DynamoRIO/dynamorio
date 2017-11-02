@@ -39,6 +39,7 @@
  * modular.
  */
 
+#include <limits.h>
 #include <string.h>
 #include <string>
 #include "dr_api.h"
@@ -136,6 +137,27 @@ static uint64 num_refs; /* keep a global memory reference count */
 static bool have_phys;
 static physaddr_t physaddr;
 
+/* Allocated TLS slot offsets */
+enum {
+    MEMTRACE_TLS_OFFS_BUF_PTR,
+    /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
+    MEMTRACE_TLS_OFFS_DCACHE,
+    MEMTRACE_TLS_OFFS_ICACHE,
+    MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
+};
+static reg_id_t tls_seg;
+static uint     tls_offs;
+static int      tls_idx;
+#define TLS_SLOT(tls_base, enum_val) (((void **)((byte *)(tls_base)+tls_offs))+(enum_val))
+#define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
+/* We leave a slot at the start so we can easily insert a header entry */
+#define BUF_HDR_SLOTS 1
+static size_t buf_hdr_slots_size;
+
+/***************************************************************************
+ * Buffer writing to disk.
+ */
+
 /* file operations functions */
 struct file_ops_func_t {
     drmemtrace_open_file_func_t  open_file;
@@ -208,23 +230,6 @@ drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
     else
         return DRMEMTRACE_ERROR;
 }
-
-/* Allocated TLS slot offsets */
-enum {
-    MEMTRACE_TLS_OFFS_BUF_PTR,
-    /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
-    MEMTRACE_TLS_OFFS_DCACHE,
-    MEMTRACE_TLS_OFFS_ICACHE,
-    MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
-};
-static reg_id_t tls_seg;
-static uint     tls_offs;
-static int      tls_idx;
-#define TLS_SLOT(tls_base, enum_val) (((void **)((byte *)(tls_base)+tls_offs))+(enum_val))
-#define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
-/* We leave a slot at the start so we can easily insert a header entry */
-#define BUF_HDR_SLOTS 1
-static size_t buf_hdr_slots_size;
 
 static void
 create_buffer(per_thread_t *data)
@@ -402,6 +407,10 @@ clean_call(void)
     void *drcontext = dr_get_current_drcontext();
     memtrace(drcontext, false);
 }
+
+/***************************************************************************
+ * Tracing instrumentation.
+ */
 
 static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -989,6 +998,172 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+/***************************************************************************
+ * Delayed tracing feature.
+ */
+
+static uint64 instr_count;
+static volatile bool tracing_enabled;
+static void *enable_tracing_lock;
+
+#ifdef X86_64
+# define DELAYED_CHECK_INLINED 1
+#else
+// XXX: we don't have the inlining implemented yet.
+#endif
+
+static dr_emit_flags_t
+event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                        bool for_trace, bool translating, void **user_data);
+
+static dr_emit_flags_t
+event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                            bool for_trace, bool translating, void *user_data);
+
+static void
+enable_delay_instrumentation()
+{
+#ifdef DELAYED_CHECK_INLINED
+    drx_init();
+#endif
+    /* We first have a phase where we count instructions.  Only then do we switch
+     * to tracing instrumentation.
+     */
+    if (!drmgr_register_bb_instrumentation_event(event_delay_bb_analysis,
+                                                 event_delay_app_instruction, NULL))
+        DR_ASSERT(false);
+    enable_tracing_lock = dr_mutex_create();
+}
+
+static void
+disable_delay_instrumentation()
+{
+    if (!drmgr_unregister_bb_instrumentation_event(event_delay_bb_analysis))
+        DR_ASSERT(false);
+}
+
+static void
+exit_delay_instrumentation()
+{
+    if (enable_tracing_lock != NULL)
+        dr_mutex_destroy(enable_tracing_lock);
+#ifdef DELAYED_CHECK_INLINED
+    drx_exit();
+#endif
+}
+
+static void
+enable_tracing_instrumentation()
+{
+    if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
+                                                    event_bb_analysis,
+                                                    event_app_instruction,
+                                                    event_bb_instru2instru,
+                                                    NULL))
+        DR_ASSERT(false);
+    tracing_enabled = true;
+}
+
+static void
+hit_instr_count_threshold()
+{
+    bool do_flush = false;
+    dr_mutex_lock(enable_tracing_lock);
+    if (!tracing_enabled) { // Already came here?
+        NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+        disable_delay_instrumentation();
+        enable_tracing_instrumentation();
+        do_flush = true;
+    }
+    dr_mutex_unlock(enable_tracing_lock);
+    if (do_flush && !dr_unlink_flush_region(NULL, ~0UL))
+        DR_ASSERT(false);
+}
+
+#ifndef DELAYED_CHECK_INLINED
+static void
+check_instr_count_threshold(uint incby)
+{
+    instr_count += incby;
+    if (instr_count > op_trace_after_instrs.get_value())
+        hit_instr_count_threshold();
+}
+#endif
+
+static dr_emit_flags_t
+event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                        bool for_trace, bool translating, void **user_data)
+{
+    instr_t *instr;
+    uint num_instrs;
+    for (instr = instrlist_first_app(bb), num_instrs = 0;
+         instr != NULL;
+         instr = instr_get_next_app(instr)) {
+        num_instrs++;
+    }
+    *user_data = (void *)(ptr_uint_t)num_instrs;
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                            bool for_trace, bool translating, void *user_data)
+{
+    uint num_instrs;
+    if (!drmgr_is_first_instr(drcontext, instr))
+        return DR_EMIT_DEFAULT;
+    num_instrs = (uint)(ptr_uint_t)user_data;
+    drmgr_disable_auto_predication(drcontext, bb);
+#ifdef DELAYED_CHECK_INLINED
+# ifdef X86_64
+    if (!drx_insert_counter_update(drcontext, bb, instr,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX+1)/*use drmgr*/,
+                                   &instr_count, num_instrs, DRX_COUNTER_64BIT))
+        DR_ASSERT(false);
+    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+    reg_id_t scratch = DR_REG_NULL;
+    if (op_trace_after_instrs.get_value() < INT_MAX) {
+        MINSERT(bb, instr,
+                XINST_CREATE_cmp
+                (drcontext,  OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                 OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
+    } else {
+        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve scratch register");
+        instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
+                                         opnd_create_reg(scratch), bb, instr, NULL, NULL);
+        MINSERT(bb, instr,
+                XINST_CREATE_cmp
+                (drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                 opnd_create_reg(scratch)));
+    }
+    MINSERT(bb, instr,
+            INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
+    dr_insert_clean_call(drcontext, bb, instr,
+                         (void *)hit_instr_count_threshold, false/*fpstate */, 0);
+    MINSERT(bb, instr, skip_call);
+    if (scratch != DR_REG_NULL) {
+        if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
+            DR_ASSERT(false);
+    }
+# else
+#  error NYI
+# endif
+#else
+    // XXX: drx_insert_counter_update doesn't support 64-bit, and there's no
+    // XINST_CREATE_load_8bytes.  For now we pay the cost of a clean call every time.
+    dr_insert_clean_call(drcontext, bb, instr,
+                         (void *)check_instr_count_threshold, false/*fpstate */, 1,
+                         OPND_CREATE_INT32(num_instrs));
+#endif
+    return DR_EMIT_DEFAULT;
+}
+
+/***************************************************************************
+ * Top level.
+ */
+
 /* Initializes a thread either at process init or fork init, where we want
  * a new offline file or a new thread,process registration pair for online.
  */
@@ -1141,20 +1316,27 @@ event_exit(void)
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
+    if (tracing_enabled) {
+        if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+            !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
+                                                          event_bb_analysis,
+                                                          event_app_instruction,
+                                                          event_bb_instru2instru))
+            DR_ASSERT(false);
+    } else {
+        disable_delay_instrumentation();
+    }
     if (!drmgr_unregister_tls_field(tls_idx) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
-        !drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
-        !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
-                                                      event_bb_analysis,
-                                                      event_app_instruction,
-                                                      event_bb_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
 
     dr_mutex_destroy(mutex);
     drutil_exit();
+    if (op_trace_after_instrs.get_value() > 0)
+        exit_delay_instrumentation();
     drmgr_exit();
 }
 
@@ -1315,14 +1497,14 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_fork_init_event(fork_init);
 #endif
     if (!drmgr_register_thread_init_event(event_thread_init) ||
-        !drmgr_register_thread_exit_event(event_thread_exit) ||
-        !drmgr_register_pre_syscall_event(event_pre_syscall) ||
-        !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
-                                                    event_bb_analysis,
-                                                    event_app_instruction,
-                                                    event_bb_instru2instru,
-                                                    NULL))
+        !drmgr_register_thread_exit_event(event_thread_exit))
         DR_ASSERT(false);
+
+
+    if (op_trace_after_instrs.get_value() > 0)
+        enable_delay_instrumentation();
+    else
+        enable_tracing_instrumentation();
 
     trace_buf_size = instru->sizeof_entry() * MAX_NUM_ENTRIES;
 
