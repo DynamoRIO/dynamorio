@@ -47,7 +47,7 @@ class compressed_file_reader_t : public reader_t
     explicit compressed_file_reader_t(const char *file_name);
     virtual ~compressed_file_reader_t();
     virtual bool init();
-    bool is_complete();
+    virtual bool is_complete();
 
  protected:
     virtual trace_entry_t * read_next_entry();
