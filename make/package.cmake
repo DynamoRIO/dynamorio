@@ -109,6 +109,14 @@ if (APPLE)
   set(arg_32_only ON)
 endif ()
 
+if (NOT APPLE AND NOT arg_no32)
+  identify_clang(CMAKE_COMPILER_IS_CLANG)
+  if (CMAKE_COMPILER_IS_CLANG)
+    # i#2632: 32-bit recent clang release builds are inserting text relocs.
+    message(FATAL_ERROR "clang is not supported for package builds until i#2632 is fixed")
+  endif ()
+endif ()
+
 set(base_cache "
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}

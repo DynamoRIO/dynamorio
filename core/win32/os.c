@@ -5674,6 +5674,12 @@ is_readable_without_exception_query_os(byte *pc, size_t size)
     return is_readable_without_exception(pc, size);
 }
 
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    return is_readable_without_exception_query_os(pc, size);
+}
+
 /* Reads size bytes starting at base and puts them in out_buf, this is safe
  * to call even if the memory at base is unreadable, returns true if the
  * read succeeded */

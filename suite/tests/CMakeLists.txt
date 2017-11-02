@@ -1522,6 +1522,8 @@ endfunction(optimize)
 message(STATUS "Processing tests and generating expected output patterns")
 
 tobuild(common.broadfun common/broadfun.c)
+# Make sure we test running a path with spaces (to avoid regressions like i#2538).
+set_target_properties(common.broadfun PROPERTIES OUTPUT_NAME "common.broadfun spaces")
 if (DEBUG)
   torunonly(common.logstderr common.broadfun common/logstderr.c
     "-log_to_stderr -loglevel 1 -logmask 2" "")
@@ -1916,6 +1918,7 @@ if (CLIENT_INTERFACE)
     endif (X86 OR AARCH64)
     if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
+      target_link_libraries(client.signal ${libpthread})
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
   else (UNIX)
@@ -2425,6 +2428,17 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.TLB-simple_rawtemp ON) # no preprocessor
 
+      # Test that -LL_miss_file at least doesn't crash.  It's not easy to test
+      # much further.
+      torunonly_ci(tool.drcachesim.missfile ${ci_shared_app} drcachesim
+        "drcachesim-simple.c" # for templatex basename
+        "-LL_miss_file ${CMAKE_CURRENT_BINARY_DIR}/drtestmf.gz -ipc_name ${IPC_PREFIX}drtestmfpipe1"
+        "" "")
+      set(tool.drcachesim.missfile_toolname "drcachesim")
+      set(tool.drcachesim.missfile_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.missfile_rawtemp ON) # no preprocessor
+
       if (NOT WIN32) # No physaddr access on Windows.
         torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
           "drcachesim-phys.c" # for templatex basename
@@ -2442,6 +2456,14 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.filter_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcachesim.filter_rawtemp ON) # no preprocessor
+
+      torunonly_ci(tool.drcachesim.delay ${ci_shared_app} drcachesim
+        "drcachesim-delay-simple.c" # for templatex basename
+        "-ipc_name ${IPC_PREFIX}drtestdelay -trace_after_instrs 50000" "" "")
+        set(tool.drcachesim.delay_toolname "drcachesim")
+        set(tool.drcachesim.delay_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcachesim.delay_rawtemp ON) # no preprocessor
 
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
@@ -2494,7 +2516,9 @@ if (CLIENT_INTERFACE)
       if (AARCH64)
         torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
           "allasm-aarch64-cache.c" # for expect basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64" "" "")
+          # XXX i#2676: We disable the data prefetcher until someone with A64
+          # hardware gets a chance to update the expected output.
+          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64 -data_prefetcher none" "" "")
         set(tool.drcachesim.aarch64_toolname "drcachesim")
         set(tool.drcachesim.aarch64_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2662,7 +2686,7 @@ if (CLIENT_INTERFACE)
       set(tool.histogram.offline_postcmd
         "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
       set(tool.histogram.offline_postcmd2
-        "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+        "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
@@ -2686,7 +2710,7 @@ if (CLIENT_INTERFACE)
         set(tool.histogram.gzip_postcmd2
           "${GZIP}@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
         set(tool.histogram.gzip_postcmd3
-          "${histo_path}@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace.gz")
+          "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace.gz")
       elseif (UNIX)
         message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
       endif ()

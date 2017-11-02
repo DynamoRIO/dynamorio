@@ -1466,6 +1466,8 @@ is_thread_tls_initialized(void)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
+         * For standalone_library, first_thread_tls_initialized will always be false,
+         * so we'll return false here and use our check in get_thread_private_dcontext().
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
             return false;
@@ -2578,6 +2580,15 @@ os_process_under_dynamorio_initiate(dcontext_t *dcontext)
     /* We only support regular process-wide signal handlers for delayed takeover. */
     /* i#2161: we ignore alarm signals during the attach process to avoid races. */
     signal_reinstate_handlers(dcontext, true/*ignore alarm*/);
+    /* XXX: there's a tradeoff here: we have a race when we remove the hook
+     * because dr_app_stop() has no barrier and a thread sent native might
+     * resume from vsyscall after we remove the hook.  However, if we leave the
+     * hook, then the next takeover signal might hit a native thread that's
+     * inside DR just to go back native after having hit the hook.  For now we
+     * remove the hook and rely on translate_from_synchall_to_dispatch() moving
+     * threads from vsyscall to our gencode and not relying on the hook being
+     * present to finish up their go-native code.
+     */
     hook_vsyscall(dcontext, false);
 }
 
@@ -4676,6 +4687,14 @@ is_readable_without_exception(const byte *pc, size_t size)
 bool
 is_readable_without_exception_query_os(byte *pc, size_t size)
 {
+    return is_readable_without_exception_internal(pc, size, true);
+}
+
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    if (memquery_from_os_will_block())
+        return false;
     return is_readable_without_exception_internal(pc, size, true);
 }
 

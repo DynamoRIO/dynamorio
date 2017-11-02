@@ -72,6 +72,11 @@ droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
  "Verbosity level for notifications.");
 
+// For test simplicity we use this same launcher to run some extra tests.
+droption_t<bool> op_test_mode
+(DROPTION_SCOPE_ALL, "test_mode", false, "Run tests",
+ "Run extra analyses for testing.");
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -93,12 +98,31 @@ _tmain(int argc, const TCHAR *targv[])
         histogram_tool_create(op_line_size.get_value(),
                               op_report_top.get_value(),
                               op_verbose.get_value());
+
     analyzer_t analyzer(op_trace.get_value(), &tool, 1);
     if (!analyzer)
         FATAL_ERROR("failed to initialize analyzer");
     if (!analyzer.run())
         FATAL_ERROR("failed to run analyzer");
     analyzer.print_stats();
+    delete tool;
+
+    if (op_test_mode.get_value()) {
+        // Test the external-iterator interface.
+        tool = histogram_tool_create(op_line_size.get_value(),
+                                     op_report_top.get_value(),
+                                     op_verbose.get_value());
+        analyzer_t external(op_trace.get_value());
+        if (!external)
+            FATAL_ERROR("failed to initialize analyzer");
+        for (reader_t &iter = external.begin(); iter != external.end(); ++iter) {
+            if (!tool->process_memref(*iter))
+                FATAL_ERROR("tool failed to process entire trace");
+        }
+        if (!tool->print_results())
+            FATAL_ERROR("tool failed to print results");
+        delete tool;
+    }
 
     return 0;
 }

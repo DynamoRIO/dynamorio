@@ -133,8 +133,12 @@ raw2trace_t::read_and_map_modules(const char *module_map)
 std::string
 raw2trace_t::unmap_modules(void)
 {
-    if (drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS)
-        return "Failed to clean up module table data";
+    // drmodtrack_offline_exit requires the parameter to be non-null, but we
+    // may not have even initialized the modhandle yet.
+    if (modhandle != NULL &&
+        drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+          return "Failed to clean up module table data";
+    }
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
         if (mvi->map_base != NULL && mvi->map_size != 0) {
@@ -208,7 +212,7 @@ std::string
 raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
-    instr_t instr;
+    instr_t *instr;
     trace_entry_t buf_start[MAX_COMBINED_ENTRIES];
     app_pc start_pc = modvec[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
     app_pc pc, decode_pc = start_pc;
@@ -235,23 +239,30 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             instrs_are_separate = true;
     }
     CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
-    instr_init(dcontext, &instr);
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
         app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
             modvec[in_entry->pc.modidx].orig_base;
         bool skip_instr = false;
-        instr_reset(dcontext, &instr);
-        // We assume the default ISA mode and currently require the 32-bit
-        // postprocessor for 32-bit applications.
-        pc = decode(dcontext, decode_pc, &instr);
-        if (pc == NULL || !instr_valid(&instr)) {
-            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
-                 modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
-            break;
+        // To avoid repeatedly decoding the same instruction on every one of its
+        // dynamic executions, we cache the decoding in a hashtable.
+        instr = (instr_t *) hashtable_lookup(&decode_cache, decode_pc);
+        if (instr == NULL) {
+            instr = instr_create(dcontext);
+            // We assume the default ISA mode and currently require the 32-bit
+            // postprocessor for 32-bit applications.
+            pc = decode(dcontext, decode_pc, instr);
+            if (pc == NULL || !instr_valid(instr)) {
+                WARN("Encountered invalid/undecodable instr @ %s+" PFX,
+                     modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
+                break;
+            }
+            hashtable_add(&decode_cache, decode_pc, instr);
+        } else {
+            pc = instr_get_raw_bits(instr) + instr_length(dcontext, instr);
         }
-        CHECK(!instr_is_cti(&instr) || i == instr_count - 1, "invalid cti");
-        if (instr_is_rep_string(&instr)) {
+        CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
+        if (instr_is_rep_string(instr)) {
             // We want it to look like the original rep string instead of the
             // drutil-expanded loop.
             if (!prev_instr_was_rep_string)
@@ -263,11 +274,11 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         // FIXME i#1729: make bundles via lazy accum until hit memref/end.
         if (!skip_instr) {
             DO_VERBOSE(3, {
-                instr_set_translation(&instr, orig_pc);
-                dr_print_instr(dcontext, STDOUT, &instr, "");
+                instr_set_translation(instr, orig_pc);
+                dr_print_instr(dcontext, STDOUT, instr, "");
             });
-            buf->type = instru_t::instr_to_instr_type(&instr);
-            buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, &instr));
+            buf->type = instru_t::instr_to_instr_type(instr);
+            buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, instr));
             buf->addr = (addr_t) orig_pc;
             ++buf;
         } else
@@ -277,19 +288,19 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         // There is no following memref for (instrs_are_separate && !skip_icache).
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
-            (instr_reads_memory(&instr) || instr_writes_memory(&instr))) {
-            for (int i = 0; i < instr_num_srcs(&instr); i++) {
-                if (opnd_is_memory_reference(instr_get_src(&instr, i))) {
-                    std::string error = append_memref(&buf, tidx, &instr,
-                                                      instr_get_src(&instr, i), false);
+            (instr_reads_memory(instr) || instr_writes_memory(instr))) {
+            for (int i = 0; i < instr_num_srcs(instr); i++) {
+                if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                    std::string error = append_memref(&buf, tidx, instr,
+                                                      instr_get_src(instr, i), false);
                     if (!error.empty())
                         return error;
                 }
             }
-            for (int i = 0; i < instr_num_dsts(&instr); i++) {
-                if (opnd_is_memory_reference(instr_get_dst(&instr, i))) {
-                    std::string error = append_memref(&buf, tidx, &instr,
-                                                      instr_get_dst(&instr, i), true);
+            for (int i = 0; i < instr_num_dsts(instr); i++) {
+                if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                    std::string error = append_memref(&buf, tidx, instr,
+                                                      instr_get_dst(instr, i), true);
                     if (!error.empty())
                         return error;
                 }
@@ -299,7 +310,6 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         if (!out_file->write((char*)buf_start, (buf - buf_start)*sizeof(trace_entry_t)))
             return "Failed to write to output file";
     }
-    instr_free(dcontext, &instr);
     *handled = true;
     return "";
 }
@@ -495,7 +505,9 @@ raw2trace_t::do_conversion()
     if (!out_file->write((char*)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
-    merge_and_process_thread_files();
+    error = merge_and_process_thread_files();
+    if (!error.empty())
+        return error;
 
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
@@ -511,9 +523,10 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          std::ostream *out_file_in,
                          void *dcontext_in,
                          unsigned int verbosity_in)
-    : modmap(module_map_in), thread_files(thread_files_in), out_file(out_file_in),
-      dcontext(dcontext_in), prev_instr_was_rep_string(false), instrs_are_separate(false),
-      verbosity(verbosity_in)
+    : modmap(module_map_in), modhandle(NULL), thread_files(thread_files_in),
+    out_file(out_file_in), dcontext(dcontext_in),
+    prev_instr_was_rep_string(false), instrs_are_separate(false),
+    verbosity(verbosity_in)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();
@@ -523,9 +536,22 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
         dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, NULL);
 #endif
     }
+    // We go ahead and start with a reasonably large capacity.
+    hashtable_init_ex(&decode_cache, 16, HASH_INTPTR, false, false, NULL, NULL, NULL);
+    // We pay a little memory to get a lower load factor.
+    hashtable_config_t config = {sizeof(config), true, 40};
+    hashtable_configure(&decode_cache, &config);
 }
 
 raw2trace_t::~raw2trace_t()
 {
     unmap_modules();
+    // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
+    // so we have to explicitly free the payloads.
+    for (uint i = 0; i < HASHTABLE_SIZE(decode_cache.table_bits); i++) {
+        for (hash_entry_t *e = decode_cache.table[i]; e != NULL; e = e->next) {
+            instr_destroy(dcontext, (instr_t *)e->payload);
+        }
+    }
+    hashtable_delete(&decode_cache);
 }

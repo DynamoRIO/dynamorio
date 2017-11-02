@@ -798,7 +798,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
              * seeing post- and not pre-.
              */
             LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
-            ASSERT(dcontext->currently_stopped);
+            ASSERT(dcontext->currently_stopped || IS_CLIENT_THREAD(dcontext));
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
             dcontext->native_exec_postsyscall =
                 IF_UNIX_ELSE(vsyscall_sysenter_displaced_pc, vsyscall_syscall_end_pc);
@@ -1780,8 +1780,11 @@ adjust_syscall_continuation(dcontext_t *dcontext)
                /* dr_syscall_invoke_another() hits this */
                dcontext->asynch_target == vsyscall_sysenter_displaced_pc);
         /* i#1939: we do need to adjust for 4.4.8+ kernels */
-        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL)
+        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL) {
             dcontext->asynch_target = vsyscall_sysenter_displaced_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
+        }
 # endif
     } else if (vsyscall_syscall_end_pc != NULL &&
                /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
@@ -1795,6 +1798,8 @@ adjust_syscall_continuation(dcontext_t *dcontext)
         if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
             ASSERT(vsyscall_sysenter_return_pc != NULL);
             dcontext->asynch_target = vsyscall_sysenter_return_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
         }
     }
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,60 +30,23 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iomanip>
-#include "cache_stats.h"
+/* prefetcher: represents a hardware prefetching implementation.
+ */
 
-cache_stats_t::cache_stats_t(const std::string &miss_file) :
-    caching_device_stats_t(miss_file),
-    num_flushes(0), num_prefetch_hits(0), num_prefetch_misses(0)
+#include "caching_device.h"
+#include "../common/memref.h"
+
+prefetcher_t::prefetcher_t(int block_size) : block_size(block_size)
 {
+    // Nothing else to do.
 }
 
 void
-cache_stats_t::access(const memref_t &memref, bool hit)
+prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
 {
-    // handle prefetching requests
-    if (type_is_prefetch(memref.data.type)) {
-        if (hit)
-            num_prefetch_hits++;
-        else {
-            num_prefetch_misses++;
-            if (dump_misses)
-                dump_miss(memref);
-        }
-    } else { // handle regular memory accesses
-        caching_device_stats_t::access(memref, hit);
-    }
-}
-
-void
-cache_stats_t::flush(const memref_t &memref)
-{
-    num_flushes++;
-}
-
-void
-cache_stats_t::print_counts(std::string prefix)
-{
-    caching_device_stats_t::print_counts(prefix);
-    if (num_flushes != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Flushes:" <<
-            std::setw(20) << std::right << num_flushes << std::endl;
-    }
-    if (num_prefetch_hits + num_prefetch_misses != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
-            std::setw(20) << std::right << num_prefetch_hits << std::endl;
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
-            std::setw(20) << std::right << num_prefetch_misses << std::endl;
-    }
-}
-
-void
-cache_stats_t::reset()
-{
-    caching_device_stats_t::reset();
-    num_flushes = 0;
-    num_prefetch_hits = 0;
-    num_prefetch_misses = 0;
+    // We implement a simple next-line prefetcher.
+    memref_t memref = memref_in;
+    memref.data.addr += block_size;
+    memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
+    cache->request(memref);
 }

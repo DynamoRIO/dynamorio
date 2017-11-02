@@ -562,6 +562,7 @@ bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
 bool is_readable_without_exception(const byte *pc, size_t size);
 bool is_readable_without_exception_query_os(byte *pc, size_t size);
+bool is_readable_without_exception_query_os_noblock(byte *pc, size_t size);
 bool safe_read(const void *base, size_t size, void *out_buf);
 bool safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 bool safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written);

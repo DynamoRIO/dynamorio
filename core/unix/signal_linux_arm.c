@@ -86,25 +86,27 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 /* There is a bug in all released kernels up to 4.12 when CONFIG_IWMMXT is
  * enabled but the hardware is not present or not used: the VFP frame in the
  * ucontext is offset as if there were a preceding IWMMXT frame, though this
- * memory is in fact not written to by the kernel. We work around this by
- * sending ourselves a signal at init time and looking for the VFP frame in
- * both places. We can then initialise vfp_offset and know where to look in
- * future.
+ * memory is in fact not written to by the kernel. In 4.13 the bug is fixed
+ * with a minimal change to the ABI by writing a dummy padding block before
+ * the VFP frame. We work around the bug and handle all cases by sending
+ * ourselves a signal at init time and looking for the VFP frame in both places.
+ * If it was found in the offset position we do not expect there to be a valid
+ * dummy padding block when reading the sigcontext but we create one when
+ * writing the sigcontext.
  * XXX: Because of the IWMMXT space being unset by earlier kernels it is
  * possible that we might find the VFP frame header in both places. We could
  * guard against that by clearing some memory below the SP before sending the
  * signal (assuming sigaltstack has not been used).
- * XXX: When the kernel bug has been fixed we could implement a proper walk
- * through the frames but we will need to work with old kernels in any case.
  */
 
-static uint vfp_offset = 0;
+static bool vfp_is_offset = false;
 
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
-    kernel_vfp_sigframe_t *vfp =
-        (kernel_vfp_sigframe_t *)((char *)sc_full->fp_simd_state + vfp_offset);
+    char *frame = ((char *)sc_full->fp_simd_state +
+                   (vfp_is_offset ? sizeof(kernel_iwmmxt_sigframe_t) : 0));
+    kernel_vfp_sigframe_t *vfp = (kernel_vfp_sigframe_t *)frame;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
     ASSERT(vfp->magic == VFP_MAGIC);
     ASSERT(vfp->size == sizeof(kernel_vfp_sigframe_t));
@@ -114,8 +116,15 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    kernel_vfp_sigframe_t *vfp =
-        (kernel_vfp_sigframe_t *)((char *)sc_full->fp_simd_state + vfp_offset);
+    char *frame = (char *)sc_full->fp_simd_state;
+    kernel_vfp_sigframe_t *vfp;
+    if (vfp_is_offset) {
+        kernel_iwmmxt_sigframe_t *dummy = (kernel_iwmmxt_sigframe_t *)frame;
+        dummy->magic = DUMMY_MAGIC;
+        dummy->size = sizeof(*dummy);
+        frame += sizeof(*dummy);
+    }
+    vfp = (kernel_vfp_sigframe_t *)frame;
     ASSERT(sizeof(mc->simd) == sizeof(vfp->ufp.fpregs));
     vfp->magic = VFP_MAGIC;
     vfp->size = sizeof(kernel_vfp_sigframe_t);
@@ -150,7 +159,7 @@ vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
                get_application_name(), get_application_pid());
         os_terminate(NULL, TERMINATE_PROCESS);
     }
-    vfp_offset = vfp0_good ? 0 : offset;
+    vfp_is_offset = vfp1_good;
     /* Detect if we unexpectedly have a filled-in IWMMXT frame. */
     ASSERT(!(vfp0->magic == IWMMXT_MAGIC && vfp0->size == offset));
 }

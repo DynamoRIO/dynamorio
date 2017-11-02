@@ -245,7 +245,7 @@ check_translation(instrlist_t *ilist, instr_t *inst)
 #if defined(CLIENT_INTERFACE) && defined(ARM)
     if (instr_is_meta(inst)) {
         dr_pred_type_t auto_pred = ilist->auto_pred;
-        if (auto_pred != DR_PRED_AL && auto_pred != DR_PRED_NONE) {
+        if (instr_predicate_is_cond(auto_pred)) {
             CLIENT_ASSERT(!instr_is_cti(inst), "auto-predication does not support cti's");
             CLIENT_ASSERT(!TESTANY(EFLAGS_WRITE_NZCV,
                                    instr_get_arith_flags(inst,

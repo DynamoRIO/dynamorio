@@ -936,7 +936,9 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc) ||
          /* Check for pointing right at sysenter, for i#1145 */
          mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
-         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH) ||
+         /* Check for pointing at the sysenter-restart int 0x80 for i#2659 */
+         mcontext->pc + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)) {
         /* If at do_syscall yet not yet in the kernel (or the do_syscall still uses
          * int: i#2005), we need to translate to vsyscall, for detach (i#95).
          */

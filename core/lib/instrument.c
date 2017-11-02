@@ -5059,7 +5059,7 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
-    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+    if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
          */
@@ -5211,7 +5211,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
-    if (auto_pred != DR_PRED_NONE && auto_pred != DR_PRED_AL) {
+    if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
          */
@@ -6978,6 +6978,10 @@ dr_fragment_app_pc(void *tag)
             SYSLOG_INTERNAL_WARNING_ONCE("dr_fragment_app_pc is a DR/client pc");
         }
     });
+#elif defined(LINUX) && defined(X86_32)
+    /* Point back at our hook, undoing the bb shift for SA_RESTART (i#2659). */
+    if ((app_pc)tag == vsyscall_sysenter_displaced_pc)
+        tag = vsyscall_sysenter_return_pc;
 #endif
     return tag;
 }
@@ -7295,7 +7299,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                opnd_create_reg(reg),
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
                                                          0, SELF_TIB_OFFSET, OPSZ_PTR)));
-    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
+    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES || seg == SEG_SS) {
         /* XXX: we assume flat address space */
         instrlist_meta_preinsert
             (ilist, instr,

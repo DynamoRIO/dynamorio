@@ -72,6 +72,7 @@ add_library(simulator STATIC
   simulator/caching_device.cpp
   simulator/caching_device_stats.cpp
   simulator/cache_stats.cpp
+  simulator/prefetcher.cpp
   simulator/cache_simulator.cpp
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
@@ -111,6 +112,7 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 # This is to avoid ../ and common/ in the #includes of headers that we
 # may want to install into a single dir for 3rd-party tool integration.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(file_analyzer_tool_srcs

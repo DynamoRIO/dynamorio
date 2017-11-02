@@ -2242,13 +2242,12 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     }
     for (num = 0, pc = (ptr_uint_t *) report_ebp;
          num < REPORT_NUM_STACK && pc != NULL &&
-             is_readable_without_exception_query_os((app_pc) pc, 2*sizeof(reg_t));
+             is_readable_without_exception_query_os_noblock((app_pc) pc, 2*sizeof(reg_t));
          num++, pc = (ptr_uint_t *) *pc) {
         len = snprintf(curbuf, REPORT_LEN_STACK_EACH, PFX" "PFX"\n",
                        pc, *(pc+1));
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
-
 #ifdef CLIENT_INTERFACE
     /* Only walk the module list if we think the data structs are safe */
     if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {

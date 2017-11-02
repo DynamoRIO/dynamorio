@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -89,8 +89,8 @@ check_thiscall(void *wrapcxt)
     app_pc this_pointer = (app_pc) drwrap_get_mcontext(wrapcxt)->xcx;
 
     CHECK(first_arg == this_pointer,
-          "wrap target is not a proper 'thiscall' (register xcx contains "PIFX
-          ", but arg 0 is "PIFX")", (ptr_uint_t) this_pointer, (ptr_uint_t) first_arg);
+          "wrap target is not a proper 'thiscall' (register xcx contains " PIFX
+          ", but arg 0 is " PIFX")", (ptr_uint_t) this_pointer, (ptr_uint_t) first_arg);
 }
 #endif
 

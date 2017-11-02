@@ -796,8 +796,9 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size)
             error_code = HEAP_ERROR_NOT_AT_PREFERRED;
         } else {
 #endif
-            vmh->start_addr = os_heap_reserve((void*)preferred, size, &error_code,
-                                              true/*+x*/);
+            vmh->alloc_start = os_heap_reserve((void*)preferred, size, &error_code,
+                                               true/*+x*/);
+            vmh->start_addr = vmh->alloc_start;
             LOG(GLOBAL, LOG_HEAP, 1,
                 "vmm_heap_unit_init preferred="PFX" got start_addr="PFX"\n",
                 preferred, vmh->start_addr);
@@ -895,7 +896,21 @@ vmm_heap_unit_exit(vm_heap_t *vmh)
     /* In case there are no tombstones we can just free the unit and
      * that is what we'll do, otherwise it will stay up forever.
      */
-    if (vmh->num_free_blocks == vmh->num_blocks) {
+    bool free_heap = vmh->num_free_blocks == vmh->num_blocks;
+#ifdef UNIX
+    /* On unix there's no fear of leftover tombstones, and as long as we're
+     * doing a detach we can be sure our stack is not actually in the heap.
+     */
+    if (doing_detach) {
+        DODEBUG({
+            byte *sp;
+            GET_STACK_PTR(sp);
+            ASSERT(!(sp >= vmh->start_addr && sp < vmh->end_addr));
+        });
+        free_heap = true;
+    }
+#endif
+    if (free_heap) {
         heap_error_code_t error_code;
         os_heap_free(vmh->alloc_start, vmh->alloc_size, &error_code);
         ASSERT(error_code == HEAP_ERROR_SUCCESS);

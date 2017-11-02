@@ -36,7 +36,7 @@
 #ifndef _CACHE_SIMULATOR_H_
 #define _CACHE_SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include "simulator.h"
 #include "cache_stats.h"
 #include "cache.h"
@@ -52,7 +52,9 @@ class cache_simulator_t : public simulator_t
                       unsigned int L1D_assoc,
                       uint64_t LL_size,
                       unsigned int LL_assoc,
-                      std::string replace_policy,
+                      const std::string &LL_miss_file,
+                      const std::string &replace_policy,
+                      const std::string &data_prefetcher,
                       uint64_t skip_refs,
                       uint64_t warmup_refs,
                       uint64_t sim_refs,
@@ -75,7 +77,9 @@ class cache_simulator_t : public simulator_t
     unsigned int knob_L1D_assoc;
     uint64_t knob_LL_size;
     unsigned int knob_LL_assoc;
+    std::string knob_LL_miss_file;
     std::string knob_replace_policy;
+    std::string knob_data_prefetcher;
 
     // Implement a set of ICaches and DCaches with pointer arrays.
     // This is useful for implementing polymorphism correctly.

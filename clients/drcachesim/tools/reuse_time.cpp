@@ -30,8 +30,10 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 #include "reuse_time.h"
 #include "../common/utils.h"
@@ -102,6 +104,13 @@ reuse_time_t::process_memref(const memref_t &memref)
     return true;
 }
 
+static bool
+cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
+             const std::pair<int_least64_t, int_least64_t> &r)
+{
+    return (l.first < r.first);
+}
+
 bool
 reuse_time_t::print_results() {
     std::cerr << TOOL_NAME << " results:\n";
@@ -111,7 +120,7 @@ reuse_time_t::print_results() {
 
     int_least64_t count = 0;
     int_least64_t sum = 0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it =
+    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it =
          reuse_time_histogram.begin(); it != reuse_time_histogram.end(); it++) {
         count += it->second;
         sum += it->first * it->second;
@@ -125,8 +134,11 @@ reuse_time_t::print_results() {
               << std::setw(12) << "Cumulative";
     std::cerr << std::endl;
     double cum_percent = 0.0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it =
-         reuse_time_histogram.begin(); it != reuse_time_histogram.end(); it++) {
+    std::vector<std::pair<int_least64_t, int_least64_t> >
+        sorted(reuse_time_histogram.size());
+    std::partial_sort_copy(reuse_time_histogram.begin(), reuse_time_histogram.end(),
+                           sorted.begin(), sorted.end(), cmp_dist_key);
+    for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double percent = it->second / static_cast<double>(count);
         cum_percent += percent;
         std::cerr << std::setw(8) << it->first
