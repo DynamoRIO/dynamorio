@@ -2457,7 +2457,8 @@ if (CLIENT_INTERFACE)
 
       torunonly_ci(tool.drcachesim.delay ${ci_shared_app} drcachesim
         "drcachesim-delay-simple.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestdelay -trace_after_instrs 50000" "" "")
+        "-ipc_name ${IPC_PREFIX}drtestdelay -trace_after_instrs 50000 -exit_after_tracing 10000"
+        "" "")
         set(tool.drcachesim.delay_toolname "drcachesim")
         set(tool.drcachesim.delay_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
