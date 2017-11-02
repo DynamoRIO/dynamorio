@@ -196,7 +196,7 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
         return true;
     }
     /* If !di->check_reachable we still require correct alignment. */
-    if (!di->check_reachable && !TEST(3, off)) {
+    if (!di->check_reachable && ALIGNED(off, 4)) {
         *poff = 0;
         return true;
     }
@@ -457,7 +457,7 @@ encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out,
         return true;
     }
     /* If !di->check_reachable we still require correct alignment. */
-    if (!di->check_reachable && !TEST((1ULL << scale) - 1, offset)) {
+    if (!di->check_reachable && ALIGNED(offset, 1ULL << scale)) {
         *enc_out = 0;
         return true;
     }
