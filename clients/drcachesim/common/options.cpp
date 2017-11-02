@@ -159,6 +159,12 @@ droption_t<bytesize_t> op_trace_after_instrs
  "executions are observed.  At that point, regular tracing is put into place.  Use "
  "-max_trace_size to set a limit on the subsequent trace length.");
 
+droption_t<bytesize_t> op_exit_after_tracing
+(DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
+ "Exit the process after tracing N references",
+ "If non-zero, after tracing the specified number of references, the process is "
+ "exited with an exit code of 0.  The reference count is approximate.");
+
 droption_t<bool> op_online_instr_types
 (DROPTION_SCOPE_CLIENT, "online_instr_types", false,
  "Whether online traces should distinguish instr types",
