@@ -179,7 +179,8 @@ try_encode_imm(OUT uint *imm, int bits, opnd_t opnd)
 }
 
 static inline bool
-encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd)
+encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
+              decode_info_t *di)
 {
     ptr_uint_t off, range;
     ASSERT(0 < bits && bits <= 32);
@@ -190,10 +191,16 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd)
     else
         return false;
     range = (ptr_uint_t)1 << bits;
-    if (TEST(~((range - 1) << 2), off + (range << 1)))
-        return false;
-    *poff = off >> 2 & (range - 1);
-    return true;
+    if (!TEST(~((range - 1) << 2), off + (range << 1))) {
+        *poff = off >> 2 & (range - 1);
+        return true;
+    }
+    /* If !di->check_reachable we still require correct alignment. */
+    if (!di->check_reachable && ALIGNED(off, 4)) {
+        *poff = 0;
+        return true;
+    }
+    return false;
 }
 
 static inline opnd_t
@@ -432,7 +439,7 @@ decode_opnd_adr_page(int scale, uint enc, byte *pc, OUT opnd_t *opnd)
 
 static bool
 encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out,
-                     instr_t *instr)
+                     instr_t *instr, decode_info_t *di)
 {
     ptr_int_t offset;
     uint bits;
@@ -445,10 +452,16 @@ encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out,
     } else
         return false;
 
-    if (!try_encode_int(&bits, 21, scale, offset))
-        return false;
-    *enc_out = (bits & 3) << 29 | (bits & 0x1ffffc) << 3;
-    return true;
+    if (try_encode_int(&bits, 21, scale, offset)) {
+        *enc_out = (bits & 3) << 29 | (bits & 0x1ffffc) << 3;
+        return true;
+    }
+    /* If !di->check_reachable we still require correct alignment. */
+    if (!di->check_reachable && ALIGNED(offset, 1ULL << scale)) {
+        *enc_out = 0;
+        return true;
+    }
+    return false;
 }
 
 /* dq_plus: used for dq0, dq0p1, dq0p2, dq0p3 */
@@ -2313,13 +2326,13 @@ decode_opnds_adr(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
 }
 
 static inline uint
-encode_opnds_adr(byte *pc, instr_t *instr, uint enc)
+encode_opnds_adr(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     int opcode = instr_get_opcode(instr);
     uint rd, adr;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
         encode_opnd_adr_page(opcode == OP_adrp ? 12 : 0,
-                             pc, instr_get_src(instr, 0), &adr, instr) &&
+                             pc, instr_get_src(instr, 0), &adr, instr, di) &&
         encode_opnd_wxn(true, false, 0, instr_get_dst(instr, 0), &rd))
         return (enc | adr | rd);
     return ENCFAIL;
@@ -2341,7 +2354,7 @@ decode_opnds_b(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opc
 }
 
 static inline uint
-encode_opnds_b(byte *pc, instr_t *instr, uint enc)
+encode_opnds_b(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     int opcode = instr_get_opcode(instr);
     bool is_bl = (opcode == OP_bl);
@@ -2349,7 +2362,7 @@ encode_opnds_b(byte *pc, instr_t *instr, uint enc)
     if (instr_num_dsts(instr) == (is_bl ? 1 : 0) &&
         instr_num_srcs(instr) == 1 &&
         (!is_bl || encode_opnd_impx30(enc, opcode, pc, instr_get_dst(instr, 0), &x30)) &&
-        encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0)))
+        encode_pc_off(&off, 26, pc, instr, instr_get_src(instr, 0), di))
         return (enc | off);
     return ENCFAIL;
 }
@@ -2367,11 +2380,11 @@ decode_opnds_bcond(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int
 }
 
 static inline uint
-encode_opnds_bcond(byte *pc, instr_t *instr, uint enc)
+encode_opnds_bcond(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     uint off;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 1 &&
-        encode_pc_off(&off, 19, pc, instr, instr_get_src(instr, 0)) &&
+        encode_pc_off(&off, 19, pc, instr, instr_get_src(instr, 0), di) &&
         (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16)
         return (enc | off << 5 | (instr_get_predicate(instr) - DR_PRED_EQ));
     return ENCFAIL;
@@ -2391,11 +2404,11 @@ decode_opnds_cbz(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
 }
 
 static inline uint
-encode_opnds_cbz(byte *pc, instr_t *instr, uint enc)
+encode_opnds_cbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     uint rt, off;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 2 &&
-        encode_pc_off(&off, 19, pc, instr, instr_get_src(instr, 0)) &&
+        encode_pc_off(&off, 19, pc, instr, instr_get_src(instr, 0), di) &&
         encode_opnd_rn(false, 0, instr_get_src(instr, 1), &rt))
         return (enc | off << 5 | rt);
     return ENCFAIL;
@@ -2432,7 +2445,7 @@ decode_opnds_logic_imm(uint enc, dcontext_t *dcontext, byte *pc,
 }
 
 static inline uint
-encode_opnds_logic_imm(byte *pc, instr_t *instr, uint enc)
+encode_opnds_logic_imm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     int opcode = instr_get_opcode(instr);
     int srcs = instr_num_srcs(instr);
@@ -2493,7 +2506,7 @@ decode_opnds_msr(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
 }
 
 static inline uint
-encode_opnds_msr(byte *pc, instr_t *instr, uint enc)
+encode_opnds_msr(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     uint imm15, xt;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
@@ -2525,11 +2538,11 @@ decode_opnds_tbz(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
 }
 
 static inline uint
-encode_opnds_tbz(byte *pc, instr_t *instr, uint enc)
+encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     uint xt, imm6, off;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
-        encode_pc_off(&off, 14, pc, instr, instr_get_src(instr, 0)) &&
+        encode_pc_off(&off, 14, pc, instr, instr_get_src(instr, 0), di) &&
         encode_opnd_wxn(true, false, 0, instr_get_src(instr, 1), &xt) &&
         encode_opnd_int(0, 6, false, 0, 0, instr_get_src(instr, 2), &imm6))
         return (enc | off << 5 | xt | (imm6 & 31) << 19 | (imm6 & 32) << 26);
@@ -2628,8 +2641,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 }
 
 uint
-encode_common(byte *pc, instr_t *i)
+encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
-    return encoder(pc, i);
+    return encoder(pc, i, di);
 }

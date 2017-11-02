@@ -169,7 +169,8 @@ def generate_encoder(patterns, opndsettab, opndtab):
         os = opndsettab[name]
         (fixed, dsts, srcs, enc_order) = (os.fixed, os.dsts, os.srcs, os.enc_order)
         c += ['static uint',
-              ('encode_opnds%s' % name) + '(byte *pc, instr_t *instr, uint enc)',
+              ('encode_opnds%s' % name) +
+              '(byte *pc, instr_t *instr, uint enc, decode_info_t *di)',
               '{']
         if dsts + srcs == []:
             c.append('    return enc;')
@@ -207,7 +208,7 @@ def generate_encoder(patterns, opndsettab, opndtab):
             case[mn] = []
         case[mn].append(p)
     c += ['static uint',
-          'encoder(byte *pc, instr_t *instr)',
+          'encoder(byte *pc, instr_t *instr, decode_info_t *di)',
           '{',
           '    uint enc;',
           '    (void)enc;',
@@ -218,11 +219,11 @@ def generate_encoder(patterns, opndsettab, opndtab):
         pat1 = pats.pop()
         for p in pats:
             (b, m, mn, f) = p
-            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
         (b, m, mn, f) = pat1
-        c.append('        return encode_opnds%s(pc, instr, 0x%08x);' % (f, b))
+        c.append('        return encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
     c += ['    }',
           '    return ENCFAIL;',
           '}']
