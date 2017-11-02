@@ -34,6 +34,7 @@
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
+#include "decode_private.h"
 #include "disassemble.h"
 #include "codec.h"
 
@@ -144,6 +145,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
                   _IF_DEBUG(bool assert_reachable))
 {
+    decode_info_t di;
     uint enc;
 
     if (has_instr_opnds != NULL)
@@ -161,7 +163,8 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
 
-    enc = encode_common(final_pc, instr);
+    di.check_reachable = check_reachable;
+    enc = encode_common(final_pc, instr, &di);
     if (enc == ENCFAIL) {
         /* This is to make decoding reversible. We would not normally encode an OP_xx. */
         if (instr_get_opcode(instr) == OP_xx &&
