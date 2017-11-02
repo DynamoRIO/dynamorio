@@ -52,7 +52,6 @@ class histogram_t : public analysis_tool_t
     virtual bool print_results();
 
  protected:
-    /* FIXME i#2020: use unsorted_map (C++11) for faster lookup */
     std::unordered_map<addr_t, uint64_t> icache_map;
     std::unordered_map<addr_t, uint64_t> dcache_map;
 

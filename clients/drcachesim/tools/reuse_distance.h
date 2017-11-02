@@ -74,7 +74,6 @@ class reuse_distance_t : public analysis_tool_t
     static unsigned int knob_verbose;
 
  protected:
-    /* XXX i#2020: use unsorted_map (C++11) for faster lookup */
     std::unordered_map<addr_t, line_ref_t*> cache_map;
     // This is our reuse distance histogram.
     std::unordered_map<int_least64_t, int_least64_t> dist_map;
