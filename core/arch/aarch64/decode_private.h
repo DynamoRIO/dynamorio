@@ -34,7 +34,7 @@
 #define DECODE_PRIVATE_H 1
 
 struct _decode_info_t {
-    int XXX;
+    bool check_reachable; /* This is used by the encoder, not the decoder. */
 };
 
 #endif /* DECODE_PRIVATE_H */
