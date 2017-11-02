@@ -188,6 +188,8 @@ Further non-compatibility-affecting changes include:
    default, so simulation results may not match those in prior releases.
    It can be disabled by running with "-data_prefetcher none" (see \ref
    sec_drcachesim_ops).
+ - Added a last-level cache miss recording feature to drcachesim.
+ - Added a delayed tracing feature to drcachesim.
 
 **************************************************
 <hr>

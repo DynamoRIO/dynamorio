@@ -152,6 +152,13 @@ droption_t<bytesize_t> op_max_trace_size
  "of one internal buffer.  Once reached, instrumentation continues for that thread, "
  "but no further data is recorded.");
 
+droption_t<bytesize_t> op_trace_after_instrs
+(DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
+ "Do not start tracing until N instructions",
+ "If non-zero, this causes tracing to be suppressed until this many dynamic instruction "
+ "executions are observed.  At that point, regular tracing is put into place.  Use "
+ "-max_trace_size to set a limit on the subsequent trace length.");
+
 droption_t<bool> op_online_instr_types
 (DROPTION_SCOPE_CLIENT, "online_instr_types", false,
  "Whether online traces should distinguish instr types",

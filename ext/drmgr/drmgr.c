@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -479,12 +479,12 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
     size_t orig_num = l->num;
     if (insert_at > l->num)
         return -1;
-    l->num++;
     /* check for invalid slots we can easily use */
     if (insert_at < l->num && !cblist_get_pri(l, insert_at)->valid)
         return insert_at;
     else if (insert_at > 0 && !cblist_get_pri(l, insert_at - 1)->valid)
         return insert_at - 1;
+    l->num++;
     if (l->num >= l->capacity) {
         /* do the shift implicitly while resizing */
         size_t new_cap = l->capacity * 2;
