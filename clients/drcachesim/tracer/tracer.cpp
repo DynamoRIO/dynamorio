@@ -132,6 +132,8 @@ static instru_t *instru;
 static client_id_t client_id;
 static void  *mutex;    /* for multithread support */
 static uint64 num_refs; /* keep a global memory reference count */
+static uint64 num_refs_racy; /* racy global memory reference count */
+static volatile bool exited_process;
 
 /* virtual to physical translation */
 static bool have_phys;
@@ -308,6 +310,7 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
     size_t header_size = buf_hdr_slots_size;
+    uint num_refs = 0;
 
     buf_ptr = BUF_PTR(data->seg_base);
     // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
@@ -336,7 +339,7 @@ memtrace(void *drcontext, bool skip_size_cap)
     if (do_write) {
         for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
              mem_ref += instru->sizeof_entry()) {
-            data->num_refs++;
+            num_refs++;
             if (have_phys && op_use_physical.get_value()) {
                 trace_type_t type = instru->get_entry_type(mem_ref);
                 if (type != TRACE_TYPE_THREAD &&
@@ -381,6 +384,7 @@ memtrace(void *drcontext, bool skip_size_cap)
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
                 atomic_pipe_write(drcontext, pipe_start, buf_ptr);
         }
+        data->num_refs += num_refs;
     }
 
     if (do_write && file_ops_func.handoff_buf != NULL) {
@@ -398,6 +402,22 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+    num_refs_racy += num_refs;
+    if (op_exit_after_tracing.get_value() > 0 &&
+        num_refs_racy > op_exit_after_tracing.get_value()) {
+        dr_mutex_lock(mutex);
+        if (!exited_process) {
+            exited_process = true;
+            dr_mutex_unlock(mutex);
+            // XXX i#2644: we would prefer detach_after_tracing rather than exiting
+            // the process but that requires a client-triggered detach so for now
+            // we settle for exiting.
+            NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING" references.\n",
+                   num_refs_racy);
+            dr_exit_process(0);
+        }
+        dr_mutex_unlock(mutex);
+    }
 }
 
 /* clean_call sends the memory reference info to the simulator */
