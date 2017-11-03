@@ -9863,17 +9863,35 @@ os_thread_re_take_over(void)
     return false;
 }
 
+static void
+os_thread_signal_taken_over(void)
+{
+    thread_id_t mytid;
+    event_t event = NULL;
+    uint i;
+    /* Wake up the thread that initiated the take over. */
+    mytid = get_thread_id();
+    ASSERT(thread_takeover_records != NULL);
+    for (i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == mytid) {
+            event = thread_takeover_records[i].event;
+            break;
+        }
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
+                   event != NULL);
+    signal_event(event);
+}
+
 /* Takes over the current thread from the signal handler.  We notify the thread
  * that signaled us by signalling our event in thread_takeover_records.
+ * If it returns, it returns false, and the thread should be let go.
  */
-void
+bool
 os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
-    uint i;
-    thread_id_t mytid;
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
-    event_t event = NULL;
 
     LOG(GLOBAL, LOG_THREADS, 1,
         "TAKEOVER: received signal in thread "TIDFMT"\n", get_sys_thread_id());
@@ -9884,6 +9902,11 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      */
     os_thread_re_take_over();
     if (!is_thread_initialized()) {
+        /* If this is a thread on its way to init, don't self-interp (i#2688). */
+        if (is_dynamo_address(mc->pc)) {
+            os_thread_signal_taken_over();
+            return false;
+        }
         IF_DEBUG(int r =)
             dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
         ASSERT(r == SUCCESS);
@@ -9903,18 +9926,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = WHERE_APP;
     dcontext->next_tag = mc->pc;
 
-    /* Wake up the thread that initiated the take over. */
-    mytid = get_thread_id();
-    ASSERT(thread_takeover_records != NULL);
-    for (i = 0; i < num_thread_takeover_records; i++) {
-        if (thread_takeover_records[i].tid == mytid) {
-            event = thread_takeover_records[i].event;
-            break;
-        }
-    }
-    ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
-                   event != NULL);
-    signal_event(event);
+    os_thread_signal_taken_over();
 
     DOLOG(2, LOG_TOP, {
         byte *cur_esp;
@@ -9927,6 +9939,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
+    return true; /* make compiler happy */
 }
 
 bool
