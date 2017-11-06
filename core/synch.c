@@ -47,6 +47,9 @@
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
+static bool started_detach = false; /* set before synchall */
+bool doing_detach = false; /* set after synchall */
+
 static void
 synch_thread_yield(void);
 
@@ -666,7 +669,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
            tsd->synch_perm != THREAD_SYNCH_NONE) {
         STATS_INC_DC(dcontext, synch_loops_wait_safe);
 #ifdef WINDOWS
-        if (doing_detach) {
+        if (started_detach) {
             /* We spin for any non-detach synchs encountered during detach
              * since we have no flag telling us this synch is for detach. */
             /* Ref case 5074, can NOT use os_thread_yield here. This must be a user
@@ -689,7 +692,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     ENTERING_DR();
     tsd->synch_perm = THREAD_SYNCH_NONE;
     if (tsd->set_mcontext != NULL || tsd->set_context != NULL) {
-        IF_WINDOWS(ASSERT(!doing_detach));
+        IF_WINDOWS(ASSERT(!started_detach));
         /* Make a local copy */
         ASSERT(sizeof(cxt) >= sizeof(priv_mcontext_t));
         if (tsd->set_mcontext != NULL) {
@@ -1167,7 +1170,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
      */
     ASSERT_CURIOSITY(desired_synch_state < THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT
                      /* detach currently violates this: bug 8942 */
-                     || doing_detach);
+                     || started_detach);
 
     /* must set exactly one of these -- FIXME: better way to check? */
     ASSERT(TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_ABORT |
@@ -1782,8 +1785,6 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
  * Detach and similar operations
  */
 
-bool doing_detach = false;
-
 /* Atomic variable to prevent multiple threads from trying to detach at
  * the same time.
  */
@@ -1932,17 +1933,17 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 
     /* Unprotect .data for exit cleanup.
      * XXX: more secure to not do this until we've synched, but then need
-     * alternative prot for doing_detach and init_apc_go_native*
+     * alternative prot for started_detach and init_apc_go_native*
      */
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-    ASSERT(!doing_detach);
-    doing_detach = true;
+    ASSERT(!started_detach);
+    started_detach = true;
 
     if (!internal) {
         synchronize_dynamic_options();
         if (!DYNAMO_OPTION(allow_detach)) {
-            doing_detach = false;
+            started_detach = false;
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
             dynamo_detaching_flag = LOCK_FREE_STATE;
             SYSLOG_INTERNAL_ERROR("Detach called without the allow_detach option set");
@@ -1973,7 +1974,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     init_apc_go_native_pause = true;
     init_apc_go_native = true;
-    /* XXX i#2600: there is still a race for threads caught between init_apc_go_native
+    /* XXX i#2611: there is still a race for threads caught between init_apc_go_native
      * and dynamo_thread_init adding to all_threads: this just reduces the risk.
      * Unfortunately we can't easily use the UNIX solution of uninit_thread_count
      * since we can't distinguish internally vs externally created threads.
@@ -1999,6 +2000,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     ASSERT(mutex_testlock(&all_threads_synch_lock) &&
            mutex_testlock(&thread_initexit_lock));
+
+    ASSERT(!doing_detach);
+    doing_detach = true;
 
 #ifdef HOT_PATCHING_INTERFACE
     /* In hotp_only mode, we must remove patches when detaching; we don't want
@@ -2178,6 +2182,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
     dynamo_exit_post_detach();
 
     doing_detach = false;
+    started_detach = false;
 
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_detaching_flag = LOCK_FREE_STATE;

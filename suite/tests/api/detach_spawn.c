@@ -84,19 +84,17 @@ parent_func(void *arg)
 
 int main(void)
 {
-    dr_app_setup();
-    dr_app_start();
     parent_ready = create_cond_var();
     int i;
     thread_t threads[NUM_PARENT_THREADS];
     for (i = 0; i < NUM_PARENT_THREADS; ++i)
         threads[i] = create_thread(parent_func, NULL);
-    wait_cond_var(parent_ready);
 
-    /* FIXME i#2601: dr_app_start() here hits hang on ksynch_wait for a now-exited
-     * thread.  When we fix i#2601 we can use this test for that race as well.
+    /* We setup and start at once to avoid process memory changing much between
+     * the two.
      */
-
+    dr_app_setup_and_start();
+    wait_cond_var(parent_ready);
     thread_sleep(50);
 
     dr_app_stop_and_cleanup();

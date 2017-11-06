@@ -204,9 +204,10 @@ static byte *KiFastSystemCall = NULL;
 
 /* i#1443: we need to identify threads queued up waiting for DR init.
  * We can't use heap of course so we have to use a max count.
- * We've never seen more than one at a time.
+ * We've never seen more than one at a time, but the api.detach_spawn test
+ * has 100 of them.
  */
-#define MAX_THREADS_WAITING_FOR_DR_INIT 8
+#define MAX_THREADS_WAITING_FOR_DR_INIT 128
 /* We assume INVALID_THREAD_ID is 0 (checked in callback_init()). */
 /* These need to be neverprot for use w/ new threads.  The risk is small. */
 DECLARE_NEVERPROT_VAR(static thread_id_t threads_waiting_for_dr_init
@@ -7518,6 +7519,14 @@ callback_interception_init_start(void)
                                     ACCT_OTHER, PROTECTED);
     memset(intercept_map, 0, sizeof(*intercept_map));
 
+    /* we assume callback_interception_init_finish() is called immediately
+     * after client init, and that leaving interception_code off exec areas
+     * and writable during client init is ok: but now that the buffer is inside
+     * our data section, we must mark it +x, before we set up any hooks.
+     */
+    set_protection(interception_code, INTERCEPTION_CODE_SIZE,
+                   MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
+
     /* Note that if we switch to using a non-5-byte-reljmp for our Ki hooks
      * we need to change our drmarker reader. */
 
@@ -7612,13 +7621,6 @@ callback_interception_init_start(void)
                         NULL, NULL);
 
     interception_cur_pc = pc; /* save for callback_interception_init_finish() */
-    /* we assume callback_interception_init_finish() is called immediately
-     * after client init, and that leaving interception_code off exec areas
-     * and writable during client init is ok: but now that the buffer is inside
-     * our data section, we must mark it +x
-     */
-    set_protection(interception_code, INTERCEPTION_CODE_SIZE,
-                   MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
 
     /* other initialization */
 #ifndef X64

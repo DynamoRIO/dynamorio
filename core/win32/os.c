@@ -8211,17 +8211,18 @@ mutex_free_contended_event(mutex_t *lock)
 }
 
 /* common wrapper that also attempts to detect deadlocks */
-static void
-os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
+/* A 0 timeout_ms means to wait forever.  Returns false on timeout, true on signalled. */
+static bool
+os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
               _IF_CLIENT_INTERFACE(dcontext_t *dcontext))
 {
     wait_status_t res;
     bool reported_timeout = false;
+    LARGE_INTEGER timeout;
 
     KSTART(wait_event);
     /* we allow using this in release builds as well */
-    if (DYNAMO_OPTION(deadlock_timeout) > 0) {
-        LARGE_INTEGER timeout;
+    if (timeout_ms == 0 && DYNAMO_OPTION(deadlock_timeout) > 0) {
         timeout.QuadPart= - ((int)DYNAMO_OPTION(deadlock_timeout)) *
             TIMER_UNITS_PER_MILLISECOND;
 #ifdef CLIENT_INTERFACE
@@ -8237,7 +8238,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
 #endif
         if (res == WAIT_SIGNALED) {
             KSTOP(wait_event);
-            return;             /* all went well */
+            return true; /* all went well */
         }
         ASSERT(res == WAIT_TIMEDOUT);
         /* We could use get_own_peb()->BeingDebugged to determine whether
@@ -8264,7 +8265,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
                 SYSLOG_INTERNAL_WARNING("WARNING - 2nd wait after deadlock timeout "
                                         "expired succeeded! Not really deadlocked.");
                 KSTOP(wait_event);
-                return;
+                return true;
             }
             ASSERT(res == WAIT_TIMEDOUT);
             report_dynamorio_problem(NULL, DUMPCORE_TIMEOUT, NULL, NULL,
@@ -8277,12 +8278,13 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = true;
 #endif
-    res = nt_wait_event_with_timeout(e, INFINITE_WAIT);
+    if (timeout_ms > 0)
+        timeout.QuadPart= -timeout_ms * TIMER_UNITS_PER_MILLISECOND;
+    res = nt_wait_event_with_timeout(e, timeout_ms > 0 ? &timeout : INFINITE_WAIT);
 #ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = false;
 #endif
-    ASSERT(res == WAIT_SIGNALED);
     if (reported_timeout) {
         /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
          * warning to that effect. */
@@ -8293,6 +8295,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
                                 "expired succeeded! Not really deadlocked.");
     }
     KSTOP(wait_event);
+    return (res == WAIT_SIGNALED);
 }
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
@@ -8325,7 +8328,7 @@ mutex_wait_contended_lock(mutex_t *lock)
          (mutex_t *)dcontext->client_data->client_grab_mutex == lock);
     ASSERT(!set_safe_for_sync || dcontext != NULL);
 #endif
-    os_wait_event(event _IF_CLIENT_INTERFACE(set_safe_for_sync)
+    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(set_safe_for_sync)
                   _IF_CLIENT_INTERFACE(dcontext));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
@@ -8345,7 +8348,7 @@ rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
     contention_event_t event =
         mutex_get_contended_event(&rwlock->writer_waiting_readers, SynchronizationEvent);
-    os_wait_event(event _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8368,7 +8371,8 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
 {
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
-    os_wait_event(notify_readers _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(notify_readers, 0 _IF_CLIENT_INTERFACE(false)
+                  _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and only a single threads waiting on
      * this event are released, if this was indeed the last reader
     */
@@ -8410,10 +8414,11 @@ reset_event(event_t e)
     nt_clear_event(e);
 }
 
-void
-wait_for_event(event_t e)
+bool
+wait_for_event(event_t e, int timeout_ms)
 {
-    os_wait_event(e _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    return os_wait_event(e, timeout_ms _IF_CLIENT_INTERFACE(false)
+                         _IF_CLIENT_INTERFACE(NULL));
 }
 
 timestamp_t
