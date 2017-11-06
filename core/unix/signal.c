@@ -1460,6 +1460,7 @@ signal_remove_handlers(dcontext_t *dcontext)
             sigaction_syscall(i, &act, NULL);
         }
     }
+    DODEBUG({ removed_sig_handler = true; });
 }
 
 void
@@ -1515,6 +1516,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm)
             intercept_signal(dcontext, info, i);
         }
     }
+    DODEBUG({ removed_sig_handler = false; });
 }
 
 void
@@ -4433,15 +4435,18 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
 /* Helper that takes over the current thread signaled via SUSPEND_SIGNAL.  Kept
  * separate mostly to keep the priv_mcontext_t allocation out of
  * master_signal_handler_C.
+ * If it returns, it returns false, and the signal should be squashed.
  */
-static void
+static bool
 sig_take_over(kernel_ucontext_t *uc)
 {
     priv_mcontext_t mc;
     ucontext_to_mcontext(&mc, uc);
     /* We don't want our own blocked signals: we want the app's, stored in the frame. */
-    os_thread_take_over(&mc, SIGMASK_FROM_UCXT(uc));
-    ASSERT_NOT_REACHED();
+    if (!os_thread_take_over(&mc, SIGMASK_FROM_UCXT(uc)))
+        return false;
+    ASSERT_NOT_REACHED(); /* shouldn't return */
+    return true; /* make compiler happy */
 }
 
 static bool
@@ -4579,8 +4584,9 @@ master_signal_handler_C(byte *xsp)
              * dcontext), which means we want to take over.
              */
             ASSERT(!doing_detach);
-            sig_take_over(ucxt);  /* no return */
-            ASSERT_NOT_REACHED();
+            if (!sig_take_over(ucxt))
+                return;
+            ASSERT_NOT_REACHED(); /* else, shouldn't return */
         } else {
             /* Using global dcontext because dcontext is NULL here. */
             DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
@@ -6771,8 +6777,9 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
         is_thread_currently_native(dcontext->thread_record) &&
         !IS_CLIENT_THREAD(dcontext)
         IF_APP_EXPORTS(&& !dr_api_exit)) {
-        sig_take_over(ucxt);  /* no return */
-        ASSERT_NOT_REACHED();
+        if (!sig_take_over(ucxt))
+            return false;
+        ASSERT_NOT_REACHED(); /* else, shouldn't return */
     }
 
     /* If suspend_count is 0, we are not trying to suspend this thread
@@ -6842,7 +6849,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
 
     if (ostd->retakeover) {
         ostd->retakeover = false;
-        sig_take_over(ucxt);  /* no return */
+        sig_take_over(ucxt);  /* shouldn't return for this case */
         ASSERT_NOT_REACHED();
     } else if (ostd->do_detach) {
         ostd->do_detach = false;
