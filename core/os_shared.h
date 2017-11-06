@@ -957,7 +957,8 @@ event_t create_event(void);
 void destroy_event(event_t e);
 void signal_event(event_t e);
 void reset_event(event_t e);
-void wait_for_event(event_t e);
+/* 0 means to wait forever.  Returns false on timeout, true on event firing. */
+bool wait_for_event(event_t e, int timeout_ms);
 
 /* get current timer frequency in KHz */
 /* NOTE: Keep in mind that with voltage scaling in power saving mode

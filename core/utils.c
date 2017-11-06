@@ -1395,7 +1395,7 @@ unintend_wait_broadcast_event_helper(broadcast_event_t *be)
 void
 wait_broadcast_event_helper(broadcast_event_t *be)
 {
-    wait_for_event(be->event);
+    wait_for_event(be->event, 0);
     /* once woken, we must wake next thread in the chain,
      * unless we are the last
      */

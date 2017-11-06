@@ -40,8 +40,19 @@ Here are the changes to lib1funcs.S:
 > /*--------------------------------------------------*/
 >
 
-For udivmoddi4.c, it contains the __udivmoddi4 function extracted from
+For udivmoddi4.c, it contains the __udivmoddi4 and __moddi3 functions extracted from
 libgcc2.c with the following lines added:
 > /* This is extracted from gcc's libgcc/libgcc2.c with these typedefs added: */
+> typedef short Wtype;
+> typedef int DWtype;
 > typedef unsigned int UWtype;
 > typedef unsigned long long UDWtype;
+> #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+> struct DWstruct {Wtype high, low;};
+> #else
+> struct DWstruct {Wtype low, high;};
+> #endif
+> typedef union {
+>   struct DWstruct s;
+>   DWtype ll;
+> } DWunion;
