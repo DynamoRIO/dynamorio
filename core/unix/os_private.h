@@ -192,7 +192,7 @@ typedef struct ptrace_stack_args_t {
 } ptrace_stack_args_t;
 
 /* in os.c */
-void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
+bool os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
