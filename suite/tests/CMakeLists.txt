@@ -2236,9 +2236,11 @@ if (CLIENT_INTERFACE)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.detach ${libpthread})
     endif ()
-    tobuild_api(api.detach_spawn api/detach_spawn.c "" "" OFF OFF)
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(api.detach_spawn ${libpthread})
+    if (NOT WIN32) # XXX i#2611: fix for Windows
+      tobuild_api(api.detach_spawn api/detach_spawn.c "" "" OFF OFF)
+      if (NOT ANDROID) # pthreads is inside Bionic on Android
+        target_link_libraries(api.detach_spawn ${libpthread})
+      endif ()
     endif ()
   endif ()
   # test static decoder library

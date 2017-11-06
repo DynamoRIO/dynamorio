@@ -715,7 +715,7 @@ dynamorio_app_init(void)
     if (INTERNAL_OPTION(unsafe_hang_process)) {
         event_t never_signaled = create_event();
         SYSLOG_INTERNAL_ERROR("Hanging the process deliberately!");
-        wait_for_event(never_signaled);
+        wait_for_event(never_signaled, 0);
         destroy_event(never_signaled);
     }
 
@@ -2154,9 +2154,6 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
 /* this bool is protected by reset_pending_lock */
 DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
 
-#ifdef DEBUG
-bool dynamo_thread_init_during_process_exit = false;
-#endif
 /* thread-specific initialization
  * if dstack_in is NULL, then a dstack is allocated; else dstack_in is used
  * as the thread's dstack
@@ -2201,15 +2198,18 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     /* synch point so thread creation can be prevented for critical periods */
     mutex_lock(&thread_initexit_lock);
 
+    /* XXX i#2611: during detach, there is a race where a thread can
+     * reach here on Windows despite init_apc_go_native (i#2600).
+     */
+    ASSERT_BUG_NUM(2611, !doing_detach);
+
     /* The assumption is that if dynamo_exited, then we are about to exit and
      * clean up, initializing this thread then would be dangerous, better to
-     * wait here for the app to die.  Is safe with detach, since a thread
-     * should never reach here when dynamo_exited is true during detach */
+     * wait here for the app to die.
+     */
     /* under current implementation of process exit, can happen only under
      * debug build, or app_start app_exit interface */
     while (dynamo_exited) {
-        /* FIXME i#2075: free the dstack. */
-        DODEBUG({dynamo_thread_init_during_process_exit = true; });
         /* logging should be safe, though might not actually result in log
          * message */
         DODEBUG_ONCE(LOG(GLOBAL, LOG_THREADS, 1,

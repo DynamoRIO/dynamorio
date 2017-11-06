@@ -6828,7 +6828,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
         /* Waits only if the wakeup flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked.
          */
-        ksynch_wait(&ostd->wakeup, 0);
+        ksynch_wait(&ostd->wakeup, 0, 0);
         if (ksynch_get_value(&ostd->wakeup) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();

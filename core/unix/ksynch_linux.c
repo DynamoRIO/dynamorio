@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -45,6 +45,7 @@
 #include "../globals.h"
 #include "ksynch.h"
 #include <linux/futex.h> /* for futex op code */
+#include <sys/time.h>
 #include "include/syscall.h" /* our own local copy */
 
 #ifndef LINUX
@@ -107,18 +108,22 @@ ksynch_free_var(volatile int *futex)
 
 /* Waits on the futex until woken if the kernel supports SYS_futex syscall
  * and the futex's value has not been changed from mustbe. Does not block
- * if the kernel doesn't support SYS_futex. Returns 0 if woken by another thread,
+ * if the kernel doesn't support SYS_futex. If timeout_ms is 0, there is no timeout;
+ * else returns a negative value on a timeout.  Returns 0 if woken by another thread,
  * and negative value for all other cases.
  */
 ptr_int_t
-ksynch_wait(volatile int *futex, int mustbe)
+ksynch_wait(volatile int *futex, int mustbe, int timeout_ms)
 {
     ptr_int_t res;
     ASSERT(ALIGNED(futex, sizeof(int)));
     if (kernel_futex_support) {
         /* XXX: Having debug timeout like win32 os_wait_event() would be useful */
-        res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAIT, mustbe, NULL,
-                                NULL, 0);
+        struct timespec timeout;
+        timeout.tv_sec = (timeout_ms / 1000);
+        timeout.tv_nsec = ((int64)timeout_ms % 1000) * 1000000;
+        res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAIT, mustbe,
+                                timeout_ms > 0 ? &timeout : NULL, NULL, 0);
     } else {
         res = -1;
     }

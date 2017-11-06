@@ -450,8 +450,6 @@ extern bool dynamo_exited_all_other_threads;  /* has dynamo exited and synched? 
 extern bool dynamo_exited_and_cleaned; /* has dynamo component cleanup started? */
 #ifdef DEBUG
 extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
-/* process exit in middle of any thread init? */
-extern bool dynamo_thread_init_during_process_exit;
 #endif
 extern bool dynamo_resetting;    /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */

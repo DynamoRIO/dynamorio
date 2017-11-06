@@ -3477,7 +3477,7 @@ os_thread_suspend(thread_record_t *tr)
         /* For Linux, waits only if the suspended flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked.
          */
-        ksynch_wait(&ostd->suspended, 0);
+        ksynch_wait(&ostd->suspended, 0, 0);
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3516,7 +3516,7 @@ os_thread_resume(thread_record_t *tr)
         /* For Linux, waits only if the resumed flag is not set as 1.  Return value
          * doesn't matter because the flag will be re-checked.
          */
-        ksynch_wait(&ostd->resumed, 0);
+        ksynch_wait(&ostd->resumed, 0, 0);
         if (ksynch_get_value(&ostd->resumed) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3559,7 +3559,7 @@ os_wait_thread_futex(KSYNCH_TYPE *var)
         /* On Linux, waits only if var is not set as 1. Return value
          * doesn't matter because var will be re-checked.
          */
-        ksynch_wait(var, 0);
+        ksynch_wait(var, 0, 0);
         if (ksynch_get_value(var) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -9366,9 +9366,9 @@ mutex_wait_contended_lock(mutex_t *lock)
              * change w/o someone acquiring the lock, b/c
              * mutex_notify_released_lock() sets lock_requests to LOCK_FREE_STATE.
              */
-            res = ksynch_wait(&lock->lock_requests, LOCK_CONTENDED_STATE);
+            res = ksynch_wait(&lock->lock_requests, LOCK_CONTENDED_STATE, 0);
 #else
-            res = ksynch_wait(event, 0);
+            res = ksynch_wait(event, 0, 0);
 #endif
             if (res != 0 && res != -EWOULDBLOCK)
                 os_thread_yield();
@@ -9510,16 +9510,19 @@ reset_event(event_t e)
     mutex_unlock(&e->lock);
 }
 
-void
-wait_for_event(event_t e)
+bool
+wait_for_event(event_t e, int timeout_ms)
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
+    uint64 start_time, cur_time;
+    if (timeout_ms > 0)
+        start_time = query_time_millis();
     /* Use a user-space event on Linux, a kernel event on Windows. */
     LOG(THREAD, LOG_THREADS, 3,
         "thread "TIDFMT" waiting for event "PFX"\n",get_thread_id(),e);
-    while (true) {
+    do {
         if (ksynch_get_value(&e->signaled) == 1) {
             mutex_lock(&e->lock);
             if (ksynch_get_value(&e->signaled) == 0) {
@@ -9534,19 +9537,22 @@ wait_for_event(event_t e)
                 LOG(THREAD, LOG_THREADS, 3,
                     "thread "TIDFMT" finished waiting for event "PFX"\n",
                     get_thread_id(),e);
-                return;
+                return true;
             }
         } else {
             /* Waits only if the signaled flag is not set as 1. Return value
              * doesn't matter because the flag will be re-checked.
              */
-            ksynch_wait(&e->signaled, 0);
+            ksynch_wait(&e->signaled, 0, timeout_ms);
         }
         if (ksynch_get_value(&e->signaled) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
         }
-    }
+        if (timeout_ms > 0)
+            cur_time = query_time_millis();
+    } while (timeout_ms <= 0 || cur_time - start_time < timeout_ms);
+    return false;
 }
 
 /***************************************************************************
@@ -9808,7 +9814,18 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
         for (i = 0; i < threads_to_signal; i++) {
-            wait_for_event(records[i].event);
+            static const int wait_ms = 25;
+            while (!wait_for_event(records[i].event, wait_ms)) {
+                /* The thread may have exited (i#2601).  We assume no tid re-use. */
+                char task[64];
+                snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", tids[i]);
+                NULL_TERMINATE_BUFFER(task);
+                if (!os_file_exists(task, false/*!is dir*/)) {
+                    SYSLOG_INTERNAL_WARNING_ONCE("thread exited while attaching");
+                    break;
+                }
+                /* Else try again. */
+            }
         }
 
         /* Now that we've taken over the other threads, we can safely free the

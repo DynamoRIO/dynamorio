@@ -157,8 +157,14 @@ if (ARM)
   add_libgcc_routines(divsi3)
   add_libgcc_routines(modsi3)
   include_directories(../third_party/libgcc/arm)
-  set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
 endif (ARM)
+
+if (UNIX)
+  # These are needed for ARM per i#1566 above, but are also needed in some cases
+  # for x86, such as 32-bit manipulation of 64-bit integers under clang where
+  # __moddi3 is needed.
+  set(CORE_SRCS ${CORE_SRCS} ../third_party/libgcc/udivmoddi4.c)
+endif ()
 
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc

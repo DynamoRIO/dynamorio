@@ -1141,7 +1141,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
-                wait_for_event(resume_from_sideline_event);
+                wait_for_event(resume_from_sideline_event, 0);
                 mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH|LOG_THREADS|LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);

@@ -90,7 +90,7 @@ mutex_get_contended_event(mutex_t *lock);
 /* These return 0 on success: */
 
 ptr_int_t
-ksynch_wait(KSYNCH_TYPE *var, int mustbe);
+ksynch_wait(KSYNCH_TYPE *var, int mustbe, int timeout_ms);
 
 ptr_int_t
 ksynch_wake(KSYNCH_TYPE *var);
