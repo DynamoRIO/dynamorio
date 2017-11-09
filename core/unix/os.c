@@ -7776,25 +7776,22 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
     memquery_iterator_start(&iter, base, true /* plan to alloc a module_area_t */);
     while (memquery_iterator_next(&iter)) {
         if (iter.vm_start == base) {
-            if (iter.vm_start == vsyscall_page_start) {
-                ASSERT_CURIOSITY(!at_map);
-            } else {
-                ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start);
-                ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
-                /* XREF 307599 on rounding module end to the next PAGE boundary */
-                ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
-                                  ALIGN_FORWARD(size, PAGE_SIZE)));
-                inode = iter.inode;
-                filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
-                found_map = true;
-            }
+            ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start ||
+                             base == vsyscall_page_start);
+            ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
+            /* XREF 307599 on rounding module end to the next PAGE boundary */
+            ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
+                              ALIGN_FORWARD(size, PAGE_SIZE)));
+            inode = iter.inode;
+            filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
+            found_map = true;
             break;
         }
     }
     memquery_iterator_stop(&iter);
 #ifdef HAVE_MEMINFO
-    /* barring weird races we should find this map except [vdso] */
-    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start || base == vdso_page_start);
+    /* barring weird races we should find this map except */
+    ASSERT_CURIOSITY(found_map);
 #else /* HAVE_MEMINFO */
     /* Without /proc/maps or other memory querying interface available at
      * library map time, there is no way to find out the name of the file
@@ -9014,6 +9011,14 @@ find_executable_vm_areas(void)
                              strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
                 vsyscall_page_start = iter.vm_start;
 # endif
+            /* We'd like to add vsyscall to the module list too but when it's
+             * separate from vdso it has no ELF header which is too complex
+             * to force into the module list.
+             */
+            if (module_is_header(iter.vm_start, iter.vm_end - iter.vm_start)) {
+                module_list_add(iter.vm_start, iter.vm_end - iter.vm_start,
+                                false, iter.comment, iter.inode);
+            }
         } else if (mmap_check_for_module_overlap(iter.vm_start, size,
                                                  TEST(MEMPROT_READ, iter.prot),
                                                  iter.inode, false)) {

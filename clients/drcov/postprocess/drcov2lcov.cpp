@@ -1160,6 +1160,7 @@ enumerate_line_info(void)
         hash_entry_t *e;
         drsym_error_t res;
         for (e = module_htable.table[i]; e != NULL; e = e->next) {
+            bool has_lines = true;
             num_entries++;
             PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
             if (strcmp((char *)e->key, "<unknown>") == 0)
@@ -1167,10 +1168,13 @@ enumerate_line_info(void)
             if (e->payload == MODULE_TABLE_IGNORE)
                 continue;
             res = drsym_enumerate_lines((const char *)e->key, enum_line_cb, e->payload);
-            if (res != DRSYM_SUCCESS)
+            if (res != DRSYM_SUCCESS) {
                 WARN(1, "Failed to enumerate lines for %s\n", (char *)e->key);
+                has_lines = false;
+            }
             res = drsym_free_resources((char *)e->key);
-            if (res != DRSYM_SUCCESS)
+            /* I'm using has_lines to avoid warning on vdso. */
+            if (res != DRSYM_SUCCESS && has_lines)
                 WARN(1, "Failed to free resource for %s\n", (char *)e->key);
         }
     }
