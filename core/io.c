@@ -811,11 +811,11 @@ test_sscanf_all_specs(void)
     short signed_short;
     long signed_long;
     unsigned long long ull_num;
-#if defined(WINDOWS) && defined(X64)
+# if defined(WINDOWS) && defined(X64)
     long long z_num;
-#else
+# else
     long z_num;
-#endif
+# endif
 
     /* ULLONG_MAX is a corner case. */
     res = our_sscanf("c str -123 +456 0x789 0xffffffffffffffff",
