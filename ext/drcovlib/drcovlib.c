@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -328,7 +328,7 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
 {
     per_thread_t *data;
     instr_t *instr;
-    app_pc start_pc, end_pc;
+    app_pc tag_pc, start_pc, end_pc;
 
     /* do nothing for translation */
     if (translating)
@@ -340,7 +340,11 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
      * transfer instructions, which is true for default options passed
      * to DR but not for -opt_speed.
      */
-    start_pc = dr_fragment_app_pc(tag);
+    /* We separate the tag from the instr pc ranges to handle displaced code
+     * such as for the vsyscall hook.
+     */
+    tag_pc = dr_fragment_app_pc(tag);
+    start_pc = instr_get_app_pc(instrlist_first_app(bb));
     end_pc   = start_pc; /* for finding the size */
     for (instr  = instrlist_first_app(bb);
          instr != NULL;
@@ -361,7 +365,7 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
      * 4. The duplication can be easily handled in a post-processing step,
      *    which is required anyway.
      */
-    bb_table_entry_add(drcontext, data, start_pc, (uint)(end_pc - start_pc));
+    bb_table_entry_add(drcontext, data, tag_pc, (uint)(end_pc - start_pc));
 
     if (go_native)
         return DR_EMIT_GO_NATIVE;

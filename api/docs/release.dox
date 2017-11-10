@@ -190,6 +190,8 @@ Further non-compatibility-affecting changes include:
    sec_drcachesim_ops).
  - Added a last-level cache miss recording feature to drcachesim.
  - Added a delayed tracing feature to drcachesim.
+ - On Linux, the VDSO module is now included in the module list at program
+   startup.
 
 **************************************************
 <hr>
