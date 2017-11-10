@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -261,9 +261,11 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
             module_area_create(base, view_size, at_map, filepath _IF_UNIX(inode));
         ASSERT(ma != NULL);
 
-        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s ["PFX","PFX"] added\n",
+        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s |%s| ["PFX","PFX"] added\n",
             (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
-            GET_MODULE_NAME(&ma->names), base, base+view_size);
+            GET_MODULE_NAME(&ma->names),
+            ma->names.file_name == NULL ? "<no file>" : ma->names.file_name,
+            base, base+view_size);
 
         /* note that while it would be natural to invoke the client module
          * load event since we have the data for it right here, the

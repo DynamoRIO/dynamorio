@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +41,7 @@
 
 #ifdef UNIX
 # include <signal.h>
+# include <string.h>
 #endif
 
 #ifdef WINDOWS
@@ -322,7 +323,7 @@ void module_load_event_perm(void *drcontext, const module_data_t *info, bool loa
     else if (info->full_path[0] == '\\' || info->full_path[1] != ':')
         dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n", info->full_path);
 #else
-    else if (info->full_path[0] != '/')
+    else if (info->full_path[0] != '/' && strcmp(info->full_path, "[vdso]") != 0)
         dr_fprintf(STDERR, "ERROR: full_path is not absolute: %s\n", info->full_path);
 #endif
 }
