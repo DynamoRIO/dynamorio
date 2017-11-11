@@ -211,6 +211,15 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 static char modlist_path[MAXIMUM_PATH];
 
 drmemtrace_status_t
+drmemtrace_get_output_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = logsubdir;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path)
 {
     if (path == NULL)

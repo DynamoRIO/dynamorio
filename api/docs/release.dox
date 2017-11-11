@@ -175,7 +175,11 @@ Further non-compatibility-affecting changes include:
  - Added drmodtrack customization via drmodtrack_add_custom_data() and
    post-processing support via drmodtrack_offline_write().
  - Added drcachesim customization via drmemtrace_replace_file_ops(),
-   drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
+   drmemtrace_custom_module_data(), drmemtrace_get_output_path(),
+   drmemtrace_get_modlist_path(), and a separate rawtrace library for
+   post-processing customization with raw2trace_t::handle_custom_data(),
+   raw2trace_t::do_module_parsing(), raw2trace_t::do_conversion(), and
+   raw2trace_directory_t.
  - Added a set_value() function to the \ref page_droption.
  - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
  - Globally enabled auto predication in the drmgr instrumentation insertion event by

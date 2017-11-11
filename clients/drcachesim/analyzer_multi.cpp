@@ -70,7 +70,7 @@ analyzer_multi_t::analyzer_multi_t()
             raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file);
             std::string error = raw2trace.do_conversion();
             if (!error.empty())
-                ERRMSG("raw2trace failed: %s", error.c_str());
+                ERRMSG("raw2trace failed: %s\n", error.c_str());
             trace_iter = new file_reader_t(tracefile.c_str());
         }
         // We don't support a compressed file here (is_complete() is too hard

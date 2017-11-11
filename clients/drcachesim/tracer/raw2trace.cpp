@@ -67,7 +67,7 @@
 
 #define DO_VERBOSE(level, x) do { \
     if (this->verbosity >= (level)) { \
-        x \
+        x; /* ; makes vera++ happy */ \
     } \
 } while (0)
 
@@ -75,27 +75,150 @@
  * Module list
  */
 
+const char * (*raw2trace_t::user_parse)(const char *src, OUT void **data);
+void (*raw2trace_t::user_free)(void *data);
+bool raw2trace_t::has_custom_data = true;
+
 std::string
-raw2trace_t::read_and_map_modules(const char *module_map)
+raw2trace_t::handle_custom_data(const char * (*parse_cb)(const char *src,
+                                                         OUT void **data),
+                                std::string (*process_cb)(drmodtrack_info_t *info,
+                                                          void *data, void *user_data),
+                                void *process_cb_user_data,
+                                void (*free_cb)(void *data))
 {
-    // Read and load all of the modules.
+    user_parse = parse_cb;
+    user_process = process_cb;
+    user_process_data = process_cb_user_data;
+    user_free = free_cb;
+    return "";
+}
+
+const char *
+raw2trace_t::parse_custom_module_data(const char *src, OUT void **data)
+{
+    const char *buf = src;
+    const char *skip_comma = strchr(buf, ',');
+    // Check the version # to try and handle legacy and newer formats.
+    int version = -1;
+    if (skip_comma == nullptr || dr_sscanf(buf, "v#%d,", &version) != 1 ||
+        version != CUSTOM_MODULE_VERSION) {
+        // It's not what we expect.  We try to handle legacy formats before bailing.
+        static bool warned_once;
+        has_custom_data = false;
+        if (!warned_once) { // Race is fine: modtrack parsing is global already.
+            WARN("Incorrect module field version %d: attempting to handle legacy format",
+                 version);
+            warned_once = true;
+        }
+        // First, see if the user_parse is happy:
+        if (user_parse != nullptr) {
+            void *user_data;
+            buf = (*user_parse)(buf, &user_data);
+            if (buf != nullptr) {
+                // Assume legacy format w/ user data but none of our own.
+                custom_module_data_t *custom_data = new custom_module_data_t;
+                custom_data->user_data = user_data;
+                custom_data->contents_size = 0;
+                custom_data->contents = nullptr;
+                *data = custom_data;
+                return buf;
+            }
+        }
+        // Now look for no custom field at all.
+        // If the next field looks like a path, we assume it's the old format with
+        // no user field and we continue w/o vdso data.
+        if (buf[0] == '/' || strstr(buf, "[vdso]") == buf) {
+            *data = nullptr;
+            return buf;
+        }
+        // Else, bail.
+        WARN("Unable to parse module data: custom field mismatch");
+        return nullptr;
+    }
+    buf = skip_comma + 1;
+    skip_comma = strchr(buf, ',');
+    size_t size;
+    if (skip_comma == nullptr || dr_sscanf(buf, "%zu,", &size) != 1)
+        return nullptr; // error
+    custom_module_data_t *custom_data = new custom_module_data_t;
+    custom_data->contents_size = size;
+    buf = skip_comma + 1;
+    if (custom_data->contents_size == 0)
+        custom_data->contents = nullptr;
+    else {
+        custom_data->contents = buf;
+        buf += custom_data->contents_size;
+    }
+    if (user_parse != nullptr)
+        buf = (*user_parse)(buf, &custom_data->user_data);
+    *data = custom_data;
+    return buf;
+}
+
+void
+raw2trace_t::free_custom_module_data(void *data)
+{
+    custom_module_data_t *custom_data = (custom_module_data_t*)data;
+    if (user_free != nullptr)
+        (*user_free)(custom_data->user_data);
+    delete custom_data;
+}
+
+std::string
+raw2trace_t::do_module_parsing()
+{
     uint num_mods;
     VPRINT(1, "Reading module file from memory\n");
-    if (drmodtrack_offline_read(INVALID_FILE, module_map, NULL, &modhandle, &num_mods) !=
+    if (drmodtrack_add_custom_data(nullptr, nullptr, parse_custom_module_data,
+                                   free_custom_module_data) !=
+        DRCOVLIB_SUCCESS) {
+        return "Failed to set up custom module parser";
+    }
+    if (drmodtrack_offline_read(INVALID_FILE, modmap, NULL, &modhandle, &num_mods) !=
         DRCOVLIB_SUCCESS)
         return "Failed to parse module file";
+    modlist.resize(num_mods);
     for (uint i = 0; i < num_mods; i++) {
-        drmodtrack_info_t info = {sizeof(info),};
-        if (drmodtrack_offline_lookup(modhandle, i, &info) != DRCOVLIB_SUCCESS)
+        modlist[i].struct_size = sizeof(modlist[i]);
+        if (drmodtrack_offline_lookup(modhandle, i, &modlist[i]) != DRCOVLIB_SUCCESS)
             return "Failed to query module file";
-        if (strcmp(info.path, "<unknown>") == 0 ||
-            // i#2062: VDSO is hard to decode so for now we treat is as non-module.
-            // FIXME: currently we're dropping the ifetch data: we need the tracer
-            // to identify it instead of us, which requires drmodtrack changes.
-            strcmp(info.path, "[vdso]") == 0) {
+        if (user_process != nullptr) {
+            custom_module_data_t *custom = (custom_module_data_t *)modlist[i].custom;
+            std::string error =
+                (*user_process)(&modlist[i], custom->user_data, user_process_data);
+            if (!error.empty())
+                return error;
+        }
+    }
+    return "";
+}
+
+std::string
+raw2trace_t::read_and_map_modules()
+{
+    std::string err;
+    if (modlist.empty())
+        do_module_parsing(); // May have already been called, since public.
+    if (!err.empty())
+        return err;
+    for (auto it = modlist.begin(); it != modlist.end(); ++it) {
+        drmodtrack_info_t &info = *it;
+        custom_module_data_t *custom_data = (custom_module_data_t*)info.custom;
+        if (custom_data != nullptr && custom_data->contents_size > 0) {
+            VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
+                   (int)modvec.size(), info.path, custom_data->contents_size,
+                   (ptr_uint_t)custom_data->contents);
+            modvec.push_back(module_t(info.path, info.start,
+                                      (byte *)custom_data->contents,
+                                      custom_data->contents_size, true/*external data*/));
+        } else if (strcmp(info.path, "<unknown>") == 0 ||
+                   // This should only happen with legacy trace data that's missing
+                   // the vdso contents.
+                   (!has_custom_data && strcmp(info.path, "[vdso]") == 0)) {
             // We won't be able to decode.
             modvec.push_back(module_t(info.path, info.start, NULL, 0));
-        } else if (info.containing_index != i) {
+        } else if (info.containing_index != info.index) {
             // For split segments, drmodtrack_lookup() gave the lowest base addr,
             // so our PC offsets are from that.  We assume that the single mmap of
             // the first segment thus includes the other segments and that we don't
@@ -126,7 +249,7 @@ raw2trace_t::read_and_map_modules(const char *module_map)
             }
         }
     }
-    VPRINT(1, "Successfully read %d modules\n", num_mods);
+    VPRINT(1, "Successfully read %zu modules\n", modlist.size());
     return "";
 }
 
@@ -141,7 +264,7 @@ raw2trace_t::unmap_modules(void)
     }
     for (std::vector<module_t>::iterator mvi = modvec.begin();
          mvi != modvec.end(); ++mvi) {
-        if (mvi->map_base != NULL && mvi->map_size != 0) {
+        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
             bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
             if (!ok)
                 WARN("Failed to unmap module %s", mvi->path);
@@ -495,7 +618,7 @@ raw2trace_t::check_thread_file(std::istream *f)
 std::string
 raw2trace_t::do_conversion()
 {
-    std::string error = read_and_map_modules(modmap);
+    std::string error = read_and_map_modules();
     if (!error.empty())
         return error;
     trace_entry_t entry;
@@ -524,9 +647,9 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          void *dcontext_in,
                          unsigned int verbosity_in)
     : modmap(module_map_in), modhandle(NULL), thread_files(thread_files_in),
-    out_file(out_file_in), dcontext(dcontext_in),
-    prev_instr_was_rep_string(false), instrs_are_separate(false),
-    verbosity(verbosity_in)
+      out_file(out_file_in), dcontext(dcontext_in),
+      prev_instr_was_rep_string(false), instrs_are_separate(false),
+      verbosity(verbosity_in), user_process(nullptr), user_process_data(nullptr)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();
