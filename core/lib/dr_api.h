@@ -113,7 +113,10 @@ DR_EXPORT void dr_init(client_id_t id);
 /* This equals major*100 + minor */
 DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 #else
-LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
+/* We provide the version as a define but we don't want an actual symbol to avoid
+ * problems when standalone-using libraries are combined with clients.
+ */
+# define _USES_DR_VERSION_ ${VERSION_NUMBER_INTEGER}
 #endif
 
 /* A flag that can be used to identify whether this file was included */
