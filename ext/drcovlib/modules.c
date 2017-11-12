@@ -36,6 +36,7 @@
 #include "drcovlib_private.h"
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 
 #define MODULE_FILE_VERSION 3
 
@@ -711,7 +712,7 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
 {
     module_read_info_t *info = (module_read_info_t *)handle;
     if (info == NULL || index >= info->num_mods || out == NULL ||
-        out->struct_size != sizeof(*out))
+        out->struct_size < offsetof(drmodtrack_info_t, custom) + sizeof(out->custom))
         return DRCOVLIB_ERROR_INVALID_PARAMETER;
     out->containing_index = info->mod[index].containing_id;
     out->start = info->mod[index].base;
@@ -722,6 +723,8 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
     out->timestamp = info->mod[index].timestamp;
 #endif
     out->custom = info->mod[index].custom;
+    if (out->struct_size > offsetof(drmodtrack_info_t, index))
+        out->index = index;
     return DRCOVLIB_SUCCESS;
 }
 

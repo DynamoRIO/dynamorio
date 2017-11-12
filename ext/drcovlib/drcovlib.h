@@ -244,6 +244,11 @@ typedef struct _drmodtrack_info_t {
 #endif
     /** The custom field set by the \p load_cb passed to drmodtrack_add_custom_data(). */
     void *custom;
+    /**
+     * The unique index of this module segment.  This equals the \p index parameter
+     * passed to drmodtrack_offline_lookup().
+     */
+    uint index;
 } drmodtrack_info_t;
 
 DR_EXPORT
