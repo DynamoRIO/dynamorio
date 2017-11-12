@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -166,6 +166,9 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1703_x64_syscalls[];
+extern SYS_CONST int windows_10_1703_wow64_syscalls[];
+extern SYS_CONST int windows_10_1703_x86_syscalls[];
 extern SYS_CONST int windows_10_1607_x64_syscalls[];
 extern SYS_CONST int windows_10_1607_wow64_syscalls[];
 extern SYS_CONST int windows_10_1607_x86_syscalls[];
@@ -212,7 +215,7 @@ enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,7 @@
  * get_windows_version() in suite/tests/tools.c, defines in libutil/mfapi.h,
  * and get_platform() in libutil/utils.c.
  */
+#define WINDOWS_VERSION_10_1703 103 /* 10.3 is artificial */
 #define WINDOWS_VERSION_10_1607 102 /* 10.2 is artificial */
 #define WINDOWS_VERSION_10_1511 101 /* 10.1 is artificial */
 #define WINDOWS_VERSION_10      100
