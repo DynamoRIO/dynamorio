@@ -131,6 +131,7 @@ event_exit(void)
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
         CHECK(((app_pc)info.custom) == info.start ||
               info.containing_index != i, "custom field doesn't match");
+        CHECK(info.index == i, "index field doesn't match");
     }
 
     char *buf_offline;
