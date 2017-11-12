@@ -3446,9 +3446,11 @@ ntdll!KiUserApcDispatcher:
 
 On Win10-1703 there's some logic for delegation before the regular lea sequence:
   ntdll!KiUserApcDispatcher:
-  778b3fe0 833dc887957700  cmp     dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher (779587c8)],0
+  778b3fe0 833dc887957700  cmp     dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                              (779587c8)],0
   778b3fe7 740e            je      ntdll!KiUserApcDispatcher+0x17 (778b3ff7)  Branch
-  778b3fe9 8b0dc8879577    mov     ecx,dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher (779587c8)]
+  778b3fe9 8b0dc8879577    mov     ecx,dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                                  (779587c8)]
   778b3fef ff15d0919577    call    dword ptr [ntdll!__guard_check_icall_fptr (779591d0)]
   778b3ff5 ffe1            jmp     ecx
   778b3ff7 8d8424dc020000  lea     eax,[esp+2DCh]
