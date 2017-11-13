@@ -3444,6 +3444,35 @@ ntdll!KiUserApcDispatcher:
   00000000`78ef393e ebf7            jmp     ntdll!KiUserApcDispatch+0x27 (0`78ef3937)
   00000000`78ef3940 cc              int     3
 
+On Win10-1703 there's some logic for delegation before the regular lea sequence:
+  ntdll!KiUserApcDispatcher:
+  778b3fe0 833dc887957700  cmp     dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                              (779587c8)],0
+  778b3fe7 740e            je      ntdll!KiUserApcDispatcher+0x17 (778b3ff7)  Branch
+  778b3fe9 8b0dc8879577    mov     ecx,dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                                  (779587c8)]
+  778b3fef ff15d0919577    call    dword ptr [ntdll!__guard_check_icall_fptr (779591d0)]
+  778b3ff5 ffe1            jmp     ecx
+  778b3ff7 8d8424dc020000  lea     eax,[esp+2DCh]
+  778b3ffe 648b0d00000000  mov     ecx,dword ptr fs:[0]
+  778b4005 bac03f8b77      mov     edx,offset ntdll!KiUserApcExceptionHandler (778b3fc0)
+  778b400a 8908            mov     dword ptr [eax],ecx
+  778b400c 895004          mov     dword ptr [eax+4],edx
+  778b400f 64a300000000    mov     dword ptr fs:[00000000h],eax
+  778b4015 58              pop     eax
+  778b4016 8d7c240c        lea     edi,[esp+0Ch]
+  778b401a 8bc8            mov     ecx,eax
+  778b401c ff15d0919577    call    dword ptr [ntdll!__guard_check_icall_fptr (779591d0)]
+  778b4022 ffd1            call    ecx
+  778b4024 8b8fcc020000    mov     ecx,dword ptr [edi+2CCh]
+  778b402a 64890d00000000  mov     dword ptr fs:[0],ecx
+  778b4031 6a01            push    1
+  778b4033 57              push    edi
+  778b4034 e807e1ffff      call    ntdll!NtContinue (778b2140)
+  778b4039 8bf0            mov     esi,eax
+  778b403b 56              push    esi
+  778b403c e89f230100      call    ntdll!RtlRaiseStatus (778c63e0)
+  778b4041 ebf8            jmp     ntdll!KiUserApcDispatcher+0x5b (778b403b)  Branch
 
 FIXME case 6395/case 6050: what are KiUserCallbackExceptionHandler and
 KiUserApcExceptionHandler, added on 2003 sp1?  We're assuming not
@@ -3721,6 +3750,16 @@ check_apc_context_offset(byte *apc_entry)
            opnd_get_base(instr_get_src(&instr, 0)) == REG_XSP &&
            opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL);
 #else
+    /* Skip over the Win10-1703 delegation prefx */
+    if (instr_get_opcode(&instr) == OP_cmp &&
+        get_os_version() >= WINDOWS_VERSION_10_1703) {
+        app_pc pc = apc_entry + instr_length(dcontext, &instr);
+        while (instr_get_opcode(&instr) != OP_lea &&
+               pc - apc_entry < 32) {
+            instr_reset(dcontext, &instr);
+            pc = decode(dcontext, pc, &instr);
+        }
+    }
     /* In Win 2003 SP1, the context offset used is 0xc, and DR works with it;
      * the first lea used there has an offset of 0x2dc, not 0xc.  See case 3522.
      */
@@ -6731,7 +6770,8 @@ get_pc_after_call(byte *entry, byte **cbret)
         pc = decode_cti(dcontext, pc, &instr);
         ASSERT(pc != NULL);
         num_instrs++;
-        ASSERT_CURIOSITY(num_instrs <= 15); /* win8.1 x86 call* is 13th instr */
+        /* win8.1 x86 call* is 13th instr, win10 1703 is 16th */
+        ASSERT_CURIOSITY(num_instrs <= 18);
         if (instr_opcode_valid(&instr)) {
             if (instr_is_call_indirect(&instr)) {
                 /* i#1599: Win8.1 has an extra call that we have to rule out:
@@ -6742,6 +6782,10 @@ get_pc_after_call(byte *entry, byte **cbret)
                 if (opnd_is_base_disp(tgt) && opnd_get_base(tgt) == REG_NULL)
                     continue;
             }
+            /* Skip the LdrDelegatedKiUserApcDispatcher, etc. prefixes on 1703 */
+            if (get_os_version() >= WINDOWS_VERSION_10_1703 &&
+                (instr_get_opcode(&instr) == OP_jmp_ind || instr_is_cbr(&instr)))
+                continue;
             break; /* don't expect any other decode_cti instrs */
         }
     } while (true);
@@ -6755,7 +6799,7 @@ get_pc_after_call(byte *entry, byte **cbret)
             pc = decode_cti(dcontext, pc, &instr);
             ASSERT_CURIOSITY(pc != NULL);
             num_instrs++;
-            ASSERT_CURIOSITY(num_instrs <= 20);     /* case 3522. */
+            ASSERT_CURIOSITY(num_instrs <= 32);     /* case 3522. */
             if (instr_opcode_valid(&instr)) {
                 if (instr_is_interrupt(&instr)) {
                     int num = instr_get_interrupt_number(&instr);
