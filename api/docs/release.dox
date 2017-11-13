@@ -192,6 +192,8 @@ Further non-compatibility-affecting changes include:
  - Added a delayed tracing feature to drcachesim.
  - On Linux, the VDSO module is now included in the module list at program
    startup.
+ - Added support for Windows 10 1703.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1703 to distinguish this major update.
 
 **************************************************
 <hr>

@@ -67,7 +67,9 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            if (GetProcAddress((HMODULE)ntdll_handle,
+            if (GetProcAddress((HMODULE)ntdll_handle, "NtLoadHotPatch") != NULL)
+                return WINDOWS_VERSION_10_1703;
+            else if (GetProcAddress((HMODULE)ntdll_handle,
                                "NtCreateRegistryTransaction") != NULL)
                 return WINDOWS_VERSION_10_1607;
             else if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateEnclave") != NULL)
