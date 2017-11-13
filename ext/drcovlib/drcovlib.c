@@ -352,7 +352,9 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
         app_pc pc = instr_get_app_pc(instr);
         int len = instr_length(drcontext, instr);
         /* -opt_speed (elision) is not supported */
-        ASSERT(pc != NULL && pc >= start_pc, "-opt_speed is not supported");
+        /* For rep str expansion pc may be one back from start pc but equal to the tag. */
+        ASSERT(pc != NULL && (pc >= start_pc || pc == tag_pc),
+               "-opt_speed is not supported");
         if (pc + len > end_pc)
             end_pc = pc + len;
     }
