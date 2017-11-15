@@ -628,6 +628,9 @@ get_platform(DWORD *platform)
         else if (osinfo.dwMajorVersion == 10) {
             if (osinfo.dwMinorVersion == 0) {
                 if (GetProcAddress((HMODULE)ntdll_handle,
+                                   "NtCallEnclave") != NULL)
+                    *platform = PLATFORM_WIN_10_1709;
+                else if (GetProcAddress((HMODULE)ntdll_handle,
                                    "NtLoadHotPatch") != NULL)
                     *platform = PLATFORM_WIN_10_1703;
                 else if (GetProcAddress((HMODULE)ntdll_handle,
