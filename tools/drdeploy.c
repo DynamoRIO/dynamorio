@@ -355,11 +355,11 @@ fopen_utf8(const char *path, const char *mode)
 static char tool_list[MAXIMUM_PATH];
 
 static void
-print_tool_list(void)
+print_tool_list(FILE *stream)
 {
 #ifdef DRRUN
     if (tool_list[0] != '\0')
-        fprintf(stderr, "       available tools include: %s\n", tool_list);
+        fprintf(stream, "       available tools include: %s\n", tool_list);
 #endif
 }
 
@@ -405,12 +405,14 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
 #define usage(list_ops, msg, ...) do {                          \
     if ((msg)[0] != '\0')                                       \
       fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);     \
-    fprintf(stderr, "%s", usage_str);                           \
-    print_tool_list();                                          \
+    FILE *stream = (list_ops == true) ? stdout : stderr;        \
+    fprintf(stream, "%s", usage_str);                           \
+    print_tool_list(stream);                                    \
     if (list_ops) {                                             \
-        fprintf(stderr, options_list_str, tool_list);           \
+        fprintf(stream, options_list_str, tool_list);           \
+        exit(0);                                                \
     } else {                                                    \
-        fprintf(stderr, "Run with -help to see "TOOLNAME" option list\n"); \
+        fprintf(stream, "Run with -help to see "TOOLNAME" option list\n"); \
     }                                                           \
     die();                                                      \
 } while (0)
