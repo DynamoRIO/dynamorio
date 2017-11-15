@@ -126,6 +126,8 @@ else ()
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE diff_contents)
+      # Remove tabs from the revision lines
+      string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
