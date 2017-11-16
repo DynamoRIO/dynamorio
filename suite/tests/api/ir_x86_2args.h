@@ -123,8 +123,10 @@ OPCODE(movsd_rr, movsd, movsd, 0, REGARG_PARTIAL(XMM1, OPSZ_8),
        REGARG_PARTIAL(XMM0, OPSZ_8))
 
 OPCODE(movlps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(movlhps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movlpd, movlpd, movlpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(movhps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(movhlps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movhpd, movhpd, movhpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(movaps, movaps, movaps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
