@@ -110,16 +110,20 @@ XOPCODE(add_2src, lea, add_2src, 0, REGARG(XAX), REGARG(XCX), IMMARG(OPSZ_4))
 
 /****************************************************************************/
 /* AVX */
-OPCODE(vmovlps_NDS, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+OPCODE(vmovlps_NDS_mem, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovlps_NDS_reg, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
 OPCODE(vmovlpd_NDS, vmovlpd, vmovlpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vunpcklps, vunpcklps, vunpcklps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpcklpd, vunpcklpd, vunpcklpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpckhps, vunpckhps, vunpckhps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpckhpd, vunpckhpd, vunpckhpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vmovhps_NDS, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+OPCODE(vmovhps_NDS_mem, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhps_NDS_reg, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
 OPCODE(vmovhpd_NDS, vmovhpd, vmovhpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
        REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vcvtsi2ss, vcvtsi2ss, vcvtsi2ss, 0, REGARG_PARTIAL(XMM0, OPSZ_4),
