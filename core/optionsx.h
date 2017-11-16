@@ -1127,9 +1127,6 @@
         /* This table is suffering from the worst collisions */
         65, "load factor percent for private future hashtables")
 
-     /* FIXME: remove this once we are happy with new mutexes */
-    OPTION_DEFAULT_INTERNAL(bool, spin_yield_mutex, false, "use old spin-yield mutex implementation")
-
      /* FIXME: remove this once we are happy with new rwlocks */
     OPTION_DEFAULT_INTERNAL(bool, spin_yield_rwlock, false, "use old spin-yield rwlock implementation")
 
