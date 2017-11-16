@@ -409,8 +409,10 @@ drmgr_exit(void)
 
     if (bb_event_count > 0)
         dr_unregister_bb_event(drmgr_bb_event);
-    if (registered_fault)
+    if (registered_fault) {
         dr_unregister_restore_state_ex_event(drmgr_restore_state_event);
+        registered_fault = false;
+    }
 #ifdef WINDOWS
     drmgr_cls_exit();
 #endif
