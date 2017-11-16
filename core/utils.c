@@ -848,11 +848,6 @@ mutex_lock(mutex_t *lock)
     bool ownable = mutex_ownable(lock);
 #endif
 
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        spinmutex_lock((spin_mutex_t *)lock);
-        return;
-    }
-
     /* we may want to first spin the lock for a while if we are on a multiprocessor
      * machine
      */
@@ -912,10 +907,6 @@ mutex_trylock(mutex_t *lock)
     bool ownable = mutex_ownable(lock);
 #endif
 
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        return spinmutex_trylock((spin_mutex_t *)lock);
-    }
-
     /* preserve old value in case not LOCK_FREE_STATE */
     acquired = atomic_compare_exchange(&lock->lock_requests,
                                        LOCK_FREE_STATE, LOCK_SET_STATE);
@@ -934,11 +925,6 @@ mutex_unlock(mutex_t *lock)
 #ifdef DEADLOCK_AVOIDANCE
     bool ownable = mutex_ownable(lock);
 #endif
-
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        spinmutex_unlock((spin_mutex_t *)lock);
-        return;
-    }
 
     ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
     DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
