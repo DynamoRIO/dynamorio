@@ -41,6 +41,9 @@
 
 #define MINSERT instrlist_meta_preinsert
 
+// Versioning for our drmodtrack custom module fields.
+#define CUSTOM_MODULE_VERSION 1
+
 class instru_t
 {
 public:
@@ -198,6 +201,14 @@ public:
                                    void (*free_cb)(void *data));
 
 private:
+    struct custom_module_data_t {
+        custom_module_data_t(const char *base_, size_t size_, void *user_) :
+            base(base_), size(size_), user_data(user_) {}
+        const char *base;
+        size_t size;
+        void *user_data;
+    };
+
     int insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
                         uint instr_count);
@@ -206,6 +217,15 @@ private:
                          bool write);
     ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
+
+    // Custom module fields are global (since drmodtrack's support is global, we don't
+    // try to pass void* user data params through).
+    static void * (*user_load)(module_data_t *module);
+    static int (*user_print)(void *data, char *dst, size_t max_len);
+    static void (*user_free)(void *data);
+    static void *load_custom_module_data(module_data_t *module);
+    static int print_custom_module_data(void *data, char *dst, size_t max_len);
+    static void free_custom_module_data(void *data);
 };
 
 #endif /* _INSTRU_H_ */

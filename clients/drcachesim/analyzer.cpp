@@ -104,7 +104,7 @@ bool
 analyzer_t::start_reading()
 {
     if (!trace_iter->init()) {
-        ERRMSG("failed to read from trace\n");
+        ERRMSG("Failed to read from trace\n");
         return false;
     }
     return true;

@@ -550,11 +550,12 @@ drmodtrack_dump(file_t log)
     drcovlib_status_t res;
     size_t size = 200 + module_table.vector.entries * (MAXIMUM_PATH + 40);
     char *buf;
+    size_t wrote;
     do {
         buf = dr_global_alloc(size);
-        res = drmodtrack_dump_buf(buf, size, NULL);
+        res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS)
-            dr_write_file(log, buf, strlen(buf));
+            dr_write_file(log, buf, wrote - 1/*no null*/);
         dr_global_free(buf, size);
         size *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);

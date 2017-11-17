@@ -241,10 +241,16 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (knob_verbose >= 3) {
-        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-            " @" << (void *)memref.data.pc <<
-            " " << trace_type_names[memref.data.type] << " " <<
-            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+        if (type_is_instr(memref.instr.type)) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.instr.addr << " instr x" <<
+                memref.instr.size << std::endl;
+        } else {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc <<
+                " " << trace_type_names[memref.data.type] << " " <<
+                (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+        }
     }
 
     // process counters for warmup and simulated references
