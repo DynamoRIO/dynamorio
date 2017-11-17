@@ -41,11 +41,15 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
+#include "tracer/raw2trace.h"
+#include "tracer/raw2trace_directory.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MAGIC_VALUE ((void*)0xdeadbeefUL)
 
 bool
 my_setenv(const char *var, const char *value)
@@ -158,6 +162,15 @@ parse_cb(const char *src, OUT void **data)
     return (res == NULL) ? NULL : res + 1;
 }
 
+static std::string
+process_cb(drmodtrack_info_t *info, void *data, void *user_data)
+{
+    assert((app_pc)data == info->start ||
+           info->containing_index != info->index);
+    assert(user_data == MAGIC_VALUE);
+    return "";
+}
+
 static void
 free_cb(void *data)
 {
@@ -167,53 +180,33 @@ free_cb(void *data)
 static void
 post_process()
 {
-    /* We now remove the custom field, so our test can go through regular
-     * raw2trace processing.
-     */
-    void *drcovlib = dr_standalone_init();
-    drcovlib_status_t res =
-        drmodtrack_add_custom_data(NULL, NULL, parse_cb, free_cb);
-    assert(res == DRCOVLIB_SUCCESS);
-    const char *modlist_path;
-    drmemtrace_status_t mem_res = drmemtrace_get_modlist_path(&modlist_path);
+    const char *output_path;
+    drmemtrace_status_t mem_res = drmemtrace_get_output_path(&output_path);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    dr_fprintf(STDERR, "processing %s\n", modlist_path);
-    file_t f = dr_open_file(modlist_path, DR_FILE_READ);
-    assert(f != INVALID_FILE);
-    void *modhandle;
-    uint num_mods;
-    res = drmodtrack_offline_read(f, NULL, NULL, &modhandle, &num_mods);
-    assert(res == DRCOVLIB_SUCCESS);
-
-    for (uint i = 0; i < num_mods; ++i) {
-        drmodtrack_info_t info = {sizeof(info),};
-        res = drmodtrack_offline_lookup(modhandle, i, &info);
-        assert(res == DRCOVLIB_SUCCESS);
-        assert(((app_pc)info.custom) == info.start ||
-               info.containing_index != i);
+    std::string output_trace(std::string(output_path) + std::string(DIRSEP) + ".." +
+                             std::string(DIRSEP) + TRACE_FILENAME);
+    {
+        /* First, test just the module parsing w/o writing a final trace, in a separate
+         * scope to delete the drmodtrack state afterward.
+         */
+        raw2trace_directory_t dir(output_path, output_trace);
+        raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, NULL, NULL);
+        std::string error = raw2trace.handle_custom_data(parse_cb, process_cb,
+                                                         MAGIC_VALUE, free_cb);
+        assert(error.empty());
+        error = raw2trace.do_module_parsing();
+        assert(error.empty());
     }
-
-    char *buf_offline;
-    size_t size_offline = 8192;
-    size_t wrote;
-    do {
-        buf_offline = (char *)dr_global_alloc(size_offline);
-        res = drmodtrack_offline_write(modhandle, buf_offline, size_offline, &wrote);
-        if (res == DRCOVLIB_SUCCESS)
-            break;
-        dr_global_free(buf_offline, size_offline);
-        size_offline *= 2;
-    } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
-    assert(res == DRCOVLIB_SUCCESS);
-    assert(wrote == strlen(buf_offline) + 1/*null*/);
-    dr_close_file(f);
-    drmodtrack_offline_exit(modhandle);
-
-    /* Now replace the file */
-    f = dr_open_file(modlist_path, DR_FILE_WRITE_OVERWRITE);
-    assert(f != INVALID_FILE);
-    dr_write_file(f, buf_offline, wrote - 1/*don't need null in file*/);
-    dr_close_file(f);
+    /* Now write a final trace to a location that the drcachesim -indir step
+     * run by the outer test harness will find (TRACE_FILENAME).
+     */
+    raw2trace_directory_t dir(output_path, output_trace);
+    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL, 0);
+    std::string error = raw2trace.handle_custom_data(parse_cb, process_cb,
+                                                     MAGIC_VALUE, free_cb);
+    assert(error.empty());
+    error = raw2trace.do_conversion();
+    assert(error.empty());
 }
 
 int

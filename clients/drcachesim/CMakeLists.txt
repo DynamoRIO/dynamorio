@@ -83,6 +83,7 @@ add_library(raw2trace STATIC
   tracer/raw2trace_directory.cpp
   )
 configure_DynamoRIO_standalone(raw2trace)
+target_link_libraries(raw2trace drfrontendlib)
 
 add_executable(drcachesim
   launcher.cpp
@@ -319,6 +320,12 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_replace tests/burst_replace.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_replace)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_replace drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_replace raw2trace)
+    if (WIN32)
+      # burst_replace is unusual in cramming the tracer and post-processor into the
+      # same binary and we need some massaging to avoid duplicate symbol link errors.
+      target_link_libraries(tool.drcacheoff.burst_replace libcmtd)
+    endif ()
     add_win32_flags(tool.drcacheoff.burst_replace)
     # Not really using an extension, just for including drmemtrace.h.
     use_DynamoRIO_extension(tool.drcacheoff.burst_replace drmemtrace_static)
