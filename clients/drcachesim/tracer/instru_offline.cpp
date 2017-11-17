@@ -45,6 +45,10 @@
 
 static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
 
+void * (*offline_instru_t::user_load)(module_data_t *module);
+int (*offline_instru_t::user_print)(void *data, char *dst, size_t max_len);
+void (*offline_instru_t::user_free)(void *data);
+
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
                                    bool memref_needs_info,
@@ -60,6 +64,10 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
     DR_ASSERT(write_file != NULL);
     // Ensure every compiler is packing our struct how we want:
     DR_ASSERT(sizeof(offline_entry_t) == 8);
+
+    res = drmodtrack_add_custom_data(load_custom_module_data, print_custom_module_data,
+                                     NULL, free_custom_module_data);
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }
 
 offline_instru_t::~offline_instru_t()
@@ -73,7 +81,7 @@ offline_instru_t::~offline_instru_t()
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
             ssize_t written = write_file_func(modfile, buf, wrote - 1/*no null*/);
-            DR_ASSERT(written == (ssize_t)strlen(buf));
+            DR_ASSERT(written == (ssize_t)wrote - 1);
         }
         dr_global_free(buf, size);
         size *= 2;
@@ -82,14 +90,78 @@ offline_instru_t::~offline_instru_t()
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }
 
+void *
+offline_instru_t::load_custom_module_data(module_data_t *module)
+{
+    void *user_data = nullptr;
+    if (user_load != nullptr)
+        user_data = (*user_load)(module);
+    const char *name = dr_module_preferred_name(module);
+    // For vdso we include the entire contents so we can decode it during
+    // post-processing.
+    if ((name != nullptr &&
+         (strstr(name, "linux-gate.so") == name ||
+          strstr(name, "linux-vdso.so") == name)) ||
+        (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
+        return new custom_module_data_t((const char *)module->start,
+                                        module->end - module->start, user_data);
+    } else if (user_data != nullptr) {
+        return new custom_module_data_t(nullptr, 0, user_data);
+    }
+    return nullptr;
+}
+
+int
+offline_instru_t::print_custom_module_data(void *data, char *dst, size_t max_len)
+{
+    custom_module_data_t *custom = (custom_module_data_t *)data;
+    // We use ascii for the size to keep the module list human-readable except
+    // for the few modules like vdso that have a binary blob.
+    // We include a version #.
+    if (custom == nullptr) {
+        return dr_snprintf(dst, max_len, "v#%d,0,", CUSTOM_MODULE_VERSION);
+    }
+    char *cur = dst;
+    int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom->size);
+    if (len < 0)
+        return -1;
+    cur += len;
+    if (cur - dst + custom->size > max_len)
+        return -1;
+    if (custom->size > 0) {
+        memcpy(cur, custom->base, custom->size);
+        cur += custom->size;
+    }
+    if (user_print != nullptr) {
+        int res = (*user_print)(custom->user_data, cur, max_len - (cur - dst));
+        if (res == -1)
+            return -1;
+        cur += res;
+    }
+    return (int)(cur - dst);
+}
+
+void
+offline_instru_t::free_custom_module_data(void *data)
+{
+    custom_module_data_t *custom = (custom_module_data_t *)data;
+    if (custom == nullptr)
+        return;
+    if (user_free != nullptr)
+        (*user_free)(custom->user_data);
+    delete custom;
+}
+
 bool
 offline_instru_t::custom_module_data
 (void * (*load_cb)(module_data_t *module),
  int (*print_cb)(void *data, char *dst, size_t max_len),
  void (*free_cb)(void *data))
 {
-    drcovlib_status_t res = drmodtrack_add_custom_data(load_cb, print_cb, NULL, free_cb);
-    return res == DRCOVLIB_SUCCESS;
+    user_load = load_cb;
+    user_print = print_cb;
+    user_free = free_cb;
+    return true;
 }
 
 size_t

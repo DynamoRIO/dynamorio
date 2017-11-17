@@ -215,11 +215,17 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the output directory in -offline mode
+ * where data is being written.
+ */
+drmemtrace_status_t
+drmemtrace_get_output_path(OUT const char **path);
+
+DR_EXPORT
+/**
  * Retrieves the full path to the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data()
- * and then modified before passing to raw2trace via
- * drmodtrack_add_custom_data() with a parse and free callback
- * and drmodtrack_offline_write() to produce new file contents.
+ * Its creation can be customized using drmemtrace_custom_module_data() with
+ * corresponding post-processing with raw2trace_t::handle_custom_data().
  */
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path);
@@ -232,13 +238,9 @@ DR_EXPORT
  * to a string with \p print_cb, which should return the number of characters
  * printed or -1 on error.  The data is freed with \p free_cb.
  *
- * The user can read and modify the resulting \p modules.log file, prior to
- * passing through the raw2trace post-processor.  Its path can be obtained from
- * drmemtrace_get_modlist_path() (unless drmemtrace_replace_file_ops() moved it:
- * then it's up to the caller to locate and process it), and the \p drmodtrack
- * API can be used to remove the custom field, update the path, and rewrite the
- * file: drmodtrack_add_custom_data(), drmodtrack_offline_read(),
- * drmodtrack_offline_lookup(), drmodtrack_offline_write().
+ * On the post-processing side, the user should create a custom post-processor
+ * by linking with raw2trace and calling raw2trace_t::handle_custom_data() to provide
+ * parsing and processing routines for the custom data.
  */
 drmemtrace_status_t
 drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
