@@ -403,9 +403,9 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
 }
 
 #define usage(list_ops, msg, ...) do {                          \
+    FILE *stream = (list_ops == true) ? stdout : stderr;        \
     if ((msg)[0] != '\0')                                       \
       fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);     \
-    FILE *stream = (list_ops == true) ? stdout : stderr;        \
     fprintf(stream, "%s", usage_str);                           \
     print_tool_list(stream);                                    \
     if (list_ops) {                                             \
