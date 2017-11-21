@@ -919,6 +919,104 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
                                                const module_data_t *info));
 
 /* DR_API EXPORT BEGIN */
+/** Identifies the type of kernel transfer for dr_register_kernel_xfer_event(). */
+typedef enum {
+    DR_XFER_SIGNAL_DELIVERY, /**< Signal delivery to application handler. */
+    DR_XFER_SIGNAL_RETURN,   /**< Signal return system call. */
+    DR_XFER_APC_DISPATCHER,  /**< Asynchronous procedure call dispatcher. */
+    DR_XFER_EXCEPTION_DISPATCHER, /**< Exception dispatcher. */
+    DR_XFER_RAISE_DISPATCHER, /**< Raised exception dispatcher. */
+    DR_XFER_CALLBACK_DISPATCHER,  /**< Callback dispatcher. */
+    DR_XFER_CALLBACK_RETURN, /**< A return from a callback by syscall or interrupt. */
+    DR_XFER_CONTINUE,        /**< NtContinue system call. */
+    DR_XFER_SET_CONTEXT_THREAD, /**< NtSetContextThread system call. */
+    DR_XFER_CLIENT_REDIRECT, /**< dr_redirect_execution() or #DR_SIGNAL_REDIRECT. */
+} dr_kernel_xfer_type_t;
+
+/** Data structure passed for dr_register_kernel_xfer_event(). */
+typedef struct _dr_kernel_xfer_info_t {
+    /** The type of event. */
+    dr_kernel_xfer_type_t type;
+    /**
+     * The source machine context which is about to be changed.  This may be NULL
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     */
+    const dr_mcontext_t *source_mcontext;
+    /**
+     * The target program counter of the transfer.  To obtain the full target state,
+     * call dr_get_mcontext().  (For efficiency purposes, only frequently needed
+     * state is included by default.)
+     */
+    app_pc target_pc;
+    /**
+     * The target stack pointer of the transfer.  To obtain the full target state,
+     * call dr_get_mcontext().  (For efficiency purposes, only frequently needed
+     * state is included by default.)
+     */
+    reg_t target_xsp;
+    /** For #DR_XFER_SIGNAL_DELIVERY and #DR_XFER_SIGNAL_RETURN, the signal number. */
+    int sig;
+} dr_kernel_xfer_info_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Registers a callback function for the kernel transfer event.  DR
+ * calls \p func whenever the kernel is about to directly transfer control
+ * without an explicit user-mode control transfer instruction.
+ * This includes the following scenarios, which are distinguished by \p type:
+ * - On UNIX, a signal is about to be delivered to an application handler.
+ *   This event differs from a dr_register_signal_event() callback in that the
+ *   latter is called regardless of whether the application has a handler,
+ *   and it does not provide the target context of any handler.
+ * - On UNIX, a signal return system call is about to be invoked.
+ * - On Windows, the asynchronous procedure call dispatcher is about to be invoked.
+ * - On Windows, the callback dispatcher is about to be invoked.
+ * - On Windows, the exception dispatcher is about to be invoked.
+ * - On Windows, the NtContinue system call is about to be invoked.
+ * - On Windows, the NtSetContextThread system call is about to be invoked.
+ * - On Windows, the NtCallbackReturn system call is about to be invoked.
+ * - On Windows, interrupt 0x2b is about to be invoked.
+ * - The client requests redirection using dr_redirect_execution() or
+ *   #DR_SIGNAL_REDIRECT.
+ *
+ * The prior context, if known, is provided in \p info->source_mcontext; if
+ * unknown, \p info->source_mcontext is NULL.  Multimedia state is typically
+ * not provided in \p info->source_mcontext, which is reflected in its \p flags.
+ *
+ * The target program counter and stack are provided in \p info->target_pc and \p
+ * info->target_xsp.  Further target state can be examined by calling
+ * dr_get_mcontext() and modified by calling dr_set_mcontext().  Changes to the
+ * target state, including the pc, are supported for all cases except
+ * NtCallbackReturn and interrupt 0x2b.  However, dr_get_mcontext() and
+ * dr_set_mcontext() are limited for the Windows system calls NtContinue and
+ * NtSetContextThread to the ContextFlags set by the application: dr_get_mcontext()
+ * will adjust the dr_mcontext_t.flags to reflect what's available, and
+ * dr_set_mcontext() will only set what's also set in ContextFlags.  Given the
+ * disparity in how Ebp/Rbp is handled (in #DR_MC_INTEGER but in CONTEXT_CONTROL),
+ * clients that care about that register are better off using system call events
+ * instead of kernel transfer events to take actions on these two system calls.
+ *
+ * This is a convenience event: all of the above events can be detected using
+ * combinations of other events.  This event is meant to be used to identify all
+ * changes in the program counter that do not arise from explicit control flow
+ * instructions.
+ */
+void
+dr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                           const dr_kernel_xfer_info_t *info));
+
+DR_API
+/**
+ * Unregister a callback function for the kernel transfer event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+dr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                             const dr_kernel_xfer_info_t *info));
+
+/* DR_API EXPORT BEGIN */
 #ifdef WINDOWS
 /* DR_API EXPORT END */
 
@@ -930,7 +1028,7 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
 typedef struct _dr_exception_t {
     /**
      * Machine context at exception point.  The client should not
-     * change \p mcontext.flags: it should remain DR_MC_ALL.
+     * change \p mcontext->flags: it should remain DR_MC_ALL.
      */
     dr_mcontext_t *mcontext;
     EXCEPTION_RECORD *record; /**< Win32 exception record. */
@@ -5339,7 +5437,7 @@ DR_API
 /**
  * Returns true if the xmm fields in dr_mcontext_t are valid
  * (i.e., whether the underlying processor supports SSE).
- * \note If DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
+ * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
  * the xmm fields will not be filled in regardless of the return value
  * of this routine.
  */
@@ -5368,10 +5466,20 @@ DR_API
  *   dr_register_exit_event())
  * - A thread init event (dr_register_thread_init_event()) for all but
  *   the initial thread.
+ * - A kernel transfer event (dr_register_kernel_xfer_event()).  Here the obtained
+ *   context is the target context of the transfer, not the source (about to be
+ *   changed) context.  For Windows system call event types #DR_XFER_CONTINUE and
+ *   #DR_XFER_SET_CONTEXT_THREAD, only the portions of the context selected by the
+ *   application are available.  The \p flags field of \p context is adjusted to
+ *   reflect which fields were returned.  Given the disparity in how Ebp/Rbp is
+ *   handled (in #DR_MC_INTEGER but in CONTEXT_CONTROL), clients that care about that
+ *   register are better off using system call events instead of kernel transfer events
+ *   to take actions on these two system calls.
  *
- * Even when DR_MC_CONTROL is specified, does NOT copy the pc field,
+ * Even when #DR_MC_CONTROL is specified, does NOT copy the pc field,
  * except for system call events, when it will point at the
- * post-syscall address.
+ * post-syscall address, and kernel transfer events, when it will point to the
+ * target pc.
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the
@@ -5389,7 +5497,7 @@ DR_API
  *
  * \note NUM_SIMD_SLOTS in the dr_mcontext_t.xmm array are filled in,
  * but only if dr_mcontext_xmm_fields_valid() returns true and
- * DR_MC_MULTIMEDIA is set in the flags field.
+ * #DR_MC_MULTIMEDIA is set in the flags field.
  *
  * \note The context is the context saved at the dr_insert_clean_call() or
  * dr_prepare_for_call() points.  It does not correct for any registers saved
@@ -5414,12 +5522,21 @@ DR_API
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  *   dr_register_thread_exit_event())
- * - Basic block or trace creation events (dr_register_bb_event(),
- *   dr_register_trace_event()), but for basic block creation only when the
- *   basic block callback parameters \p for_trace and \p translating are
- *   false, and for trace creation only when \p translating is false.
+ * - A kernel transfer event (dr_register_kernel_xfer_event()) other than
+ *   #DR_XFER_CALLBACK_RETURN.  Here the modified context is the target context of
+ *   the transfer, not the source (about to be changed) context.  For Windows system
+ *   call event types #DR_XFER_CONTINUE and #DR_XFER_SET_CONTEXT_THREAD, only the
+ *   portions of the context selected by the application can be changed.  The \p
+ *   flags field of \p context is adjusted to reflect which fields these are.  Given
+ *   the disparity in how Ebp/Rbp is handled (in #DR_MC_INTEGER but in
+ *   CONTEXT_CONTROL), clients that care about that register are better off using
+ *   system call events instead of kernel transfer events to take actions on these
+ *   two system calls.  - Basic block or trace creation events
+ *   (dr_register_bb_event(), dr_register_trace_event()), but for basic block
+ *   creation only when the basic block callback parameters \p for_trace and \p
+ *   translating are false, and for trace creation only when \p translating is false.
  *
- * Ignores the pc field.
+ * Ignores the pc field, except for kernel transfer events.
  *
  * If the size field of \p context is invalid, this routine will
  * return false.  A dr_mcontext_t obtained from DR will have the size field set.
@@ -5453,7 +5570,7 @@ DR_API
  * of fields is not suported.
  *
  * \note dr_get_mcontext() can be used to get the register state (except pc)
- * saved in dr_insert_clean_call() or dr_prepare_for_call()
+ * saved in dr_insert_clean_call() or dr_prepare_for_call().
  *
  * \note If floating point state was saved by dr_prepare_for_call() or
  * dr_insert_clean_call() it is not restored (other than the valid xmm
@@ -5472,7 +5589,7 @@ DR_API
  * \note This routine may only be called from a clean call from the cache. It can not be
  * called from any registered event callback except the exception event
  * (dr_register_exception_event()).  From a signal event callback, use the
- * DR_SIGNAL_REDIRECT return value rather than calling this routine.
+ * #DR_SIGNAL_REDIRECT return value rather than calling this routine.
  *
  * \note For ARM, to redirect execution to a Thumb target (#DR_ISA_ARM_THUMB),
  * set the least significant bit of the mcontext pc to 1. Reference
@@ -5527,11 +5644,13 @@ DR_API
 /**
  * Copies the machine state in \p src into \p dst.  Sets the \p
  * ContextFlags field of \p dst to reflect the \p flags field of \p
- * src.
+ * src.  However, CONTEXT_CONTROL includes Ebp/Rbp, while that's under
+ * #DR_MC_INTEGER, so we recommend always setting both #DR_MC_INTEGER
+ * and #DR_MC_CONTROL when calling this routine.
  *
  * It is up to the caller to ensure that \p dst is allocated and
  * initialized properly in order to contain multimedia processor
- * state, if DR_MC_MULTIMEDIA is set in the \p flags field of \p src.
+ * state, if #DR_MC_MULTIMEDIA is set in the \p flags field of \p src.
  *
  * The current segment register values are filled in under the assumption
  * that this context is for the calling thread.

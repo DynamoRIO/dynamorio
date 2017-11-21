@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,6 +102,15 @@ bool instrument_filter_syscall(dcontext_t *dcontext, int sysnum);
 bool instrument_pre_syscall(dcontext_t *dcontext, int sysnum);
 void instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool instrument_invoke_another_syscall(dcontext_t *dcontext);
+/* returns whether a client event was called which might have changed the context */
+bool instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
+                            /* only one of these 3 should be non-NULL */
+                            os_cxt_ptr_t source_os_cxt, dr_mcontext_t *source_dmc,
+                            priv_mcontext_t *source_mc,
+                            app_pc target_pc, reg_t target_xsp,
+                            /* only one of these 2 should be non-NULL */
+                            os_cxt_ptr_t target_os_cxt, priv_mcontext_t *target_mc,
+                            int sig);
 
 void instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
 /* post instrument_event() cleanup */
