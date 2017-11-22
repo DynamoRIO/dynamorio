@@ -54,7 +54,7 @@ reuse_time_tool_create(unsigned int line_size,
 }
 
 reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose) :
-    time_stamp(0), knob_verbose(verbose), knob_line_size(line_size)
+    time_stamp(0), total_instructions(0), knob_verbose(verbose), knob_line_size(line_size)
 {
     line_size_bits = compute_log2((int)knob_line_size);
 }
@@ -81,6 +81,7 @@ reuse_time_t::process_memref(const memref_t &memref)
 
     // Only care about data for now.
     if (type_is_instr(memref.instr.type)) {
+        total_instructions++;
         return true;
     }
 
@@ -115,6 +116,7 @@ bool
 reuse_time_t::print_results() {
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total accesses: " << time_stamp << "\n";
+    std::cerr << "Total instructions: " << total_instructions << "\n";
     std::cerr.precision(2);
     std::cerr.setf(std::ios::fixed);
 
