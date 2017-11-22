@@ -46,6 +46,7 @@ class reuse_time_t : public analysis_tool_t
  protected:
     std::unordered_map<addr_t, int_least64_t> time_map;
     int_least64_t time_stamp;
+    int_least64_t total_instructions;
     std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
 
     unsigned int knob_verbose;
