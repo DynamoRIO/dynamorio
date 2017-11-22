@@ -116,6 +116,7 @@ bool
 reuse_time_t::print_results() {
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total accesses: " << time_stamp << "\n";
+    std::cerr << "Total instructions: " << total_instructions << "\n";
     std::cerr.precision(2);
     std::cerr.setf(std::ios::fixed);
 
