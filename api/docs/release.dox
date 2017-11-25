@@ -198,6 +198,8 @@ Further non-compatibility-affecting changes include:
    startup.
  - Added support for Windows 10 1703.  We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1703 to distinguish this major update.
+ - Added support for Windows 10 1709.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1709 to distinguish this major update.
 
 **************************************************
 <hr>
