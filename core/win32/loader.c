@@ -1504,7 +1504,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
-    else if (str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
+    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L3-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
