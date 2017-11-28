@@ -175,10 +175,9 @@ options_t dynamo_options = {
  * and put back as synchronize_dynamic_options() local var.
  */
 DECLARE_FREQPROT_VAR(char new_option_string[MAX_OPTIONS_STRING], {0,});
-/* temporary structure */
-options_t temp_options = {
-# include "optionsx.h"
-};
+
+/* Temporary structure.  Do not assume that it is initialized. */
+options_t temp_options;
 
 /* dynamo_options and temp_options, the two writable option structures,
  * are both protected by this lock, which is kept outside of the protected
