@@ -4389,7 +4389,6 @@ static bool
 check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
                         kernel_ucontext_t *uc, byte *target, bool native_state)
 {
-    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
      * have to figure out the target address!
@@ -4407,7 +4406,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         app_pc next_pc, translated_pc = NULL;
         fragment_t *f = NULL;
         fragment_t wrapper;
-        ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
+        ASSERT((cache_pc)SIGCXT_FROM_UCXT(uc)->SC_XIP == instr_cache_pc);
         if (!native_state) {
             /* For safe recreation we need to either be couldbelinking or hold
              * the initexit lock (to keep someone from flushing current
