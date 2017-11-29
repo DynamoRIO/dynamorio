@@ -422,7 +422,9 @@ typedef struct _client_data_t {
     /* flags for dr_get_mcontext (i#117/PR 395156) */
     bool           mcontext_in_dcontext;
     bool           suspended;
+    /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
+    os_cxt_ptr_t   os_cxt;
 } client_data_t;
 #else
 # define IS_CLIENT_THREAD(dcontext) false

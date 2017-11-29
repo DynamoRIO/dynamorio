@@ -145,6 +145,10 @@ following minor compatibility changes:
    such as a static initialiser, will still need to be rewritten.
    DynamoRIO_PAGE_SIZE_COMPATIBILITY will be set automatically if the
    client targets version 6.2 or earlier.
+ - Removed DRMGR_PRIORITY_INSERT_CLS_ENTRY, DRMGR_PRIORITY_INSERT_CLS_EXIT,
+   DRMGR_PRIORITY_NAME_CLS_ENTRY, and DRMGR_PRIORITY_NAME_CLS_EXIT, as
+   the new kernel xfer event (drmgr_register_kernel_xfer_event()) removes the
+   need for them.
 
 Further non-compatibility-affecting changes include:
 
@@ -200,6 +204,9 @@ Further non-compatibility-affecting changes include:
    identifier #DR_WINDOWS_VERSION_10_1703 to distinguish this major update.
  - Added support for Windows 10 1709.  We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1709 to distinguish this major update.
+ - Added an event for kernel-mediated control flow via
+   dr_register_kernel_xfer_event() with corresponding routines
+   drmgr_register_kernel_xfer_event() and drmgr_register_kernel_xfer_event_ex().
 
 **************************************************
 <hr>

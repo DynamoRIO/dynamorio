@@ -365,6 +365,27 @@ typedef struct _sig_full_cxt_t {
     void *fp_simd_state;
 } sig_full_cxt_t;
 
+typedef sig_full_cxt_t os_cxt_ptr_t;
+
+extern os_cxt_ptr_t osc_empty;
+
+static inline bool
+is_os_cxt_ptr_null(os_cxt_ptr_t osc)
+{
+    return osc.sc == NULL;
+}
+
+static inline void
+set_os_cxt_ptr_null(os_cxt_ptr_t *osc)
+{
+    *osc = osc_empty;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc);
+/* Only one of mc and dmc can be non-NULL. */
+bool mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc);
+
 void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,

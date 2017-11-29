@@ -3603,7 +3603,7 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     if (ostd->suspend_count == 0)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
-    sigcontext_to_mcontext(mc, ostd->suspended_sigcxt);
+    sigcontext_to_mcontext(mc, ostd->suspended_sigcxt, DR_MC_ALL);
     return true;
 }
 
@@ -3619,7 +3619,33 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     if (ostd->suspend_count == 0)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
-    mcontext_to_sigcontext(ostd->suspended_sigcxt, mc);
+    mcontext_to_sigcontext(ostd->suspended_sigcxt, mc, DR_MC_ALL);
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc)
+{
+    if (dmc != NULL)
+        sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(dmc), &osc, dmc->flags);
+    else if (mc != NULL)
+        sigcontext_to_mcontext(mc, &osc, DR_MC_ALL);
+    else
+        return false;
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc)
+{
+    if (dmc != NULL)
+        mcontext_to_sigcontext(&osc, dr_mcontext_as_priv_mcontext(dmc), dmc->flags);
+    else if (mc != NULL)
+        mcontext_to_sigcontext(&osc, mc, DR_MC_ALL);
+    else
+        return false;
     return true;
 }
 
