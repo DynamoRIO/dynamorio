@@ -1948,6 +1948,8 @@ if (CLIENT_INTERFACE)
     # i#1866: stress our private loader
     tobuild_ci(client.loader client-interface/loader.c "" "" "")
     target_link_libraries(client.loader.dll "shlwapi")
+
+    tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
   endif (UNIX)
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.file_io client-interface/file_io.c

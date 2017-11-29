@@ -79,6 +79,8 @@ extern "C" {
 # define dr_unregister_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
 # define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
 # define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+# define dr_register_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
+# define dr_unregister_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
 # define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
 # define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
 # define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
@@ -546,35 +548,6 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
  * CLS
  */
 
-/**
- * Priority of drmgr instrumentation pass used to track CLS.  Users
- * of drmgr can use the names #DRMGR_PRIORITY_NAME_CLS_ENTRY or
- * #DRMGR_PRIORITY_NAME_CLS_EXIT in the
- * drmgr_priority_t.before field or can use these numeric priorities
- * in the drmgr_priority_t.priority field to ensure proper
- * instrumentation pass ordering.  The #DRMGR_PRIORITY_INSERT_CLS_ENTRY
- * should go before any client event and the #DRMGR_PRIORITY_INSERT_CLS_EXIT
- * should go after any client event.
- */
-enum {
-    DRMGR_PRIORITY_INSERT_CLS_ENTRY  =  -500, /**< Priority of CLS entry tracking */
-    DRMGR_PRIORITY_INSERT_CLS_EXIT   =  5000, /**< Priority of CLS exit tracking */
-};
-
-/** Name of drmgr insert pass priority for CLS entry tracking */
-#ifdef WINDOWS
-# define DRMGR_PRIORITY_NAME_CLS_ENTRY "drmgr_cls_entry"
-#else
-# define DRMGR_PRIORITY_NAME_CLS_ENTRY NULL
-#endif
-
-/** Name of drmgr insert pass priority for CLS exit tracking */
-#ifdef WINDOWS
-# define DRMGR_PRIORITY_NAME_CLS_EXIT  "drmgr_cls_exit"
-#else
-# define DRMGR_PRIORITY_NAME_CLS_EXIT  NULL
-#endif
-
 DR_EXPORT
 /**
  * Reserves a callback-local storage (cls) slot.  Thread-local storage
@@ -620,7 +593,9 @@ DR_EXPORT
  * provide a stack of contexts on Linux, or to provide a stack of
  * contexts for any other purpose such as layered wrapped functions.
  * These push and pop functions are automatically called on Windows
- * callback entry and exit.
+ * callback entry and exit, with the push called in DR's kernel xfer
+ * event prior to any client callback for that event, and pop called in
+ * the same event but after any client callback.
  */
 int
 drmgr_register_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
@@ -955,6 +930,39 @@ bool
 drmgr_unregister_module_unload_event(void (*func)
                                      (void *drcontext, const module_data_t *info));
 
+DR_EXPORT
+/**
+ * Registers a callback function for the kernel transfer event, which
+ * behaves just like DR's kernel transfer event dr_register_kernel_xfer_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                              const dr_kernel_xfer_info_t *info));
+
+DR_EXPORT
+/**
+ * Registers a callback function for the kernel transfer event, which behaves just
+ * like DR's kernel transfer event dr_register_kernel_xfer_event(), except that it is
+ * ordered according to \p priority.  A default priority of 0 is used for events
+ * registered via drmgr_register_module_unload_event().
+ * \return whether successful.
+ */
+bool
+drmgr_register_kernel_xfer_event_ex(void (*func)(void *drcontext,
+                                                 const dr_kernel_xfer_info_t *info),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the kernel transfer event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                                const dr_kernel_xfer_info_t *info));
+
 #ifdef UNIX
 DR_EXPORT
 /**
@@ -964,7 +972,7 @@ DR_EXPORT
  */
 bool
 drmgr_register_signal_event(dr_signal_action_t (*func)
-                         (void *drcontext, dr_siginfo_t *siginfo));
+                            (void *drcontext, dr_siginfo_t *siginfo));
 
 DR_EXPORT
 /**

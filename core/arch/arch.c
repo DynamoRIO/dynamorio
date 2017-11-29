@@ -3256,6 +3256,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
+            /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
             dst->xflags = src->xflags;
             dst->pc = src->pc;

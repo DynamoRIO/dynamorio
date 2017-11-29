@@ -508,7 +508,6 @@ if (AFTER_INTERCEPT_TAKE_OVER || AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT
     else
       push no_cleanup # state->start_pc
     endif
-      push $0 # we assume always want !save_dcontext as arg to asynch_take_over
       push/mov xsp # app_state_at_intercept_t *
       call asynch_take_over
       # should never reach here
@@ -567,8 +566,7 @@ endif (!AFTER_INTERCEPT_TAKE_OVER)
 => handler signature, exported as typedef intercept_function_t:
 void handler(app_state_at_intercept_t *args)
 
-if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called, with "false" for
-its save_dcontext parameter
+if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called.
 
 handler must make sure all paths exiting handler routine clear the
 initstack mutex once not using the initstack itself!
@@ -2854,6 +2852,29 @@ is_syscall_trampoline(byte *pc, byte **tgt)
     return false;
 }
 
+#ifdef CLIENT_INTERFACE
+static void
+instrument_dispatcher(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
+                      app_state_at_intercept_t *state, CONTEXT *interrupted_cxt)
+{
+    app_pc nohook_pc = dr_fragment_app_pc(state->start_pc);
+    state->mc.pc = nohook_pc;
+    DWORD orig_flags = 0;
+    if (interrupted_cxt != NULL) {
+        /* Avoid copying simd fields: this event does not provide them. */
+        orig_flags = interrupted_cxt->ContextFlags;
+        interrupted_cxt->ContextFlags &=
+            ~(CONTEXT_DR_STATE & ~(CONTEXT_INTEGER|CONTEXT_CONTROL));
+    }
+    if (instrument_kernel_xfer(dcontext, type, interrupted_cxt, NULL, NULL,
+                               state->mc.pc, state->mc.xsp, NULL, &state->mc, 0) &&
+        state->mc.pc != nohook_pc)
+        state->start_pc = state->mc.pc;
+    if (interrupted_cxt != NULL)
+        interrupted_cxt->ContextFlags = orig_flags;
+}
+#endif
+
 /****************************************************************************
  */
 /* TRACK_NTDLL: try to find where kernel re-emerges into user mode when it
@@ -3115,6 +3136,11 @@ intercept_new_thread(CONTEXT *cxt)
         dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
     }
 #endif
+    /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
+     * the actual code to be run by the thread *now*, and not this CONTEXT which
+     * is what will be run later!  We should make sure nobody is relying on
+     * the current (broken) context first.
+     */
     context_to_mcontext_new_thread(&mc, cxt);
     if (dynamo_thread_init(dstack, &mc _IF_CLIENT_INTERFACE(is_client)) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
@@ -3368,6 +3394,14 @@ intercept_ldr_init(app_state_at_intercept_t *state)
         if (!is_thread_initialized()) {
             if (intercept_new_thread(cxt))
                 return AFTER_INTERCEPT_LET_GO;
+#ifdef CLIENT_INTERFACE
+            /* We treat this as a kernel xfer, partly b/c of i#2718 where our
+             * thread init mcontext is wrong.
+             * We pretend it's an APC.
+             */
+            instrument_dispatcher(get_thread_private_dcontext(),
+                                  DR_XFER_APC_DISPATCHER, state, cxt);
+#endif
         } else {
             /* ntdll!LdrInitializeThunk is only used for initializing new
              * threads so we should never get here unless early injected
@@ -3716,6 +3750,9 @@ intercept_apc(app_state_at_intercept_t *state)
 
         asynch_retakeover_if_native();
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_APC_DISPATCHER, state, cxt);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_APCs_noasynch);
@@ -3811,6 +3848,13 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
 
         LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
         DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
+
+#ifdef CLIENT_INTERFACE
+        get_mcontext(dcontext)->pc = dcontext->next_tag;
+        instrument_kernel_xfer(dcontext, DR_XFER_CONTINUE,
+                               NULL, NULL, get_mcontext(dcontext),
+                               (app_pc)cxt->CXT_XIP, cxt->CXT_XSP, cxt, NULL, 0);
+#endif
 
         /* Updates debug register values.
          * FIXME should check dr7 upper bits, and maybe dr6
@@ -4000,6 +4044,13 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
         LOG(THREAD, LOG_ASYNCH, 2, "intercept_nt_setcontext: squashing old trace\n");
         trace_abort(dcontext);
     }
+
+#ifdef CLIENT_INTERFACE
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
+    instrument_kernel_xfer(dcontext, DR_XFER_SET_CONTEXT_THREAD,
+                           NULL, NULL, get_mcontext(dcontext),
+                           (app_pc)cxt->CXT_XIP, cxt->CXT_XSP, cxt, NULL, 0);
+#endif
 
     /* Yes, we use the same x86.asm and x86_code.c procedures as
      * NtContinue: nt_continue_dynamo_start and nt_continue_start_setup
@@ -5952,6 +6003,9 @@ intercept_exception(app_state_at_intercept_t *state)
          * We don't save the cur dcontext.
          */
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_EXCEPTION_DISPATCHER, state, cxt);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_exceptions_noasynch);
@@ -6010,6 +6064,10 @@ intercept_raise_exception(app_state_at_intercept_t *state)
          * We don't save the cur dcontext.
          */
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(get_thread_private_dcontext(),
+                              DR_XFER_RAISE_DISPATCHER, state, NULL);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_raise_exceptions_noasynch);
@@ -6370,6 +6428,9 @@ intercept_callback_start(app_state_at_intercept_t *state)
 
         asynch_retakeover_if_native();
         state->callee_arg = (void *)(ptr_uint_t) true /* save cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_CALLBACK_DISPATCHER, state, NULL);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_callbacks_noasynch);
@@ -6713,6 +6774,20 @@ callback_start_return(priv_mcontext_t *mc)
         dump_mcontext(get_mcontext(cur_dcontext), cur_dcontext->logfile,
                       DUMP_NOT_XML);
     });
+
+# ifdef CLIENT_INTERFACE
+    priv_mcontext_t *cur_mc = get_mcontext(cur_dcontext);
+    /* XXX: if the retaddr is in the xsi slot, how do we get back the orig xsi value?
+     * Presumably we can't: should we document this?
+     */
+    cur_mc->pc = POST_SYSCALL_PC(cur_dcontext);
+    get_mcontext(prev_dcontext)->pc = prev_dcontext->next_tag;
+      /* We don't support changing the target context for cbret. */
+    instrument_kernel_xfer(cur_dcontext, DR_XFER_CALLBACK_RETURN,
+                           NULL, NULL, get_mcontext(prev_dcontext),
+                           cur_mc->pc, cur_mc->xsp, NULL, cur_mc, 0);
+# endif
+
 #else /* DCONTEXT_IN_EDI */
     /* restore previous dcontext */
     prev_dcontext = cur_dcontext->next_saved;

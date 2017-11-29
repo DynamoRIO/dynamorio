@@ -4980,7 +4980,6 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#ifdef CLIENT_INTERFACE
 DR_API
 bool
 dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
@@ -5004,6 +5003,9 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
     mcontext_to_context(dst, dr_mcontext_as_priv_mcontext(src),
                         true/*cur segs, which we document*/);
 
+    /* XXX: CONTEXT_CONTROL includes xbp, while that's under DR_MC_INTEGER.
+     * We document this difference and recommend passing both to avoid problems.
+     */
     if (!TEST(DR_MC_INTEGER, src->flags))
         dst->ContextFlags &= ~(CONTEXT_INTEGER);
     if (!TEST(DR_MC_CONTROL, src->flags))
@@ -5011,7 +5013,70 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
 
     return true;
 }
-#endif
+
+/* CONTEXT_CONTROL includes xbp, but it's under DR_MC_INTEGER: callers beware! */
+static dr_mcontext_flags_t
+match_mcontext_flags_to_context_flags(dr_mcontext_flags_t mc_flags, DWORD cxt_flags)
+{
+    if (TEST(DR_MC_INTEGER, mc_flags) && !TESTALL(CONTEXT_INTEGER, cxt_flags))
+        mc_flags &= ~DR_MC_INTEGER;
+    if (TEST(DR_MC_CONTROL, mc_flags) && !TESTALL(CONTEXT_CONTROL, cxt_flags))
+        mc_flags &= ~DR_MC_CONTROL;
+    if (TEST(DR_MC_MULTIMEDIA, mc_flags) &&
+        !TESTALL(CONTEXT_DR_STATE & ~(CONTEXT_INTEGER|CONTEXT_CONTROL), cxt_flags))
+        mc_flags &= ~DR_MC_MULTIMEDIA;
+    return mc_flags;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc)
+{
+    if (dmc != NULL) {
+        /* We have to handle mismatches between dmc->flags and osc->ContextFlags.  We
+         * come here on NtContinue where often only CONTROL|INTEGER|SEGMENTS are
+         * available.  Our general strategy: keep context_to_mcontext() happy and fix
+         * up here.  We assume it's ok to clobber parts of dmc not requested by its
+         * flags, and ok to temporarily write to osc, even though it may be app
+         * memory.
+         */
+        DWORD orig_flags = osc->ContextFlags;
+        if (!TESTALL(CONTEXT_DR_STATE_NO_YMM, osc->ContextFlags))
+            osc->ContextFlags = CONTEXT_DR_STATE_NO_YMM;
+        context_to_mcontext(dr_mcontext_as_priv_mcontext(dmc), osc);
+        osc->ContextFlags = orig_flags;
+        /* We document the xbp difference: clients who care are advised to use syscall
+         * events instead of the kernel xfer events that come through here.
+         */
+        dmc->flags = match_mcontext_flags_to_context_flags(dmc->flags, orig_flags);
+    } else if (mc != NULL) {
+        /* We don't support coming here with an incomplete CONTEXT: it doesn't
+         * happen in the code base currently.
+         */
+        ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, osc->ContextFlags));
+        context_to_mcontext(mc, osc);
+    } else
+        return false;
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc)
+{
+    if (dmc != NULL) {
+        /* We document the xbp difference: clients who care are advised to use syscall
+         * events instead of the kernel xfer events that come through here.
+         */
+        dmc->flags =
+            match_mcontext_flags_to_context_flags(dmc->flags, osc->ContextFlags);
+        dr_mcontext_to_context(osc, dmc);
+    } else if (mc != NULL)
+        mcontext_to_context(osc, mc, true/*cur segs*/);
+    else
+        return false;
+    return true;
+}
 
 int
 get_num_processors()

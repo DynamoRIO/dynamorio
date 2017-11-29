@@ -207,6 +207,8 @@ static kernel_sigset_t init_sigmask;
 static bool removed_sig_handler;
 #endif
 
+os_cxt_ptr_t osc_empty;
+
 /**** function prototypes ***********************************************/
 
 /* in x86.asm */
@@ -2213,59 +2215,74 @@ sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 }
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
+                       dr_mcontext_flags_t flags)
 {
     sigcontext_t *sc = sc_full->sc;
     ASSERT(mc != NULL && sc != NULL);
 #ifdef X86
-    mc->xax = sc->SC_XAX;
-    mc->xbx = sc->SC_XBX;
-    mc->xcx = sc->SC_XCX;
-    mc->xdx = sc->SC_XDX;
-    mc->xsi = sc->SC_XSI;
-    mc->xdi = sc->SC_XDI;
-    mc->xbp = sc->SC_XBP;
-    mc->xsp = sc->SC_XSP;
-    mc->xflags = sc->SC_XFLAGS;
-    mc->pc = (app_pc) sc->SC_XIP;
+    if (TEST(DR_MC_INTEGER, flags)) {
+        mc->xax = sc->SC_XAX;
+        mc->xbx = sc->SC_XBX;
+        mc->xcx = sc->SC_XCX;
+        mc->xdx = sc->SC_XDX;
+        mc->xsi = sc->SC_XSI;
+        mc->xdi = sc->SC_XDI;
+        mc->xbp = sc->SC_XBP;
 # ifdef X64
-    mc->r8  = sc->SC_FIELD(r8);
-    mc->r9  = sc->SC_FIELD(r9);
-    mc->r10 = sc->SC_FIELD(r10);
-    mc->r11 = sc->SC_FIELD(r11);
-    mc->r12 = sc->SC_FIELD(r12);
-    mc->r13 = sc->SC_FIELD(r13);
-    mc->r14 = sc->SC_FIELD(r14);
-    mc->r15 = sc->SC_FIELD(r15);
+        mc->r8  = sc->SC_FIELD(r8);
+        mc->r9  = sc->SC_FIELD(r9);
+        mc->r10 = sc->SC_FIELD(r10);
+        mc->r11 = sc->SC_FIELD(r11);
+        mc->r12 = sc->SC_FIELD(r12);
+        mc->r13 = sc->SC_FIELD(r13);
+        mc->r14 = sc->SC_FIELD(r14);
+        mc->r15 = sc->SC_FIELD(r15);
 # endif /* X64 */
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        mc->xsp = sc->SC_XSP;
+        mc->xflags = sc->SC_XFLAGS;
+        mc->pc = (app_pc) sc->SC_XIP;
+    }
 #elif defined(AARCH64)
-    memcpy(&mc->r0, &sc->SC_FIELD(regs[0]), sizeof(mc->r0) * 31);
-    mc->sp = sc->SC_FIELD(sp);
-    mc->pc = (void *)sc->SC_FIELD(pc);
-    mc->nzcv = sc->SC_FIELD(pstate);
+    if (TEST(DR_MC_INTEGER, flags))
+        memcpy(&mc->r0, &sc->SC_FIELD(regs[0]), sizeof(mc->r0) * 31);
+    if (TEST(DR_MC_CONTROL, flags)) {
+        /* XXX i#2710: the link register should be under DR_MC_CONTROL */
+        mc->sp = sc->SC_FIELD(sp);
+        mc->pc = (void *)sc->SC_FIELD(pc);
+        mc->nzcv = sc->SC_FIELD(pstate);
+    }
 #elif defined (ARM)
-    mc->r0  = sc->SC_FIELD(arm_r0);
-    mc->r1  = sc->SC_FIELD(arm_r1);
-    mc->r2  = sc->SC_FIELD(arm_r2);
-    mc->r3  = sc->SC_FIELD(arm_r3);
-    mc->r4  = sc->SC_FIELD(arm_r4);
-    mc->r5  = sc->SC_FIELD(arm_r5);
-    mc->r6  = sc->SC_FIELD(arm_r6);
-    mc->r7  = sc->SC_FIELD(arm_r7);
-    mc->r8  = sc->SC_FIELD(arm_r8);
-    mc->r9  = sc->SC_FIELD(arm_r9);
-    mc->r10 = sc->SC_FIELD(arm_r10);
-    mc->r11 = sc->SC_FIELD(arm_fp);
-    mc->r12 = sc->SC_FIELD(arm_ip);
-    mc->r13 = sc->SC_FIELD(arm_sp);
-    mc->r14 = sc->SC_FIELD(arm_lr);
-    mc->r15 = sc->SC_FIELD(arm_pc);
-    mc->cpsr= sc->SC_FIELD(arm_cpsr);
+    if (TEST(DR_MC_INTEGER, flags)) {
+        mc->r0  = sc->SC_FIELD(arm_r0);
+        mc->r1  = sc->SC_FIELD(arm_r1);
+        mc->r2  = sc->SC_FIELD(arm_r2);
+        mc->r3  = sc->SC_FIELD(arm_r3);
+        mc->r4  = sc->SC_FIELD(arm_r4);
+        mc->r5  = sc->SC_FIELD(arm_r5);
+        mc->r6  = sc->SC_FIELD(arm_r6);
+        mc->r7  = sc->SC_FIELD(arm_r7);
+        mc->r8  = sc->SC_FIELD(arm_r8);
+        mc->r9  = sc->SC_FIELD(arm_r9);
+        mc->r10 = sc->SC_FIELD(arm_r10);
+        mc->r11 = sc->SC_FIELD(arm_fp);
+        mc->r12 = sc->SC_FIELD(arm_ip);
+        /* XXX i#2710: the link register should be under DR_MC_CONTROL */
+        mc->r14 = sc->SC_FIELD(arm_lr);
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        mc->r13 = sc->SC_FIELD(arm_sp);
+        mc->r15 = sc->SC_FIELD(arm_pc);
+        mc->cpsr= sc->SC_FIELD(arm_cpsr);
+    }
 # ifdef X64
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    sigcontext_to_mcontext_simd(mc, sc_full);
+    if (TEST(DR_MC_MULTIMEDIA, flags))
+        sigcontext_to_mcontext_simd(mc, sc_full);
 }
 
 /* Note that unlike mcontext_to_context(), this routine does not fill in
@@ -2284,59 +2301,75 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
  * and tweaks that context, so cpsr should be there.
  */
 void
-mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
+                       dr_mcontext_flags_t flags)
 {
     sigcontext_t *sc = sc_full->sc;
     ASSERT(mc != NULL && sc != NULL);
 #ifdef X86
-    sc->SC_XAX = mc->xax;
-    sc->SC_XBX = mc->xbx;
-    sc->SC_XCX = mc->xcx;
-    sc->SC_XDX = mc->xdx;
-    sc->SC_XSI = mc->xsi;
-    sc->SC_XDI = mc->xdi;
-    sc->SC_XBP = mc->xbp;
-    sc->SC_XSP = mc->xsp;
-    sc->SC_XFLAGS = mc->xflags;
-    sc->SC_XIP = (ptr_uint_t) mc->pc;
+    if (TEST(DR_MC_INTEGER, flags)) {
+        sc->SC_XAX = mc->xax;
+        sc->SC_XBX = mc->xbx;
+        sc->SC_XCX = mc->xcx;
+        sc->SC_XDX = mc->xdx;
+        sc->SC_XSI = mc->xsi;
+        sc->SC_XDI = mc->xdi;
+        sc->SC_XBP = mc->xbp;
 # ifdef X64
-    sc->SC_FIELD(r8)  = mc->r8;
-    sc->SC_FIELD(r9)  = mc->r9;
-    sc->SC_FIELD(r10) = mc->r10;
-    sc->SC_FIELD(r11) = mc->r11;
-    sc->SC_FIELD(r12) = mc->r12;
-    sc->SC_FIELD(r13) = mc->r13;
-    sc->SC_FIELD(r14) = mc->r14;
-    sc->SC_FIELD(r15) = mc->r15;
+        sc->SC_FIELD(r8)  = mc->r8;
+        sc->SC_FIELD(r9)  = mc->r9;
+        sc->SC_FIELD(r10) = mc->r10;
+        sc->SC_FIELD(r11) = mc->r11;
+        sc->SC_FIELD(r12) = mc->r12;
+        sc->SC_FIELD(r13) = mc->r13;
+        sc->SC_FIELD(r14) = mc->r14;
+        sc->SC_FIELD(r15) = mc->r15;
 # endif /* X64 */
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        sc->SC_XSP = mc->xsp;
+        sc->SC_XFLAGS = mc->xflags;
+        sc->SC_XIP = (ptr_uint_t) mc->pc;
+    }
 #elif defined(AARCH64)
-    memcpy(&sc->SC_FIELD(regs[0]), &mc->r0, sizeof(mc->r0) * 31);
-    sc->SC_FIELD(sp) = mc->sp;
-    sc->SC_FIELD(pc) = (ptr_uint_t)mc->pc;
-    sc->SC_FIELD(pstate) = mc->nzcv;
+    if (TEST(DR_MC_INTEGER, flags)) {
+        memcpy(&sc->SC_FIELD(regs[0]), &mc->r0, sizeof(mc->r0) * 31);
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        /* XXX i#2710: the link register should be under DR_MC_CONTROL */
+        sc->SC_FIELD(sp) = mc->sp;
+        sc->SC_FIELD(pc) = (ptr_uint_t)mc->pc;
+        sc->SC_FIELD(pstate) = mc->nzcv;
+    }
 #elif defined(ARM)
-    sc->SC_FIELD(arm_r0)  = mc->r0;
-    sc->SC_FIELD(arm_r1)  = mc->r1;
-    sc->SC_FIELD(arm_r2)  = mc->r2;
-    sc->SC_FIELD(arm_r3)  = mc->r3;
-    sc->SC_FIELD(arm_r4)  = mc->r4;
-    sc->SC_FIELD(arm_r5)  = mc->r5;
-    sc->SC_FIELD(arm_r6)  = mc->r6;
-    sc->SC_FIELD(arm_r7)  = mc->r7;
-    sc->SC_FIELD(arm_r8)  = mc->r8;
-    sc->SC_FIELD(arm_r9)  = mc->r9;
-    sc->SC_FIELD(arm_r10) = mc->r10;
-    sc->SC_FIELD(arm_fp)  = mc->r11;
-    sc->SC_FIELD(arm_ip)  = mc->r12;
-    sc->SC_FIELD(arm_sp)  = mc->r13;
-    sc->SC_FIELD(arm_lr)  = mc->r14;
-    sc->SC_FIELD(arm_pc)  = mc->r15;
-    sc->SC_FIELD(arm_cpsr)= mc->cpsr;
+    if (TEST(DR_MC_INTEGER, flags)) {
+        sc->SC_FIELD(arm_r0)  = mc->r0;
+        sc->SC_FIELD(arm_r1)  = mc->r1;
+        sc->SC_FIELD(arm_r2)  = mc->r2;
+        sc->SC_FIELD(arm_r3)  = mc->r3;
+        sc->SC_FIELD(arm_r4)  = mc->r4;
+        sc->SC_FIELD(arm_r5)  = mc->r5;
+        sc->SC_FIELD(arm_r6)  = mc->r6;
+        sc->SC_FIELD(arm_r7)  = mc->r7;
+        sc->SC_FIELD(arm_r8)  = mc->r8;
+        sc->SC_FIELD(arm_r9)  = mc->r9;
+        sc->SC_FIELD(arm_r10) = mc->r10;
+        sc->SC_FIELD(arm_fp)  = mc->r11;
+        sc->SC_FIELD(arm_ip)  = mc->r12;
+        /* XXX i#2710: the link register should be under DR_MC_CONTROL */
+        sc->SC_FIELD(arm_lr)  = mc->r14;
+    }
+    if (TEST(DR_MC_CONTROL, flags)) {
+        sc->SC_FIELD(arm_sp)  = mc->r13;
+        sc->SC_FIELD(arm_pc)  = mc->r15;
+        sc->SC_FIELD(arm_cpsr)= mc->cpsr;
+    }
 # ifdef X64
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    mcontext_to_sigcontext_simd(sc_full, mc);
+    if (TEST(DR_MC_MULTIMEDIA, flags))
+        mcontext_to_sigcontext_simd(sc_full, mc);
 }
 
 static void
@@ -2344,7 +2377,7 @@ ucontext_to_mcontext(priv_mcontext_t *mc, kernel_ucontext_t *uc)
 {
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, uc);
-    sigcontext_to_mcontext(mc, &sc_full);
+    sigcontext_to_mcontext(mc, &sc_full, DR_MC_ALL);
 }
 
 static void
@@ -2352,7 +2385,7 @@ mcontext_to_ucontext(kernel_ucontext_t *uc, priv_mcontext_t *mc)
 {
     sig_full_cxt_t sc_full;
     sig_full_initialize(&sc_full, uc);
-    mcontext_to_sigcontext(&sc_full, mc);
+    mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
 }
 
 #ifdef AARCHXX
@@ -2565,7 +2598,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
 #if defined(LINUX) && defined(X86)
     sc_full.sc->fpstate = NULL; /* for mcontext_to_sigcontext */
 #endif
-    mcontext_to_sigcontext(&sc_full, mc);
+    mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
     thread_set_segment_registers(sc_full.sc);
     /* sigreturn takes the mode from cpsr */
     IF_ARM(set_pc_mode_in_cpsr(sc_full.sc,
@@ -3158,9 +3191,23 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 
 /* transfer control from signal handler to fcache return routine */
 static void
-transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *sc,
-                                           app_pc next_pc, linkstub_t *last_exit)
+transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext_t *uc,
+                                           sigcontext_t *sc_interrupted, int sig,
+                                           app_pc next_pc,
+                                           linkstub_t *last_exit, bool is_kernel_xfer)
 {
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+#ifdef CLIENT_INTERFACE
+    if (is_kernel_xfer) {
+        sig_full_cxt_t sc_interrupted_full = { sc_interrupted, NULL/*not provided*/ };
+        sig_full_cxt_t sc_full;
+        sig_full_initialize(&sc_full, uc);
+        sc->SC_XIP = (ptr_uint_t) next_pc;
+        if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
+                                   NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
+            next_pc = canonicalize_pc_target(dcontext, (app_pc)sc->SC_XIP);
+    }
+#endif
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
     IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
 
@@ -3246,7 +3293,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         fragment_t  wrapper;
         si.raw_mcontext_valid = true;
         sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext),
-                               &raw_sc_full);
+                               &raw_sc_full, si.raw_mcontext->flags);
         /* i#207: fragment tag and fcache start pc on fault. */
         /* FIXME: we should avoid the fragment_pclookup since it is expensive
          * and since we already did the work of a lookup when translating
@@ -3288,7 +3335,8 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         CLIENT_ASSERT(si.raw_mcontext->flags == DR_MC_ALL,
                       "signal mcontext flags cannot be changed");
         mcontext_to_sigcontext(&raw_sc_full,
-                               dr_mcontext_as_priv_mcontext(si.raw_mcontext));
+                               dr_mcontext_as_priv_mcontext(si.raw_mcontext),
+                               si.raw_mcontext->flags);
     }
     heap_free(dcontext, si.mcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
     heap_free(dcontext, si.raw_mcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
@@ -3299,7 +3347,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
 static bool
 handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_t action,
                                 sigframe_rt_t *our_frame, sigcontext_t *sc_orig,
-                                bool blocked)
+                                sigcontext_t *sc_interrupted, bool blocked)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
@@ -3310,11 +3358,11 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
     if (action == DR_SIGNAL_REDIRECT) {
         /* send_signal_to_client copied mcontext into our
          * master_signal_handler frame, so we set up for fcache_return w/
-         * the mcontext state and this as next_tag
+         * our frame's state
          */
-        ucontext_to_mcontext(get_mcontext(dcontext), uc);
-        transfer_from_sig_handler_to_fcache_return(dcontext, sc, (app_pc) sc->SC_XIP,
-                                  (linkstub_t *) get_asynch_linkstub());
+        transfer_from_sig_handler_to_fcache_return
+            (dcontext, uc, sc_interrupted, sig,
+             (app_pc) sc->SC_XIP, (linkstub_t *) get_asynch_linkstub(), true);
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
@@ -4038,13 +4086,16 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
             sc_orig = *sc;
             translate_sigcontext(dcontext, ucxt, true/*shouldn't fail*/, f);
+            /* make a copy before send_signal_to_client() tweaks it */
+            sigcontext_t sc_interrupted = *sc;
             action = send_signal_to_client(dcontext, sig, frame, &sc_orig,
                                            access_address, true/*blocked*/, f);
             /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
             CLIENT_ASSERT(action != DR_SIGNAL_BYPASS,
                           "cannot bypass a blocked signal event");
             if (!handle_client_action_from_cache(dcontext, sig, action, frame,
-                                                 &sc_orig, true/*blocked*/)) {
+                                                 &sc_orig, &sc_interrupted,
+                                                 true/*blocked*/)) {
                 ostd->processing_signal--;
                 return;
             }
@@ -4336,7 +4387,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
  */
 static bool
 check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                        sigcontext_t *sc, byte *target, bool native_state)
+                        kernel_ucontext_t *uc, byte *target, bool native_state)
 {
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
@@ -4355,7 +4406,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         app_pc next_pc, translated_pc = NULL;
         fragment_t *f = NULL;
         fragment_t wrapper;
-        ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
+        ASSERT((cache_pc)SIGCXT_FROM_UCXT(uc)->SC_XIP == instr_cache_pc);
         if (!native_state) {
             /* For safe recreation we need to either be couldbelinking or hold
              * the initexit lock (to keep someone from flushing current
@@ -4389,8 +4440,9 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         } else {
             ASSERT(!native_state);
             /* Do not resume execution in cache, go back to dispatch. */
-            transfer_from_sig_handler_to_fcache_return(dcontext, sc, next_pc,
-                                      (linkstub_t *) get_selfmod_linkstub());
+            transfer_from_sig_handler_to_fcache_return
+                (dcontext, uc, NULL, SIGSEGV, next_pc,
+                 (linkstub_t *) get_selfmod_linkstub(), false);
             /* now have master_signal_handler return */
             return true;
         }
@@ -4742,7 +4794,7 @@ master_signal_handler_C(byte *xsp)
              */
             if (is_write && !is_couldbelinking(dcontext) &&
                 OWN_NO_LOCKS(dcontext) &&
-                check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
+                check_for_modified_code(dcontext, pc, ucxt, target, true/*native*/))
                 break;
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
@@ -4783,12 +4835,14 @@ master_signal_handler_C(byte *xsp)
                  * own gencode.  client_exception_event() won't return if client
                  * wants to re-execute faulting instr.
                  */
+                sigcontext_t sc_interrupted = *get_sigcontext_from_rt_frame(frame);
                 dr_signal_action_t action =
                     send_signal_to_client(dcontext, sig, frame, sc,
                                           target, false/*!blocked*/, NULL);
                 if (action != DR_SIGNAL_DELIVER && /* for delivery, continue below */
                     !handle_client_action_from_cache(dcontext, sig, action, frame,
-                                                     sc, false/*!blocked*/)) {
+                                                     sc, &sc_interrupted,
+                                                     false/*!blocked*/)) {
                     /* client handled fault */
                     break;
                 }
@@ -4847,7 +4901,7 @@ master_signal_handler_C(byte *xsp)
              * that were writable and marked read-only by us.
              */
             if (is_write &&
-                check_for_modified_code(dcontext, pc, sc, target, false/*!native*/)) {
+                check_for_modified_code(dcontext, pc, ucxt, target, false/*!native*/)) {
                 /* it was our signal, so don't pass to app -- return now */
                 break;
             }
@@ -4931,7 +4985,8 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     /* we want to modify the sc in DR's frame */
-    sigcontext_t *sc = get_sigcontext_from_rt_frame(our_frame);
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     kernel_sigset_t blocked;
     /* Need to get xsp now before get new dcontext.
      * This is the translated xsp, so we avoid PR 306410 (cleancall arg fault
@@ -4942,11 +4997,12 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
                                                  * interruption point */);
 
 #ifdef CLIENT_INTERFACE
+    sigcontext_t sc_interrupted = *sc;
     dr_signal_action_t action =
         send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address,
                               false/*not blocked*/, f);
     if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
-                                         false/*!blocked*/))
+                                         &sc_interrupted, false/*!blocked*/))
         return false;
 #else
     if (info->app_sigaction[sig] == NULL ||
@@ -4978,6 +5034,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     /* copy frame to appropriate stack and convert to non-rt if necessary */
     copy_frame_to_stack(dcontext, sig, our_frame, (void *)xsp, false/*!pending*/);
     LOG(THREAD, LOG_ASYNCH, 3, "\tcopied frame from "PFX" to "PFX"\n", our_frame, xsp);
+    sigcontext_t *app_sc = get_sigcontext_from_app_frame(info, sig, (void *)xsp);
 
     /* Because of difficulties determining when/if a signal handler
      * returns, we do what the kernel does: abandon all of our current
@@ -5034,10 +5091,10 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * and go through dispatch & interp, without messing up DR stack.
      */
     transfer_from_sig_handler_to_fcache_return
-        (dcontext, sc,
+        (dcontext, uc, app_sc, sig,
          /* Make sure handler is next thing we execute */
          (app_pc) SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]),
-         (linkstub_t *) get_asynch_linkstub());
+         (linkstub_t *) get_asynch_linkstub(), true);
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
@@ -5149,6 +5206,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     }
 
 #ifdef CLIENT_INTERFACE
+    sigcontext_t sc_interrupted = *sc;
     action = send_signal_to_client(dcontext, sig, frame, NULL,
                                    info->sigpending[sig]->access_address,
                                    false/*not blocked*/, NULL);
@@ -5157,13 +5215,20 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      */
     if (action == DR_SIGNAL_REDIRECT) {
         /* send_signal_to_client copied mcontext into frame's sc */
-        ucontext_to_mcontext(get_mcontext(dcontext), uc);
+        priv_mcontext_t *mcontext = get_mcontext(dcontext);
+        ucontext_to_mcontext(mcontext, uc);
         dcontext->next_tag = canonicalize_pc_target(dcontext, (app_pc) sc->SC_XIP);
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
         }
         IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
+        mcontext->pc = dcontext->next_tag;
+        sig_full_cxt_t sc_interrupted_full = { &sc_interrupted, NULL/*not provided*/ };
+        if (instrument_kernel_xfer(dcontext, DR_XFER_CLIENT_REDIRECT, sc_interrupted_full,
+                                   NULL, NULL, dcontext->next_tag, mcontext->xsp,
+                                   osc_empty, mcontext, sig))
+            dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
         return true; /* don't try another signal */
     }
     else if (action == DR_SIGNAL_SUPPRESS ||
@@ -5251,6 +5316,14 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          */
         info->app_sigaction[sig]->handler = (handler_t) SIG_DFL;
     }
+#ifdef CLIENT_INTERFACE
+    mcontext->pc = dcontext->next_tag;
+    sig_full_cxt_t sc_full = { sc, NULL/*not provided*/ };
+    if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
+                               dcontext->next_tag, mcontext->xsp, osc_empty, mcontext,
+                               sig))
+        dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+#endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to "PFX"\n", xsp);
     return true;
@@ -5662,6 +5735,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     sigcontext_t *sc = NULL; /* initialize to satisfy Mac clang */
+    kernel_ucontext_t *ucxt = NULL;
     int sig = 0;
     app_pc next_pc;
     /* xsp was put in mcontext prior to pre_system_call() */
@@ -5688,7 +5762,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * so app can get away with it)
      */
     if (rt) {
-        kernel_ucontext_t *ucxt;
 #ifdef LINUX
         sigframe_rt_t *frame = (sigframe_rt_t *) (xsp IF_X86(- sizeof(char*)));
         /* use si_signo instead of sig, less likely to be clobbered by app */
@@ -5764,6 +5837,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
+#  ifdef ARM
+        ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
+#  endif
 # endif
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
@@ -5798,6 +5874,14 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
     ASSERT(!safe_is_in_fcache(dcontext, (app_pc) sc->SC_XIP, (byte *)sc->SC_XSP));
 
+#ifdef CLIENT_INTERFACE
+    sig_full_cxt_t sc_full = { sc, NULL/*not provided*/ };
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
+    instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_RETURN, osc_empty, NULL,
+                           get_mcontext(dcontext), (app_pc)sc->SC_XIP, sc->SC_XSP,
+                           sc_full, NULL, sig);
+#endif
+
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "returning-to sigcontext "PFX":\n", sc);
@@ -5827,7 +5911,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * complexities of kernel's non-linux-like sigreturn semantics
      */
     sig_full_cxt_t sc_full = {sc, NULL}; /* non-ARM so NULL ok */
-    sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full);
+    sigcontext_to_mcontext(get_mcontext(dcontext), &sc_full, DR_MC_ALL);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
     dcontext->next_tag = (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0);

@@ -110,6 +110,8 @@ static dr_emit_flags_t event_bb4_insert2(void *drcontext, void *tag, instrlist_t
 
 static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
+static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -176,6 +178,13 @@ dr_init(client_id_t id)
 
     ok = drmgr_register_bb_app2app_event(one_time_bb_event, NULL);
     CHECK(ok, "drmgr app2app registration failed");
+
+    ok = drmgr_register_kernel_xfer_event(event_kernel_xfer);
+    CHECK(ok, "drmgr_register_kernel_xfer_event failed");
+    ok = drmgr_unregister_kernel_xfer_event(event_kernel_xfer);
+    CHECK(ok, "drmgr_unregister_kernel_xfer_event failed");
+    ok = drmgr_register_kernel_xfer_event_ex(event_kernel_xfer, &priority);
+    CHECK(ok, "drmgr_register_kernel_xfer_event_ex failed");
 }
 
 static void
@@ -206,6 +215,8 @@ event_exit(void)
     if (!drmgr_unregister_cls_field(event_thread_context_init,
                                     event_thread_context_exit, cls_idx))
         CHECK(false, "drmgr unregistration failed");
+    if (!drmgr_unregister_kernel_xfer_event(event_kernel_xfer))
+        CHECK(false, "drmgr_unregister_kernel_xfer_event failed");
 
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
@@ -541,4 +552,14 @@ one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     return DR_EMIT_DEFAULT;
+}
+
+/* test kernel xfer event callback */
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    /* We rely on other tests for the details here.  Mostly we're just testing
+     * the register/unregister logic.
+     */
+    CHECK(drcontext == dr_get_current_drcontext(), "sanity check");
 }
