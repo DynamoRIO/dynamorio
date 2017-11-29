@@ -823,15 +823,13 @@ set of event callbacks.  These events include the following:
     (dr_register_fork_init_event())
   - Application library load and unload
     (dr_register_module_load_event(), dr_register_module_unload_event())
-\ifnot NYI_kernel_mediated_transfer_events
   - Application fault or exception (signal on Linux)
     (dr_register_exception_event(), dr_register_signal_event())
-\else
-  - Kernel-mediated control transfers:
-    - Application fault or exception
-    - Application APC (Asynchronous Procedure Call) or callback (Windows)
-    - Application signal (Linux)
-\endif
+  - Kernel-mediated control transfers (dr_register_kernel_xfer_event()):
+    - Application APC (Asynchronous Procedure Call), callback, or exception
+      dispatcher execution (Windows)
+    - Application signal delivery (Linux)
+    - System call that changes the context
   - System call interception: pre-system call, post-system call, and system
     call filtering by number
     (dr_register_pre_syscall_event(), dr_register_post_syscall_event(),

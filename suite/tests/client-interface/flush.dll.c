@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,6 +32,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 #include <string.h>
 
 #define MINSERT instrlist_meta_preinsert
@@ -279,6 +280,23 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+static void
+kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    /* Test kernel xfer on dr_redirect_execution */
+    dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
+    ASSERT(info->source_mcontext != NULL);
+    dr_mcontext_t mc = {sizeof(mc)};
+    mc.flags = DR_MC_CONTROL;
+    bool ok = dr_get_mcontext(drcontext, &mc);
+    ASSERT(ok);
+    ASSERT(mc.pc == info->target_pc);
+    ASSERT(mc.xsp == info->target_xsp);
+    mc.flags = DR_MC_ALL;
+    ok = dr_get_mcontext(drcontext, &mc);
+    ASSERT(ok);
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
@@ -294,5 +312,5 @@ void dr_init(client_id_t id)
     dr_register_trace_event(trace_event);
     dr_register_delete_event(deleted_event);
     dr_register_bb_event(bb_event);
-
+    dr_register_kernel_xfer_event(kernel_xfer_event);
 }

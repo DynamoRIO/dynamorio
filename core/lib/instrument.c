@@ -214,6 +214,7 @@ static callback_list_t module_unload_callbacks = {0,};
 static callback_list_t filter_syscall_callbacks = {0,};
 static callback_list_t pre_syscall_callbacks = {0,};
 static callback_list_t post_syscall_callbacks = {0,};
+static callback_list_t kernel_xfer_callbacks = {0,};
 #ifdef WINDOWS
 static callback_list_t exception_callbacks = {0,};
 #else
@@ -747,6 +748,7 @@ void free_all_callback_lists()
     free_callback_list(&filter_syscall_callbacks);
     free_callback_list(&pre_syscall_callbacks);
     free_callback_list(&post_syscall_callbacks);
+    free_callback_list(&kernel_xfer_callbacks);
 #ifdef WINDOWS
     free_callback_list(&exception_callbacks);
 #else
@@ -1128,6 +1130,20 @@ bool
 dr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum))
 {
     return remove_callback(&post_syscall_callbacks, (void (*)(void))func, true);
+}
+
+void
+dr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                           const dr_kernel_xfer_info_t *info))
+{
+    add_callback(&kernel_xfer_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                             const dr_kernel_xfer_info_t *info))
+{
+    return remove_callback(&kernel_xfer_callbacks, (void (*)(void))func, true);
 }
 
 #ifdef PROGRAM_SHEPHERDING
@@ -2044,12 +2060,61 @@ instrument_invoke_another_syscall(dcontext_t *dcontext)
     return dcontext->client_data->invoke_another_syscall;
 }
 
+bool
+instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
+                       os_cxt_ptr_t source_os_cxt, dr_mcontext_t *source_dmc,
+                       priv_mcontext_t *source_mc,
+                       app_pc target_pc, reg_t target_xsp,
+                       os_cxt_ptr_t target_os_cxt, priv_mcontext_t *target_mc,
+                       int sig)
+{
+    if (kernel_xfer_callbacks.num == 0) {
+        return false;
+    }
+    dr_kernel_xfer_info_t info;
+    info.type = type;
+    info.source_mcontext = NULL;
+    info.target_pc = target_pc;
+    info.target_xsp = target_xsp;
+    info.sig = sig;
+    dr_mcontext_t dr_mcontext;
+    dr_mcontext.size = sizeof(dr_mcontext);
+    dr_mcontext.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+
+    if (source_dmc != NULL)
+        info.source_mcontext = source_dmc;
+    else if (source_mc != NULL) {
+        if (priv_mcontext_to_dr_mcontext(&dr_mcontext, source_mc))
+            info.source_mcontext = &dr_mcontext;
+    } else if (!is_os_cxt_ptr_null(source_os_cxt)) {
+        if (os_context_to_mcontext(&dr_mcontext, NULL, source_os_cxt))
+            info.source_mcontext = &dr_mcontext;
+    }
+    /* Our compromise to reduce context copying is to provide the PC and XSP inline,
+     * and only get more if the user calls dr_get_mcontext(), which we support again
+     * without any copying if not used by taking in a raw os_context_t.
+     */
+    dcontext->client_data->os_cxt = target_os_cxt;
+    dcontext->client_data->cur_mc = target_mc;
+    call_all(kernel_xfer_callbacks, int (*)(void *, const dr_kernel_xfer_info_t *),
+             (void *)dcontext, &info);
+    set_os_cxt_ptr_null(&dcontext->client_data->os_cxt);
+    dcontext->client_data->cur_mc = NULL;
+    return true;
+}
+
 #ifdef WINDOWS
 /* Notify user of exceptions.  Note: not called for RaiseException */
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
 {
     bool res = true;
+    /* Ensure that dr_get_mcontext() called from instrument_kernel_xfer() from
+     * dr_redirect_execution() will get the source context.
+     * cur_mc will later be clobbered by instrument_kernel_xfer() which is ok:
+     * the redirect ends the callback calling.
+     */
+    dcontext->client_data->cur_mc = dr_mcontext_as_priv_mcontext(exception->mcontext);
     /* We short-circuit if any client wants to "own" the fault and not pass on.
      * This does violate the "priority order" of events where the last one is
      * supposed to have final say b/c it won't even see the event: but only one
@@ -2058,6 +2123,7 @@ instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
     call_all_ret(res, = res &&, , exception_callbacks,
                  bool (*)(void *, dr_exception_t *),
                  (void *)dcontext, exception);
+    dcontext->client_data->cur_mc = NULL;
     return res;
 }
 #else
@@ -6360,6 +6426,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
         return true;
     }
 
+    if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
+        return os_context_to_mcontext(dmc, mc, dcontext->client_data->os_cxt);
+    }
+
     if (dcontext->client_data->suspended) {
         /* A thread suspended by dr_suspend_all_other_threads() has its
          * context translated lazily here.
@@ -6467,6 +6537,16 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
             return false;
         return true;
     }
+    if (dcontext->client_data->cur_mc != NULL) {
+        return dr_mcontext_to_priv_mcontext(dcontext->client_data->cur_mc, context);
+    }
+    if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
+        /* It would be nice to fail for #DR_XFER_CALLBACK_RETURN but we'd need to
+         * store yet more state to do so.  The pc will be ignored, and xsi
+         * changes will likely cause crashes.
+         */
+        return mcontext_to_os_context(dcontext->client_data->os_cxt, context, NULL);
+    }
 
     /* copy the machine context to the dstack area created with
      * dr_prepare_for_call().  note that xmm0-5 copied there
@@ -6527,6 +6607,23 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     dcontext->whereami = WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
+#ifdef CLIENT_INTERFACE
+    if (kernel_xfer_callbacks.num > 0) {
+        /* This can only be called from a clean call or an exception event.
+         * For both of those we can get the current mcontext via dr_get_mcontext()
+         * (the latter b/c we explicitly store to cur_mc just for this use case).
+         */
+        dr_mcontext_t src_dmc;
+        src_dmc.size = sizeof(src_dmc);
+        src_dmc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+        dr_get_mcontext(dcontext, &src_dmc);
+        if (instrument_kernel_xfer(dcontext, DR_XFER_CLIENT_REDIRECT,
+                                   osc_empty, &src_dmc, NULL,
+                                   dcontext->next_tag, mcontext->xsp, osc_empty,
+                                   dr_mcontext_as_priv_mcontext(mcontext), 0))
+            dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+    }
+#endif
     transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),
                          true/*full_DR_state*/);
     /* on success we won't get here */

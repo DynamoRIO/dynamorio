@@ -49,8 +49,44 @@ static void *child_dead;
 static void *sigchld_received;
 static pid_t child_pid, child_tid;
 
-static
-dr_signal_action_t signal_event(void *dcontext, dr_siginfo_t *info)
+static void
+redirect_xfer(void)
+{
+    /* XXX: this is not super-clean: we'll interpret this routine.
+     * Better to coordinate w/ the app: but that's more work for us.
+     */
+    dr_fprintf(STDERR, "redirected via dr_set_mcontext\n");
+}
+
+static void
+kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    dr_fprintf(STDERR, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    dr_log(drcontext, LOG_ALL, 2, "%s: %d %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
+           info->sig, info->source_mcontext->pc, info->target_pc, info->target_xsp);
+    dr_mcontext_t mc = {sizeof(mc)};
+    mc.flags = DR_MC_CONTROL;
+    bool ok = dr_get_mcontext(drcontext, &mc);
+    ASSERT(ok);
+    ASSERT(mc.pc == info->target_pc);
+    ASSERT(mc.xsp == info->target_xsp);
+    mc.flags = DR_MC_ALL;
+    ok = dr_get_mcontext(drcontext, &mc);
+    ASSERT(ok);
+    /* We do one test of setting the context.
+     * XXX: We would ideally test for synch vs asynch signals too.
+     */
+    static bool set_mc_once;
+    if (info->type == DR_XFER_SIGNAL_DELIVERY && !set_mc_once) {
+        set_mc_once = true;
+        mc.pc = (app_pc)redirect_xfer;
+        ok = dr_set_mcontext(drcontext, &mc);
+        ASSERT(ok);
+    }
+}
+
+static dr_signal_action_t
+signal_event(void *dcontext, dr_siginfo_t *info)
 {
     static int count = -1;
     count++;
@@ -141,6 +177,7 @@ void dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
     dr_register_signal_event(signal_event);
+    dr_register_kernel_xfer_event(kernel_xfer_event);
 
     /* We test syscall auto-restart (i#2659) by having another thread
      * sit at a blocking read while it receives signals.

@@ -1874,19 +1874,26 @@ typedef union _dr_simd_t {
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
     /**
-     * Selects the xdi, xsi, xbp, xbx, xdx, xcx, xax, and r8-r15 fields (i.e.,
+     * On x86, selects the xdi, xsi, xbp, xbx, xdx, xcx, xax, and r8-r15 fields (i.e.,
      * all of the general-purpose registers excluding xsp, xip, and xflags).
+     * On ARM, selects r0-r12 and r14.
+     * On AArch64, selects r0-r30.
      */
     DR_MC_INTEGER    = 0x01,
+#ifdef AVOID_API_EXPORT
+/* XXX i#2710: The link register should be under DR_MC_CONTROL */
+#endif
     /**
-     * Selects the xsp, xflags, and xip fields.
-     * \note: The xip field is only honored as an input for
+     * On x86, selects the xsp, xflags, and xip fields.
+     * On ARM, selects the sp, pc, and cpsr fields.
+     * On AArch64, selects the sp, pc, and nzcv fields.
+     * \note: The xip/pc field is only honored as an input for
      * dr_redirect_execution(), and as an output for system call
      * events.
      */
     DR_MC_CONTROL    = 0x02,
     /**
-     * Selects the ymm (and xmm) fields.  This flag is ignored unless
+     * Selects the simd fields.  This flag is ignored unless
      * dr_mcontext_xmm_fields_valid() returns true.  If
      * dr_mcontext_xmm_fields_valid() returns false, the application values of
      * the multimedia registers remain in the registers themselves.
