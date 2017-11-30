@@ -1829,7 +1829,7 @@ send_all_other_threads_native(void)
     bool ok = synch_with_all_threads(desired_state, &threads, &num_threads,
                                THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
-    DR_ASSERT_MSG(ok, "send_all_other_threads_native:"
+    DR_ASSERT_MSG(ok, "send_all_other_threads_native: "
                       "unable to stop all threads at a safe spot!")
     ASSERT(mutex_testlock(&all_threads_synch_lock) &&
            mutex_testlock(&thread_initexit_lock));
