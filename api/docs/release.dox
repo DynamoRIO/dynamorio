@@ -207,6 +207,7 @@ Further non-compatibility-affecting changes include:
  - Added an event for kernel-mediated control flow via
    dr_register_kernel_xfer_event() with corresponding routines
    drmgr_register_kernel_xfer_event() and drmgr_register_kernel_xfer_event_ex().
+ - Added a new option -ignore_all_libs to drcpusim.
 
 **************************************************
 <hr>

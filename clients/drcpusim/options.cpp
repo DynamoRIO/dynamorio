@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,7 @@
 #endif
 
 droption_t<std::string> op_cpu
-(DROPTION_SCOPE_CLIENT, "cpu", "Merom", "CPU model to simulate.  Typical values:\n"
+(DROPTION_SCOPE_CLIENT, "cpu", "Westmere", "CPU model to simulate.  Typical values:\n"
  "                                Pentium,PentiumMMX,PentiumPro,Klamath,Deschutes,\n"
  "                                Pentium3,Banias,Dothan,Prescott,Presler,Merom,\n"
  "                                Penryn,Westmere,Sandybridge,Ivybridge.",
@@ -131,6 +131,12 @@ droption_t<std::string> op_blacklist
  ":-separated list of libs to ignore.",
  "The blacklist is a :-separated list of library names for which violations "
  "should not be reported.");
+
+droption_t<bool> op_ignore_all_libs
+(DROPTION_SCOPE_CLIENT, "ignore_all_libs", false,
+ "Ignore all libraries: only check app itself.",
+ "Violations in libraries are ignored: only violations in the application executable "
+ "itself are reported.");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64, "Verbosity level",
