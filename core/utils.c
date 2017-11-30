@@ -843,6 +843,12 @@ mutex_ownable(mutex_t *lock)
 void
 mutex_lock(mutex_t *lock)
 {
+    mutex_lock_app(lock, NULL);
+}
+
+void
+mutex_lock_app(mutex_t *lock, priv_mcontext_t *mc)
+{
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
     bool ownable = mutex_ownable(lock);
@@ -888,7 +894,7 @@ mutex_lock(mutex_t *lock)
     DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
-        mutex_wait_contended_lock(lock);
+        mutex_wait_contended_lock(lock, mc);
 #       ifdef DEADLOCK_AVOIDANCE
         DEADLOCK_AVOIDANCE_LOCK(lock, true, ownable); /* now we got it  */
         /* this and previous owner are not included in lock_requests */
@@ -988,6 +994,12 @@ own_recursive_lock(recursive_lock_t *lock)
 void
 acquire_recursive_lock(recursive_lock_t *lock)
 {
+    acquire_recursive_app_lock(lock, NULL);
+}
+
+void
+acquire_recursive_app_lock(recursive_lock_t *lock, priv_mcontext_t *mc)
+{
     /* we no longer use the pattern of implementing acquire_lock as a
        busy try_lock
     */
@@ -996,7 +1008,7 @@ acquire_recursive_lock(recursive_lock_t *lock)
     if (lock->owner == get_thread_id()) {
         lock->count++;
     } else {
-        mutex_lock(&lock->lock);
+        mutex_lock_app(&lock->lock, mc);
         own_recursive_lock(lock);
     }
 }

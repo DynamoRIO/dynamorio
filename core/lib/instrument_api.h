@@ -2781,6 +2781,20 @@ void
 dr_recurlock_lock(void *reclock);
 
 DR_API
+/**
+ * Acquires \p reclock, or increments the ownership count if already owned.
+ * Calls to this method which block (i.e. when the lock is already held) are
+ * marked safe to suspend AND transfer; in that case the provided mcontext will
+ * overwrite the current thread's mcontext. The provided mcontext must have a
+ * valid PC field.
+ *
+ * Callers of this function must resume application execution via
+ * dr_redirect_execution, lest they return into a flushed code page.
+ */
+void
+dr_app_recurlock_lock(void *reclock, dr_mcontext_t *mc);
+
+DR_API
 /** Decrements the ownership count of \p reclock and releases if zero. */
 void
 dr_recurlock_unlock(void *reclock);

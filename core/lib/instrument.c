@@ -3645,6 +3645,13 @@ dr_recurlock_lock(void *reclock)
 
 DR_API
 void
+dr_app_recurlock_lock(void *reclock, dr_mcontext_t *mc)
+{
+    acquire_recursive_app_lock((recursive_lock_t *)reclock, dr_mcontext_as_priv_mcontext(mc));
+}
+
+DR_API
+void
 dr_recurlock_unlock(void *reclock)
 {
     release_recursive_lock((recursive_lock_t *)reclock);
