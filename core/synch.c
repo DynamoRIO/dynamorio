@@ -1804,7 +1804,6 @@ send_all_other_threads_native(void)
      */
     const thread_synch_state_t desired_state =
         THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER;
-    DEBUG_DECLARE(bool ok;)
 
     ASSERT(dynamo_initialized && !dynamo_exited && my_dcontext != NULL);
     LOG(my_dcontext->logfile, LOG_ALL, 1, "%s\n", __FUNCTION__);
@@ -1827,11 +1826,11 @@ send_all_other_threads_native(void)
 #endif
 
     /* Suspend all threads except those trying to synch with us */
-    DEBUG_DECLARE(ok =)
-        synch_with_all_threads(desired_state, &threads, &num_threads,
+    bool ok = synch_with_all_threads(desired_state, &threads, &num_threads,
                                THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
-    ASSERT(ok);
+    DR_ASSERT_MSG(ok, "send_all_other_threads_native:"
+                      "unable to stop all threads at a safe spot!")
     ASSERT(mutex_testlock(&all_threads_synch_lock) &&
            mutex_testlock(&thread_initexit_lock));
 
@@ -1914,7 +1913,6 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
     bool detach_stacked_callbacks;
     bool *cleanup_tpc;
 #endif
-    DEBUG_DECLARE(bool ok;)
     DEBUG_DECLARE(int exit_res;)
     /* synch-all flags: if we fail to suspend a thread (e.g., privilege
      * problems) ignore it.  XXX Should we retry instead?
@@ -1986,14 +1984,16 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 #endif
 
     /* suspend all DR-controlled threads at safe locations */
-    DEBUG_DECLARE(ok =)
-        synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT, &threads,
-                               /* Case 6821: allow other synch-all-thread uses that
-                                * beat us to not wait on us.  We still have a problem
-                                * if we go first since we must xfer other threads.
-                                */
-                               &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER, flags);
-    ASSERT(ok);
+    bool ok = synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT,
+                                    &threads, &num_threads,
+                                    /* Case 6821: allow other synch-all-thread
+                                     * uses that beat us to not wait on us. We
+                                     * still have a problem if we go first since
+                                     * we must xfer other threads.
+                                     */
+                                    THREAD_SYNCH_NO_LOCKS_NO_XFER, flags);
+    DR_ASSERT_MSG(ok, "detach_on_permanent_stack: "
+                      "unable to stop all threads at a safe spot!")
     /* Now we own the thread_initexit_lock.  We'll release the locks grabbed in
      * synch_with_all_threads below after cleaning up all the threads in case we
      * need to grab it during process exit cleanup.
