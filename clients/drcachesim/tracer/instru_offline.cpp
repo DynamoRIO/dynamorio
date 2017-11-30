@@ -243,9 +243,9 @@ offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
-    DR_ASSERT(type < 1<<EXT_VALUE_B_BITS);
+    DR_ASSERT((int)type < 1<<EXT_VALUE_B_BITS);
     entry->extended.valueB = type;
-    DR_ASSERT(val < 1ULL<<EXT_VALUE_A_BITS);
+    DR_ASSERT((unsigned long long)val < 1ULL<<EXT_VALUE_A_BITS);
     entry->extended.valueA = val;
     return sizeof(offline_entry_t);
 }
