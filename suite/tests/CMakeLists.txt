@@ -2755,7 +2755,8 @@ if (CLIENT_INTERFACE)
       macro (add_cpusim_cpuid_test model)
         torunonly_ci(tool.drcpusim.cpuid-${model} tool.cpuid drcpusim
           ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid-${model}.c
-          "-cpu ${model}" "" "")
+          # Ignore libs to reduce risk of violations (e.g., i#2720)
+          "-cpu ${model} -ignore_all_libs" "" "")
         set(tool.drcpusim.cpuid-${model}_toolname "drcpusim")
         set(tool.drcpusim.cpuid-${model}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
