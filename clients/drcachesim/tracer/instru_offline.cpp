@@ -232,7 +232,21 @@ offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-    entry->extended.value = 0;
+    entry->extended.valueA = 0;
+    entry->extended.valueB = 0;
+    return sizeof(offline_entry_t);
+}
+
+int
+offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
+{
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
+    DR_ASSERT(type < 1<<EXT_VALUE_B_BITS);
+    entry->extended.valueB = type;
+    DR_ASSERT(val < 1ULL<<EXT_VALUE_A_BITS);
+    entry->extended.valueA = val;
     return sizeof(offline_entry_t);
 }
 
@@ -254,7 +268,8 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry->extended.value = OFFLINE_FILE_VERSION;
+    entry->extended.valueA = OFFLINE_FILE_VERSION;
+    entry->extended.valueB = 0;
     return sizeof(offline_entry_t) +
         append_unit_header(buf_ptr + sizeof(offline_entry_t), tid);
 }

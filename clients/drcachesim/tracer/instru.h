@@ -69,6 +69,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid) = 0;
     virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
     // This is a per-buffer-writeout header.
@@ -125,6 +126,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
@@ -176,6 +178,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
