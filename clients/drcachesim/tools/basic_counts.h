@@ -30,33 +30,38 @@
  * DAMAGE.
  */
 
-#ifndef _REUSE_TIME_H_
-#define _REUSE_TIME_H_ 1
+#ifndef _BASIC_COUNTS_H_
+#define _BASIC_COUNTS_H_ 1
 
 #include <unordered_map>
 #include <string>
 
 #include "analysis_tool.h"
 
-class reuse_time_t : public analysis_tool_t
+class basic_counts_t : public analysis_tool_t
 {
  public:
-    reuse_time_t(unsigned int line_size, unsigned int verbose);
-    virtual ~reuse_time_t();
+    basic_counts_t(unsigned int verbose);
+    virtual ~basic_counts_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
 
  protected:
-    std::unordered_map<addr_t, int_least64_t> time_map;
-    int_least64_t time_stamp;
-    int_least64_t total_instructions;
-    std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
+    int_least64_t total_threads;
+    int_least64_t total_instrs;
+    int_least64_t total_prefetches;
+    int_least64_t total_loads;
+    int_least64_t total_stores;
+    int_least64_t total_markers;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_prefetches;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_loads;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_stores;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_markers;
 
     unsigned int knob_verbose;
-    unsigned int knob_line_size;
-    unsigned int line_size_bits;
 
     static const std::string TOOL_NAME;
 };
 
-#endif /* _REUSE_TIME_H_ */
+#endif /* _BASIC_COUNTS_H_ */

@@ -63,6 +63,7 @@ set(client_and_sim_srcs
 add_library(reuse_distance STATIC tools/reuse_distance.cpp)
 add_library(histogram STATIC tools/histogram.cpp)
 add_library(reuse_time STATIC tools/reuse_time.cpp)
+add_library(basic_counts STATIC tools/basic_counts.cpp)
 # We combine the cache and TLB simulators as they share code already.
 add_library(simulator STATIC
   simulator/simulator.cpp
@@ -101,7 +102,8 @@ add_executable(drcachesim
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
-target_link_libraries(drcachesim simulator reuse_distance histogram reuse_time raw2trace)
+target_link_libraries(drcachesim simulator reuse_distance histogram reuse_time
+  basic_counts raw2trace)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -204,6 +206,7 @@ restore_nonclient_flags(simulator)
 restore_nonclient_flags(reuse_distance)
 restore_nonclient_flags(histogram)
 restore_nonclient_flags(reuse_time)
+restore_nonclient_flags(basic_counts)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -227,6 +230,7 @@ add_win32_flags(simulator)
 add_win32_flags(reuse_distance)
 add_win32_flags(histogram)
 add_win32_flags(reuse_time)
+add_win32_flags(basic_counts)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
