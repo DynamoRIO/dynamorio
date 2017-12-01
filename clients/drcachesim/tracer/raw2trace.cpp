@@ -529,6 +529,15 @@ raw2trace_t::merge_and_process_thread_files()
                 buf += size;
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
+            } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER) {
+                trace_entry_t *entry = (trace_entry_t *) buf;
+                entry->type = TRACE_TYPE_MARKER;
+                entry->size = in_entry.extended.valueB;
+                entry->addr = (addr_t) in_entry.extended.valueA;
+                VPRINT(3, "Appended marker type %u value %zu\n", entry->size,
+                       entry->addr);
+                size += sizeof(*entry);
+                buf += size;
             } else {
                 std::stringstream ss;
                 ss << "Invalid extension type " << (int)in_entry.extended.ext;
@@ -606,10 +615,10 @@ raw2trace_t::check_thread_file(std::istream *f)
         ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER) {
         return "Thread log file is corrupted: missing version entry";
     }
-    if (ver_entry.extended.value != OFFLINE_FILE_VERSION) {
+    if (ver_entry.extended.valueA != OFFLINE_FILE_VERSION) {
         std::stringstream ss;
         ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
-           << (int)ver_entry.extended.value;
+           << (int)ver_entry.extended.valueA;
         return ss.str();
     }
     return "";

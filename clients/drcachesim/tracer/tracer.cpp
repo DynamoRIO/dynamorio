@@ -1027,6 +1027,35 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    trace_marker_type_t marker_type;
+    switch (info->type) {
+    case DR_XFER_SIGNAL_DELIVERY:
+    case DR_XFER_APC_DISPATCHER:
+    case DR_XFER_EXCEPTION_DISPATCHER:
+    case DR_XFER_RAISE_DISPATCHER:
+    case DR_XFER_CALLBACK_DISPATCHER:
+        marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT;
+        break;
+    case DR_XFER_SIGNAL_RETURN:
+    case DR_XFER_CALLBACK_RETURN:
+    case DR_XFER_CONTINUE:
+    case DR_XFER_SET_CONTEXT_THREAD:
+        marker_type = TRACE_MARKER_TYPE_KERNEL_XFER;
+        break;
+    default:
+        return;
+    }
+    NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, 0);
+    if (file_ops_func.handoff_buf == NULL)
+        memtrace(drcontext, false);
+}
+
 /***************************************************************************
  * Delayed tracing feature.
  */
@@ -1085,6 +1114,7 @@ static void
 enable_tracing_instrumentation()
 {
     if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
                                                     event_bb_analysis,
                                                     event_app_instruction,
@@ -1347,6 +1377,7 @@ event_exit(void)
 
     if (tracing_enabled) {
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+            !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
             !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
                                                           event_bb_analysis,
                                                           event_app_instruction,
@@ -1528,7 +1559,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit))
         DR_ASSERT(false);
-
 
     if (op_trace_after_instrs.get_value() > 0)
         enable_delay_instrumentation();

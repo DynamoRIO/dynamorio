@@ -43,6 +43,7 @@
 #include "../tools/histogram_create.h"
 #include "../tools/reuse_distance_create.h"
 #include "../tools/reuse_time_create.h"
+#include "../tools/basic_counts_create.h"
 
 analysis_tool_t *
 drmemtrace_analysis_tool_create()
@@ -92,10 +93,12 @@ drmemtrace_analysis_tool_create()
     } else if (op_simulator_type.get_value() == REUSE_TIME) {
         return reuse_time_tool_create(op_line_size.get_value(),
                                       op_verbose.get_value());
+    } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
+        return basic_counts_tool_create(op_verbose.get_value());
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
                "Please choose " CPU_CACHE ", " TLB ", "
-               HISTOGRAM ", or " REUSE_DIST ".\n");
+               HISTOGRAM ", " REUSE_DIST ", or " BASIC_COUNTS ".\n");
         return NULL;
     }
 }
