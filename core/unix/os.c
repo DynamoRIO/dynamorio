@@ -9836,15 +9836,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         num_thread_takeover_records = threads_to_signal;
         takeover_dcontext = dcontext;
 
-        /* Signal the other threads. */
-        for (i = 0; i < threads_to_signal; i++) {
-            thread_signal(get_process_id(), records[i].tid, SUSPEND_SIGNAL);
-        }
+        /* Signal the other threads one at a time to avoid contention. */
         mutex_unlock(&thread_initexit_lock);
-
-        /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
         for (i = 0; i < threads_to_signal; i++) {
+            thread_signal(get_process_id(), records[i].tid, SUSPEND_SIGNAL);
+
             static const int wait_ms = 25;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
