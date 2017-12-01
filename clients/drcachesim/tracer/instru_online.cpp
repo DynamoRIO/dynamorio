@@ -117,6 +117,16 @@ online_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 }
 
 int
+online_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
+{
+    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    entry->type = TRACE_TYPE_MARKER;
+    entry->size = (ushort) type;
+    entry->addr = (addr_t) val;
+    return sizeof(trace_entry_t);
+}
+
+int
 online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
     trace_entry_t *entry = (trace_entry_t *) buf_ptr;

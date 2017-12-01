@@ -46,6 +46,7 @@
 #define HISTOGRAM                               "histogram"
 #define REUSE_DIST                              "reuse_distance"
 #define REUSE_TIME                              "reuse_time"
+#define BASIC_COUNTS                            "basic_counts"
 
 #include <string>
 #include "droption.h"

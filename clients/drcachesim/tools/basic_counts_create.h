@@ -30,33 +30,14 @@
  * DAMAGE.
  */
 
-#ifndef _REUSE_TIME_H_
-#define _REUSE_TIME_H_ 1
+/* basic-counts tool creation */
 
-#include <unordered_map>
-#include <string>
+#ifndef _BASIC_COUNTS_CREATE_H_
+#define _BASIC_COUNTS_CREATE_H_ 1
 
 #include "analysis_tool.h"
 
-class reuse_time_t : public analysis_tool_t
-{
- public:
-    reuse_time_t(unsigned int line_size, unsigned int verbose);
-    virtual ~reuse_time_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+analysis_tool_t *
+basic_counts_tool_create(unsigned int verbose = 0);
 
- protected:
-    std::unordered_map<addr_t, int_least64_t> time_map;
-    int_least64_t time_stamp;
-    int_least64_t total_instructions;
-    std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
-
-    unsigned int knob_verbose;
-    unsigned int knob_line_size;
-    unsigned int line_size_bits;
-
-    static const std::string TOOL_NAME;
-};
-
-#endif /* _REUSE_TIME_H_ */
+#endif /* _BASIC_COUNTS_CREATE_H_ */

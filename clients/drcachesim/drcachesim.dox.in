@@ -84,7 +84,18 @@ parameter:
 bin64/drrun -t drcachesim -simulator_type TLB -- /path/to/target/app <args> <for> <app>
 \endcode
 
-Several other trace analysis tools are under development.
+Several other trace analysis tools are available, including reuse distance:
+
+\code
+bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- /path/to/target/app <args> <for> <app>
+\endcode
+
+To simply see the counts of instructions and memory references broken down
+by thread use the basic count tool:
+
+\code
+bin64/drrun -t drcachesim -simulator_type basic_counts -- /path/to/target/app <args> <for> <app>
+\endcode
 
 To dump the trace for future offline analysis:
 \code
