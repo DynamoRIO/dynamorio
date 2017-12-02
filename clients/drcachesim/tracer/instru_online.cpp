@@ -309,7 +309,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   instr_t *app)
 {
-    bool repstr_expanded = (bool)bb_field;
+    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               instr_to_instr_type(app, repstr_expanded),
                               (ushort)instr_length(drcontext, app), adjust);
