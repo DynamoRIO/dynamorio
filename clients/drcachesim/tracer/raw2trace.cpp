@@ -277,19 +277,6 @@ raw2trace_t::unmap_modules(void)
  * Disassembly to fill in instr and memref entries
  */
 
-static bool
-instr_is_rep_string(instr_t *instr)
-{
-#ifdef X86
-    uint opc = instr_get_opcode(instr);
-    return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
-            opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
-            opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
-#else
-    return false;
-#endif
-}
-
 std::string
 raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
@@ -366,7 +353,6 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         trace_entry_t *buf = buf_start;
         app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
             modvec[in_entry->pc.modidx].orig_base;
-        bool skip_instr = false;
         // To avoid repeatedly decoding the same instruction on every one of its
         // dynamic executions, we cache the decoding in a hashtable.
         instr = (instr_t *) hashtable_lookup(&decode_cache, decode_pc);
@@ -385,27 +371,31 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             pc = instr_get_raw_bits(instr) + instr_length(dcontext, instr);
         }
         CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
-        if (instr_is_rep_string(instr)) {
-            // We want it to look like the original rep string instead of the
-            // drutil-expanded loop.
-            if (!prev_instr_was_rep_string)
+        // FIXME i#1729: make bundles via lazy accum until hit memref/end.
+        DO_VERBOSE(3, {
+            instr_set_translation(instr, orig_pc);
+            dr_print_instr(dcontext, STDOUT, instr, "");
+        });
+        buf->type = instru_t::instr_to_instr_type(instr);
+        if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
+            // We want it to look like the original rep string, with just one instr
+            // fetch for the whole loop, instead of the drutil-expanded loop.
+            // We fix up the maybe-fetch here so our offline file doesn't have to
+            // rely on our own reader.
+            if (!prev_instr_was_rep_string) {
                 prev_instr_was_rep_string = true;
-            else
-                skip_instr = true;
+                buf->type = TRACE_TYPE_INSTR;
+            } else {
+                VPRINT(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
+                // We still include the instr to make it easier for core simulators
+                // (i#2051).
+                buf->type = TRACE_TYPE_INSTR_NO_FETCH;
+            }
         } else
             prev_instr_was_rep_string = false;
-        // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        if (!skip_instr) {
-            DO_VERBOSE(3, {
-                instr_set_translation(instr, orig_pc);
-                dr_print_instr(dcontext, STDOUT, instr, "");
-            });
-            buf->type = instru_t::instr_to_instr_type(instr);
-            buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, instr));
-            buf->addr = (addr_t) orig_pc;
-            ++buf;
-        } else
-            VPRINT(3, "Skipping instr fetch for " PFX "\n", (ptr_uint_t)decode_pc);
+        buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, instr));
+        buf->addr = (addr_t) orig_pc;
+        ++buf;
         decode_pc = pc;
         // We need to interleave instrs with memrefs.
         // There is no following memref for (instrs_are_separate && !skip_icache).

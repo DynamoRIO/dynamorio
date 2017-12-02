@@ -427,6 +427,18 @@ instr_is_prefetch(instr_t *instr)
 }
 
 bool
+instr_is_string_op(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_rep_string_op(instr_t *instr)
+{
+    return false;
+}
+
+bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
     /* FIXME i#1551: NYI */

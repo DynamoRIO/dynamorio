@@ -374,7 +374,8 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
                 // We can only split before TRACE_TYPE_INSTR, assuming only a few data
                 // entries in between instr entries.
-                if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
+                trace_type_t type = instru->get_entry_type(mem_ref);
+                if (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                     if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
                         pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
                     // Advance pipe_end pointer
@@ -476,10 +477,6 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         // we avoid its mix of translations resulting in incorrect ifetch stats
         // (it can be significant: i#2011).  The original app bb has just one instr,
         // which is a memref, so the pre-memref entry will suffice.
-        //
-        // XXX i#2051: we also need to limit repstr loops to a single ifetch for the
-        // whole loop, instead of an ifetch per iteration.  For offline we remove
-        // the extras in post-processing, but for online we'll need extra instru...
         ud->num_delay_instrs = 0;
         return adjust;
     }
@@ -844,7 +841,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
         // Avoid bundling instrs whose types we separate.
-        (instru_t::instr_to_instr_type(instr) == TRACE_TYPE_INSTR ||
+        (instru_t::instr_to_instr_type(instr, ud->repstr) == TRACE_TYPE_INSTR ||
          // We avoid overhead of skipped bundling for online unless the user requested
          // instr types.  We could use different types for
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.

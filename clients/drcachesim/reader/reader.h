@@ -87,6 +87,7 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     memref_pid_t cur_pid;
     addr_t cur_pc;
     addr_t next_pc;
+    addr_t prev_instr_addr;
     int bundle_idx;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
 };
