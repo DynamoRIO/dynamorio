@@ -49,11 +49,13 @@ class basic_counts_t : public analysis_tool_t
  protected:
     int_least64_t total_threads;
     int_least64_t total_instrs;
+    int_least64_t total_instrs_nofetch;
     int_least64_t total_prefetches;
     int_least64_t total_loads;
     int_least64_t total_stores;
     int_least64_t total_markers;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_instrs_nofetch;
     std::unordered_map<memref_tid_t, int_least64_t> thread_prefetches;
     std::unordered_map<memref_tid_t, int_least64_t> thread_loads;
     std::unordered_map<memref_tid_t, int_least64_t> thread_stores;
