@@ -309,8 +309,9 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   instr_t *app)
 {
+    bool repstr_expanded = (bool)bb_field;
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              instr_to_instr_type(app),
+                              instr_to_instr_type(app, repstr_expanded),
                               (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(app), adjust);
@@ -347,5 +348,5 @@ void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
-    // Nothing to do.
+    *bb_field = (void *)repstr_expanded;
 }

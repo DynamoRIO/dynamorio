@@ -45,6 +45,7 @@ simulator support multiple processes each with multiple threads.
  - \ref sec_drcachesim_run
  - \ref sec_drcachesim_sim
  - \ref sec_drcachesim_phys
+ - \ref sec_drcachesim_core
  - \ref sec_drcachesim_limit
  - \ref sec_drcachesim_extend
  - \ref sec_drcachesim_ops
@@ -91,7 +92,7 @@ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogr
 \endcode
 
 To simply see the counts of instructions and memory references broken down
-by thread use the basic count tool:
+by thread use the basic counts tool:
 
 \code
 bin64/drrun -t drcachesim -simulator_type basic_counts -- /path/to/target/app <args> <for> <app>
@@ -188,6 +189,16 @@ working from user mode on future kernels due to recent security changes
 (see
 http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
 
+\section sec_drcachesim_core Core Simulation Support
+
+The \p drcachesim trace format includes information intended for use by
+core simulators as well as pure cache simulators.  On x86, string loop
+instructions involve a single insruction fetch followed by a loop of loads
+and/or stores.  A \p drcachesim trace includes a special "no-fetch"
+instruction entry per iteration so that core simulators have the
+instruction information to go along with each load and store, while cache
+simulators can ignore these "no-fetch" entries and avoid incorrectly
+inflating instruction fetch statistics.
 
 \section sec_drcachesim_limit Current Limitations
 

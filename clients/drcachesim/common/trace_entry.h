@@ -138,6 +138,14 @@ typedef enum {
     // A marker containing metadata about this point in the trace.
     // It includes a marker sub-type trace_marker_type_t and a value.
     TRACE_TYPE_MARKER,
+
+    // For core simulators, a trace includes instructions that do not incur
+    // instruction cache fetches, such as on each subsequent iteration of a
+    // rep string loop.
+    TRACE_TYPE_INSTR_NO_FETCH,
+    // An internal value used for online traces and turned by reader_t into
+    // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    TRACE_TYPE_INSTR_MAYBE_FETCH,
 } trace_type_t;
 
 // The sub-type for TRACE_TYPE_MARKER.
@@ -160,6 +168,8 @@ typedef enum {
 
 extern const char * const trace_type_names[];
 
+// Returns whether the type represents an instruction fetch.
+// Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH.
 static inline bool
 type_is_instr(const trace_type_t type)
 {
