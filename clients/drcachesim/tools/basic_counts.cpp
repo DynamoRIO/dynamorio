@@ -47,8 +47,8 @@ basic_counts_tool_create(unsigned int verbose)
 }
 
 basic_counts_t::basic_counts_t(unsigned int verbose) :
-    total_threads(0), total_instrs(0), total_prefetches(0), total_loads(0),
-    total_stores(0), total_markers(0), knob_verbose(verbose)
+    total_threads(0), total_instrs(0), total_instrs_nofetch(0), total_prefetches(0),
+    total_loads(0), total_stores(0), total_markers(0), knob_verbose(verbose)
 {
     // Empty.
 }
@@ -64,6 +64,9 @@ basic_counts_t::process_memref(const memref_t &memref)
   if (type_is_instr(memref.instr.type)) {
       ++thread_instrs[memref.instr.tid];
       ++total_instrs;
+  } else if (memref.data.type == TRACE_TYPE_INSTR_NO_FETCH) {
+      ++thread_instrs_nofetch[memref.instr.tid];
+      ++total_instrs_nofetch;
   } else if (type_is_prefetch(memref.data.type)) {
       ++thread_prefetches[memref.data.tid];
       ++total_prefetches;
@@ -73,10 +76,10 @@ basic_counts_t::process_memref(const memref_t &memref)
   } else if (memref.data.type == TRACE_TYPE_WRITE) {
       ++thread_stores[memref.data.tid];
       ++total_stores;
-  } else if (memref.data.type == TRACE_TYPE_MARKER) {
+  } else if (memref.marker.type == TRACE_TYPE_MARKER) {
       ++thread_markers[memref.data.tid];
       ++total_markers;
-  } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
+  } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
       ++total_threads;
   }
   return true;
@@ -93,7 +96,9 @@ bool
 basic_counts_t::print_results() {
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    std::cerr << std::setw(12) << total_instrs << " total instructions\n";
+    std::cerr << std::setw(12) << total_instrs << " total (fetched) instructions\n";
+    std::cerr << std::setw(12) << total_instrs_nofetch <<
+        " total non-fetched instructions\n";
     std::cerr << std::setw(12) << total_prefetches << " total prefetches\n";
     std::cerr << std::setw(12) << total_loads << " total data loads\n";
     std::cerr << std::setw(12) << total_stores << " total data stores\n";
@@ -107,7 +112,9 @@ basic_counts_t::print_results() {
     for (const auto& keyvals : sorted) {
         memref_tid_t tid = keyvals.first;
         std::cerr << "Thread " << tid << " counts:\n";
-        std::cerr << std::setw(12) << thread_instrs[tid] << " instructions\n";
+        std::cerr << std::setw(12) << thread_instrs[tid] << " (fetched) instructions\n";
+        std::cerr << std::setw(12) << thread_instrs_nofetch[tid] <<
+            " non-fetched instructions\n";
         std::cerr << std::setw(12) << thread_prefetches[tid] << " prefetches\n";
         std::cerr << std::setw(12) << thread_loads[tid] << " data loads\n";
         std::cerr << std::setw(12) << thread_stores[tid] << " data stores\n";

@@ -262,6 +262,13 @@ cache_simulator_t::process_memref(const memref_t &memref)
                 "marker type " << memref.marker.marker_type <<
                 " value " << memref.marker.marker_value << "\n";
         }
+    } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // Just ignore.
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.instr.addr << " non-fetched instr x" <<
+                memref.instr.size << "\n";
+        }
     } else {
         ERRMSG("unhandled memref type");
         return false;

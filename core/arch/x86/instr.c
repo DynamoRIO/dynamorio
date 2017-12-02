@@ -721,6 +721,23 @@ instr_is_prefetch(instr_t *instr)
 }
 
 bool
+instr_is_string_op(instr_t *instr)
+{
+    uint opc = instr_get_opcode(instr);
+    return (opc == OP_ins || opc == OP_outs || opc == OP_movs ||
+            opc == OP_stos || opc == OP_lods || opc == OP_cmps || opc == OP_scas);
+}
+
+bool
+instr_is_rep_string_op(instr_t *instr)
+{
+    uint opc = instr_get_opcode(instr);
+    return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
+            opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
+            opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
+}
+
+bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
     int opc = instr_get_opcode(instr);

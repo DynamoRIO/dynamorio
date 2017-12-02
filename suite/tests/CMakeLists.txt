@@ -2560,11 +2560,13 @@ if (CLIENT_INTERFACE)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
       # We run common.decode-bad to test markers for faults
-      torunonly_ci(tool.basic_counts common.decode-bad drcachesim
-        "basic_counts.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestpipe7 -simulator_type basic_counts" "" "")
-      set(tool.basic_counts_toolname "drcachesim")
-      set(tool.basic_counts_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      if (X86) # decode-bad is x86-only
+        torunonly_ci(tool.basic_counts common.decode-bad drcachesim
+          "basic_counts.c" # for templatex basename
+          "-ipc_name ${IPC_PREFIX}drtestpipe7 -simulator_type basic_counts" "" "")
+        set(tool.basic_counts_toolname "drcachesim")
+        set(tool.basic_counts_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      endif ()
 
       if (X86 AND X64) # We only bother with a sample trace for x86_64.
         # We test with a fixed trace file so we can test exact numeric results.
@@ -2623,9 +2625,11 @@ if (CLIENT_INTERFACE)
       set(tool.drcacheoff.filter_depends tool.drcacheoff.simple)
 
       # We run common.decode-bad to test markers for faults
-      torunonly_drcacheoff(basic_counts common.decode-bad ""
-        "@-simulator_type@basic_counts" "")
-      unset(tool.drcacheoff.basic_counts_rawtemp)
+      if (X86) # decode-bad is x86-only
+        torunonly_drcacheoff(basic_counts common.decode-bad ""
+          "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.basic_counts_rawtemp)
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM

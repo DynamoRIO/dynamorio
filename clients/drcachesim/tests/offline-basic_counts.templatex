@@ -19,7 +19,8 @@ Bad instruction, instance 8
 All done
 Basic counts tool results:
 Total counts:
-     .* total instructions
+     .* total \(fetched\) instructions
+     .* total non-fetched instructions
      .* total prefetches
      .* total data loads
      .* total data stores
@@ -30,7 +31,8 @@ Total counts:
 #endif
            1 total threads
 Thread .* counts:
-     .* instructions
+     .* \(fetched\) instructions
+     .* non-fetched instructions
      .* prefetches
      .* data loads
      .* data stores
