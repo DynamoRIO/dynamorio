@@ -83,7 +83,8 @@ static void
 signal_handler(int sig, siginfo_t *info, void *cxt)
 {
 # define INTERRUPT_MSG "Interrupted: exiting.\n"
-    (void)write(STDERR_FILENO, INTERRUPT_MSG, sizeof(INTERRUPT_MSG));
+    ssize_t res = write(STDERR_FILENO, INTERRUPT_MSG, sizeof(INTERRUPT_MSG));
+    (void)res; // Work around compiler warnings.
     // Terminate child in case shell didn't already send this there.
     // It's up to the child to terminate grandchildren not already notified.
     kill(child, SIGINT);
