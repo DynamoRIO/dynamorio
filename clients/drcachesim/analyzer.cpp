@@ -100,6 +100,12 @@ analyzer_t::operator!()
     return !success;
 }
 
+std::string
+analyzer_t::get_error_string()
+{
+    return error_string;
+}
+
 bool
 analyzer_t::start_reading()
 {

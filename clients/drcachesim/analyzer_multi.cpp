@@ -79,6 +79,15 @@ analyzer_multi_t::analyzer_multi_t()
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
+        if (!*trace_iter) {
+            success = false;
+#ifdef UNIX
+            // This is the most likely cause of the error.
+            // XXX: Even better would be to propagate the mkfifo errno here.
+            error_string = "try removing stale pipe file " +
+                reinterpret_cast<ipc_reader_t*>(trace_iter)->get_pipe_name();
+#endif
+        }
     } else {
 #ifdef HAS_ZLIB
         // Even for uncompressed files, zlib's gzip interface is faster than fstream.
