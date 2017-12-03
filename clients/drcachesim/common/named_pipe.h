@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,6 +66,7 @@ class named_pipe_t
  public:
     named_pipe_t();
     bool set_name(const char *name);
+    std::string get_name() const;
     explicit named_pipe_t(const char *name);
     ~named_pipe_t();
 
