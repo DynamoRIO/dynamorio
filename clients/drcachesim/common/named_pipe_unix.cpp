@@ -105,6 +105,12 @@ named_pipe_t::set_name(const char *name)
     return false;
 }
 
+std::string
+named_pipe_t::get_name() const
+{
+    return pipe_name;
+}
+
 bool
 named_pipe_t::create()
 {

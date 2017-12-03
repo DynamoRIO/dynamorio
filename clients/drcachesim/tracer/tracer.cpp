@@ -73,8 +73,12 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
+// A clean exit via dr_exit_process() is not supported from init code, but
+// we do want to at least close the pipe file.
 #define FATAL(...) do {                \
     dr_fprintf(STDERR, __VA_ARGS__);   \
+    if (!op_offline.get_value())       \
+        ipc_pipe.close();              \
     dr_abort();                        \
 } while (0)
 
@@ -283,8 +287,9 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     ssize_t towrite = pipe_end - pipe_start;
     DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
               towrite > (ssize_t)buf_hdr_slots_size);
-    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite)
-        DR_ASSERT(false);
+    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
+        FATAL("Fatal error: failed to write to pipe\n");
+    }
     // Re-emit thread entry header
     DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
     pipe_start = pipe_end - buf_hdr_slots_size;
