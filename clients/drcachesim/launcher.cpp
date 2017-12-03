@@ -87,7 +87,8 @@ signal_handler(int sig, siginfo_t *info, void *cxt)
     (void)res; // Work around compiler warnings.
     // Terminate child in case shell didn't already send this there.
     // It's up to the child to terminate grandchildren not already notified.
-    kill(child, SIGINT);
+    if (child != 0)
+        kill(child, SIGINT);
     // Destroy pipe file if it's open.
     if (analyzer != NULL)
         delete analyzer;
