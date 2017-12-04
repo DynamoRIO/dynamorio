@@ -841,12 +841,6 @@ mutex_ownable(mutex_t *lock)
 #endif
 
 void
-mutex_lock(mutex_t *lock)
-{
-    mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
-}
-
-void
 mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     bool acquired;
@@ -902,6 +896,12 @@ mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
             lock->max_contended_requests = (uint)lock->lock_requests;
 #       endif
     }
+}
+
+void
+mutex_lock(mutex_t *lock)
+{
+    mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 /* try once to grab the lock, return whether or not successful */

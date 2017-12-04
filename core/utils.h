@@ -716,12 +716,6 @@ void mutex_delete(mutex_t *lock);
 
 /* basic synchronization functions */
 void mutex_lock(mutex_t *mutex);
-/* Use this version of 'lock' when obtaining a lock in an app context. In the
- * case that there is contention on this lock, this thread will be marked safe
- * to be relocated and even detached. The current thread's mcontext may be
- * clobbered with the provided value even if the thread is not suspended.
- */
-void mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
 bool mutex_trylock(mutex_t *mutex);
 void mutex_unlock(mutex_t *mutex);
 #ifdef UNIX
@@ -729,6 +723,12 @@ void mutex_fork_reset(mutex_t *mutex);
 #endif
 #ifdef CLIENT_INTERFACE
 void mutex_mark_as_app(mutex_t *lock);
+/* Use this version of 'lock' when obtaining a lock in an app context. In the
+ * case that there is contention on this lock, this thread will be marked safe
+ * to be relocated and even detached. The current thread's mcontext may be
+ * clobbered with the provided value even if the thread is not suspended.
+ */
+void mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
 #endif
 
 /* spinmutex synchronization */
