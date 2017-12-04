@@ -109,7 +109,7 @@ reader_t::operator++()
                 input_entry->type = TRACE_TYPE_INSTR_NO_FETCH;
             else
                 input_entry->type = TRACE_TYPE_INSTR;
-            /* fall through */
+            ANNOTATE_FALLTHROUGH;
         case TRACE_TYPE_INSTR:
         case TRACE_TYPE_INSTR_DIRECT_JUMP:
         case TRACE_TYPE_INSTR_INDIRECT_JUMP:
