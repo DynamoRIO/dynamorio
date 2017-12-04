@@ -936,7 +936,8 @@ bool at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fr
 /* contended path of mutex operations */
 bool ksynch_var_initialized(KSYNCH_TYPE *var);
 /* If mc != NULL we mark this thread safe to suspend and transfer with a valid
- * mcontext (THREAD_SYNCH_VALID_MCONTEXT).
+ * mcontext (THREAD_SYNCH_VALID_MCONTEXT). Note that means that all fields of
+ * \p mc must be valid (e.g. PC, control, integer, MMX fields).
  */
 void mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc));
 void mutex_notify_released_lock(mutex_t *lock);
