@@ -757,15 +757,17 @@ mutex_testlock(mutex_t *lock)
 
 /* A recursive lock can be taken more than once by the owning thread */
 void acquire_recursive_lock(recursive_lock_t *lock);
+bool try_recursive_lock(recursive_lock_t *lock);
+void release_recursive_lock(recursive_lock_t *lock);
+bool self_owns_recursive_lock(recursive_lock_t *lock);
+#ifdef CLIENT_INTERFACE
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
  * case that there is contention on this lock, this thread will be marked safe
  * to be relocated and even detached. The current thread's mcontext may be
  * clobbered with the provided value even if the thread is not suspended.
  */
 void acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
-bool try_recursive_lock(recursive_lock_t *lock);
-void release_recursive_lock(recursive_lock_t *lock);
-bool self_owns_recursive_lock(recursive_lock_t *lock);
+#endif
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void read_lock(read_write_lock_t *rw);

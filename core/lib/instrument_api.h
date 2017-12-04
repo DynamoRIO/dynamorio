@@ -2697,6 +2697,10 @@ DR_API
  * Use this routine with caution and do not call it on a DR lock that is
  * used in DR contexts, as it disables debug checks.
  *
+ * \warning This routine is not sufficient on its own to prevent deadlocks
+ * during scenarios where DR wants to suspend all threads such as detach or
+ * relocation. See dr_app_recurlock_lock() and dr_mark_safe_to_suspend().
+ *
  * \return whether successful.
  */
 bool
@@ -2784,12 +2788,18 @@ DR_API
 /**
  * Acquires \p reclock, or increments the ownership count if already owned.
  * Calls to this method which block (i.e. when the lock is already held) are
- * marked safe to suspend AND transfer; in that case the provided mcontext will
- * overwrite the current thread's mcontext. The provided mcontext must have a
- * valid PC field.
+ * marked safe to suspend AND transfer; in that case the provided mcontext \p mc
+ * will overwrite the current thread's mcontext. \p mc must have a valid PC
+ * and its flags must be DR_MC_ALL.
  *
- * Callers of this function must resume application execution via
- * dr_redirect_execution, lest they return into a flushed code page.
+ * This routine must be used in clients holding application locks to prevent
+ * deadlocks in a way similar to dr_mark_safe_to_suspend(), but this routine
+ * is intended to be called by a clean call and may return execution to the
+ * provided mcontext rather than returning normally.
+ *
+ * If this routine is called from a clean call, callers should not return
+ * normally. Instead, dr_redirect_execution() or dr_redirect_native_target()
+ * should be called to to prevent a return into a flushed code page.
  */
 void
 dr_app_recurlock_lock(void *reclock, dr_mcontext_t *mc);
@@ -2858,7 +2868,8 @@ DR_API
  * This function must be used in client code that acquires application locks.
  * Use this feature with care!  Do not mark code as safe to suspend that has
  * a code cache return point.  I.e., do not call this routine from a clean
- * call.
+ * call. For acquiring application locks from a clean call, see
+ * dr_app_recurlock_lock().
  *
  * No DR locks can be held while in a safe region.  Consequently, do
  * not call this routine from any DR event callback.  It may only be used

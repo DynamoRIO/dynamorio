@@ -8303,7 +8303,7 @@ mutex_free_contended_event(mutex_t *lock)
  * timeout, true on signalled.
  *
  * A 0 timeout_ms means to wait forever.
- * A non-NULL mc will mark this thread save to suspend and transfer; setting mc
+ * A non-NULL mc will mark this thread safe to suspend and transfer; setting mc
  * requires a non-NULL dcontext to be passed.
  */
 static bool
@@ -8428,7 +8428,7 @@ os_wait_handle(HANDLE h, uint64 timeout_ms)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
-mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     contention_event_t event =
         mutex_get_contended_event(&lock->contended_event, SynchronizationEvent);
@@ -8438,10 +8438,11 @@ mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
         (dcontext != NULL && IS_CLIENT_THREAD(dcontext) &&
          (mutex_t *)dcontext->client_data->client_grab_mutex == lock);
     ASSERT(!set_safe_for_sync || dcontext != NULL);
-#else
-    DR_ASSERT_MSG(mc == NULL,
-               "passing a priv_mcontext_t to mutex_wait_contended_lock is not "
-               "supported on outside of the client interface.");
+    /* set_safe_for_sync can't be true at the same time as passing
+       an mcontext to return into: nothing would be able to reset the
+       client_thread_safe_for_sync flag.
+    */
+    ASSERT(!(set_safe_for_sync && mc != NULL));
 #endif
     os_wait_event(event, 0 _IF_CLIENT_INTERFACE(set_safe_for_sync)
                   _IF_CLIENT_INTERFACE(dcontext)

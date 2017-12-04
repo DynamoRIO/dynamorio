@@ -9360,7 +9360,7 @@ get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
 extern void deadlock_avoidance_unlock(mutex_t *lock, bool ownable);
 
 void
-mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
 #ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -9369,12 +9369,13 @@ mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
                         ((mutex_t *)dcontext->client_data->client_grab_mutex == lock));
     if (mc != NULL) {
         ASSERT(dcontext != NULL);
+        /* set_safe_for_sync can't be true at the same time as passing
+         * an mcontext to return into: nothing would be able to reset the
+         * client_thread_safe_for_sync flag.
+         */
+        ASSERT(!set_client_safe_for_synch);
         *get_mcontext(dcontext) = *mc;
     }
-#else
-    DR_ASSERT_MSG(mc == NULL,
-               "passing a priv_mcontext_t to mutex_wait_contended_lock is not "
-               "supported on outside of the client interface.");
 #endif
 
     /* i#96/PR 295561: use futex(2) if available */
