@@ -220,9 +220,11 @@ droption_t<std::string> op_TLB_replace_policy
 
 droption_t<std::string> op_simulator_type
 (DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
- "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM").",
+ "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", "
+ HISTOGRAM", or " BASIC_COUNTS").",
  "Specifies the type of the simulator. "
- "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM".");
+ "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", " HISTOGRAM
+ "or " BASIC_COUNTS".");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
@@ -265,8 +267,8 @@ droption_t<bytesize_t> op_warmup_refs
 
 droption_t<bytesize_t> op_sim_refs
 (DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
- "Number of memory references simulated",
- "Specifies the number of memory references simulated. "
+ "Number of memory references to simulate",
+ "Specifies the number of memory references to simulate. "
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
 

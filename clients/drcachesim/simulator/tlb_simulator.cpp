@@ -188,8 +188,10 @@ tlb_simulator_t::process_memref(const memref_t &memref)
     }
     else if (type_is_prefetch(memref.data.type) ||
              memref.flush.type == TRACE_TYPE_INSTR_FLUSH ||
-             memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
-      // TLB simulator ignores prefetching and cache flushing
+             memref.flush.type == TRACE_TYPE_DATA_FLUSH ||
+             memref.marker.type == TRACE_TYPE_MARKER ||
+             memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // TLB simulator ignores prefetching, cache flushing, and markers
     } else {
         ERRMSG("unhandled memref type");
         return false;

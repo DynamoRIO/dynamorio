@@ -220,37 +220,58 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (type_is_instr(memref.instr.type) ||
-        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
-        icaches[core]->request(memref);
-    else if (memref.data.type == TRACE_TYPE_READ ||
-             memref.data.type == TRACE_TYPE_WRITE ||
-             // We may potentially handle prefetches differently.
-             // TRACE_TYPE_PREFETCH_INSTR is handled above.
-             type_is_prefetch(memref.data.type))
-        dcaches[core]->request(memref);
-    else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH)
-        icaches[core]->flush(memref);
-    else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH)
-        dcaches[core]->flush(memref);
-    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
-        handle_thread_exit(memref.exit.tid);
-        last_thread = 0;
-    } else {
-        ERRMSG("unhandled memref type");
-        return false;
-    }
-
-    if (knob_verbose >= 3) {
-        if (type_is_instr(memref.instr.type)) {
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR) {
+        if (knob_verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.instr.addr << " instr x" <<
-                memref.instr.size << std::endl;
-        } else {
+                memref.instr.size << "\n";
+        }
+        icaches[core]->request(memref);
+    } else if (memref.data.type == TRACE_TYPE_READ ||
+               memref.data.type == TRACE_TYPE_WRITE ||
+               // We may potentially handle prefetches differently.
+               // TRACE_TYPE_PREFETCH_INSTR is handled above.
+               type_is_prefetch(memref.data.type)) {
+        if (knob_verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc <<
                 " " << trace_type_names[memref.data.type] << " " <<
-                (void *)memref.data.addr << " x" << memref.data.size << std::endl;
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
+        dcaches[core]->request(memref);
+    } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc << " iflush " <<
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+        }
+        icaches[core]->flush(memref);
+    } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc << " dflush " <<
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+        }
+        dcaches[core]->flush(memref);
+    } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        handle_thread_exit(memref.exit.tid);
+        last_thread = 0;
+    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                "marker type " << memref.marker.marker_type <<
+                " value " << memref.marker.marker_value << "\n";
+        }
+    } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // Just ignore.
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.instr.addr << " non-fetched instr x" <<
+                memref.instr.size << "\n";
+        }
+    } else {
+        ERRMSG("unhandled memref type");
+        return false;
     }
 
     // process counters for warmup and simulated references

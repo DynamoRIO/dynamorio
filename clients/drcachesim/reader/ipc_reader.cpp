@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,7 @@
 # include <iostream>
 #endif
 
-ipc_reader_t::ipc_reader_t()
+ipc_reader_t::ipc_reader_t() : creation_success(false)
 {
     /* Empty. */
 }
@@ -48,14 +48,28 @@ ipc_reader_t::ipc_reader_t()
 ipc_reader_t::ipc_reader_t(const char *ipc_name) :
     pipe(ipc_name)
 {
-    /* Empty. */
+    // We create the pipe here so the user can set up a pipe writer
+    // *before* calling the blocking analyzer_t::run().
+    creation_success = pipe.create();
+}
+
+bool
+ipc_reader_t::operator!()
+{
+    return !creation_success;
+}
+
+std::string
+ipc_reader_t::get_pipe_name() const
+{
+    return pipe.get_name();
 }
 
 bool
 ipc_reader_t::init()
 {
     at_eof = false;
-    if (!pipe.create() ||
+    if (!creation_success ||
         !pipe.open_for_read())
         return false;
     pipe.maximize_buffer();

@@ -134,10 +134,42 @@ typedef enum {
 
     // Hardware-issued prefetch.
     TRACE_TYPE_HARDWARE_PREFETCH,
+
+    // A marker containing metadata about this point in the trace.
+    // It includes a marker sub-type trace_marker_type_t and a value.
+    TRACE_TYPE_MARKER,
+
+    // For core simulators, a trace includes instructions that do not incur
+    // instruction cache fetches, such as on each subsequent iteration of a
+    // rep string loop.
+    TRACE_TYPE_INSTR_NO_FETCH,
+    // An internal value used for online traces and turned by reader_t into
+    // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
+    TRACE_TYPE_INSTR_MAYBE_FETCH,
 } trace_type_t;
+
+// The sub-type for TRACE_TYPE_MARKER.
+typedef enum {
+    // The subsequent instruction is the start of a handler for a kernel-initiated
+    // event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
+    // on Windows.
+    TRACE_MARKER_TYPE_KERNEL_EVENT,
+    // The subsequent instruction is the target of a system call that changes the
+    // context: a signal return on UNIX, or a callback return or NtContinue or
+    // NtSetContextThread on Windows.
+    TRACE_MARKER_TYPE_KERNEL_XFER,
+
+    // ...
+    // These values are reserved for future built-in marker types.
+    // ...
+    TRACE_MARKER_TYPE_RESERVED_END = 100,
+    // Values below here are available for users to use for custom markers.
+} trace_marker_type_t;
 
 extern const char * const trace_type_names[];
 
+// Returns whether the type represents an instruction fetch.
+// Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH.
 static inline bool
 type_is_instr(const trace_type_t type)
 {
@@ -163,10 +195,11 @@ type_is_prefetch(const trace_type_t type)
 START_PACKED_STRUCTURE
 struct _trace_entry_t {
     unsigned short type; // 2 bytes: trace_type_t
-    // 2 bytes: mem ref size, instr length, or num of instrs for instr bundle
+    // 2 bytes: mem ref size, instr length, or num of instrs for instr bundle,
+    // or marker sub-type.
     unsigned short size;
     union {
-        addr_t addr;     // 4/8 bytes: mem ref addr, instr pc, tid, pid
+        addr_t addr;     // 4/8 bytes: mem ref addr, instr pc, tid, pid, marker val
         // The length of each instr in the instr bundle
         unsigned char length[sizeof(addr_t)];
     };
@@ -206,11 +239,16 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The value field holds the version.
+    // The initial entry in the file.  The valueA field holds the version.
     OFFLINE_EXT_TYPE_HEADER,
-    // The final entry in the file.  The value field is 0.
+    // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
+    // A marker type.  The valueB field holds the sub-type and valueA the value.
+    OFFLINE_EXT_TYPE_MARKER,
 } offline_ext_type_t;
+
+#define EXT_VALUE_A_BITS 48
+#define EXT_VALUE_B_BITS 8
 
 #define OFFLINE_FILE_VERSION 1
 
@@ -243,8 +281,9 @@ struct _offline_entry_t {
             uint64_t type:3;
         } timestamp;
         struct {
-            uint64_t value:56; // Meaning is specific to ext type.
-            uint64_t ext:5;    // Holds an offline_ext_type_t value.
+            uint64_t valueA:EXT_VALUE_A_BITS; // Meaning is specific to ext type.
+            uint64_t valueB:EXT_VALUE_B_BITS; // Meaning is specific to ext type.
+            uint64_t ext:5;     // Holds an offline_ext_type_t value.
             uint64_t type:3;
         } extended;
         uint64_t combined_value;
