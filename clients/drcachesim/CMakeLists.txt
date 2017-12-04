@@ -186,6 +186,9 @@ use_DynamoRIO_extension(drraw2trace drcovlib_static)
 # Because we're leveraging instru_online code we have to link with drutil:
 use_DynamoRIO_extension(drraw2trace drutil_static)
 
+# We add a useful warning that's not in Wall.
+CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
+
 macro(restore_nonclient_flags target)
   # Restore debug and other flags to our non-client executables
   set_target_properties(${target} PROPERTIES
@@ -197,6 +200,9 @@ macro(restore_nonclient_flags target)
   # the config, inject, and frontend headers:
   DynamoRIO_extra_cflags(extra_cflags "" ON)
   append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+  if (implicit_fallthrough_avail)
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
+  endif ()
 endmacro()
 
 restore_nonclient_flags(drcachesim)
