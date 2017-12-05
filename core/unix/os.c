@@ -9360,13 +9360,22 @@ get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
 extern void deadlock_avoidance_unlock(mutex_t *lock, bool ownable);
 
 void
-mutex_wait_contended_lock(mutex_t *lock)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
 #ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool set_client_safe_for_synch =
                       ((dcontext != NULL) && IS_CLIENT_THREAD(dcontext) &&
                         ((mutex_t *)dcontext->client_data->client_grab_mutex == lock));
+    if (mc != NULL) {
+        ASSERT(dcontext != NULL);
+        /* set_safe_for_sync can't be true at the same time as passing
+         * an mcontext to return into: nothing would be able to reset the
+         * client_thread_safe_for_sync flag.
+         */
+        ASSERT(!set_client_safe_for_synch);
+        *get_mcontext(dcontext) = *mc;
+    }
 #endif
 
     /* i#96/PR 295561: use futex(2) if available */
@@ -9385,7 +9394,10 @@ mutex_wait_contended_lock(mutex_t *lock)
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
+
             /* Unfortunately the synch semantics are different for Linux vs Mac.
              * We have to use lock_requests as the futex to avoid waiting if
              * lock_requests changes, while on Mac the underlying synch prevents
@@ -9406,7 +9418,10 @@ mutex_wait_contended_lock(mutex_t *lock)
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
+
             /* we don't care whether properly woken (res==0), var mismatch
              * (res==-EWOULDBLOCK), or error: regardless, someone else
              * could have acquired the lock, so we try again
@@ -9420,11 +9435,16 @@ mutex_wait_contended_lock(mutex_t *lock)
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
+
             os_thread_yield();
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
         }
 
