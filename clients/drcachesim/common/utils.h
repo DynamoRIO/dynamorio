@@ -78,6 +78,8 @@
 // We annotate to support building with -Wimplicit-fallthrough.
 #if __has_cpp_attribute(clang::fallthrough)
 # define ANNOTATE_FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(gnu::fallthrough)
+# define ANNOTATE_FALLTHROUGH [[gnu::fallthrough]]
 #else
 # define ANNOTATE_FALLTHROUGH
 #endif
