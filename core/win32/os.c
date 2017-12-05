@@ -8299,15 +8299,29 @@ mutex_free_contended_event(mutex_t *lock)
     os_close(lock->contended_event);
 }
 
-/* common wrapper that also attempts to detect deadlocks */
-/* A 0 timeout_ms means to wait forever.  Returns false on timeout, true on signalled. */
+/* common wrapper that also attempts to detect deadlocks. Returns false on
+ * timeout, true on signalled.
+ *
+ * A 0 timeout_ms means to wait forever.
+ * A non-NULL mc will mark this thread safe to suspend and transfer; setting mc
+ * requires a non-NULL dcontext to be passed.
+ */
 static bool
-os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
-              _IF_CLIENT_INTERFACE(dcontext_t *dcontext))
+os_wait_event(event_t e, int timeout_ms
+              _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
+              _IF_CLIENT_INTERFACE(dcontext_t *dcontext)
+              _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     wait_status_t res;
     bool reported_timeout = false;
     LARGE_INTEGER timeout;
+
+#ifdef CLIENT_INTERFACE
+    if (mc != NULL) {
+        ASSERT(dcontext != NULL);
+        *get_mcontext(dcontext) = *mc;
+    }
+#endif
 
     KSTART(wait_event);
     /* we allow using this in release builds as well */
@@ -8319,11 +8333,15 @@ os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_s
         ASSERT(!set_safe_for_synch || dcontext != NULL);
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = true;
+        if (mc != NULL)
+            set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
         res = nt_wait_event_with_timeout(e, &timeout /* debug timeout */);
 #ifdef CLIENT_INTERFACE
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = false;
+        if (mc != NULL)
+            set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
         if (res == WAIT_SIGNALED) {
             KSTOP(wait_event);
@@ -8366,6 +8384,8 @@ os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_s
 #ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = true;
+    if (mc != NULL)
+        set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
     if (timeout_ms > 0)
         timeout.QuadPart= -timeout_ms * TIMER_UNITS_PER_MILLISECOND;
@@ -8373,6 +8393,8 @@ os_wait_event(event_t e, int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_s
 #ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = false;
+    if (mc != NULL)
+        set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
     if (reported_timeout) {
         /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
@@ -8406,7 +8428,7 @@ os_wait_handle(HANDLE h, uint64 timeout_ms)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
-mutex_wait_contended_lock(mutex_t *lock)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     contention_event_t event =
         mutex_get_contended_event(&lock->contended_event, SynchronizationEvent);
@@ -8416,9 +8438,15 @@ mutex_wait_contended_lock(mutex_t *lock)
         (dcontext != NULL && IS_CLIENT_THREAD(dcontext) &&
          (mutex_t *)dcontext->client_data->client_grab_mutex == lock);
     ASSERT(!set_safe_for_sync || dcontext != NULL);
+    /* set_safe_for_sync can't be true at the same time as passing
+       an mcontext to return into: nothing would be able to reset the
+       client_thread_safe_for_sync flag.
+    */
+    ASSERT(!(set_safe_for_sync && mc != NULL));
 #endif
     os_wait_event(event, 0 _IF_CLIENT_INTERFACE(set_safe_for_sync)
-                  _IF_CLIENT_INTERFACE(dcontext));
+                  _IF_CLIENT_INTERFACE(dcontext)
+                  _IF_CLIENT_INTERFACE(mc));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8437,7 +8465,8 @@ rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
     contention_event_t event =
         mutex_get_contended_event(&rwlock->writer_waiting_readers, SynchronizationEvent);
-    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
+                  _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8461,6 +8490,7 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
     os_wait_event(notify_readers, 0 _IF_CLIENT_INTERFACE(false)
+                  _IF_CLIENT_INTERFACE(NULL)
                   _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and only a single threads waiting on
      * this event are released, if this was indeed the last reader
@@ -8507,6 +8537,7 @@ bool
 wait_for_event(event_t e, int timeout_ms)
 {
     return os_wait_event(e, timeout_ms _IF_CLIENT_INTERFACE(false)
+                         _IF_CLIENT_INTERFACE(NULL)
                          _IF_CLIENT_INTERFACE(NULL));
 }
 
