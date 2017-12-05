@@ -1938,7 +1938,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
     do { \
       SYSLOG_COMMON(false, SYSLOG_CRITICAL, id, sub, __VA_ARGS__); \
       exit_process_syscall(MSG_##id##_CODE); \
-    } while(0)
+    } while (0)
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating
