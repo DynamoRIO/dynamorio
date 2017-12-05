@@ -1932,6 +1932,14 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define SYSLOG_INTERNAL_CRITICAL_ONCE(...) \
     DODEBUG_ONCE(SYSLOG_INTERNAL_CRITICAL(__VA_ARGS__))
 
+#define MSG_COULDNT_SYNCH_WITH_ALL_THREADS_CODE 42
+
+#define fatal_error(id, sub, ...) \
+    do { \
+      SYSLOG_COMMON(false, SYSLOG_CRITICAL, id, sub, __VA_ARGS__); \
+      exit_process_syscall(MSG_##id##_CODE); \
+    } while(0)
+
 /* FIXME, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating
  * dynamic options), but lot of work to get all in eventlog and currently only

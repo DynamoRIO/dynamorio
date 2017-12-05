@@ -610,4 +610,11 @@ Application %1!s! (%2!s!). Cannot identify VFP frame offset.
 .
 ;#endif
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_COULDNT_SYNCH_WITH_ALL_THREADS
+Language=English
+%1!s!:  DynamoRIO could not synch with all threads.
+.
 ;// ADD NEW MESSAGES HERE
