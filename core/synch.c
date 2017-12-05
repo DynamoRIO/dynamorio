@@ -1915,6 +1915,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
     bool detach_stacked_callbacks;
     bool *cleanup_tpc;
 #endif
+    DEBUG_DECLARE(bool ok;)
     DEBUG_DECLARE(int exit_res;)
     /* synch-all flags: if we fail to suspend a thread (e.g., privilege
      * problems) ignore it.  XXX Should we retry instead?
