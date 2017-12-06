@@ -30,33 +30,39 @@
  * DAMAGE.
  */
 
-#ifndef _REUSE_TIME_H_
-#define _REUSE_TIME_H_ 1
+#include "trace_invariants.h"
+#include <assert.h>
+#include <iostream>
+#include <string.h>
 
-#include <unordered_map>
-#include <string>
-
-#include "analysis_tool.h"
-
-class reuse_time_t : public analysis_tool_t
+trace_invariants_t::trace_invariants_t()
 {
- public:
-    reuse_time_t(unsigned int line_size, unsigned int verbose);
-    virtual ~reuse_time_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    memset(&prev_instr, 0, sizeof(prev_instr));
+}
 
- protected:
-    std::unordered_map<addr_t, int_least64_t> time_map;
-    int_least64_t time_stamp;
-    int_least64_t total_instructions;
-    std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
+trace_invariants_t::~trace_invariants_t()
+{
+}
 
-    unsigned int knob_verbose;
-    unsigned int knob_line_size;
-    unsigned int line_size_bits;
+bool
+trace_invariants_t::process_memref(const memref_t &memref)
+{
+    if (type_is_instr(memref.instr.type) ||
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
+        memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // Invariant: offline traces guarantee that a branch target must immediately
+        // follow the branch w/ no intervening trace switch.
+        if (type_is_instr_branch(prev_instr.instr.type)) {
+            assert(prev_instr.instr.tid == memref.instr.tid);
+        }
+        prev_instr = memref;
+    }
+    return true;
+}
 
-    static const std::string TOOL_NAME;
-};
-
-#endif /* _REUSE_TIME_H_ */
+bool
+trace_invariants_t::print_results()
+{
+    std::cerr << "Trace invariant checks passed\n";
+    return true;
+}

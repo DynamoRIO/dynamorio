@@ -2513,7 +2513,7 @@ stack_alloc(size_t size, byte *min_addr)
 #else
         /* For UNIX we just mark it as inaccessible. */
         if (!DYNAMO_OPTION(guard_pages))
-            make_unwritable(guard, PAGE_SIZE);
+            set_protection(guard, PAGE_SIZE, MEMPROT_READ);
 #endif
     }
 

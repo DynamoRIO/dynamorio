@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,14 +49,17 @@ class ipc_reader_t : public reader_t
     ipc_reader_t();
     explicit ipc_reader_t(const char *ipc_name);
     virtual ~ipc_reader_t();
+    virtual bool operator!();
     // This potentially blocks.
     virtual bool init();
+    std::string get_pipe_name() const;
 
  protected:
     virtual trace_entry_t * read_next_entry();
 
  private:
     named_pipe_t pipe;
+    bool creation_success;
 
     // For efficiency we want to read large chunks at a time.
     // The atomic write size for a pipe on Linux is 4096 bytes but

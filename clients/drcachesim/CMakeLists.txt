@@ -63,6 +63,7 @@ set(client_and_sim_srcs
 add_library(reuse_distance STATIC tools/reuse_distance.cpp)
 add_library(histogram STATIC tools/histogram.cpp)
 add_library(reuse_time STATIC tools/reuse_time.cpp)
+add_library(basic_counts STATIC tools/basic_counts.cpp)
 # We combine the cache and TLB simulators as they share code already.
 add_library(simulator STATIC
   simulator/simulator.cpp
@@ -101,7 +102,8 @@ add_executable(drcachesim
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
-target_link_libraries(drcachesim simulator reuse_distance histogram reuse_time raw2trace)
+target_link_libraries(drcachesim simulator reuse_distance histogram reuse_time
+  basic_counts raw2trace)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -126,10 +128,12 @@ set(file_analyzer_tool_srcs
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
+# We also use this to link in our trace_invariants sanity checker.
 # i#2006: the final method for supporting 3rd-party tools is not yet decided.
 add_executable(drmemtrace_histogram
   ${file_analyzer_tool_srcs}
   tools/histogram_launcher.cpp
+  tests/trace_invariants.cpp
   )
 target_link_libraries(drmemtrace_histogram histogram drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_histogram droption)
@@ -184,6 +188,9 @@ use_DynamoRIO_extension(drraw2trace drcovlib_static)
 # Because we're leveraging instru_online code we have to link with drutil:
 use_DynamoRIO_extension(drraw2trace drutil_static)
 
+# We add a useful warning that's not in Wall.
+CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough" implicit_fallthrough_avail)
+
 macro(restore_nonclient_flags target)
   # Restore debug and other flags to our non-client executables
   set_target_properties(${target} PROPERTIES
@@ -195,6 +202,9 @@ macro(restore_nonclient_flags target)
   # the config, inject, and frontend headers:
   DynamoRIO_extra_cflags(extra_cflags "" ON)
   append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+  if (implicit_fallthrough_avail)
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
+  endif ()
 endmacro()
 
 restore_nonclient_flags(drcachesim)
@@ -204,6 +214,7 @@ restore_nonclient_flags(simulator)
 restore_nonclient_flags(reuse_distance)
 restore_nonclient_flags(histogram)
 restore_nonclient_flags(reuse_time)
+restore_nonclient_flags(basic_counts)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -217,6 +228,14 @@ macro(add_win32_flags target)
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
     endif ()
+  else ()
+    # Work around configure_DynamoRIO_static() clobbering flags by re-adding
+    # the important ones for our tests, so they can include our headers
+    # with C++11-isms.
+    get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
+    if (NOT cur MATCHES "-std=")
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
   endif ()
 endmacro ()
 
@@ -227,6 +246,7 @@ add_win32_flags(simulator)
 add_win32_flags(reuse_distance)
 add_win32_flags(histogram)
 add_win32_flags(reuse_time)
+add_win32_flags(basic_counts)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)

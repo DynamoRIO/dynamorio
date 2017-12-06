@@ -47,10 +47,12 @@ class analyzer_t
 {
  public:
     // Usage: errors encountered during a constructor will set a flag that should
-    // be queried via operator!.
+    // be queried via operator!.  If operator! returns true, get_error_string()
+    // can be used to try to obtain more information.
     analyzer_t();
     virtual ~analyzer_t();
     virtual bool operator!();
+    virtual std::string get_error_string();
 
     // We have two usage models: one where there are multiple tools and the
     // trace iteration is performed by analyzer_t, and another where a single
@@ -83,6 +85,7 @@ class analyzer_t
     bool start_reading();
 
     bool success;
+    std::string error_string;
     reader_t *trace_iter;
     reader_t *trace_end;
     int num_tools;

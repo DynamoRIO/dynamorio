@@ -841,7 +841,7 @@ mutex_ownable(mutex_t *lock)
 #endif
 
 void
-mutex_lock(mutex_t *lock)
+mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
@@ -888,7 +888,7 @@ mutex_lock(mutex_t *lock)
     DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
-        mutex_wait_contended_lock(lock);
+        mutex_wait_contended_lock(lock _IF_CLIENT_INTERFACE(mc));
 #       ifdef DEADLOCK_AVOIDANCE
         DEADLOCK_AVOIDANCE_LOCK(lock, true, ownable); /* now we got it  */
         /* this and previous owner are not included in lock_requests */
@@ -896,6 +896,12 @@ mutex_lock(mutex_t *lock)
             lock->max_contended_requests = (uint)lock->lock_requests;
 #       endif
     }
+}
+
+void
+mutex_lock(mutex_t *lock)
+{
+    mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 /* try once to grab the lock, return whether or not successful */
@@ -984,9 +990,9 @@ own_recursive_lock(recursive_lock_t *lock)
     lock->count = 1;
 }
 
-/* FIXME: rename recursive routines to parallel mutex_ routines */
 void
-acquire_recursive_lock(recursive_lock_t *lock)
+acquire_recursive_app_lock(recursive_lock_t *lock
+                           _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     /* we no longer use the pattern of implementing acquire_lock as a
        busy try_lock
@@ -996,9 +1002,16 @@ acquire_recursive_lock(recursive_lock_t *lock)
     if (lock->owner == get_thread_id()) {
         lock->count++;
     } else {
-        mutex_lock(&lock->lock);
+        mutex_lock_app(&lock->lock _IF_CLIENT_INTERFACE(mc));
         own_recursive_lock(lock);
     }
+}
+
+/* FIXME: rename recursive routines to parallel mutex_ routines */
+void
+acquire_recursive_lock(recursive_lock_t *lock)
+{
+    acquire_recursive_app_lock(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 bool

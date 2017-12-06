@@ -2559,6 +2559,15 @@ if (CLIENT_INTERFACE)
       set(tool.reuse_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
 
+      # We run common.decode-bad to test markers for faults
+      if (X86) # decode-bad is x86-only
+        torunonly_ci(tool.basic_counts common.decode-bad drcachesim
+          "basic_counts.c" # for templatex basename
+          "-ipc_name ${IPC_PREFIX}drtestpipe7 -simulator_type basic_counts" "" "")
+        set(tool.basic_counts_toolname "drcachesim")
+        set(tool.basic_counts_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      endif ()
+
       if (X86 AND X64) # We only bother with a sample trace for x86_64.
         # We test with a fixed trace file so we can test exact numeric results.
         set(small_trace_file
@@ -2582,10 +2591,11 @@ if (CLIENT_INTERFACE)
       get_target_path_for_execution(drcachesim_path drcachesim)
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
-      macro (torunonly_drcacheoff testname exetgt extra_ops app_args)
+      # The sim_atops should start with @ and be in @-as-space format (hence "atops")
+      macro (torunonly_drcacheoff testname exetgt tracer_ops sim_atops app_args)
         torunonly_ci(tool.drcacheoff.${testname} ${exetgt} drcachesim
           "offline-${testname}.c" # for templatex basename
-          "-offline ${extra_ops}" "" "${app_args}")
+          "-offline ${tracer_ops}" "" "${app_args}")
         set(tool.drcacheoff.${testname}_toolname "drcachesim")
         set(tool.drcacheoff.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2595,50 +2605,57 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.${testname}_precmd
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
         set(tool.drcacheoff.${testname}_postcmd
-          "${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir")
+          "${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
-      torunonly_drcacheoff(simple ${ci_shared_app} "" "")
+      torunonly_drcacheoff(simple ${ci_shared_app} "" "" "")
 
       if (UNIX) # Enable on Windows once i#1727 is fixed.
         # FIXME i#2384: we need to combine the subdir from the child with the
         # parent in some way and update the templatex file to include both.
         # Right now we're only ensuring this doesn't crash and that one of
         # the processes produced traces.
-        torunonly_drcacheoff(multiproc tool.multiproc "" "${tool.multiproc_path}")
+        torunonly_drcacheoff(multiproc tool.multiproc "" "" "${tool.multiproc_path}")
       endif ()
 
-      torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "")
+      torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
       # We're using the same app so we serialize to avoid racing trace dirs:
       set(tool.drcacheoff.filter_depends tool.drcacheoff.simple)
+
+      # We run common.decode-bad to test markers for faults
+      if (X86) # decode-bad is x86-only
+        torunonly_drcacheoff(basic_counts common.decode-bad ""
+          "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.basic_counts_rawtemp)
+      endif ()
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
       if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
-        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "")
+        torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
         set(tool.drcacheoff.burst_static_nodr ON)
 
-        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "")
+        torunonly_drcacheoff(burst_replace tool.drcacheoff.burst_replace "" "" "")
         set(tool.drcacheoff.burst_replace_nodr ON)
 
-        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "")
+        torunonly_drcacheoff(burst_replaceall tool.drcacheoff.burst_replaceall "" "" "")
         set(tool.drcacheoff.burst_replaceall_nodr ON)
 
         if (X64 AND UNIX)
-          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "")
+          torunonly_drcacheoff(burst_noreach tool.drcacheoff.burst_noreach "" "" "")
           set(tool.drcacheoff.burst_noreach_nodr ON)
         endif ()
         if (LINUX)
-          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "")
+          torunonly_drcacheoff(burst_maps tool.drcacheoff.burst_maps "" "" "")
           set(tool.drcacheoff.burst_maps_nodr ON)
         endif ()
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "")
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           if (X86 AND NOT APPPLE) # This test is x86-specific.
@@ -2665,15 +2682,19 @@ if (CLIENT_INTERFACE)
           endif()
 
           # FIXME i#2099: the weak symbol is not supported not work on Windows
-          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "")
+          torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
           set(tool.drcacheoff.burst_client_nodr ON)
         endif ()
       endif ()
 
       # Test the standalone histogram tool.
       # ${ci_shared_app} is already used for an offline test, and we're deleting a
-      # dir with that name, so we run common.eflags to avoid having to serialize.
-      set(histo_app common.${control_flags})
+      # dir with that name, so we run other apps to avoid having to serialize.
+      if (UNIX)
+        set(histo_app pthreads.pthreads) # We want some threads for trace_invariants.
+      else ()
+        set(histo_app common.${control_flags})
+      endif()
       torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
         "histogram-offline.c" "-offline" "" "")
       set(tool.histogram.offline_toolname "drcachesim")

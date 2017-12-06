@@ -44,6 +44,8 @@
 # include <sys/types.h>
 # include <sys/wait.h>
 # include <unistd.h>  /* for fork */
+# include <cstdlib>
+# include <signal.h>
 #endif
 
 #include <assert.h>
@@ -70,6 +72,29 @@
         fflush(stderr); \
     } \
 } while (0)
+
+static analyzer_t *analyzer;
+#ifdef UNIX
+static pid_t child;
+#endif
+
+#ifdef UNIX
+static void
+signal_handler(int sig, siginfo_t *info, void *cxt)
+{
+# define INTERRUPT_MSG "Interrupted: exiting.\n"
+    ssize_t res = write(STDERR_FILENO, INTERRUPT_MSG, sizeof(INTERRUPT_MSG));
+    (void)res; // Work around compiler warnings.
+    // Terminate child in case shell didn't already send this there.
+    // It's up to the child to terminate grandchildren not already notified.
+    if (child != 0)
+        kill(child, SIGINT);
+    // Destroy pipe file if it's open.
+    if (analyzer != NULL)
+        delete analyzer;
+    exit(1);
+}
+#endif
 
 #define CLIENT_ID 0
 
@@ -158,12 +183,24 @@ _tmain(int argc, const TCHAR *targv[])
     char buf[MAXIMUM_PATH];
     drfront_status_t sc;
     bool is64, is32;
-    analyzer_t *analyzer = NULL;
     std::string tracer_ops;
-#ifdef UNIX
-    pid_t child = 0;
-#endif
     bool have_trace_file;
+
+#ifdef UNIX
+    // We want to clean up the pipe file on control-C.
+    struct sigaction act;
+    act.sa_sigaction = signal_handler;
+    sigfillset(&act.sa_mask); // Block all within handler.
+    act.sa_flags = SA_SIGINFO;
+    int rc = sigaction(SIGINT, &act, NULL);
+    if (rc != 0)
+        NOTIFY(0, "WARNING", "Failed to set up interrupt handler\n");
+#else
+    // We do not bother with SetConsoleCtrlHandler for two reasons:
+    // one, there's no problem to solve like the UNIX fifo file left
+    // behind.  Two, the ^c handler in a new thread is more work to
+    // deal with as it races w/ the main thread.
+#endif
 
 #if defined(WINDOWS) && !defined(_UNICODE)
 # error _UNICODE must be defined
@@ -235,7 +272,9 @@ _tmain(int argc, const TCHAR *targv[])
     } else {
         analyzer = new analyzer_multi_t;
         if (!*analyzer) {
-            FATAL_ERROR("failed to initialize analyzer");
+            std::string error_string = analyzer->get_error_string();
+            FATAL_ERROR("failed to initialize analyzer%s%s",
+                        error_string.empty() ? "" : ": ", error_string.c_str());
         }
     }
 
@@ -248,6 +287,10 @@ _tmain(int argc, const TCHAR *targv[])
         NOTIFY(1, "INFO", "DynamoRIO configuration directory is %s", buf);
 
 #ifdef UNIX
+        // We could try to arrange for the child to auto-exit if the parent dies via
+        // prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux and kqueue on Mac, plus
+        // checking for ppid changes for up front races, but that won't propagate
+        // to grandchildren.
         if (op_offline.get_value())
             child = 0;
         else

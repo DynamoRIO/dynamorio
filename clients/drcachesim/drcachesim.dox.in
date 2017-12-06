@@ -35,21 +35,29 @@
 ***************************************************************************
 \page page_drcachesim Cache Simulator
 
-\p drcachesim is a DynamoRIO client that collects memory access traces
-and feeds them to an online or offline tool for analysis.
-The default analysis tool is a cache simulator which simulates a set of
-specific caching devices, e.g., CPU caches and TLBs.  The trace collector and
-simulator support multiple processes each with multiple threads.
+\p drcachesim is a DynamoRIO client that collects memory access traces and
+feeds them to either an online or offline tool for analysis.  The default
+analysis tool is a CPU cache simulator, while other provided tools compute
+metrics such as reuse distance.  The trace collector and simulator support
+multiple processes each with multiple threads.  The analysis tool framework
+is extensible, supporting the creation of new tools which can operate both
+online and offline.
 
  - \ref sec_drcachesim
  - \ref sec_drcachesim_run
+ - \ref sec_drcachesim_tools
+ - \ref sec_drcachesim_offline
+ - \ref sec_drcachesim_partial
  - \ref sec_drcachesim_sim
  - \ref sec_drcachesim_phys
- - \ref sec_drcachesim_limit
+ - \ref sec_drcachesim_core
  - \ref sec_drcachesim_extend
+ - \ref sec_drcachesim_newtool
  - \ref sec_drcachesim_ops
+ - \ref sec_drcachesim_limit
  - \ref sec_drcachesim_cmp
 
+****************************************************************************
 \section sec_drcachesim Overview
 
 \p drcachesim consists of two components: a tracer and an analyzer.
@@ -63,39 +71,317 @@ caches, etc. (see \ref sec_drcachesim_extend).
 The default analyzer simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
 
+****************************************************************************
 \section sec_drcachesim_run Running the Simulator
 
 To launch \p drcachesim, use the \p -t flag to \p drrun:
 
 \code
-bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drcachesim -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The target application will be launched under a DynamoRIO tracer
 client that gathers all of its memory references and passes them to
-the simulator via a pipe.
+the simulator via a pipe.  (See \ref sec_drcachesim_offline for how to dump
+a trace for offline analysis.)
 Any child processes will be followed into and profiled, with their
 memory references passed to the simulator as well.
 
-To simulate TLB devices instead of caches, use the \p -simulator_type
-parameter:
+Here is an example:
 
 \code
-bin64/drrun -t drcachesim -simulator_type TLB -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drcachesim -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          258,433
+    Misses:                          1,148
+    Miss rate:                        0.44%
+  L1D stats:
+    Hits:                           93,654
+    Misses:                          2,624
+    Prefetch hits:                     458
+    Prefetch misses:                 2,166
+    Miss rate:                        2.73%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,895
+    Misses:                             99
+    Miss rate:                        1.10%
+  L1D stats:
+    Hits:                            3,448
+    Misses:                            156
+    Prefetch hits:                      26
+    Prefetch misses:                   130
+    Miss rate:                        4.33%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            4,150
+    Misses:                            101
+    Miss rate:                        2.38%
+  L1D stats:
+    Hits:                            1,578
+    Misses:                            130
+    Prefetch hits:                      25
+    Prefetch misses:                   105
+    Miss rate:                        7.61%
+Core #3 (0 thread(s))
+LL stats:
+    Hits:                            1,414
+    Misses:                          2,844
+    Prefetch hits:                     824
+    Prefetch misses:                 1,577
+    Local miss rate:                 66.79%
+    Child hits:                    370,667
+    Total miss rate:                  0.76%
 \endcode
 
-Several other trace analysis tools are under development.
+****************************************************************************
+\section sec_drcachesim_tools Analysis Tool Suite
 
-To dump the trace for future offline analysis:
+In addition to a CPU cache simulator, other analysis tools are available
+that operate on memory address traces.  Which tool is used can be selected
+with the \p -simulator_type parameter.
+
+To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
+
 \code
-bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drcachesim -simulator_type TLB -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+TLB simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          252,412
+    Misses:                            401
+    Miss rate:                        0.16%
+  L1D stats:
+    Hits:                           87,132
+    Misses:                          9,127
+    Miss rate:                        9.48%
+  LL stats:
+    Hits:                            9,315
+    Misses:                            213
+    Local miss rate:                  2.24%
+    Child hits:                    339,544
+    Total miss rate:                  0.06%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,709
+    Misses:                             20
+    Miss rate:                        0.23%
+  L1D stats:
+    Hits:                            3,544
+    Misses:                             55
+    Miss rate:                        1.53%
+  LL stats:
+    Hits:                               15
+    Misses:                             60
+    Local miss rate:                 80.00%
+    Child hits:                     12,253
+    Total miss rate:                  0.49%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            1,622
+    Misses:                             21
+    Miss rate:                        1.28%
+  L1D stats:
+    Hits:                              689
+    Misses:                             35
+    Miss rate:                        4.83%
+  LL stats:
+    Hits:                                3
+    Misses:                             53
+    Local miss rate:                 94.64%
+    Child hits:                      2,311
+    Total miss rate:                  2.24%
+Core #3 (0 thread(s))
+\endcode
+
+To compute reuse distance metrics:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Reuse distance tool results:
+Total accesses: 361486
+Unique accesses: 205963
+Unique cache lines accessed: 4188
+
+Reuse distance mean: 14.76
+Reuse distance median: 1
+Reuse distance standard deviation: 109.74
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0      155523   43.53%   43.53%
+       1      108799   30.45%   73.98%
+       2       17659    4.94%   78.92%
+       3       12417    3.48%   82.40%
+       4        9304    2.60%   85.00%
+       5        3949    1.11%   86.10%
+       6        1747    0.49%   86.59%
+       7        3091    0.87%   87.46%
+       8        3894    1.09%   88.55%
+       9        3047    0.85%   89.40%
+      10        1415    0.40%   89.80%
+      11        1113    0.31%   90.11%
+      12         682    0.19%   90.30%
+      13         773    0.22%   90.52%
+      14         698    0.20%   90.71%
+      15        1167    0.33%   91.04%
+      16         971    0.27%   91.31%
+      17        1564    0.44%   91.75%
+      18        1127    0.32%   92.06%
+      19         660    0.18%   92.25%
+      20         480    0.13%   92.38%
+...
+    3642           1    0.00%  100.00%
+    3906           1    0.00%  100.00%
+    3912           1    0.00%  100.00%
+
+Reuse distance threshold = 100 cache lines
+Top 10 frequently referenced cache lines
+        cache line:     #references   #distant refs
+    0x7fc242632780:        30216,           56
+    0x7fc240da8fc0:        27664,            0
+    0x7fc240da9000:        18629,            0
+    0x7fc242622e80:        17864,           70
+    0x7fc242622500:        10976,           29
+    0x7fc2426224c0:         9633,           28
+    0x7fc242624940:         8865,            6
+    0x7fc242622480:         8167,           29
+    0x7fc240da8f80:         6660,            0
+    0x7fc242622540:         5768,           31
+Top 10 distant repeatedly referenced cache lines
+        cache line:     #references   #distant refs
+    0x7fc24283b140:          293,          104
+    0x7fc2417806c0:          353,          100
+    0x7fc24144d000:          333,          100
+    0x7fc24283a940:          322,           99
+    0x7fc2417809c0:          212,           97
+    0x7fc241780700:          320,           96
+    0x7fc24144d300:          202,           96
+    0x7fc241754e40:          319,           95
+    0x7fc24144d040:          314,           95
+    0x7fc24144be40:          309,           95
+\endcode
+
+A reuse time tool is also provided, which counts the total number of memory
+accesses (without considering uniqueness) between accesses to the same
+address:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type reuse_time -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Reuse time tool results:
+Total accesses: 99944
+Total instructions: 259351
+Mean reuse time: 479.21
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1       33901   34.99%      34.99%
+       2       13646   14.09%      49.08%
+       3        6837    7.06%      56.13%
+...
+   88585           1    0.00%     100.00%
+   93953           1    0.00%     100.00%
+   94830           1    0.00%     100.00%
+\endcode
+
+To simply see the counts of instructions and memory references broken down
+by thread use the basic counts tool:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type basic_counts -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+      260951 total (fetched) instructions
+        6543 total non-fetched instructions
+           0 total prefetches
+       71754 total data loads
+       28828 total data stores
+           0 total markers
+           3 total threads
+Thread 32370 counts:
+      250579 (fetched) instructions
+        6543 non-fetched instructions
+           0 prefetches
+       68565 data loads
+       27694 data stores
+           0 markers
+Thread 32371 counts:
+        8729 (fetched) instructions
+           0 non-fetched instructions
+           0 prefetches
+        2673 data loads
+         926 data stores
+           0 markers
+Thread 32372 counts:
+        1643 (fetched) instructions
+           0 non-fetched instructions
+           0 prefetches
+         516 data loads
+         208 data stores
+           0 markers
+\endcode
+
+The non-fetched instructions are x86 string loop instructions, where
+subsequent iterations do not incur a fetch.  They are included in the trace
+as a different type of trace entry to support core simulators in addition
+to cache simulators.
+
+The top referenced lines are displayed by the \p histogram tool:
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type histogram -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+---- <application exited with code 0> ----
+Cache line histogram tool results:
+icache: 1134 unique cache lines
+dcache: 3062 unique cache lines
+icache top 10
+    0x7facdd013780: 30929
+    0x7facdb789fc0: 27664
+    0x7facdb78a000: 18629
+    0x7facdd003e80: 18176
+    0x7facdd003500: 11121
+    0x7facdd0034c0: 9763
+    0x7facdd005940: 8865
+    0x7facdd003480: 8277
+    0x7facdb789f80: 6660
+    0x7facdd003540: 5888
+dcache top 10
+    0x7ffcc35e7d80: 4088
+    0x7ffcc35e7d40: 3497
+    0x7ffcc35e7e00: 3478
+    0x7ffcc35e7f40: 2919
+    0x7ffcc35e7dc0: 2837
+    0x7facdbe2e980: 2452
+    0x7facdbe2ec80: 2273
+    0x7ffcc35e7e80: 2194
+    0x7facdb6625c0: 2016
+    0x7ffcc35e7e40: 1997
+\endcode
+
+****************************************************************************
+\section sec_drcachesim_offline Offline Traces and Analysis
+
+To dump a trace for future offline analysis, use the \p offline parameter:
+\code
+$ bin64/drrun -t drcachesim -offline -- /path/to/target/app <args> <for> <app>
 \endcode
 
 The collected traces will be dumped into a newly created directory,
 which can be passed to drcachesim for offline cache simulation with the \p
 -indir option:
 \code
-bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
+$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
 \endcode
 
 The direct results of the \p -offline run are raw, compacted files, stored
@@ -106,16 +392,40 @@ is stored by \p -indir in a file named \p drmemtrace.trace inside the \p
 drmemtrace.app.pid.xxxx.dir/ directory.  Future runs can point directly at
 this file using the \p -infile option:
 \code
-bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 \endcode
 
 The \p -infile option supports reading a gzipped trace file, allowing
 compression of the \p drmemtrace.trace file to save space:
 \code
-gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
-bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
+$ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
 \endcode
 
+The same analysis tools used online are available for offline: the trace
+format is identical.
+
+****************************************************************************
+\section sec_drcachesim_partial Tracing a Subset of Execution
+
+While the cache simulator supports skipping references, for large
+applications the overhead of the tracing itself is too high to conveniently
+trace the entire execution.  There are several methods of tracing only
+during a desired window of execution.
+
+The \p -trace_after_instrs option delays tracing by the specified number of
+dynamic instruction executions.  This can be used to skip initialization
+and arrive at the desired starting point.  The trace's length can also be
+limited by the \p -exit_after_tracing option.
+
+If the application can be modified, it can be linked with the \p drcachesim
+tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
+and dr_app_stop_and_cleanup() to delimit the desired trace region.  As an
+example, see <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tests/burst_static.cpp">our
+burst_static test application</a>.
+
+****************************************************************************
 \section sec_drcachesim_sim Simulator Details
 
 Generally, the simulator is able to be extended to model a variety of
@@ -166,6 +476,7 @@ statistics, which are reported separately from regular loads and stores.
 To isolate software prefetch statistics, disable the hardware prefetcher by
 running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
 
+****************************************************************************
 \section sec_drcachesim_phys Physical Addresses
 
 The memory access tracing client gathers virtual addresses.  On Linux, if
@@ -177,18 +488,19 @@ working from user mode on future kernels due to recent security changes
 (see
 http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
 
+****************************************************************************
+\section sec_drcachesim_core Core Simulation Support
 
-\section sec_drcachesim_limit Current Limitations
+The \p drcachesim trace format includes information intended for use by
+core simulators as well as pure cache simulators.  On x86, string loop
+instructions involve a single insruction fetch followed by a loop of loads
+and/or stores.  A \p drcachesim trace includes a special "no-fetch"
+instruction entry per iteration so that core simulators have the
+instruction information to go along with each load and store, while cache
+simulators can ignore these "no-fetch" entries and avoid incorrectly
+inflating instruction fetch statistics.
 
-The \p drcachesim tool is a work in progress.  We welcome contributions in
-these areas of missing functionality:
-
-- Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
-- Multi-process online application simulation on Windows (https://github.com/DynamoRIO/dynamorio/issues/1727)
-- Arbitrary cache hierarchy support via an input config file
-  (https://github.com/DynamoRIO/dynamorio/issues/1715)
-
-
+****************************************************************************
 \section sec_drcachesim_extend Extending the Simulator
 
 The \p drcachesim tool was designed to be extensible, allowing users to
@@ -207,14 +519,36 @@ class.  To implement custom statistics, subclass \p caching_device_stats_t
 and override the \p access(), \p child_access(), \p flush(), and/or
 \p print_stats() methods.
 
+****************************************************************************
+\section sec_drcachesim_newtool Creating New Analysis Tools
 
+\p drcachesim provides an analysis tool framework to make it easy to create
+new trace analysis tools.  A new tool should subclass <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/analysis_tool.h">analysis_tool_t</a>.
+Two key functions should be overridden: \p process_memref, which operates
+on a single trace entry, and \p print_results, which is called just once
+after processing the entire trace and should present the results of
+analysis.  In the default mode of operation, the <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/analyzer.h">analyzer_t</a>
+class iterates over the trace and calls the \p process_memref function of
+each tool.  An alternative mode is supported which exposes the iterator and
+allows a separate control infrastructure to be built.
+
+Each trace entry is of type <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/common/memref.h">memref_t</a>
+and represents one instruction or data reference or a metadata operation
+such as a thread exit or marker.  There are built-in markers indicating
+disruptions in user mode control flow such as signal handler entry and
+exit.
+
+****************************************************************************
 \section sec_drcachesim_ops Simulator Parameters
 
 \p drcachesim's behavior can be controlled through options passed after the
 \p -c \p drcachesim but prior to the "--" delimiter on the command line:
 
 \code
-bin64/drrun -t drcachesim <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
+$ bin64/drrun -t drcachesim <options> <to> <drcachesim> -- /path/to/target/app <args> <for> <app>
 \endcode
 
 Boolean options can be disabled using a "-no_" prefix.
@@ -224,6 +558,24 @@ The parameters available are described below:
 REPLACEME_WITH_OPTION_LIST
 
 
+****************************************************************************
+\section sec_drcachesim_limit Current Limitations
+
+The \p drcachesim tool is a work in progress.  We welcome contributions in
+these areas of missing functionality:
+
+- Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
+- Multi-process online application simulation on Windows (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Arbitrary cache hierarchy support via an input config file
+  (https://github.com/DynamoRIO/dynamorio/issues/1715)
+- Offline traces do not currently accurately record instruction fetches in
+  dynamically generated code (https://github.com/DynamoRIO/dynamorio/issues/2062).
+  All data references are included, but instruction fetches may be skipped.
+  This problem is limited to offline traces.
+- Application phase marking is not yet implemented
+  (https://github.com/DynamoRIO/dynamorio/issues/2478).
+
+****************************************************************************
 \section sec_drcachesim_cmp Comparison to Other Simulators
 
 \p drcachesim is one of the few simulators to support multiple processes.
@@ -235,9 +587,16 @@ potentially unfavorable performance versus single-process simulators.
 When comparing cache hits, misses, and miss rates across simulators, the
 details can vary substantially.  For example, some other simulators (such
 as \p cachegrind) do not split memory references that cross cache lines
-into multiple hits or misses.  Additionally, instructions that reference
-multiple memory words (such as \p ldm on ARM) are considered to be single
-accesses by \p drcachesim, while other simulators (such as \p cachegrind)
-may split the accesses into separate pieces.
+into multiple hits or misses, while \p drcachesim does split them.
+Instructions that reference multiple memory words on the same cache line
+(such as \p ldm on ARM) are considered to be single accesses by \p
+drcachesim, while other simulators (such as \p cachegrind) may split the
+accesses into separate pieces.  A final example involves string loop
+instructions on x86.  \p drcachesim considers only the first iteration to
+involve an instruction fetch (presenting subsequent iterations as a
+"non-fetched instruction" which the simulator ignores: the basic_counts
+tool does show these as a separate statistics), while other simulators
+(incorrectly) issue a fetch to the instruction cache on every iteration of
+the string loop.
 
 */

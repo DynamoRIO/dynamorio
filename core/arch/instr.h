@@ -2135,6 +2135,16 @@ bool
 instr_is_icache_op(instr_t *instr);
 #endif
 
+DR_API
+/** Returns true iff \p instr is an Intel string operation instruction. */
+bool
+instr_is_string_op(instr_t *instr);
+
+DR_API
+/** Returns true iff \p instr is an Intel repeated-loop string operation instruction. */
+bool
+instr_is_rep_string_op(instr_t *instr);
+
 /* DR_API EXPORT BEGIN */
 /**
  * Indicates which type of floating-point operation and instruction performs.

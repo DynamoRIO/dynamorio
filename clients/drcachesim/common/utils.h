@@ -72,6 +72,18 @@
 # define END_PACKED_STRUCTURE __attribute__ ((__packed__))
 #endif
 
+#ifndef __has_cpp_attribute
+# define __has_cpp_attribute(x) 0  // Compatibility with non-clang compilers.
+#endif
+// We annotate to support building with -Wimplicit-fallthrough.
+#if __has_cpp_attribute(clang::fallthrough)
+# define ANNOTATE_FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(gnu::fallthrough)
+# define ANNOTATE_FALLTHROUGH [[gnu::fallthrough]]
+#else
+# define ANNOTATE_FALLTHROUGH
+#endif
+
 #ifdef WINDOWS
 # define DIRSEP "\\"
 # define IF_WINDOWS(x) x

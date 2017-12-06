@@ -609,6 +609,9 @@ should_wait_at_safe_spot(dcontext_t *dcontext)
 void
 set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state)
 {
+    if (state >= THREAD_SYNCH_NO_LOCKS)
+        ASSERT_OWN_NO_LOCKS();
+
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = state;

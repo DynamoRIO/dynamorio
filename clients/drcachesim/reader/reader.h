@@ -69,6 +69,11 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
 
     virtual reader_t& operator++();
 
+    // Supplied for subclasses that may fail in their constructors.
+    virtual bool operator!() {
+        return false;
+    }
+
     // We do not support the post-increment operator for two reasons:
     // 1) It prevents pure virtual functions here, as it cannot
     //    return an abstract type;
@@ -87,6 +92,7 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     memref_pid_t cur_pid;
     addr_t cur_pc;
     addr_t next_pc;
+    addr_t prev_instr_addr;
     int bundle_idx;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid;
 };

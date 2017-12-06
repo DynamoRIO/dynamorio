@@ -73,8 +73,12 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
         dr_fprintf(STDERR, __VA_ARGS__);   \
 } while (0)
 
+// A clean exit via dr_exit_process() is not supported from init code, but
+// we do want to at least close the pipe file.
 #define FATAL(...) do {                \
     dr_fprintf(STDERR, __VA_ARGS__);   \
+    if (!op_offline.get_value())       \
+        ipc_pipe.close();              \
     dr_abort();                        \
 } while (0)
 
@@ -283,8 +287,9 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     ssize_t towrite = pipe_end - pipe_start;
     DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
               towrite > (ssize_t)buf_hdr_slots_size);
-    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite)
-        DR_ASSERT(false);
+    if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
+        FATAL("Fatal error: failed to write to pipe\n");
+    }
     // Re-emit thread entry header
     DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
     pipe_start = pipe_end - buf_hdr_slots_size;
@@ -374,7 +379,11 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
                 // We can only split before TRACE_TYPE_INSTR, assuming only a few data
                 // entries in between instr entries.
-                if (instru->get_entry_type(mem_ref) == TRACE_TYPE_INSTR) {
+                // XXX i#2638: if we want to support branch target analysis in online
+                // traces we'll need to not split after a branch: either split before
+                // it or one instr after.
+                trace_type_t type = instru->get_entry_type(mem_ref);
+                if (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                     if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
                         pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
                     // Advance pipe_end pointer
@@ -388,6 +397,9 @@ memtrace(void *drcontext, bool skip_size_cap)
             // Write the rest to pipe
             // The last few entries (e.g., instr + refs) may exceed the atomic write size,
             // so we may need two writes.
+            // XXX i#2638: if we want to support branch target analysis in online
+            // traces we'll need to not split after a branch by carrying a write-final
+            // branch forward to the next buffer.
             if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
@@ -475,11 +487,8 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         // We assume that drutil restricts repstr to a single bb on its own, and
         // we avoid its mix of translations resulting in incorrect ifetch stats
         // (it can be significant: i#2011).  The original app bb has just one instr,
-        // which is a memref, so the pre-memref entry will suffice.
-        //
-        // XXX i#2051: we also need to limit repstr loops to a single ifetch for the
-        // whole loop, instead of an ifetch per iteration.  For offline we remove
-        // the extras in post-processing, but for online we'll need extra instru...
+        // so we instrument just once at the top of the bb (rather than before the
+        // memref, so we can handle a zero-iter loop).
         ud->num_delay_instrs = 0;
         return adjust;
     }
@@ -812,12 +821,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
           * XXX: the expansion means our instr fetch trace is not perfect,
-          * but we live with having the wrong instr length.
+          * but we live with having the wrong instr length for online traces.
           */
          ud->last_app_pc == instr_get_app_pc(instr)) &&
         ud->strex == NULL &&
-        // Ensure we have an instr entry for the start of the bb, for offline.
-        (!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)))
+        // Ensure we have an instr entry for the start of the bb.
+        !drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -844,12 +853,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
         // Avoid bundling instrs whose types we separate.
-        (instru_t::instr_to_instr_type(instr) == TRACE_TYPE_INSTR ||
+        (instru_t::instr_to_instr_type(instr, ud->repstr) == TRACE_TYPE_INSTR ||
          // We avoid overhead of skipped bundling for online unless the user requested
          // instr types.  We could use different types for
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
+        // Don't bundle the zero-rep-string-iter instr.
+        (!ud->repstr || !drmgr_is_first_instr(drcontext, instr)) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -914,8 +925,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      */
     is_memref = instr_reads_memory(instr) || instr_writes_memory(instr);
     // See comment in instrument_delay_instrs: we only want the original string
-    // ifetch and not any of the expansion instrs.
-    if (is_memref || !ud->repstr) {
+    // ifetch and not any of the expansion instrs.  We instrument the first
+    // one to handle a zero-iter loop.
+    if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb,
                                   instr, reg_ptr, reg_tmp, adjust, instr);
     }
@@ -1027,6 +1039,35 @@ event_pre_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    trace_marker_type_t marker_type;
+    switch (info->type) {
+    case DR_XFER_SIGNAL_DELIVERY:
+    case DR_XFER_APC_DISPATCHER:
+    case DR_XFER_EXCEPTION_DISPATCHER:
+    case DR_XFER_RAISE_DISPATCHER:
+    case DR_XFER_CALLBACK_DISPATCHER:
+        marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT;
+        break;
+    case DR_XFER_SIGNAL_RETURN:
+    case DR_XFER_CALLBACK_RETURN:
+    case DR_XFER_CONTINUE:
+    case DR_XFER_SET_CONTEXT_THREAD:
+        marker_type = TRACE_MARKER_TYPE_KERNEL_XFER;
+        break;
+    default:
+        return;
+    }
+    NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, 0);
+    if (file_ops_func.handoff_buf == NULL)
+        memtrace(drcontext, false);
+}
+
 /***************************************************************************
  * Delayed tracing feature.
  */
@@ -1085,6 +1126,7 @@ static void
 enable_tracing_instrumentation()
 {
     if (!drmgr_register_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_instrumentation_ex_event(event_bb_app2app,
                                                     event_bb_analysis,
                                                     event_app_instruction,
@@ -1347,6 +1389,7 @@ event_exit(void)
 
     if (tracing_enabled) {
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+            !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
             !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
                                                           event_bb_analysis,
                                                           event_app_instruction,
@@ -1528,7 +1571,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit))
         DR_ASSERT(false);
-
 
     if (op_trace_after_instrs.get_value() > 0)
         enable_delay_instrumentation();
