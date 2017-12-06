@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,8 @@
 
 class tlb_stats_t : public caching_device_stats_t
 {
+ public:
+    tlb_stats_t() : caching_device_stats_t("") {}
     // XXX: support page privilege and MMU-related exceptions
 
     // It might be necessary to report stats of exceptions

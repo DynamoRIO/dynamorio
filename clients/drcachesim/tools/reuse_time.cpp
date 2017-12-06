@@ -30,8 +30,10 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 #include "reuse_time.h"
 #include "../common/utils.h"
@@ -52,7 +54,7 @@ reuse_time_tool_create(unsigned int line_size,
 }
 
 reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose) :
-    time_stamp(0), knob_verbose(verbose), knob_line_size(line_size)
+    time_stamp(0), total_instructions(0), knob_verbose(verbose), knob_line_size(line_size)
 {
     line_size_bits = compute_log2((int)knob_line_size);
 }
@@ -79,6 +81,7 @@ reuse_time_t::process_memref(const memref_t &memref)
 
     // Only care about data for now.
     if (type_is_instr(memref.instr.type)) {
+        total_instructions++;
         return true;
     }
 
@@ -102,16 +105,24 @@ reuse_time_t::process_memref(const memref_t &memref)
     return true;
 }
 
+static bool
+cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
+             const std::pair<int_least64_t, int_least64_t> &r)
+{
+    return (l.first < r.first);
+}
+
 bool
 reuse_time_t::print_results() {
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total accesses: " << time_stamp << "\n";
+    std::cerr << "Total instructions: " << total_instructions << "\n";
     std::cerr.precision(2);
     std::cerr.setf(std::ios::fixed);
 
     int_least64_t count = 0;
     int_least64_t sum = 0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it =
+    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it =
          reuse_time_histogram.begin(); it != reuse_time_histogram.end(); it++) {
         count += it->second;
         sum += it->first * it->second;
@@ -125,8 +136,11 @@ reuse_time_t::print_results() {
               << std::setw(12) << "Cumulative";
     std::cerr << std::endl;
     double cum_percent = 0.0;
-    for (std::map<int_least64_t, int_least64_t>::iterator it =
-         reuse_time_histogram.begin(); it != reuse_time_histogram.end(); it++) {
+    std::vector<std::pair<int_least64_t, int_least64_t> >
+        sorted(reuse_time_histogram.size());
+    std::partial_sort_copy(reuse_time_histogram.begin(), reuse_time_histogram.end(),
+                           sorted.begin(), sorted.end(), cmp_dist_key);
+    for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double percent = it->second / static_cast<double>(count);
         cum_percent += percent;
         std::cerr << std::setw(8) << it->first

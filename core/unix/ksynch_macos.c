@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -114,10 +114,17 @@ ksynch_set_value(mac_synch_t *synch, int new_val)
 }
 
 ptr_int_t
-ksynch_wait(mac_synch_t *synch, int mustbe)
+ksynch_wait(mac_synch_t *synch, int mustbe, int timeout_ms)
 {
     /* We don't need to bother with "mustbe" b/c of SYNC_POLICY_PREPOST */
-    kern_return_t res = semaphore_wait(synch->sem);
+    kern_return_t res;
+    if (timeout_ms > 0) {
+        mach_timespec_t timeout;
+        timeout.tv_sec = (timeout_ms / 1000);
+        timeout.tv_nsec = ((int64)timeout_ms % 1000) * 1000000;
+        res = semaphore_timedwait(synch->sem, timeout);
+    } else
+        res = semaphore_wait(synch->sem);
     return (res == KERN_SUCCESS ? 0 : -1);
 }
 

@@ -41,6 +41,9 @@
 
 #define MINSERT instrlist_meta_preinsert
 
+// Versioning for our drmodtrack custom module fields.
+#define CUSTOM_MODULE_VERSION 1
+
 class instru_t
 {
 public:
@@ -66,6 +69,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid) = 0;
     virtual int append_tid(byte *buf_ptr, thread_id_t tid) = 0;
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val) = 0;
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size) = 0;
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid) = 0;
     // This is a per-buffer-writeout header.
@@ -89,7 +93,8 @@ public:
 
     // Utilities.
     static unsigned short instr_to_prefetch_type(instr_t *instr);
-    static unsigned short instr_to_instr_type(instr_t *instr);
+    static unsigned short instr_to_instr_type(instr_t *instr,
+                                              bool repstr_expanded = false);
     static bool instr_is_flush(instr_t *instr);
     virtual void insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref);
@@ -122,6 +127,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
@@ -173,6 +179,7 @@ public:
     virtual int append_pid(byte *buf_ptr, process_id_t pid);
     virtual int append_tid(byte *buf_ptr, thread_id_t tid);
     virtual int append_thread_exit(byte *buf_ptr, thread_id_t tid);
+    virtual int append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val);
     virtual int append_iflush(byte *buf_ptr, addr_t start, size_t size);
     virtual int append_thread_header(byte *buf_ptr, thread_id_t tid);
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
@@ -198,6 +205,14 @@ public:
                                    void (*free_cb)(void *data));
 
 private:
+    struct custom_module_data_t {
+        custom_module_data_t(const char *base_, size_t size_, void *user_) :
+            base(base_), size(size_), user_data(user_) {}
+        const char *base;
+        size_t size;
+        void *user_data;
+    };
+
     int insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
                         uint instr_count);
@@ -206,6 +221,15 @@ private:
                          bool write);
     ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
+
+    // Custom module fields are global (since drmodtrack's support is global, we don't
+    // try to pass void* user data params through).
+    static void * (*user_load)(module_data_t *module);
+    static int (*user_print)(void *data, char *dst, size_t max_len);
+    static void (*user_free)(void *data);
+    static void *load_custom_module_data(module_data_t *module);
+    static int print_custom_module_data(void *data, char *dst, size_t max_len);
+    static void free_custom_module_data(void *data);
 };
 
 #endif /* _INSTRU_H_ */

@@ -214,6 +214,7 @@ static callback_list_t module_unload_callbacks = {0,};
 static callback_list_t filter_syscall_callbacks = {0,};
 static callback_list_t pre_syscall_callbacks = {0,};
 static callback_list_t post_syscall_callbacks = {0,};
+static callback_list_t kernel_xfer_callbacks = {0,};
 #ifdef WINDOWS
 static callback_list_t exception_callbacks = {0,};
 #else
@@ -482,7 +483,8 @@ add_client_lib(const char *path, const char *id_str, const char *options)
 
     LOG(GLOBAL, LOG_INTERP, 4, "about to load client library %s\n", path);
 
-    client_lib = load_shared_library(path, true/*reachable*/);
+    client_lib = load_shared_library(path, IF_X64_ELSE(DYNAMO_OPTION(reachable_client),
+                                                       true));
     if (client_lib == NULL) {
         char msg[MAXIMUM_PATH*4];
         char err[MAXIMUM_PATH*2];
@@ -536,9 +538,11 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             /* Now that we map the client within the constraints, this request
              * should always succeed.
              */
-            request_region_be_heap_reachable(client_libs[idx].start,
-                                             client_libs[idx].end -
-                                             client_libs[idx].start);
+            if (DYNAMO_OPTION(reachable_client)) {
+                request_region_be_heap_reachable(client_libs[idx].start,
+                                                 client_libs[idx].end -
+                                                 client_libs[idx].start);
+            }
 #endif
             strncpy(client_libs[idx].path, path,
                     BUFFER_SIZE_ELEMENTS(client_libs[idx].path));
@@ -744,6 +748,7 @@ void free_all_callback_lists()
     free_callback_list(&filter_syscall_callbacks);
     free_callback_list(&pre_syscall_callbacks);
     free_callback_list(&post_syscall_callbacks);
+    free_callback_list(&kernel_xfer_callbacks);
 #ifdef WINDOWS
     free_callback_list(&exception_callbacks);
 #else
@@ -1125,6 +1130,20 @@ bool
 dr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum))
 {
     return remove_callback(&post_syscall_callbacks, (void (*)(void))func, true);
+}
+
+void
+dr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                           const dr_kernel_xfer_info_t *info))
+{
+    add_callback(&kernel_xfer_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                             const dr_kernel_xfer_info_t *info))
+{
+    return remove_callback(&kernel_xfer_callbacks, (void (*)(void))func, true);
 }
 
 #ifdef PROGRAM_SHEPHERDING
@@ -2041,12 +2060,61 @@ instrument_invoke_another_syscall(dcontext_t *dcontext)
     return dcontext->client_data->invoke_another_syscall;
 }
 
+bool
+instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
+                       os_cxt_ptr_t source_os_cxt, dr_mcontext_t *source_dmc,
+                       priv_mcontext_t *source_mc,
+                       app_pc target_pc, reg_t target_xsp,
+                       os_cxt_ptr_t target_os_cxt, priv_mcontext_t *target_mc,
+                       int sig)
+{
+    if (kernel_xfer_callbacks.num == 0) {
+        return false;
+    }
+    dr_kernel_xfer_info_t info;
+    info.type = type;
+    info.source_mcontext = NULL;
+    info.target_pc = target_pc;
+    info.target_xsp = target_xsp;
+    info.sig = sig;
+    dr_mcontext_t dr_mcontext;
+    dr_mcontext.size = sizeof(dr_mcontext);
+    dr_mcontext.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+
+    if (source_dmc != NULL)
+        info.source_mcontext = source_dmc;
+    else if (source_mc != NULL) {
+        if (priv_mcontext_to_dr_mcontext(&dr_mcontext, source_mc))
+            info.source_mcontext = &dr_mcontext;
+    } else if (!is_os_cxt_ptr_null(source_os_cxt)) {
+        if (os_context_to_mcontext(&dr_mcontext, NULL, source_os_cxt))
+            info.source_mcontext = &dr_mcontext;
+    }
+    /* Our compromise to reduce context copying is to provide the PC and XSP inline,
+     * and only get more if the user calls dr_get_mcontext(), which we support again
+     * without any copying if not used by taking in a raw os_context_t.
+     */
+    dcontext->client_data->os_cxt = target_os_cxt;
+    dcontext->client_data->cur_mc = target_mc;
+    call_all(kernel_xfer_callbacks, int (*)(void *, const dr_kernel_xfer_info_t *),
+             (void *)dcontext, &info);
+    set_os_cxt_ptr_null(&dcontext->client_data->os_cxt);
+    dcontext->client_data->cur_mc = NULL;
+    return true;
+}
+
 #ifdef WINDOWS
 /* Notify user of exceptions.  Note: not called for RaiseException */
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
 {
     bool res = true;
+    /* Ensure that dr_get_mcontext() called from instrument_kernel_xfer() from
+     * dr_redirect_execution() will get the source context.
+     * cur_mc will later be clobbered by instrument_kernel_xfer() which is ok:
+     * the redirect ends the callback calling.
+     */
+    dcontext->client_data->cur_mc = dr_mcontext_as_priv_mcontext(exception->mcontext);
     /* We short-circuit if any client wants to "own" the fault and not pass on.
      * This does violate the "priority order" of events where the last one is
      * supposed to have final say b/c it won't even see the event: but only one
@@ -2055,6 +2123,7 @@ instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
     call_all_ret(res, = res &&, , exception_callbacks,
                  bool (*)(void *, dr_exception_t *),
                  (void *)dcontext, exception);
+    dcontext->client_data->cur_mc = NULL;
     return res;
 }
 #else
@@ -2616,6 +2685,8 @@ dr_get_os_version(dr_os_version_info_t *info)
     get_os_version_ex(&ver, &sp_major, &sp_minor);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
         switch (ver) {
+        case WINDOWS_VERSION_10_1709: info->version = DR_WINDOWS_VERSION_10_1709; break;
+        case WINDOWS_VERSION_10_1703: info->version = DR_WINDOWS_VERSION_10_1703; break;
         case WINDOWS_VERSION_10_1607: info->version = DR_WINDOWS_VERSION_10_1607; break;
         case WINDOWS_VERSION_10_1511: info->version = DR_WINDOWS_VERSION_10_1511; break;
         case WINDOWS_VERSION_10:    info->version = DR_WINDOWS_VERSION_10;    break;
@@ -2756,14 +2827,14 @@ DR_API
 void *
 dr_nonheap_alloc(size_t size, uint prot)
 {
-    return heap_mmap_ex(size, size, prot, false/*no guard pages*/);
+    return heap_mmap_ex(size, size, prot, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 DR_API
 void
 dr_nonheap_free(void *mem, size_t size)
 {
-    heap_munmap_ex(mem, size, false/*no guard pages*/);
+    heap_munmap_ex(mem, size, false/*no guard pages*/, VMM_SPECIAL_MMAP);
 }
 
 static void *
@@ -2822,6 +2893,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             add_dynamo_vm_area((app_pc)p, ((app_pc)p)+size, prot,
                                true _IF_DEBUG("fls cb in private lib"));
         }
+        RSTATS_ADD_PEAK(client_raw_mmap_size, size);
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
@@ -2861,6 +2933,8 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
+    if (res)
+        RSTATS_SUB(client_raw_mmap_size, size);
     return res;
 }
 
@@ -3571,6 +3645,17 @@ dr_recurlock_lock(void *reclock)
 
 DR_API
 void
+dr_app_recurlock_lock(void *reclock, dr_mcontext_t *mc)
+{
+    CLIENT_ASSERT(mc->flags == DR_MC_ALL,
+                  "mcontext must be for DR_MC_ALL");
+
+    acquire_recursive_app_lock((recursive_lock_t *)reclock,
+                               dr_mcontext_as_priv_mcontext(mc));
+}
+
+DR_API
+void
 dr_recurlock_unlock(void *reclock)
 {
     release_recursive_lock((recursive_lock_t *)reclock);
@@ -3621,7 +3706,7 @@ dr_event_wait(void *event)
     dcontext_t *dcontext = get_thread_private_dcontext();
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
-    wait_for_event((event_t)event);
+    wait_for_event((event_t)event, 0);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
     return true;
@@ -5047,8 +5132,22 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     opnd_t *args = NULL;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (instr_predicate_is_cond(auto_pred)) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cpsr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5058,6 +5157,8 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                            vmcode_get_start(), callee, num_args, args);
     if (num_args != 0)
         free_va_opnd_list(dcontext, num_args, args);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 bool
@@ -5090,6 +5191,8 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call_noreturn: drcontext cannot be NULL");
+    CLIENT_ASSERT(instrlist_get_auto_predicate(ilist) == DR_PRED_NONE,
+                  "Does not support auto-predication");
     if (num_args != 0) {
         va_start(ap, num_args);
         convert_va_list_to_opnd(dcontext, &args, num_args, ap);
@@ -5108,12 +5211,12 @@ dr_insert_call_noreturn(void *drcontext, instrlist_t *ilist, instr_t *where,
  */
 static uint
 prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
-                    instrlist_t *ilist, instr_t *where)
+                    instrlist_t *ilist, instr_t *where, byte *encode_pc)
 {
     instr_t *in;
     uint dstack_offs;
     in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
-    dstack_offs = prepare_for_clean_call(dcontext, cci, ilist, where);
+    dstack_offs = prepare_for_clean_call(dcontext, cci, ilist, where, encode_pc);
     /* now go through and mark inserted instrs as meta */
     if (in == NULL)
         in = instrlist_first(ilist);
@@ -5129,7 +5232,8 @@ prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
 /* Internal utility routine for inserting context restore for a clean call. */
 static void
 cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
-                      instrlist_t *ilist, instr_t *where, uint sizeof_param_area)
+                      instrlist_t *ilist, instr_t *where, uint sizeof_param_area,
+                      byte *encode_pc)
 {
     instr_t *in;
     in = (where == NULL) ? instrlist_last(ilist) : instr_get_prev(where);
@@ -5142,7 +5246,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
             XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                              OPND_CREATE_INT8(sizeof_param_area)));
     }
-    cleanup_after_clean_call(dcontext, cci, ilist, where);
+    cleanup_after_clean_call(dcontext, cci, ilist, where, encode_pc);
     /* now go through and mark inserted instrs as meta */
     if (in == NULL)
         in = instrlist_first(ilist);
@@ -5179,9 +5283,23 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     meta_call_flags_t call_flags = META_CALL_CLEAN | META_CALL_RETURNS;
     byte *encode_pc;
+    instr_t *label = INSTR_CREATE_label(drcontext);
+    dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+#ifdef ARM
+    if (instr_predicate_is_cond(auto_pred)) {
+        /* auto_predicate is set, though we handle the clean call with a cbr
+         * because we require inserting instrumentation which modifies cpsr.
+         */
+        MINSERT(ilist, where, XINST_CREATE_jump_cond
+                (drcontext,
+                 instr_invert_predicate(auto_pred),
+                 opnd_create_instr(label)));
+    }
+#endif
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags),
@@ -5192,6 +5310,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
         insert_inline_clean_call(dcontext, &cci, ilist, where, args);
+        MINSERT(ilist, where, label);
+        instrlist_set_auto_predicate(ilist, auto_pred);
         return;
 #else /* CLIENT_INTERFACE */
         ASSERT_NOT_REACHED();
@@ -5242,7 +5362,11 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         }
 #endif
     }
-    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where);
+    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
+        encode_pc = vmcode_unreachable_pc();
+    else
+        encode_pc = vmcode_get_start();
+    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
 #ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
      * aligned, which is what insert_meta_call_vargs requires. */
@@ -5273,10 +5397,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
      * flag will disappear and translation will fail.
      */
     instrlist_set_our_mangling(ilist, true);
-    if (TEST(DR_CLEANCALL_INDIRECT, save_flags))
-        encode_pc = vmcode_unreachable_pc();
-    else
-        encode_pc = vmcode_get_start();
     if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
     insert_meta_call_vargs(dcontext, ilist, where, call_flags,
@@ -5290,7 +5410,9 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         MINSERT(ilist, where, XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
-    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
+    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0, encode_pc);
+    MINSERT(ilist, where, label);
+    instrlist_set_auto_predicate(ilist, auto_pred);
 }
 
 void
@@ -5342,7 +5464,8 @@ dr_prepare_for_call(void *drcontext, instrlist_t *ilist, instr_t *where)
     CLIENT_ASSERT(drcontext != NULL, "dr_prepare_for_call: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_prepare_for_call: drcontext is invalid");
-    return prepare_for_call_ex((dcontext_t *)drcontext, NULL, ilist, where);
+    return prepare_for_call_ex((dcontext_t *)drcontext, NULL, ilist, where,
+                               vmcode_get_start());
 }
 
 DR_API void
@@ -5353,7 +5476,7 @@ dr_cleanup_after_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_cleanup_after_call: drcontext is invalid");
     cleanup_after_call_ex((dcontext_t *)drcontext, NULL, ilist, where,
-                          sizeof_param_area);
+                          sizeof_param_area, vmcode_get_start());
 }
 
 #ifdef CLIENT_INTERFACE
@@ -6314,6 +6437,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
         return true;
     }
 
+    if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
+        return os_context_to_mcontext(dmc, mc, dcontext->client_data->os_cxt);
+    }
+
     if (dcontext->client_data->suspended) {
         /* A thread suspended by dr_suspend_all_other_threads() has its
          * context translated lazily here.
@@ -6421,6 +6548,16 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
             return false;
         return true;
     }
+    if (dcontext->client_data->cur_mc != NULL) {
+        return dr_mcontext_to_priv_mcontext(dcontext->client_data->cur_mc, context);
+    }
+    if (!is_os_cxt_ptr_null(dcontext->client_data->os_cxt)) {
+        /* It would be nice to fail for #DR_XFER_CALLBACK_RETURN but we'd need to
+         * store yet more state to do so.  The pc will be ignored, and xsi
+         * changes will likely cause crashes.
+         */
+        return mcontext_to_os_context(dcontext->client_data->os_cxt, context, NULL);
+    }
 
     /* copy the machine context to the dstack area created with
      * dr_prepare_for_call().  note that xmm0-5 copied there
@@ -6481,6 +6618,23 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     dcontext->whereami = WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
+#ifdef CLIENT_INTERFACE
+    if (kernel_xfer_callbacks.num > 0) {
+        /* This can only be called from a clean call or an exception event.
+         * For both of those we can get the current mcontext via dr_get_mcontext()
+         * (the latter b/c we explicitly store to cur_mc just for this use case).
+         */
+        dr_mcontext_t src_dmc;
+        src_dmc.size = sizeof(src_dmc);
+        src_dmc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+        dr_get_mcontext(dcontext, &src_dmc);
+        if (instrument_kernel_xfer(dcontext, DR_XFER_CLIENT_REDIRECT,
+                                   osc_empty, &src_dmc, NULL,
+                                   dcontext->next_tag, mcontext->xsp, osc_empty,
+                                   dr_mcontext_as_priv_mcontext(mcontext), 0))
+            dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+    }
+#endif
     transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),
                          true/*full_DR_state*/);
     /* on success we won't get here */
@@ -6934,6 +7088,10 @@ dr_fragment_app_pc(void *tag)
             SYSLOG_INTERNAL_WARNING_ONCE("dr_fragment_app_pc is a DR/client pc");
         }
     });
+#elif defined(LINUX) && defined(X86_32)
+    /* Point back at our hook, undoing the bb shift for SA_RESTART (i#2659). */
+    if ((app_pc)tag == vsyscall_sysenter_displaced_pc)
+        tag = vsyscall_sysenter_return_pc;
 #endif
     return tag;
 }
@@ -7251,7 +7409,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                opnd_create_reg(reg),
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
                                                          0, SELF_TIB_OFFSET, OPSZ_PTR)));
-    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
+    } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES || seg == SEG_SS) {
         /* XXX: we assume flat address space */
         instrlist_meta_preinsert
             (ilist, instr,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,6 +60,8 @@
 #undef dr_unregister_module_load_event
 #undef dr_register_module_unload_event
 #undef dr_unregister_module_unload_event
+#undef dr_register_kernel_xfer_event
+#undef dr_unregister_kernel_xfer_event
 #undef dr_register_signal_event
 #undef dr_unregister_signal_event
 #undef dr_register_exception_event
@@ -121,6 +123,7 @@ typedef struct _generic_event_entry_t {
         void (*postsys_cb)(void *, int);
         void (*modload_cb)(void *, const module_data_t *, bool);
         void (*modunload_cb)(void *, const module_data_t *);
+        void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
         dr_signal_action_t (*signal_cb)(void *, dr_siginfo_t *);
 #endif
@@ -242,6 +245,9 @@ static void *modload_event_lock;
 static cb_list_t cblist_modunload;
 static void *modunload_event_lock;
 
+static cb_list_t cblist_kernel_xfer;
+static void *kernel_xfer_event_lock;
+
 #ifdef UNIX
 static cb_list_t cblist_signal;
 static void *signal_event_lock;
@@ -255,12 +261,6 @@ static void *exception_event_lock;
 static cb_list_t cblist_fault;
 static void *fault_event_lock;
 static bool registered_fault; /* for lazy registration */
-
-#ifdef WINDOWS
-static byte *addr_KiCallback;
-static int sysnum_NtCallbackReturn;
-# define CBRET_INTERRUPT_NUM 0x2b
-#endif
 
 static void
 drmgr_thread_init_event(void *drcontext);
@@ -293,6 +293,9 @@ drmgr_modload_event(void *drcontext, const module_data_t *info,
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
 
+static void
+drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info);
+
 #ifdef UNIX
 static dr_signal_action_t
 drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo);
@@ -306,14 +309,6 @@ drmgr_exception_event(void *drcontext, dr_exception_t *excpt);
 static bool
 drmgr_restore_state_event(void *drcontext, bool restore_memory,
                           dr_restore_state_info_t *info);
-
-static bool
-drmgr_cls_presys_event(void *drcontext, int sysnum);
-
-#ifdef WINDOWS
-static void
-drmgr_cls_exit(void);
-#endif
 
 static void
 our_thread_init_event(void *drcontext);
@@ -346,6 +341,7 @@ drmgr_init(void)
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
     modunload_event_lock = dr_rwlock_create();
+    kernel_xfer_event_lock = dr_rwlock_create();
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
@@ -360,6 +356,7 @@ drmgr_init(void)
     dr_register_post_syscall_event(drmgr_postsyscall_event);
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
+    dr_register_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_register_signal_event(drmgr_signal_event);
 #endif
@@ -400,6 +397,7 @@ drmgr_exit(void)
     dr_unregister_post_syscall_event(drmgr_postsyscall_event);
     dr_unregister_module_load_event(drmgr_modload_event);
     dr_unregister_module_unload_event(drmgr_modunload_event);
+    dr_unregister_kernel_xfer_event(drmgr_kernel_xfer_event);
 #ifdef UNIX
     dr_unregister_signal_event(drmgr_signal_event);
 #endif
@@ -409,11 +407,10 @@ drmgr_exit(void)
 
     if (bb_event_count > 0)
         dr_unregister_bb_event(drmgr_bb_event);
-    if (registered_fault)
+    if (registered_fault) {
         dr_unregister_restore_state_ex_event(drmgr_restore_state_event);
-#ifdef WINDOWS
-    drmgr_cls_exit();
-#endif
+        registered_fault = false;
+    }
 
     dr_rwlock_destroy(fault_event_lock);
 #ifdef UNIX
@@ -422,6 +419,7 @@ drmgr_exit(void)
 #ifdef WINDOWS
     dr_rwlock_destroy(exception_event_lock);
 #endif
+    dr_rwlock_destroy(kernel_xfer_event_lock);
     dr_rwlock_destroy(modunload_event_lock);
     dr_rwlock_destroy(modload_event_lock);
     dr_rwlock_destroy(postsys_event_lock);
@@ -479,12 +477,12 @@ cblist_shift_and_resize(cb_list_t *l, uint insert_at)
     size_t orig_num = l->num;
     if (insert_at > l->num)
         return -1;
-    l->num++;
     /* check for invalid slots we can easily use */
     if (insert_at < l->num && !cblist_get_pri(l, insert_at)->valid)
         return insert_at;
     else if (insert_at > 0 && !cblist_get_pri(l, insert_at - 1)->valid)
         return insert_at - 1;
+    l->num++;
     if (l->num >= l->capacity) {
         /* do the shift implicitly while resizing */
         size_t new_cap = l->capacity * 2;
@@ -652,6 +650,12 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
             e = &iter_insert.cbs.bb[i];
             if (!e->pri.valid)
                 continue;
+            /* Most client instrumentation wants to be predicated to match the app
+             * instruction, so we do it by default (i#1723). Clients may opt-out
+             * by calling drmgr_disable_auto_predication() at the start of the
+             * insertion bb event.
+             */
+            instrlist_set_auto_predicate(bb, instr_get_predicate(inst));
             if (e->has_quartet) {
                 res |= (*e->cb.pair_ex.insertion_ex_cb)
                     (drcontext, tag, bb, inst, for_trace, translating,
@@ -665,13 +669,9 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                 }
                 pair_idx++;
             }
+            instrlist_set_auto_predicate(bb, DR_PRED_NONE);
             /* XXX: add checks that cb followed the rules */
         }
-        /* XXX i#1723: in f28be26, we added auto-predication of instrumentation
-         * in Thumb IT blocks here, but it was asymmetric wrt ARM mode.
-         * To re-add the feature, we should have it apply to both Thumb and ARM,
-         * and have it controllable by the client.
-         */
     }
 
     /* Pass 4: final */
@@ -1208,6 +1208,7 @@ drmgr_event_init(void)
     cblist_init(&cblist_postsys, sizeof(generic_event_entry_t));
     cblist_init(&cblist_modload, sizeof(generic_event_entry_t));
     cblist_init(&cblist_modunload, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_kernel_xfer, sizeof(generic_event_entry_t));
 #ifdef UNIX
     cblist_init(&cblist_signal, sizeof(generic_event_entry_t));
 #endif
@@ -1232,6 +1233,7 @@ drmgr_event_exit(void)
     cblist_delete(&cblist_postsys);
     cblist_delete(&cblist_modload);
     cblist_delete(&cblist_modunload);
+    cblist_delete(&cblist_kernel_xfer);
 #ifdef UNIX
     cblist_delete(&cblist_signal);
 #endif
@@ -1332,8 +1334,10 @@ drmgr_presyscall_event(void *drcontext, int sysnum)
         execute = (*iter.cbs.generic[i].cb.presys_cb)(drcontext, sysnum) && execute;
     }
 
-    /* this must go last (the whole reason we're wrapping this) */
-    execute = drmgr_cls_presys_event(drcontext, sysnum) && execute;
+    /* We used to track NtCallbackReturn for CLS (before DR provided the kernel xfer
+     * event) and had to handle it last here.  Now we have nothing ourselves to
+     * do here.
+     */
 
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
@@ -1493,7 +1497,7 @@ drmgr_modunload_event(void *drcontext, const module_data_t *info)
 DR_EXPORT
 bool
 drmgr_register_signal_event(dr_signal_action_t (*func)
-                         (void *drcontext, dr_siginfo_t *siginfo))
+                            (void *drcontext, dr_siginfo_t *siginfo))
 {
     return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
                                    (void (*)(void)) func, NULL);
@@ -1861,10 +1865,6 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
  * CLS
  */
 
-#ifdef WINDOWS
-static int cls_initialized; /* 0=not tried; >0=success; <0=failure */
-#endif
-
 static bool
 drmgr_cls_stack_push_event(void *drcontext, bool new_depth)
 {
@@ -2000,62 +2000,13 @@ drmgr_cls_stack_exit(void *drcontext)
 }
 
 #ifdef WINDOWS
-static bool
-drmgr_event_filter_syscall(void *drcontext, int sysnum)
-{
-    if (sysnum == sysnum_NtCallbackReturn)
-        return true;
-    else
-        return false;
-}
-
-static bool
-drmgr_cls_presys_event(void *drcontext, int sysnum)
-{
-    /* we wrap the pre-syscall event to ensure this goes last,
-     * after all other presys events, so we have no references
-     * to the cls data before we swap it
-     */
-    if (sysnum == sysnum_NtCallbackReturn)
-        drmgr_cls_stack_pop();
-    return true;
-}
-
-/* Goes first with high negative priority */
-static dr_emit_flags_t
-drmgr_event_insert_cb(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                      bool for_trace, bool translating, void *user_data)
-{
-    if (instr_get_app_pc(inst) == addr_KiCallback) {
-        dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_push,
-                             false, 0);
-    }
-    return DR_EMIT_DEFAULT;
-}
-
-/* Goes last with high positive priority */
-static dr_emit_flags_t
-drmgr_event_insert_cbret(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                         bool for_trace, bool translating, void *user_data)
-{
-    if (instr_opcode_valid(inst) &&
-        /* For -fast_client_decode we can have level 0 instrs so check
-         * to ensure this is an single instr with valid opcode.
-         */
-        instr_get_opcode(inst) == OP_int &&
-        opnd_get_immed_int(instr_get_src(inst, 0)) == CBRET_INTERRUPT_NUM) {
-        dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_pop,
-                             false, 0);
-    }
-    return DR_EMIT_DEFAULT;
-}
-
 /* Determines the syscall from its Nt* wrapper.
  * Returns -1 on error.
  * FIXME: does not handle somebody hooking the wrapper.
  */
 /* XXX: exporting this so drwrap can use it but I might prefer to have
- * this in drutil or the upcoming drsys
+ * this in drutil or the upcoming drsys, especially since drmgr no longer
+ * uses this now that DR provides a kernel xfer event.
  */
 DR_EXPORT
 int
@@ -2089,82 +2040,78 @@ drmgr_decode_sysnum_from_wrapper(app_pc entry)
     instr_free(drcontext, &instr);
     return num;
 }
-
-static bool
-drmgr_cls_init(void)
-{
-    /* For callback init we watch for KiUserCallbackDispatcher.
-     * For callback exit we watch for NtCallbackReturn or int 0x2b.
-     */
-    module_data_t *data;
-    module_handle_t ntdll_lib;
-    app_pc addr_cbret;
-    /* We need to go very early to push the new CLS context */
-    drmgr_priority_t pri_cb = {sizeof(pri_cb), DRMGR_PRIORITY_NAME_CLS_ENTRY,
-                               NULL, NULL, DRMGR_PRIORITY_INSERT_CLS_ENTRY};
-    drmgr_priority_t pri_cbret = {sizeof(pri_cbret), DRMGR_PRIORITY_NAME_CLS_EXIT,
-                                  NULL, NULL, DRMGR_PRIORITY_INSERT_CLS_EXIT};
-
-    if (cls_initialized > 0)
-        return true;
-    else if (cls_initialized < 0)
-        return false;
-    cls_initialized = -1;
-
-    data = dr_lookup_module_by_name("ntdll.dll");
-    if (data == NULL) {
-        /* fatal error: something is really wrong w/ underlying DR */
-        return false;
-    }
-    ntdll_lib = data->handle;
-    dr_free_module_data(data);
-    addr_KiCallback = (app_pc) dr_get_proc_address(ntdll_lib, "KiUserCallbackDispatcher");
-    if (addr_KiCallback == NULL)
-        return false; /* should not happen */
-    /* the wrapper is not good enough for two reasons: one, we want to swap
-     * contexts at the last possible moment, not prior to executing a few
-     * instrs; second, we'll miss hand-rolled syscalls
-     */
-    addr_cbret = (app_pc) dr_get_proc_address(ntdll_lib, "NtCallbackReturn");
-    if (addr_cbret == NULL)
-        return false; /* should not happen */
-    sysnum_NtCallbackReturn = drmgr_decode_sysnum_from_wrapper(addr_cbret);
-    if (sysnum_NtCallbackReturn == -1)
-        return false; /* should not happen */
-
-    if (!drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cb, &pri_cb) ||
-        !drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cbret,
-                                                 &pri_cbret))
-        return false;
-    dr_register_filter_syscall_event(drmgr_event_filter_syscall);
-    cls_initialized = 1;
-    return true;
-}
+#endif /* WINDOWS */
 
 static void
-drmgr_cls_exit(void)
+drmgr_kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
-    if (cls_initialized > 0)
-        dr_unregister_filter_syscall_event(drmgr_event_filter_syscall);
+    /* We used to watch KiUserCallbackDispatcher, identify NtCallbackReturn's number,
+     * and watch int 0x2b ourselves, but now DR provides us with an event that
+     * operates at the last moment before the kernel action, making our lives much
+     * easier: we just have to order all other xfer events vs ours.
+     */
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
+    dr_rwlock_read_lock(kernel_xfer_event_lock);
+    cblist_create_local(drcontext, &cblist_kernel_xfer, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(kernel_xfer_event_lock);
+
+    if (info->type == DR_XFER_CALLBACK_DISPATCHER) {
+        /* We want to go first for callback entry so clients have a new context. */
+        drmgr_cls_stack_push();
+    }
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.kernel_xfer_cb)(drcontext, info);
+    }
+
+    if (info->type == DR_XFER_CALLBACK_RETURN) {
+        /* We want to go last for cbret to swap contexts at the last possible moment,
+         * to ensure there are no references to cls data before we swap it.
+         */
+        drmgr_cls_stack_pop();
+    }
+
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
-#else
-static bool
-drmgr_cls_presys_event(void *drcontext, int sysnum)
+DR_EXPORT
+bool
+drmgr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                              const dr_kernel_xfer_info_t *info))
 {
-    return true;
+    return drmgr_generic_event_add(&cblist_kernel_xfer, kernel_xfer_event_lock,
+                                   (void (*)(void)) func, NULL);
 }
-#endif /* WINDOWS */
+
+DR_EXPORT
+bool
+drmgr_register_kernel_xfer_event_ex(void (*func)(void *drcontext,
+                                                 const dr_kernel_xfer_info_t *info),
+                                    drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add(&cblist_kernel_xfer, kernel_xfer_event_lock,
+                                   (void (*)(void)) func, priority);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                                const dr_kernel_xfer_info_t *info))
+{
+    return drmgr_generic_event_remove(&cblist_kernel_xfer, kernel_xfer_event_lock,
+                                      (void (*)(void)) func);
+}
 
 DR_EXPORT
 int
 drmgr_register_cls_field(void (*cb_init_func)(void *drcontext, bool new_depth),
                          void (*cb_exit_func)(void *drcontext, bool thread_exit))
 {
-#ifdef WINDOWS
-    if (!drmgr_cls_init())
-        return -1;
-#endif
     if (cb_init_func == NULL || cb_exit_func == NULL)
         return -1;
     if (!drmgr_generic_event_add(&cblist_cls_init, cls_event_lock,
@@ -2303,4 +2250,14 @@ drmgr_reserve_note_range(size_t size)
         res = DRMGR_NOTE_NONE;
     dr_mutex_unlock(note_lock);
     return res;
+}
+
+DR_EXPORT
+bool
+drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
+{
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return false;
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    return true;
 }

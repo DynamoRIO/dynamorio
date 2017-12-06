@@ -36,11 +36,11 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include "caching_device_stats.h"
 #include "caching_device.h"
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
 class simulator_t : public analysis_tool_t
 {
@@ -59,7 +59,7 @@ class simulator_t : public analysis_tool_t
     int knob_num_cores;
 
     // For thread mapping to cores:
-    std::map<memref_tid_t, int> thread2core;
+    std::unordered_map<memref_tid_t, int> thread2core;
     unsigned int *thread_counts;
     unsigned int *thread_ever_counts;
 

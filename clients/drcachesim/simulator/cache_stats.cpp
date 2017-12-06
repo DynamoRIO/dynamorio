@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,8 @@
 #include <iomanip>
 #include "cache_stats.h"
 
-cache_stats_t::cache_stats_t() :
+cache_stats_t::cache_stats_t(const std::string &miss_file) :
+    caching_device_stats_t(miss_file),
     num_flushes(0), num_prefetch_hits(0), num_prefetch_misses(0)
 {
 }
@@ -46,8 +47,11 @@ cache_stats_t::access(const memref_t &memref, bool hit)
     if (type_is_prefetch(memref.data.type)) {
         if (hit)
             num_prefetch_hits++;
-        else
+        else {
             num_prefetch_misses++;
+            if (dump_misses)
+                dump_miss(memref);
+        }
     } else { // handle regular memory accesses
         caching_device_stats_t::access(memref, hit);
     }

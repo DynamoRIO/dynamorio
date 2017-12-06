@@ -117,6 +117,16 @@ online_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 }
 
 int
+online_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
+{
+    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    entry->type = TRACE_TYPE_MARKER;
+    entry->size = (ushort) type;
+    entry->addr = (addr_t) val;
+    return sizeof(trace_entry_t);
+}
+
+int
 online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
     trace_entry_t *entry = (trace_entry_t *) buf_ptr;
@@ -265,8 +275,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    if (!memref_needs_full_info) // For full info we skip this for !pred
+        instrlist_set_auto_predicate(ilist, pred);
     if (memref_needs_full_info) {
         // When filtering we have to insert a PC entry for every memref.
         // The 0 size indicates it's a non-icache entry.
@@ -289,18 +299,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
-#ifdef ARM // X86 does not support general predicated execution
-    if (!memref_needs_full_info && // For full info we skip this for !pred.
-        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return (adjust + sizeof(trace_entry_t));
 }
 
@@ -310,8 +309,9 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
                                   instr_t *app)
 {
+    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              instr_to_instr_type(app),
+                              instr_to_instr_type(app, repstr_expanded),
                               (ushort)instr_length(drcontext, app), adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
                    instr_get_app_pc(app), adjust);
@@ -348,5 +348,5 @@ void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
-    // Nothing to do.
+    *bb_field = (void *)repstr_expanded;
 }

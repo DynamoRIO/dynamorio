@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,13 +33,9 @@
 
 /* case 3105 test cases for rapidly starting and terminating threads */
 #include "tools.h"
+#include "thread.h"
 
 typedef unsigned char* app_pc;
-
-#ifdef WINDOWS
-#  include <process.h> /* for _beginthreadex */
-#else
-#endif
 
 /* not including main thread */
 #ifndef NIGHTLY_REGRESSION
@@ -168,7 +164,7 @@ main()
         global_finished = 0;
 
         for (t = 0; t < TOTAL_THREADS; t++) {
-            thread[t] = (HANDLE)create_thread(executor);
+            thread[t] = (HANDLE)create_thread(executor, NULL);
             if (thread[t] == NULL)
                 print("GLE: %d\n", GetLastError());
             assert(thread[t] != NULL);

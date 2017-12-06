@@ -360,7 +360,7 @@ monitor_thread_init(dcontext_t *dcontext)
      * FIXME: we can optimize even more to not allocate md at all, but would need
      * to have hotp_only checks in monitor_cache_exit(), etc.
      */
-    if (RUNNING_WITHOUT_CODE_CACHE())
+    if (RUNNING_WITHOUT_CODE_CACHE() || DYNAMO_OPTION(disable_traces))
         return;
 
     md->thead_table = generic_hash_create(dcontext, INIT_COUNTER_TABLE_SIZE,
@@ -393,14 +393,9 @@ monitor_thread_exit(dcontext_t *dcontext)
         heap_free(dcontext, md->blk_info, md->blk_info_length*sizeof(trace_bb_build_t)
                   HEAPACCT(ACCT_TRACE));
     }
-
-    /* case 7966: don't initialize at all for hotp_only
-     * FIXME: could set initial sizes to 0 for all configurations, instead
-     */
-    if (!RUNNING_WITHOUT_CODE_CACHE()) {
+    if (md->thead_table != NULL)
         generic_hash_destroy(dcontext, md->thead_table);
-        heap_free(dcontext, md, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
-    }
+    heap_free(dcontext, md, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
 #endif
 }
 
@@ -432,8 +427,10 @@ void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-    generic_hash_range_remove(dcontext, md->thead_table,
-                              (ptr_uint_t) start, (ptr_uint_t) end);
+    if (md->thead_table != NULL) {
+        generic_hash_range_remove(dcontext, md->thead_table,
+                                  (ptr_uint_t) start, (ptr_uint_t) end);
+    }
 }
 
 bool

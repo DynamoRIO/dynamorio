@@ -1153,13 +1153,11 @@ int dynamorio_syscall_wow64_noedx(int sysnum, ...);
 void get_segments_cs_ss(cxt_seg_t *cs, cxt_seg_t *ss);
 void get_segments_defg(cxt_seg_t *ds, cxt_seg_t *es, cxt_seg_t *fs, cxt_seg_t *gs);
 void get_own_context_helper(CONTEXT *cxt);
-# ifdef STACK_GUARD_PAGE
 /* PR203701: If the dstack is exhausted we'll use this function to
  * call internal_exception_info() with a separate exception stack.
  */
 void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                                CONTEXT *cxt, byte *stack);
-# endif
 void dynamorio_earliest_init_takeover(void);
 #else /* UNIX */
 void client_int_syscall(void);

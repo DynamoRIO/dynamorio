@@ -45,6 +45,10 @@
 
 static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
 
+void * (*offline_instru_t::user_load)(module_data_t *module);
+int (*offline_instru_t::user_print)(void *data, char *dst, size_t max_len);
+void (*offline_instru_t::user_free)(void *data);
+
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
                                    bool memref_needs_info,
@@ -60,6 +64,10 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
     DR_ASSERT(write_file != NULL);
     // Ensure every compiler is packing our struct how we want:
     DR_ASSERT(sizeof(offline_entry_t) == 8);
+
+    res = drmodtrack_add_custom_data(load_custom_module_data, print_custom_module_data,
+                                     NULL, free_custom_module_data);
+    DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }
 
 offline_instru_t::~offline_instru_t()
@@ -73,7 +81,7 @@ offline_instru_t::~offline_instru_t()
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
             ssize_t written = write_file_func(modfile, buf, wrote - 1/*no null*/);
-            DR_ASSERT(written == (ssize_t)strlen(buf));
+            DR_ASSERT(written == (ssize_t)wrote - 1);
         }
         dr_global_free(buf, size);
         size *= 2;
@@ -82,14 +90,78 @@ offline_instru_t::~offline_instru_t()
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
 }
 
+void *
+offline_instru_t::load_custom_module_data(module_data_t *module)
+{
+    void *user_data = nullptr;
+    if (user_load != nullptr)
+        user_data = (*user_load)(module);
+    const char *name = dr_module_preferred_name(module);
+    // For vdso we include the entire contents so we can decode it during
+    // post-processing.
+    if ((name != nullptr &&
+         (strstr(name, "linux-gate.so") == name ||
+          strstr(name, "linux-vdso.so") == name)) ||
+        (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
+        return new custom_module_data_t((const char *)module->start,
+                                        module->end - module->start, user_data);
+    } else if (user_data != nullptr) {
+        return new custom_module_data_t(nullptr, 0, user_data);
+    }
+    return nullptr;
+}
+
+int
+offline_instru_t::print_custom_module_data(void *data, char *dst, size_t max_len)
+{
+    custom_module_data_t *custom = (custom_module_data_t *)data;
+    // We use ascii for the size to keep the module list human-readable except
+    // for the few modules like vdso that have a binary blob.
+    // We include a version #.
+    if (custom == nullptr) {
+        return dr_snprintf(dst, max_len, "v#%d,0,", CUSTOM_MODULE_VERSION);
+    }
+    char *cur = dst;
+    int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom->size);
+    if (len < 0)
+        return -1;
+    cur += len;
+    if (cur - dst + custom->size > max_len)
+        return -1;
+    if (custom->size > 0) {
+        memcpy(cur, custom->base, custom->size);
+        cur += custom->size;
+    }
+    if (user_print != nullptr) {
+        int res = (*user_print)(custom->user_data, cur, max_len - (cur - dst));
+        if (res == -1)
+            return -1;
+        cur += res;
+    }
+    return (int)(cur - dst);
+}
+
+void
+offline_instru_t::free_custom_module_data(void *data)
+{
+    custom_module_data_t *custom = (custom_module_data_t *)data;
+    if (custom == nullptr)
+        return;
+    if (user_free != nullptr)
+        (*user_free)(custom->user_data);
+    delete custom;
+}
+
 bool
 offline_instru_t::custom_module_data
 (void * (*load_cb)(module_data_t *module),
  int (*print_cb)(void *data, char *dst, size_t max_len),
  void (*free_cb)(void *data))
 {
-    drcovlib_status_t res = drmodtrack_add_custom_data(load_cb, print_cb, NULL, free_cb);
-    return res == DRCOVLIB_SUCCESS;
+    user_load = load_cb;
+    user_print = print_cb;
+    user_free = free_cb;
+    return true;
 }
 
 size_t
@@ -160,7 +232,21 @@ offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-    entry->extended.value = 0;
+    entry->extended.valueA = 0;
+    entry->extended.valueB = 0;
+    return sizeof(offline_entry_t);
+}
+
+int
+offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
+{
+    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
+    DR_ASSERT((int)type < 1<<EXT_VALUE_B_BITS);
+    entry->extended.valueB = type;
+    DR_ASSERT((unsigned long long)val < 1ULL<<EXT_VALUE_A_BITS);
+    entry->extended.valueA = val;
     return sizeof(offline_entry_t);
 }
 
@@ -182,7 +268,8 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
     offline_entry_t *entry = (offline_entry_t *) buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry->extended.value = OFFLINE_FILE_VERSION;
+    entry->extended.valueA = OFFLINE_FILE_VERSION;
+    entry->extended.valueB = 0;
     return sizeof(offline_entry_t) +
         append_unit_header(buf_ptr + sizeof(offline_entry_t), tid);
 }
@@ -273,8 +360,8 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
                                     dr_pred_type_t pred)
 {
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    if (!memref_needs_full_info) // For full info we skip this for !pred
+        instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
     if (memref_needs_full_info) {
@@ -283,18 +370,7 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     }
     adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref,
                               write);
-#ifdef ARM // X86 does not support general predicated execution
-    if (!memref_needs_full_info && // For full info we skip this for !pred.
-        pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_OP) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return adjust;
 }
 

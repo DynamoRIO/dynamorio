@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
 # Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
 # **********************************************************/
 
@@ -83,7 +83,7 @@ GENERATE_TODOLIST      = YES
 GENERATE_TESTLIST      = YES
 GENERATE_BUGLIST       = YES
 GENERATE_DEPRECATEDLIST= YES
-# choices: linux, VMsafe, NYI_kernel_mediated_transfer_events
+# choices: linux, VMsafe
 ENABLED_SECTIONS       =
 MAX_INITIALIZER_LINES  = 30
 SHOW_USED_FILES        = YES
@@ -207,7 +207,7 @@ EXPAND_ONLY_PREDEF     = YES
 SEARCH_INCLUDES        = YES
 INCLUDE_PATH           =
 INCLUDE_FILE_PATTERNS  =
-PREDEFINED             = WINDOWS UNIX LINUX X64 X86 ARM ANDROID DYNAMORIO_API DR_PAGE_SIZE_COMPATIBILITY
+PREDEFINED             = WINDOWS UNIX LINUX X64 X86 ARM ANDROID DYNAMORIO_API DR_PAGE_SIZE_COMPATIBILITY AARCHXX AARCH64
 EXPAND_AS_DEFINED      = IF_X64_ELSE
 SKIP_FUNCTION_MACROS   = YES
 #---------------------------------------------------------------------------

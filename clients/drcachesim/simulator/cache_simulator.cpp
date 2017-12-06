@@ -64,7 +64,9 @@ cache_simulator_create(unsigned int num_cores,
                        unsigned int L1D_assoc,
                        uint64_t LL_size,
                        unsigned int LL_assoc,
-                       std::string replace_policy,
+                       const std::string &LL_miss_file,
+                       const std::string &replace_policy,
+                       const std::string &data_prefetcher,
                        uint64_t skip_refs,
                        uint64_t warmup_refs,
                        uint64_t sim_refs,
@@ -72,8 +74,8 @@ cache_simulator_create(unsigned int num_cores,
 {
     return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
                                  L1I_assoc, L1D_assoc, LL_size, LL_assoc,
-                                 replace_policy, skip_refs,warmup_refs,
-                                 sim_refs, verbose);
+                                 LL_miss_file, replace_policy, data_prefetcher,
+                                 skip_refs,warmup_refs, sim_refs, verbose);
 }
 
 cache_simulator_t::cache_simulator_t(unsigned int num_cores,
@@ -84,7 +86,9 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
                                      unsigned int L1D_assoc,
                                      uint64_t LL_size,
                                      unsigned int LL_assoc,
-                                     std::string replace_policy,
+                                     const std::string &LL_miss_file,
+                                     const std::string &replace_policy,
+                                     const std::string &data_prefetcher,
                                      uint64_t skip_refs,
                                      uint64_t warmup_refs,
                                      uint64_t sim_refs,
@@ -97,7 +101,11 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     knob_L1D_assoc(L1D_assoc),
     knob_LL_size(LL_size),
     knob_LL_assoc(LL_assoc),
-    knob_replace_policy(replace_policy)
+    knob_LL_miss_file(LL_miss_file),
+    knob_replace_policy(replace_policy),
+    knob_data_prefetcher(data_prefetcher),
+    icaches(NULL),
+    dcaches(NULL)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
@@ -107,11 +115,18 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         return;
     }
 
+    if (data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
+        data_prefetcher != PREFETCH_POLICY_NONE) {
+        // Unknown value.
+        success = false;
+        return;
+    }
+
     if (!llcache->init(knob_LL_assoc, (int)knob_line_size,
-                       (int)knob_LL_size, NULL, new cache_stats_t)) {
+                       (int)knob_LL_size, NULL, new cache_stats_t(knob_LL_miss_file))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
-               "associativity are powers of 2 "
-               "and that the total size is a multiple of the line size.\n");
+               "associativity are powers of 2, that the total size is a multiple "
+               "of the line size, and that any miss file path is writable.\n");
         success = false;
         return;
     }
@@ -133,7 +148,9 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         if (!icaches[i]->init(knob_L1I_assoc, (int)knob_line_size,
                               (int)knob_L1I_size, llcache, new cache_stats_t) ||
             !dcaches[i]->init(knob_L1D_assoc, (int)knob_line_size,
-                              (int)knob_L1D_size, llcache, new cache_stats_t)) {
+                              (int)knob_L1D_size, llcache, new cache_stats_t,
+                              data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
+                              new prefetcher_t((int)knob_line_size) : nullptr)) {
             ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                    "associativity are powers of 2 "
                    "and that the total sizes are multiples of the line size.\n");
@@ -153,16 +170,21 @@ cache_simulator_t::~cache_simulator_t()
     if (llcache == NULL)
         return;
     delete llcache->get_stats();
+    delete llcache->get_prefetcher();
     delete llcache;
+    if (icaches == NULL)
+        return;
     for (int i = 0; i < knob_num_cores; i++) {
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
         delete icaches[i]->get_stats();
+        delete icaches[i]->get_prefetcher();
         delete icaches[i];
         if (dcaches[i] == NULL)
             return;
         delete dcaches[i]->get_stats();
+        delete dcaches[i]->get_prefetcher();
         delete dcaches[i];
     }
     delete [] icaches;
@@ -198,31 +220,58 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     if (type_is_instr(memref.instr.type) ||
-        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR)
+        memref.instr.type == TRACE_TYPE_PREFETCH_INSTR) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.instr.addr << " instr x" <<
+                memref.instr.size << "\n";
+        }
         icaches[core]->request(memref);
-    else if (memref.data.type == TRACE_TYPE_READ ||
-             memref.data.type == TRACE_TYPE_WRITE ||
-             // We may potentially handle prefetches differently.
-             // TRACE_TYPE_PREFETCH_INSTR is handled above.
-             type_is_prefetch(memref.data.type))
+    } else if (memref.data.type == TRACE_TYPE_READ ||
+               memref.data.type == TRACE_TYPE_WRITE ||
+               // We may potentially handle prefetches differently.
+               // TRACE_TYPE_PREFETCH_INSTR is handled above.
+               type_is_prefetch(memref.data.type)) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc <<
+                " " << trace_type_names[memref.data.type] << " " <<
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+        }
         dcaches[core]->request(memref);
-    else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH)
+    } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc << " iflush " <<
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+        }
         icaches[core]->flush(memref);
-    else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH)
+    } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.data.pc << " dflush " <<
+                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+        }
         dcaches[core]->flush(memref);
-    else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+    } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
         last_thread = 0;
+    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                "marker type " << memref.marker.marker_type <<
+                " value " << memref.marker.marker_value << "\n";
+        }
+    } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        // Just ignore.
+        if (knob_verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                " @" << (void *)memref.instr.addr << " non-fetched instr x" <<
+                memref.instr.size << "\n";
+        }
     } else {
         ERRMSG("unhandled memref type");
         return false;
-    }
-
-    if (knob_verbose >= 3) {
-        std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-            " @" << (void *)memref.data.pc <<
-            " " << trace_type_names[memref.data.type] << " " <<
-            (void *)memref.data.addr << " x" << memref.data.size << std::endl;
     }
 
     // process counters for warmup and simulated references

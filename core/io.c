@@ -532,6 +532,15 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
                               "dr_sscanf: can't use %lh modifier");
                 int_size = SZ_SHORT;
                 continue;
+            case 'z':
+                CLIENT_ASSERT(int_size == SZ_INT,
+                              "dr_sscanf: can't combine z with l or h");
+#if defined(WINDOWS) && defined(X64)
+                int_size = SZ_LONGLONG;
+#else
+                int_size = SZ_LONG;
+#endif
+                continue;
             case '*':
                 is_ignored = true;
                 continue;
@@ -799,7 +808,14 @@ test_sscanf_all_specs(void)
     int signed_int_2;
     uint unsigned_int;
     uint hex_num;
+    short signed_short;
+    long signed_long;
     unsigned long long ull_num;
+# if defined(WINDOWS) && defined(X64)
+    long long z_num;
+# else
+    long z_num;
+# endif
 
     /* ULLONG_MAX is a corner case. */
     res = our_sscanf("c str -123 +456 0x789 0xffffffffffffffff",
@@ -842,6 +858,14 @@ test_sscanf_all_specs(void)
     EXPECT(signed_int, 123);
     EXPECT(signed_int_2, 456);
     EXPECT(unsigned_int, 0x9ab);
+
+    /* Test modifiers for integers. */
+    res = our_sscanf("123456 789012345 678901234", "%hd %ld %zd",
+                     &signed_short, &signed_long, &z_num);
+    EXPECT(res, 3);
+    EXPECT(signed_short, -7616);
+    EXPECT(signed_long, 789012345);
+    EXPECT(z_num, 678901234);
 
     /* Test skipping leading whitespace for integer conversions. */
     res = our_sscanf(" \t123456\t\n 0x9abc", "%d%x",

@@ -37,7 +37,7 @@
 #define _PHYSADDR_H_ 1
 
 #include <fstream>
-#include <map>
+#include <unordered_map>
 #include "../common/trace_entry.h"
 
 class physaddr_t
@@ -53,7 +53,7 @@ class physaddr_t
     addr_t last_vpage;
     addr_t last_ppage;
     int fd;
-    std::map<addr_t,addr_t> v2p;
+    std::unordered_map<addr_t,addr_t> v2p;
     unsigned int count;
 #endif
 };

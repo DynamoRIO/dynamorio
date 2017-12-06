@@ -341,6 +341,7 @@ enum {
     DUMPCORE_APP_EXCEPTION      = 0x40000,
     DUMPCORE_TRY_EXCEPT         = 0x80000, /* even when we do have a handler */
     DUMPCORE_UNSUPPORTED_APP    = 0x100000,
+    DUMPCORE_STACK_OVERFLOW     = 0x200000, /* modifies DUMPCORE_INTERNAL_EXCEPTION */
 
 #ifdef UNIX
     DUMPCORE_OPTION_PAUSE       = DUMPCORE_WAIT_FOR_DEBUGGER  |
@@ -561,6 +562,7 @@ bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
 bool is_readable_without_exception(const byte *pc, size_t size);
 bool is_readable_without_exception_query_os(byte *pc, size_t size);
+bool is_readable_without_exception_query_os_noblock(byte *pc, size_t size);
 bool safe_read(const void *base, size_t size, void *out_buf);
 bool safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 bool safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written);
@@ -933,7 +935,11 @@ bool at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fr
 
 /* contended path of mutex operations */
 bool ksynch_var_initialized(KSYNCH_TYPE *var);
-void mutex_wait_contended_lock(mutex_t *lock);
+/* If mc != NULL we mark this thread safe to suspend and transfer with a valid
+ * mcontext (THREAD_SYNCH_VALID_MCONTEXT). Note that means that all fields of
+ * \p mc must be valid (e.g. PC, control, integer, MMX fields).
+ */
+void mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc));
 void mutex_notify_released_lock(mutex_t *lock);
 void mutex_free_contended_event(mutex_t *lock);
 /* contended path of rwlock operations */
@@ -955,7 +961,8 @@ event_t create_event(void);
 void destroy_event(event_t e);
 void signal_event(event_t e);
 void reset_event(event_t e);
-void wait_for_event(event_t e);
+/* 0 means to wait forever.  Returns false on timeout, true on event firing. */
+bool wait_for_event(event_t e, int timeout_ms);
 
 /* get current timer frequency in KHz */
 /* NOTE: Keep in mind that with voltage scaling in power saving mode

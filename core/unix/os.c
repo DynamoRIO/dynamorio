@@ -1466,6 +1466,8 @@ is_thread_tls_initialized(void)
     if (INTERNAL_OPTION(safe_read_tls_init)) {
         /* Avoid faults during early init or during exit when we have no handler.
          * It's not worth extending the handler as the faults are a perf hit anyway.
+         * For standalone_library, first_thread_tls_initialized will always be false,
+         * so we'll return false here and use our check in get_thread_private_dcontext().
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
             return false;
@@ -1947,7 +1949,7 @@ os_tls_init(void)
      * segments need to watch modify_ldt syscall
      */
     /* FIXME: heap_mmap marks as exec, we just want RW */
-    byte *segment = heap_mmap(PAGE_SIZE);
+    byte *segment = heap_mmap(PAGE_SIZE, VMM_SPECIAL_MMAP);
     os_local_state_t *os_tls = (os_local_state_t *) segment;
 
     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "TIDFMT"\n", get_thread_id());
@@ -2083,7 +2085,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
         os_tls_thread_exit(local_state);
 
     /* We can't free prior to tls_thread_free() in case that routine refs os_tls */
-    heap_munmap(os_tls->self, PAGE_SIZE);
+    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
 #else
     global_heap_free(tls_table, MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     DELETE_LOCK(tls_lock);
@@ -2578,6 +2580,15 @@ os_process_under_dynamorio_initiate(dcontext_t *dcontext)
     /* We only support regular process-wide signal handlers for delayed takeover. */
     /* i#2161: we ignore alarm signals during the attach process to avoid races. */
     signal_reinstate_handlers(dcontext, true/*ignore alarm*/);
+    /* XXX: there's a tradeoff here: we have a race when we remove the hook
+     * because dr_app_stop() has no barrier and a thread sent native might
+     * resume from vsyscall after we remove the hook.  However, if we leave the
+     * hook, then the next takeover signal might hit a native thread that's
+     * inside DR just to go back native after having hit the hook.  For now we
+     * remove the hook and rely on translate_from_synchall_to_dispatch() moving
+     * threads from vsyscall to our gencode and not relying on the hook being
+     * present to finish up their go-native code.
+     */
     hook_vsyscall(dcontext, false);
 }
 
@@ -3222,7 +3233,8 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
                           heap_error_code_t *error_code, bool executable)
 {
     byte *p = NULL;
-    byte *try_start = NULL;
+    byte *try_start = NULL, *try_end = NULL;
+    uint iters = 0;
 
     ASSERT(ALIGNED(start, PAGE_SIZE) && ALIGNED(end, PAGE_SIZE));
     ASSERT(ALIGNED(size, PAGE_SIZE));
@@ -3235,11 +3247,20 @@ os_heap_reserve_in_region(void *start, void *end, size_t size,
         return os_heap_reserve(NULL, size, error_code, executable);
 
     /* loop to handle races */
-    while (find_free_memory_in_region(start, end, size, &try_start, NULL)) {
-        p = os_heap_reserve(try_start, size, error_code, executable);
+#define RESERVE_IN_REGION_MAX_ITERS 128
+    while (find_free_memory_in_region(start, end, size, &try_start, &try_end)) {
+        /* If there's space we'd prefer the end, to avoid the common case of
+         * a large binary + heap at attach where we're likely to reserve
+         * right at the start of the brk: we'd prefer to leave more brk space.
+         */
+        p = os_heap_reserve(try_end - size, size, error_code, executable);
         if (p != NULL) {
             ASSERT(*error_code == HEAP_ERROR_SUCCESS);
             ASSERT(p >= (byte *)start && p + size <= (byte *)end);
+            break;
+        }
+        if (++iters > RESERVE_IN_REGION_MAX_ITERS) {
+            ASSERT_NOT_REACHED();
             break;
         }
     }
@@ -3456,7 +3477,7 @@ os_thread_suspend(thread_record_t *tr)
         /* For Linux, waits only if the suspended flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked.
          */
-        ksynch_wait(&ostd->suspended, 0);
+        ksynch_wait(&ostd->suspended, 0, 0);
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3495,7 +3516,7 @@ os_thread_resume(thread_record_t *tr)
         /* For Linux, waits only if the resumed flag is not set as 1.  Return value
          * doesn't matter because the flag will be re-checked.
          */
-        ksynch_wait(&ostd->resumed, 0);
+        ksynch_wait(&ostd->resumed, 0, 0);
         if (ksynch_get_value(&ostd->resumed) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3538,7 +3559,7 @@ os_wait_thread_futex(KSYNCH_TYPE *var)
         /* On Linux, waits only if var is not set as 1. Return value
          * doesn't matter because var will be re-checked.
          */
-        ksynch_wait(var, 0);
+        ksynch_wait(var, 0, 0);
         if (ksynch_get_value(var) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3582,7 +3603,7 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     if (ostd->suspend_count == 0)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
-    sigcontext_to_mcontext(mc, ostd->suspended_sigcxt);
+    sigcontext_to_mcontext(mc, ostd->suspended_sigcxt, DR_MC_ALL);
     return true;
 }
 
@@ -3598,7 +3619,33 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     if (ostd->suspend_count == 0)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
-    mcontext_to_sigcontext(ostd->suspended_sigcxt, mc);
+    mcontext_to_sigcontext(ostd->suspended_sigcxt, mc, DR_MC_ALL);
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc)
+{
+    if (dmc != NULL)
+        sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(dmc), &osc, dmc->flags);
+    else if (mc != NULL)
+        sigcontext_to_mcontext(mc, &osc, DR_MC_ALL);
+    else
+        return false;
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc)
+{
+    if (dmc != NULL)
+        mcontext_to_sigcontext(&osc, dr_mcontext_as_priv_mcontext(dmc), dmc->flags);
+    else if (mc != NULL)
+        mcontext_to_sigcontext(&osc, mc, DR_MC_ALL);
+    else
+        return false;
     return true;
 }
 
@@ -3678,6 +3725,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     pre_second_thread();
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
+    ATOMIC_INC(int, uninit_thread_count);
     void *crec = create_clone_record(dcontext, (reg_t*)&xsp);
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
@@ -4665,6 +4713,14 @@ is_readable_without_exception(const byte *pc, size_t size)
 bool
 is_readable_without_exception_query_os(byte *pc, size_t size)
 {
+    return is_readable_without_exception_internal(pc, size, true);
+}
+
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    if (memquery_from_os_will_block())
+        return false;
     return is_readable_without_exception_internal(pc, size, true);
 }
 
@@ -6955,6 +7011,7 @@ pre_system_call(dcontext_t *dcontext)
         if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
             os_clone_pre(dcontext);
+            ATOMIC_INC(int, uninit_thread_count);
         } else  /* This is really a fork. */
             os_fork_pre(dcontext);
         break;
@@ -6977,6 +7034,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t) func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t) new_bsdthread_intercept;
         *sys_param_addr(dcontext, 1) = (reg_t) clone_rec;
+        ATOMIC_INC(int, uninit_thread_count);
         break;
     }
     case SYS_posix_spawn: {
@@ -7009,6 +7067,7 @@ pre_system_call(dcontext_t *dcontext)
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
 # endif
         os_clone_pre(dcontext);
+        ATOMIC_INC(int, uninit_thread_count);
         break;
     }
 #endif
@@ -7650,6 +7709,11 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
             ASSERT_CURIOSITY(inode == 0 /*see above comment*/||
                              module_contains_addr(ma, base+size-1));
         }
+        /* Handle cases like transparent huge pages where there are anon regions on top
+         * of the file mapping (i#2566).
+         */
+        if (ma->names.inode == 0)
+            ma->names.inode = inode;
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
         DOCHECK(1, {
             if (readable && module_is_header(base, size)) {
@@ -7738,25 +7802,22 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map,
     memquery_iterator_start(&iter, base, true /* plan to alloc a module_area_t */);
     while (memquery_iterator_next(&iter)) {
         if (iter.vm_start == base) {
-            if (iter.vm_start == vsyscall_page_start) {
-                ASSERT_CURIOSITY(!at_map);
-            } else {
-                ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start);
-                ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
-                /* XREF 307599 on rounding module end to the next PAGE boundary */
-                ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
-                                  ALIGN_FORWARD(size, PAGE_SIZE)));
-                inode = iter.inode;
-                filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
-                found_map = true;
-            }
+            ASSERT_CURIOSITY(iter.inode != 0 || base == vdso_page_start ||
+                             base == vsyscall_page_start);
+            ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
+            /* XREF 307599 on rounding module end to the next PAGE boundary */
+            ASSERT_CURIOSITY((iter.vm_end - iter.vm_start ==
+                              ALIGN_FORWARD(size, PAGE_SIZE)));
+            inode = iter.inode;
+            filename = dr_strdup(iter.comment HEAPACCT(ACCT_OTHER));
+            found_map = true;
             break;
         }
     }
     memquery_iterator_stop(&iter);
 #ifdef HAVE_MEMINFO
-    /* barring weird races we should find this map except [vdso] */
-    ASSERT_CURIOSITY(found_map || base == vsyscall_page_start || base == vdso_page_start);
+    /* barring weird races we should find this map except */
+    ASSERT_CURIOSITY(found_map);
 #else /* HAVE_MEMINFO */
     /* Without /proc/maps or other memory querying interface available at
      * library map time, there is no way to find out the name of the file
@@ -8756,16 +8817,10 @@ get_application_base(void)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
-            memquery_iter_t iter;
-            memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
-            while (memquery_iterator_next(&iter)) {
-                if (strcmp(iter.comment, name) == 0) {
-                    executable_start = iter.vm_start;
-                    executable_end = iter.vm_end;
-                    break;
-                }
-            }
-            memquery_iterator_stop(&iter);
+            DEBUG_DECLARE(int count =)
+                memquery_library_bounds(name, &executable_start, &executable_end,
+                                        NULL, 0);
+            ASSERT(count > 0 && executable_start != NULL);
         }
 #else
         /* We have to fail.  Should we dl_iterate this early? */
@@ -8982,6 +9037,14 @@ find_executable_vm_areas(void)
                              strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
                 vsyscall_page_start = iter.vm_start;
 # endif
+            /* We'd like to add vsyscall to the module list too but when it's
+             * separate from vdso it has no ELF header which is too complex
+             * to force into the module list.
+             */
+            if (module_is_header(iter.vm_start, iter.vm_end - iter.vm_start)) {
+                module_list_add(iter.vm_start, iter.vm_end - iter.vm_start,
+                                false, iter.comment, iter.inode);
+            }
         } else if (mmap_check_for_module_overlap(iter.vm_start, size,
                                                  TEST(MEMPROT_READ, iter.prot),
                                                  iter.inode, false)) {
@@ -9002,7 +9065,10 @@ find_executable_vm_areas(void)
                 iter.vm_start, iter.vm_end, TEST(MEMPROT_EXEC, iter.prot) ? " +x": "",
                 iter.inode, iter.comment);
 #ifdef LINUX
-            ASSERT_CURIOSITY(iter.inode != 0); /* mapped images should have inodes */
+            /* Mapped images should have inodes, except for cases where an anon
+             * map is placed on top (i#2566)
+             */
+            ASSERT_CURIOSITY(iter.inode != 0 || iter.comment[0] == '\0');
 #endif
             ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
             /* Get size by walking the program headers.  This includes .bss. */
@@ -9024,6 +9090,10 @@ find_executable_vm_areas(void)
             exec_match = get_application_name();
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
+            /* Handle an anon region for the header (i#2566) */
+            if (!found_exec && executable_start != NULL &&
+                executable_start == iter.vm_start)
+                found_exec = true;
 #else
             /* We don't have a nice normalized name: it can have ./ or ../ inside
              * it.  But, we can distinguish an exe from a lib here, even for PIE,
@@ -9290,13 +9360,22 @@ get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
 extern void deadlock_avoidance_unlock(mutex_t *lock, bool ownable);
 
 void
-mutex_wait_contended_lock(mutex_t *lock)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
 #ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool set_client_safe_for_synch =
                       ((dcontext != NULL) && IS_CLIENT_THREAD(dcontext) &&
                         ((mutex_t *)dcontext->client_data->client_grab_mutex == lock));
+    if (mc != NULL) {
+        ASSERT(dcontext != NULL);
+        /* set_safe_for_sync can't be true at the same time as passing
+         * an mcontext to return into: nothing would be able to reset the
+         * client_thread_safe_for_sync flag.
+         */
+        ASSERT(!set_client_safe_for_synch);
+        *get_mcontext(dcontext) = *mc;
+    }
 #endif
 
     /* i#96/PR 295561: use futex(2) if available */
@@ -9315,7 +9394,10 @@ mutex_wait_contended_lock(mutex_t *lock)
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
+
             /* Unfortunately the synch semantics are different for Linux vs Mac.
              * We have to use lock_requests as the futex to avoid waiting if
              * lock_requests changes, while on Mac the underlying synch prevents
@@ -9327,16 +9409,19 @@ mutex_wait_contended_lock(mutex_t *lock)
              * change w/o someone acquiring the lock, b/c
              * mutex_notify_released_lock() sets lock_requests to LOCK_FREE_STATE.
              */
-            res = ksynch_wait(&lock->lock_requests, LOCK_CONTENDED_STATE);
+            res = ksynch_wait(&lock->lock_requests, LOCK_CONTENDED_STATE, 0);
 #else
-            res = ksynch_wait(event, 0);
+            res = ksynch_wait(event, 0, 0);
 #endif
             if (res != 0 && res != -EWOULDBLOCK)
                 os_thread_yield();
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
+
             /* we don't care whether properly woken (res==0), var mismatch
              * (res==-EWOULDBLOCK), or error: regardless, someone else
              * could have acquired the lock, so we try again
@@ -9350,11 +9435,16 @@ mutex_wait_contended_lock(mutex_t *lock)
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
+
             os_thread_yield();
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
+            if (mc != NULL)
+                set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
         }
 
@@ -9471,16 +9561,19 @@ reset_event(event_t e)
     mutex_unlock(&e->lock);
 }
 
-void
-wait_for_event(event_t e)
+bool
+wait_for_event(event_t e, int timeout_ms)
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
+    uint64 start_time, cur_time;
+    if (timeout_ms > 0)
+        start_time = query_time_millis();
     /* Use a user-space event on Linux, a kernel event on Windows. */
     LOG(THREAD, LOG_THREADS, 3,
         "thread "TIDFMT" waiting for event "PFX"\n",get_thread_id(),e);
-    while (true) {
+    do {
         if (ksynch_get_value(&e->signaled) == 1) {
             mutex_lock(&e->lock);
             if (ksynch_get_value(&e->signaled) == 0) {
@@ -9495,19 +9588,22 @@ wait_for_event(event_t e)
                 LOG(THREAD, LOG_THREADS, 3,
                     "thread "TIDFMT" finished waiting for event "PFX"\n",
                     get_thread_id(),e);
-                return;
+                return true;
             }
         } else {
             /* Waits only if the signaled flag is not set as 1. Return value
              * doesn't matter because the flag will be re-checked.
              */
-            ksynch_wait(&e->signaled, 0);
+            ksynch_wait(&e->signaled, 0, timeout_ms);
         }
         if (ksynch_get_value(&e->signaled) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
         }
-    }
+        if (timeout_ms > 0)
+            cur_time = query_time_millis();
+    } while (timeout_ms <= 0 || cur_time - start_time < timeout_ms);
+    return false;
 }
 
 /***************************************************************************
@@ -9699,6 +9795,15 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     thread_id_t *tids;
     uint threads_to_signal = 0;
 
+    /* We do not want to re-takeover a thread that's in between notifying us on
+     * the last call to this routine and getting onto the all_threads list as
+     * we'll self-interpret our own code leading to a lot of problems.
+     * XXX: should we use an event to avoid this inefficient loop?  We expect
+     * this to only happen in rare cases during attach when threads are in flux.
+     */
+    while (uninit_thread_count > 0) /* relying on volatile */
+        os_thread_yield();
+
     mutex_lock(&thread_initexit_lock);
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");
@@ -9760,7 +9865,18 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
         for (i = 0; i < threads_to_signal; i++) {
-            wait_for_event(records[i].event);
+            static const int wait_ms = 25;
+            while (!wait_for_event(records[i].event, wait_ms)) {
+                /* The thread may have exited (i#2601).  We assume no tid re-use. */
+                char task[64];
+                snprintf(task, BUFFER_SIZE_ELEMENTS(task), "/proc/self/task/%d", tids[i]);
+                NULL_TERMINATE_BUFFER(task);
+                if (!os_file_exists(task, false/*!is dir*/)) {
+                    SYSLOG_INTERNAL_WARNING_ONCE("thread exited while attaching");
+                    break;
+                }
+                /* Else try again. */
+            }
         }
 
         /* Now that we've taken over the other threads, we can safely free the
@@ -9815,17 +9931,35 @@ os_thread_re_take_over(void)
     return false;
 }
 
+static void
+os_thread_signal_taken_over(void)
+{
+    thread_id_t mytid;
+    event_t event = NULL;
+    uint i;
+    /* Wake up the thread that initiated the take over. */
+    mytid = get_thread_id();
+    ASSERT(thread_takeover_records != NULL);
+    for (i = 0; i < num_thread_takeover_records; i++) {
+        if (thread_takeover_records[i].tid == mytid) {
+            event = thread_takeover_records[i].event;
+            break;
+        }
+    }
+    ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
+                   event != NULL);
+    signal_event(event);
+}
+
 /* Takes over the current thread from the signal handler.  We notify the thread
  * that signaled us by signalling our event in thread_takeover_records.
+ * If it returns, it returns false, and the thread should be let go.
  */
-void
+bool
 os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 {
-    uint i;
-    thread_id_t mytid;
     dcontext_t *dcontext;
     priv_mcontext_t *dc_mc;
-    event_t event = NULL;
 
     LOG(GLOBAL, LOG_THREADS, 1,
         "TAKEOVER: received signal in thread "TIDFMT"\n", get_sys_thread_id());
@@ -9836,6 +9970,11 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      */
     os_thread_re_take_over();
     if (!is_thread_initialized()) {
+        /* If this is a thread on its way to init, don't self-interp (i#2688). */
+        if (is_dynamo_address(mc->pc)) {
+            os_thread_signal_taken_over();
+            return false;
+        }
         IF_DEBUG(int r =)
             dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
         ASSERT(r == SUCCESS);
@@ -9855,18 +9994,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dcontext->whereami = WHERE_APP;
     dcontext->next_tag = mc->pc;
 
-    /* Wake up the thread that initiated the take over. */
-    mytid = get_thread_id();
-    ASSERT(thread_takeover_records != NULL);
-    for (i = 0; i < num_thread_takeover_records; i++) {
-        if (thread_takeover_records[i].tid == mytid) {
-            event = thread_takeover_records[i].event;
-            break;
-        }
-    }
-    ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
-                   event != NULL);
-    signal_event(event);
+    os_thread_signal_taken_over();
 
     DOLOG(2, LOG_TOP, {
         byte *cur_esp;
@@ -9879,6 +10007,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
+    return true; /* make compiler happy */
 }
 
 bool

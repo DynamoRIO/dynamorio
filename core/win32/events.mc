@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -252,19 +252,19 @@ Application %1!s! (%2!s!).  Out of memory.  Program aborted. Status %3!s! 0x%4!s
 .
 
 MessageId =
+Severity = Warning
+Facility = DRCore
+SymbolicName = MSG_MAX_PENDING_SIGNALS
+Language=English
+Application %1!s! (%2!s!).  Reached the soft maximum number (%3!s!) of pending signals: further accumulation prior to delivery may cause problems.  Consider raising -max_pending_signals.
+.
+
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_UNSUPPORTED_APPLICATION
 Language=English
 Application %1!s! (%2!s!) is not supported due to dll %3!s!.  Program aborted.
-.
-
-MessageId =
-Severity = Warning
-Facility = DRCore
-SymbolicName = MSG_WSL_UNSUPPORTED
-Language=English
-Application %1!s! (%2!s!).  The Windows Subsystem for Linux is not yet fully supported due to missing kernel features.   Continuing, but may encounter problems.
 .
 
 MessageId =

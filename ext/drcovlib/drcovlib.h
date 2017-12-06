@@ -244,6 +244,11 @@ typedef struct _drmodtrack_info_t {
 #endif
     /** The custom field set by the \p load_cb passed to drmodtrack_add_custom_data(). */
     void *custom;
+    /**
+     * The unique index of this module segment.  This equals the \p index parameter
+     * passed to drmodtrack_offline_lookup().
+     */
+    uint index;
 } drmodtrack_info_t;
 
 DR_EXPORT
@@ -307,6 +312,8 @@ DR_EXPORT
  * are embedding a module list inside a file with further data following the
  * list in the file).  If \p next_line is NULL, this routine stops reading at
  * the final newline: thus, \p map need not be NULL-terminated.
+ * Although \p map uses a char type, it cannot be assumed to be a regular string:
+ * binary data containing zeroes may be embedded inside it.
  *
  * Returns an identifier in \p handle to use with other offline routines, along
  * with the number of modules read in \p num_mods.  Information on each module

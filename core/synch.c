@@ -47,6 +47,9 @@
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
+static bool started_detach = false; /* set before synchall */
+bool doing_detach = false; /* set after synchall */
+
 static void
 synch_thread_yield(void);
 
@@ -119,6 +122,7 @@ synch_init(void)
 void
 synch_exit(void)
 {
+    ASSERT(uninit_thread_count == 0);
     DELETE_LOCK(all_threads_synch_lock);
 }
 
@@ -171,6 +175,13 @@ thread_synch_state_no_xfer(dcontext_t *dcontext)
             tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
 }
 
+bool
+thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm)
+{
+    thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
+    return THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+}
+
 /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set to
  * whether synch_with_all_threads was successful in synching this thread.
  * Cannot be called when THREAD_SYNCH_*_AND_CLEANED was requested as the
@@ -186,6 +197,28 @@ thread_synch_successful(thread_record_t *tr)
     tsd = (thread_synch_data_t *) tr->dcontext->synch_field;
     return tsd->synch_with_success;
 }
+
+#ifdef UNIX
+/* i#2659: the kernel is now doing auto-restart so we have to check for the
+ * pc being at the syscall.
+ */
+static bool
+is_after_or_restarted_do_syscall(dcontext_t *dcontext, app_pc pc, bool check_vsyscall)
+{
+    if (is_after_do_syscall_addr(dcontext, pc))
+        return true;
+    if (check_vsyscall && pc == vsyscall_sysenter_return_pc)
+        return true;
+    if (!get_at_syscall(dcontext)) /* rule out having just reached the syscall */
+        return false;
+    int syslen = syscall_instr_length(dr_get_isa_mode(dcontext));
+    if (is_after_do_syscall_addr(dcontext, pc + syslen))
+        return true;
+    if (check_vsyscall && pc + syslen == vsyscall_sysenter_return_pc)
+        return true;
+    return false;
+}
+#endif
 
 bool
 is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
@@ -206,7 +239,7 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
             return pc == after_do_syscall_code(dcontext);
         }
 #else
-        return is_after_do_syscall_addr(dcontext, pc);
+        return is_after_or_restarted_do_syscall(dcontext, pc, false/*!vsys*/);
 #endif
     } else if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 #ifdef WINDOWS
@@ -230,8 +263,7 @@ is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
          * distinguish those: but for now if a sysenter instruction is used it
          * has to be do_syscall since DR's own syscalls are ints.
          */
-        return (pc == vsyscall_sysenter_return_pc ||
-                is_after_do_syscall_addr(dcontext, pc));
+        return is_after_or_restarted_do_syscall(dcontext, pc, true/*vsys*/);
 #endif
     }
     /* we can reach here w/ a fault prior to 1st syscall on Linux */
@@ -577,6 +609,9 @@ should_wait_at_safe_spot(dcontext_t *dcontext)
 void
 set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state)
 {
+    if (state >= THREAD_SYNCH_NO_LOCKS)
+        ASSERT_OWN_NO_LOCKS();
+
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = state;
@@ -637,7 +672,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
            tsd->synch_perm != THREAD_SYNCH_NONE) {
         STATS_INC_DC(dcontext, synch_loops_wait_safe);
 #ifdef WINDOWS
-        if (doing_detach) {
+        if (started_detach) {
             /* We spin for any non-detach synchs encountered during detach
              * since we have no flag telling us this synch is for detach. */
             /* Ref case 5074, can NOT use os_thread_yield here. This must be a user
@@ -660,7 +695,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     ENTERING_DR();
     tsd->synch_perm = THREAD_SYNCH_NONE;
     if (tsd->set_mcontext != NULL || tsd->set_context != NULL) {
-        IF_WINDOWS(ASSERT(!doing_detach));
+        IF_WINDOWS(ASSERT(!started_detach));
         /* Make a local copy */
         ASSERT(sizeof(cxt) >= sizeof(priv_mcontext_t));
         if (tsd->set_mcontext != NULL) {
@@ -1138,7 +1173,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
      */
     ASSERT_CURIOSITY(desired_synch_state < THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT
                      /* detach currently violates this: bug 8942 */
-                     || doing_detach);
+                     || started_detach);
 
     /* must set exactly one of these -- FIXME: better way to check? */
     ASSERT(TESTANY(THREAD_SYNCH_SUSPEND_FAILURE_ABORT |
@@ -1214,7 +1249,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
      */
-    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting) {
+    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting ||
+           uninit_thread_count > 0) {
         if (threads != NULL){
             /* Case 8941: must free here rather than when yield (below) since
              * termination condition can change between there and here
@@ -1358,12 +1394,17 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
          * process (current thread, though we could be here for detach or other
          * reasons) and an exiting thread (who might no longer be on the all
          * threads list) who is still using shared resources (ref case 3121) */
-        if (!all_synched || exiting_thread_count > expect_exiting) {
+        if (!all_synched || exiting_thread_count > expect_exiting ||
+            uninit_thread_count > 0) {
             DOSTATS({
                 if (all_synched && exiting_thread_count > expect_exiting) {
                     LOG(THREAD, LOG_SYNCH, 2, "Waiting for an exiting thread %d %d %d\n",
                         all_synched, exiting_thread_count, expect_exiting);
                     STATS_INC(synch_yields_for_exiting_thread);
+                } else if (all_synched && uninit_thread_count > 0) {
+                    LOG(THREAD, LOG_SYNCH, 2, "Waiting for an uninit thread %d %d\n",
+                        all_synched, uninit_thread_count);
+                    STATS_INC(synch_yields_for_uninit_thread);
                 }
             });
             STATS_INC(synch_yields);
@@ -1592,8 +1633,29 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             "\tat syscall so not translating\n");
         /* sanity check */
         ASSERT(is_after_syscall_address(dcontext, pre_translation) ||
-               pre_translation == IF_WINDOWS_ELSE(vsyscall_after_syscall,
-                                                  vsyscall_sysenter_return_pc));
+               IF_WINDOWS_ELSE(pre_translation == vsyscall_after_syscall,
+                               is_after_or_restarted_do_syscall
+                               (dcontext, pre_translation, true/*vsys*/)));
+#if defined(UNIX) && defined(X86_32)
+        if (pre_translation == vsyscall_sysenter_return_pc ||
+            pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc) {
+            /* Because we remove the vsyscall hook on a send_all_other_threads_native()
+             * yet have no barrier to know the threads have run their own go-native
+             * code, we want to send them away from the hook, to our gencode.
+             */
+            if (pre_translation == vsyscall_sysenter_return_pc)
+                mc->pc = after_do_shared_syscall_addr(dcontext);
+            else if (pre_translation + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)
+                mc->pc = get_do_int_syscall_entry(dcontext);
+            /* exit stub and subsequent fcache_return will save rest of state */
+            res = set_synched_thread_context(dcontext->thread_record, mc, NULL, 0,
+                                             synch_state _IF_X64((void *)mc)
+                                             _IF_WINDOWS(NULL));
+            ASSERT(res);
+            /* cxt is freed by set_synched_thread_context() or target thread */
+            free_cxt = false;
+        }
+#endif
         IF_ARM({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
@@ -1726,8 +1788,6 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
  * Detach and similar operations
  */
 
-bool doing_detach = false;
-
 /* Atomic variable to prevent multiple threads from trying to detach at
  * the same time.
  */
@@ -1824,10 +1884,13 @@ send_all_other_threads_native(void)
              * going to dispatch and then going native when its syscall exits.
              *
              * FIXME i#95: That means the time to go native is, unfortunately,
-             * unbounded.  this means that dr_app_cleanup() needs to synch the
+             * unbounded.  This means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
              * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
+             * This also means we have a race with unhook_vsyscall in
+             * os_process_not_under_dynamorio(), which we solve by redirecting
+             * threads at syscalls to our gencode.
              */
             translate_from_synchall_to_dispatch(threads[i], desired_state);
         }
@@ -1873,17 +1936,17 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 
     /* Unprotect .data for exit cleanup.
      * XXX: more secure to not do this until we've synched, but then need
-     * alternative prot for doing_detach and init_apc_go_native*
+     * alternative prot for started_detach and init_apc_go_native*
      */
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-    ASSERT(!doing_detach);
-    doing_detach = true;
+    ASSERT(!started_detach);
+    started_detach = true;
 
     if (!internal) {
         synchronize_dynamic_options();
         if (!DYNAMO_OPTION(allow_detach)) {
-            doing_detach = false;
+            started_detach = false;
             SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
             dynamo_detaching_flag = LOCK_FREE_STATE;
             SYSLOG_INTERNAL_ERROR("Detach called without the allow_detach option set");
@@ -1914,8 +1977,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     init_apc_go_native_pause = true;
     init_apc_go_native = true;
-    /* See FIXME below about threads caught between the lock and initialization:
-     * this just reduces the risk.
+    /* XXX i#2611: there is still a race for threads caught between init_apc_go_native
+     * and dynamo_thread_init adding to all_threads: this just reduces the risk.
+     * Unfortunately we can't easily use the UNIX solution of uninit_thread_count
+     * since we can't distinguish internally vs externally created threads.
      */
     os_thread_yield();
 # ifdef CLIENT_INTERFACE
@@ -1938,6 +2003,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
      */
     ASSERT(mutex_testlock(&all_threads_synch_lock) &&
            mutex_testlock(&thread_initexit_lock));
+
+    ASSERT(!doing_detach);
+    doing_detach = true;
 
 #ifdef HOT_PATCHING_INTERFACE
     /* In hotp_only mode, we must remove patches when detaching; we don't want
@@ -2117,6 +2185,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
     dynamo_exit_post_detach();
 
     doing_detach = false;
+    started_detach = false;
 
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_detaching_flag = LOCK_FREE_STATE;

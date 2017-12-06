@@ -422,7 +422,9 @@ typedef struct _client_data_t {
     /* flags for dr_get_mcontext (i#117/PR 395156) */
     bool           mcontext_in_dcontext;
     bool           suspended;
+    /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
+    os_cxt_ptr_t   os_cxt;
 } client_data_t;
 #else
 # define IS_CLIENT_THREAD(dcontext) false
@@ -450,8 +452,6 @@ extern bool dynamo_exited_all_other_threads;  /* has dynamo exited and synched? 
 extern bool dynamo_exited_and_cleaned; /* has dynamo component cleanup started? */
 #ifdef DEBUG
 extern bool dynamo_exited_log_and_stats; /* are stats and logfile shut down? */
-/* process exit in middle of any thread init? */
-extern bool dynamo_thread_init_during_process_exit;
 #endif
 extern bool dynamo_resetting;    /* in middle of global reset? */
 extern bool dynamo_all_threads_synched; /* are all other threads suspended safely? */
@@ -483,7 +483,7 @@ extern byte *  initstack;
 extern mutex_t   initstack_mutex;
 extern byte *  initstack_app_xsp;
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
 extern byte *  exception_stack;
 #endif
@@ -491,7 +491,9 @@ extern byte *  exception_stack;
 /* keeps track of how many threads are in cleanup_and_terminate so that we know
  * if any threads could still be using shared resources even if they aren't on
  * the all_threads list */
-extern int exiting_thread_count;
+extern volatile int exiting_thread_count;
+/* Tracks newly created threads not yet on the all_threads list. */
+extern volatile int uninit_thread_count;
 
 /* Called before a second thread is ever scheduled. */
 void pre_second_thread(void);

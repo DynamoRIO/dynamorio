@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,6 +48,11 @@ typedef int_least64_t memref_tid_t;
 // Although the pc of each data reference is provided, the trace also guarantees that
 // an instruction entry immediately precedes the data references that it is
 // responsible for, with no intervening trace entries.
+// Offline traces further guarantee that an instruction entry for a branch
+// instruction is always followed by an instruction entry for the branch's
+// target (with any memory references for the branch in between of course)
+// without a thread switch intervening, to make it simpler to identify branch
+// targets.  Online traces do not currently guarantee this.
 
 struct _memref_data_t {
     // TRACE_TYPE_READ, TRACE_TYPE_WRITE, and TRACE_TYPE_PREFETCH*:
@@ -86,6 +91,15 @@ struct _memref_thread_exit_t {
     memref_tid_t tid;
 };
 
+struct _memref_marker_t {
+    // TRACE_TYPE_MARKER.
+    trace_type_t type;
+    memref_pid_t pid;
+    memref_tid_t tid;
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+};
+
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the
     // addr and size fields of data, instr, or flush generically if known to be one
@@ -94,6 +108,7 @@ typedef union _memref_t {
     struct _memref_instr_t instr;
     struct _memref_flush_t flush;
     struct _memref_thread_exit_t exit;
+    struct _memref_marker_t marker;
 } memref_t;
 
 #endif /* _MEMREF_H_ */

@@ -189,11 +189,35 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
         for (r = 0; r < REG_SPILL_NUM; r++) {
+#ifndef ARM
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
             ASSERT(!walk->reg_spilled[r]);
             walk->reg_spilled[r] = false; /* be paranoid */
+#else
+            /* On ARM we do spill registers across app instrs and mangle
+             * regions, though right now only the following routines do this:
+             * - mangle_stolen_reg()
+             * - mangle_gpr_list_read()
+             * - mangle_reads_thread_register()
+             * Each of these cases is a tls restore, and we assert as much.
+             */
+            DOCHECK(1, {
+                if (walk->reg_spilled[r]) {
+                    instr_t *curr;
+                    bool spill_or_restore = false;
+                    for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
+                        spill_or_restore = instr_is_DR_reg_spill_or_restore(tdcontext,
+                            curr, &spill_tls, &spill, &reg);
+                        if (spill_or_restore)
+                            break;
+                    }
+                    ASSERT(spill_or_restore && r == reg - REG_START_SPILL &&
+                           !spill && spill_tls);
+                }
+            });
+#endif
         }
     }
 
@@ -531,6 +555,8 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         prev_cpc = cpc;
         cpc = decode(tdcontext, cpc, &instr);
         instr_set_our_mangling(&instr, ours);
+        /* Sets the translation so that spilled registers can be restored. */
+        instr_set_translation(&instr, answer);
         translate_walk_track(tdcontext, &instr, &walk);
 
         /* advance translation by the stride: either instr length or 0 */
@@ -910,7 +936,9 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc) ||
          /* Check for pointing right at sysenter, for i#1145 */
          mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
-         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH) ||
+         /* Check for pointing at the sysenter-restart int 0x80 for i#2659 */
+         mcontext->pc + SYSENTER_LENGTH == vsyscall_sysenter_return_pc)) {
         /* If at do_syscall yet not yet in the kernel (or the do_syscall still uses
          * int: i#2005), we need to translate to vsyscall, for detach (i#95).
          */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -1164,6 +1164,7 @@ GLOBAL_LABEL(_start:)
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
+        mov     REG_XDI, 0 /* xdi should be callee-saved but is not always: i#2641 */
 
 reloaded_xfer:
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
@@ -2060,10 +2061,8 @@ call_modcode_alt_stack_no_free:
 #undef flags
 #undef using_initstack
 
-#ifdef STACK_GUARD_PAGE
-/*
- * void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
- *                                CONTEXT *cxt, byte *stack)
+/* void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
+ *                                CONTEXT *cxt, byte *stack, bool is_client)
  *
  * Routine to switch to a separate exception stack before calling
  * internal_exception_info().  This switch is useful if the dstack
@@ -2074,11 +2073,13 @@ call_modcode_alt_stack_no_free:
 #define pExcptRec       ARG2
 #define cxt             ARG3
 #define stack           ARG4
+#define is_client       ARG5
         DECLARE_FUNC(call_intr_excpt_alt_stack)
 GLOBAL_LABEL(call_intr_excpt_alt_stack:)
         mov      REG_XAX, dcontext
         mov      REG_XBX, pExcptRec
         mov      REG_XDI, cxt
+        mov      REG_XBP, is_client
         mov      REG_XSI, REG_XSP
         mov      REG_XSP, stack
 # ifdef X64
@@ -2089,7 +2090,8 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
                REG_XAX /* dcontext */,  \
                REG_XBX /* pExcptRec */, \
                REG_XDI /* cxt */,       \
-               1       /* dstack overflow == true */)
+               1       /* dstack overflow == true */, \
+               REG_XBP /* is_client */)
         pop      REG_XSP
         ret
         END_FUNC(call_intr_excpt_alt_stack)
@@ -2097,7 +2099,6 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #undef pExcptRec
 #undef cxt
 #undef stack
-#endif /* STACK_GUARD_PAGE */
 
 /* CONTEXT.Seg* is WORD for x64 but DWORD for x86 */
 #ifdef X64

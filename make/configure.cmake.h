@@ -200,7 +200,6 @@
 # debugging
 #    $(D)DEBUG for debug builds
 #    $(D)DEBUG_MEMORY (on for DEBUG)
-#    $(D)STACK_GUARD_PAGE (on for DEBUG)
 #    $(D)DEADLOCK_AVOIDANCE (on for DEBUG) - enforce total rank order on locks
 #    $(D)MUTEX_CALLSTACK - enable collecting callstack info, requires DEADLOCK_AVOIDANCE
 #    $(D)HEAP_ACCOUNTING (on for DEBUG)
@@ -320,7 +319,6 @@
 #ifdef DEBUG
    /* for bug fixing this is useful so we turn on for all debug builds */
 # define DEBUG_MEMORY
-# define STACK_GUARD_PAGE
 # define HEAP_ACCOUNTING
 # define DEADLOCK_AVOIDANCE
 # define MUTEX_CALLSTACK /* requires DEADLOCK_AVOIDANCE */

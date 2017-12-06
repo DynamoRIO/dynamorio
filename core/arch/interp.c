@@ -252,6 +252,14 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
               overlap_info_t *overlap_info)
 {
     memset(bb, 0, sizeof(*bb));
+#if defined(LINUX) && defined(X86_32)
+    /* With SA_RESTART (i#2659) we end up interpreting the int 0x80 in vsyscall,
+     * whose fall-through hits our hook.  We avoid interpreting our own hook
+     * by shifting it to the displaced pc.
+     */
+    if (start_pc == vsyscall_sysenter_return_pc)
+        start_pc = vsyscall_sysenter_displaced_pc;
+#endif
     bb->check_vm_area = true;
     bb->start_pc = start_pc;
     bb->app_interp = app_interp;
@@ -3218,22 +3226,6 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
     return true;
 }
 
-#ifdef X86
-/* Tells if instruction will trigger an exception because of debug register. */
-static bool
-debug_register_fire_on_addr(app_pc pc) {
-    size_t i;
-
-    for (i=0; i<DEBUG_REGISTERS_NB; i++) {
-        if (pc == debugRegister[i]) {
-            return true;
-        }
-    }
-
-    return false;
-}
-#endif
-
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
  * a fragment, but does not create the fragment, just returns the instrlist.
@@ -3519,10 +3511,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef X86
             /* If the next instruction at bb->cur_pc fires a debug register,
-             * then we should generate a single step exception before getting to it.
+             * then we should stop this basic block before getting to it.
              */
-            if (my_dcontext != NULL && debug_register_fire_on_addr(bb->cur_pc)) {
-                my_dcontext->single_step_addr = bb->instr_start;
+            if (my_dcontext != NULL && debug_register_fire_on_addr(bb->instr_start)) {
+                stop_bb_on_fallthrough = true;
                 break;
             }
 #endif

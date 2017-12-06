@@ -688,6 +688,7 @@ set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
   # FIXME case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
@@ -1063,7 +1064,7 @@ endif (UNIX)
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
@@ -1071,7 +1072,7 @@ else (DEBUG)
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")

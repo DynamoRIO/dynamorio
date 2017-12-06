@@ -43,7 +43,7 @@
 // Following typical stream iterator convention, the default constructor
 // produces an EOF object.
 reader_t::reader_t() : at_eof(true), input_entry(NULL), cur_tid(0), cur_pid(0),
-                       cur_pc(0), bundle_idx(0)
+                       cur_pc(0), prev_instr_addr(0), bundle_idx(0)
 {
     /* Empty. */
 }
@@ -101,6 +101,15 @@ reader_t::operator++()
             // use to obtain the PC for subsequent data references.
             cur_ref.data.pc = cur_pc;
             break;
+        case TRACE_TYPE_INSTR_MAYBE_FETCH:
+            // While offline traces can convert rep string per-iter instrs into
+            // no-fetch entries, online can't w/o extra work, so we do the work
+            // here:
+            if (prev_instr_addr == input_entry->addr)
+                input_entry->type = TRACE_TYPE_INSTR_NO_FETCH;
+            else
+                input_entry->type = TRACE_TYPE_INSTR;
+            ANNOTATE_FALLTHROUGH;
         case TRACE_TYPE_INSTR:
         case TRACE_TYPE_INSTR_DIRECT_JUMP:
         case TRACE_TYPE_INSTR_INDIRECT_JUMP:
@@ -108,6 +117,7 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_DIRECT_CALL:
         case TRACE_TYPE_INSTR_INDIRECT_CALL:
         case TRACE_TYPE_INSTR_RETURN:
+        case TRACE_TYPE_INSTR_NO_FETCH:
             have_memref = true;
             assert(cur_tid != 0 && cur_pid != 0);
             if (input_entry->size == 0) {
@@ -124,6 +134,7 @@ reader_t::operator++()
                 cur_pc = input_entry->addr;
                 cur_ref.instr.addr = cur_pc;
                 next_pc = cur_pc + cur_ref.instr.size;
+                prev_instr_addr = input_entry->addr;
             }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
@@ -176,6 +187,15 @@ reader_t::operator++()
             cur_pid = (memref_pid_t) input_entry->addr;
             // We do want to replace, in case of tid reuse.
             tid2pid[cur_tid] = cur_pid;
+            break;
+        case TRACE_TYPE_MARKER:
+            have_memref = true;
+            cur_ref.marker.type = (trace_type_t) input_entry->type;
+            assert(cur_tid != 0 && cur_pid != 0);
+            cur_ref.marker.pid = cur_pid;
+            cur_ref.marker.tid = cur_tid;
+            cur_ref.marker.marker_type = (trace_marker_type_t) input_entry->size;
+            cur_ref.marker.marker_value = input_entry->addr;
             break;
         default:
             ERRMSG("Unknown trace entry type %d\n", input_entry->type);

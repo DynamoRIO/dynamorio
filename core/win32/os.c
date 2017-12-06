@@ -578,10 +578,34 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
          */
         if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
             /* Win10 does not provide a version number so we use the presence
-             * of newly added syscall to distinguish major updates.
+             * of newly added syscalls to distinguish major updates.
              */
-            if (get_proc_address(get_ntdll_base(), "NtCreateRegistryTransaction")
-                != NULL) {
+            if (get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_1709_x64_syscalls;
+                    os_name = "Microsoft Windows 10-1709 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_1709_wow64_syscalls;
+                    os_name = "Microsoft Windows 10-1709 x64";
+                } else {
+                    syscalls = (int *) windows_10_1709_x86_syscalls;
+                    os_name = "Microsoft Windows 10-1709";
+                }
+                os_version = WINDOWS_VERSION_10_1709;
+            } else if (get_proc_address(get_ntdll_base(), "NtLoadHotPatch") != NULL) {
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_1703_x64_syscalls;
+                    os_name = "Microsoft Windows 10-1703 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_1703_wow64_syscalls;
+                    os_name = "Microsoft Windows 10-1703 x64";
+                } else {
+                    syscalls = (int *) windows_10_1703_x86_syscalls;
+                    os_name = "Microsoft Windows 10-1703";
+                }
+                os_version = WINDOWS_VERSION_10_1703;
+            } else if (get_proc_address(get_ntdll_base(), "NtCreateRegistryTransaction")
+                       != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *) windows_10_1607_x64_syscalls;
                     os_name = "Microsoft Windows 10-1607 x64";
@@ -793,16 +817,16 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
              */
             syscalls = windows_unknown_syscalls;
             if (module_is_64bit(get_ntdll_base())) {
-                memcpy(syscalls, windows_10_1607_x64_syscalls,
+                memcpy(syscalls, windows_10_1709_x64_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
-                memcpy(syscalls, windows_10_1607_wow64_syscalls,
+                memcpy(syscalls, windows_10_1709_wow64_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             } else {
-                memcpy(syscalls, windows_10_1607_x86_syscalls,
+                memcpy(syscalls, windows_10_1709_x86_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             }
-            os_version = WINDOWS_VERSION_10_1607; /* just use latest */
+            os_version = WINDOWS_VERSION_10_1709; /* just use latest */
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
         /* Win95 or Win98 */
@@ -4956,7 +4980,6 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#ifdef CLIENT_INTERFACE
 DR_API
 bool
 dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
@@ -4980,6 +5003,9 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
     mcontext_to_context(dst, dr_mcontext_as_priv_mcontext(src),
                         true/*cur segs, which we document*/);
 
+    /* XXX: CONTEXT_CONTROL includes xbp, while that's under DR_MC_INTEGER.
+     * We document this difference and recommend passing both to avoid problems.
+     */
     if (!TEST(DR_MC_INTEGER, src->flags))
         dst->ContextFlags &= ~(CONTEXT_INTEGER);
     if (!TEST(DR_MC_CONTROL, src->flags))
@@ -4987,7 +5013,70 @@ dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
 
     return true;
 }
-#endif
+
+/* CONTEXT_CONTROL includes xbp, but it's under DR_MC_INTEGER: callers beware! */
+static dr_mcontext_flags_t
+match_mcontext_flags_to_context_flags(dr_mcontext_flags_t mc_flags, DWORD cxt_flags)
+{
+    if (TEST(DR_MC_INTEGER, mc_flags) && !TESTALL(CONTEXT_INTEGER, cxt_flags))
+        mc_flags &= ~DR_MC_INTEGER;
+    if (TEST(DR_MC_CONTROL, mc_flags) && !TESTALL(CONTEXT_CONTROL, cxt_flags))
+        mc_flags &= ~DR_MC_CONTROL;
+    if (TEST(DR_MC_MULTIMEDIA, mc_flags) &&
+        !TESTALL(CONTEXT_DR_STATE & ~(CONTEXT_INTEGER|CONTEXT_CONTROL), cxt_flags))
+        mc_flags &= ~DR_MC_MULTIMEDIA;
+    return mc_flags;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc)
+{
+    if (dmc != NULL) {
+        /* We have to handle mismatches between dmc->flags and osc->ContextFlags.  We
+         * come here on NtContinue where often only CONTROL|INTEGER|SEGMENTS are
+         * available.  Our general strategy: keep context_to_mcontext() happy and fix
+         * up here.  We assume it's ok to clobber parts of dmc not requested by its
+         * flags, and ok to temporarily write to osc, even though it may be app
+         * memory.
+         */
+        DWORD orig_flags = osc->ContextFlags;
+        if (!TESTALL(CONTEXT_DR_STATE_NO_YMM, osc->ContextFlags))
+            osc->ContextFlags = CONTEXT_DR_STATE_NO_YMM;
+        context_to_mcontext(dr_mcontext_as_priv_mcontext(dmc), osc);
+        osc->ContextFlags = orig_flags;
+        /* We document the xbp difference: clients who care are advised to use syscall
+         * events instead of the kernel xfer events that come through here.
+         */
+        dmc->flags = match_mcontext_flags_to_context_flags(dmc->flags, orig_flags);
+    } else if (mc != NULL) {
+        /* We don't support coming here with an incomplete CONTEXT: it doesn't
+         * happen in the code base currently.
+         */
+        ASSERT(TESTALL(CONTEXT_DR_STATE_NO_YMM, osc->ContextFlags));
+        context_to_mcontext(mc, osc);
+    } else
+        return false;
+    return true;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool
+mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc)
+{
+    if (dmc != NULL) {
+        /* We document the xbp difference: clients who care are advised to use syscall
+         * events instead of the kernel xfer events that come through here.
+         */
+        dmc->flags =
+            match_mcontext_flags_to_context_flags(dmc->flags, osc->ContextFlags);
+        dr_mcontext_to_context(osc, dmc);
+    } else if (mc != NULL)
+        mcontext_to_context(osc, mc, true/*cur segs*/);
+    else
+        return false;
+    return true;
+}
 
 int
 get_num_processors()
@@ -5672,6 +5761,12 @@ bool
 is_readable_without_exception_query_os(byte *pc, size_t size)
 {
     return is_readable_without_exception(pc, size);
+}
+
+bool
+is_readable_without_exception_query_os_noblock(byte *pc, size_t size)
+{
+    return is_readable_without_exception_query_os(pc, size);
 }
 
 /* Reads size bytes starting at base and puts them in out_buf, this is safe
@@ -7930,7 +8025,7 @@ detach_handle_callbacks(int num_threads, thread_record_t **threads,
         /* FIXME - this should (along with any do/shared syscall containing gencode) be
          * allocated outside of our vmmheap so that we can free the vmmheap reservation
          * on detach. */
-        byte *callback_buf = (byte *)heap_mmap(callback_buf_size);
+        byte *callback_buf = (byte *)heap_mmap(callback_buf_size, VMM_SPECIAL_MMAP);
         detach_callback_stack_t *per_thread =
             (detach_callback_stack_t *)(callback_buf + DETACH_CALLBACK_CODE_SIZE);
         app_pc *callback_addrs = (app_pc *)(&per_thread[num_threads_with_callbacks]);
@@ -8204,18 +8299,33 @@ mutex_free_contended_event(mutex_t *lock)
     os_close(lock->contended_event);
 }
 
-/* common wrapper that also attempts to detect deadlocks */
-static void
-os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
-              _IF_CLIENT_INTERFACE(dcontext_t *dcontext))
+/* common wrapper that also attempts to detect deadlocks. Returns false on
+ * timeout, true on signalled.
+ *
+ * A 0 timeout_ms means to wait forever.
+ * A non-NULL mc will mark this thread safe to suspend and transfer; setting mc
+ * requires a non-NULL dcontext to be passed.
+ */
+static bool
+os_wait_event(event_t e, int timeout_ms
+              _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
+              _IF_CLIENT_INTERFACE(dcontext_t *dcontext)
+              _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     wait_status_t res;
     bool reported_timeout = false;
+    LARGE_INTEGER timeout;
+
+#ifdef CLIENT_INTERFACE
+    if (mc != NULL) {
+        ASSERT(dcontext != NULL);
+        *get_mcontext(dcontext) = *mc;
+    }
+#endif
 
     KSTART(wait_event);
     /* we allow using this in release builds as well */
-    if (DYNAMO_OPTION(deadlock_timeout) > 0) {
-        LARGE_INTEGER timeout;
+    if (timeout_ms == 0 && DYNAMO_OPTION(deadlock_timeout) > 0) {
         timeout.QuadPart= - ((int)DYNAMO_OPTION(deadlock_timeout)) *
             TIMER_UNITS_PER_MILLISECOND;
 #ifdef CLIENT_INTERFACE
@@ -8223,15 +8333,19 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
         ASSERT(!set_safe_for_synch || dcontext != NULL);
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = true;
+        if (mc != NULL)
+            set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
         res = nt_wait_event_with_timeout(e, &timeout /* debug timeout */);
 #ifdef CLIENT_INTERFACE
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = false;
+        if (mc != NULL)
+            set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
         if (res == WAIT_SIGNALED) {
             KSTOP(wait_event);
-            return;             /* all went well */
+            return true; /* all went well */
         }
         ASSERT(res == WAIT_TIMEDOUT);
         /* We could use get_own_peb()->BeingDebugged to determine whether
@@ -8258,7 +8372,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
                 SYSLOG_INTERNAL_WARNING("WARNING - 2nd wait after deadlock timeout "
                                         "expired succeeded! Not really deadlocked.");
                 KSTOP(wait_event);
-                return;
+                return true;
             }
             ASSERT(res == WAIT_TIMEDOUT);
             report_dynamorio_problem(NULL, DUMPCORE_TIMEOUT, NULL, NULL,
@@ -8270,13 +8384,18 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
 #ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = true;
+    if (mc != NULL)
+        set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
 #endif
-    res = nt_wait_event_with_timeout(e, INFINITE_WAIT);
+    if (timeout_ms > 0)
+        timeout.QuadPart= -timeout_ms * TIMER_UNITS_PER_MILLISECOND;
+    res = nt_wait_event_with_timeout(e, timeout_ms > 0 ? &timeout : INFINITE_WAIT);
 #ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = false;
+    if (mc != NULL)
+        set_synch_state(dcontext, THREAD_SYNCH_NONE);
 #endif
-    ASSERT(res == WAIT_SIGNALED);
     if (reported_timeout) {
         /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
          * warning to that effect. */
@@ -8287,6 +8406,7 @@ os_wait_event(event_t e _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
                                 "expired succeeded! Not really deadlocked.");
     }
     KSTOP(wait_event);
+    return (res == WAIT_SIGNALED);
 }
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
@@ -8308,7 +8428,7 @@ os_wait_handle(HANDLE h, uint64 timeout_ms)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
-mutex_wait_contended_lock(mutex_t *lock)
+mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     contention_event_t event =
         mutex_get_contended_event(&lock->contended_event, SynchronizationEvent);
@@ -8318,9 +8438,15 @@ mutex_wait_contended_lock(mutex_t *lock)
         (dcontext != NULL && IS_CLIENT_THREAD(dcontext) &&
          (mutex_t *)dcontext->client_data->client_grab_mutex == lock);
     ASSERT(!set_safe_for_sync || dcontext != NULL);
+    /* set_safe_for_sync can't be true at the same time as passing
+       an mcontext to return into: nothing would be able to reset the
+       client_thread_safe_for_sync flag.
+    */
+    ASSERT(!(set_safe_for_sync && mc != NULL));
 #endif
-    os_wait_event(event _IF_CLIENT_INTERFACE(set_safe_for_sync)
-                  _IF_CLIENT_INTERFACE(dcontext));
+    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(set_safe_for_sync)
+                  _IF_CLIENT_INTERFACE(dcontext)
+                  _IF_CLIENT_INTERFACE(mc));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8339,7 +8465,8 @@ rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
     contention_event_t event =
         mutex_get_contended_event(&rwlock->writer_waiting_readers, SynchronizationEvent);
-    os_wait_event(event _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(event, 0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
+                  _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8362,7 +8489,9 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
 {
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
-    os_wait_event(notify_readers _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(notify_readers, 0 _IF_CLIENT_INTERFACE(false)
+                  _IF_CLIENT_INTERFACE(NULL)
+                  _IF_CLIENT_INTERFACE(NULL));
     /* the event was signaled, and only a single threads waiting on
      * this event are released, if this was indeed the last reader
     */
@@ -8404,10 +8533,12 @@ reset_event(event_t e)
     nt_clear_event(e);
 }
 
-void
-wait_for_event(event_t e)
+bool
+wait_for_event(event_t e, int timeout_ms)
 {
-    os_wait_event(e _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL));
+    return os_wait_event(e, timeout_ms _IF_CLIENT_INTERFACE(false)
+                         _IF_CLIENT_INTERFACE(NULL)
+                         _IF_CLIENT_INTERFACE(NULL));
 }
 
 timestamp_t
@@ -8545,6 +8676,8 @@ early_inject_init()
         case WINDOWS_VERSION_10:
         case WINDOWS_VERSION_10_1511:
         case WINDOWS_VERSION_10_1607:
+        case WINDOWS_VERSION_10_1703:
+        case WINDOWS_VERSION_10_1709:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
              * (XXX: would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of

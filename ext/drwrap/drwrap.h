@@ -503,7 +503,8 @@ DR_EXPORT
 /**
  * Returns the value of the \p arg-th argument (0-based)
  * to the wrapped function represented by \p wrapcxt.
- * Assumes the regular C calling convention (i.e., no fastcall).
+ * Uses the calling convention set by drwrap_wrap_ex(), or for drwrap_wrap()
+ * assumes the regular C calling convention.
  * May only be called from a \p drwrap_wrap pre-function callback.
  * To access argument values in a post-function callback,
  * store them in the \p user_data parameter passed between
@@ -519,7 +520,8 @@ DR_EXPORT
 /**
  * Sets the the \p arg-th argument (0-based) to the wrapped function
  * represented by \p wrapcxt to \p val.
- * Assumes the regular C calling convention (i.e., no fastcall).
+ * Uses the calling convention set by drwrap_wrap_ex(), or for drwrap_wrap()
+ * assumes the regular C calling convention.
  * May only be called from a \p drwrap_wrap pre-function callback.
  * To access argument values in a post-function callback,
  * store them in the \p user_data parameter passed between

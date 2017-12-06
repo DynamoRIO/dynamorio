@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -91,6 +91,22 @@ void
 memquery_exit(void)
 {
     DELETE_LOCK(memquery_backing_lock);
+}
+
+bool
+memquery_from_os_will_block(void)
+{
+#ifdef DEADLOCK_AVOIDANCE
+    return memquery_backing_lock.owner != INVALID_THREAD_ID;
+#else
+    /* "may_alloc" is false for memquery_from_os() */
+    bool res = true;
+    if (mutex_trylock(&memquery_backing_lock)) {
+        res = false;
+        mutex_unlock(&memquery_backing_lock);
+    }
+    return res;
+#endif
 }
 
 static bool

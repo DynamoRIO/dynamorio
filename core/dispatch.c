@@ -798,7 +798,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
              * seeing post- and not pre-.
              */
             LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
-            ASSERT(dcontext->currently_stopped);
+            ASSERT(dcontext->currently_stopped || IS_CLIENT_THREAD(dcontext));
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
             dcontext->native_exec_postsyscall =
                 IF_UNIX_ELSE(vsyscall_sysenter_displaced_pc, vsyscall_syscall_end_pc);
@@ -873,6 +873,17 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     if (wherewasi != WHERE_APP) { /* if not first entrance */
         if (get_at_syscall(dcontext))
             handle_post_system_call(dcontext);
+
+#ifdef X86
+        /* If the next basic block starts at a debug register value,
+         * we fire a single step exception before getting to the basic block. */
+        if (debug_register_fire_on_addr(dcontext->next_tag)) {
+            LOG(THREAD, LOG_DISPATCH, 2, "Generates single step before "PFX"\n",
+                dcontext->next_tag);
+            os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
+            ASSERT_NOT_REACHED();
+        }
+#endif
 
         /* A non-ignorable syscall or cb return ending a bb must be acted on
          * We do it here to avoid becoming couldbelinking twice.
@@ -1130,7 +1141,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
-                wait_for_event(resume_from_sideline_event);
+                wait_for_event(resume_from_sideline_event, 0);
                 mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH|LOG_THREADS|LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);
@@ -1769,8 +1780,11 @@ adjust_syscall_continuation(dcontext_t *dcontext)
                /* dr_syscall_invoke_another() hits this */
                dcontext->asynch_target == vsyscall_sysenter_displaced_pc);
         /* i#1939: we do need to adjust for 4.4.8+ kernels */
-        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL)
+        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL) {
             dcontext->asynch_target = vsyscall_sysenter_displaced_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
+        }
 # endif
     } else if (vsyscall_syscall_end_pc != NULL &&
                /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
@@ -1784,6 +1798,8 @@ adjust_syscall_continuation(dcontext_t *dcontext)
         if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
             ASSERT(vsyscall_sysenter_return_pc != NULL);
             dcontext->asynch_target = vsyscall_sysenter_return_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
         }
     }
 }

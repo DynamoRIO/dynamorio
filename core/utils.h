@@ -351,7 +351,7 @@ enum {
 
     LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
 #endif
     /* FIXME: grabbed on an exception, which could happen anywhere!
@@ -723,6 +723,12 @@ void mutex_fork_reset(mutex_t *mutex);
 #endif
 #ifdef CLIENT_INTERFACE
 void mutex_mark_as_app(mutex_t *lock);
+/* Use this version of 'lock' when obtaining a lock in an app context. In the
+ * case that there is contention on this lock, this thread will be marked safe
+ * to be relocated and even detached. The current thread's mcontext may be
+ * clobbered with the provided value even if the thread is not suspended.
+ */
+void mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
 #endif
 
 /* spinmutex synchronization */
@@ -754,6 +760,14 @@ void acquire_recursive_lock(recursive_lock_t *lock);
 bool try_recursive_lock(recursive_lock_t *lock);
 void release_recursive_lock(recursive_lock_t *lock);
 bool self_owns_recursive_lock(recursive_lock_t *lock);
+#ifdef CLIENT_INTERFACE
+/* Use this version of 'lock' when obtaining a lock in an app context. In the
+ * case that there is contention on this lock, this thread will be marked safe
+ * to be relocated and even detached. The current thread's mcontext may be
+ * clobbered with the provided value even if the thread is not suspended.
+ */
+void acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
+#endif
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void read_lock(read_write_lock_t *rw);
@@ -1854,7 +1868,9 @@ extern const char *exception_label_core;
 #ifdef CLIENT_INTERFACE
 extern const char *exception_label_client;
 #endif
-#define CRASH_NAME "internal crash"
+/* These should be the same size for our report_exception_skip_prefix() */
+#define CRASH_NAME          "internal crash"
+#define STACK_OVERFLOW_NAME "stack overflow"
 
 /* pass NULL to use defaults */
 void
@@ -2029,6 +2045,8 @@ void
 print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only);
 
 #endif /* DEBUG */
+
+void dump_global_rstats_to_stderr(void);
 
 bool
 under_internal_exception(void);

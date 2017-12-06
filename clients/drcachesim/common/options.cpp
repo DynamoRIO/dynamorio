@@ -104,6 +104,13 @@ droption_t<unsigned int> op_LL_assoc
  "Specifies the associativity of the unified last-level (L2) cache.  "
  "Must be a power of 2.");
 
+droption_t<std::string> op_LL_miss_file
+(DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",
+ "Path for dumping LLC misses", "If non-empty, requests that every last-level "
+ "cache miss be written to a file at the specified path.  Each miss is written "
+ "in text format as a <program counter, address> pair.  If this tool is linked "
+ "with zlib, the file is written in gzip-compressed format.");
+
 droption_t<bool> op_L0_filter
 (DROPTION_SCOPE_CLIENT, "L0_filter", false,
  "Filter out zero-level hits during tracing",
@@ -145,6 +152,19 @@ droption_t<bytesize_t> op_max_trace_size
  "of one internal buffer.  Once reached, instrumentation continues for that thread, "
  "but no further data is recorded.");
 
+droption_t<bytesize_t> op_trace_after_instrs
+(DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
+ "Do not start tracing until N instructions",
+ "If non-zero, this causes tracing to be suppressed until this many dynamic instruction "
+ "executions are observed.  At that point, regular tracing is put into place.  Use "
+ "-max_trace_size to set a limit on the subsequent trace length.");
+
+droption_t<bytesize_t> op_exit_after_tracing
+(DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
+ "Exit the process after tracing N references",
+ "If non-zero, after tracing the specified number of references, the process is "
+ "exited with an exit code of 0.  The reference count is approximate.");
+
 droption_t<bool> op_online_instr_types
 (DROPTION_SCOPE_CLIENT, "online_instr_types", false,
  "Whether online traces should distinguish instr types",
@@ -154,9 +174,16 @@ droption_t<bool> op_online_instr_types
 
 droption_t<std::string> op_replace_policy
 (DROPTION_SCOPE_FRONTEND, "replace_policy", REPLACE_POLICY_LRU,
- "Cache replacement policy", "Specifies the replacement policy for caches. "
- "Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
+ "Cache replacement policy (LRU, LFU, FIFO)", "Specifies the replacement policy for "
+ "caches. Supported policies: LRU (Least Recently Used), LFU (Least Frequently Used), "
  "FIFO (First-In-First-Out).");
+
+droption_t<std::string> op_data_prefetcher
+(DROPTION_SCOPE_FRONTEND, "data_prefetcher", PREFETCH_POLICY_NEXTLINE,
+ "Hardware data prefetcher policy (nextline, none)", "Specifies the hardware data "
+ "prefetcher policy.  The currently supported policies are 'nextline' (fetch the "
+ "subsequent cache line) and 'none' (disables hardware prefetching).  The prefetcher "
+ "is located between the L1D and LL caches.");
 
 droption_t<bytesize_t> op_page_size
 (DROPTION_SCOPE_FRONTEND, "page_size", bytesize_t(4*1024), "Virtual/physical page size",
@@ -193,9 +220,11 @@ droption_t<std::string> op_TLB_replace_policy
 
 droption_t<std::string> op_simulator_type
 (DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
- "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM").",
+ "Simulator type (" CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", "
+ HISTOGRAM", or " BASIC_COUNTS").",
  "Specifies the type of the simulator. "
- "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", or " HISTOGRAM".");
+ "Supported types: " CPU_CACHE", " TLB", " REUSE_DIST", " REUSE_TIME", " HISTOGRAM
+ "or " BASIC_COUNTS".");
 
 droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
@@ -238,8 +267,8 @@ droption_t<bytesize_t> op_warmup_refs
 
 droption_t<bytesize_t> op_sim_refs
 (DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
- "Number of memory references simulated",
- "Specifies the number of memory references simulated. "
+ "Number of memory references to simulate",
+ "Specifies the number of memory references to simulate. "
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
 

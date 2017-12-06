@@ -36,7 +36,7 @@
 #ifndef _TLB_SIMULATOR_H_
 #define _TLB_SIMULATOR_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include "simulator.h"
 #include "tlb_stats.h"
 #include "tlb.h"

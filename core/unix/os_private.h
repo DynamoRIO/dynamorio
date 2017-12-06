@@ -192,7 +192,7 @@ typedef struct ptrace_stack_args_t {
 } ptrace_stack_args_t;
 
 /* in os.c */
-void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
+bool os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
@@ -302,10 +302,12 @@ signal_handle_close(dcontext_t *dcontext, file_t fd);
 #endif
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
+                       dr_mcontext_flags_t flags);
 
 void
-mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc);
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
+                       dr_mcontext_flags_t flags);
 
 bool
 set_default_signal_action(int sig);

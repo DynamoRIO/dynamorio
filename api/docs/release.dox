@@ -145,6 +145,10 @@ following minor compatibility changes:
    such as a static initialiser, will still need to be rewritten.
    DynamoRIO_PAGE_SIZE_COMPATIBILITY will be set automatically if the
    client targets version 6.2 or earlier.
+ - Removed DRMGR_PRIORITY_INSERT_CLS_ENTRY, DRMGR_PRIORITY_INSERT_CLS_EXIT,
+   DRMGR_PRIORITY_NAME_CLS_ENTRY, and DRMGR_PRIORITY_NAME_CLS_EXIT, as
+   the new kernel xfer event (drmgr_register_kernel_xfer_event()) removes the
+   need for them.
 
 Further non-compatibility-affecting changes include:
 
@@ -175,8 +179,39 @@ Further non-compatibility-affecting changes include:
  - Added drmodtrack customization via drmodtrack_add_custom_data() and
    post-processing support via drmodtrack_offline_write().
  - Added drcachesim customization via drmemtrace_replace_file_ops(),
-   drmemtrace_custom_module_data(), and drmemtrace_get_modlist_path().
+   drmemtrace_custom_module_data(), drmemtrace_get_output_path(),
+   drmemtrace_get_modlist_path(), and a separate rawtrace library for
+   post-processing customization with raw2trace_t::handle_custom_data(),
+   raw2trace_t::do_module_parsing(), raw2trace_t::do_conversion(), and
+   raw2trace_directory_t.
  - Added a set_value() function to the \ref page_droption.
+ - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
+ - Globally enabled auto predication in the drmgr instrumentation insertion event by
+   default.
+ - Added drmgr_disable_auto_predication().
+ - Added a new option -signal_stack_size with a smaller default value than
+   before, to save space on applications with many threads.
+ - Added instr_predicate_is_cond().
+ - Added a hardware data next-line prefetcher to drcachesim.  It is on by
+   default, so simulation results may not match those in prior releases.
+   It can be disabled by running with "-data_prefetcher none" (see \ref
+   sec_drcachesim_ops).
+ - Added a last-level cache miss recording feature to drcachesim.
+ - Added a delayed tracing feature to drcachesim.
+ - On Linux, the VDSO module is now included in the module list at program
+   startup.
+ - Added support for Windows 10 1703.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1703 to distinguish this major update.
+ - Added support for Windows 10 1709.  We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1709 to distinguish this major update.
+ - Added an event for kernel-mediated control flow via
+   dr_register_kernel_xfer_event() with corresponding routines
+   drmgr_register_kernel_xfer_event() and drmgr_register_kernel_xfer_event_ex().
+ - Added a new option -ignore_all_libs to drcpusim.
+ - Added a new tool basic_counts to drcachesim for counting up the
+   different types of entries in a trace, broken down by thread.
+ - Added instr_is_string_op() and instr_is_rep_string_op().
+ - Added dr_app_recurlock_lock().
 
 **************************************************
 <hr>

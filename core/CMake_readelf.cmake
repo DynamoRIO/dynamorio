@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -32,6 +32,7 @@
 # Caller must set:
 # + READELF_EXECUTABLE so it can be a cache variable
 # + "lib" to point to target library
+# + "check_textrel" to ON or OFF to check to text relocations
 # + "check_deps" to ON or OFF to check for zero deps
 # + "check_libc" to ON or OFF to check for too-recent libc imports
 # + "check_interp" to ON or OFF to check for a PT_INTERP section
@@ -39,21 +40,23 @@
 # PR 212290: ensure no text relocations (they violate selinux execmod policies)
 # looking for dynamic section tag:
 #   0x00000016 (TEXTREL)                    0x0
-execute_process(COMMAND
-  ${READELF_EXECUTABLE} -d ${lib}
-  RESULT_VARIABLE readelf_result
-  ERROR_VARIABLE readelf_error
-  OUTPUT_VARIABLE string
-  )
-if (readelf_result OR readelf_error)
-  message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
-endif (readelf_result OR readelf_error)
-string(REGEX MATCH
-  "TEXTREL"
-  has_textrel "${string}")
-if (has_textrel)
-  message(FATAL_ERROR "*** Error: ${lib} has text relocations")
-endif (has_textrel)
+if (check_textrel)
+  execute_process(COMMAND
+    ${READELF_EXECUTABLE} -d ${lib}
+    RESULT_VARIABLE readelf_result
+    ERROR_VARIABLE readelf_error
+    OUTPUT_VARIABLE string
+    )
+  if (readelf_result OR readelf_error)
+    message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+  endif (readelf_result OR readelf_error)
+  string(REGEX MATCH
+    "TEXTREL"
+    has_textrel "${string}")
+  if (has_textrel)
+    message(FATAL_ERROR "*** Error: ${lib} has text relocations")
+  endif (has_textrel)
+endif ()
 
 # also check for execstack
 # looking for stack properties:

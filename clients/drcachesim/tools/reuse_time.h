@@ -30,7 +30,10 @@
  * DAMAGE.
  */
 
-#include <map>
+#ifndef _REUSE_TIME_H_
+#define _REUSE_TIME_H_ 1
+
+#include <unordered_map>
 #include <string>
 
 #include "analysis_tool.h"
@@ -44,9 +47,10 @@ class reuse_time_t : public analysis_tool_t
     virtual bool print_results();
 
  protected:
-    std::map<addr_t, int_least64_t> time_map;
+    std::unordered_map<addr_t, int_least64_t> time_map;
     int_least64_t time_stamp;
-    std::map<int_least64_t, int_least64_t> reuse_time_histogram;
+    int_least64_t total_instructions;
+    std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
 
     unsigned int knob_verbose;
     unsigned int knob_line_size;
@@ -54,3 +58,5 @@ class reuse_time_t : public analysis_tool_t
 
     static const std::string TOOL_NAME;
 };
+
+#endif /* _REUSE_TIME_H_ */

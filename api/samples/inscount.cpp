@@ -145,7 +145,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     uint num_instrs;
 
 #ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
+    dr_printf("in dynamorio_basic_block(tag=" PFX")\n", tag);
 # ifdef VERBOSE_VERBOSE
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
@@ -171,7 +171,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
     *user_data = (void *)(ptr_uint_t)num_instrs;
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished counting for dynamorio_basic_block(tag="PFX")\n", tag);
+    dr_printf("Finished counting for dynamorio_basic_block(tag=" PFX")\n", tag);
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 #endif
     return DR_EMIT_DEFAULT;
@@ -182,6 +182,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
+    /* By default drmgr enables auto-predication, which predicates all instructions with
+     * the predicate of the current instruction on ARM.
+     * We disable it here because we want to unconditionally execute the following
+     * instrumentation.
+     */
+    drmgr_disable_auto_predication(drcontext, bb);
     if (!drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
     /* Only insert calls for in-app BBs */

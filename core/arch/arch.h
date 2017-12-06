@@ -512,6 +512,25 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr _IF_X86_64(gencode_mode_t mode));
+
+/* Returns the number of bytes the stack pointer has to be aligned to. */
+static inline uint
+get_ABI_stack_alignment()
+{
+#ifdef X86
+# if defined(X64) || defined(MACOS)
+    return 16;
+# else
+    /* See i#847 for discussing the stack alignment on X86. */
+    return 4;
+# endif
+#elif defined(AARCH64)
+    return 16;
+#elif defined(ARM)
+    return 8;
+#endif
+}
+
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
@@ -541,10 +560,10 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *where, reg_id_t reg);
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *instr);
+                       instrlist_t *ilist, instr_t *instr, byte *encode_pc);
 void
 cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *instr);
+                         instrlist_t *ilist, instr_t *instr, byte *encode_pc);
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);
@@ -568,7 +587,7 @@ int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 /* in mangle.c  but not exported to non-arch files */
 int
 insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
-                                  instr_t *instr, bool save);
+                                  instr_t *instr, bool save, byte *encode_pc);
 #ifdef X86
 # ifdef UNIX
 /* Mangle reference of fs/gs semgents, reg must not be used in the oldop. */

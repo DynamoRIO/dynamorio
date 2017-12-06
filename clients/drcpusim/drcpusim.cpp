@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -33,7 +33,6 @@
 /* drcpusim.cpp: client for simulating instruction sets of legacy processors
  *
  * XXX i#1732: add more features, such as:
- * + Whitelist/blacklist to ignore system libraries
  * + Add more recent Intel models
  * + Add Atom models
  * + Add AMD models
@@ -57,6 +56,8 @@
 static bool (*opcode_supported)(instr_t *);
 
 static std::vector<std::string> blacklist;
+
+static app_pc exe_start;
 
 /* DR deliberately does not bother to keep model-specific information in its
  * IR.  Thus we have our own routines here that mostly just check opcodes.
@@ -729,6 +730,10 @@ report_invalid_opcode(int opc, app_pc pc)
     // XXX i#1732: ideally, provide a callstack: this is where we'd want DrCallstack.
     module_data_t *mod = dr_lookup_module(pc);
     const char *modname = NULL;
+    if (op_ignore_all_libs.get_value() && mod != NULL && mod->start != exe_start) {
+        dr_free_module_data(mod);
+        return;
+    }
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
     if (modname != NULL) {
@@ -888,6 +893,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         std::string entry;
         while (std::getline(stream, entry, ':'))
             blacklist.push_back(entry);
+    }
+
+    if (op_ignore_all_libs.get_value()) {
+        module_data_t *exe = dr_get_main_module();
+        DR_ASSERT(exe != NULL);
+        exe_start = exe->start;
+        dr_free_module_data(exe);
     }
 
     if (!drmgr_init())
