@@ -43,6 +43,7 @@
 #include "dr_frontend.h"
 #include "../analyzer.h"
 #include "histogram_create.h"
+#include "../tests/trace_invariants.h"
 
 #define FATAL_ERROR(msg, ...) do { \
     fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
@@ -94,34 +95,40 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    analysis_tool_t *tool =
+    analysis_tool_t *tool1 =
         histogram_tool_create(op_line_size.get_value(),
                               op_report_top.get_value(),
                               op_verbose.get_value());
-
-    analyzer_t analyzer(op_trace.get_value(), &tool, 1);
+    std::vector<analysis_tool_t*> tools;
+    tools.push_back(tool1);
+    trace_invariants_t tool2;
+    if (op_test_mode.get_value()) {
+        // We use this launcher to run tests as well:
+        tools.push_back(&tool2);
+    }
+    analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
     if (!analyzer)
         FATAL_ERROR("failed to initialize analyzer");
     if (!analyzer.run())
         FATAL_ERROR("failed to run analyzer");
     analyzer.print_stats();
-    delete tool;
+    delete tool1;
 
     if (op_test_mode.get_value()) {
         // Test the external-iterator interface.
-        tool = histogram_tool_create(op_line_size.get_value(),
+        tool1 = histogram_tool_create(op_line_size.get_value(),
                                      op_report_top.get_value(),
                                      op_verbose.get_value());
         analyzer_t external(op_trace.get_value());
         if (!external)
             FATAL_ERROR("failed to initialize analyzer");
         for (reader_t &iter = external.begin(); iter != external.end(); ++iter) {
-            if (!tool->process_memref(*iter))
+            if (!tool1->process_memref(*iter))
                 FATAL_ERROR("tool failed to process entire trace");
         }
-        if (!tool->print_results())
+        if (!tool1->print_results())
             FATAL_ERROR("tool failed to print results");
-        delete tool;
+        delete tool1;
     }
 
     return 0;

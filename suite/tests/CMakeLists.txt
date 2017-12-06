@@ -2689,8 +2689,12 @@ if (CLIENT_INTERFACE)
 
       # Test the standalone histogram tool.
       # ${ci_shared_app} is already used for an offline test, and we're deleting a
-      # dir with that name, so we run common.eflags to avoid having to serialize.
-      set(histo_app common.${control_flags})
+      # dir with that name, so we run other apps to avoid having to serialize.
+      if (UNIX)
+        set(histo_app pthreads.pthreads) # We want some threads for trace_invariants.
+      else ()
+        set(histo_app common.${control_flags})
+      endif()
       torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
         "histogram-offline.c" "-offline" "" "")
       set(tool.histogram.offline_toolname "drcachesim")
