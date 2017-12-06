@@ -1832,8 +1832,9 @@ send_all_other_threads_native(void)
     if (!synch_with_all_threads(desired_state, &threads, &num_threads,
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                 THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
-        fatal_error(COULDNT_SYNCH_WITH_ALL_THREADS, 1,
-                    "send_all_other_threads_native");
+        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
 
     ASSERT(mutex_testlock(&all_threads_synch_lock) &&
@@ -1998,8 +1999,9 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
                                  * other threads.
                                  */
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER, flags)) {
-        fatal_error(COULDNT_SYNCH_WITH_ALL_THREADS, 1,
-                    "detach_on_permanent_stack");
+        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
 
     /* Now we own the thread_initexit_lock.  We'll release the locks grabbed in
