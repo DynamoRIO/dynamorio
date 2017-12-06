@@ -177,6 +177,12 @@ type_is_instr(const trace_type_t type)
 }
 
 static inline bool
+type_is_instr_branch(const trace_type_t type)
+{
+    return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN);
+}
+
+static inline bool
 type_is_prefetch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR) ||

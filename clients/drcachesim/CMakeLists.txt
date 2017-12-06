@@ -128,10 +128,12 @@ set(file_analyzer_tool_srcs
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
+# We also use this to link in our trace_invariants sanity checker.
 # i#2006: the final method for supporting 3rd-party tools is not yet decided.
 add_executable(drmemtrace_histogram
   ${file_analyzer_tool_srcs}
   tools/histogram_launcher.cpp
+  tests/trace_invariants.cpp
   )
 target_link_libraries(drmemtrace_histogram histogram drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_histogram droption)
@@ -225,6 +227,14 @@ macro(add_win32_flags target)
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
+    endif ()
+  else ()
+    # Work around configure_DynamoRIO_static() clobbering flags by re-adding
+    # the important ones for our tests, so they can include our headers
+    # with C++11-isms.
+    get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
+    if (NOT cur MATCHES "-std=")
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
     endif ()
   endif ()
 endmacro ()

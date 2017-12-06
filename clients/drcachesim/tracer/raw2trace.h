@@ -133,6 +133,7 @@ private:
                                   OUT bool *handled);
     std::string append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                               opnd_t ref, bool write);
+    std::string append_delayed_branch(uint tidx);
 
     static const uint MAX_COMBINED_ENTRIES = 64;
     const char *modmap;
@@ -151,6 +152,9 @@ private:
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
     // and hash function), and hashtable_t outperformed the others (i#2056).
     hashtable_t decode_cache;
+
+    // Used to delay thread-buffer-final branch to keep it next to its target.
+    std::vector<std::vector<char>> delayed_branch;
 
     // We store module info for do_module_parsing.
     std::vector<drmodtrack_info_t> modlist;

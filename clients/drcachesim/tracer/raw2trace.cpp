@@ -287,12 +287,13 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         return "Trace ends mid-block";
     if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
         in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
-        // This happens when there are predicated memrefs in the bb.
-        // They could be earlier, so "instr" may not itself be predicated.
+        // This happens when there are predicated memrefs in the bb, or for a
+        // zero-iter rep string loop.  For predicated memrefs,
+        // they could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        VPRINT(4, "Missing memref (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-               in_entry.combined_value);
+        VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
+               ZHEX64_FORMAT_STRING ")\n", in_entry.combined_value);
         // Put back the entry.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
                                   thread_files[tidx]->cur);
@@ -420,10 +421,37 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             }
         }
         CHECK((size_t)(buf - buf_start) < MAX_COMBINED_ENTRIES, "Too many entries");
-        if (!out_file->write((char*)buf_start, (buf - buf_start)*sizeof(trace_entry_t)))
-            return "Failed to write to output file";
+        if (instr_is_cti(instr)) {
+            CHECK(delayed_branch[tidx].empty(), "Failed to flush delayed branch");
+            // In case this is the last branch prior to a thread switch, buffer it.  We
+            // avoid swapping threads immediately after a branch so that analyzers can
+            // more easily find the branch target.  Doing this in the tracer would incur
+            // extra overhead, and in the reader would be more complex and messy than
+            // here (and we are ok bailing on doing this for online traces), so we
+            // handle it in post-processing by delaying a thread-block-final branch (and
+            // its memrefs) to that thread's next block.  This changes the timestamp
+            // of the branch, which we live with.
+            delayed_branch[tidx].insert(delayed_branch[tidx].begin(),
+                                        (char *)buf_start, (char *)buf);
+        } else {
+            if (!out_file->write((char*)buf_start,
+                                 (buf - buf_start)*sizeof(trace_entry_t)))
+                return "Failed to write to output file";
+        }
     }
     *handled = true;
+    return "";
+}
+
+std::string
+raw2trace_t::append_delayed_branch(uint tidx)
+{
+    if (delayed_branch[tidx].empty())
+        return "";
+    VPRINT(4, "Appending delayed branch for thread %d\n", tidx);
+    if (!out_file->write(&delayed_branch[tidx][0], delayed_branch[tidx].size()))
+        return "Failed to write to output file";
+    delayed_branch[tidx].clear();
     return "";
 }
 
@@ -506,6 +534,16 @@ raw2trace_t::merge_and_process_thread_files()
                 return ss.str();
             }
         }
+        if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+                   (uint)tids[tidx], in_entry.timestamp.usec);
+            times[tidx] = in_entry.timestamp.usec;
+            tidx = (uint)thread_files.size(); // Request thread scan.
+            continue;
+        }
+        std::string result = append_delayed_branch(tidx);
+        if (!result.empty())
+            return result;
         if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
                 // Push forward to EOF.
@@ -533,11 +571,6 @@ raw2trace_t::merge_and_process_thread_files()
                 ss << "Invalid extension type " << (int)in_entry.extended.ext;
                 return ss.str();
             }
-        } else if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                   (uint)tids[tidx], in_entry.timestamp.usec);
-            times[tidx] = in_entry.timestamp.usec;
-            tidx = (uint)thread_files.size(); // Request thread scan.
         } else if (in_entry.addr.type == OFFLINE_TYPE_MEMREF ||
                    in_entry.addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
             if (!last_bb_handled) {
@@ -556,9 +589,9 @@ raw2trace_t::merge_and_process_thread_files()
                 return "memref entry found outside of bb";
             }
         } else if (in_entry.pc.type == OFFLINE_TYPE_PC) {
-          std::string result = append_bb_entries(tidx, &in_entry, &last_bb_handled);
-          if (!result.empty())
-              return result;
+            result = append_bb_entries(tidx, &in_entry, &last_bb_handled);
+            if (!result.empty())
+                return result;
         } else if (in_entry.tid.type == OFFLINE_TYPE_THREAD) {
             VPRINT(2, "Thread %u entry\n", (uint)in_entry.tid.tid);
             if (tids[tidx] == INVALID_THREAD_ID)
@@ -663,6 +696,8 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     // We pay a little memory to get a lower load factor.
     hashtable_config_t config = {sizeof(config), true, 40};
     hashtable_configure(&decode_cache, &config);
+
+    delayed_branch.resize(thread_files.size());
 }
 
 raw2trace_t::~raw2trace_t()
