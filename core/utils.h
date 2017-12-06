@@ -1946,12 +1946,17 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define SYSLOG_INTERNAL_CRITICAL_ONCE(...) \
     DODEBUG_ONCE(SYSLOG_INTERNAL_CRITICAL(__VA_ARGS__))
 
+#define FATAL_ERROR_EXIT_CODE 40
+
 #define REPORT_FATAL_ERROR_AND_EXIT(dcontext, msg_id, arg_count, ...) \
-    do { \
-        SYSLOG_COMMON(false, SYSLOG_CRITICAL, msg_id, arg_count, \
-                      __VA_ARGS__); \
-        os_terminate_with_code(dcontext, TERMINATE_PROCESS, 40); \
-        ASSERT_NOT_REACHED(); \
+    do {                                                              \
+        /* Right now we just print an error message. In the future */ \
+        /* it may make sense to generate a core dump too. */          \
+        SYSLOG_COMMON(false, SYSLOG_CRITICAL, msg_id, arg_count,      \
+                      __VA_ARGS__);                                   \
+        os_terminate_with_code(dcontext, TERMINATE_PROCESS,           \
+                               FATAL_ERROR_EXIT_CODE);                \
+        ASSERT_NOT_REACHED();                                         \
     } while (0)
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
