@@ -487,7 +487,8 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         // We assume that drutil restricts repstr to a single bb on its own, and
         // we avoid its mix of translations resulting in incorrect ifetch stats
         // (it can be significant: i#2011).  The original app bb has just one instr,
-        // which is a memref, so the pre-memref entry will suffice.
+        // so we instrument just once at the top of the bb (rather than before the
+        // memref, so we can handle a zero-iter loop).
         ud->num_delay_instrs = 0;
         return adjust;
     }
@@ -820,12 +821,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
           * XXX: the expansion means our instr fetch trace is not perfect,
-          * but we live with having the wrong instr length.
+          * but we live with having the wrong instr length for online traces.
           */
          ud->last_app_pc == instr_get_app_pc(instr)) &&
         ud->strex == NULL &&
-        // Ensure we have an instr entry for the start of the bb, for offline.
-        (!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)))
+        // Ensure we have an instr entry for the start of the bb.
+        !drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -858,6 +859,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
+        // Don't bundle the zero-rep-string-iter instr.
+        (!ud->repstr || !drmgr_is_first_instr(drcontext, instr)) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -922,8 +925,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      */
     is_memref = instr_reads_memory(instr) || instr_writes_memory(instr);
     // See comment in instrument_delay_instrs: we only want the original string
-    // ifetch and not any of the expansion instrs.
-    if (is_memref || !ud->repstr) {
+    // ifetch and not any of the expansion instrs.  We instrument the first
+    // one to handle a zero-iter loop.
+    if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb,
                                   instr, reg_ptr, reg_tmp, adjust, instr);
     }
