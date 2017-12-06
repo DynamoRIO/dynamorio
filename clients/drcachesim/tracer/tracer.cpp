@@ -379,6 +379,9 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
                 // We can only split before TRACE_TYPE_INSTR, assuming only a few data
                 // entries in between instr entries.
+                // XXX i#2638: if we want to support branch target analysis in online
+                // traces we'll need to not split after a branch: either split before
+                // it or one instr after.
                 trace_type_t type = instru->get_entry_type(mem_ref);
                 if (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                     if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
@@ -394,6 +397,9 @@ memtrace(void *drcontext, bool skip_size_cap)
             // Write the rest to pipe
             // The last few entries (e.g., instr + refs) may exceed the atomic write size,
             // so we may need two writes.
+            // XXX i#2638: if we want to support branch target analysis in online
+            // traces we'll need to not split after a branch by carrying a write-final
+            // branch forward to the next buffer.
             if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)

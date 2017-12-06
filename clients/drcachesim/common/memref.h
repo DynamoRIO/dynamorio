@@ -48,6 +48,11 @@ typedef int_least64_t memref_tid_t;
 // Although the pc of each data reference is provided, the trace also guarantees that
 // an instruction entry immediately precedes the data references that it is
 // responsible for, with no intervening trace entries.
+// Offline traces further guarantee that an instruction entry for a branch
+// instruction is always followed by an instruction entry for the branch's
+// target (with any memory references for the branch in between of course)
+// without a thread switch intervening, to make it simpler to identify branch
+// targets.  Online traces do not currently guarantee this.
 
 struct _memref_data_t {
     // TRACE_TYPE_READ, TRACE_TYPE_WRITE, and TRACE_TYPE_PREFETCH*:
