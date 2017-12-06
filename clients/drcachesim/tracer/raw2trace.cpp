@@ -277,28 +277,37 @@ raw2trace_t::unmap_modules(void)
  * Disassembly to fill in instr and memref entries
  */
 
+#define FAULT_INTERRUPTED_BB "INTERRUPTED"
+
+// Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
+// Any other non-empty string is a fatal error.
 std::string
 raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
-    offline_entry_t in_entry;
-    if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry)))
+    // To avoid having to backtrack later, we read 2 ahead to see whether this memref
+    // faulted.  There's a footer so this should always succeed.
+    offline_entry_t in_entry[2];
+    if (!thread_files[tidx]->read((char*)in_entry, sizeof(in_entry)))
         return "Trace ends mid-block";
-    if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
-        in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
+    if (in_entry[0].addr.type != OFFLINE_TYPE_MEMREF &&
+        in_entry[0].addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
         // This happens when there are predicated memrefs in the bb, or for a
         // zero-iter rep string loop.  For predicated memrefs,
         // they could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
         VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
-               ZHEX64_FORMAT_STRING ")\n", in_entry.combined_value);
-        // Put back the entry.
+               ZHEX64_FORMAT_STRING ")\n", in_entry[0].combined_value);
+        // Put back both entries.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
                                   thread_files[tidx]->cur);
         return "";
     }
+    // Put back the 2nd entry.
+    thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry[0]),
+                              thread_files[tidx]->cur);
     if (instr_is_prefetch(instr)) {
         buf->type = instru_t::instr_to_prefetch_type(instr);
         buf->size = 1;
@@ -313,9 +322,16 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
     }
     // We take the full value, to handle low or high.
-    buf->addr = (addr_t) in_entry.combined_value;
+    buf->addr = (addr_t) in_entry[0].combined_value;
     VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
     *buf_in = ++buf;
+    if (in_entry[1].extended.type == OFFLINE_TYPE_EXTENDED &&
+        in_entry[1].extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        in_entry[1].extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        // A signal/exception interrupted the bb after the memref.
+        VPRINT(4, "Signal/exception interrupted the bb\n");
+        return FAULT_INTERRUPTED_BB;
+    }
     return "";
 }
 
@@ -341,6 +357,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
     bool skip_icache = false;
+    bool truncated = false; // Whether a fault ended the bb early.
     if (instr_count == 0) {
         // L0 filtering adds a PC entry with a count of 0 prior to each memref.
         skip_icache = true;
@@ -350,7 +367,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             instrs_are_separate = true;
     }
     CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
-    for (uint i = 0; i < instr_count; ++i) {
+    for (uint i = 0; !truncated && i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
         app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
             modvec[in_entry->pc.modidx].orig_base;
@@ -403,19 +420,25 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr_reads_memory(instr) || instr_writes_memory(instr))) {
-            for (int i = 0; i < instr_num_srcs(instr); i++) {
-                if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+            for (int j = 0; j < instr_num_srcs(instr); j++) {
+                if (opnd_is_memory_reference(instr_get_src(instr, j))) {
                     std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_src(instr, i), false);
-                    if (!error.empty())
+                                                      instr_get_src(instr, j), false);
+                    if (error == FAULT_INTERRUPTED_BB) {
+                        truncated = true;
+                        break;
+                    } else if (!error.empty())
                         return error;
                 }
             }
-            for (int i = 0; i < instr_num_dsts(instr); i++) {
-                if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+            for (int j = 0; !truncated && j < instr_num_dsts(instr); j++) {
+                if (opnd_is_memory_reference(instr_get_dst(instr, j))) {
                     std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_dst(instr, i), true);
-                    if (!error.empty())
+                                                      instr_get_dst(instr, j), true);
+                    if (error == FAULT_INTERRUPTED_BB) {
+                        truncated = true;
+                        break;
+                    } else if (!error.empty())
                         return error;
                 }
             }

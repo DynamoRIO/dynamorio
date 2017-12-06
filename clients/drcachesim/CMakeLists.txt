@@ -86,7 +86,7 @@ add_library(raw2trace STATIC
 configure_DynamoRIO_standalone(raw2trace)
 target_link_libraries(raw2trace drfrontendlib)
 
-add_executable(drcachesim
+set(drcachesim_srcs
   launcher.cpp
   analyzer.cpp
   analyzer_multi.cpp
@@ -99,6 +99,11 @@ add_executable(drcachesim
   tracer/instru.cpp
   tracer/instru_online.cpp
   )
+if (DEBUG)
+  # We include the invariants analyzer for testing.
+  set(drcachesim_srcs ${drcachesim_srcs} tests/trace_invariants.cpp)
+endif ()
+add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:

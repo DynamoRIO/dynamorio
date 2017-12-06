@@ -387,8 +387,10 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
         if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
             return adjust;
         pc = dr_fragment_app_pc(tag);
-    } else
+    } else {
+        // XXX: For repstr do we want tag insted of skipping rep prefix?
         pc = instr_get_app_pc(app);
+    }
     adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                            pc, memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
     if (!memref_needs_full_info)
