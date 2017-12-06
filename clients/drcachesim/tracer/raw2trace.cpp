@@ -285,14 +285,15 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
     offline_entry_t in_entry;
     if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry)))
         return "Trace ends mid-block";
-    if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
-        in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
-        // This happens when there are predicated memrefs in the bb.
-        // They could be earlier, so "instr" may not itself be predicated.
+    if (in_entry[0].addr.type != OFFLINE_TYPE_MEMREF &&
+        in_entry[0].addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
+        // This happens when there are predicated memrefs in the bb, or for a
+        // zero-iter rep string loop.  For predicated memrefs,
+        // they could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        VPRINT(4, "Missing memref (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-               in_entry.combined_value);
+        VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
+               ZHEX64_FORMAT_STRING ")\n", in_entry[0].combined_value);
         // Put back the entry.
         thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
                                   thread_files[tidx]->cur);
