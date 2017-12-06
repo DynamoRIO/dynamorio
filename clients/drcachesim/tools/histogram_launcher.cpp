@@ -106,7 +106,7 @@ _tmain(int argc, const TCHAR *targv[])
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);
     }
-    analyzer_t analyzer(op_trace.get_value(), &tools[0], tools.size());
+    analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
     if (!analyzer)
         FATAL_ERROR("failed to initialize analyzer");
     if (!analyzer.run())
