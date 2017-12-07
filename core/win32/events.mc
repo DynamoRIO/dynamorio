@@ -610,4 +610,11 @@ Application %1!s! (%2!s!). Cannot identify VFP frame offset.
 .
 ;#endif
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_SYNCHRONIZE_THREADS
+Language=English
+Application %1!s! (%2!s!). Failed to synchronize with all threads when detaching.
+.
 ;// ADD NEW MESSAGES HERE

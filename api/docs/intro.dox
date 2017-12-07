@@ -114,6 +114,12 @@ sections:
 - \subpage API_samples
   <br>Shows some sample use cases and reference implementations.
 
+- \ref page_tool
+  <br>A collection of powerful DynamoRIO-based tools are provided for
+  direct use, including our \ref page_drcachesim and memory access trace
+  collection and analysis platform, the \ref page_drmemory, our \ref
+  page_drcov, and more.
+
 - \subpage overview
   <br>A description of the implementation of the DynamoRIO system.
 
