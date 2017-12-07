@@ -379,6 +379,9 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
                 // We can only split before TRACE_TYPE_INSTR, assuming only a few data
                 // entries in between instr entries.
+                // XXX i#2638: if we want to support branch target analysis in online
+                // traces we'll need to not split after a branch: either split before
+                // it or one instr after.
                 trace_type_t type = instru->get_entry_type(mem_ref);
                 if (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                     if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
@@ -394,6 +397,9 @@ memtrace(void *drcontext, bool skip_size_cap)
             // Write the rest to pipe
             // The last few entries (e.g., instr + refs) may exceed the atomic write size,
             // so we may need two writes.
+            // XXX i#2638: if we want to support branch target analysis in online
+            // traces we'll need to not split after a branch by carrying a write-final
+            // branch forward to the next buffer.
             if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
             if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
@@ -481,7 +487,8 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         // We assume that drutil restricts repstr to a single bb on its own, and
         // we avoid its mix of translations resulting in incorrect ifetch stats
         // (it can be significant: i#2011).  The original app bb has just one instr,
-        // which is a memref, so the pre-memref entry will suffice.
+        // so we instrument just once at the top of the bb (rather than before the
+        // memref, so we can handle a zero-iter loop).
         ud->num_delay_instrs = 0;
         return adjust;
     }
@@ -814,12 +821,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
           * XXX: the expansion means our instr fetch trace is not perfect,
-          * but we live with having the wrong instr length.
+          * but we live with having the wrong instr length for online traces.
           */
          ud->last_app_pc == instr_get_app_pc(instr)) &&
         ud->strex == NULL &&
-        // Ensure we have an instr entry for the start of the bb, for offline.
-        (!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)))
+        // Ensure we have an instr entry for the start of the bb.
+        !drmgr_is_first_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -852,6 +859,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
+        // Don't bundle the zero-rep-string-iter instr.
+        (!ud->repstr || !drmgr_is_first_instr(drcontext, instr)) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -916,8 +925,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
      */
     is_memref = instr_reads_memory(instr) || instr_writes_memory(instr);
     // See comment in instrument_delay_instrs: we only want the original string
-    // ifetch and not any of the expansion instrs.
-    if (is_memref || !ud->repstr) {
+    // ifetch and not any of the expansion instrs.  We instrument the first
+    // one to handle a zero-iter loop.
+    if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb,
                                   instr, reg_ptr, reg_tmp, adjust, instr);
     }
