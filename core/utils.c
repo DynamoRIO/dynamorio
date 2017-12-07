@@ -948,6 +948,11 @@ void
 mutex_delete(mutex_t *lock)
 {
     LOG(GLOBAL, LOG_THREADS, 3, "mutex_delete lock "PFX"\n", lock);
+    /* When doing detach, application locks may be held on threads which have
+     * already been interrupted and will never execute lock code again. Just
+     * ignore the assert on the lock_requests field below in those cases.
+     */
+    DEBUG_DECLARE(bool skip_lock_request_assert = false;)
 #ifdef DEADLOCK_AVOIDANCE
     LOG(THREAD_GET, LOG_THREADS, 3, "mutex_delete "
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
@@ -960,9 +965,19 @@ mutex_delete(mutex_t *lock)
          * as they're deleted) and then walk it from dynamo_exit_post_detach().
          */
         lock->count_times_acquired = 0;
+# if defined(CLIENT_INTERFACE) && defined(DEBUG)
+        skip_lock_request_assert = lock->app_lock;
+# endif /* CLIENT_INTERFACE && DEBUG */
     }
-#endif
-    ASSERT(lock->lock_requests == LOCK_FREE_STATE);
+#else
+# ifdef DEBUG
+    /* We don't support !DEADLOCK_AVOIDANCE && DEBUG: we need to know whether to
+     * skip the assert lock_requests but don't know if this lock is an app lock
+     */
+#  error DEBUG mode not supported without DEADLOCK_AVOIDANCE
+# endif /* DEBUG */
+#endif /* DEADLOCK_AVOIDANCE */
+    ASSERT(skip_lock_request_assert || lock->lock_requests == LOCK_FREE_STATE);
 
     if (ksynch_var_initialized(&lock->contended_event)) {
         mutex_free_contended_event(lock);
