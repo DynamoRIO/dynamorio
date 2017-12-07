@@ -715,7 +715,7 @@ instrument_init(void)
     }
 }
 
-void
+static void
 free_callback_list(callback_list_t *vec)
 {
     if (vec->callbacks != NULL) {
@@ -727,7 +727,8 @@ free_callback_list(callback_list_t *vec)
     vec->num = 0;
 }
 
-void free_all_callback_lists()
+static void
+free_all_callback_lists()
 {
     free_callback_list(&exit_callbacks);
     free_callback_list(&thread_init_callbacks);

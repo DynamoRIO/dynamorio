@@ -3383,7 +3383,7 @@ vm_area_coarse_iter_stop(vmvector_iterator_t *vmvi)
 /* returns true if addr is on a page that contains at least one selfmod
  * region and no non-selfmod regions.
  */
-bool
+static bool
 is_executable_area_on_all_selfmod_pages(app_pc start, app_pc end)
 {
     bool all_selfmod;
