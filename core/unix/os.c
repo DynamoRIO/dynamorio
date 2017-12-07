@@ -690,7 +690,7 @@ dynamorio_set_envp(char **envp)
 }
 
 /* shared library init */
-int
+static int
 our_init(int argc, char **argv, char **envp)
 {
     /* If we do not want to use drpreload.so, we can take over here: but when using

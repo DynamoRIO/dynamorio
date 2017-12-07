@@ -2574,7 +2574,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
  * OUT elide_continue is set when bb building should continue in target,
  * and not set when bb building should be stopped.
  */
-bool
+static bool
 bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
                                    bool *elide_continue)
 {

@@ -6295,7 +6295,7 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
 }
 
 /* Caller should hold lock */
-bool
+static bool
 itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
 {
     struct itimerval val;
