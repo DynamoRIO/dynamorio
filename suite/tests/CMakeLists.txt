@@ -2716,10 +2716,10 @@ if (CLIENT_INTERFACE)
       if (WIN32)
         # winxfer produces a 500M+ trace and test taking >3mins so we narrow
         # the window.  2M makes a 50M trace and still hits 4 or 5 of the
-        # 13 markers on my machine but is still a little slow so we cut in half
-        # for 2+ markers.
-        set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 1M")
-        set(tool.histogram.offline_timeout 180)
+        # 13 markers on my machine but is still a little slow so we shrink it
+        # further.
+        set(histo_ops "-trace_after_instrs 7K -exit_after_tracing 500K")
+        set(tool.histogram.offline_timeout 200)
       else ()
         set(histo_ops "")
       endif ()
