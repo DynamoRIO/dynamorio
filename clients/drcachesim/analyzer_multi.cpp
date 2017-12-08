@@ -42,6 +42,9 @@
 #include "reader/ipc_reader.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
+#ifdef DEBUG
+# include "tests/trace_invariants.h"
+#endif
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -123,6 +126,18 @@ analyzer_multi_t::create_analysis_tools()
     if (tools[0] == NULL)
         return false;
     num_tools = 1;
+#ifdef DEBUG
+    if (op_test_mode.get_value()) {
+        tools[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+        if (tools[1] != NULL && !*tools[1]) {
+            delete tools[1];
+            tools[1] = NULL;
+        }
+        if (tools[1] == NULL)
+            return false;
+        num_tools = 2;
+    }
+#endif
     return true;
 }
 

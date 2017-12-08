@@ -283,6 +283,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                                   TRACE_TYPE_INSTR, 0, adjust);
         insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
+                       // XXX: For repstr do we want tag insted of skipping rep prefix?
                        instr_get_app_pc(app), adjust);
         adjust += sizeof(trace_entry_t);
     }
@@ -310,11 +311,18 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
+    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+    // To handle zero-iter repstr loops this routine is called at the top of the bb
+    // where "app" is jecxz so we have to hardcode the rep str type and get length
+    // from the tag.
+    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH :
+        instr_to_instr_type(app, repstr_expanded);
+    ushort size = repstr_expanded ?
+        (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL)) :
+        (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              instr_to_instr_type(app, repstr_expanded),
-                              (ushort)instr_length(drcontext, app), adjust);
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                   instr_get_app_pc(app), adjust);
+                              type, size, adjust);
+    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);
     return (adjust + sizeof(trace_entry_t));
 }
 

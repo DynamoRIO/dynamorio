@@ -101,7 +101,7 @@ _tmain(int argc, const TCHAR *targv[])
                               op_verbose.get_value());
     std::vector<analysis_tool_t*> tools;
     tools.push_back(tool1);
-    trace_invariants_t tool2;
+    trace_invariants_t tool2(true/*offline*/, op_verbose.get_value());
     if (op_test_mode.get_value()) {
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);
