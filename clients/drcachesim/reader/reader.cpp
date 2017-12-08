@@ -31,7 +31,6 @@
  */
 
 #include <assert.h>
-#include <map>
 #include "reader.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
@@ -117,6 +116,7 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_DIRECT_CALL:
         case TRACE_TYPE_INSTR_INDIRECT_CALL:
         case TRACE_TYPE_INSTR_RETURN:
+        case TRACE_TYPE_INSTR_SYSENTER:
         case TRACE_TYPE_INSTR_NO_FETCH:
             have_memref = true;
             assert(cur_tid != 0 && cur_pid != 0);
@@ -141,6 +141,7 @@ reader_t::operator++()
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
+            assert(type_is_instr(cur_ref.instr.type));
             cur_ref.instr.size = input_entry->length[bundle_idx++];
             cur_pc = next_pc;
             cur_ref.instr.addr = cur_pc;

@@ -54,6 +54,10 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
         return TRACE_TYPE_INSTR_INDIRECT_JUMP;
     if (instr_is_cbr(instr))
         return TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
+#ifdef X86
+    if (instr_get_opcode(instr) == OP_sysenter)
+        return TRACE_TYPE_INSTR_SYSENTER;
+#endif
     // i#2051: to satisfy both cache and core simulators we mark subsequent iters
     // of string loops as TRACE_TYPE_INSTR_NO_FETCH, converted from this
     // TRACE_TYPE_INSTR_MAYBE_FETCH by reader_t (since online traces would need

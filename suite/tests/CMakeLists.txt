@@ -2585,6 +2585,27 @@ if (CLIENT_INTERFACE)
         set(tool.reuse_time.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       endif ()
 
+      # We run an app w/ kernel xfers to test trace_invariants online.
+      # Offline invariants are tested in the tool.histogram.offline test below.
+      if (UNIX)
+        set(kernel_xfer_app pthreads.ptsig)
+      else ()
+        if (CLIENT_INTERFACE)
+          set(kernel_xfer_app client.winxfer) # We want threads and xfers.
+        else ()
+          set(kernel_xfer_app win32.winapc)
+        endif ()
+      endif()
+      if (DEBUG) # for -test_mode
+        torunonly_ci(tool.drcachesim.invariants ${kernel_xfer_app} drcachesim
+          "drcachesim-invariants.c" # for templatex basename
+          "-test_mode -ipc_name ${IPC_PREFIX}drtestpipe8" "" "")
+        set(tool.drcachesim.invariants_toolname "drcachesim")
+        set(tool.drcachesim.invariants_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.invariants_rawtemp ON) # no preprocessor
+      endif ()
+
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.
@@ -2690,13 +2711,20 @@ if (CLIENT_INTERFACE)
       # Test the standalone histogram tool.
       # ${ci_shared_app} is already used for an offline test, and we're deleting a
       # dir with that name, so we run other apps to avoid having to serialize.
-      if (UNIX)
-        set(histo_app pthreads.pthreads) # We want some threads for trace_invariants.
+      # We also want threads and signals for trace_invariants.
+      set(histo_app ${kernel_xfer_app})
+      if (WIN32)
+        # winxfer produces a 500M+ trace and test taking >3mins so we narrow
+        # the window.  2M makes a 50M trace and still hits 4 or 5 of the
+        # 13 markers on my machine but is still a little slow so we cut in half
+        # for 2+ markers.
+        set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 1M")
+        set(tool.histogram.offline_timeout 180)
       else ()
-        set(histo_app common.${control_flags})
-      endif()
+        set(histo_ops "")
+      endif ()
       torunonly_ci(tool.histogram.offline ${histo_app} drcachesim
-        "histogram-offline.c" "-offline" "" "")
+        "histogram-offline.c" "-offline ${histo_ops}" "" "")
       set(tool.histogram.offline_toolname "drcachesim")
       set(tool.histogram.offline_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -3066,7 +3094,7 @@ if (UNIX)
     "-enable_reset -reset_at_fragment_count 100" "")
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
-  tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
+  tobuild(pthreads.ptsig pthreads/ptsig.c)
   if (NOT ANDROID) # FIXME i#1874: failing on Android
     # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
     tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)

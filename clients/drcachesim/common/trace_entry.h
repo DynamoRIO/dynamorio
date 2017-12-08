@@ -146,6 +146,11 @@ typedef enum {
     // An internal value used for online traces and turned by reader_t into
     // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
+
+    // We separate out the x86 sysenter instruction as it has a hardcoded
+    // return point that shows up as a discontinuity in the user mode program
+    // counter execution sequence.
+    TRACE_TYPE_INSTR_SYSENTER,
 } trace_type_t;
 
 // The sub-type for TRACE_TYPE_MARKER.
@@ -169,11 +174,12 @@ typedef enum {
 extern const char * const trace_type_names[];
 
 // Returns whether the type represents an instruction fetch.
-// Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH.
+// Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
 static inline bool
 type_is_instr(const trace_type_t type)
 {
-    return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_BUNDLE);
+    return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
+        type == TRACE_TYPE_INSTR_SYSENTER;
 }
 
 static inline bool

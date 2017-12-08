@@ -117,6 +117,8 @@ typedef struct {
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
+// Really sizeof(trace_entry_t.length)
+#define MAX_NUM_DELAY_ENTRIES (MAX_NUM_DELAY_INSTRS / sizeof(addr_t))
 /* per bb user data during instrumentation */
 typedef struct {
     app_pc last_app_pc;
@@ -316,6 +318,13 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end)
         return atomic_pipe_write(drcontext, towrite_start, towrite_end);
 }
 
+static bool
+is_ok_to_split_before(trace_type_t type)
+{
+    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+        type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT;
+}
+
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -382,12 +391,17 @@ memtrace(void *drcontext, bool skip_size_cap)
                 // XXX i#2638: if we want to support branch target analysis in online
                 // traces we'll need to not split after a branch: either split before
                 // it or one instr after.
-                trace_type_t type = instru->get_entry_type(mem_ref);
-                if (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
-                    if ((mem_ref - pipe_start) > ipc_pipe.get_atomic_write_size())
-                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-                    // Advance pipe_end pointer
+                if (is_ok_to_split_before(instru->get_entry_type(mem_ref))) {
                     pipe_end = mem_ref;
+                    // We check the end of this entry + the max # of delay entries to
+                    // avoid splitting an instr from its subsequent bundle entry.
+                    // An alternative is to have the reader use per-thread state.
+                    if ((mem_ref + (1+MAX_NUM_DELAY_ENTRIES)*instru->sizeof_entry()
+                         - pipe_start) > ipc_pipe.get_atomic_write_size()) {
+                        DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
+                                                        (pipe_start+header_size)));
+                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                    }
                 }
             }
         }
@@ -400,10 +414,16 @@ memtrace(void *drcontext, bool skip_size_cap)
             // XXX i#2638: if we want to support branch target analysis in online
             // traces we'll need to not split after a branch by carrying a write-final
             // branch forward to the next buffer.
-            if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size())
+            if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size()) {
+                DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
+                                                (pipe_start+header_size)));
                 pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
-            if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size)
+            }
+            if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
+                DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
+                                                (pipe_start+header_size)));
                 atomic_pipe_write(drcontext, pipe_start, buf_ptr);
+            }
         }
         data->num_refs += num_refs;
     }
@@ -926,7 +946,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     is_memref = instr_reads_memory(instr) || instr_writes_memory(instr);
     // See comment in instrument_delay_instrs: we only want the original string
     // ifetch and not any of the expansion instrs.  We instrument the first
-    // one to handle a zero-iter loop.
+    // one to handle a zero-iter loop.  For offline, we just record the pc; for
+    // online we have to ignore "instr" here in instru_online::instrument_instr().
     if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb,
                                   instr, reg_ptr, reg_tmp, adjust, instr);
@@ -1045,8 +1066,13 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     switch (info->type) {
-    case DR_XFER_SIGNAL_DELIVERY:
     case DR_XFER_APC_DISPATCHER:
+        /* Do not bother with a marker for the thread init routine. */
+        if (data->num_refs == 0 &&
+            BUF_PTR(data->seg_base) == data->buf_base + data->init_header_size)
+            return;
+        ANNOTATE_FALLTHROUGH;
+    case DR_XFER_SIGNAL_DELIVERY:
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
     case DR_XFER_CALLBACK_DISPATCHER:
@@ -1292,6 +1318,7 @@ init_thread_in_process(void *drcontext)
 
         /* put buf_base to TLS plus header slots as starting buf_ptr */
         BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+        data->init_header_size = buf_hdr_slots_size;
     }
 
     if (op_L0_filter.get_value()) {

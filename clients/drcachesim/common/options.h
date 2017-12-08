@@ -86,6 +86,9 @@ extern droption_t<unsigned int> op_TLB_L2_assoc;
 extern droption_t<std::string> op_TLB_replace_policy;
 extern droption_t<std::string> op_simulator_type;
 extern droption_t<unsigned int> op_verbose;
+#ifdef DEBUG
+extern droption_t<bool> op_test_mode;
+#endif
 extern droption_t<std::string> op_dr_root;
 extern droption_t<bool> op_dr_debug;
 extern droption_t<std::string> op_dr_ops;

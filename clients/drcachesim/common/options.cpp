@@ -230,6 +230,12 @@ droption_t<unsigned int> op_verbose
 (DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
  "Verbosity level for notifications.");
 
+#ifdef DEBUG
+droption_t<bool> op_test_mode
+(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
+ "Run extra analyses for sanity checks on the trace.");
+#endif
+
 droption_t<std::string> op_dr_root
 (DROPTION_SCOPE_FRONTEND, "dr", "", "Path to DynamoRIO root directory",
  "Specifies the path of the DynamoRIO root directory.");
