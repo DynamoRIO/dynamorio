@@ -289,14 +289,16 @@ bool
 raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count)
 {
     if (!pre_read[tidx].empty()) {
-        size_t tocopy = std::min(pre_read[tidx].size(), count);
+        size_t tocopy = (std::min)(pre_read[tidx].size(), count);
         memcpy(dest, &pre_read[tidx][0], tocopy*sizeof(*dest));
         pre_read[tidx].erase(pre_read[tidx].begin(), pre_read[tidx].begin() + tocopy);
         dest += tocopy;
         count -= tocopy;
     }
-    if (count > 0)
-        return thread_files[tidx]->read((char*)dest, count*sizeof(*dest));
+    if (count > 0) {
+        if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest)))
+            return false;
+    }
     return true;
 }
 
