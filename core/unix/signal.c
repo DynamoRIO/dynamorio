@@ -4650,8 +4650,10 @@ master_signal_handler_C(byte *xsp)
          */
         if (can_always_delay[sig])
             return;
-        else
-            exit_process_syscall(1);
+
+        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_HANDLE_SIGNAL,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
 
     /* we may be entering dynamo from code cache! */

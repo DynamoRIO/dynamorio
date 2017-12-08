@@ -617,4 +617,15 @@ SymbolicName = MSG_FAILED_TO_SYNCHRONIZE_THREADS
 Language=English
 Application %1!s! (%2!s!). Failed to synchronize with all threads when detaching.
 .
+
+;#ifdef UNIX
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_HANDLE_SIGNAL
+Language=English
+Application %1!s! (%2!s!). Cannot correctly handle a received signal.
+.
+;#endif
+
 ;// ADD NEW MESSAGES HERE
