@@ -377,7 +377,7 @@ drmodtrack_exit(void)
     if (count != 0)
         return DRCOVLIB_SUCCESS;
 
-    drmgr_register_tls_field(tls_idx);
+    drmgr_unregister_tls_field(tls_idx);
     drvector_delete(&module_table.vector);
     drmgr_exit();
     return DRCOVLIB_SUCCESS;
