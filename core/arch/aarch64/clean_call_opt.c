@@ -533,6 +533,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
     /* We use stp to spill consecutive registers and str to spill a single reg
      * XXX remove duplication */
+
     int disp = 0;
     for (i = 0; i < NUM_GP_REGS; i += 1) {
         reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
