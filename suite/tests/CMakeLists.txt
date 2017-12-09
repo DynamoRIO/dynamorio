@@ -2718,7 +2718,7 @@ if (CLIENT_INTERFACE)
         # the window.  2M makes a 50M trace and still hits 4 or 5 of the
         # 13 markers on my machine but is still a little slow so we shrink it
         # further.
-        set(histo_ops "-trace_after_instrs 7K -exit_after_tracing 5K")
+        set(histo_ops "-trace_after_instrs 7K -exit_after_tracing 1M")
         set(tool.histogram.offline_timeout 200)
       else ()
         set(histo_ops "")
@@ -3606,3 +3606,5 @@ if (APPLE)
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
   endif ()
 endif ()
+
+set_tests_properties(code_api|tool.histogram.offline PROPERTIES LABELS DEREK)

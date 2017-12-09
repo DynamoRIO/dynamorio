@@ -35,6 +35,7 @@ set(CTEST_PROJECT_NAME "DynamoRIO")
 set(cpack_project_name "DynamoRIO")
 set(run_tests ON)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
+set(extra_ctest_args INCLUDE_LABEL DEREK)
 if (APPLE)
   # For now we run just a quarter of the tests, using a test label.
   # FIXME i#1815: get all the tests working.
