@@ -135,6 +135,12 @@ private:
                               opnd_t ref, bool write);
     std::string append_delayed_branch(uint tidx);
 
+    // We do some internal buffering to avoid istream::seekg whose performance is
+    // detrimental for some filesystem types.
+    bool read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
+    void unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
+    std::vector<std::vector<offline_entry_t>> pre_read;
+
     static const uint MAX_COMBINED_ENTRIES = 64;
     const char *modmap;
     void *modhandle;
