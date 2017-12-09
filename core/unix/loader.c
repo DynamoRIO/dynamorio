@@ -71,7 +71,7 @@ extern size_t wcslen(const wchar_t *str); /* in string.c */
  * so we just list possible common but in-complete paths for now.
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
-char *ld_library_path = NULL;
+static char *ld_library_path = NULL;
 static const char *const system_lib_paths[] = {
 #ifdef X86
     "/lib/tls/i686/cmov",
@@ -1234,7 +1234,7 @@ redirect____tls_get_addr();
 #endif
 
 #ifdef LINUX
-int
+static int
 redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
                                          size_t size, void *data),
                          void *data)

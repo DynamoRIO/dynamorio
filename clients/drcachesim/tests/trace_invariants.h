@@ -38,17 +38,22 @@
 
 #include "../analysis_tool.h"
 #include "../common/memref.h"
+#include <unordered_map>
 
 class trace_invariants_t : public analysis_tool_t
 {
  public:
-    trace_invariants_t();
+    trace_invariants_t(bool offline = true, unsigned int verbose = 0);
     virtual ~trace_invariants_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
 
  protected:
+    bool knob_offline;
+    unsigned int knob_verbose;
     memref_t prev_instr;
+    memref_t prev_marker;
+    std::unordered_map<memref_tid_t,bool> thread_exited;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */

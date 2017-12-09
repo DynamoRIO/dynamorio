@@ -4650,8 +4650,10 @@ master_signal_handler_C(byte *xsp)
          */
         if (can_always_delay[sig])
             return;
-        else
-            exit_process_syscall(1);
+
+        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_HANDLE_SIGNAL,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
 
     /* we may be entering dynamo from code cache! */
@@ -6295,7 +6297,7 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
 }
 
 /* Caller should hold lock */
-bool
+static bool
 itimer_new_settings(dcontext_t *dcontext, int which, bool app_changed)
 {
     struct itimerval val;

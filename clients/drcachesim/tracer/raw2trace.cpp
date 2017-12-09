@@ -40,6 +40,7 @@
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -277,28 +278,65 @@ raw2trace_t::unmap_modules(void)
  * Disassembly to fill in instr and memref entries
  */
 
+#define FAULT_INTERRUPTED_BB "INTERRUPTED"
+
+// We do our own buffering to avoid performance problems for some istreams where
+// seekg is slow.  We expect just 1 entry peeked and put back the vast majority of the
+// time, but we use a vector for generality.  We expect our overall performance to
+// be i/o bound (or ISA decode bound) and aren't worried about some extra copies
+// from the vector.
+bool
+raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count)
+{
+    if (!pre_read[tidx].empty()) {
+        size_t tocopy = (std::min)(pre_read[tidx].size(), count);
+        memcpy(dest, &pre_read[tidx][0], tocopy*sizeof(*dest));
+        pre_read[tidx].erase(pre_read[tidx].begin(), pre_read[tidx].begin() + tocopy);
+        dest += tocopy;
+        count -= tocopy;
+    }
+    if (count > 0) {
+        if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest)))
+            return false;
+    }
+    return true;
+}
+
+void
+raw2trace_t::unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t count)
+{
+    // We expect 1 the vast majority of the time, 2 occasionally.
+    for (size_t i = 0; i < count; ++i)
+        pre_read[tidx].push_back(*(dest + i));
+}
+
+// Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
+// Any other non-empty string is a fatal error.
 std::string
 raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
                            opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
-    offline_entry_t in_entry;
-    if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry)))
+    // To avoid having to backtrack later, we read 2 ahead to see whether this memref
+    // faulted.  There's a footer so this should always succeed.
+    offline_entry_t in_entry[2];
+    if (!read_from_thread_file(tidx, in_entry, 2))
         return "Trace ends mid-block";
-    if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
-        in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
+    if (in_entry[0].addr.type != OFFLINE_TYPE_MEMREF &&
+        in_entry[0].addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
         // This happens when there are predicated memrefs in the bb, or for a
         // zero-iter rep string loop.  For predicated memrefs,
         // they could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
         VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
-               ZHEX64_FORMAT_STRING ")\n", in_entry.combined_value);
-        // Put back the entry.
-        thread_files[tidx]->seekg(-(std::streamoff)sizeof(in_entry),
-                                  thread_files[tidx]->cur);
+               ZHEX64_FORMAT_STRING ")\n", in_entry[0].combined_value);
+        // Put back both entries.
+        unread_from_thread_file(tidx, in_entry, 2);
         return "";
     }
+    // Put back the 2nd entry.
+    unread_from_thread_file(tidx, &in_entry[1], 1);
     if (instr_is_prefetch(instr)) {
         buf->type = instru_t::instr_to_prefetch_type(instr);
         buf->size = 1;
@@ -313,9 +351,16 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
     }
     // We take the full value, to handle low or high.
-    buf->addr = (addr_t) in_entry.combined_value;
+    buf->addr = (addr_t) in_entry[0].combined_value;
     VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
     *buf_in = ++buf;
+    if (in_entry[1].extended.type == OFFLINE_TYPE_EXTENDED &&
+        in_entry[1].extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        in_entry[1].extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        // A signal/exception interrupted the bb after the memref.
+        VPRINT(4, "Signal/exception interrupted the bb\n");
+        return FAULT_INTERRUPTED_BB;
+    }
     return "";
 }
 
@@ -341,6 +386,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
                (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
     }
     bool skip_icache = false;
+    bool truncated = false; // Whether a fault ended the bb early.
     if (instr_count == 0) {
         // L0 filtering adds a PC entry with a count of 0 prior to each memref.
         skip_icache = true;
@@ -350,7 +396,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             instrs_are_separate = true;
     }
     CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
-    for (uint i = 0; i < instr_count; ++i) {
+    for (uint i = 0; !truncated && i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
         app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
             modvec[in_entry->pc.modidx].orig_base;
@@ -403,19 +449,25 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr_reads_memory(instr) || instr_writes_memory(instr))) {
-            for (int i = 0; i < instr_num_srcs(instr); i++) {
-                if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+            for (int j = 0; j < instr_num_srcs(instr); j++) {
+                if (opnd_is_memory_reference(instr_get_src(instr, j))) {
                     std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_src(instr, i), false);
-                    if (!error.empty())
+                                                      instr_get_src(instr, j), false);
+                    if (error == FAULT_INTERRUPTED_BB) {
+                        truncated = true;
+                        break;
+                    } else if (!error.empty())
                         return error;
                 }
             }
-            for (int i = 0; i < instr_num_dsts(instr); i++) {
-                if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+            for (int j = 0; !truncated && j < instr_num_dsts(instr); j++) {
+                if (opnd_is_memory_reference(instr_get_dst(instr, j))) {
                     std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_dst(instr, i), true);
-                    if (!error.empty())
+                                                      instr_get_dst(instr, j), true);
+                    if (error == FAULT_INTERRUPTED_BB) {
+                        truncated = true;
+                        break;
+                    } else if (!error.empty())
                         return error;
                 }
             }
@@ -488,7 +540,7 @@ raw2trace_t::merge_and_process_thread_files()
             for (uint i=0; i<times.size(); ++i) {
                 if (times[i] == 0 && !thread_files[i]->eof()) {
                     offline_entry_t entry;
-                    if (!thread_files[i]->read((char*)&entry, sizeof(entry)))
+                    if (!read_from_thread_file(i, &entry, 1))
                         return "Failed to read from input file";
                     if (entry.timestamp.type != OFFLINE_TYPE_TIMESTAMP)
                         return "Missing timestamp entry";
@@ -521,7 +573,7 @@ raw2trace_t::merge_and_process_thread_files()
         }
         VPRINT(4, "About to read thread %d at pos %d\n",
                (uint)tids[tidx], (int)thread_files[tidx]->tellg());
-        if (!thread_files[tidx]->read((char*)&in_entry, sizeof(in_entry))) {
+        if (!read_from_thread_file(tidx, &in_entry, 1)) {
             if (thread_files[tidx]->eof()) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
@@ -548,7 +600,7 @@ raw2trace_t::merge_and_process_thread_files()
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
                 // Push forward to EOF.
                 offline_entry_t entry;
-                if (thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+                if (read_from_thread_file(tidx, &entry, 1) ||
                     !thread_files[tidx]->eof())
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
@@ -604,7 +656,7 @@ raw2trace_t::merge_and_process_thread_files()
             buf += size;
         } else if (in_entry.addr.type == OFFLINE_TYPE_IFLUSH) {
             offline_entry_t entry;
-            if (!thread_files[tidx]->read((char*)&entry, sizeof(entry)) ||
+            if (!read_from_thread_file(tidx, &entry, 1) ||
                 entry.addr.type != OFFLINE_TYPE_IFLUSH)
                 return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
@@ -698,6 +750,8 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     hashtable_configure(&decode_cache, &config);
 
     delayed_branch.resize(thread_files.size());
+
+    pre_read.resize(thread_files.size());
 }
 
 raw2trace_t::~raw2trace_t()
