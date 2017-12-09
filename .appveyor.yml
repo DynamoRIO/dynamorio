@@ -100,4 +100,4 @@ build_script:
   - cd build
   - echo %PATH%
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
-  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja 32_only %EXTRA_ARGS%
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
