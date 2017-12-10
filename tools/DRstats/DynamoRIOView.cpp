@@ -379,8 +379,8 @@ BOOL CDynamoRIOView::UpdateProcessList()
 # define DR_STAT_PFMT _T("%10")_T(INT64_FORMAT)_T("u")
 #else
 /* 13 is beyond 32-bit reach but this lines everything up and is consistent w/ x64 */
-# define CLIENT_STAT_PFMT _T("%13")_T(SZFC)
-# define DR_STAT_PFMT _T("%10")_T(SZFC)
+# define CLIENT_STAT_PFMT _T("%13") _T(SZFC)
+# define DR_STAT_PFMT _T("%10") _T(SZFC)
 #endif
 
 uint CDynamoRIOView::PrintStat(TCHAR *c, uint i, BOOL filter)
@@ -531,9 +531,9 @@ BOOL CDynamoRIOView::Refresh()
 
     if (m_clientStats != NULL) {
 #define CLIENTSTATS_BUFSZ USHRT_MAX
-        TCHAR buf[CLIENTSTATS_BUFSZ];
-        PrintClientStats(buf, &buf[CLIENTSTATS_BUFSZ-1]);
-        m_ClientStats.Format(_T("%s"), buf);
+        TCHAR clientstats_buf[CLIENTSTATS_BUFSZ];
+        PrintClientStats(clientstats_buf, &clientstats_buf[CLIENTSTATS_BUFSZ-1]);
+        m_ClientStats.Format(_T("%s"), clientstats_buf);
     } else
         m_ClientStats.Format(_T(""));
 
@@ -640,7 +640,7 @@ void CDynamoRIOView::OnEditCopystats()
         } else {
             CString pname;
             m_ProcessList.GetLBText(m_ProcessList.GetCurSel(), pname);
-            _stprintf(pos, _T("%s"), pname);
+            _stprintf(pos, _T("%s"), pname.GetString());
             pos += _tcslen(pos);
         }
     }
