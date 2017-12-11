@@ -286,19 +286,26 @@ raw2trace_t::unmap_modules(void)
 // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
 // from the vector.
 bool
-raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count)
+raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count,
+                                   OUT size_t *num_read)
 {
+    size_t from_buf = 0;
     if (!pre_read[tidx].empty()) {
-        size_t tocopy = (std::min)(pre_read[tidx].size(), count);
-        memcpy(dest, &pre_read[tidx][0], tocopy*sizeof(*dest));
-        pre_read[tidx].erase(pre_read[tidx].begin(), pre_read[tidx].begin() + tocopy);
-        dest += tocopy;
-        count -= tocopy;
+        from_buf = (std::min)(pre_read[tidx].size(), count);
+        memcpy(dest, &pre_read[tidx][0], from_buf*sizeof(*dest));
+        pre_read[tidx].erase(pre_read[tidx].begin(), pre_read[tidx].begin() + from_buf);
+        dest += from_buf;
+        count -= from_buf;
     }
     if (count > 0) {
-        if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest)))
+        if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest))) {
+            if (num_read != nullptr)
+                *num_read = from_buf + thread_files[tidx]->gcount();
             return false;
+        }
     }
+    if (num_read != nullptr)
+        *num_read = from_buf + count;
     return true;
 }
 
@@ -310,6 +317,12 @@ raw2trace_t::unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t co
         pre_read[tidx].push_back(*(dest + i));
 }
 
+bool
+raw2trace_t::thread_file_at_eof(uint tidx)
+{
+    return pre_read[tidx].empty() && thread_files[tidx]->eof();
+}
+
 // Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
 // Any other non-empty string is a fatal error.
 std::string
@@ -318,9 +331,11 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
 {
     trace_entry_t *buf = *buf_in;
     // To avoid having to backtrack later, we read 2 ahead to see whether this memref
-    // faulted.  There's a footer so this should always succeed.
+    // faulted.  There's a footer so we should always get 1, but we might not get the
+    // 2nd for predication or zero-iter string loops (caught below).
     offline_entry_t in_entry[2];
-    if (!read_from_thread_file(tidx, in_entry, 2))
+    size_t num_read;
+    if (!read_from_thread_file(tidx, in_entry, 2, &num_read) && num_read == 0)
         return "Trace ends mid-block";
     if (in_entry[0].addr.type != OFFLINE_TYPE_MEMREF &&
         in_entry[0].addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
@@ -329,14 +344,18 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         // they could be earlier, so "instr" may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
+        // FIXME i#2756: for -L0_filter we'll also come here b/c we don't know
+        // which memref it is.
         VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
                ZHEX64_FORMAT_STRING ")\n", in_entry[0].combined_value);
-        // Put back both entries.
-        unread_from_thread_file(tidx, in_entry, 2);
+        // Put back all entries read.
+        unread_from_thread_file(tidx, in_entry, num_read);
         return "";
     }
-    // Put back the 2nd entry.
-    unread_from_thread_file(tidx, &in_entry[1], 1);
+    if (num_read > 1) {
+        // Put back the 2nd entry.
+        unread_from_thread_file(tidx, &in_entry[1], 1);
+    }
     if (instr_is_prefetch(instr)) {
         buf->type = instru_t::instr_to_prefetch_type(instr);
         buf->size = 1;
@@ -354,7 +373,8 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
     buf->addr = (addr_t) in_entry[0].combined_value;
     VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
     *buf_in = ++buf;
-    if (in_entry[1].extended.type == OFFLINE_TYPE_EXTENDED &&
+    if (num_read > 1 &&
+        in_entry[1].extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry[1].extended.ext == OFFLINE_EXT_TYPE_MARKER &&
         in_entry[1].extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // A signal/exception interrupted the bb after the memref.
@@ -538,7 +558,7 @@ raw2trace_t::merge_and_process_thread_files()
             uint64 min_time = 0xffffffffffffffff;
             uint next_tidx = 0;
             for (uint i=0; i<times.size(); ++i) {
-                if (times[i] == 0 && !thread_files[i]->eof()) {
+                if (times[i] == 0 && !thread_file_at_eof(i)) {
                     offline_entry_t entry;
                     if (!read_from_thread_file(i, &entry, 1))
                         return "Failed to read from input file";
@@ -574,7 +594,7 @@ raw2trace_t::merge_and_process_thread_files()
         VPRINT(4, "About to read thread %d at pos %d\n",
                (uint)tids[tidx], (int)thread_files[tidx]->tellg());
         if (!read_from_thread_file(tidx, &in_entry, 1)) {
-            if (thread_files[tidx]->eof()) {
+            if (thread_file_at_eof(tidx)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
                 WARN("Input file for thread %d is truncated", (uint)tids[tidx]);
@@ -601,7 +621,7 @@ raw2trace_t::merge_and_process_thread_files()
                 // Push forward to EOF.
                 offline_entry_t entry;
                 if (read_from_thread_file(tidx, &entry, 1) ||
-                    !thread_files[tidx]->eof())
+                    !thread_file_at_eof(tidx))
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
