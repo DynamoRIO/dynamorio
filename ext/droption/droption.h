@@ -455,7 +455,7 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
 template<> inline bool
 droption_t<double>::convert_from_string(const std::string s) {
   double input = atof(s.c_str());
-  if(input >= 0)
+  if (input >= 0)
     value = input;
   else {
     value = 0;
