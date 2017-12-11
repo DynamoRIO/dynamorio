@@ -110,7 +110,7 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     dcaches(NULL)
 {
     // XXX i#1703: get defaults from hardware being run on.
-   
+
     llcache = create_cache(knob_replace_policy);
     if (llcache == NULL) {
         success = false;
