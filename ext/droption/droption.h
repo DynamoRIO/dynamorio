@@ -453,6 +453,17 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
     return true;
 }
 template<> inline bool
+droption_t<double>::convert_from_string(const std::string s) {
+  double input = atof(s.c_str());
+  if(input >= 0)
+    value = input;
+  else {
+    value = 0;
+    return false;
+  }
+  return true;
+}
+template<> inline bool
 droption_t<bool>::convert_from_string(const std::string s)
 {
     // We shouldn't get here
@@ -535,6 +546,13 @@ droption_t<int>::default_as_string() const
 }
 template<> inline std::string
 droption_t<unsigned int>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template<> inline std::string
+droption_t<double>::default_as_string() const
 {
     std::ostringstream stream;
     stream << std::dec << defval;

@@ -69,13 +69,14 @@ cache_simulator_create(unsigned int num_cores,
                        const std::string &data_prefetcher,
                        uint64_t skip_refs,
                        uint64_t warmup_refs,
+                       double warmup_fraction,
                        uint64_t sim_refs,
                        unsigned int verbose)
 {
     return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
                                  L1I_assoc, L1D_assoc, LL_size, LL_assoc,
                                  LL_miss_file, replace_policy, data_prefetcher,
-                                 skip_refs,warmup_refs, sim_refs, verbose);
+                                 skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose);
 }
 
 cache_simulator_t::cache_simulator_t(unsigned int num_cores,
@@ -91,9 +92,10 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
                                      const std::string &data_prefetcher,
                                      uint64_t skip_refs,
                                      uint64_t warmup_refs,
+                                     double warmup_fraction,
                                      uint64_t sim_refs,
                                      unsigned int verbose) :
-    simulator_t(num_cores, skip_refs,warmup_refs, sim_refs, verbose),
+    simulator_t(num_cores, skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose),
     knob_line_size(line_size),
     knob_L1I_size(L1I_size),
     knob_L1D_size(L1D_size),
@@ -108,7 +110,7 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     dcaches(NULL)
 {
     // XXX i#1703: get defaults from hardware being run on.
-
+   
     llcache = create_cache(knob_replace_policy);
     if (llcache == NULL) {
         success = false;
