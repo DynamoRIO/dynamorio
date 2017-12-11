@@ -277,7 +277,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     // Check if the warmup_fraction is done, we only consider the last level
-    // cache for warmup. 
+    // cache for warmup.
     if(knob_warmup_fraction > 0.0 &&
        llcache->get_loaded_fraction() > knob_warmup_fraction) {
        for (int i = 0; i < knob_num_cores; i++) {
