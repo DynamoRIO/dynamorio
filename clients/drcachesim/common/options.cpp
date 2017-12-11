@@ -274,9 +274,10 @@ droption_t<bytesize_t> op_warmup_refs
 droption_t<double> op_warmup_fraction
 (DROPTION_SCOPE_FRONTEND, "warmup_fraction", 0.0, 0.0, 1.0,
  "Fraction of last level cache blocks to be loaded as warm up",
- "Specifies the fraction of last level cache blocks to be loaded such that the cache "
- "is considered to be warmed up before simulation. The warmup fraction is computed after "
- "the skipped references and before simulated references. This flag is incompatible with warmup_refs.");
+ "Specifies the fraction of last level cache blocks to be loaded such that the "
+ "cache is considered to be warmed up before simulation. The warmup fraction "
+ "is computed after the skipped references and before simulated references. "
+ "This flag is incompatible with warmup_refs.");
 
 droption_t<bytesize_t> op_sim_refs
 (DROPTION_SCOPE_FRONTEND, "sim_refs", bytesize_t(1ULL << 63),
