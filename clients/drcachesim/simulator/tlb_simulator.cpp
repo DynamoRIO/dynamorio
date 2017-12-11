@@ -63,7 +63,8 @@ tlb_simulator_create(unsigned int num_cores,
     return new tlb_simulator_t(num_cores, page_size, TLB_L1I_entries,
                                TLB_L1D_entries, TLB_L1I_assoc, TLB_L1D_assoc,
                                TLB_L2_entries, TLB_L2_assoc, replace_policy,
-                               skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose);
+                               skip_refs, warmup_refs, warmup_fraction, sim_refs,
+                               verbose);
 }
 
 tlb_simulator_t::tlb_simulator_t(unsigned int num_cores,

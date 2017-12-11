@@ -163,6 +163,7 @@ droption_t<bytesize_t> op_exit_after_tracing
 (DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
  "Exit the process after tracing N references",
  "If non-zero, after tracing the specified number of references, the process is "
+
  "exited with an exit code of 0.  The reference count is approximate.");
 
 droption_t<bool> op_online_instr_types

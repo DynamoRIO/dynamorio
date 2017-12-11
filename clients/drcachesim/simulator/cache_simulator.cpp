@@ -76,7 +76,8 @@ cache_simulator_create(unsigned int num_cores,
     return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
                                  L1I_assoc, L1D_assoc, LL_size, LL_assoc,
                                  LL_miss_file, replace_policy, data_prefetcher,
-                                 skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose);
+                                 skip_refs, warmup_refs, warmup_fraction, sim_refs,
+                                 verbose);
 }
 
 cache_simulator_t::cache_simulator_t(unsigned int num_cores,
@@ -278,7 +279,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     // Check if the warmup_fraction is done, we only consider the last level
     // cache for warmup.
-    if(knob_warmup_fraction > 0.0 &&
+    if (knob_warmup_fraction > 0.0 &&
        llcache->get_loaded_fraction() > knob_warmup_fraction) {
        for (int i = 0; i < knob_num_cores; i++) {
            icaches[i]->get_stats()->reset();
@@ -286,7 +287,8 @@ cache_simulator_t::process_memref(const memref_t &memref)
        }
        llcache->get_stats()->reset();
        if (knob_verbose >= 1) {
-           std::cerr << "Last level cache warmup fraction " << knob_warmup_fraction << " reached.\n";
+           std::cerr << "Last level cache warmup fraction "
+                     << knob_warmup_fraction << " reached.\n";
        }
        // Ensure that we only run this once.
        knob_warmup_fraction = 0.0;

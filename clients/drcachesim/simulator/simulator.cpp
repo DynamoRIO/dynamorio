@@ -55,7 +55,7 @@ simulator_t::simulator_t(unsigned int num_cores,
     last_thread(0),
     last_core(0)
 {
-  if(knob_warmup_refs && (knob_warmup_fraction > 0.0)) {
+  if (knob_warmup_refs && (knob_warmup_fraction > 0.0)) {
     ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
     success = false;
     return;
