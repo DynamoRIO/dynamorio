@@ -75,12 +75,17 @@ class caching_device_t
     inline caching_device_block_t& get_caching_device_block(int block_idx, int way) {
         return *(blocks[block_idx + way]);
     }
+    inline double get_loaded_fraction() const {
+      return double(loaded_blocks)/num_blocks;
+    }
     // a pure virtual function for subclasses to initialize their own block array
     virtual void init_blocks() = 0;
 
     int associativity;
     int block_size;
     int num_blocks;
+    // Current valid blocks in the cache
+    int loaded_blocks;  
     caching_device_t *parent;
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed

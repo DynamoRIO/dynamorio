@@ -57,6 +57,7 @@ class cache_simulator_t : public simulator_t
                       const std::string &data_prefetcher,
                       uint64_t skip_refs,
                       uint64_t warmup_refs,
+                      double warmup_fraction,
                       uint64_t sim_refs,
                       unsigned int verbose);
     virtual ~cache_simulator_t();

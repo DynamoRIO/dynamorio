@@ -51,6 +51,7 @@ tlb_simulator_create(unsigned int num_cores = 4,
                      std::string replace_policy = "LFU",
                      uint64_t skip_refs = 0,
                      uint64_t warmup_refs = 0,
+                     double warmup_fraction = 0.0,
                      uint64_t sim_refs = 1ULL << 63,
                      unsigned int verbose = 0);
 
