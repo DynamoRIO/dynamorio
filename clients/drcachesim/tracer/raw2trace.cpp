@@ -300,7 +300,7 @@ raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t coun
     if (count > 0) {
         if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest))) {
             if (num_read != nullptr)
-                *num_read = from_buf + thread_files[tidx]->gcount();
+                *num_read = from_buf + (size_t)thread_files[tidx]->gcount();
             return false;
         }
     }
