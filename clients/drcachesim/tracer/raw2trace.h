@@ -137,8 +137,10 @@ private:
 
     // We do some internal buffering to avoid istream::seekg whose performance is
     // detrimental for some filesystem types.
-    bool read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
+    bool read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count,
+                               OUT size_t *num_read = nullptr);
     void unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
+    bool thread_file_at_eof(uint tidx);
     std::vector<std::vector<offline_entry_t>> pre_read;
 
     static const uint MAX_COMBINED_ENTRIES = 64;
