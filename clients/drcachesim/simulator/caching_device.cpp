@@ -144,7 +144,7 @@ caching_device_t::request(const memref_t &memref_in)
 
             way = replace_which_way(block_idx);
             // Check if we are inserting a new block, if we are then increment
-            // the block loaded count. 
+            // the block loaded count.
             if(get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
               loaded_blocks++;
             }
