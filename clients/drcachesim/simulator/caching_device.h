@@ -85,7 +85,7 @@ class caching_device_t
     int block_size;
     int num_blocks;
     // Current valid blocks in the cache
-    int loaded_blocks;  
+    int loaded_blocks;
     caching_device_t *parent;
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
