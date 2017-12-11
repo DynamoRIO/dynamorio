@@ -63,6 +63,9 @@ class caching_device_t
     void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
     prefetcher_t *get_prefetcher() const { return prefetcher; }
     caching_device_t *get_parent() const { return parent; }
+    inline double get_loaded_fraction() const {
+      return double(loaded_blocks)/num_blocks;
+    }
 
  protected:
     virtual void access_update(int block_idx, int way);
@@ -74,9 +77,6 @@ class caching_device_t
     }
     inline caching_device_block_t& get_caching_device_block(int block_idx, int way) {
         return *(blocks[block_idx + way]);
-    }
-    inline double get_loaded_fraction() const {
-      return double(loaded_blocks)/num_blocks;
     }
     // a pure virtual function for subclasses to initialize their own block array
     virtual void init_blocks() = 0;
