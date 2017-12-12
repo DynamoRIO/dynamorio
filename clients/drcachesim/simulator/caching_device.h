@@ -64,7 +64,7 @@ class caching_device_t
     prefetcher_t *get_prefetcher() const { return prefetcher; }
     caching_device_t *get_parent() const { return parent; }
     inline double get_loaded_fraction() const {
-      return double(loaded_blocks)/num_blocks;
+        return double(loaded_blocks)/num_blocks;
     }
 
  protected:

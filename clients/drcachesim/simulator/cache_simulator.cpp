@@ -280,19 +280,19 @@ cache_simulator_t::process_memref(const memref_t &memref)
     // Check if the warmup_fraction is done, we only consider the last level
     // cache for warmup.
     if (knob_warmup_fraction > 0.0 &&
-       llcache->get_loaded_fraction() > knob_warmup_fraction) {
-       for (int i = 0; i < knob_num_cores; i++) {
-           icaches[i]->get_stats()->reset();
-           dcaches[i]->get_stats()->reset();
-       }
-       llcache->get_stats()->reset();
-       if (knob_verbose >= 1) {
-           std::cerr << "Last level cache warmup fraction "
-                     << knob_warmup_fraction << " reached.\n";
-       }
-       // Ensure that we only run this once.
-       knob_warmup_fraction = 0.0;
-       return true;
+        llcache->get_loaded_fraction() > knob_warmup_fraction) {
+        for (int i = 0; i < knob_num_cores; i++) {
+            icaches[i]->get_stats()->reset();
+            dcaches[i]->get_stats()->reset();
+        }
+        llcache->get_stats()->reset();
+        if (knob_verbose >= 1) {
+            std::cerr << "Last level cache warmup fraction "
+                      << knob_warmup_fraction << " reached.\n";
+        }
+        // Ensure that we only run this once.
+        knob_warmup_fraction = 0.0;
+        return true;
     }
 
     // process counters for warmup and simulated references
