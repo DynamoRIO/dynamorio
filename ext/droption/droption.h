@@ -455,7 +455,8 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
 template<> inline bool
 droption_t<double>::convert_from_string(const std::string s) {
     // strtod will return 0.0 for invalid conversions
-    value = strtod(s.c_str());
+    char * pEnd = NULL;
+    value = strtod(s.c_str(), &pEnd);
     return true;
 }
 template<> inline bool
