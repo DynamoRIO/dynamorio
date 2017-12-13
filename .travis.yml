@@ -50,43 +50,43 @@ dist: trusty
 language:
   - c
 
-os:
-  - linux
-  - osx
-    # XXX i#2764: Travis OSX resources are over-subscribed and it can take
-    # hours to get an OSX machine, so we skip running PR's for now.
-    if: type = push
-
-# We request 2 runs, one with clang and one with gcc:
-compiler:
-  - clang
-  - gcc
-
-env:
-  # With or without cross-compiling:
-  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes
-  # Cross-compile for Android only.
-  - DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
-  # We run 32-bit and 64-bit in parallel to speed things up.
-  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
-  - DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=64_only
-
-matrix:
-  exclude:
-    # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we disable:
-    - os: osx
+# We use a jobs include approach rather than an os, compiler, env matrix
+# with excludes so we can use conditional builds (plus it's clearer this way).
+jobs:
+  include:
+    # 32-bit Linux build with gcc and run tests:
+    - os: linux
       compiler: gcc
-    # We do not have 64-bit support on OSX yet (i#1979).
-    - os: osx
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
+    # 64-bit Linux build with gcc and run tests:
+    - os: linux
+      compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=64_only
-    # Cross-compile only on Linux:
-    - os: osx
+    # AArchXX cross-compile with gcc, no tests:
+    - os: linux
+      compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes
-    # Cross-compile only with GCC:
-    - compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes
-    - compiler: clang
+    # Android ARM cross-compile with gcc, no tests:
+    - os: linux
+      compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
+    # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
+    - os: linux
+      compiler: clang
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
+    # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
+    - os: linux
+      compiler: clang
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=64_only
+    # 32-bit OSX build with clang and run tests:
+    - os: osx
+      # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
+      compiler: clang
+      # We do not have 64-bit support on OSX yet (i#1979).
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no EXTRA_ARGS=32_only
+      # XXX i#2764: Travis OSX resources are over-subscribed and it can take
+      # hours to get an OSX machine, so we skip running PR's for now.
+      if: type = push
 
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
