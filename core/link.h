@@ -492,7 +492,7 @@ const linkstub_t * get_hot_patch_linkstub(void);
 #ifdef CLIENT_INTERFACE
 const linkstub_t * get_client_linkstub(void);
 #endif
-const linkstub_t *get_special_ibl_linkstub(int index, bool is_trace);
+const linkstub_t *get_special_ibl_linkstub(ibl_branch_type_t, bool is_trace);
 const linkstub_t * get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags);
 bool is_ibl_sourceless_linkstub(const linkstub_t *l);
 const linkstub_t * get_coarse_exit_linkstub(void);
