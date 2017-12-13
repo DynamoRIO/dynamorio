@@ -1922,10 +1922,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
     DEBUG_DECLARE(bool ok;)
     DEBUG_DECLARE(int exit_res;)
     /* synch-all flags: if we fail to suspend a thread (e.g., privilege
-     * problems) ignore it.  XXX Should we retry instead?
+     * problems) retry it.
      */
     /* i#297: we only synch client threads after process exit event. */
-    uint flags = THREAD_SYNCH_SUSPEND_FAILURE_IGNORE | THREAD_SYNCH_SKIP_CLIENT_THREAD;
+    uint flags = THREAD_SYNCH_SUSPEND_FAILURE_RETRY | THREAD_SYNCH_SKIP_CLIENT_THREAD;
 
     ENTERING_DR();
 

@@ -3474,10 +3474,17 @@ os_thread_suspend(thread_record_t *tr)
      */
     mutex_unlock(&ostd->suspend_lock);
     while (ksynch_get_value(&ostd->suspended) == 0) {
-        /* For Linux, waits only if the suspended flag is not set as 1. Return value
-         * doesn't matter because the flag will be re-checked.
+        /* For Linux, waits only if the suspended flag is not set as 1. Other
+         * than a timeout value, the return value doesn't matter because the
+         * flag will be re-checked.
          */
-        ksynch_wait(&ostd->suspended, 0, 0);
+        if (ksynch_wait(&ostd->suspended, 0, 5000) == -ETIMEDOUT) {
+            mutex_lock(&ostd->suspend_lock);
+            ASSERT(ostd->suspend_count > 0);
+            ostd->suspend_count--;
+            mutex_unlock(&ostd->suspend_lock);
+            return false;
+        }
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
