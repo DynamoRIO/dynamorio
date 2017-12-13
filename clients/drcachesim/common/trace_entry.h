@@ -257,6 +257,10 @@ typedef enum {
     OFFLINE_EXT_TYPE_FOOTER,
     // A marker type.  The valueB field holds the sub-type and valueA the value.
     OFFLINE_EXT_TYPE_MARKER,
+    // Stores the type of access in valueB and the size in valueA.
+    // Used for filters on multi-memref instrs where post-processing can't tell
+    // which memref passed the filter.
+    OFFLINE_EXT_TYPE_MEMINFO,
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48
