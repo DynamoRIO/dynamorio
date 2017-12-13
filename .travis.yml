@@ -53,6 +53,9 @@ language:
 os:
   - linux
   - osx
+    # XXX i#2764: Travis OSX resources are over-subscribed and it can take
+    # hours to get an OSX machine, so we skip running PR's for now.
+    if: type = push
 
 # We request 2 runs, one with clang and one with gcc:
 compiler:
