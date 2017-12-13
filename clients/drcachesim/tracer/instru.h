@@ -213,12 +213,19 @@ private:
         void *user_data;
     };
 
+    bool instr_has_multiple_different_memrefs(instr_t *instr);
+    int insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          reg_id_t reg_ptr, reg_id_t scratch, int adjust,
+                          offline_entry_t *entry);
     int insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
                         uint instr_count);
     int insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                          reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref,
                          bool write);
+    int insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
+                                  instr_t *app, opnd_t ref, bool write);
     ssize_t (*write_file_func)(file_t file, const void *data, size_t count);
     file_t modfile;
 
