@@ -459,7 +459,7 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
 
 
 void
-hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload)))
+hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload))
 {
     if (apply_func){
         uint i;
