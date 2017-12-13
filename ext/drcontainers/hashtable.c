@@ -467,7 +467,8 @@ hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func(void *payl
             hash_entry_t *e = table->table[i];
             while (e != NULL) {
                 hash_entry_t *nexte = e->next;
-                apply_func(e->payload)
+                apply_func(e->payload);
+                e = nexte;
             }
         }
     }
