@@ -810,6 +810,8 @@ if (UNIX)
     set(DBG_OPT "${DBG_OPT} -fno-builtin-strcmp")
   endif ()
   set(LINK_EXTRA_FLAGS "")
+  # Use as small a type for enums as possible.
+  set(BASE_CFLAGS "${BASE_CFLAGS} -fshort-enums")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
