@@ -285,7 +285,6 @@ cache_simulator_t::process_memref(const memref_t &memref)
             dcaches[i]->get_stats()->reset();
         }
         llcache->get_stats()->reset();
-        is_warmed_up = true;
         if (knob_verbose >= 1) {
             std::cerr << "Cache simulation warmed up\n";
         }
@@ -309,6 +308,7 @@ cache_simulator_t::check_warmed_up()
     // loaded enough data to be warmed up.
     if (knob_warmup_fraction > 0.0 &&
         llcache->get_loaded_fraction() > knob_warmup_fraction) {
+        is_warmed_up = true;
         return true;
     }
 
@@ -317,6 +317,7 @@ cache_simulator_t::check_warmed_up()
     if (knob_warmup_refs > 0) {
         knob_warmup_refs--;
         if (knob_warmup_refs == 0) {
+            is_warmed_up = true;
             return true;
         }
     }

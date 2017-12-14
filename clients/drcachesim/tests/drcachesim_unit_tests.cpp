@@ -39,10 +39,10 @@
 void
 unit_test_warmup_fraction()
 {
-    cache_simulator_t * cache_sim = new cache_simulator_t(1, 64, 32*64, 32*64,
-                                                          32, 32, 32*64,
-                                                          32, "", "LRU", "none",
-                                                          0, 0, 0.5, 1ULL << 63, 0);
+    cache_simulator_t cache_sim(1, 64, 32*64, 32*64,
+                                32, 32, 32*64,
+                                32, "", "LRU", "none",
+                                0, 0, 0.5, 1ULL << 63, 0);
 
     // Feed it some memrefs, warmup fraction is set to 0.5 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
@@ -59,17 +59,15 @@ unit_test_warmup_fraction()
         std::cerr << "drcachesim unit_test_warmup_fraction failed\n";
         exit(1);
     }
-
-    delete cache_sim;
 }
 
 void
 unit_test_warmup_refs()
 {
-    cache_simulator_t * cache_sim = new cache_simulator_t(1, 64, 32*64, 32*64,
-                                                          32, 32, 32*64,
-                                                          32, "", "LRU", "none",
-                                                          0, 16, 0.0, 1ULL << 63, 0);
+    cache_simulator_t cache_sim(1, 64, 32*64, 32*64,
+                                32, 32, 32*64,
+                                32, "", "LRU", "none",
+                                0, 16, 0.0, 1ULL << 63, 0);
 
     // Feed it some memrefs, warmup refs = 16 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
@@ -86,8 +84,6 @@ unit_test_warmup_refs()
         std::cerr << "drcachesim unit_test_warmup_refs failed\n";
         exit(1);
     }
-
-    delete cache_sim;
 }
 
 
