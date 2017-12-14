@@ -2239,9 +2239,15 @@ if (CLIENT_INTERFACE)
       target_link_libraries(api.detach ${libpthread})
     endif ()
     if (NOT WIN32) # XXX i#2611: fix for Windows
-      tobuild_api(api.detach_spawn api/detach_spawn.c "" "" OFF OFF)
+      if (X64)
+        set(detach_spawn_name api.detach_spawn)
+      else ()
+        # FIXME i#2694: failing sometimes on 32-bit Linux.
+        set(detach_spawn_name api.detach_spawn_FLAKY)
+      endif ()
+      tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
       if (NOT ANDROID) # pthreads is inside Bionic on Android
-        target_link_libraries(api.detach_spawn ${libpthread})
+        target_link_libraries(${detach_spawn_name} ${libpthread})
       endif ()
     endif ()
   endif ()
@@ -2718,10 +2724,14 @@ if (CLIENT_INTERFACE)
         # the window.  2M makes a 50M trace and still hits 4 or 5 of the
         # 13 markers on my machine but is still a little slow so we cut in half
         # for 2+ markers.
-        # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
-        # from 1M to 50K to make progress.  Once we figure out the hang we should
-        # put it back to 1M.
-        set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+        if (X64)
+          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 1M")
+        else ()
+          # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
+          # from 1M to 50K to make progress.  Once we figure out the hang we should
+          # put it back to 1M.
+          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
+        endif ()
         set(tool.histogram.offline_timeout 180)
       else ()
         set(histo_ops "")
@@ -3358,9 +3368,11 @@ tobuild(security-common.codemod security-common/codemod.c)
 tochcon(security-common.codemod execmem_exec_t)
 mark_execstack(security-common.codemod)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild(security-common.decode-bad-stack security-common/decode-bad-stack.c)
-  tochcon(security-common.decode-bad-stack execmem_exec_t)
-  mark_execstack(security-common.decode-bad-stack)
+  # FIXME i#1308, i#2216: fails non-deterministically on Travis
+  set(decode_bad_stack_name security-common.decode-bad-stack_FLAKY)
+  tobuild(${decode_bad_stack_name} security-common/decode-bad-stack.c)
+  tochcon(${decode_bad_stack_name} execmem_exec_t)
+  mark_execstack(${decode_bad_stack_name})
   tobuild(security-common.retexisting security-common/retexisting.c)
 endif (X86)
 if (VPS) # relies on being aborted on .B violation
