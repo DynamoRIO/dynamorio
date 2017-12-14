@@ -288,11 +288,40 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 }
 
 int
+offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                                    reg_id_t reg_ptr, reg_id_t scratch, int adjust,
+                                    offline_entry_t *entry)
+{
+    int disp = adjust;
+#ifdef X64
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) entry->combined_value,
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(scratch)));
+#else
+    instrlist_insert_mov_immed_ptrsz(drcontext, (int)entry->combined_value,
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
+                               opnd_create_reg(scratch)));
+    instrlist_insert_mov_immed_ptrsz(drcontext, (int)(entry->combined_value >> 32),
+                                     opnd_create_reg(scratch),
+                                     ilist, where, NULL, NULL);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp + 4),
+                               opnd_create_reg(scratch)));
+#endif
+    return sizeof(offline_entry_t);
+}
+
+int
 offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *where,
                                  reg_id_t reg_ptr, reg_id_t scratch, int adjust,
                                  app_pc pc, uint instr_count)
 {
-    int disp = adjust;
     app_pc modbase;
     uint modidx;
     if (drmodtrack_lookup(drcontext, pc, &modidx, &modbase) != DRCOVLIB_SUCCESS) {
@@ -311,29 +340,28 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
         dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
     entry.pc.modidx = modidx;
     entry.pc.instr_count = instr_count;
+    return insert_save_entry(drcontext, ilist, where, reg_ptr, scratch, adjust, &entry);
+}
 
-#ifdef X64
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) entry.combined_value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(scratch)));
-#else
-    instrlist_insert_mov_immed_ptrsz(drcontext, (int)entry.combined_value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
-                               opnd_create_reg(scratch)));
-    instrlist_insert_mov_immed_ptrsz(drcontext, (int)(entry.combined_value >> 32),
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp + 4),
-                               opnd_create_reg(scratch)));
-#endif
-    return sizeof(offline_entry_t);
+int
+offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
+                                            instr_t *where, reg_id_t reg_ptr,
+                                            reg_id_t scratch, int adjust,
+                                            instr_t *app, opnd_t ref, bool write)
+{
+    ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
+    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
+    if (instr_is_prefetch(app)) {
+        type = instru_t::instr_to_prefetch_type(app);
+        // Prefetch instruction may have zero sized mem reference.
+        size = 1;
+    }
+    offline_entry_t entry;
+    entry.extended.type = OFFLINE_TYPE_EXTENDED;
+    entry.extended.ext = OFFLINE_EXT_TYPE_MEMINFO;
+    entry.extended.valueB = type;
+    entry.extended.valueA = size;
+    return insert_save_entry(drcontext, ilist, where, reg_ptr, scratch, adjust, &entry);
 }
 
 int
@@ -353,6 +381,36 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
     return sizeof(offline_entry_t);
 }
 
+// The caller should already have verified that either instr_reads_memory() or
+// instr_writes_memory().
+bool
+offline_instru_t::instr_has_multiple_different_memrefs(instr_t *instr)
+{
+    int count = 0;
+    opnd_t first_memref = opnd_create_null();
+    for (int i = 0; i < instr_num_srcs(instr); i++) {
+        opnd_t op = instr_get_src(instr, i);
+        if (opnd_is_memory_reference(op)) {
+            if (count == 0)
+                first_memref = op;
+            else if (!opnd_same(op, first_memref))
+                return true;
+            ++count;
+        }
+    }
+    for (int i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t op = instr_get_dst(instr, i);
+        if (opnd_is_memory_reference(op)) {
+            if (count == 0)
+                first_memref = op;
+            else if (!opnd_same(op, first_memref))
+                return true;
+            ++count;
+        }
+    }
+    return false;
+}
+
 int
 offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
@@ -367,6 +425,14 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     if (memref_needs_full_info) {
         adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                                  instr_get_app_pc(app), 0);
+        if (instr_has_multiple_different_memrefs(app)) {
+            // i#2756: post-processing can't determine which memref this is, so we
+            // insert a type entry.  (For instrs w/ identical memrefs, like an ALU
+            // operation, the addresses are the same and the load will pass the
+            // filter first and be found first in post-processing.)
+            adjust += insert_save_type_and_size(drcontext, ilist, where, reg_ptr,
+                                                reg_tmp, adjust, app, ref, write);
+        }
     }
     adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref,
                               write);
