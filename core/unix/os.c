@@ -3440,7 +3440,7 @@ os_thread_sleep(uint64 milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr, int timeout_ms)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
@@ -3478,7 +3478,7 @@ os_thread_suspend(thread_record_t *tr)
          * than a timeout value, the return value doesn't matter because the
          * flag will be re-checked.
          */
-        if (ksynch_wait(&ostd->suspended, 0, 5000) == -ETIMEDOUT) {
+        if (ksynch_wait(&ostd->suspended, 0, timeout_ms) == -ETIMEDOUT) {
             mutex_lock(&ostd->suspend_lock);
             ASSERT(ostd->suspend_count > 0);
             ostd->suspend_count--;

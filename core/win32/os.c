@@ -4905,7 +4905,7 @@ os_timeout(int time_in_milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr, int timeout_ms)
 {
     return nt_thread_suspend(tr->handle, NULL);
 }
