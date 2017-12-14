@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -376,6 +376,10 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
     }
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
+    if (opnd_is_near_base_disp(ref) && opnd_get_index(ref) == DR_REG_NULL) {
+        // We stored only the base reg, as an optimization.
+        buf->addr += opnd_get_disp(ref);
+    }
     VPRINT(4, "Appended memref type %d size %d to " PFX "\n", buf->type, buf->size,
            (ptr_uint_t)buf->addr);
     *buf_in = ++buf;
@@ -550,7 +554,7 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL, false);
+    online_instru_t instru(NULL, false, NULL);
     bool last_bb_handled = true;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
     std::vector<uint64> times(thread_files.size(), 0);

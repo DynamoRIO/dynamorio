@@ -37,6 +37,7 @@
 #define _INSTRU_H_ 1
 
 #include <stdint.h>
+#include "drvector.h"
 #include "../common/trace_entry.h"
 
 #define MINSERT instrlist_meta_preinsert
@@ -52,9 +53,11 @@ public:
     // We require that this is passed at construction time:
     instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                      instr_t *, reg_id_t),
-             bool memref_needs_info)
+             bool memref_needs_info,
+             drvector_t *reg_vector_in)
         : insert_load_buf_ptr(insert_load_buf),
-        memref_needs_full_info(memref_needs_info) {}
+        memref_needs_full_info(memref_needs_info),
+        reg_vector(reg_vector_in) {}
     virtual ~instru_t() {}
 
     virtual size_t sizeof_entry() const = 0;
@@ -77,15 +80,15 @@ public:
 
     // These insert inlined code to add an entry into the trace buffer.
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  reg_id_t reg_ptr, int adjust,
                                   instr_t *app, opnd_t ref, bool write,
                                   dr_pred_type_t pred) = 0;
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                 reg_id_t reg_ptr, int adjust,
                                  instr_t *app) = 0;
     virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   reg_id_t reg_ptr, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs) = 0;
 
     virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
@@ -105,6 +108,7 @@ protected:
     // Whether each data ref needs its own PC and type entry (i.e.,
     // this info cannot be inferred from surrounding icache entries).
     bool memref_needs_full_info;
+    drvector_t *reg_vector;
 
 private:
     instru_t() {}
@@ -115,7 +119,8 @@ class online_instru_t : public instru_t
 public:
     online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                             instr_t *, reg_id_t),
-                    bool memref_needs_info);
+                    bool memref_needs_info,
+                    drvector_t *reg_vector);
     virtual ~online_instru_t();
 
     virtual size_t sizeof_entry() const;
@@ -134,15 +139,15 @@ public:
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  reg_id_t reg_ptr, int adjust,
                                   instr_t *app, opnd_t ref, bool write,
                                   dr_pred_type_t pred);
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                 reg_id_t reg_ptr, int adjust,
                                  instr_t *app);
     virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   reg_id_t reg_ptr, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs);
 
     virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
@@ -164,6 +169,7 @@ public:
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                              instr_t *, reg_id_t),
                      bool memref_needs_info,
+                     drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file,
                                            const void *data,
                                            size_t count),
@@ -186,15 +192,15 @@ public:
     virtual int append_unit_header(byte *buf_ptr, thread_id_t tid);
 
     virtual int instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  reg_id_t reg_ptr, int adjust,
                                   instr_t *app, opnd_t ref, bool write,
                                   dr_pred_type_t pred);
     virtual int instrument_instr(void *drcontext, void *tag, void **bb_field,
                                  instrlist_t *ilist, instr_t *where,
-                                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                 reg_id_t reg_ptr, int adjust,
                                  instr_t *app);
     virtual int instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   reg_id_t reg_ptr, int adjust,
                                    instr_t **delay_instrs, int num_delay_instrs);
 
     virtual void bb_analysis(void *drcontext, void *tag, void **bb_field,
@@ -222,8 +228,7 @@ private:
                         reg_id_t reg_ptr, reg_id_t scratch, int adjust, app_pc pc,
                         uint instr_count);
     int insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         reg_id_t reg_ptr, reg_id_t reg_addr, int adjust, opnd_t ref,
-                         bool write);
+                         reg_id_t reg_ptr, int adjust, opnd_t ref, bool write);
     int insert_save_type_and_size(void *drcontext, instrlist_t *ilist, instr_t *where,
                                   reg_id_t reg_ptr, reg_id_t scratch, int adjust,
                                   instr_t *app, opnd_t ref, bool write);

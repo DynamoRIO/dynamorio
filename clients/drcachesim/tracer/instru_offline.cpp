@@ -52,12 +52,13 @@ void (*offline_instru_t::user_free)(void *data);
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
                                    bool memref_needs_info,
+                                   drvector_t *reg_vector,
                                    ssize_t (*write_file)(file_t file,
                                                          const void *data,
                                                          size_t count),
                                    file_t module_file)
-    : instru_t(insert_load_buf, memref_needs_info),
-      write_file_func(write_file), modfile(module_file)
+  : instru_t(insert_load_buf, memref_needs_info, reg_vector),
+    write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -366,20 +367,38 @@ offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 
 int
 offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_addr, int adjust,
-                                   opnd_t ref, bool write)
+                                   reg_id_t reg_ptr, int adjust, opnd_t ref, bool write)
 {
     int disp = adjust;
-    bool reg_ptr_used;
-    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref, &reg_ptr_used);
-    if (reg_ptr_used) {
-        // Re-load because reg_ptr was clobbered.
-        insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    reg_id_t reg_addr;
+    bool reserved = false;
+    drreg_status_t res;
+    if (opnd_is_near_base_disp(ref) && opnd_get_index(ref) == DR_REG_NULL) {
+        /* Optimization: to avoid needing a scratch reg to lea into, we simply
+         * store the base reg directly and add the disp during post-processing.
+         */
+        reg_addr = opnd_get_base(ref);
+    } else {
+        res = drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_addr);
+        DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+        reserved = true;
+        bool reg_ptr_used;
+        insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref,
+                           &reg_ptr_used);
+        if (reg_ptr_used) {
+            // Re-load because reg_ptr was clobbered.
+            insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+        }
+        reserved = true;
     }
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(reg_addr)));
+    if (reserved) {
+        res = drreg_unreserve_register(drcontext, ilist, where, reg_addr);
+        DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    }
     return sizeof(offline_entry_t);
 }
 
@@ -415,7 +434,7 @@ offline_instru_t::instr_has_multiple_different_memrefs(instr_t *instr)
 
 int
 offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                    reg_id_t reg_ptr, int adjust,
                                     instr_t *app, opnd_t ref, bool write,
                                     dr_pred_type_t pred)
 {
@@ -425,6 +444,10 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
     if (memref_needs_full_info) {
+        reg_id_t reg_tmp;
+        drreg_status_t res =
+            drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+        DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                                  instr_get_app_pc(app), 0);
         if (instr_has_multiple_different_memrefs(app)) {
@@ -435,9 +458,10 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
             adjust += insert_save_type_and_size(drcontext, ilist, where, reg_ptr,
                                                 reg_tmp, adjust, app, ref, write);
         }
+        res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+        DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     }
-    adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref,
-                              write);
+    adjust += insert_save_addr(drcontext, ilist, where, reg_ptr, adjust, ref, write);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return adjust;
 }
@@ -446,10 +470,10 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                    instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                   instr_t *app)
+                                   reg_id_t reg_ptr, int adjust, instr_t *app)
 {
     app_pc pc;
+    reg_id_t reg_tmp;
     if (!memref_needs_full_info) {
         // We write just once per bb, if not filtering.
         if ((ptr_uint_t)*bb_field > MAX_INSTR_COUNT)
@@ -459,16 +483,21 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
         // XXX: For repstr do we want tag insted of skipping rep prefix?
         pc = instr_get_app_pc(app);
     }
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                            pc, memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
     if (!memref_needs_full_info)
         *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
 }
 
 int
 offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                     reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                     reg_id_t reg_ptr, int adjust,
                                      instr_t **delay_instrs, int num_delay_instrs)
 {
     // The post-processor fills in all instr info other than our once-per-bb entry.

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -98,6 +98,8 @@ static size_t trace_buf_size;
  */
 static size_t redzone_size;
 static size_t max_buf_size;
+
+static drvector_t scratch_reserve_vec;
 
 /* thread private buffer and counter */
 typedef struct {
@@ -501,7 +503,7 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 static int
 instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
                         user_data_t *ud, instr_t *where,
-                        reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust)
+                        reg_id_t reg_ptr, int adjust)
 {
     if (ud->repstr) {
         // We assume that drutil restricts repstr to a single bb on its own, and
@@ -514,7 +516,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
     }
     // Instrument to add a full instr entry for the first instr.
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
-                                      ilist, where, reg_ptr, reg_tmp, adjust,
+                                      ilist, where, reg_ptr, adjust,
                                       ud->delay_instrs[0]);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
@@ -522,11 +524,11 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
             adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field,
-                                              ilist, where, reg_ptr, reg_tmp,
+                                              ilist, where, reg_ptr,
                                               adjust, ud->delay_instrs[i]);
         }
     } else {
-        adjust = instru->instrument_ibundle(drcontext, ilist, where, reg_ptr, reg_tmp,
+        adjust = instru->instrument_ibundle(drcontext, ilist, where, reg_ptr,
                                             adjust, ud->delay_instrs + 1,
                                             ud->num_delay_instrs - 1);
     }
@@ -539,7 +541,7 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist,
  */
 static void
 instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
-                      reg_id_t reg_ptr, reg_id_t reg_tmp)
+                      reg_id_t reg_ptr)
 {
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     IF_X86(uint64 prof_pcs;)
@@ -574,6 +576,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                 INSTR_CREATE_jecxz(drcontext, opnd_create_instr(skip_call)));
     }
 #elif defined(ARM)
+    reg_id_t reg_tmp = DR_REG_NULL;
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB) {
         instr_t *noskip = INSTR_CREATE_label(drcontext);
         /* XXX: clean call is too long to use cbz to skip. */
@@ -588,9 +591,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where, noskip);
     } else {
         /* There is no jecxz/cbz like instr on ARM-A32 mode, so we have to
-         * save aflags to reg_tmp before check.
+         * save aflags to a temp reg before check.
          * XXX optimization: use drreg to avoid aflags save/restore.
          */
+        if (drreg_reserve_register(drcontext, bb, where, reg_vector, &reg_tmp) !=
+            DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve reg.");
         dr_save_arith_flags_to_reg(drcontext, ilist, where, reg_tmp);
         MINSERT(ilist, where,
                 INSTR_CREATE_cmp(drcontext,
@@ -611,8 +617,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     MINSERT(ilist, where, skip_call);
 #ifdef ARM
-    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32)
+    if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32) {
         dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg_tmp);
+        DR_ASSERT(reg_tmp != DR_REG_NULL);
+        if (drreg_unreserve_register(drcontext, bb, where, reg_tmp) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to unreserve reg.\n");
+    }
 #endif
 }
 
@@ -625,7 +635,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 // limitations.)
 static reg_id_t
 insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                   user_data_t *ud, reg_id_t reg_ptr, reg_id_t reg_addr,
+                   user_data_t *ud, reg_id_t reg_ptr,
                    opnd_t ref, instr_t *app, instr_t *skip, dr_pred_type_t pred)
 {
     // Our "level 0" inlined direct-mapped cache filter.
@@ -636,6 +646,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     ptr_int_t mask = (ptr_int_t)(cache_size / op_line_size.get_value()) - 1;
     int line_bits = compute_log2(op_line_size.get_value());
     uint offs = is_icache ? MEMTRACE_TLS_OFFS_ICACHE : MEMTRACE_TLS_OFFS_DCACHE;
+    reg_id_t reg_addr;
     if (is_icache) {
         // For filtering the icache, we disable bundles + delays and call here on
         // every instr.  We skip if we're still on the same cache line.
@@ -654,6 +665,9 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         ud->last_app_pc = instr_get_app_pc(app);
     }
+    if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec, &reg_addr)
+        != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch reg\n");
     if (drreg_reserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve aflags\n");
     // We need a 3rd scratch register.  We can avoid clobbering the app address
@@ -730,18 +744,20 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     // path shorter, so we clobber reg_addr with the tag and recompute on a miss.
     if (!is_icache && opnd_uses_reg(ref, reg_idx))
         drreg_get_app_value(drcontext, ilist, where, reg_idx, reg_idx);
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_addr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to unreserve scratch reg\n");
     return reg_idx;
 }
 
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
-                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                  reg_id_t reg_ptr, int adjust,
                   instr_t *app, opnd_t ref, bool write, dr_pred_type_t pred)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
-        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, reg_tmp,
+        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
                                        ref, NULL, skip, pred);
         if (reg_third == DR_REG_NULL) {
             instr_destroy(drcontext, skip);
@@ -751,7 +767,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     if (op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr,
-                                       reg_tmp, adjust, app, ref, write, pred);
+                                       adjust, app, ref, write, pred);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
@@ -773,13 +789,12 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
 static int
 instrument_instr(void *drcontext, void *tag, user_data_t *ud,
                  instrlist_t *ilist, instr_t *where,
-                 reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                 instr_t *app)
+                 reg_id_t reg_ptr, int adjust, instr_t *app)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
-        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, reg_tmp,
+        reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
                                        opnd_create_null(), app, skip, DR_PRED_NONE);
         if (reg_third == DR_REG_NULL) {
             instr_destroy(drcontext, skip);
@@ -789,7 +804,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud,
     if (op_L0_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist,
-                                      where, reg_ptr, reg_tmp, adjust, app);
+                                      where, reg_ptr, adjust, app);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
@@ -819,8 +834,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     int i, adjust = 0;
     user_data_t *ud = (user_data_t *) user_data;
     dr_pred_type_t pred;
-    reg_id_t reg_ptr, reg_tmp = DR_REG_NULL;
-    drvector_t rvec1, rvec2;
+    reg_id_t reg_ptr;
+    drvector_t rvec;
     bool is_memref;
 
     drmgr_disable_auto_predication(drcontext, bb);
@@ -891,28 +906,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     pred = instr_get_predicate(instr);
     /* opt: save/restore reg per instr instead of per entry */
-    /* We need two scratch registers.
+    /* We usually need two scratch registers, but not always, so we push the 2nd
+     * out into the instru_t routines.
      * reg_ptr must be ECX or RCX for jecxz on x86, and must be <= r7 for cbnz on ARM.
      */
-    drreg_init_and_fill_vector(&rvec1, false);
-    drreg_init_and_fill_vector(&rvec2, true);
+    drreg_init_and_fill_vector(&rvec, false);
 #ifdef X86
-    drreg_set_vector_entry(&rvec1, DR_REG_XCX, true);
-    if (op_L0_filter.get_value()) {
-        /* We need to preserve the flags so we need xax. */
-        drreg_set_vector_entry(&rvec2, DR_REG_XAX, false);
-    }
+    drreg_set_vector_entry(&rvec, DR_REG_XCX, true);
 #else
     for (reg_ptr = DR_REG_R0; reg_ptr <= DR_REG_R7; reg_ptr++)
-        drreg_set_vector_entry(&rvec1, reg_ptr, true);
+        drreg_set_vector_entry(&rvec, reg_ptr, true);
 #endif
-    if (drreg_reserve_register(drcontext, bb, instr, &rvec1, &reg_ptr) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, &rvec2, &reg_tmp) != DRREG_SUCCESS) {
+    if (drreg_reserve_register(drcontext, bb, instr, &rvec, &reg_ptr) != DRREG_SUCCESS) {
         // We can't recover.
         FATAL("Fatal error: failed to reserve scratch registers\n");
     }
-    drvector_delete(&rvec1);
-    drvector_delete(&rvec2);
+    drvector_delete(&rvec);
 
     /* load buf ptr into reg_ptr, unless we're filtering */
     if (!op_L0_filter.get_value())
@@ -920,14 +929,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
 
     if (ud->num_delay_instrs != 0) {
         adjust = instrument_delay_instrs(drcontext, tag, bb, ud, instr,
-                                         reg_ptr, reg_tmp, adjust);
+                                         reg_ptr, adjust);
     }
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
         adjust = instrument_instr(drcontext, tag, ud, bb,
-                                  instr, reg_ptr, reg_tmp, adjust, ud->strex);
-        adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, reg_tmp,
+                                  instr, reg_ptr, adjust, ud->strex);
+        adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr,
                                    adjust, ud->strex, instr_get_dst(ud->strex, 0),
                                    true, instr_get_predicate(ud->strex));
         ud->strex = NULL;
@@ -950,7 +959,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     // online we have to ignore "instr" here in instru_online::instrument_instr().
     if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb,
-                                  instr, reg_ptr, reg_tmp, adjust, instr);
+                                  instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
 
@@ -966,17 +975,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr,
-                                           reg_tmp, adjust, instr,
-                                           instr_get_src(instr, i), false, pred);
+                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
+                                           instr, instr_get_src(instr, i), false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr,
-                                           reg_tmp, adjust, instr,
-                                           instr_get_dst(instr, i), true, pred);
+                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
+                                           instr, instr_get_dst(instr, i), true, pred);
             }
         }
         if (adjust != 0)
@@ -991,12 +998,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     if (drmgr_is_last_instr(drcontext, instr)) {
         if (op_L0_filter.get_value())
             insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
-        instrument_clean_call(drcontext, bb, instr, reg_ptr, reg_tmp);
+        instrument_clean_call(drcontext, bb, instr, reg_ptr);
     }
 
-    /* restore scratch registers */
-    if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, reg_tmp) != DRREG_SUCCESS)
+    /* restore scratch register */
+    if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS)
         DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
 }
@@ -1414,6 +1420,8 @@ event_exit(void)
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
+    drvector_delete(&scratch_reserve_vec);
+
     if (tracing_enabled) {
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
@@ -1541,6 +1549,14 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be powers of 2.");
     }
 
+    drreg_init_and_fill_vector(&scratch_reserve_vec, true);
+#ifdef X86
+    if (op_L0_filter.get_value()) {
+        /* We need to preserve the flags so we need xax. */
+        drreg_set_vector_entry(&scratch_reserve_vec, DR_REG_XAX, false);
+    }
+#endif
+
     if (op_offline.get_value()) {
         void *buf;
         if (!init_offline_dir()) {
@@ -1551,6 +1567,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         buf = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new(buf) offline_instru_t(insert_load_buf_ptr,
                                            op_L0_filter.get_value(),
+                                           &scratch_reserve_vec,
                                            file_ops_func.write_file,
                                            module_file);
     } else {
@@ -1559,7 +1576,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         buf = dr_global_alloc(MAX_INSTRU_SIZE);
         instru = new(buf) online_instru_t(insert_load_buf_ptr,
-                                          op_L0_filter.get_value());
+                                          op_L0_filter.get_value(),
+                                          &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
