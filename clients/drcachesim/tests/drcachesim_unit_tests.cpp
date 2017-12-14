@@ -52,10 +52,10 @@ unit_test_warmup_fraction()
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 8;
         ref.data.addr = i * 128;
-        cache_sim->process_memref(ref);
+        cache_sim.process_memref(ref);
     }
 
-    if (!cache_sim->check_warmed_up()) {
+    if (!cache_sim.check_warmed_up()) {
         std::cerr << "drcachesim unit_test_warmup_fraction failed\n";
         exit(1);
     }
@@ -77,10 +77,10 @@ unit_test_warmup_refs()
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 8;
         ref.data.addr = i * 128;
-        cache_sim->process_memref(ref);
+        cache_sim.process_memref(ref);
     }
 
-    if (!cache_sim->check_warmed_up()) {
+    if (!cache_sim.check_warmed_up()) {
         std::cerr << "drcachesim unit_test_warmup_refs failed\n";
         exit(1);
     }
