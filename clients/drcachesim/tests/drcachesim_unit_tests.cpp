@@ -37,7 +37,8 @@
 #include "../common/memref.h"
 
 void
-unit_test_warmup_fraction() {
+unit_test_warmup_fraction()
+{
     cache_simulator_t * cache_sim = new cache_simulator_t(1, 64, 32*64, 32*64,
                                                           32, 32, 32*64,
                                                           32, "", "LRU", "none",
@@ -47,8 +48,9 @@ unit_test_warmup_fraction() {
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check for the warmup_fraction.
     for (int i = 0; i < 16 + 1; i++) {
-        memref_t ref = { .data = { .type = TRACE_TYPE_READ, .pid = 0,
-                                   .tid = 0, .addr = 0, .size = 8, .pc = 0} };
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 8;
         ref.data.addr = i * 128;
         cache_sim->process_memref(ref);
     }
@@ -62,7 +64,8 @@ unit_test_warmup_fraction() {
 }
 
 void
-unit_test_warmup_refs() {
+unit_test_warmup_refs()
+{
     cache_simulator_t * cache_sim = new cache_simulator_t(1, 64, 32*64, 32*64,
                                                           32, 32, 32*64,
                                                           32, "", "LRU", "none",
@@ -72,8 +75,9 @@ unit_test_warmup_refs() {
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check.
     for (int i = 0; i < 16 + 1; i++) {
-        memref_t ref = { .data = { .type = TRACE_TYPE_READ, .pid = 0,
-                                   .tid = 0, .addr = 0, .size = 8, .pc = 0} };
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 8;
         ref.data.addr = i * 128;
         cache_sim->process_memref(ref);
     }
@@ -88,7 +92,8 @@ unit_test_warmup_refs() {
 
 
 int
-main(int argc, const char *argv[]) {
+main(int argc, const char *argv[])
+{
     unit_test_warmup_fraction();
     unit_test_warmup_refs();
     return 0;
