@@ -46,7 +46,7 @@ unit_test_warmup_fraction() {
     // Feed it some memrefs, warmup fraction is set to 0.5 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check for the warmup_fraction.
-    for(int i = 0; i < 16 + 1; i++) {
+    for (int i = 0; i < 16 + 1; i++) {
         memref_t ref = { .data = { .type = TRACE_TYPE_READ, .pid = 0,
                                    .tid = 0, .addr = 0, .size = 8, .pc = 0} };
         ref.data.addr = i * 128;
@@ -71,7 +71,7 @@ unit_test_warmup_refs() {
     // Feed it some memrefs, warmup refs = 16 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check.
-    for(int i = 0; i < 16 + 1; i++) {
+    for (int i = 0; i < 16 + 1; i++) {
         memref_t ref = { .data = { .type = TRACE_TYPE_READ, .pid = 0,
                                    .tid = 0, .addr = 0, .size = 8, .pc = 0} };
         ref.data.addr = i * 128;

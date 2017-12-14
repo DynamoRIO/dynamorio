@@ -279,7 +279,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     // reset cache stats when warming up is completed
-    if(!is_warmed_up && check_warmed_up()) {
+    if (!is_warmed_up && check_warmed_up()) {
         for (int i = 0; i < knob_num_cores; i++) {
             icaches[i]->get_stats()->reset();
             dcaches[i]->get_stats()->reset();
