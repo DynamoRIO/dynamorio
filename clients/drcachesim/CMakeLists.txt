@@ -335,13 +335,6 @@ endif ()
 
 
 if (BUILD_TESTS)
-  # Unit tests for drcachesim run on all platforms
-  add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
-  if (ZLIB_FOUND)
-    target_link_libraries(tool.drcachesim.unit_tests simulator drmemtrace_static ${ZLIB_LIBRARIES})
-  else ()
-    target_link_libraries(tool.drcachesim.unit_tests simulator drmemtrace_static)
-  endif ()
 
   add_win32_flags(tool.drcachesim.unit_tests)
   # FIXME i#2007: fails to link on A64
@@ -394,6 +387,12 @@ if (BUILD_TESTS)
     endif ()
 
     if (UNIX)
+      add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
+      if (ZLIB_FOUND)
+        target_link_libraries(tool.drcachesim.unit_tests simulator drmemtrace_static ${ZLIB_LIBRARIES})
+      else ()
+        target_link_libraries(tool.drcachesim.unit_tests simulator drmemtrace_static)
+      endif ()
       if (X86 AND NOT APPLE) # This test is x86-specific.
         # uses ptrace and looks for linux-specific syscalls
         add_executable(tool.drcacheoff.raw2trace_io tests/raw2trace_io.cpp
