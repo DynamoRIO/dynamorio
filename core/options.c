@@ -135,27 +135,6 @@ typedef struct _option_t {
     option_modifier_t modifier;
 } option_t;
 
-/* Create an array with traits of all the internal options. */
-#ifndef EXPOSE_INTERNAL_OPTIONS
-/* default values for internal options are kept in a separate struct */
-# define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
-                                 statement, description, flag, pcache) \
-{ command_line_option, offsetof(options_t, name), sizeof(type), \
-  OPTION_TYPE_##type, pcache, OPTION_MOD_##flag},
-
-# define OPTION_COMMAND(type, name, default_value, command_line_option, \
-                        statement, description, flag, pcache) /* nothing */
-
-/* Read only source for default internal option values and names. No lock needed
- * since never written.
- */
-static const option_t internal_option_traits[] = {
-# include "optionsx.h"
-};
-# undef OPTION_COMMAND_INTERNAL
-# undef OPTION_COMMAND
-#endif
-
 #ifndef EXPOSE_INTERNAL_OPTIONS
 /* default values for internal options are kept in a separate struct */
 # define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
