@@ -108,7 +108,8 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
     knob_replace_policy(replace_policy),
     knob_data_prefetcher(data_prefetcher),
     icaches(NULL),
-    dcaches(NULL)
+    dcaches(NULL),
+    is_warmed_up(false)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
@@ -205,7 +206,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
     }
 
     // The references after warmup and simulated ones are dropped.
-    if (knob_warmup_refs == 0 && knob_sim_refs == 0)
+    if (check_warmed_up() && knob_sim_refs == 0)
         return true;;
 
     // Both warmup and simulated references are simulated.
@@ -277,40 +278,51 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return false;
     }
 
-    // Check if the warmup_fraction is done, we only consider the last level
-    // cache for warmup.
-    if (knob_warmup_fraction > 0.0 &&
-        llcache->get_loaded_fraction() > knob_warmup_fraction) {
+    // reset cache stats when warming up is completed
+    if(!is_warmed_up && check_warmed_up()) {
         for (int i = 0; i < knob_num_cores; i++) {
             icaches[i]->get_stats()->reset();
             dcaches[i]->get_stats()->reset();
         }
         llcache->get_stats()->reset();
+        is_warmed_up = true;
         if (knob_verbose >= 1) {
-            std::cerr << "Last level cache warmup fraction "
-                      << knob_warmup_fraction << " reached.\n";
+            std::cerr << "Cache simulation warmed up\n";
         }
-        // Ensure that we only run this once.
-        knob_warmup_fraction = 0.0;
-        return true;
-    }
-
-    // process counters for warmup and simulated references
-    if (knob_warmup_refs > 0) { // warm caches up
-        knob_warmup_refs--;
-        // reset cache stats when warming up is completed
-        if (knob_warmup_refs == 0) {
-            for (int i = 0; i < knob_num_cores; i++) {
-                icaches[i]->get_stats()->reset();
-                dcaches[i]->get_stats()->reset();
-            }
-            llcache->get_stats()->reset();
-        }
-    }
-    else {
+    } else {
         knob_sim_refs--;
     }
     return true;
+}
+
+// Return true if the number of warmup references have been executed or if
+// specified fraction of the llcache has been loaded. Also return true if the
+// cache has already been warmed up.
+bool
+cache_simulator_t::check_warmed_up()
+{
+    // If the cache has already been warmed up return true
+    if (is_warmed_up)
+        return true;
+
+    // If the warmup_fraction option is set then check if the last level has
+    // loaded enough data to be warmed up.
+    if (knob_warmup_fraction > 0.0 &&
+        llcache->get_loaded_fraction() > knob_warmup_fraction) {
+        return true;
+    }
+
+    // If warmup_refs is set then decrement and indicate warmup done when
+    // counter hits zero.
+    if (knob_warmup_refs > 0) {
+        knob_warmup_refs--;
+        if (knob_warmup_refs == 0) {
+            return true;
+        }
+    }
+
+    // If we reach here then warmup is not done.
+    return false;
 }
 
 bool
