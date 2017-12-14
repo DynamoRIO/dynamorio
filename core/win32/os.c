@@ -7679,7 +7679,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
                         nt_get_handle_access_rights(tr->handle);
                     TEB *teb_addr = get_teb(tr->handle);
                     DEBUG_DECLARE(bool res = )
-                        os_thread_suspend(tr);
+                        os_thread_suspend(tr, 0);
                     /* we can't assert here (could infinite loop) */
                     DODEBUG({ suspend_failures = suspend_failures || !res; });
                     if (thread_get_context(tr, &cxt)) {
