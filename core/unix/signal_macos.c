@@ -46,7 +46,7 @@
 #endif
 
 /* based on xnu bsd/sys/signalvar.h */
-int default_action[] = {
+default_action_t default_action[] = {
     0,                      /*  0 unused */
     DEFAULT_TERMINATE,      /*  1 SIGHUP */
     DEFAULT_TERMINATE,      /*  2 SIGINT */

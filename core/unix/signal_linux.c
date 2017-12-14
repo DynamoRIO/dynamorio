@@ -71,7 +71,7 @@
  */
 
 
-int default_action[] = {
+default_action_t default_action[] = {
     /* nothing    0 */   DEFAULT_IGNORE,
     /* SIGHUP     1 */   DEFAULT_TERMINATE,
     /* SIGINT     2 */   DEFAULT_TERMINATE,
