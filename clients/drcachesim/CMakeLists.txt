@@ -330,7 +330,7 @@ endif ()
 ##################################################
 # Test executables
 #
-# We build larger executables here.  All tests are added in suite/tests/.
+# We build larger executables here.  All tests are added in suite/tests/ except unit tests.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
 
@@ -342,6 +342,8 @@ if (BUILD_TESTS)
     target_link_libraries(tool.drcachesim.unit_tests simulator drmemtrace_static)
   endif ()
   add_win32_flags(tool.drcachesim.unit_tests)
+  add_test(NAME tool.drcachesim.unit_tests
+           COMMAND tool.drcachesim.unit_tests)
   # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   if (NOT AARCH64 AND NOT APPLE)

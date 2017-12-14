@@ -198,6 +198,7 @@ Further non-compatibility-affecting changes include:
    sec_drcachesim_ops).
  - Added a last-level cache miss recording feature to drcachesim.
  - Added a delayed tracing feature to drcachesim.
+ - Added an option to specify cache warmup by loaded fraction of the last level cache.
  - On Linux, the VDSO module is now included in the module list at program
    startup.
  - Added support for Windows 10 1703.  We provide an artificial version
