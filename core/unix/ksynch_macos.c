@@ -41,6 +41,12 @@
  */
 
 #include "../globals.h"
+#include <errno.h>
+/* avoid problems with use of errno as var name in rest of file */
+#if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
+# undef errno
+#endif
+
 #include "ksynch.h"
 
 #include <mach/mach.h>
