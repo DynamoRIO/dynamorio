@@ -43,16 +43,23 @@
 simulator_t::simulator_t(unsigned int num_cores,
                          uint64_t skip_refs,
                          uint64_t warmup_refs,
+                         double warmup_fraction,
                          uint64_t sim_refs,
                          unsigned int verbose) :
     knob_num_cores(num_cores),
     knob_skip_refs(skip_refs),
     knob_warmup_refs(warmup_refs),
+    knob_warmup_fraction(warmup_fraction),
     knob_sim_refs(sim_refs),
     knob_verbose(verbose),
     last_thread(0),
     last_core(0)
 {
+    if (knob_warmup_refs > 0 && (knob_warmup_fraction > 0.0)) {
+        ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
+        success = false;
+        return;
+    }
 }
 
 simulator_t::~simulator_t() {}
