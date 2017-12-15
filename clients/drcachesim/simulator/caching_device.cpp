@@ -70,6 +70,7 @@ caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
     associativity = associativity_;
     block_size = block_size_;
     num_blocks = num_blocks_;
+    loaded_blocks = 0;
     blocks_per_set = num_blocks / associativity;
     assoc_bits = compute_log2(associativity);
     block_size_bits = compute_log2(block_size);
@@ -142,6 +143,11 @@ caching_device_t::request(const memref_t &memref_in)
             // FIXME i#1726: coherence policy
 
             way = replace_which_way(block_idx);
+            // Check if we are inserting a new block, if we are then increment
+            // the block loaded count.
+            if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
+                loaded_blocks++;
+            }
             get_caching_device_block(block_idx, way).tag = tag;
         }
 

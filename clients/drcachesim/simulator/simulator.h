@@ -48,6 +48,7 @@ class simulator_t : public analysis_tool_t
     simulator_t(unsigned int num_cores,
                 uint64_t skip_refs,
                 uint64_t warmup_refs,
+                double warmup_fraction,
                 uint64_t sim_refs,
                 unsigned int verbose);
     virtual ~simulator_t() = 0;
@@ -65,6 +66,7 @@ class simulator_t : public analysis_tool_t
 
     uint64_t knob_skip_refs;
     uint64_t knob_warmup_refs;
+    double knob_warmup_fraction;
     uint64_t knob_sim_refs;
     unsigned int knob_verbose;
 
