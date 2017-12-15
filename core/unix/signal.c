@@ -108,7 +108,7 @@
  * To support differing default actions, we have separate arrays, rather
  * than indirecting to a single all-signals array.
  */
-extern default_action_t default_action[];
+extern int default_action[];
 
 /* We know that many signals are always asynchronous.
  * Others, however, may be synchronous or may not -- e.g., another process
