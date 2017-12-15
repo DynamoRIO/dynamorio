@@ -62,6 +62,7 @@ drmemtrace_analysis_tool_create()
                                       op_data_prefetcher.get_value(),
                                       op_skip_refs.get_value(),
                                       op_warmup_refs.get_value(),
+                                      op_warmup_fraction.get_value(),
                                       op_sim_refs.get_value(),
                                       op_verbose.get_value());
     } else if (op_simulator_type.get_value() == TLB) {
@@ -76,6 +77,7 @@ drmemtrace_analysis_tool_create()
                                     op_TLB_replace_policy.get_value(),
                                     op_skip_refs.get_value(),
                                     op_warmup_refs.get_value(),
+                                    op_warmup_fraction.get_value(),
                                     op_sim_refs.get_value(),
                                     op_verbose.get_value());
     } else if (op_simulator_type.get_value() == HISTOGRAM) {

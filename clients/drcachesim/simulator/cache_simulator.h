@@ -57,12 +57,15 @@ class cache_simulator_t : public simulator_t
                       const std::string &data_prefetcher,
                       uint64_t skip_refs,
                       uint64_t warmup_refs,
+                      double warmup_fraction,
                       uint64_t sim_refs,
                       unsigned int verbose);
     virtual ~cache_simulator_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
 
+    // Exposed to make it easy to test
+    bool check_warmed_up();
  protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *create_cache(std::string policy);
@@ -87,7 +90,8 @@ class cache_simulator_t : public simulator_t
     cache_t **dcaches;
 
     cache_t *llcache;
-
+ private:
+    bool is_warmed_up;
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */
