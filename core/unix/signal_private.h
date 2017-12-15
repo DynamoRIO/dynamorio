@@ -68,13 +68,13 @@ typedef void (*tramp_t)(handler_t, int, int, siginfo_t *, void *);
 #endif
 
 /* default actions */
-typedef enum default_action_t {
+enum {
     DEFAULT_TERMINATE,
     DEFAULT_TERMINATE_CORE,
     DEFAULT_IGNORE,
     DEFAULT_STOP,
     DEFAULT_CONTINUE,
-} default_action_t;
+};
 
 #ifdef X86
 /* Even though we don't always execute xsave ourselves, kernel will do
