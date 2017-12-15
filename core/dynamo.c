@@ -3111,7 +3111,7 @@ dynamorio_unprotect(void)
                     for (tr = all_threads[i]; tr; tr = tr->next) {
                         if (tr->under_dynamo_control) {
                             DEBUG_DECLARE(bool ok =)
-                                os_thread_suspend(all_threads[i]);
+                                os_thread_suspend(all_threads[i], 0);
                             ASSERT(ok);
                             protect_info->num_threads_suspended++;
                         }
