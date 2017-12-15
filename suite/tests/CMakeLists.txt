@@ -2724,14 +2724,10 @@ if (CLIENT_INTERFACE)
         # the window.  2M makes a 50M trace and still hits 4 or 5 of the
         # 13 markers on my machine but is still a little slow so we cut in half
         # for 2+ markers.
-        if (X64)
-          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 1M")
-        else ()
-          # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
-          # from 1M to 50K to make progress.  Once we figure out the hang we should
-          # put it back to 1M.
-          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
-        endif ()
+        # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
+        # from 1M to 50K to make progress.  Once we figure out the hang we should
+        # put it back to 1M.
+        set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
         set(tool.histogram.offline_timeout 180)
       else ()
         set(histo_ops "")
