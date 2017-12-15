@@ -41,6 +41,7 @@
  */
 
 #include "../globals.h"
+#include <errno.h>
 #include "ksynch.h"
 
 #include <mach/mach.h>
