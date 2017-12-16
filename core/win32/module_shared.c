@@ -845,7 +845,7 @@ get_own_x64_peb(void)
     uint peb64, peb64_hi;
     if (!is_wow64_process(NT_CURRENT_PROCESS)) {
         ASSERT_NOT_REACHED();
-        return NULL;
+        return 0;
     }
     __asm {
         mov eax, dword ptr gs:X64_PEB_TIB_OFFSET
@@ -980,8 +980,8 @@ get_module_handle_64(const wchar_t *name)
 {
     /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
     LDR_MODULE_64 mod;
-    if (!get_ldr_module_64(name, NULL, &mod))
-        return NULL;
+    if (!get_ldr_module_64(name, 0, &mod))
+        return 0;
     return mod.BaseAddress;
 }
 
@@ -1145,7 +1145,7 @@ load_library_64(const char *path)
                 get_ldr_module_64(NULL, (uint64)result, &mod);
             ASSERT(ok);
             entry = (dr_auxlib64_routine_ptr_t) mod.EntryPoint;
-            if (entry != NULL) {
+            if (entry != 0) {
                 if (dr_invoke_x64_routine(entry, 3, result, DLL_PROCESS_ATTACH, NULL))
                     return result;
                 else {

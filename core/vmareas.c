@@ -6379,9 +6379,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         && tamper_resistant_region_overlap(base, base + size);
 
     bool patch_proof_overlap = false;
-#ifdef WINDOWS
     uint frag_flags;
-#endif
     ASSERT(new_memprot != NULL);
     /* old_memprot is optional */
 
@@ -6810,7 +6808,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             bool check_iat = false;
             bool free_iat = false;
 #endif
-            uint frag_flags = 0;
+            frag_flags = 0;
             DEBUG_DECLARE(const char *comment = "";)
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" is being made executable\n",
