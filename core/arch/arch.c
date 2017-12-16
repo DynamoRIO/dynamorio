@@ -1963,9 +1963,8 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
 
     /* a decent compiler should inline these nested loops */
     /* iterate in order <linked, unlinked> */
-    for (link_state = IBL_LINKED;
-         /* keep in mind we need a signed comparison when going downwards */
-         (int)link_state >= (int)IBL_UNLINKED; link_state-- ) {
+    link_state = IBL_LINKED;
+    while (true) {
         /* it is OK to compare to IBL_BB_PRIVATE even when !SHARED_FRAGMENTS_ENABLED() */
         for (source_fragment_type = IBL_SOURCE_TYPE_START;
              source_fragment_type < IBL_SOURCE_TYPE_END;
@@ -1995,6 +1994,9 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
 #endif
             }
         }
+        if (link_state == IBL_UNLINKED)
+          break;
+        link_state--;
     }
 #ifdef WINDOWS
     if (is_shared_syscall_routine(dcontext, target)) {
