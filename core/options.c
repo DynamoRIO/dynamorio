@@ -820,19 +820,17 @@ DIFF_uint(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_size(const void *ptr1, const void *ptr2)
 {
-  return DIFF_uint(ptr1, ptr2);
+    return DIFF_uint(ptr1, ptr2);
 }
 static int
 DIFF_uint_time(const void *ptr1, const void *ptr2)
 {
-  return DIFF_uint(ptr1, ptr2);
+    return DIFF_uint(ptr1, ptr2);
 }
 static int
 DIFF_uint_addr(const void *ptr1, const void *ptr2)
 {
-    const ptr_uint_t val1 = (const ptr_uint_t)(ptr1);
-    const ptr_uint_t val2 = (const ptr_uint_t)(ptr2);
-    return val1 != val2;
+    return DIFF_uint(ptr1, ptr2);
 }
 static int
 DIFF_pathstring_t(const void *ptr1, const void *ptr2)
