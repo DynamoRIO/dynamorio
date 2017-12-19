@@ -195,10 +195,12 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end);
 
 /**
  * Calls the apply_func for each payload
+ * 
+ * @param apply_func A pointer to a function that is called for all payloads in
+ * stored in the map.
  */
 void
 hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
-
 
 /**
  * Removes all entries from the table.  If free_payload_func was specified
