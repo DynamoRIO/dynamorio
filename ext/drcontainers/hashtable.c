@@ -470,7 +470,7 @@ hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *pay
             apply_func(e->payload);
             e = nexte;
         }
-    }    
+    } 
 }
 
 static void
