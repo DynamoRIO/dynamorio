@@ -6979,8 +6979,8 @@ os_seek(file_t f, int64 offset, int origin)
     case OS_SEEK_END:
         {
             uint64 file_size = 0;
-            bool result = os_get_file_size_by_handle(f, &file_size);
-            ASSERT(result && "bad file handle?"); /* shouldn't fail */
+            bool size_res = os_get_file_size_by_handle(f, &file_size);
+            ASSERT(size_res && "bad file handle?"); /* shouldn't fail */
             abs_offset += file_size;
         }
         break;
@@ -7700,8 +7700,8 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
             }
         }
     } else {
-        const char *message = "<error all threads list is already freed>";
-        os_write(dmp_file, message, strlen(message));
+        const char *error_msg = "<error all threads list is already freed>";
+        os_write(dmp_file, error_msg, strlen(error_msg));
         /* FIXME : if other threads are active (say in the case of detaching)
          * walking the memory below could be racy, what if another thread
          * frees some chunk of memory while we are copying it! Just live with

@@ -2269,21 +2269,21 @@ shift_links_to_new_fragment(dcontext_t *dcontext,
         /* Change the entrance stub to point to the trace head routine again
          * (we only shift to coarse trace heads).
          */
-        coarse_info_t *fragment_info = get_fragment_coarse_info(new_f);
+        coarse_info_t *new_f_info = get_fragment_coarse_info(new_f);
         cache_pc new_stub, new_body;
-        ASSERT(fragment_info != NULL);
-        fragment_coarse_lookup_in_unit(dcontext, fragment_info,
+        ASSERT(new_f_info != NULL);
+        fragment_coarse_lookup_in_unit(dcontext, new_f_info,
                                        old_f->tag, &new_stub, &new_body);
         ASSERT(new_body == FCACHE_ENTRY_PC(new_f));
         if (new_stub != NULL) {
-            unlink_entrance_stub(dcontext, new_stub, FRAG_IS_TRACE_HEAD, fragment_info);
+            unlink_entrance_stub(dcontext, new_stub, FRAG_IS_TRACE_HEAD, new_f_info);
             ASSERT(coarse_is_trace_head_in_own_unit(dcontext, new_f->tag, new_stub,
-                                                    new_body, true, fragment_info));
+                                                    new_body, true, new_f_info));
             /* If we ever support shifting to non-trace-heads we'll want to point the
              * stub at the fragment and not at the head incr routine
              */
         } else
-            ASSERT(fragment_info->frozen);
+            ASSERT(new_f_info->frozen);
         /* We can re-use link_fragment_incoming, but be careful of any future
          * changes that require splitting out the coarse-and-fine-shared part.
          */
