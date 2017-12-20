@@ -555,7 +555,7 @@ main library to link when building a new tool.  The tools described above
 are also exported as the libraries \p drmemtrace_basic_counts, \p
 drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
 drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
-the functions in the \p drmemtrace/*_create.h headers (e.g., \p
+the functions in the \p drmemtrace/toolname_create.h headers (e.g., \p
 drmemtrace/reuse_distance_create.h).
 
 ****************************************************************************
