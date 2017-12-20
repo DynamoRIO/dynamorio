@@ -160,7 +160,8 @@ add_executable(histogram_launcher
   tools/histogram_launcher.cpp
   tests/trace_invariants.cpp
   )
-target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram drfrontendlib)
+target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
+  drfrontendlib)
 use_DynamoRIO_extension(histogram_launcher droption)
 add_dependencies(histogram_launcher api_headers)
 # We have a companion test built using a separate --build-and-test CMake project in

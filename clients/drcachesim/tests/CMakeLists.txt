@@ -38,7 +38,12 @@ project(DynamoRIO_drmemtrace)
 if (UNIX) # The shipped drmemtrace on Windows has no zlib support.
   find_package(ZLIB)
   if (NOT ZLIB_FOUND)
-    message(FATAL_ERROR "zlib required to build")
+    # Not a fatal error to succeed on AArch64 pre-commit and other places where
+    # zlib is not installed.
+    # XXX i#2006: Can we automate the zlib link somehow?  Should we provide two versions
+    # of our libs, one with and one without?  Can we include some version of zlib.a?
+    message(WARNING "zlib not found: linking will fail if drmemtrace has compressed "
+      "file support built-in")
   endif()
 endif ()
 
