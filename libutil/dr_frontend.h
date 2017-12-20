@@ -69,6 +69,9 @@ extern "C" {
 
 /* DR_API EXPORT VERBATIM */
 /* Support use independently from dr_api.h */
+#if !defined(WINDOWS) && (defined(_WIN32) || defined(_WIN64))
+# define WINDOWS 1
+#endif
 #ifndef IN
 # define IN /* marks input param */
 #endif
@@ -77,6 +80,9 @@ extern "C" {
 #endif
 #ifndef INOUT
 # define INOUT /* marks input+output param */
+#endif
+#ifndef WINDOWS
+# include <unistd.h> /* for ssize_t */
 #endif
 #if defined(WINDOWS) && !defined(_DR_API_H) && !defined(_SSIZE_T_DEFINED)
 # if defined(_WIN64)
