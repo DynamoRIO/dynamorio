@@ -8229,7 +8229,7 @@ detach_internal()
     /* we go ahead and re-protect though detach thread will soon un-prot */
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     LOG(GLOBAL, LOG_ALL, 1, "Starting detach\n");
-    nudge_internal(get_process_id(), NUDGE_GENERIC(detach), 0, 0 /* ignored */, 0);
+    nudge_internal(get_process_id(), NUDGE_GENERIC(detach), NULL, 0 /* ignored */, 0);
     LOG(GLOBAL, LOG_ALL, 1, "Created detach thread\n");
 }
 

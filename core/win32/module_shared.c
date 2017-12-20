@@ -980,7 +980,7 @@ get_module_handle_64(const wchar_t *name)
 {
     /* Be careful: we can't directly de-ref any ptrs b/c they can be >4GB */
     LDR_MODULE_64 mod;
-    if (!get_ldr_module_64(name, 0, &mod))
+    if (!get_ldr_module_64(name, NULL, &mod))
         return NULL;
     return mod.BaseAddress;
 }
