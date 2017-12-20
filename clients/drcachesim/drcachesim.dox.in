@@ -522,7 +522,7 @@ and override the \p access(), \p child_access(), \p flush(), and/or
 ****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools
 
-\p drcachesim provides an analysis tool framework to make it easy to create
+\p drcachesim provides a \p drmemtrace analysis tool framework to make it easy to create
 new trace analysis tools.  A new tool should subclass <a
 href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/analysis_tool.h">analysis_tool_t</a>.
 Two key functions should be overridden: \p process_memref, which operates
@@ -540,6 +540,23 @@ and represents one instruction or data reference or a metadata operation
 such as a thread exit or marker.  There are built-in markers indicating
 disruptions in user mode control flow such as signal handler entry and
 exit.
+
+CMake support is provided for including the headers and linking the
+libraries of the \p drmemtrace framework.  A new CMake function is defined
+in the DynamoRIO package which sets the include directory for using the \p
+drmemtrace/ headers:
+
+\code
+use_DynamoRIO_drmemtrace(mytool)
+\endcode
+
+The \p drmemtrace_analyzer library exported by the DynamoRIO package is the
+main library to link when building a new tool.  The tools described above
+are also exported as the libraries \p drmemtrace_basic_counts, \p
+drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
+the functions in the \p drmemtrace/*_create.h headers (e.g., \p
+drmemtrace/reuse_distance_create.h).
 
 ****************************************************************************
 \section sec_drcachesim_ops Simulator Parameters

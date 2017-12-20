@@ -102,6 +102,7 @@ set(CTEST_PROJECT_NAME "DynamoRIO")
 set(cpack_project_name "DynamoRIO")
 set(run_tests OFF)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
+include("${CTEST_SCRIPT_DIRECTORY}/utils.cmake")
 include("${CTEST_SCRIPT_DIRECTORY}/../suite/runsuite_common_pre.cmake")
 
 if (APPLE)
