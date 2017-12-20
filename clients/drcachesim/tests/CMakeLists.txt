@@ -58,4 +58,7 @@ add_executable(analyzer_separate analyzer_separate.cpp)
 use_DynamoRIO_extension(analyzer_separate droption) # for droption.h
 use_DynamoRIO_drmemtrace(analyzer_separate) # for analysis framework headers
 target_link_libraries(analyzer_separate drmemtrace_analyzer drmemtrace_histogram
-  drfrontendlib ${ZLIB_LIBRARIES})
+  drfrontendlib)
+if (ZLIB_FOUND)
+  target_link_libraries(analyzer_separate ${ZLIB_LIBRARIES})
+endif ()
