@@ -6810,7 +6810,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             bool check_iat = false;
             bool free_iat = false;
 #endif
-            uint frag_flags = 0;
+            uint frag_flags_pfx = 0;
             DEBUG_DECLARE(const char *comment = "";)
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" is being made executable\n",
@@ -6885,7 +6885,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     /* case 8640: let add_executable_vm_area() decide whether to
                      * keep the coarse-grain flag
                      */
-                    frag_flags |= FRAG_COARSE_GRAIN;
+                    frag_flags_pfx |= FRAG_COARSE_GRAIN;
                 } else {
                     free_iat = false;
                     ASSERT(!os_module_free_IAT_code(base));
@@ -6896,7 +6896,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                 /* FIXME : see note at top of function about bug 2833 */
                 ASSERT(!TEST(MEMPROT_WRITE, prot)); /* sanity check */
                 add_executable_vm_area(base, base + size,
-                                       0 /* not an unmodified image */, frag_flags,
+                                       0 /* not an unmodified image */, frag_flags_pfx,
                                        false/*no lock*/ _IF_DEBUG(comment));
             }
 #ifdef WINDOWS

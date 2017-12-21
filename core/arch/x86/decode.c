@@ -771,8 +771,8 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
         di->data_prefix = false;
     if (info->type == REX_B_EXT) {
         /* discard old info, get new one */
-        int code = (int) info->code;
-        int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
+        code = (int) info->code;
+        idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
         info = &rex_b_extensions[code][idx];
     }
     return info;

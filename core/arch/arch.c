@@ -1232,11 +1232,11 @@ arch_thread_init(dcontext_t *dcontext)
         if (!DYNAMO_OPTION(shared_traces)) {
             /* copy all bookkeeping information from shared_code into thread private
                needed by get_ibl_routine*() */
-            ibl_branch_type_t branch_type;
-            for (branch_type = IBL_BRANCH_TYPE_START;
-                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-                code->trace_ibl[branch_type] =
-                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[branch_type];
+            ibl_branch_type_t ibl_branch_type;
+            for (ibl_branch_type = IBL_BRANCH_TYPE_START;
+                 ibl_branch_type < IBL_BRANCH_TYPE_END; ibl_branch_type++) {
+                code->trace_ibl[ibl_branch_type] =
+                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[ibl_branch_type];
             }
         } /* FIXME: no private traces supported right now w/ -shared_traces */
     } else if (PRIVATE_TRACES_ENABLED()) {
