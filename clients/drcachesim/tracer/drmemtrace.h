@@ -1,5 +1,5 @@
 /* **********************************************************
- * (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,13 +41,14 @@
 
 /**
  * @file drmemtrace.h
- * @brief Header for DynamoRIO Tracer Library
+ * @brief Header for customizing the DrMemtrace tracer.
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** Status return values from drmemtrace functions. */
 typedef enum {
     DRMEMTRACE_SUCCESS,                  /**< Operation succeeded. */
     DRMEMTRACE_ERROR,                    /**< Operation failed. */

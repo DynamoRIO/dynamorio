@@ -113,6 +113,10 @@
 #   use_DynamoRIO_drmemtrace(myapp)
 #   target_link_libraries(myapp drmemtrace_analyzer drmemtrace_reuse_distance)
 #
+# To customize the tracer and add drmemtrace.h to the include path:
+#
+#   use_DynamoRIO_drmemtrace_tracer(myapp)
+#
 ###########
 #
 # Global changes:
@@ -1228,6 +1232,16 @@ function (use_DynamoRIO_drmemtrace target)
     endif ()
   endif ()
   _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+endfunction ()
+
+function (use_DynamoRIO_drmemtrace_tracer target)
+  # The tracer header is in the same place as the analysis tool headers.
+  if (EXISTS ${DynamoRIO_cwd}/../tools/include)
+    include_directories(${DynamoRIO_cwd}/../tools/include)
+  else ()
+    # It's called "clients/" in build dirs.
+    include_directories(${DynamoRIO_cwd}/../clients/include)
+  endif ()
 endfunction ()
 
 # Support co-located DRMF without having to separately specify it

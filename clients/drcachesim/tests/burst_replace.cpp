@@ -39,7 +39,7 @@
  * for us.
  */
 #include "dr_api.h"
-#include "drmemtrace.h"
+#include "drmemtrace/drmemtrace.h"
 #include "drcovlib.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
