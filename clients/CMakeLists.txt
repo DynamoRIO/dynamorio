@@ -91,7 +91,11 @@ foreach (dir ${dirs})
 endforeach (dir)
 
 # install subdirs
-install_subdirs(${INSTALL_CLIENTS_LIB} ${INSTALL_CLIENTS_BIN})
+install_subdirs(${INSTALL_CLIENTS_LIB} ${INSTALL_CLIENTS_BIN}
+  PATTERN "histogram_launcher.debug" EXCLUDE
+  PATTERN "drcachesim_ops.debug" EXCLUDE
+  PATTERN "drcpusim_ops.debug" EXCLUDE
+  )
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)

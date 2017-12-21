@@ -37,6 +37,17 @@
 
 #include "analysis_tool.h"
 
+/**
+ * @file drmemtrace/reuse_time_create.h
+ * @brief DrMemtrace reuse time (i.e., reuse distance without regard to
+ * uniqueness) tool creation.
+ */
+
+/**
+ * Creates an analysis tool which computes reuse time (i.e., reuse
+ * distance without regard to uniqueness).  The options are currently
+ * documented in \ref sec_drcachesim_ops.
+ */
 // These options are currently documented in ../common/options.cpp.
 analysis_tool_t *
 reuse_time_tool_create(unsigned int line_size = 64, unsigned int verbose = 0);

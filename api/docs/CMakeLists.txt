@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -155,6 +155,7 @@ add_custom_command(
   # to work around i#84 be sure to put a space after -D for 1st arg at least
   ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
        -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
+       -Dproj_bindir=${PROJECT_BINARY_DIR}
        -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
        -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
        -Ddoxygen_ver=${doxygen_ver}

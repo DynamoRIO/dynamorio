@@ -46,12 +46,18 @@
 #include <stdint.h>
 #include "utils.h"
 
-typedef uintptr_t addr_t;
+/**
+ * @file drmemtrace/trace_entry.h
+ * @brief DrMemtrace trace entry enum types and definitions.
+ */
 
-#define TRACE_ENTRY_VERSION 1
+typedef uintptr_t addr_t; /**< The type of a memory address. */
 
+#define TRACE_ENTRY_VERSION 1 /**< The version of the trace format. */
+
+/** The type of a trace entry in a #memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
-// reader_t and the exposed memref_t passed to analysis tools.
+// reader_t and the exposed #memref_t passed to analysis tools.
 // XXX: if we want to rely on a recent C++ standard we could try to get
 // this enum to be just 2 bytes instead of an int and give it qualified names.
 // N.B.: when adding new values, be sure to update trace_type_names[].
@@ -62,34 +68,33 @@ typedef enum {
     // assume we don't need the opcode.
 
     // These entries describe a memory reference as data:
-    TRACE_TYPE_READ,
-    TRACE_TYPE_WRITE,
+    TRACE_TYPE_READ,  /**< A data load. */
+    TRACE_TYPE_WRITE, /**< A data store. */
 
-    // General prefetch to L1 data cache
-    TRACE_TYPE_PREFETCH,
+    TRACE_TYPE_PREFETCH,    /**< A general prefetch to the level 1 data cache. */
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0,
-    TRACE_TYPE_PREFETCHT1,
-    TRACE_TYPE_PREFETCHT2,
-    TRACE_TYPE_PREFETCHNTA,
+    TRACE_TYPE_PREFETCHT0,  /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCHT1,  /**< An x86 prefetch to level 1 of the cache. */
+    TRACE_TYPE_PREFETCHT2,  /**< An x86 prefetch to level 2 of the cache. */
+    TRACE_TYPE_PREFETCHNTA, /**< An x86 non-temporal prefetch. */
     // ARM specific prefetch
-    TRACE_TYPE_PREFETCH_READ,
-    TRACE_TYPE_PREFETCH_WRITE,
-    TRACE_TYPE_PREFETCH_INSTR,
+    TRACE_TYPE_PREFETCH_READ,  /**< An ARM load prefetch. */
+    TRACE_TYPE_PREFETCH_WRITE, /**< An ARM store prefetch. */
+    TRACE_TYPE_PREFETCH_INSTR, /**< An ARM insruction prefetch. */
 
     // These entries describe an instruction fetch memory reference.
     // The trace_entry_t stream always has the instr fetch prior to data refs,
     // which the reader can use to obtain the PC for data references.
     // For memref_t, the instruction address is in the addr field.
     // An instruction *not* of the types below:
-    TRACE_TYPE_INSTR,
+    TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
-    TRACE_TYPE_INSTR_DIRECT_JUMP,
-    TRACE_TYPE_INSTR_INDIRECT_JUMP,
-    TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-    TRACE_TYPE_INSTR_DIRECT_CALL,
-    TRACE_TYPE_INSTR_INDIRECT_CALL,
-    TRACE_TYPE_INSTR_RETURN,
+    TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_JUMP,    /**< An indirect jump instruction. */
+    TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /**< A conditional jump instruction. */
+    TRACE_TYPE_INSTR_DIRECT_CALL,      /**< A direct call instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_CALL,    /**< An indirect call instruction. */
+    TRACE_TYPE_INSTR_RETURN,           /**< A return instruction. */
     // These entries describe a bundle of consecutive instruction fetch
     // memory references.  The trace stream always has a single instr fetch
     // prior to instr bundles which the reader can use to obtain the starting PC.
@@ -106,9 +111,9 @@ typedef enum {
     // for the end address (exclusive) of flush.
     // The size field of both entries should be 0.
     // The _END entries are hidden by reader_t as memref_t has space for the size.
-    TRACE_TYPE_INSTR_FLUSH,
+    TRACE_TYPE_INSTR_FLUSH,     /**< An instruction cache flush. */
     TRACE_TYPE_INSTR_FLUSH_END,
-    TRACE_TYPE_DATA_FLUSH,
+    TRACE_TYPE_DATA_FLUSH,      /**< A data cache flush. */
     TRACE_TYPE_DATA_FLUSH_END,
 
     // These entries indicate that all subsequent memory references (until the
@@ -118,7 +123,7 @@ typedef enum {
     TRACE_TYPE_THREAD,
 
     // This entry indicates that the thread whose id is in the addr field exited:
-    TRACE_TYPE_THREAD_EXIT,
+    TRACE_TYPE_THREAD_EXIT,     /**< A thread exit. */
 
     // These entries indicate which process the current thread belongs to.
     // The process id is in the addr field.
@@ -132,36 +137,46 @@ typedef enum {
     // The final entry in an offline file or a pipe.
     TRACE_TYPE_FOOTER,
 
-    // Hardware-issued prefetch.
+    /** A hardware-issued prefetch (generated after tracing by a cache simulator). */
     TRACE_TYPE_HARDWARE_PREFETCH,
 
-    // A marker containing metadata about this point in the trace.
-    // It includes a marker sub-type trace_marker_type_t and a value.
+    /**
+     * A marker containing metadata about this point in the trace.
+     * It includes a marker sub-type #trace_marker_type_t and a value.
+     */
     TRACE_TYPE_MARKER,
 
-    // For core simulators, a trace includes instructions that do not incur
-    // instruction cache fetches, such as on each subsequent iteration of a
-    // rep string loop.
+    /**
+     * For core simulators, a trace includes instructions that do not incur
+     * instruction cache fetches, such as on each subsequent iteration of a
+     * rep string loop on x86.
+     */
     TRACE_TYPE_INSTR_NO_FETCH,
     // An internal value used for online traces and turned by reader_t into
     // either TRACE_TYPE_INSTR or TRACE_TYPE_INSTR_NO_FETCH.
     TRACE_TYPE_INSTR_MAYBE_FETCH,
 
-    // We separate out the x86 sysenter instruction as it has a hardcoded
-    // return point that shows up as a discontinuity in the user mode program
-    // counter execution sequence.
+    /**
+     * We separate out the x86 sysenter instruction as it has a hardcoded
+     * return point that shows up as a discontinuity in the user mode program
+     * counter execution sequence.
+     */
     TRACE_TYPE_INSTR_SYSENTER,
 } trace_type_t;
 
-// The sub-type for TRACE_TYPE_MARKER.
+/** The sub-type for TRACE_TYPE_MARKER. */
 typedef enum {
-    // The subsequent instruction is the start of a handler for a kernel-initiated
-    // event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-    // on Windows.
+    /**
+     * The subsequent instruction is the start of a handler for a kernel-initiated
+     * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
+     * on Windows.
+     */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
-    // The subsequent instruction is the target of a system call that changes the
-    // context: a signal return on UNIX, or a callback return or NtContinue or
-    // NtSetContextThread on Windows.
+    /**
+     * The subsequent instruction is the target of a system call that changes the
+     * context: a signal return on UNIX, or a callback return or NtContinue or
+     * NtSetContextThread on Windows.
+     */
     TRACE_MARKER_TYPE_KERNEL_XFER,
 
     // ...
@@ -173,8 +188,10 @@ typedef enum {
 
 extern const char * const trace_type_names[];
 
-// Returns whether the type represents an instruction fetch.
-// Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+/**
+ * Returns whether the type represents an instruction fetch.
+ * Deliberately excludes TRACE_TYPE_INSTR_NO_FETCH and TRACE_TYPE_INSTR_BUNDLE.
+ */
 static inline bool
 type_is_instr(const trace_type_t type)
 {
@@ -182,12 +199,14 @@ type_is_instr(const trace_type_t type)
         type == TRACE_TYPE_INSTR_SYSENTER;
 }
 
+/** Returns whether the type represents the fetch of a branch instruction. */
 static inline bool
 type_is_instr_branch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN);
 }
 
+/** Returns whether the type represents a prefetch request. */
 static inline bool
 type_is_prefetch(const trace_type_t type)
 {
