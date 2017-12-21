@@ -183,7 +183,8 @@ Further non-compatibility-affecting changes include:
    drmemtrace_get_modlist_path(), and a separate rawtrace library for
    post-processing customization with raw2trace_t::handle_custom_data(),
    raw2trace_t::do_module_parsing(), raw2trace_t::do_conversion(), and
-   raw2trace_directory_t.
+   raw2trace_directory_t.  A corresponding CMake function for finding the
+   tracer customization header is use_DynamoRIO_drmemtrace_tracer().
  - Added a set_value() function to the \ref page_droption.
  - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
  - Globally enabled auto predication in the drmgr instrumentation insertion event by

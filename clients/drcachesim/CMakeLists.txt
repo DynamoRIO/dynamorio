@@ -152,6 +152,7 @@ install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
+install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
@@ -203,11 +204,9 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
-# XXX i#2006: should we export drmemtrace.h into tools/include/drmemtace/tracer.h
-# with the analysis framework headers, or keep it where it is in ext/include?  For
-# now I'm keeping it looking like an extension as it's for client use, not separate
-# analysis tool use.
-install_client_DR_header(tracer/drmemtrace.h)
+# We export drmemtrace.h to the same place as the analysis tool headers
+# for simplicity, rather than sticking it into ext/include or sthg.
+install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
 
 add_executable(drraw2trace
   tracer/raw2trace_launcher.cpp
@@ -311,6 +310,7 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
 endif ()
 
 install_target(drcachesim ${INSTALL_CLIENTS_BIN})
+install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
@@ -401,9 +401,7 @@ if (BUILD_TESTS)
       endif ()
     endif ()
     add_win32_flags(tool.drcacheoff.burst_replace)
-    # Not really using an extension, just for including drmemtrace.h, which we
-    # don't want to include in use_DynamoRIO_drmemtrace().
-    use_DynamoRIO_extension(tool.drcacheoff.burst_replace drmemtrace_static)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replace)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replace drcovlib_static)
 
     add_executable(tool.drcacheoff.burst_replaceall tests/burst_replaceall.cpp)
@@ -411,8 +409,7 @@ if (BUILD_TESTS)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_replaceall drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
-    # See above.
-    use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drmemtrace_static)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)

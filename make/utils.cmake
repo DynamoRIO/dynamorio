@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,7 @@ macro (add_dr_defines)
   endforeach (config)
 endmacro (add_dr_defines)
 
-function (install_subdirs tgt_lib tgt_bin)
+macro (install_subdirs tgt_lib tgt_bin)
   # These cover all subdirs.
   # Subdirs just need to install their targets.
   DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
@@ -131,21 +131,23 @@ function (install_subdirs tgt_lib tgt_bin)
     PATTERN "*.debug"
     PATTERN "*.pdb"
     REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
-   )
- # We rely on our shared library targets being redirected to
- # CMAKE_LIBRARY_OUTPUT_DIRECTORY in order to copy the shared lib pdbs
- # and executable pdbs into the right places.  Callers can use
- # place_shared_lib_in_lib_dir() to accomplish this.
- DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
-   DESTINATION ${tgt_bin}
-   FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
-   WORLD_READ WORLD_EXECUTE
-   FILES_MATCHING
-   PATTERN "*.debug"
-   PATTERN "*.pdb"
-   REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
-   )
-endfunction (install_subdirs)
+    ${ARGN}
+    )
+  # We rely on our shared library targets being redirected to
+  # CMAKE_LIBRARY_OUTPUT_DIRECTORY in order to copy the shared lib pdbs
+  # and executable pdbs into the right places.  Callers can use
+  # place_shared_lib_in_lib_dir() to accomplish this.
+  DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
+    DESTINATION ${tgt_bin}
+    FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
+    FILES_MATCHING
+    PATTERN "*.debug"
+    PATTERN "*.pdb"
+    REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
+    ${ARGN}
+    )
+endmacro (install_subdirs)
 
 # Use this to put shared libraries in the lib dir to separate them from
 # executables in the output dir.
