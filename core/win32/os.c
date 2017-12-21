@@ -6979,8 +6979,8 @@ os_seek(file_t f, int64 offset, int origin)
     case OS_SEEK_END:
         {
             uint64 file_size = 0;
-            bool res = os_get_file_size_by_handle(f, &file_size);
-            ASSERT(res && "bad file handle?"); /* shouldn't fail */
+            bool size_res = os_get_file_size_by_handle(f, &file_size);
+            ASSERT(size_res && "bad file handle?"); /* shouldn't fail */
             abs_offset += file_size;
         }
         break;
@@ -7700,8 +7700,8 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
             }
         }
     } else {
-        char *msg = "<error all threads list is already freed>";
-        os_write(dmp_file, msg, strlen(msg));
+        const char *error_msg = "<error all threads list is already freed>";
+        os_write(dmp_file, error_msg, strlen(error_msg));
         /* FIXME : if other threads are active (say in the case of detaching)
          * walking the memory below could be racy, what if another thread
          * frees some chunk of memory while we are copying it! Just live with
@@ -8597,7 +8597,7 @@ early_inject_init()
     bool under_dr_save;
     where_am_i_t whereami_save;
     wchar_t buf[MAX_PATH];
-    int os_version = get_os_version();
+    int os_version_number = get_os_version();
     GET_NTDLL(LdrLoadDll, (IN PCWSTR PathToFile OPTIONAL,
                            IN PULONG Flags OPTIONAL,
                            IN PUNICODE_STRING ModuleFileName,
@@ -8629,7 +8629,7 @@ early_inject_init()
     if (DYNAMO_OPTION(early_inject_location) == INJECT_LOCATION_LdrDefault) {
         LOG(GLOBAL, LOG_TOP, 2,
             "early_inject using default ldr location for this os_ver\n");
-        switch (os_version) {
+        switch (os_version_number) {
         case WINDOWS_VERSION_NT:
             /* LdrpImportModule is best but we can't find that address
              * automatically since one of the stack frames we need to walk
@@ -8690,7 +8690,7 @@ early_inject_init()
              * most likely to work
              */
             early_inject_location = INJECT_LOCATION_LdrLoadDll;
-            ASSERT(os_version > WINDOWS_VERSION_10);
+            ASSERT(os_version_number > WINDOWS_VERSION_10);
         }
     }
     ASSERT(early_inject_location != INJECT_LOCATION_LdrDefault);
@@ -8741,7 +8741,7 @@ early_inject_init()
         ASSERT_NOT_IMPLEMENTED(!dr_early_injected && "process early injected"
                                "at non LdrpLoadDll location is configured to"
                                "use LdrpLoadDll location which is NYI");
-        if (os_version == WINDOWS_VERSION_NT)
+        if (os_version_number == WINDOWS_VERSION_NT)
             early_inject_address = ldrpLoadDll_address_NT;
         else
             early_inject_address = ldrpLoadDll_address_not_NT;

@@ -1581,7 +1581,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
 
     if (DYNAMO_OPTION(remove_trace_components)) {
-        uint i;
         fragment_t *f;
         /* use private md values, don't trust trace_tr */
         for (i = 1/*skip trace head*/; i < md->num_blks; i++) {
