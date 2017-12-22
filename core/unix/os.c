@@ -3683,10 +3683,11 @@ client_thread_run(void)
         get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
-    /* signal_thread_inherit() no longer sets up handlers or masks: we have to
-     * explicitly do that.
+
+    /* Client threads are sharing the same signal handler table as the app's
+     * thread group, so there's no reason to update signal handlers. But we
+     * still have to swap the signal mask to DR (see i#2339).
      */
-    signal_reinstate_handlers(dcontext, false/*alarm too*/);
     signal_swap_mask(dcontext, false/*to DR*/);
 
     void *arg = (void *) get_clone_record_app_xsp(crec);
