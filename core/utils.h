@@ -777,47 +777,6 @@ void read_unlock(read_write_lock_t *rw);
 void write_unlock(read_write_lock_t *rw);
 bool self_owns_write_lock(read_write_lock_t *rw);
 
-/* a broadcast event wakes all waiting threads when signalled */
-struct _broadcast_event_t;
-typedef struct _broadcast_event_t broadcast_event_t;
-broadcast_event_t * create_broadcast_event(void);
-void destroy_broadcast_event(broadcast_event_t *be);
-/* NOTE : to avoid races a signaler should always do the required action to
- * make any wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the
- * event false BEFORE signaling the event
- */
-void signal_broadcast_event(broadcast_event_t *be);
-/* the wait macro, we force people to use a while loop since our current
- * implementation has a race (ATOMIC_INC, else clause ATOMIC_DEC, in the
- * middle someone could signal thinking we are waiting)
- *
- * event is the broadcast event
- * wait_condition is the conditional expression we want to become true
- * pre is code we should execute before we actually do a wait
- * post is code we should execute after we return from a wait
- *
- * in typical usage pre and post might be empty, or might free and regrab a
- * lock we shouldn't hold during the wait
- * NOTE : because we loop to handle certain race conditions, wait_condition
- * pre and post might all be evaluated several times
- */
-#define WAIT_FOR_BROADCAST_EVENT(wait_condition, pre, post, event) do {     \
-        while (wait_condition) {                                            \
-            intend_wait_broadcast_event_helper(event);                      \
-            if (wait_condition) {                                           \
-                pre;                                                        \
-                wait_broadcast_event_helper(event);                         \
-                post;                                                       \
-            } else {                                                        \
-                unintend_wait_broadcast_event_helper(event);                \
-            }                                                               \
-        }                                                                   \
-    } while (0)
-/* helpers for the broadcast event wait macro, don't call these directly */
-void intend_wait_broadcast_event_helper(broadcast_event_t *be);
-void unintend_wait_broadcast_event_helper(broadcast_event_t *be);
-void wait_broadcast_event_helper(broadcast_event_t *be);
-
 /* test whether locks are held at all */
 #define WRITE_LOCK_HELD(rw) (mutex_testlock(&(rw)->lock) && ((rw)->num_readers == 0))
 #define READ_LOCK_HELD(rw) ((rw)->num_readers > 0)

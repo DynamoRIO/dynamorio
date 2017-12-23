@@ -1396,6 +1396,10 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
                 oldact.handler, oldact.flags, sig);
         }
 #endif
+    } else {
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "prior handler is "PFX" vs master "PFX" with flags=0x%x for signal %d\n",
+            oldact.handler, master_signal_handler, oldact.flags, sig);
     }
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }

@@ -460,6 +460,8 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  */
 extern bool doing_detach;
 
+extern event_t dr_app_started;
+
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library;  /* used as standalone library */
 #else
