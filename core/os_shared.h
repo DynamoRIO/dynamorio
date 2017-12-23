@@ -962,7 +962,10 @@ typedef struct linux_event_t *event_t;
 #endif
 
 event_t create_event(void);
+/* A broadcast event wakes all waiting threads when signaled. */
+event_t create_broadcast_event(void);
 void destroy_event(event_t e);
+/* For a broadcast event, wakes all threads; o/w wakes at most one thread. */
 void signal_event(event_t e);
 void reset_event(event_t e);
 /* 0 means to wait forever.  Returns false on timeout, true on event firing. */

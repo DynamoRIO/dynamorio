@@ -2734,6 +2734,12 @@ client_thread_target(void *param)
         get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
 
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    wait_for_event(dr_app_started, 0);
+
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
@@ -8509,9 +8515,15 @@ rwlock_notify_readers(read_write_lock_t *rwlock)
 /***************************************************************************/
 
 event_t
-create_event()
+create_event(void)
 {
     return nt_create_event(SynchronizationEvent);
+}
+
+event_t
+create_broadcast_event(void)
+{
+    return nt_create_event(NotificationEvent);
 }
 
 void
