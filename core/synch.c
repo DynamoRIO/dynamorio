@@ -1865,6 +1865,10 @@ send_all_other_threads_native(void)
     for (i = 0; i < num_threads; i++) {
         if (threads[i]->dcontext == my_dcontext ||
             is_thread_currently_native(threads[i]) ||
+            /* FIXME i#2784: we should suspend client threads for the duration
+             * of the app being native to avoid problems with having no
+             * signal handlers in place.
+             */
             IS_CLIENT_THREAD(threads[i]->dcontext))
             continue;
 
