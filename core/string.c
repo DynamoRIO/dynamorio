@@ -182,6 +182,18 @@ __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
 # else
     __attribute__((alias("strncpy")));
 # endif
+void *
+__strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
+# ifdef MACOS
+/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
+ * XXX: better to test for support at config time: for now assuming none on Mac.
+ */
+{
+  return strncat(dst, src, n);
+}
+# else
+    __attribute__((alias("strncat")));
+# endif
 #endif
 
 /* Private strncat. */
