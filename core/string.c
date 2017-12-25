@@ -165,7 +165,7 @@ __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
-  return memmove(dst, src, n);
+    return memmove(dst, src, n);
 }
 # else
     __attribute__((alias("memmove")));
@@ -177,7 +177,7 @@ __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
-  return strncpy(dst, src, n);
+    return strncpy(dst, src, n);
 }
 # else
     __attribute__((alias("strncpy")));
@@ -189,7 +189,7 @@ __strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
-  return strncat(dst, src, n);
+    return strncat(dst, src, n);
 }
 # else
     __attribute__((alias("strncat")));
