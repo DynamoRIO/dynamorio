@@ -37,6 +37,15 @@
 
 #include "analysis_tool.h"
 
+/**
+ * @file drmemtrace/histogram_create.h
+ * @brief DrMemtrace tool that computes the most-referenced cache lines.
+ */
+
+/**
+ * Creates an analysis tool which computes the most-referenced cache lines.
+ * The options are currently documented in \ref sec_drcachesim_ops.
+ */
 // These options are currently documented in ../common/options.cpp.
 analysis_tool_t *
 histogram_tool_create(unsigned int line_size = 64,

@@ -55,6 +55,7 @@ class tlb_simulator_t : public simulator_t
                     std::string replace_policy,
                     uint64_t skip_refs,
                     uint64_t warmup_refs,
+                    double warmup_fraction,
                     uint64_t sim_refs,
                     unsigned int verbose);
     virtual ~tlb_simulator_t();

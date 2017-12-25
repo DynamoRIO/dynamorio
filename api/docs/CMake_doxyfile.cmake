@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,6 +33,7 @@
 # * srcdir
 # * outfile
 # * proj_srcdir
+# * proj_bindir
 # * version_number
 # * header_dir
 # * gendox_dir
@@ -50,6 +51,9 @@ foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
   set(ext_dirs ${ext_dirs} ${dir})
 endforeach (dir)
+
+# Add drcachesim dirs (i#2006).
+set(ext_dirs ${ext_dirs} "${proj_bindir}/clients/include/drmemtrace")
 
 include("${srcdir}/CMake_doxyutils.cmake")
 set(input_paths srcdir proj_srcdir header_dir gendox_dir outdir)

@@ -4528,6 +4528,10 @@ DR_API
  * the code cache as the underlying fragments might be removed by another
  * thread.
  *
+ * Client threads are suspended while DR is not executing the application.
+ * This includes initialization time: the client thread's \p func code will not
+ * execute until DR starts executing the application.
+ *
  * \note Thread creation via this routine is not yet fully
  * transparent: on Windows, the thread will show up in the list of
  * application threads if the operating system is queried about

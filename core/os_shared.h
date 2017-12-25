@@ -151,7 +151,11 @@ thread_id_t get_thread_id(void);
 process_id_t get_process_id(void);
 void os_thread_yield(void);
 void os_thread_sleep(uint64 milliseconds);
-bool os_thread_suspend(thread_record_t *tr);
+/* os_thread_suspend may return false in the case of a timeout. Note that the
+ * timeout field is best effort and may be ignored by implementations (i.e.
+ * Windows); setting timeout to 0 results in blocking forever.
+ */
+bool os_thread_suspend(thread_record_t *tr, int timeout_ms);
 bool os_thread_resume(thread_record_t *tr);
 bool os_thread_terminate(thread_record_t *tr);
 
@@ -958,7 +962,10 @@ typedef struct linux_event_t *event_t;
 #endif
 
 event_t create_event(void);
+/* A broadcast event wakes all waiting threads when signaled. */
+event_t create_broadcast_event(void);
 void destroy_event(event_t e);
+/* For a broadcast event, wakes all threads; o/w wakes at most one thread. */
 void signal_event(event_t e);
 void reset_event(event_t e);
 /* 0 means to wait forever.  Returns false on timeout, true on event firing. */

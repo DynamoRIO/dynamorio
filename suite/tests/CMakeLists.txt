@@ -2720,14 +2720,10 @@ if (CLIENT_INTERFACE)
         # the window.  2M makes a 50M trace and still hits 4 or 5 of the
         # 13 markers on my machine but is still a little slow so we cut in half
         # for 2+ markers.
-        if (X64)
-          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 1M")
-        else ()
-          # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
-          # from 1M to 50K to make progress.  Once we figure out the hang we should
-          # put it back to 1M.
-          set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
-        endif ()
+        # FIXME i#2752: somehow this is hanging on Appveyor so for now we shrink it
+        # from 1M to 50K to make progress.  Once we figure out the hang we should
+        # put it back to 1M.
+        set(histo_ops "-trace_after_instrs 5K -exit_after_tracing 50K")
         set(tool.histogram.offline_timeout 180)
       else ()
         set(histo_ops "")
@@ -2738,7 +2734,7 @@ if (CLIENT_INTERFACE)
       set(tool.histogram.offline_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.histogram.offline_rawtemp ON) # no preprocessor
-      get_target_path_for_execution(histo_path drmemtrace_histogram)
+      get_target_path_for_execution(histo_path histogram_launcher)
       prefix_cmd_if_necessary(histo_path ON ${histo_path})
       set(tool.histogram.offline_runcmp
         "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -2760,7 +2756,7 @@ if (CLIENT_INTERFACE)
         set(tool.histogram.gzip_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.histogram.gzip_rawtemp ON) # no preprocessor
-        get_target_path_for_execution(histo_path drmemtrace_histogram)
+        get_target_path_for_execution(histo_path histogram_launcher)
         prefix_cmd_if_necessary(histo_path ON ${histo_path})
         set(tool.histogram.gzip_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -2776,6 +2772,25 @@ if (CLIENT_INTERFACE)
         message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
       endif ()
     endif (NOT ANDROID)
+
+    # Test using our exported drmemtrace analysis framework (i#2006).
+    get_property(drmemtrace_src_dir GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir)
+    get_property(drmemtrace_build_dir GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir)
+    if (DEBUG)
+      set(debug_cfg -DCMAKE_BUILD_TYPE=Debug -DDEBUG=ON)
+    else ()
+      set(debug_cfg -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDEBUG=OFF)
+    endif ()
+    add_test(drmemtrace_proj ${CMAKE_CTEST_COMMAND}
+      --build-and-test "${drmemtrace_src_dir}" "${drmemtrace_build_dir}/build_and_test"
+      --build-generator ${CMAKE_GENERATOR}
+      --build-project DynamoRIO_drmemtrace # needed for VS generators
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      --build-options ${debug_cfg} -DDynamoRIO_DIR:PATH=${public_config_dir})
+    if (UNIX AND X86 AND NOT X64)
+      set_tests_properties(drmemtrace_proj PROPERTIES ENVIRONMENT
+        "CFLAGS=-m32;CXXFLAGS=-m32")
+    endif ()
 
     if (X86) # i#1732: no ARM/AArch64 support for drcpusim yet
       torunonly_ci(tool.drcpusim.simple ${ci_shared_app} drcpusim

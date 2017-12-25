@@ -3376,10 +3376,10 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * synch_with_thread will take care of the last case at
                  * least so we fall through to that. */
             } else if (thread_get_context(tr, cxt)) {
-                priv_mcontext_t mc;
-                context_to_mcontext(&mc, cxt);
+                priv_mcontext_t mc_thread;
+                context_to_mcontext(&mc_thread, cxt);
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
-                if (at_safe_spot(tr, &mc,
+                if (at_safe_spot(tr, &mc_thread,
                                  THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {
                     /* suspended at good spot, skip synch */
                     mutex_unlock(&thread_initexit_lock);

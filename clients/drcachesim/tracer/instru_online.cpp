@@ -274,7 +274,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
                                    dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
-    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
+    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
     if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     if (memref_needs_full_info) {
@@ -289,11 +289,11 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     }
     insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
     // Special handling for prefetch instruction
-    if (instr_is_prefetch(where)) {
-        type = instru_t::instr_to_prefetch_type(where);
+    if (instr_is_prefetch(app)) {
+        type = instru_t::instr_to_prefetch_type(app);
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
-    } else if (instru_t::instr_is_flush(where)) {
+    } else if (instru_t::instr_is_flush(app)) {
         // XXX: OP_clflush invalidates all levels of the processor cache
         // hierarchy (data and instruction)
         type = TRACE_TYPE_DATA_FLUSH;

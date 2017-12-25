@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -54,14 +54,24 @@ set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
 set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
 set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
 set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
-# We install client header files to ext/include
-set(INSTALL_CLIENTS_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
+# We install header files meant for use by DR clients to ext/include
+set(INSTALL_CLIENTS_DR_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
+# For non-DR-client headers we use tools/include in the install package.
+set(INSTALL_CLIENTS_NONDR_INCLUDE ${INSTALL_CLIENTS_BASE}/include)
 
-macro(install_client_header header)
-  DR_install(FILES ${header} DESTINATION ${INSTALL_CLIENTS_INCLUDE})
+macro(install_client_DR_header header)
+  DR_install(FILES ${header} DESTINATION ${INSTALL_CLIENTS_DR_INCLUDE})
   # We also need a copy in the build dir for our --build-and-test (i#1586)
   get_filename_component(file ${header} NAME)
   configure_file(${header} ${PROJECT_BINARY_DIR}/ext/include/${file} COPYONLY)
+endmacro()
+
+macro(install_client_nonDR_header dest_dir src_header)
+  DR_install(FILES ${src_header} DESTINATION ${INSTALL_CLIENTS_NONDR_INCLUDE}/${dest_dir})
+  # We also need a copy in the build dir for our --build-and-test (i#1586)
+  get_filename_component(file ${src_header} NAME)
+  configure_file(${src_header} ${PROJECT_BINARY_DIR}/clients/include/${dest_dir}/${file}
+    COPYONLY)
 endmacro()
 
 disable_compiler_warnings()
@@ -81,7 +91,11 @@ foreach (dir ${dirs})
 endforeach (dir)
 
 # install subdirs
-install_subdirs(${INSTALL_CLIENTS_LIB} ${INSTALL_CLIENTS_BIN})
+install_subdirs(${INSTALL_CLIENTS_LIB} ${INSTALL_CLIENTS_BIN}
+  PATTERN "histogram_launcher.debug" EXCLUDE
+  PATTERN "drcachesim_ops.debug" EXCLUDE
+  PATTERN "drcpusim_ops.debug" EXCLUDE
+  )
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)

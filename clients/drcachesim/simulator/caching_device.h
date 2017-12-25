@@ -63,6 +63,9 @@ class caching_device_t
     void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
     prefetcher_t *get_prefetcher() const { return prefetcher; }
     caching_device_t *get_parent() const { return parent; }
+    inline double get_loaded_fraction() const {
+        return double(loaded_blocks)/num_blocks;
+    }
 
  protected:
     virtual void access_update(int block_idx, int way);
@@ -81,6 +84,8 @@ class caching_device_t
     int associativity;
     int block_size;
     int num_blocks;
+    // Current valid blocks in the cache
+    int loaded_blocks;
     caching_device_t *parent;
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
