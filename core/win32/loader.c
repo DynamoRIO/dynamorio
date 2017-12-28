@@ -1239,7 +1239,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          */
         if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
             CLIENT_ASSERT(false, "unexpected forwarder string");
-            return NULL;
+            return false;
         }
         if (forwfunc - forwarder + strlen("dll") >=
             BUFFER_SIZE_ELEMENTS(forwmodpath)) {
