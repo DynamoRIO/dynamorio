@@ -1933,6 +1933,11 @@ bool
 get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                         _IF_X86_64(gencode_mode_t *mode_out))
 {
+    /* This variable is int instead of ibl_entry_point_type_t.  This is because
+     * below we use it as loop index variable which can take negative values.
+     * It is possible that ibl_entry_point_type_t, which is an enum, has an
+     * underlying unsigned type which can cause problems due to wrap around.
+     */
     int link_state;
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
