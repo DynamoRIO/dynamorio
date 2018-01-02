@@ -340,7 +340,8 @@ insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                       bool is_gpr) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                     first_reg, true /* save */, is_gpr, create_base_disp_for_save_restore, NULL);
+                                     first_reg, true /* save */, is_gpr,
+                                     create_base_disp_for_save_restore, NULL);
 }
 
 void
@@ -373,7 +374,8 @@ insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_
                          bool *reg_skip,reg_id_t first_reg,
                          bool is_gpr, void *ci) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0,
-                                     first_reg, false /* restore */, is_gpr, inline_get_mem_opnd, (callee_info_t *)ci);
+                                     first_reg, false /* restore */, is_gpr,
+                                     inline_get_mem_opnd, (callee_info_t *)ci);
 }
 
 # endif
