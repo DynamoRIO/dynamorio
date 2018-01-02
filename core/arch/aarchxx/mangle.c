@@ -246,7 +246,9 @@ create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, bool is_gpr
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
 }
 
-static instr_t* create_load_or_store_instr(dcontext_t *dcontext, reg_id_t reg, opnd_t mem, bool save) {
+static instr_t*
+create_load_or_store_instr(dcontext_t *dcontext, reg_id_t reg, opnd_t mem, bool save)
+{
     if (save) {
         return INSTR_CREATE_str(dcontext, mem, opnd_create_reg(reg));
     }
@@ -262,10 +264,10 @@ static void
 insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                  bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                                  bool save, bool is_gpr,
-                                 opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg, bool is_gpr,
-                                  uint num_saved, callee_info_t *ci),
-                                 callee_info_t *ci
-                                 )
+                                 opnd_t (*get_mem_opnd)(uint base_reg,
+                                 bool is_single_reg, bool is_gpr,
+                                 uint num_saved, callee_info_t *ci),
+                                 callee_info_t *ci)
 {
     uint i, reg1 = UINT_MAX, num_regs = is_gpr ? 30 : 32;
     uint saved_regs = 0;
@@ -280,24 +282,38 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
         if (reg1 == UINT_MAX)
             reg1 = i;
         else {
-            opnd_t mem1 = get_mem_opnd(base_reg, false /* is_single_reg */,
-                                      is_gpr, ci == NULL ? saved_regs : first_reg+ (reg_id_t)reg1, ci);
-
-            opnd_t mem2 = get_mem_opnd(base_reg, false /* is_single_reg */,
-                                      is_gpr, ci == NULL ? saved_regs : first_reg+ (reg_id_t)i, ci);
+            opnd_t mem1 = get_mem_opnd(base_reg, false /* is_single_reg */, is_gpr,
+                                       /* When creating save/restore instructions
+                                        * for inlining, we need the register id
+                                        * to compute the address.
+                                        */
+                                       ci != NULL ? first_reg + (reg_id_t)reg1
+                                                  : saved_regs, ci);
 
             uint disp = opnd_get_disp(mem1);
+            /* We cannot use STP/LDP if the immediate offset is too big. */
             if (disp > 504) {
-                PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + reg1, mem1, save));
+                PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + reg1,
+                                                             mem1, save));
 
-                PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + i, mem2, save));
+                opnd_t mem2 = get_mem_opnd(base_reg, false /* is_single_reg */, is_gpr,
+                                           /* When creating save/restore instructions
+                                            * for inlining, we need the register id
+                                            * to compute the address.
+                                            */
+                                           ci != NULL ? first_reg + (reg_id_t)i
+                                                      : saved_regs, ci);
+
+                PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + i,
+                                                             mem2, save));
             } else {
                 if (save) {
                     new_instr = INSTR_CREATE_stp(dcontext, mem1,
                                                  opnd_create_reg(first_reg + reg1),
                                                  opnd_create_reg(first_reg + i));
                 } else {
-                    new_instr = INSTR_CREATE_ldp(dcontext, opnd_create_reg(first_reg + reg1),
+                    new_instr = INSTR_CREATE_ldp(dcontext,
+                                                 opnd_create_reg(first_reg + reg1),
                                                  opnd_create_reg(first_reg + i), mem1);
                 }
                 PRE(ilist, instr, new_instr);
@@ -311,9 +327,11 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      * of registers to save/restore is odd.
      */
     if (reg1 != UINT_MAX) {
-        opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, is_gpr, ci == NULL ? saved_regs :  first_reg + (reg_id_t)reg1, ci);
-
-        PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + reg1, mem, save));
+        opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, is_gpr,
+                                  ci != NULL ? first_reg + (reg_id_t)reg1 : saved_regs,
+                                  ci);
+        PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + reg1, mem,
+                                                     save));
     }
 }
 
@@ -330,7 +348,8 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                          bool is_gpr) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                     first_reg, false /* restore */, is_gpr, create_base_disp_for_save_restore, NULL);
+                                     first_reg, false /* restore */, is_gpr,
+                                     create_base_disp_for_save_restore, NULL);
 }
 
 
@@ -345,7 +364,8 @@ insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                       bool *reg_skip,reg_id_t first_reg,
                       bool is_gpr, void *ci) {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0,
-                                     first_reg, true /* save */, is_gpr, inline_get_mem_opnd, (callee_info_t *)ci);
+                                     first_reg, true /* save */, is_gpr,
+                                     inline_get_mem_opnd, (callee_info_t *)ci);
 }
 
 void

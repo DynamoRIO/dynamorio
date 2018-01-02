@@ -546,7 +546,8 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, where, XINST_CREATE_add
         (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
 
-    insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR, true, (void*)ci);
+    insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR,
+                                 true, (void*)ci);
 
 
     /* Save nzcv, fpcr, fpsr, */
