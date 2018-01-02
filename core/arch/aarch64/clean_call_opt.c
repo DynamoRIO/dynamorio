@@ -543,22 +543,10 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
             break;
         }
     }
-#ifdef DEBUG
-    int disp2 = disp;
-    for (; i < NUM_GP_REGS; i += 1) {
-        reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
-        if (!cci->reg_skip[i]) {
-            opnd_t memref = callee_info_slot_opnd(ci, SLOT_REG, reg_id);
-            ASSERT(disp2 == opnd_get_disp(memref));
-            disp2 += XSP_SZ;
-        }
-    }
-#endif
     PRE(ilist, where, XINST_CREATE_add
         (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
 
-    insert_save_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg,
-                          DR_REG_X0, true);
+    insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR, true, (void*)ci);
 
 
     /* Save nzcv, fpcr, fpsr, */
@@ -579,8 +567,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     /* We use ldp to spill consecutive registers and ldr to spill a single reg
      * XXX remove duplication */
 
-    insert_restore_registers(dcontext, ilist, where, cci->reg_skip, ci->spill_reg,
-                             DR_REG_X0, true);
+    insert_restore_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_X0,
+                             true, (void*)ci);
 
     /* Restore reg used for unprotected_context_t pointer. */
     PRE(ilist, where, instr_create_restore_from_tls

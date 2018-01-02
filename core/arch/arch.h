@@ -576,6 +576,17 @@ void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
                          bool is_gpr);
+
+void
+insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                      bool *reg_skip,reg_id_t first_reg,
+                      bool is_gpr, void *ci);
+
+void
+insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         bool *reg_skip,reg_id_t first_reg,
+                         bool is_gpr, void *ci);
+
 #endif
 
 #ifdef WINDOWS
