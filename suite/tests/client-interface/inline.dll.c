@@ -63,7 +63,6 @@
         FUNCTION(empty) \
         FUNCTION(empty_1arg) \
         FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
         FUNCTION(bbcount) \
         LAST_FUNCTION()
 #endif
@@ -216,8 +215,8 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb,
         break;
     case FN_empty_1arg:
     case FN_inscount:
-    case FN_compiler_inscount:
 #ifdef X86
+    case FN_compiler_inscount:
     case FN_gcc47_inscount:
 #endif
         /* FIXME i#1569: passing instruction operands is NYI on AArch64.

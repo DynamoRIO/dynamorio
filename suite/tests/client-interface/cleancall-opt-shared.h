@@ -187,7 +187,9 @@ dr_init(client_id_t id)
    /* For compiler_inscount, we don't use generated code, we just point
     * straight at the compiled code.
     */
+#if !defined(TEST_INLINE) || defined(X86)
     func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
+#endif
 }
 
 #ifdef X86
@@ -467,7 +469,9 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
         }
         break;
     case FN_inscount:
+#if !defined(TEST_INLINE) || defined(X86)
     case FN_compiler_inscount:
+#endif
         if (global_count != 0xDEAD) {
             dr_fprintf(STDERR, "global_count not updated properly after inscount!\n");
             dump_cc_code(dc, start_inline, end_inline, func_index);

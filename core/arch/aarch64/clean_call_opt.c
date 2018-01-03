@@ -391,11 +391,7 @@ bool
 check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 {
     instr_t *instr, *next_instr;
-    opnd_t opnd, mem_ref, slot;
     bool opt_inline = true;
-    int i;
-
-    mem_ref = opnd_create_null();
 
     /* Now we need scan instructions in the list,
      * check if possible for inline, and convert memory reference
@@ -427,81 +423,13 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
         }
 
         if ((instr_reg_in_src(instr, DR_REG_XSP) ||
-            (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
-            instr_reads_memory(instr)) {
-            /* We only allow SP as the base in memory reference */
-                for (i = 0; i < instr_num_srcs(instr); i++) {
-                    opnd = instr_get_src(instr, i);
-                    if (!opnd_is_base_disp(opnd))
-                        continue;
-                    if (!ci->has_locals) {
-                        mem_ref = opnd;
-                        callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
-                        if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
-                            LOG(THREAD, LOG_CLEANCALL, 1,
-                                "CLEANCALL: callee "PFX" cannot be inlined: "
-                                "not enough slots for local.\n",
-                                ci->start);
-                            break;
-                        }
-                        ci->has_locals = true;
-                    } else if (!opnd_same(opnd, mem_ref)) {
-                        /* Check if it is the same stack var as the one we saw.
-                         * If different, no inline.
-                         */
-                        LOG(THREAD, LOG_CLEANCALL, 1,
-                            "CLEANCALL: callee "PFX" cannot be inlined: "
-                            "more than one stack location is accessed "PFX".\n",
-                            ci->start, instr_get_app_pc(instr));
-                        break;
-                    }
-                    /* replace the stack location with the scratch slot. */
-                    slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
-                    opnd_set_size(&slot, opnd_get_size(mem_ref));
-                    instr_set_src(instr, i, slot);
-                }
-                if (i != instr_num_srcs(instr)) {
-                    opt_inline = false;
-                    break;
-                }
-            }
-        if ((instr_reg_in_dst(instr, DR_REG_XSP) ||
-            (instr_reg_in_dst(instr, DR_REG_X29) && ci->standard_fp)) &&
-            instr_writes_memory(instr)) {
-            for (i = 0; i < instr_num_dsts(instr); i++) {
-                opnd = instr_get_dst(instr, i);
-                if (!opnd_is_base_disp(opnd))
-                    continue;
-                if (!ci->has_locals) {
-                    mem_ref = opnd;
-                    callee_info_reserve_slot(ci, SLOT_LOCAL, 0);
-                    if (ci->slots_used > CLEANCALL_NUM_INLINE_SLOTS) {
-                        LOG(THREAD, LOG_CLEANCALL, 1,
-                            "CLEANCALL: callee "PFX" cannot be inlined: "
-                            "not enough slots for local.\n",
-                            ci->start);
-                        break;
-                    }
-                    ci->has_locals = true;
-                } else if (!opnd_same(opnd, mem_ref)) {
-                    /* currently we only allows one stack refs */
-                    LOG(THREAD, LOG_CLEANCALL, 1,
-                        "CLEANCALL: callee "PFX" cannot be inlined: "
-                        "more than one stack location is accessed "PFX".\n",
-                        ci->start, instr_get_app_pc(instr));
-                    break;
-                }
-                /* replace the stack location with the scratch slot. */
-                slot = callee_info_slot_opnd(ci, SLOT_LOCAL, 0);
-                opnd_set_size(&slot, opnd_get_size(mem_ref));
-                instr_set_dst(instr, i, slot);
-            }
-            if (i != instr_num_srcs(instr)) {
-                opt_inline = false;
-                break;
-            }
+             (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
+            (instr_reads_memory(instr) || instr_writes_memory(instr))) {
+            opt_inline = false;
+            break;
         }
     }
+
     if (instr != NULL)
         opt_inline = false;
     return opt_inline;
