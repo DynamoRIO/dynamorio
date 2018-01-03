@@ -646,6 +646,11 @@ dynamorio_app_init(void)
         annotation_init();
 #endif
         jitopt_init();
+
+        /* New client threads rely on dr_app_started being initialized, so do
+         * that before initializing clients.
+         */
+        dr_app_started = create_broadcast_event();
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -703,8 +708,6 @@ dynamorio_app_init(void)
         }
 #endif
     }
-
-    dr_app_started = create_broadcast_event();
 
     dynamo_initialized = true;
 
