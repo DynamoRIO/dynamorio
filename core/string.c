@@ -129,6 +129,18 @@ strncpy(char *dst, const char *src, size_t n)
     return dst;
 }
 
+/* Private strncat. */
+char *
+strncat(char *dest, const char *src, size_t n)
+{
+    size_t dest_len = strlen(dest);
+    size_t i;
+    for (i = 0; i < n && src[i] != '\0'; i++)
+        dest[dest_len + i] = src[i];
+    dest[dest_len + i] = '\0';
+    return dest;
+}
+
 /* Private memcpy is in arch/<arch>/<arch>.asm */
 
 /* Private memset is in arch/<arch>/<arch>.asm */
@@ -165,7 +177,7 @@ __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
-  return memmove(dst, src, n);
+    return memmove(dst, src, n);
 }
 # else
     __attribute__((alias("memmove")));
@@ -177,24 +189,24 @@ __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
-  return strncpy(dst, src, n);
+    return strncpy(dst, src, n);
 }
 # else
     __attribute__((alias("strncpy")));
 # endif
-#endif
-
-/* Private strncat. */
-char *
-strncat(char *dest, const char *src, size_t n)
+void *
+__strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
+# ifdef MACOS
+/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
+ * XXX: better to test for support at config time: for now assuming none on Mac.
+ */
 {
-    size_t dest_len = strlen(dest);
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dest[dest_len + i] = src[i];
-    dest[dest_len + i] = '\0';
-    return dest;
+    return strncat(dst, src, n);
 }
+# else
+    __attribute__((alias("strncat")));
+# endif
+#endif
 
 /* Private strcmp. */
 int
