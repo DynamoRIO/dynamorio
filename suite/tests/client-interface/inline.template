@@ -24,9 +24,9 @@ passed for d701
 actual: 0200, expected: 0200
 passed for 0200
 Called func aflags_clobber.
-#endif
 Calling func compiler_inscount...
 Called func compiler_inscount.
+#endif
 Calling func bbcount...
 Called func bbcount.
 PASSED
