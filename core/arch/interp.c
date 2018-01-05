@@ -5913,7 +5913,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     /* saving in the trace and restoring in ibl means that
      * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
      */
-    if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+    if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
         if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             added_size += tracelist_add
                 (dcontext, trace, targeter, INSTR_CREATE_mov_st
@@ -6144,7 +6144,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
             next_flags);
         if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
-            !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+            !INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
             if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) &&  /* OF was saved */
                 !INTERNAL_OPTION(unsafe_ignore_overflow)) {
                 /* restore OF using add that overflows if OF was on when we did seto */
