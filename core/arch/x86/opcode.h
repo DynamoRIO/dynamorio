@@ -1259,10 +1259,14 @@ enum {
 /* 1101 */     OP_vpbroadcastd,   /**< IA-32/AMD64 vpbroadcastd opcode. */
 /* 1102 */     OP_vpbroadcastq,   /**< IA-32/AMD64 vpbroadcastq opcode. */
 
+    /* Added in Skylake */
+/* 1103 */     OP_xsavec32,       /**< IA-32/AMD64 xsavec opcode. */
+/* 1104 */     OP_xsavec64,       /**< IA-32/AMD64 xsavec64 opcode. */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1103 */     OP_jmpe,       /**< IA-32/AMD64 jmpe opcode. */
-/* 1104 */     OP_jmpe_abs,   /**< IA-32/AMD64 jmpe_abs opcode. */
+/* 1105 */     OP_jmpe,       /**< IA-32/AMD64 jmpe opcode. */
+/* 1106 */     OP_jmpe_abs,   /**< IA-32/AMD64 jmpe_abs opcode. */
 #endif
 
     OP_AFTER_LAST,
@@ -1340,6 +1344,7 @@ enum {
 # define OP_xsave    OP_xsave32    /**< Alternative opcode name. */
 # define OP_xrstor   OP_xrstor32   /**< Alternative opcode name. */
 # define OP_xsaveopt OP_xsaveopt32 /**< Alternative opcode name. */
+# define OP_xsavec   OP_xsavec32   /**< Alternative opcode name. */
 #endif
 #define OP_wait   OP_fwait /**< Alternative opcode name. */
 #define OP_sal    OP_shl /**< Alternative opcode name. */

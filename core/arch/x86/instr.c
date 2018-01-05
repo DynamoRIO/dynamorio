@@ -752,8 +752,9 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_frstor:          case OP_fnsave:
     case OP_fnstsw:          case OP_xsave32:
     case OP_xrstor32:        case OP_xsaveopt32:
-    case OP_xsave64:
+    case OP_xsavec32:        case OP_xsave64:
     case OP_xrstor64:        case OP_xsaveopt64:
+    case OP_xsavec64:
     case OP_vldmxcsr:        case OP_vstmxcsr:
     case OP_fwait:
     {
@@ -997,6 +998,7 @@ instr_saves_float_pc(instr_t *instr)
     int op = instr_get_opcode(instr);
     return (op == OP_fnsave || op == OP_fnstenv ||
             op == OP_fxsave32 || op == OP_xsave32 || op == OP_xsaveopt32 ||
+            op == OP_xsavec32 || op == OP_xsavec64 ||
             op == OP_fxsave64 || op == OP_xsave64 || op == OP_xsaveopt64);
 }
 

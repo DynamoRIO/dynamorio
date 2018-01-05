@@ -2545,7 +2545,8 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
      * We also don't support xsave, as it optionally writes the fpstate.
      */
     if (opnd_is_base_disp(memop) && op != OP_xsave32 && op != OP_xsaveopt32 &&
-        op != OP_xsave64 && op != OP_xsaveopt64) {
+        op != OP_xsave64 && op != OP_xsaveopt64 && op != OP_xsavec32 &&
+        op != OP_xsavec64) {
         instr_t *prev;
         for (prev = instr_get_prev_expanded(dcontext, ilist, instr);
              prev != NULL;
@@ -2614,8 +2615,10 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
         case OP_fxsave32:   reason = EXIT_REASON_FLOAT_PC_FXSAVE;  break;
         case OP_fxsave64:   reason = EXIT_REASON_FLOAT_PC_FXSAVE64;break;
         case OP_xsave32:
+        case OP_xsavec32:
         case OP_xsaveopt32: reason = EXIT_REASON_FLOAT_PC_XSAVE;   break;
         case OP_xsave64:
+        case OP_xsavec64:
         case OP_xsaveopt64: reason = EXIT_REASON_FLOAT_PC_XSAVE64; break;
         default: ASSERT_NOT_REACHED();
         }
