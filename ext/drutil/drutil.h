@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drutil: DynamoRIO Instrumentation Utilities
@@ -93,6 +93,16 @@ DR_EXPORT
 bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch);
+
+DR_EXPORT
+/**
+ * Identical to drutil_insert_get_mem_addr() except it returns in the optional
+ * OUT parameter \p scratch_used whether or not \p scratch was written to.
+ */
+bool
+drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
+                              opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                              OUT bool *scratch_used);
 
 DR_EXPORT
 /**

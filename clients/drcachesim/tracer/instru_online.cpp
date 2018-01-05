@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -189,9 +189,12 @@ online_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *
                                   opnd_t ref)
 {
     int disp = adjust + offsetof(trace_entry_t, addr);
-    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref);
-    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need to reload reg_ptr
-    insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    bool reg_ptr_used;
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref, &reg_ptr_used);
+    if (reg_ptr_used) {
+        // drutil_insert_get_mem_addr clobbered reg_ptr, so we need to reload reg_ptr.
+        insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    }
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(reg_ptr, disp),

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,7 +97,8 @@ public:
                                               bool repstr_expanded = false);
     static bool instr_is_flush(instr_t *instr);
     virtual void insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref);
+                                    reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
+                                    OUT bool *scratch_used = NULL);
 
 protected:
     void (*insert_load_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t);
