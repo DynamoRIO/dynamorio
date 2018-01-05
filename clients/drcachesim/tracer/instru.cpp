@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -110,13 +110,18 @@ instru_t::instr_is_flush(instr_t *instr)
 
 void
 instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                             reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref)
+                             reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
+                             OUT bool *scratch_used)
 {
     bool ok;
-    if (opnd_uses_reg(ref, reg_scratch))
+    if (opnd_uses_reg(ref, reg_scratch)) {
         drreg_get_app_value(drcontext, ilist, where, reg_scratch, reg_scratch);
+        if (scratch_used != NULL)
+            *scratch_used = true;
+    }
     if (opnd_uses_reg(ref, reg_addr))
         drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
-    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_scratch);
+    ok = drutil_insert_get_mem_addr_ex(drcontext, ilist, where, ref, reg_addr,
+                                       reg_scratch, scratch_used);
     DR_ASSERT(ok);
 }
