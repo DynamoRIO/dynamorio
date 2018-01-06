@@ -376,7 +376,8 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
     }
     // We take the full value, to handle low or high.
     buf->addr = (addr_t) in_entry.combined_value;
-    if (opnd_is_near_base_disp(ref) && opnd_get_index(ref) == DR_REG_NULL) {
+    if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
+        opnd_get_index(ref) == DR_REG_NULL) {
         // We stored only the base reg, as an optimization.
         buf->addr += opnd_get_disp(ref);
     }

@@ -372,13 +372,23 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
     int disp = adjust;
     reg_id_t reg_addr;
     bool reserved = false;
+    bool have_addr = false;
     drreg_status_t res;
-    if (opnd_is_near_base_disp(ref) && opnd_get_index(ref) == DR_REG_NULL) {
+    if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
+        opnd_get_index(ref) == DR_REG_NULL) {
         /* Optimization: to avoid needing a scratch reg to lea into, we simply
          * store the base reg directly and add the disp during post-processing.
          */
         reg_addr = opnd_get_base(ref);
-    } else {
+        if (opnd_get_base(ref) == reg_ptr) {
+            /* Here we do need a scratch reg, and raw2trace can't identify this case:
+             * so we set disp to 0 and use the regular path below.
+             */
+            opnd_set_disp(&ref, 0);
+        } else
+            have_addr = true;
+    }
+    if (!have_addr) {
         res = drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_addr);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         reserved = true;
