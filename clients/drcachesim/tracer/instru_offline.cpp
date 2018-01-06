@@ -370,14 +370,17 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
                                    reg_id_t reg_ptr, int adjust, opnd_t ref, bool write)
 {
     int disp = adjust;
-    reg_id_t reg_addr;
+    reg_id_t reg_addr = DR_REG_NULL;
     bool reserved = false;
     bool have_addr = false;
     drreg_status_t res;
+#ifdef X86
     if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
         opnd_get_index(ref) == DR_REG_NULL) {
         /* Optimization: to avoid needing a scratch reg to lea into, we simply
          * store the base reg directly and add the disp during post-processing.
+         * We only do this for x86 for now to avoid dealing with complexities of
+         * PC bases.
          */
         reg_addr = opnd_get_base(ref);
         if (opnd_get_base(ref) == reg_ptr) {
@@ -388,6 +391,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         } else
             have_addr = true;
     }
+#endif
     if (!have_addr) {
         res = drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_addr);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.

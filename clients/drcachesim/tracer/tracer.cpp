@@ -594,8 +594,8 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
          * save aflags to a temp reg before check.
          * XXX optimization: use drreg to avoid aflags save/restore.
          */
-        if (drreg_reserve_register(drcontext, bb, where, reg_vector, &reg_tmp) !=
-            DRREG_SUCCESS)
+        if (drreg_reserve_register(drcontext, ilist, where, &scratch_reserve_vec,
+                                   &reg_tmp) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to reserve reg.");
         dr_save_arith_flags_to_reg(drcontext, ilist, where, reg_tmp);
         MINSERT(ilist, where,
@@ -620,7 +620,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_A32) {
         dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg_tmp);
         DR_ASSERT(reg_tmp != DR_REG_NULL);
-        if (drreg_unreserve_register(drcontext, bb, where, reg_tmp) != DRREG_SUCCESS)
+        if (drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
             FATAL("Fatal error: failed to unreserve reg.\n");
     }
 #endif
