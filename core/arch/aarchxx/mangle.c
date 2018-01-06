@@ -221,6 +221,9 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
 }
 
 # ifdef AARCH64
+/* Maximum positive immediate offset for STP/LDP with 64 bit registers. */
+#  define MAX_STP_OFFSET 504
+
 /* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
 create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, bool is_gpr,
@@ -292,7 +295,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
 
             uint disp = opnd_get_disp(mem1);
             /* We cannot use STP/LDP if the immediate offset is too big. */
-            if (disp > 504) {
+            if (disp > MAX_STP_OFFSET) {
                 PRE(ilist, instr, create_load_or_store_instr(dcontext, first_reg + reg1,
                                                              mem1, save));
 
@@ -335,35 +338,37 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
     }
 }
 
-void
+static void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                      bool is_gpr) {
+                      bool is_gpr)
+{
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                      first_reg, true /* save */, is_gpr,
                                      create_base_disp_for_save_restore, NULL);
 }
 
-void
+static void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                         bool is_gpr) {
+                         bool is_gpr)
+{
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                      first_reg, false /* restore */, is_gpr,
                                      create_base_disp_for_save_restore, NULL);
 }
 
-
 static opnd_t
-inline_get_mem_opnd(uint base_reg, bool is_single_reg, bool is_gpr,
-                                  uint reg_id, callee_info_t *ci) {
+inline_get_mem_opnd(uint base_reg, bool is_single_reg, bool is_gpr, uint reg_id,
+                    callee_info_t *ci)
+{
     return callee_info_slot_opnd(ci, SLOT_REG, reg_id);
 }
 
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                      bool *reg_skip,reg_id_t first_reg,
-                      bool is_gpr, void *ci) {
+                             bool *reg_skip,reg_id_t first_reg, bool is_gpr, void *ci)
+{
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0,
                                      first_reg, true /* save */, is_gpr,
                                      inline_get_mem_opnd, (callee_info_t *)ci);
@@ -371,8 +376,8 @@ insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
 void
 insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         bool *reg_skip,reg_id_t first_reg,
-                         bool is_gpr, void *ci) {
+                                bool *reg_skip, reg_id_t first_reg, bool is_gpr, void *ci)
+{
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0,
                                      first_reg, false /* restore */, is_gpr,
                                      inline_get_mem_opnd, (callee_info_t *)ci);

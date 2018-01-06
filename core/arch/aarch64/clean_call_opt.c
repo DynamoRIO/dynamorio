@@ -185,7 +185,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          instr  = instr_get_next(instr)) {
 
         /* General purpose registers */
-        for (i = 0; i < (NUM_GP_REGS-1); i++) {
+        for (i = 0; i < NUM_GP_REGS; i++) {
             reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
             if (!ci->reg_used[i] &&
                 instr_uses_reg(instr, reg)) {
@@ -211,7 +211,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
     }
 
-    /* FIXME i#1621: the following checks are still missing:
+    /* FIXME i#2796: the following checks are still missing:
      *    - analysis of eflags (depends on i#2263)
      */
 }
@@ -383,7 +383,7 @@ app_pc
 check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc,
                           app_pc cur_pc, app_pc tgt_pc)
 {
-    /* FIXME i#1569: For opt level greater than 1, we abort. */
+    /* FIXME i#2796: For opt level greater than 1, we abort. */
     return NULL;
 }
 
@@ -393,8 +393,8 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
     instr_t *instr, *next_instr;
     bool opt_inline = true;
 
-    /* Now we need scan instructions in the list,
-     * check if possible for inline, and convert memory reference
+    /* Now we need scan instructions in the list and check if they all are
+     * safe to inline.
      */
     ci->has_locals = false;
     for (instr  = instrlist_first(ci->ilist);
@@ -407,14 +407,14 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 
         if (ci->standard_fp &&
             instr_writes_to_reg(instr, DR_REG_X29, DR_QUERY_INCLUDE_ALL)) {
-            /* x29 must not be changed if x29 is used for frame pointer */
+            /* X29 must not be changed if X29 is used for frame pointer. */
             LOG(THREAD, LOG_CLEANCALL, 1,
                 "CLEANCALL: callee "PFX" cannot be inlined: X29 is updated.\n",
                 ci->start);
             opt_inline = false;
             break;
         } else if (instr_writes_to_reg(instr, DR_REG_XSP, DR_QUERY_INCLUDE_ALL)) {
-            /* SP must not be changed */
+            /* SP must not be changed. */
             LOG(THREAD, LOG_CLEANCALL, 1,
                 "CLEANCALL: callee "PFX" cannot be inlined: XSP is updated.\n",
                 ci->start);
@@ -422,16 +422,21 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
             break;
         }
 
+        /* For now, any accesses to SP or X29, if it is used as frame pointer,
+         * prevent inlining.
+         * FIXME i#2796: Some access to SP or X29 can be re-written.
+         */
         if ((instr_reg_in_src(instr, DR_REG_XSP) ||
              (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
             (instr_reads_memory(instr) || instr_writes_memory(instr))) {
+           LOG(THREAD, LOG_CLEANCALL, 1,
+               "CLEANCALL: callee "PFX" cannot be inlined: SP or X29 accessed.\n",
+               ci->start);
             opt_inline = false;
             break;
         }
     }
-
-    if (instr != NULL)
-        opt_inline = false;
+    ASSERT(instr == NULL || opt_inline == false);
     return opt_inline;
 }
 
@@ -439,7 +444,7 @@ void
 analyze_clean_call_aflags(dcontext_t *dcontext,
                           clean_call_info_t *cci, instr_t *where)
 {
-    /* FIXME i#1621: NYI on AArch64
+    /* FIXME i#2796: NYI on AArch64
      * Non-essential for cleancall_opt=1 optimizations.
      */
 }
@@ -449,7 +454,6 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
                        instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
     callee_info_t *ci = cci->callee_info;
-    int i;
     /* Don't spill anything if we don't have to. */
     if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
         !ci->has_locals) {
@@ -459,26 +463,11 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, where, instr_create_save_to_tls
         (dcontext, ci->spill_reg, TLS_REG2_SLOT));
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
-    /* We use stp to spill consecutive registers and str to spill a single reg
-     * XXX remove duplication */
-
-    int disp = 0;
-    for (i = 0; i < NUM_GP_REGS; i += 1) {
-        reg_id_t reg_id = DR_REG_START_GPR + (reg_id_t)i;
-        if (!cci->reg_skip[i]) {
-            opnd_t memref = callee_info_slot_opnd(ci, SLOT_REG, reg_id);
-            disp = opnd_get_disp(memref);
-            break;
-        }
-    }
-    PRE(ilist, where, XINST_CREATE_add
-        (dcontext, OPREG(ci->spill_reg), OPND_CREATE_INT(disp)));
 
     insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR,
                                  true, (void*)ci);
 
-
-    /* Save nzcv, fpcr, fpsr, */
+    /* FIXME i#2796: Save nzcv, fpcr, fpsr. */
 }
 
 void
@@ -492,9 +481,7 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
         !ci->has_locals) {
         return;
     }
-    /* Restore nzcv, fpcr, fpsr */
-    /* We use ldp to spill consecutive registers and ldr to spill a single reg
-     * XXX remove duplication */
+    /* FIXME i#2796: Restore nzcv, fpcr, fpsr. */
 
     insert_restore_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_X0,
                              true, (void*)ci);
@@ -518,8 +505,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
     /* If the arg is un-referenced, don't set it up.  This is actually necessary
      * for correctness because we will not have spilled regparm[0].
      */
-    if (IF_X64_ELSE(!ci->reg_used[regparms[0] - DR_REG_START_GPR],
-                    !ci->has_locals)) {
+    if (!ci->reg_used[regparms[0] - DR_REG_START_GPR]) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee "PFX" doesn't read arg, skipping arg setup.\n",
             ci->start);
@@ -529,8 +515,10 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
     ASSERT(cci->num_args == 1);
     arg = args[0];
 
-    if (opnd_uses_reg(arg, ci->spill_reg))
+    if (opnd_uses_reg(arg, ci->spill_reg)) {
+        /* FIXME i#2796: Try to pass arg via spill register, like on X86. */
         ASSERT_NOT_IMPLEMENTED(false);
+    }
 
     LOG(THREAD, LOG_CLEANCALL, 2,
         "CLEANCALL: inlining clean call "PFX", passing arg via reg %s.\n",
@@ -540,6 +528,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
                                opnd_get_immed_int(arg), opnd_create_reg(regparm),
                                ilist, where, NULL, NULL);
     } else {
+        /* FIXME i#2796: Implement passing additional argument types. */
         ASSERT_NOT_IMPLEMENTED(false);
     }
 }
