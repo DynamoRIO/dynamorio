@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -210,7 +210,8 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 {
     LOG(drcontext, LOG_ALL, 3,
         "%s @%d."PFX" %s slot=%d release=%d\n", __FUNCTION__, pt->live_idx,
-        instr_get_app_pc(where), get_register_name(reg), slot, release);
+        where == NULL ? 0 : instr_get_app_pc(where),
+        get_register_name(reg), slot, release);
     ASSERT(pt->slot_use[slot] == reg ||
            /* aflags can be saved and restored using different regs */
            (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),

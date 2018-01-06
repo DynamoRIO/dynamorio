@@ -43,8 +43,9 @@
 
 online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                          instr_t *, reg_id_t),
-                                 bool memref_needs_info)
-    : instru_t(insert_load_buf, memref_needs_info)
+                                 bool memref_needs_info,
+                                 drvector_t *reg_vector)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector)
 {
 }
 
@@ -272,12 +273,16 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 
 int
 online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                   reg_id_t reg_ptr, int adjust,
                                    instr_t *app, opnd_t ref, bool write,
                                    dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     if (memref_needs_full_info) {
@@ -304,17 +309,23 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return (adjust + sizeof(trace_entry_t));
 }
 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  reg_id_t reg_ptr, int adjust,
                                   instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
     app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     // To handle zero-iter repstr loops this routine is called at the top of the bb
     // where "app" is jecxz so we have to hardcode the rep str type and get length
     // from the tag.
@@ -326,17 +337,23 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return (adjust + sizeof(trace_entry_t));
 }
 
 int
 online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                    reg_id_t reg_ptr, int adjust,
                                     instr_t **delay_instrs, int num_delay_instrs)
 {
     // Create and instrument for INSTR_BUNDLE
     trace_entry_t entry;
     int i;
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     entry.type = TRACE_TYPE_INSTR_BUNDLE;
     entry.size = 0;
     for (i = 0; i < num_delay_instrs; i++) {
@@ -352,6 +369,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
             entry.size = 0;
         }
     }
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
 }
 
