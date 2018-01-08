@@ -461,7 +461,7 @@ hashtable_remove_range(hashtable_t *table, void *start, void *end)
 void
 hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload))
 {
-    DR_ASSERT(apply_func);
+    DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
     uint i;
     for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
         hash_entry_t *e = table->table[i];

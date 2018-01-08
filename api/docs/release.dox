@@ -212,7 +212,7 @@ Further non-compatibility-affecting changes include:
    different types of entries in a trace, broken down by thread.
  - Added instr_is_string_op() and instr_is_rep_string_op().
  - Added dr_app_recurlock_lock().
- - Added hashtable_apply_to_all_payloads to iterate over all payloads in a
+ - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
    hashtable.
 
 **************************************************
