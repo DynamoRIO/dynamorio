@@ -35,6 +35,7 @@
 
 #include "dr_api.h"
 #include "drvector.h"
+#include "hashtable.h"
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
@@ -76,10 +77,35 @@ test_vector(void)
     CHECK(ok, "drvector_delete failed");
 }
 
+unsigned int c;
+
+void count(void *payload){
+    c++;
+}
+
+static void
+test_hashtable_apply_all(void){
+
+    hashtable_t hash_table;
+    hashtable_init(&hash_table, 8, HASH_INTPTR, false);
+    
+    c = 0;
+
+    hashtable_add_replace(&hash_table, (void *) 1, (void *)  1);
+    hashtable_add_replace(&hash_table, (void *) 2, (void *) 2);
+    hashtable_add_replace(&hash_table, (void *) 3, (void *) 3 );
+
+    hashtable_apply_to_all_payloads(&hash_table, count);
+
+    CHECK( c == hash_table.entries, "hashtable_apply_to_all_payloads failed");
+    hashtable_delete(&hash_table);    
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
     test_vector();
-
+    test_hashtable_apply_all();
+    
     /* XXX: test other data structures */
 }
