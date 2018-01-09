@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -183,7 +183,8 @@ Further non-compatibility-affecting changes include:
    drmemtrace_get_modlist_path(), and a separate rawtrace library for
    post-processing customization with raw2trace_t::handle_custom_data(),
    raw2trace_t::do_module_parsing(), raw2trace_t::do_conversion(), and
-   raw2trace_directory_t.
+   raw2trace_directory_t.  A corresponding CMake function for finding the
+   tracer customization header is use_DynamoRIO_drmemtrace_tracer().
  - Added a set_value() function to the \ref page_droption.
  - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
  - Globally enabled auto predication in the drmgr instrumentation insertion event by
@@ -198,6 +199,8 @@ Further non-compatibility-affecting changes include:
    sec_drcachesim_ops).
  - Added a last-level cache miss recording feature to drcachesim.
  - Added a delayed tracing feature to drcachesim.
+ - Added an option to drcachesim to specify cache warmup by loaded fraction of the
+   last level cache.
  - On Linux, the VDSO module is now included in the module list at program
    startup.
  - Added support for Windows 10 1703.  We provide an artificial version
@@ -208,12 +211,18 @@ Further non-compatibility-affecting changes include:
    dr_register_kernel_xfer_event() with corresponding routines
    drmgr_register_kernel_xfer_event() and drmgr_register_kernel_xfer_event_ex().
  - Added a new option -ignore_all_libs to drcpusim.
- - Added a new tool basic_counts to drcachesim for counting up the
-   different types of entries in a trace, broken down by thread.
+ - Added several new trace analysis tools to drcachesim: reuse distance,
+   reuse time, histogram, and trace basic counts.
+ - Added a trace analysis tool framework to facilitate creating custom
+   trace tools using the CMake function use_DynamoRIO_drmemtrace() and
+   exported drmemtrace_analyzer and analysis tool libraries.
+ - Added the CMake function configure_DynamoRIO_main_headers() to
+   facilitate using drfrontendlib by itself.
  - Added instr_is_string_op() and instr_is_rep_string_op().
  - Added dr_app_recurlock_lock().
  - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
    hashtable.
+ - Added drutil_insert_get_mem_addr_ex().
 
 **************************************************
 <hr>

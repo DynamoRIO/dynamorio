@@ -38,7 +38,16 @@
 #include <string>
 #include "analysis_tool.h"
 
-// These options are currently documented in ../common/options.cpp.
+/**
+ * @file drmemtrace/cache_simulator_create.h
+ * @brief DrMemtrace cache simulator creation.
+ */
+
+/**
+ * Creates an instance of a cache simulator.
+ * The options are currently documented in \ref sec_drcachesim_ops.
+ */
+// The options are currently documented in ../common/options.cpp.
 analysis_tool_t *
 cache_simulator_create(unsigned int num_cores = 4,
                        unsigned int line_size = 64,
@@ -53,6 +62,7 @@ cache_simulator_create(unsigned int num_cores = 4,
                        const std::string &data_prefetcher = "nextline",
                        uint64_t skip_refs = 0,
                        uint64_t warmup_refs = 0,
+                       double warmup_fraction = 0.0,
                        uint64_t sim_refs = 1ULL << 63,
                        unsigned int verbose = 0);
 

@@ -39,7 +39,7 @@
  * for us.
  */
 #include "dr_api.h"
-#include "drmemtrace.h"
+#include "drmemtrace/drmemtrace.h"
 #include "drvector.h"
 #include "../../../suite/tests/client_tools.h"
 #include <assert.h>

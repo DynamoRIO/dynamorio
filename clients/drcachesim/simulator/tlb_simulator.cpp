@@ -56,13 +56,15 @@ tlb_simulator_create(unsigned int num_cores,
                      std::string replace_policy,
                      uint64_t skip_refs,
                      uint64_t warmup_refs,
+                     double warmup_fraction,
                      uint64_t sim_refs,
                      unsigned int verbose)
 {
     return new tlb_simulator_t(num_cores, page_size, TLB_L1I_entries,
                                TLB_L1D_entries, TLB_L1I_assoc, TLB_L1D_assoc,
                                TLB_L2_entries, TLB_L2_assoc, replace_policy,
-                               skip_refs,warmup_refs, sim_refs, verbose);
+                               skip_refs, warmup_refs, warmup_fraction, sim_refs,
+                               verbose);
 }
 
 tlb_simulator_t::tlb_simulator_t(unsigned int num_cores,
@@ -76,9 +78,10 @@ tlb_simulator_t::tlb_simulator_t(unsigned int num_cores,
                                  std::string replace_policy,
                                  uint64_t skip_refs,
                                  uint64_t warmup_refs,
+                                 double warmup_fraction,
                                  uint64_t sim_refs,
                                  unsigned int verbose) :
-    simulator_t(num_cores, skip_refs,warmup_refs, sim_refs, verbose),
+    simulator_t(num_cores, skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose),
     knob_page_size(page_size),
     knob_TLB_L1I_entries(TLB_L1I_entries),
     knob_TLB_L1D_entries(TLB_L1D_entries),

@@ -2734,6 +2734,12 @@ client_thread_target(void *param)
         get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
 
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    wait_for_event(dr_app_started, 0);
+
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
@@ -4905,7 +4911,7 @@ os_timeout(int time_in_milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr, int timeout_ms)
 {
     return nt_thread_suspend(tr->handle, NULL);
 }
@@ -6979,8 +6985,8 @@ os_seek(file_t f, int64 offset, int origin)
     case OS_SEEK_END:
         {
             uint64 file_size = 0;
-            bool res = os_get_file_size_by_handle(f, &file_size);
-            ASSERT(res && "bad file handle?"); /* shouldn't fail */
+            bool size_res = os_get_file_size_by_handle(f, &file_size);
+            ASSERT(size_res && "bad file handle?"); /* shouldn't fail */
             abs_offset += file_size;
         }
         break;
@@ -7679,7 +7685,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
                         nt_get_handle_access_rights(tr->handle);
                     TEB *teb_addr = get_teb(tr->handle);
                     DEBUG_DECLARE(bool res = )
-                        os_thread_suspend(tr);
+                        os_thread_suspend(tr, 0);
                     /* we can't assert here (could infinite loop) */
                     DODEBUG({ suspend_failures = suspend_failures || !res; });
                     if (thread_get_context(tr, &cxt)) {
@@ -7700,8 +7706,8 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
             }
         }
     } else {
-        char *msg = "<error all threads list is already freed>";
-        os_write(dmp_file, msg, strlen(msg));
+        const char *error_msg = "<error all threads list is already freed>";
+        os_write(dmp_file, error_msg, strlen(error_msg));
         /* FIXME : if other threads are active (say in the case of detaching)
          * walking the memory below could be racy, what if another thread
          * frees some chunk of memory while we are copying it! Just live with
@@ -8229,7 +8235,7 @@ detach_internal()
     /* we go ahead and re-protect though detach thread will soon un-prot */
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     LOG(GLOBAL, LOG_ALL, 1, "Starting detach\n");
-    nudge_internal(get_process_id(), NUDGE_GENERIC(detach), NULL, 0 /* ignored */, 0);
+    nudge_internal(get_process_id(), NUDGE_GENERIC(detach), 0, 0 /* ignored */, 0);
     LOG(GLOBAL, LOG_ALL, 1, "Created detach thread\n");
 }
 
@@ -8509,9 +8515,15 @@ rwlock_notify_readers(read_write_lock_t *rwlock)
 /***************************************************************************/
 
 event_t
-create_event()
+create_event(void)
 {
     return nt_create_event(SynchronizationEvent);
+}
+
+event_t
+create_broadcast_event(void)
+{
+    return nt_create_event(NotificationEvent);
 }
 
 void
@@ -8597,7 +8609,7 @@ early_inject_init()
     bool under_dr_save;
     where_am_i_t whereami_save;
     wchar_t buf[MAX_PATH];
-    int os_version = get_os_version();
+    int os_version_number = get_os_version();
     GET_NTDLL(LdrLoadDll, (IN PCWSTR PathToFile OPTIONAL,
                            IN PULONG Flags OPTIONAL,
                            IN PUNICODE_STRING ModuleFileName,
@@ -8629,7 +8641,7 @@ early_inject_init()
     if (DYNAMO_OPTION(early_inject_location) == INJECT_LOCATION_LdrDefault) {
         LOG(GLOBAL, LOG_TOP, 2,
             "early_inject using default ldr location for this os_ver\n");
-        switch (os_version) {
+        switch (os_version_number) {
         case WINDOWS_VERSION_NT:
             /* LdrpImportModule is best but we can't find that address
              * automatically since one of the stack frames we need to walk
@@ -8690,7 +8702,7 @@ early_inject_init()
              * most likely to work
              */
             early_inject_location = INJECT_LOCATION_LdrLoadDll;
-            ASSERT(os_version > WINDOWS_VERSION_10);
+            ASSERT(os_version_number > WINDOWS_VERSION_10);
         }
     }
     ASSERT(early_inject_location != INJECT_LOCATION_LdrDefault);
@@ -8741,7 +8753,7 @@ early_inject_init()
         ASSERT_NOT_IMPLEMENTED(!dr_early_injected && "process early injected"
                                "at non LdrpLoadDll location is configured to"
                                "use LdrpLoadDll location which is NYI");
-        if (os_version == WINDOWS_VERSION_NT)
+        if (os_version_number == WINDOWS_VERSION_NT)
             early_inject_address = ldrpLoadDll_address_NT;
         else
             early_inject_address = ldrpLoadDll_address_not_NT;

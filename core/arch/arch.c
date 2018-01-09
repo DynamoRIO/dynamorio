@@ -1232,11 +1232,11 @@ arch_thread_init(dcontext_t *dcontext)
         if (!DYNAMO_OPTION(shared_traces)) {
             /* copy all bookkeeping information from shared_code into thread private
                needed by get_ibl_routine*() */
-            ibl_branch_type_t branch_type;
-            for (branch_type = IBL_BRANCH_TYPE_START;
-                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-                code->trace_ibl[branch_type] =
-                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[branch_type];
+            ibl_branch_type_t ibl_branch_type;
+            for (ibl_branch_type = IBL_BRANCH_TYPE_START;
+                 ibl_branch_type < IBL_BRANCH_TYPE_END; ibl_branch_type++) {
+                code->trace_ibl[ibl_branch_type] =
+                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[ibl_branch_type];
             }
         } /* FIXME: no private traces supported right now w/ -shared_traces */
     } else if (PRIVATE_TRACES_ENABLED()) {
@@ -1933,7 +1933,12 @@ bool
 get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                         _IF_X86_64(gencode_mode_t *mode_out))
 {
-    ibl_entry_point_type_t link_state;
+    /* This variable is int instead of ibl_entry_point_type_t.  This is because
+     * below we use it as loop index variable which can take negative values.
+     * It is possible that ibl_entry_point_type_t, which is an enum, has an
+     * underlying unsigned type which can cause problems due to wrap around.
+     */
+    int link_state;
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
 #if defined(X86) && defined(X64)
@@ -1965,7 +1970,7 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
     /* iterate in order <linked, unlinked> */
     for (link_state = IBL_LINKED;
          /* keep in mind we need a signed comparison when going downwards */
-         (int)link_state >= (int)IBL_UNLINKED; link_state-- ) {
+         link_state >= (int)IBL_UNLINKED; link_state--) {
         /* it is OK to compare to IBL_BB_PRIVATE even when !SHARED_FRAGMENTS_ENABLED() */
         for (source_fragment_type = IBL_SOURCE_TYPE_START;
              source_fragment_type < IBL_SOURCE_TYPE_END;

@@ -37,6 +37,15 @@
 
 #include "analysis_tool.h"
 
+/**
+ * @file drmemtrace/basic_counts_create.h
+ * @brief DrMemtrace basic counting trace analysis tool creation.
+ */
+
+/**
+ * Creates an analysis tool which counts the number of instructions, loads, stores,
+ * prefetch, threads, and markers in the trace.
+ */
 analysis_tool_t *
 basic_counts_tool_create(unsigned int verbose = 0);
 

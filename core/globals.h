@@ -130,12 +130,6 @@
 #  define DR_UNS_API /* nothing */
 #endif
 
-#ifdef WINDOWS
-# define NOINLINE __declspec(noinline)
-#else
-# define NOINLINE __attribute__((noinline))
-#endif
-
 #define INLINE_ONCE inline
 
 #include <stdlib.h>
@@ -459,6 +453,8 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * go through the app interface.
  */
 extern bool doing_detach;
+
+extern event_t dr_app_started;
 
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library;  /* used as standalone library */

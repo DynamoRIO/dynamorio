@@ -140,6 +140,8 @@ bool    post_execve = false;
 /* initial stack so we don't have to use app's */
 byte *  initstack;
 
+event_t dr_app_started;
+
 #ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
 #define EXCEPTION_STACK_SIZE (2 * PAGE_SIZE)
@@ -644,6 +646,11 @@ dynamorio_app_init(void)
         annotation_init();
 #endif
         jitopt_init();
+
+        /* New client threads rely on dr_app_started being initialized, so do
+         * that before initializing clients.
+         */
+        dr_app_started = create_broadcast_event();
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -1005,6 +1012,8 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      * dynamo_thread_exit_common called from exiting client threads.
      */
     dynamo_exited_and_cleaned = true;
+
+    destroy_event(dr_app_started);
 
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
@@ -2838,6 +2847,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     uint attempts = 0;
 
     os_process_under_dynamorio_initiate(dcontext);
+    signal_event(dr_app_started);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */
@@ -3111,7 +3121,7 @@ dynamorio_unprotect(void)
                     for (tr = all_threads[i]; tr; tr = tr->next) {
                         if (tr->under_dynamo_control) {
                             DEBUG_DECLARE(bool ok =)
-                                os_thread_suspend(all_threads[i]);
+                                os_thread_suspend(all_threads[i], 0);
                             ASSERT(ok);
                             protect_info->num_threads_suspended++;
                         }

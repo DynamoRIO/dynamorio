@@ -131,28 +131,6 @@ signal_event(void *dcontext, dr_siginfo_t *info)
     return DR_SIGNAL_DELIVER;
 }
 
-static dr_emit_flags_t
-bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
-{
-    instr_t *instr, *next_instr, *next_next_instr;
-    /* Look for 3 nops to locate redirection target */
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
-        if (next_instr != NULL)
-            next_next_instr = instr_get_next(next_instr);
-        else
-            next_next_instr = NULL;
-        if (instr_is_nop(instr) &&
-            next_instr != NULL && instr_is_nop(next_instr) &&
-            next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
-
-            redirect_tag = tag;
-            break;
-        }
-    }
-    return DR_EMIT_DEFAULT;
-}
-
 static void
 thread_func(void *arg)
 {
@@ -172,17 +150,15 @@ thread_func(void *arg)
     dr_event_signal(child_dead);
 }
 
-DR_EXPORT
-void dr_init(client_id_t id)
+static void
+test_syscall_auto_restart(void)
 {
-    dr_register_bb_event(bb_event);
-    dr_register_signal_event(signal_event);
-    dr_register_kernel_xfer_event(kernel_xfer_event);
-
     /* We test syscall auto-restart (i#2659) by having another thread
      * sit at a blocking read while it receives signals.
      * It's hard to arrange this w/ an app thread and app signals so we use a
      * client thread and direct signals.
+     * Because client threads don't run until the app starts we can't do this
+     * in dr_init().
      */
     child_alive = dr_event_create();
     child_dead = dr_event_create();
@@ -214,7 +190,39 @@ void dr_init(client_id_t id)
 #else
 # error Unsupported OS
 #endif
-    dr_event_destroy(child_alive);
+    dr_event_destroy(child_alive); /* deliberately left non-NULL */
     dr_event_destroy(child_dead);
     dr_event_destroy(sigchld_received);
+}
+
+static dr_emit_flags_t
+bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
+{
+    instr_t *instr, *next_instr, *next_next_instr;
+    if (child_alive == NULL)
+        test_syscall_auto_restart();
+    /* Look for 3 nops to locate redirection target */
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (next_instr != NULL)
+            next_next_instr = instr_get_next(next_instr);
+        else
+            next_next_instr = NULL;
+        if (instr_is_nop(instr) &&
+            next_instr != NULL && instr_is_nop(next_instr) &&
+            next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
+
+            redirect_tag = tag;
+            break;
+        }
+    }
+    return DR_EMIT_DEFAULT;
+}
+
+DR_EXPORT
+void dr_init(client_id_t id)
+{
+    dr_register_bb_event(bb_event);
+    dr_register_signal_event(signal_event);
+    dr_register_kernel_xfer_event(kernel_xfer_event);
 }

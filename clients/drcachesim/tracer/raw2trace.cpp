@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -330,53 +330,71 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
                            opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
-    // To avoid having to backtrack later, we read 2 ahead to see whether this memref
-    // faulted.  There's a footer so we should always get 1, but we might not get the
-    // 2nd for predication or zero-iter string loops (caught below).
-    offline_entry_t in_entry[2];
-    size_t num_read;
-    if (!read_from_thread_file(tidx, in_entry, 2, &num_read) && num_read == 0)
+    offline_entry_t in_entry;
+    bool have_type = false;
+    if (!read_from_thread_file(tidx, &in_entry, 1))
         return "Trace ends mid-block";
-    if (in_entry[0].addr.type != OFFLINE_TYPE_MEMREF &&
-        in_entry[0].addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
+    if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+        in_entry.extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
+        // For -L0_filter we have to store the type for multi-memref instrs where
+        // we can't tell which memref it is (we'll still come here for the subsequent
+        // memref operands but we'll exit early in the check below).
+        have_type = true;
+        buf->type = in_entry.extended.valueB;
+        buf->size = in_entry.extended.valueA;
+        VPRINT(4, "Found type entry type %d size %d\n", buf->type, buf->size);
+        if (!read_from_thread_file(tidx, &in_entry, 1))
+            return "Trace ends mid-block";
+    }
+    if (in_entry.addr.type != OFFLINE_TYPE_MEMREF &&
+        in_entry.addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
         // This happens when there are predicated memrefs in the bb, or for a
-        // zero-iter rep string loop.  For predicated memrefs,
-        // they could be earlier, so "instr" may not itself be predicated.
+        // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
+        // For predicated memrefs, they could be earlier, so "instr"
+        // may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        // FIXME i#2756: for -L0_filter we'll also come here b/c we don't know
-        // which memref it is.
-        VPRINT(4, "Missing memref from predication or 0-iter repstr (next type is 0x"
-               ZHEX64_FORMAT_STRING ")\n", in_entry[0].combined_value);
-        // Put back all entries read.
-        unread_from_thread_file(tidx, in_entry, num_read);
+        VPRINT(4, "Missing memref from predication, 0-iter repstr, or filter "
+               "(next type is 0x" ZHEX64_FORMAT_STRING ")\n", in_entry.combined_value);
+        unread_from_thread_file(tidx, &in_entry, 1);
         return "";
     }
-    if (num_read > 1) {
-        // Put back the 2nd entry.
-        unread_from_thread_file(tidx, &in_entry[1], 1);
-    }
-    if (instr_is_prefetch(instr)) {
-        buf->type = instru_t::instr_to_prefetch_type(instr);
-        buf->size = 1;
-    } else if (instru_t::instr_is_flush(instr)) {
-        buf->type = TRACE_TYPE_DATA_FLUSH;
-        buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
-    } else {
-        if (write)
-            buf->type = TRACE_TYPE_WRITE;
-        else
-            buf->type = TRACE_TYPE_READ;
-        buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
+    if (!have_type) {
+        if (instr_is_prefetch(instr)) {
+            buf->type = instru_t::instr_to_prefetch_type(instr);
+            buf->size = 1;
+        } else if (instru_t::instr_is_flush(instr)) {
+            buf->type = TRACE_TYPE_DATA_FLUSH;
+            buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
+        } else {
+            if (write)
+                buf->type = TRACE_TYPE_WRITE;
+            else
+                buf->type = TRACE_TYPE_READ;
+            buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
+        }
     }
     // We take the full value, to handle low or high.
-    buf->addr = (addr_t) in_entry[0].combined_value;
-    VPRINT(4, "Appended memref to " PFX "\n", (ptr_uint_t)buf->addr);
+    buf->addr = (addr_t) in_entry.combined_value;
+#ifdef X86
+    if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
+        opnd_get_index(ref) == DR_REG_NULL) {
+        // We stored only the base reg, as an optimization.
+        buf->addr += opnd_get_disp(ref);
+    }
+#endif
+    VPRINT(4, "Appended memref type %d size %d to " PFX "\n", buf->type, buf->size,
+           (ptr_uint_t)buf->addr);
     *buf_in = ++buf;
-    if (num_read > 1 &&
-        in_entry[1].extended.type == OFFLINE_TYPE_EXTENDED &&
-        in_entry[1].extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        in_entry[1].extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+    // To avoid having to backtrack later, we read ahead to see whether this memref
+    // faulted.  There's a footer so this should always succeed.
+    if (!read_from_thread_file(tidx, &in_entry, 1))
+        return "Trace ends mid-block";
+    // Put it back.
+    unread_from_thread_file(tidx, &in_entry, 1);
+    if (in_entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+        in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+        in_entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // A signal/exception interrupted the bb after the memref.
         VPRINT(4, "Signal/exception interrupted the bb\n");
         return FAULT_INTERRUPTED_BB;
@@ -539,7 +557,7 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL, false);
+    online_instru_t instru(NULL, false, NULL);
     bool last_bb_handled = true;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
     std::vector<uint64> times(thread_files.size(), 0);

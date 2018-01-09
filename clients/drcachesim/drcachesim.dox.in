@@ -52,6 +52,7 @@ online and offline.
  - \ref sec_drcachesim_phys
  - \ref sec_drcachesim_core
  - \ref sec_drcachesim_extend
+ - \ref sec_drcachesim_tracer
  - \ref sec_drcachesim_newtool
  - \ref sec_drcachesim_ops
  - \ref sec_drcachesim_limit
@@ -67,7 +68,8 @@ The analyzer consumes the traces (online or offline) and performs
 customized analysis.
 It is designed to be extensible, allowing users to easily implement a
 simulator for different devices, such as CPU caches, TLBs, page
-caches, etc. (see \ref sec_drcachesim_extend).
+caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
+analysis tools (see \ref sec_drcachesim_newtool).
 The default analyzer simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
 
@@ -520,26 +522,64 @@ and override the \p access(), \p child_access(), \p flush(), and/or
 \p print_stats() methods.
 
 ****************************************************************************
+\section sec_drcachesim_tracer Customizing the Tracer
+
+The tracer supports customization for special-purpose i/o via
+drmemtrace_replace_file_ops(), allowing traces to be written to locations
+not supported by simple UNIX file operations.  One option for using this
+function is to create a new client which links with the provided
+drmemtrace_static library, includes the \p drmemtrace/drmemtrace.h header via:
+
+\code
+use_DynamoRIO_drmemtrace_tracer(mytool)
+\endcode
+
+And includes its own dr_client_main() which calls
+drmemtrace_client_main().
+
+The tracer also supports storing custom data with each module (i.e.,
+library or executable) such as a build identifier via
+drmemtrace_custom_module_data().  The custom data can be retrieved via
+raw2trace_t::handle_custom_data() by creating a custom offline trace
+post-processor using the #raw2trace_t class.
+
+****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools
 
-\p drcachesim provides an analysis tool framework to make it easy to create
-new trace analysis tools.  A new tool should subclass <a
-href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/analysis_tool.h">analysis_tool_t</a>.
-Two key functions should be overridden: \p process_memref, which operates
-on a single trace entry, and \p print_results, which is called just once
-after processing the entire trace and should present the results of
-analysis.  In the default mode of operation, the <a
-href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/analyzer.h">analyzer_t</a>
-class iterates over the trace and calls the \p process_memref function of
-each tool.  An alternative mode is supported which exposes the iterator and
+\p drcachesim provides a \p drmemtrace analysis tool framework to make it
+easy to create new trace analysis tools.  A new tool should subclass
+#analysis_tool_t.  Two key functions should be overridden:
+analysis_tool_t::process_memref(), which operates on a single trace entry,
+and analysis_tool_t::print_results(), which is called just once after
+processing the entire trace and should present the results of analysis.  In
+the default mode of operation, the #analyzer_t class iterates over the
+trace and calls the analysis_tool_t::process_memref() function of each
+tool.  An alternative mode is supported which exposes the iterator and
 allows a separate control infrastructure to be built.
 
-Each trace entry is of type <a
-href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/common/memref.h">memref_t</a>
+Each trace entry is of type #memref_t
 and represents one instruction or data reference or a metadata operation
 such as a thread exit or marker.  There are built-in markers indicating
 disruptions in user mode control flow such as signal handler entry and
 exit.
+
+CMake support is provided for including the headers and linking the
+libraries of the \p drmemtrace framework.  A new CMake function is defined
+in the DynamoRIO package which sets the include directory for using the \p
+drmemtrace/ headers:
+
+\code
+use_DynamoRIO_drmemtrace(mytool)
+\endcode
+
+The \p drmemtrace_analyzer library exported by the DynamoRIO package is the
+main library to link when building a new tool.  The tools described above
+are also exported as the libraries \p drmemtrace_basic_counts, \p
+drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
+the basic_counts_tool_create(), histogram_tool_create(),
+reuse_distance_tool_create(), reuse_time_tool_create(),
+cache_simulator_create(), and tlb_simulator_create() functions.
 
 ****************************************************************************
 \section sec_drcachesim_ops Simulator Parameters

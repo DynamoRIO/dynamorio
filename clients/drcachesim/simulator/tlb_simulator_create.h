@@ -38,7 +38,16 @@
 #include <string>
 #include "analysis_tool.h"
 
-// These options are currently documented in ../common/options.cpp.
+/**
+ * @file drmemtrace/tlb_simulator_create.h
+ * @brief DrMemtrace TLB simulator creation.
+ */
+
+/**
+ * Creates an instance of a TLB simulator.
+ * The options are currently documented in \ref sec_drcachesim_ops.
+ */
+// The options are currently documented in ../common/options.cpp.
 analysis_tool_t *
 tlb_simulator_create(unsigned int num_cores = 4,
                      uint64_t page_size = 4*1024,
@@ -51,6 +60,7 @@ tlb_simulator_create(unsigned int num_cores = 4,
                      std::string replace_policy = "LFU",
                      uint64_t skip_refs = 0,
                      uint64_t warmup_refs = 0,
+                     double warmup_fraction = 0.0,
                      uint64_t sim_refs = 1ULL << 63,
                      unsigned int verbose = 0);
 

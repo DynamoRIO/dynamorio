@@ -44,8 +44,11 @@ REPEAT_BRIEF           = YES
 ABBREVIATE_BRIEF       =
 ALWAYS_DETAILED_SEC    = NO
 INLINE_INHERITED_MEMB  = NO
-FULL_PATH_NAMES        = NO
-STRIP_FROM_PATH        =
+# We want a hierarchy for the File List with the drcontainers headers
+# grouped, and ext/ and drmemtrace/ separated out, so we do relative
+# paths via full plus strip:
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = ../../clients/include ../../../src
 STRIP_FROM_INC_PATH    =
 SHORT_NAMES            = NO
 JAVADOC_AUTOBRIEF      = NO

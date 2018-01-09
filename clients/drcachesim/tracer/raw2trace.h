@@ -36,6 +36,11 @@
 #ifndef _RAW2TRACE_H_
 #define _RAW2TRACE_H_ 1
 
+/**
+ * @file drmemtrace/raw2trace.h
+ * @brief DrMemtrace offline trace post-processing customization.
+ */
+
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
@@ -61,6 +66,11 @@ struct module_t {
     bool is_external; // If true, the data is embedded in drmodtrack custom fields.
 };
 
+/**
+ * The raw2trace class converts the raw offline trace format to the format
+ * expected by analysis tools.  It requires access to the binary files for the
+ * libraries and executable that were present during tracing.
+ */
 class raw2trace_t {
 public:
     // module_map, thread_files and out_file are all owned and opened/closed by the

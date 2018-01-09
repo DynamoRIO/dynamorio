@@ -41,6 +41,12 @@
  */
 
 #include "../globals.h"
+#include <errno.h>
+/* avoid problems with use of errno as var name in rest of file */
+#if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
+# undef errno
+#endif
+
 #include "ksynch.h"
 
 #include <mach/mach.h>
@@ -125,7 +131,16 @@ ksynch_wait(mac_synch_t *synch, int mustbe, int timeout_ms)
         res = semaphore_timedwait(synch->sem, timeout);
     } else
         res = semaphore_wait(synch->sem);
-    return (res == KERN_SUCCESS ? 0 : -1);
+
+    /* Conform to the API specified in ksynch.h */
+    switch (res) {
+    case KERN_SUCCESS:
+        return 0;
+    case KERN_OPERATION_TIMED_OUT:
+        return -ETIMEDOUT;
+    default:
+        return -1;
+    }
 }
 
 ptr_int_t

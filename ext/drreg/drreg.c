@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -210,7 +210,8 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 {
     LOG(drcontext, LOG_ALL, 3,
         "%s @%d."PFX" %s slot=%d release=%d\n", __FUNCTION__, pt->live_idx,
-        instr_get_app_pc(where), get_register_name(reg), slot, release);
+        where == NULL ? 0 : instr_get_app_pc(where),
+        get_register_name(reg), slot, release);
     ASSERT(pt->slot_use[slot] == reg ||
            /* aflags can be saved and restored using different regs */
            (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
@@ -410,7 +411,9 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
          TESTANY(EFLAGS_READ_ARITH, instr_get_eflags(inst, DR_QUERY_DEFAULT)) ||
          /* Writing just a subset needs to combine with the original unwritten */
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
-          aflags != 0 /*0 means everything is dead*/))) {
+          aflags != 0 /*0 means everything is dead*/) ||
+         /* DR slots are not guaranteed across app instrs */
+         pt->aflags.slot >= (int)ops.num_spill_slots)) {
         /* Restore aflags to app value */
         LOG(drcontext, LOG_ALL, 3,
             "%s @%d."PFX" aflags=0x%x use=%d: lazily restoring aflags\n",
@@ -443,7 +446,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 (!pt->reg[GPR_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
                    !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
-                  TEST(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props)))) {
+                  TEST(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props))) ||
+                /* If we're out of our own slots and are using a DR slot, we have to
+                 * restore now b/c DR slots are not guaranteed across app instrs.
+                 */
+                pt->reg[GPR_IDX(reg)].slot >= (int)ops.num_spill_slots) {
                 if (!pt->reg[GPR_IDX(reg)].in_use) {
                     LOG(drcontext, LOG_ALL, 3, "%s @%d."PFX": lazily restoring %s\n",
                         __FUNCTION__, pt->live_idx, instr_get_app_pc(inst),
@@ -1632,6 +1639,12 @@ drreg_init(drreg_options_t *ops_in)
             !drmgr_register_restore_state_ex_event_ex
             (drreg_event_restore_state, &fault_priority))
             return DRREG_ERROR;
+#ifdef X86
+        /* We get an extra slot for aflags xax, rather than just documenting that
+         * clients should add 2 instead of just 1, as there are many existing clients.
+         */
+        ops.num_spill_slots = 1;
+#endif
     }
 
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))

@@ -3440,7 +3440,7 @@ os_thread_sleep(uint64 milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr, int timeout_ms)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
@@ -3474,10 +3474,17 @@ os_thread_suspend(thread_record_t *tr)
      */
     mutex_unlock(&ostd->suspend_lock);
     while (ksynch_get_value(&ostd->suspended) == 0) {
-        /* For Linux, waits only if the suspended flag is not set as 1. Return value
-         * doesn't matter because the flag will be re-checked.
+        /* For Linux, waits only if the suspended flag is not set as 1. Other
+         * than a timeout value, the return value doesn't matter because the
+         * flag will be re-checked.
          */
-        ksynch_wait(&ostd->suspended, 0, 0);
+        if (ksynch_wait(&ostd->suspended, 0, timeout_ms) == -ETIMEDOUT) {
+            mutex_lock(&ostd->suspend_lock);
+            ASSERT(ostd->suspend_count > 0);
+            ostd->suspend_count--;
+            mutex_unlock(&ostd->suspend_lock);
+            return false;
+        }
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
             os_thread_yield();
@@ -3676,14 +3683,17 @@ client_thread_run(void)
         get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
-    /* signal_thread_inherit() no longer sets up handlers or masks: we have to
-     * explicitly do that.
-     */
-    signal_reinstate_handlers(dcontext, false/*alarm too*/);
+    /* Reset any inherited mask (i#2337). */
     signal_swap_mask(dcontext, false/*to DR*/);
 
     void *arg = (void *) get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func="PFX", arg="PFX"\n", func, arg);
+
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
@@ -9516,6 +9526,7 @@ typedef struct linux_event_t {
      */
     KSYNCH_TYPE signaled;
     mutex_t lock;
+    bool broadcast;
 } linux_event_t;
 
 
@@ -9524,11 +9535,20 @@ typedef struct linux_event_t {
  * Currently a single rank seems to work.
  */
 event_t
-create_event()
+create_event(void)
 {
     event_t e = (event_t) global_heap_alloc(sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
     ksynch_init_var(&e->signaled);
     ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* FIXME: pass the event name here */
+    e->broadcast = false;
+    return e;
+}
+
+event_t
+create_broadcast_event(void)
+{
+    event_t e = create_event();
+    e->broadcast = true;
     return e;
 }
 
@@ -9582,8 +9602,10 @@ wait_for_event(event_t e, int timeout_ms)
                     get_thread_id(),e);
                 mutex_unlock(&e->lock);
             } else {
-                /* reset the event */
-                ksynch_set_value(&e->signaled, 0);
+                if (!e->broadcast) {
+                    /* reset the event */
+                    ksynch_set_value(&e->signaled, 0);
+                }
                 mutex_unlock(&e->lock);
                 LOG(THREAD, LOG_THREADS, 3,
                     "thread "TIDFMT" finished waiting for event "PFX"\n",
