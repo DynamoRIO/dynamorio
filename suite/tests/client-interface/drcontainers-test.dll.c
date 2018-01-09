@@ -120,6 +120,6 @@ dr_init(client_id_t id)
 {
     test_vector();
     test_hashtable_apply_all();
-    
+
     /* XXX: test other data structures */
 }
