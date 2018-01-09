@@ -567,6 +567,19 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);
+#ifdef AARCH64
+void
+insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                      bool *reg_skip,reg_id_t first_reg,
+                      bool is_gpr, void *ci);
+
+void
+insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         bool *reg_skip,reg_id_t first_reg,
+                         bool is_gpr, void *ci);
+
+#endif
+
 #ifdef WINDOWS
 bool
 instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
