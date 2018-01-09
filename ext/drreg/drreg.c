@@ -569,7 +569,12 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                 }
                 spill_reg(drcontext, pt, reg,
-                          pt->reg[GPR_IDX(reg)].slot, bb, next/*after*/);
+                          pt->reg[GPR_IDX(reg)].slot, bb,
+                          /* If reads and writes, make sure tool-restore and app-spill
+                           * are in the proper order.
+                           */
+                          restored_for_read[GPR_IDX(reg)] ? instr_get_prev(next) :
+                          next/*after*/);
                 pt->reg[GPR_IDX(reg)].ever_spilled = true;
                 if (!restored_for_read[GPR_IDX(reg)])
                     restore_reg(drcontext, pt, reg, tmp_slot, bb, next/*after*/, true);
