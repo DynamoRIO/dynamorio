@@ -1259,7 +1259,7 @@ enum {
 /* 1101 */     OP_vpbroadcastd,   /**< IA-32/AMD64 vpbroadcastd opcode. */
 /* 1102 */     OP_vpbroadcastq,   /**< IA-32/AMD64 vpbroadcastq opcode. */
 
-    /* Added in Skylake */
+    /* added in Intel Skylake */
 /* 1103 */     OP_xsavec32,       /**< IA-32/AMD64 xsavec opcode. */
 /* 1104 */     OP_xsavec64,       /**< IA-32/AMD64 xsavec64 opcode. */
 

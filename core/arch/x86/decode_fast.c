@@ -964,6 +964,29 @@ convert_8bit_offset(byte *pc, byte offset, uint len)
     return ((app_pc)pc) + (((int)(offset << 24)) >> 24) + len;
 }
 
+static bool
+intercept_fip_save(byte *pc, byte byte0, byte byte1)
+{
+    if ((byte0 == 0xdd && ((byte1 >> 3) & 0x7) == 6) /* dd /6 == OP_fnsave */ ||
+        (byte0 == 0xd9 && ((byte1 >> 3) & 0x7) == 6) /* d9 /6 == OP_fnstenv */)
+        return true;
+    if (byte0 == 0x0f && byte1 == 0xae) {
+        int opc_ext;
+        byte byte2 = *(pc + 2);
+        opc_ext = (byte2 >> 3) & 0x7;
+        return opc_ext == 0 ||  /* 0f ae /0 == OP_fxsave */
+               opc_ext == 4 ||  /* 0f ae /4 == OP_xsave */
+               opc_ext == 6;    /* 0f ae /6 == OP_xsaveopt */
+    }
+    if (byte0 == 0x0f && byte1 == 0xc7) {
+        int opc_ext;
+        byte byte2 = *(pc + 2);
+        opc_ext = (byte2 >> 3) & 0x7;
+        return opc_ext == 4; /* 0f c7 /4 == OP_xsavec */
+    }
+    return false;
+}
+
 /* Decodes only enough of the instruction at address pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
@@ -1384,10 +1407,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     /* i#698: we must intercept floating point instruction pointer saves.
      * Rare enough that we do a full decode on an opcode match.
      */
-    if ((byte0 == 0xdd && ((byte1 >> 3) & 0x7) == 6) /* dd /6 == OP_fnsave */ ||
-        (byte0 == 0xd9 && ((byte1 >> 3) & 0x7) == 6) /* d9 /6 == OP_fnstenv */ ||
-        (byte0 == 0x0f && byte1 == 0xae) /* includes fxsave, xsave, xsaveopt */ ||
-        (byte0 == 0x0f && byte1 == 0xc7) /* includes xsavec */) {
+    if (intercept_fip_save(pc, byte0, byte1)) {
         if (decode(dcontext, start_pc, instr) == NULL)
             return NULL;
         else
