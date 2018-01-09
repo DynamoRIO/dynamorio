@@ -79,7 +79,7 @@ test_vector(void)
 
 unsigned int c;
 
-static void 
+static void
 count(void *payload)
 {
     c++;
@@ -87,7 +87,7 @@ count(void *payload)
 
 unsigned int total;
 
-static void 
+static void
 sum(void *payload)
 {
   total += (unsigned int) payload;
