@@ -98,13 +98,13 @@ test_hashtable_apply_all(void)
 {
     hashtable_t hash_table;
     hashtable_init(&hash_table, 8, HASH_INTPTR, false);
-    
+
     c = 0;
     total = 0;
 
     hashtable_add_replace(&hash_table, (void *) 1, (void *) 1);
     hashtable_add_replace(&hash_table, (void *) 2, (void *) 2);
-    hashtable_add_replace(&hash_table, (void *) 3, (void *) 3 );
+    hashtable_add_replace(&hash_table, (void *) 3, (void *) 3);
 
     hashtable_apply_to_all_payloads(&hash_table, count);
     hashtable_apply_to_all_payloads(&hash_table, sum);
@@ -112,7 +112,7 @@ test_hashtable_apply_all(void)
     CHECK(c == hash_table.entries, "hashtable_apply_to_all_payloads (count test) failed");
     CHECK(total == 6, "hashtable_apply_to_all_payloads (sum test) failed");
 
-    hashtable_delete(&hash_table);    
+    hashtable_delete(&hash_table);
 }
 
 DR_EXPORT void
