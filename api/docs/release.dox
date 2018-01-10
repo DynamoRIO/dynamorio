@@ -220,6 +220,8 @@ Further non-compatibility-affecting changes include:
    facilitate using drfrontendlib by itself.
  - Added instr_is_string_op() and instr_is_rep_string_op().
  - Added dr_app_recurlock_lock().
+ - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
+   hashtable.
  - Added drutil_insert_get_mem_addr_ex().
 
 **************************************************
