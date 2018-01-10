@@ -86,7 +86,7 @@ count(void *payload)
     c++;
 }
 
-unsigned int total;
+uintptr_t total;
 
 static void
 sum(void *payload)
