@@ -36,6 +36,7 @@
 #include "dr_api.h"
 #include "drvector.h"
 #include "hashtable.h"
+#include "stdint.h"
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
@@ -90,7 +91,7 @@ unsigned int total;
 static void
 sum(void *payload)
 {
-  total += (unsigned int) payload;
+  total += (uintptr_t) payload;
 }
 
 static void
