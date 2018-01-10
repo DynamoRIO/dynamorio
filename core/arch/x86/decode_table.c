@@ -65,7 +65,7 @@
  * Operand pointers into tables
  * When there are multiple encodings of an opcode, this points to the first
  * entry in a linked list.
- * This array corresponds with the enum in instr.h
+ * This array corresponds with the enum in opcode.h
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  */
 const instr_info_t * const op_instr[] =
@@ -1261,6 +1261,10 @@ const instr_info_t * const op_instr[] =
     /* OP_vpbroadcastw  */   &third_byte_38[117],
     /* OP_vpbroadcastd  */   &third_byte_38[118],
     /* OP_vpbroadcastq  */   &third_byte_38[119],
+
+    /* added in Intel Skylake */
+    /* OP_xsavec32      */   &rex_w_extensions[5][0],
+    /* OP_xsavec64      */   &rex_w_extensions[5][1],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -2480,7 +2484,7 @@ const instr_info_t extensions[][8] = {
     {OP_cmpxchg8b, 0x0fc731, "cmpxchg8b", Mq_dq, eAX, Mq_dq, eAX, eDX, mrm_xop, fWZ, exop[0x07]},/*"cmpxchg16b" w/ rex.w*/
     {INVALID, 0x0fc732, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc733, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x0fc734, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {REX_W_EXT, 0x0fc734, "(rex.w ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
     {INVALID, 0x0fc735, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {MOD_EXT, 0x0fc736, "(group 9 mod ext 12)", xx, xx, xx, xx, xx, mrm, x, 12},
     {MOD_EXT, 0x0fc737, "(mod ext 13)", xx, xx, xx, xx, xx, mrm, x, 13},
@@ -4831,6 +4835,10 @@ const instr_info_t rex_w_extensions[][2] = {
   { /* rex.w extension 4 */
     {OP_xsaveopt32, 0x0fae36, "xsaveopt",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
     {OP_xsaveopt64, 0x0fae36, "xsaveopt64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 5 */
+    {OP_xsavec32, 0x0fc734, "xsavec",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsavec64, 0x0fc734, "xsavec64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
 };
 

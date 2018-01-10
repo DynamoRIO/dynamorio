@@ -124,7 +124,8 @@
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
 /**
  * Create a memory reference operand appropriately sized for OP_xsave32,
- * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xrstor32, or OP_xrstor64.
+ * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xsavec32, OP_xsavec64,
+ * OP_xrstor32, or OP_xrstor64.
  */
 #define OPND_CREATE_MEM_xsave(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_xsave)
@@ -2938,6 +2939,12 @@
     opnd_create_reg(DR_REG_EAX))
 #define INSTR_CREATE_xsaveopt64(dc, d) \
   instr_create_1dst_2src((dc), OP_xsaveopt64, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsavec32(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsavec32, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsavec64(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsavec64, (d), opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
