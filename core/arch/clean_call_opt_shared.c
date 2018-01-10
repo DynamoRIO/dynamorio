@@ -544,6 +544,8 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_regs_skip++;
         }
     }
+
+# ifdef X86
     /* we need save/restore rax if save aflags because rax is used */
     if (!cci->skip_save_flags && cci->reg_skip[0]) {
         LOG(THREAD, LOG_CLEANCALL, 3,
@@ -552,6 +554,8 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         cci->reg_skip[0] = false;
         cci->num_regs_skip++;
     }
+# endif
+
     /* i#987: args are passed via regs in 64-bit, which will clober those regs,
      * so we should not skip any regs that are used for arg passing.
      * XXX: we do not support args passing via XMMs,
