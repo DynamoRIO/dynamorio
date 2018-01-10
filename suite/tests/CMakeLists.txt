@@ -1984,16 +1984,12 @@ if (CLIENT_INTERFACE)
     endif (NOT AARCH64)
   endif (NOT ARM)
   tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-  if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+  if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
+    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
     tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
-    # i#1801: optimize client.inline.dll to make sure that compiler_inscount
-    # is simple enough to be inlined
     if (CMAKE_COMPILER_IS_CLANG)
       optimize(client.inline.dll)
     endif ()
-  endif (X86)
-  if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
-    tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
   endif (NOT ARM)
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")

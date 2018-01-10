@@ -187,7 +187,9 @@ dr_init(client_id_t id)
    /* For compiler_inscount, we don't use generated code, we just point
     * straight at the compiled code.
     */
+#if !defined(TEST_INLINE) || defined(X86)
     func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
+#endif
 }
 
 #ifdef X86
@@ -281,7 +283,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 
 #ifdef TEST_INLINE
    /* Check xflags for all funcs except bbcount, which has dead flags. */
-    if (mc_a->xflags != mc_b->xflags && func_index != FN_bbcount)
+    if (mc_a->xflags != mc_b->xflags IF_X86(&& func_index != FN_bbcount))
         return false;
 #else
    if (mc_a->xflags != mc_b->xflags)
@@ -467,7 +469,9 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
         }
         break;
     case FN_inscount:
+#if !defined(TEST_INLINE) || defined(X86)
     case FN_compiler_inscount:
+#endif
         if (global_count != 0xDEAD) {
             dr_fprintf(STDERR, "global_count not updated properly after inscount!\n");
             dump_cc_code(dc, start_inline, end_inline, func_index);
@@ -639,6 +643,17 @@ codegen_empty(void *dc)
     APP(ilist, XINST_CREATE_return(dc));
     return ilist;
 }
+
+/* i#988: We fail to inline if the number of arguments to the same clean call
+ * routine increases. empty is used for a 0 arg clean call, so we add empty_1arg
+ * for test_inlined_call_args(), which passes 1 arg.
+ */
+static instrlist_t *
+codegen_empty_1arg(void *dc)
+{
+    return codegen_empty(dc);
+}
+
 
 /* Return either a stack access opnd_t or the first regparm.  Assumes frame
  * pointer is not omitted. */
