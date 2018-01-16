@@ -62,7 +62,7 @@ const TCHAR *
 get_dynamorio_logdir(void);
 
 bool
-file_exists(const TCHAR *fn);
+file_exists(const WCHAR *fn);
 
 void
 set_dr_platform(dr_platform_t platform);

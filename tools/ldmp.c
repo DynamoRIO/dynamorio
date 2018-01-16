@@ -414,8 +414,8 @@ dump_mbi(MEMORY_BASIC_INFORMATION *mbi)
            "State:             %08x %s\n"
            "Protect:           %08x %s\n"
            "Type:              %08x %s\n",
-           mbi->BaseAddress,
-           mbi->AllocationBase,
+           (uint)mbi->BaseAddress,
+           (uint)mbi->AllocationBase,
            mbi->AllocationProtect, prot_string(mbi->AllocationProtect),
            mbi->RegionSize,
            mbi->State, mem_state_string(mbi->State),
@@ -727,12 +727,12 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             assert(NT_SUCCESS(res));
             res = set_win32_start_addr(hThread, &win32_start_addr);
             if (!res)
-                WARN("unable to set thread start address to %p\n", win32_start_addr);
+                WARN("unable to set thread start address to %p\n", (void*)win32_start_addr);
             res = query_thread_info(hThread, &thread_info);
             assert(res);
             new_id = (uint)thread_info.ClientId.UniqueThread;
             INFO(1, "created thread tid=0x%04x with TEB=0x%08x original tid=0x%04x with TEB=0x%08x\n",
-                   new_id, thread_info.TebBaseAddress, thread_id, teb);
+                   new_id, (uint)thread_info.TebBaseAddress, thread_id, (uint)teb);
             if (valid_selectors) {
                 INFO(1, "\tcs=%04x ss=%04x ds=%04x es=%04x fs=%04x gs=%04x\n",
                        Cs, Ss, Ds, Es, Fs, Gs);
@@ -850,7 +850,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
             /* we can't handle write copy flag! remove it */
             allocation_protect = remove_writecopy(allocation_protect);
             INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n",
-                allocation_base, allocation_protect);
+                (uint)allocation_base, allocation_protect);
 
             do {
                 allocation_size += mbi.RegionSize;
@@ -906,7 +906,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                      * threads list at time of ldmp */
                     WARN("Probable TEB for unknown thread region (or x64 PEB/TEB?) "
                          "addr 0x%08x size 0x%08x\n",
-                         allocation_base, allocation_size);
+                         (uint)allocation_base, allocation_size);
                 }
                 target = allocation_base;
                 /* FIXME : why can't we use VirtualAllocEx? it fails with
@@ -924,7 +924,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 }
                 if (!res) {
                     WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n",
-                           allocation_base, allocation_size);
+                           (uint)allocation_base, allocation_size);
                     res = fsetpos(file, &last_mbi_pos);
                     assert(res == 0);
                     continue;
@@ -933,12 +933,12 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 assert(target != NULL);
                 if (target != allocation_base) {
                     WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n",
-                           allocation_base, allocation_size, target);
+                           (uint)allocation_base, allocation_size, (uint)target);
                 }
-                INFO(2, "target = 0x%08x, base = 0x%08x\n", target, allocation_base);
+                INFO(2, "target = 0x%08x, base = 0x%08x\n", (uint)target, (uint)allocation_base);
             }
             INFO(2, "size=0x%08x\n", allocation_size);
-            INFO(2, "target=0x%08x\n", target);
+            INFO(2, "target=0x%08x\n", (uint)target);
 
             /* reset file pointer */
             res = fsetpos(file, &pos);
@@ -1117,7 +1117,7 @@ main(DWORD argc, char *argv[], char *envp[])
     res = query_process_info(hProc, &info);
     assert(res);
     INFO(1, "\ncreated dummy process pid=%d with PEB=0x%08x original PEB=0x%08x\n",
-         info.UniqueProcessId, info.PebBaseAddress, pb);
+         info.UniqueProcessId, info.PebBaseAddress, (uint)pb);
 
     /* read dynamorio.dll base, present only in format after case 5366 */
     if (fscanf(file, "dynamorio.dll=0x%08x\n", &drbase) == 1) {
@@ -1160,10 +1160,10 @@ main(DWORD argc, char *argv[], char *envp[])
                     }
                     pb += mbi.RegionSize;
                 } else {
-                    INFO(2, "unmapped allocation at 0x%08x\n", mbi.AllocationBase);
+                    INFO(2, "unmapped allocation at 0x%08x\n", (uint)mbi.AllocationBase);
                 }
             } else {
-                INFO(2, "freed memory at 0x%08x\n", mbi.AllocationBase);
+                INFO(2, "freed memory at 0x%08x\n", (uint)mbi.AllocationBase);
             }
         }
     }
@@ -1192,7 +1192,7 @@ main(DWORD argc, char *argv[], char *envp[])
     if (!reached_vsyscall_page) {
         WARN("ERROR: failed to reach shared_user_data/vsyscall page, ldmp likely truncated.\n"
                "       Memory above 0x%08x is likely unavailable or incorrect.\n\n",
-               highest_address_copied);
+               (uint)highest_address_copied);
     }
 
     INFO(1, "finished\n");
