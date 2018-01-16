@@ -294,7 +294,11 @@
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE
+# ifdef STANDALONE_UNIT_TEST
+    OPTION_DEFAULT_INTERNAL(bool, deadlock_avoidance, false, "enable deadlock avoidance checks")
+# else
     OPTION_DEFAULT_INTERNAL(bool, deadlock_avoidance, true, "enable deadlock avoidance checks")
+# endif
     OPTION_DEFAULT_INTERNAL(uint, mutex_callstack, 0 /* 0 to disable, 4 recommended, MAX_MUTEX_CALLSTACK */,
                             "collect a callstack up to specified depth when a mutex is locked")
 #endif

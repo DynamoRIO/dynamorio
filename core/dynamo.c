@@ -861,12 +861,12 @@ standalone_init(void)
     if (!syscalls_init())
         return NULL; /* typically b/c of unsupported OS version */
 #endif
+#ifdef DEBUG
+    nonshared_stats.logmask = LOG_ALL;
+#endif
+
     config_init();
     options_init();
-#if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
-    /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
-    dynamo_options.deadlock_avoidance = false;
-#endif
     vmm_heap_init();
     heap_init();
     dynamo_heap_initialized = true;
@@ -887,9 +887,6 @@ standalone_init(void)
 
 # ifdef DEBUG
     /* FIXME: share code w/ main init routine? */
-    nonshared_stats.logmask = LOG_ALL;
-    /* Why do we need this to options_init()?  We did so above. */
-    options_init();
     if (stats->loglevel > 0) {
         char initial_options[MAX_OPTIONS_STRING];
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);
