@@ -67,8 +67,10 @@ typedef struct _thread_synch_data_t {
     /* we allow pending_synch_count to be read without holding the synch_lock
      * so all updates should be ATOMIC as well as holding the lock */
     int pending_synch_count;
-    /* to guarantee that the thread really has this permission you need to hold
-     * the synch_lock when you read this value  */
+    /* To guarantee that the thread really has this permission you need to hold the
+     * synch_lock when you read this value.  If the target thread is suspended, use a
+     * trylock, as it could have been suspended while holding synch_lock (i#2805).
+     */
     thread_synch_permission_t synch_perm;
     /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set
      * to whether synch_with_all_threads was successful in synching this thread.
@@ -628,6 +630,13 @@ set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state)
         ASSERT_OWN_NO_LOCKS();
 
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
+    /* We have a wart in the settings here (i#2805): a caller can set
+     * THREAD_SYNCH_NO_LOCKS, yet here we're acquiring locks.  In fact if this thread
+     * is suspended in between the lock and the unset of synch_perm from
+     * THREAD_SYNCH_NO_LOCKS back to THREAD_SYNCH_NONE, it can cause problems.  We
+     * have everyone who might query in such a state use a trylock and assume
+     * synch_perm is THREAD_SYNCH_NONE if the lock cannot be acquired.
+     */
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = state;
     spinmutex_unlock(tsd->synch_lock);
