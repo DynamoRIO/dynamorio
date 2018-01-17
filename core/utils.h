@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -754,6 +754,11 @@ mutex_testlock(mutex_t *lock)
     return lock->lock_requests > LOCK_FREE_STATE;
 }
 
+static inline bool
+spinmutex_testlock(spin_mutex_t *spin_lock)
+{
+    return mutex_testlock(&spin_lock->lock);
+}
 
 /* A recursive lock can be taken more than once by the owning thread */
 void acquire_recursive_lock(recursive_lock_t *lock);

@@ -190,8 +190,30 @@ bool
 thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
-    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805). */
-    if (spinmutex_trylock(tsd->synch_lock)) {
+    /* We support calling this routine from our signal handler when it has interrupted
+     * DR and might be holding tsd->synch_lock or other locks.
+     * We first check synch_perm w/o a lock and if it's not at least
+     * THREAD_SYNCH_NO_LOCKS we do not attempt to grab synch_lock (we'd hit rank order
+     * violations).  If that check passes, the only problematic lock is if we already
+     * hold synch_lock, so we use test and trylocks there.
+     */
+    if (desired_perm < THREAD_SYNCH_NO_LOCKS) {
+        ASSERT(desired_perm == THREAD_SYNCH_NONE);
+        return true;
+    }
+    if (!THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm))
+        return false;
+    /* barrier to keep the 1st check above on this side of the lock below */
+#ifdef WINDOWS
+    MemoryBarrier();
+#else
+    __asm__ __volatile__("" : : : "memory");
+#endif
+    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805).
+     * We start with testlock to avoid recursive lock assertions.
+     */
+    if (!spinmutex_testlock(tsd->synch_lock) &&
+        spinmutex_trylock(tsd->synch_lock)) {
         bool res = THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
         spinmutex_unlock(tsd->synch_lock);
         return res;

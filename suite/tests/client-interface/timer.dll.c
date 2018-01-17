@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +34,7 @@
 #include "dr_api.h"
 #ifdef UNIX
 # include <sys/time.h>
+# include <syscall.h>
 #else
 # error NYI
 #endif
@@ -44,9 +46,40 @@ event_timer(void *drcontext, dr_mcontext_t *mcontext)
     dr_fprintf(STDERR, "client event_timer fired\n");
 }
 
+static void
+post_syscall_event(void *drcontext, int sysnum)
+{
+    if (sysnum != SYS_setitimer)
+        return;
+    /* Test i#2805: now that the app's alarm is set up, we want to try to hit the
+     * race window where a signal enters record_pending_signal() while the thread
+     * is marked as a safe spot yet holds its synch_lock in the middle of
+     * dr_mark_safe_to_suspend(,false)).  If we hit the window, without the
+     * proper i#2805 fix, we see a hang (or rank order violations in debug).
+     */
+    static volatile bool test_i2805;
+    if (!test_i2805) {
+        int i;
+#define TEST_ITERS 500000
+        test_i2805 = true;
+        for (i = 0; i < TEST_ITERS; ++i) {
+            dr_mark_safe_to_suspend(dr_get_current_drcontext(), true);
+            dr_mark_safe_to_suspend(dr_get_current_drcontext(), false);
+        }
+    }
+}
+
+static bool
+filter_syscall_event(void *drcontext, int sysnum)
+{
+    return sysnum == SYS_setitimer;
+}
+
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    dr_register_post_syscall_event(post_syscall_event);
+    dr_register_filter_syscall_event(filter_syscall_event);
     if (!dr_set_itimer(ITIMER_REAL, 25, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
 }
