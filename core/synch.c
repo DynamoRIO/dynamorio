@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -174,15 +174,27 @@ bool
 thread_synch_state_no_xfer(dcontext_t *dcontext)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
-    return (tsd->synch_perm == THREAD_SYNCH_NO_LOCKS_NO_XFER ||
-            tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
+    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805). */
+    if (spinmutex_trylock(tsd->synch_lock)) {
+        bool res = (tsd->synch_perm == THREAD_SYNCH_NO_LOCKS_NO_XFER ||
+                    tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
+        spinmutex_unlock(tsd->synch_lock);
+        return res;
+    }
+    return false;
 }
 
 bool
 thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
-    return THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805). */
+    if (spinmutex_trylock(tsd->synch_lock)) {
+        bool res = THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+        spinmutex_unlock(tsd->synch_lock);
+        return res;
+    }
+    return false;
 }
 
 /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set to
@@ -446,9 +458,9 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) trec->dcontext->synch_field;
     ASSERT(tsd->pending_synch_count >= 0);
-    /* check if waiting at a good spot, note that we can't spin in
-     * case the suspended thread is holding this lock, note only need
-     * lock to check the synch_perm */
+    /* Check if waiting at a good spot.  We can't spin in case the suspended thread is
+     * holding this lock (e.g., i#2805).  We only need the lock to check synch_perm.
+     */
     if (spinmutex_trylock(tsd->synch_lock)) {
         thread_synch_permission_t perm = tsd->synch_perm;
         bool res = THREAD_SYNCH_SAFE(perm, desired_state);
