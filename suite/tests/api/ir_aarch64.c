@@ -194,31 +194,31 @@ test_add(void *dc)
     /* Add and set flags (extended register, 32-bit)
      * ADDS <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
      */
-    #define adds_ext(reg, extend_type, amount_imm3) \
-       instr = INSTR_CREATE_adds_ext(dc, opnd_create_reg(DR_REG_ ## reg ## 0), \
+    #define adds_extend(reg, extend_type, amount_imm3) \
+       instr = INSTR_CREATE_adds_extend(dc, opnd_create_reg(DR_REG_ ## reg ## 0), \
            opnd_create_reg(DR_REG_ ## reg ## 1), \
            opnd_create_reg(DR_REG_ ## reg ## 2), \
            opnd_add_flags(OPND_CREATE_INT(extend_type), DR_OPND_IS_EXTEND), \
            opnd_create_immed_int(amount_imm3, OPSZ_3b)); \
     CHECK_INSTR(OP_adds)
 
-    adds_ext(W, DR_EXTEND_UXTB, 0);
-    adds_ext(W, DR_EXTEND_UXTH, 1);
-    adds_ext(W, DR_EXTEND_UXTW, 2);
-    adds_ext(W, DR_EXTEND_UXTX, 3);
-    adds_ext(W, DR_EXTEND_SXTB, 4);
-    adds_ext(W, DR_EXTEND_SXTH, 0);
-    adds_ext(W, DR_EXTEND_SXTW, 1);
-    adds_ext(W, DR_EXTEND_SXTX, 2);
+    adds_extend(W, DR_EXTEND_UXTB, 0);
+    adds_extend(W, DR_EXTEND_UXTH, 1);
+    adds_extend(W, DR_EXTEND_UXTW, 2);
+    adds_extend(W, DR_EXTEND_UXTX, 3);
+    adds_extend(W, DR_EXTEND_SXTB, 4);
+    adds_extend(W, DR_EXTEND_SXTH, 0);
+    adds_extend(W, DR_EXTEND_SXTW, 1);
+    adds_extend(W, DR_EXTEND_SXTX, 2);
 
-    adds_ext(X, DR_EXTEND_UXTB, 0);
-    adds_ext(X, DR_EXTEND_UXTH, 1);
-    adds_ext(X, DR_EXTEND_UXTW, 2);
-    adds_ext(X, DR_EXTEND_UXTX, 3);
-    adds_ext(X, DR_EXTEND_SXTB, 4);
-    adds_ext(X, DR_EXTEND_SXTH, 0);
-    adds_ext(X, DR_EXTEND_SXTW, 1);
-    adds_ext(X, DR_EXTEND_SXTX, 2);
+    adds_extend(X, DR_EXTEND_UXTB, 0);
+    adds_extend(X, DR_EXTEND_UXTH, 1);
+    adds_extend(X, DR_EXTEND_UXTW, 2);
+    adds_extend(X, DR_EXTEND_UXTX, 3);
+    adds_extend(X, DR_EXTEND_SXTB, 4);
+    adds_extend(X, DR_EXTEND_SXTH, 0);
+    adds_extend(X, DR_EXTEND_SXTW, 1);
+    adds_extend(X, DR_EXTEND_SXTX, 2);
 }
 
 static void
@@ -227,11 +227,11 @@ test_pc_addr(void *dc)
     byte *pc;
     instr_t *instr;
 
-    /* TODO: implement OPSZ_21b
-     * instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X0),
-     *                              opnd_create_immed_int(0, OPSZ_21b));
-     * CHECK_INSTR(OP_adr);
-     */
+#if 0 /* TODO: implement OPSZ_21b */
+    instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X0),
+                                 opnd_create_immed_int(0, OPSZ_21b));
+    CHECK_INSTR(OP_adr);
+#endif 
 }
 
 static void
