@@ -298,7 +298,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
            cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
            dstack_offs == (get_clean_call_switch_stack_size() +
-		  	   clean_call_beyond_mcontext()));
+                           clean_call_beyond_mcontext()));
     return dstack_offs;
 }
 
