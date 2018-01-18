@@ -34,7 +34,11 @@
 #include "dr_api.h"
 #ifdef UNIX
 # include <sys/time.h>
-# include <syscall.h>
+# ifdef MACOS
+#  include <sys/syscall.h>
+# else
+#  include <syscall.h>
+# endif
 #else
 # error NYI
 #endif
