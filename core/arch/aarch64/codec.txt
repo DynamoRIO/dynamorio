@@ -54,10 +54,15 @@
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
 --------------------------------  impx30     # implicit X30 operand
+--------------------------------  impFPCR    # implicit FPCR operand
+--------------------------------  impFPSR    # implicit FPCR operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
+--------xx-----------------xxxxx  float_reg0 # H, S or D register including type for FP instruction
+--------xx------------xxxxx-----  float_reg5 # H, S or D register including type for FP instruction
+--------xx-xxxxx----------------  float_reg16 # H, S or D register including type for FP instruction
 ---------------------------xxxxx  s0         # S register
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
@@ -128,6 +133,9 @@
 ??---?--xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
+-x-------------------------xxxxx  vq0        # Q register if bit 30 is set, else V64
+-x--------------------xxxxx-----  vq5        # Q register if bit 30 is set, else V64
+-x---------xxxxx----------------  vq16       # Q register if bit 30 is set, else V64
 -x-------------------------xxxxx  dq0p1      # ... add 1
 -x-------------------------xxxxx  dq0p2      # ... add 2
 -x-------------------------xxxxx  dq0p3      # ... add 3
@@ -146,7 +154,7 @@ x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
 x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
-
+---------x----------------------  fsz        # element size of FP vector reg
 ################################################################################
 # Instruction patterns
 
@@ -938,5 +946,9 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1101101011000000000011xxxxxxxxxx  rev     x0 : x5
 
 # Data Processing - Scalar Floating-Point and Advanced SIMD
+# FADD (vector)
+0x001110010xxxxx000101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 impFPCR
+0x0011100x1xxxxx110101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 fsz impFPCR
 
-# FIXME i#1569: Add: more data processing
+# FADD (scalar)
+00011110xx1xxxxx001010xxxxxxxxxx     fadd float_reg0 impFPSR : float_reg5 float_reg16 impFPCR

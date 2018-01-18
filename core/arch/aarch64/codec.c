@@ -920,10 +920,76 @@ decode_opnd_dq0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return decode_opnd_dq_plus(0, 30, enc, opnd);
 }
 
+
 static inline bool
 encode_opnd_dq0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_dq_plus(0, 30, opnd, enc_out);
+}
+
+/* vq: V64/Q register at bit position 0; bit 30 selects Q reg */
+static inline bool
+decode_opnd_vq(int reg_start, int qpos, uint enc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << qpos, enc) ? DR_REG_Q0 : DR_REG_V64_0) +
+                            (extract_uint(enc, reg_start, reg_start+5)) % 32);
+    return true;
+}
+
+static inline bool
+encode_opnd_vq(int reg_start, int qpos, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool q;
+    if (!opnd_is_reg(opnd))
+        return false;
+    q = (uint)(opnd_get_reg(opnd) - DR_REG_Q0) < 32;
+    num = opnd_get_reg(opnd) - (q ? DR_REG_Q0 : DR_REG_V64_0);
+    if (num >= 32)
+        return false;
+    *enc_out = ((num) % 32) << reg_start | (uint)q << qpos;
+    return true;
+}
+
+static inline bool
+decode_opnd_vq0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vq(0, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_vq0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vq(0, 30, opnd, enc_out);
+}
+
+
+/* dq5: D/Q register at bit position 5; bit 30 selects Q reg */
+
+static inline bool
+decode_opnd_vq5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vq(5, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_vq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vq(5, 30, opnd, enc_out);
+}
+
+/* dq16: D/Q register at bit position 16; bit 30 selects Q reg */
+
+static inline bool
+decode_opnd_vq16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vq(16, 30, enc, opnd);
+}
+
+static inline bool
+encode_opnd_vq16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vq(16, 30, opnd, enc_out);
 }
 
 /* dq0p1: as dq0 but add 1 mod 32 to reg number */
@@ -1002,6 +1068,101 @@ encode_opnd_extam(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     *enc_out = t;
     return true;
 }
+
+static inline reg_id_t
+decode_float_reg(uint n, uint type, reg_id_t *reg)
+{
+    switch (type) {
+    case 3:
+        *reg = DR_REG_H0 + n;
+        return true;
+    case 0:
+        *reg = DR_REG_S0 + n;
+        return true;
+    case 1:
+        *reg = DR_REG_D0 + n;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static inline bool
+decode_opnd_float_reg(int pos, uint enc, OUT opnd_t *opnd)
+{
+    reg_id_t reg;
+    if (!decode_float_reg(extract_uint(enc, pos, 5), extract_uint(enc, 22, 2), &reg))
+        return false;
+    *opnd = opnd_create_reg(reg);
+    return true;
+}
+
+static inline bool
+encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    uint type;
+
+    opnd_size_t size = OPSZ_NA;
+
+    if (!encode_vreg(&size, &num, opnd))
+        return false;
+
+    switch (size) {
+    case OPSZ_2:
+        type = 3;
+        break;
+    case OPSZ_4:
+        type = 0;
+        break;
+    case OPSZ_8:
+        type = 1;
+        break;
+    default:
+        return false;
+    }
+
+    *enc_out = type << 22 | num << pos;
+    return true;
+}
+
+static inline bool
+decode_opnd_float_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_float_reg(0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_float_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_float_reg(0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_float_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_float_reg(5, enc, opnd);
+}
+
+static inline bool
+encode_opnd_float_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_float_reg(5, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_float_reg16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_float_reg(16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_float_reg16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_float_reg(16, opnd, enc_out);
+}
+
+
 
 /* h0: H register at bit position 0 */
 
@@ -1199,6 +1360,40 @@ encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     *enc_out = 0;
     return true;
 }
+
+static inline bool
+decode_opnd_impFPCR(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_FPCR);
+    return true;
+}
+
+static inline bool
+encode_opnd_impFPCR(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_FPCR)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
+static inline bool
+decode_opnd_impFPSR(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_FPSR);
+    return true;
+}
+
+static inline bool
+encode_opnd_impFPSR(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_FPSR)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
+
 
 /* index0: index of B subreg in Q register: 0-15 */
 
@@ -2547,6 +2742,20 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
         encode_opnd_int(0, 6, false, 0, 0, instr_get_src(instr, 2), &imm6))
         return (enc | off << 5 | xt | (imm6 & 31) << 19 | (imm6 & 32) << 26);
     return ENCFAIL;
+}
+
+/* Element size for vector floating point instructions. */
+
+static inline bool
+decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(22, 1, false, 0, OPSZ_1b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(22, 1, false, 0, 0, opnd, enc_out);
 }
 
 /******************************************************************************/
