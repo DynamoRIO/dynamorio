@@ -58,7 +58,7 @@
 08a8fc41 : caslb  w8, w1, [x2]            : caslb  %w8 %w1 (%x2)[1byte] -> %w8 (%x2)[1byte]
 08bf7fff : casb   wzr, wzr, [sp]          : casb   %wzr %wzr (%sp)[1byte] -> %wzr (%sp)[1byte]
 08bfffff : caslb  wzr, wzr, [sp]          : caslb  %wzr %wzr (%sp)[1byte] -> %wzr (%sp)[1byte]
-08dfffff : ldarb  wzr, [sp]               : ldarb  (%sp)[1byte] $0x1f $0x1f -> %wzr
+08dfffff : ldarb  wzr, [sp]               : ldarb  %sp -> %wzr
 08e87c41 : casab  w8, w1, [x2]            : casab  %w8 %w1 (%x2)[1byte] -> %w8 (%x2)[1byte]
 08e8fc41 : casalb w8, w1, [x2]            : casalb %w8 %w1 (%x2)[1byte] -> %w8 (%x2)[1byte]
 08ff7fff : casab  wzr, wzr, [sp]          : casab  %wzr %wzr (%sp)[1byte] -> %wzr (%sp)[1byte]
@@ -492,7 +492,7 @@
 48a8fc41 : caslh  w8, w1, [x2]            : caslh  %w8 %w1 (%x2)[2byte] -> %w8 (%x2)[2byte]
 48bf7fff : cash   wzr, wzr, [sp]          : cash   %wzr %wzr (%sp)[2byte] -> %wzr (%sp)[2byte]
 48bfffff : caslh  wzr, wzr, [sp]          : caslh  %wzr %wzr (%sp)[2byte] -> %wzr (%sp)[2byte]
-48dfffff : ldarh  wzr, [sp]               : ldarh  (%sp)[2byte] $0x1f $0x1f -> %wzr
+48dfffff : ldarh  wzr, [sp]               : ldarh  %sp -> %wzr
 48e87c41 : casah  w8, w1, [x2]            : casah  %w8 %w1 (%x2)[2byte] -> %w8 (%x2)[2byte]
 48e8fc41 : casalh w8, w1, [x2]            : casalh %w8 %w1 (%x2)[2byte] -> %w8 (%x2)[2byte]
 48ff7fff : casah  wzr, wzr, [sp]          : casah  %wzr %wzr (%sp)[2byte] -> %wzr (%sp)[2byte]
@@ -923,7 +923,7 @@
 88a8fc41 : casl   w8, w1, [x2]            : casl   %w8 %w1 (%x2)[4byte] -> %w8 (%x2)[4byte]
 88bf7fff : cas    wzr, wzr, [sp]          : cas    %wzr %wzr (%sp)[4byte] -> %wzr (%sp)[4byte]
 88bfffff : casl   wzr, wzr, [sp]          : casl   %wzr %wzr (%sp)[4byte] -> %wzr (%sp)[4byte]
-88dfffff : ldar   wzr, [sp]               : ldar   (%sp)[4byte] $0x1f $0x1f -> %wzr
+88dfffff : ldar   wzr, [sp]               : ldar   %sp -> %wzr
 88e87c41 : casa   w8, w1, [x2]            : casa   %w8 %w1 (%x2)[4byte] -> %w8 (%x2)[4byte]
 88e8fc41 : casal  w8, w1, [x2]            : casal  %w8 %w1 (%x2)[4byte] -> %w8 (%x2)[4byte]
 88ff7fff : casa   wzr, wzr, [sp]          : casa   %wzr %wzr (%sp)[4byte] -> %wzr (%sp)[4byte]
@@ -1257,7 +1257,7 @@ c8a87c41 : cas    x8, x1, [x2]            : cas    %x8 %x1 (%x2)[8byte] -> %x8 (
 c8a8fc41 : casl   x8, x1, [x2]            : casl   %x8 %x1 (%x2)[8byte] -> %x8 (%x2)[8byte]
 c8bf7fff : cas    xzr, xzr, [sp]          : cas    %xzr %xzr (%sp)[8byte] -> %xzr (%sp)[8byte]
 c8bfffff : casl   xzr, xzr, [sp]          : casl   %xzr %xzr (%sp)[8byte] -> %xzr (%sp)[8byte]
-c8dfffff : ldar   xzr, [sp]               : ldar   (%sp)[8byte] $0x1f $0x1f -> %xzr
+c8dfffff : ldar   xzr, [sp]               : ldar   %sp -> %xzr
 c8e87c41 : casa   x8, x1, [x2]            : casa   %x8 %x1 (%x2)[8byte] -> %x8 (%x2)[8byte]
 c8e8fc41 : casal  x8, x1, [x2]            : casal  %x8 %x1 (%x2)[8byte] -> %x8 (%x2)[8byte]
 c8ff7fff : casa   xzr, xzr, [sp]          : casa   %xzr %xzr (%sp)[8byte] -> %xzr (%sp)[8byte]

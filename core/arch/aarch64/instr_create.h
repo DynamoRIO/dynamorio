@@ -311,7 +311,10 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds(dc, d, d, s)
+#define XINST_CREATE_add_s(dc, d, s) \
+  opnd_is_reg(s) ? \
+    INSTR_CREATE_adds_shift(dc, d, d, s, OPND_CREATE_LSL(), OPND_CREATE_INT(0)) : \
+    INSTR_CREATE_adds_imm(dc, d, d, s, OPND_CREATE_INT(0))
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -402,19 +405,6 @@
     opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
   instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
-#define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
-#define INSTR_CREATE_adds_extend(dc, rd, rn, rm, ext, exa) \
-  instr_create_1dst_4src(dc, OP_adds, rd, rn, \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
-    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
-    exa)
-#define INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, sht, sha) \
-  opnd_is_reg(rm_or_imm) ? \
-  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
-  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
@@ -445,6 +435,16 @@
 #define INSTR_CREATE_bl(dc, pc) \
   instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
+#define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_adds_ext(dc, Rd, Rn, Rm, shift, imm3) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED), opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
+#define INSTR_CREATE_adds_imm(dc, Rd, Rn, imm12, shift_amt) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), (imm12), OPND_CREATE_LSL(), (shift_amt))
+#define INSTR_CREATE_adds_shift(dc, Rd, Rn, Rm, shift, imm6) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
 #define INSTR_CREATE_br(dc, xn) \
   instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn) \
@@ -465,6 +465,12 @@
   instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrh(dc, Rd, mem) \
   instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldar(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
+#define INSTR_CREATE_ldarb(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
+#define INSTR_CREATE_ldarh(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
   instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \

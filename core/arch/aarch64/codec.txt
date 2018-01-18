@@ -271,14 +271,14 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 00001000010xxxxx0xxxxxxxxxxxxxxx  ldxrb  w0 : mem0 ign10 ign16
 00001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrb w0 : mem0 ign10 ign16
 00001000100xxxxx1xxxxxxxxxxxxxxx  stlrb  mem0 : w0 ign10 ign16
-00001000110xxxxx1xxxxxxxxxxxxxxx  ldarb  w0 : mem0 ign10 ign16
+0000100011011111111111xxxxxxxxxx  ldarb  w0 : x5sp
 
 01001000000xxxxx0xxxxxxxxxxxxxxx  stxrh  mem0 w16 : w0 ign10
 01001000000xxxxx1xxxxxxxxxxxxxxx  stlxrh mem0 w16 : w0 ign10
 01001000010xxxxx0xxxxxxxxxxxxxxx  ldxrh  w0 : mem0 ign10 ign16
 01001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrh w0 : mem0 ign10 ign16
 01001000100xxxxx1xxxxxxxxxxxxxxx  stlrh  mem0 : w0 ign10 ign16
-01001000110xxxxx1xxxxxxxxxxxxxxx  ldarh  w0 : mem0 ign10 ign16
+0100100011011111111111xxxxxxxxxx  ldarh  w0 : x5sp
 
 10001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : w0 ign10
 10001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : w0 ign10
@@ -289,7 +289,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 10001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   w0 w10 : mem0p ign16
 10001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  w0 w10 : mem0p ign16
 10001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : w0 ign10 ign16
-10001000110xxxxx1xxxxxxxxxxxxxxx  ldar   w0 : mem0 ign10 ign16
+1000100011011111111111xxxxxxxxxx  ldar   w0 : x5sp
 
 11001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : x0 ign10
 11001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : x0 ign10
@@ -300,7 +300,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 11001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   x0 x10 : mem0p ign16
 11001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  x0 x10 : mem0p ign16
 11001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : x0 ign10 ign16
-11001000110xxxxx1xxxxxxxxxxxxxxx  ldar   x0 : mem0 ign10 ign16
+1100100011011111111111xxxxxxxxxx  ldar   x0 : x5sp
 
 ### ARMv8.1 atomic instructions
 
