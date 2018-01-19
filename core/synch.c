@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,8 +67,10 @@ typedef struct _thread_synch_data_t {
     /* we allow pending_synch_count to be read without holding the synch_lock
      * so all updates should be ATOMIC as well as holding the lock */
     int pending_synch_count;
-    /* to guarantee that the thread really has this permission you need to hold
-     * the synch_lock when you read this value  */
+    /* To guarantee that the thread really has this permission you need to hold the
+     * synch_lock when you read this value.  If the target thread is suspended, use a
+     * trylock, as it could have been suspended while holding synch_lock (i#2805).
+     */
     thread_synch_permission_t synch_perm;
     /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set
      * to whether synch_with_all_threads was successful in synching this thread.
@@ -174,15 +176,49 @@ bool
 thread_synch_state_no_xfer(dcontext_t *dcontext)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
-    return (tsd->synch_perm == THREAD_SYNCH_NO_LOCKS_NO_XFER ||
-            tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
+    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805). */
+    if (spinmutex_trylock(tsd->synch_lock)) {
+        bool res = (tsd->synch_perm == THREAD_SYNCH_NO_LOCKS_NO_XFER ||
+                    tsd->synch_perm == THREAD_SYNCH_VALID_MCONTEXT_NO_XFER);
+        spinmutex_unlock(tsd->synch_lock);
+        return res;
+    }
+    return false;
 }
 
 bool
 thread_synch_check_state(dcontext_t *dcontext, thread_synch_permission_t desired_perm)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
-    return THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+    /* We support calling this routine from our signal handler when it has interrupted
+     * DR and might be holding tsd->synch_lock or other locks.
+     * We first check synch_perm w/o a lock and if it's not at least
+     * THREAD_SYNCH_NO_LOCKS we do not attempt to grab synch_lock (we'd hit rank order
+     * violations).  If that check passes, the only problematic lock is if we already
+     * hold synch_lock, so we use test and trylocks there.
+     */
+    if (desired_perm < THREAD_SYNCH_NO_LOCKS) {
+        ASSERT(desired_perm == THREAD_SYNCH_NONE);
+        return true;
+    }
+    if (!THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm))
+        return false;
+    /* barrier to keep the 1st check above on this side of the lock below */
+#ifdef WINDOWS
+    MemoryBarrier();
+#else
+    __asm__ __volatile__("" : : : "memory");
+#endif
+    /* We use a trylock in case the thread is suspended holding synch_lock (i#2805).
+     * We start with testlock to avoid recursive lock assertions.
+     */
+    if (!spinmutex_testlock(tsd->synch_lock) &&
+        spinmutex_trylock(tsd->synch_lock)) {
+        bool res = THREAD_SYNCH_SAFE(tsd->synch_perm, desired_perm);
+        spinmutex_unlock(tsd->synch_lock);
+        return res;
+    }
+    return false;
 }
 
 /* Only valid while holding all_threads_synch_lock and thread_initexit_lock.  Set to
@@ -446,9 +482,9 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
 {
     thread_synch_data_t *tsd = (thread_synch_data_t *) trec->dcontext->synch_field;
     ASSERT(tsd->pending_synch_count >= 0);
-    /* check if waiting at a good spot, note that we can't spin in
-     * case the suspended thread is holding this lock, note only need
-     * lock to check the synch_perm */
+    /* Check if waiting at a good spot.  We can't spin in case the suspended thread is
+     * holding this lock (e.g., i#2805).  We only need the lock to check synch_perm.
+     */
     if (spinmutex_trylock(tsd->synch_lock)) {
         thread_synch_permission_t perm = tsd->synch_perm;
         bool res = THREAD_SYNCH_SAFE(perm, desired_state);
@@ -616,6 +652,13 @@ set_synch_state(dcontext_t *dcontext, thread_synch_permission_t state)
         ASSERT_OWN_NO_LOCKS();
 
     thread_synch_data_t *tsd = (thread_synch_data_t *) dcontext->synch_field;
+    /* We have a wart in the settings here (i#2805): a caller can set
+     * THREAD_SYNCH_NO_LOCKS, yet here we're acquiring locks.  In fact if this thread
+     * is suspended in between the lock and the unset of synch_perm from
+     * THREAD_SYNCH_NO_LOCKS back to THREAD_SYNCH_NONE, it can cause problems.  We
+     * have everyone who might query in such a state use a trylock and assume
+     * synch_perm is THREAD_SYNCH_NONE if the lock cannot be acquired.
+     */
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = state;
     spinmutex_unlock(tsd->synch_lock);
