@@ -105,7 +105,7 @@ decode_opndsgen_08dffc00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, src0;
     if (!decode_opnd_w0(enc & 0x0000001f, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0x000003e0, opcode, pc, &src0))
+        !decode_opnd_mem0(enc & 0xc00003e0, opcode, pc, &src0))
         return false;
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 1, 1);
@@ -4353,7 +4353,7 @@ decode_opndsgen_c8dffc00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 {
     opnd_t dst0, src0;
     if (!decode_opnd_x0(enc & 0x0000001f, opcode, pc, &dst0) ||
-        !decode_opnd_x5sp(enc & 0x000003e0, opcode, pc, &src0))
+        !decode_opnd_mem0(enc & 0xc00003e0, opcode, pc, &src0))
         return false;
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, 1, 1);

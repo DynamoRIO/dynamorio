@@ -36,9 +36,9 @@ adds   %x1 %x2 sxth $0x00 -> %x0
 adds   %x1 %x2 sxtw $0x01 -> %x0
 adds   %x1 %x2 sxtx $0x02 -> %x0
 test_add complete
-ldar   %x1 -> %w0
-ldar   %x1 -> %x0
-ldarb  %x1 -> %w0
-ldarh  %x1 -> %w0
+ldar   (%x1)[4byte] -> %w0
+ldar   (%x1)[8byte] -> %x0
+ldarb  (%x1)[1byte] -> %w0
+ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
 All tests complete

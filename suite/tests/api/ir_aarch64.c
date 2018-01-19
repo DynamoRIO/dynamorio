@@ -231,7 +231,7 @@ test_pc_addr(void *dc)
     instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X0),
                                  opnd_create_immed_int(0, OPSZ_21b));
     CHECK_INSTR(OP_adr);
-#endif 
+#endif
 }
 
 static void
@@ -242,22 +242,22 @@ test_ldar(void *dc)
 
     /* LDAR <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_W0),
-                                  opnd_create_reg(DR_REG_X1));
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_4));
     CHECK_INSTR(OP_ldar);
 
     /* LDAR <Xt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_X0),
-                                  opnd_create_reg(DR_REG_X1));
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_8));
     CHECK_INSTR(OP_ldar);
 
     /* LDARB <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldarb(dc, opnd_create_reg(DR_REG_W0),
-                                   opnd_create_reg(DR_REG_X1));
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_1));
     CHECK_INSTR(OP_ldarb);
 
     /* LDARH <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldarh(dc, opnd_create_reg(DR_REG_W0),
-                                   opnd_create_reg(DR_REG_X1));
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_2));
     CHECK_INSTR(OP_ldarh);
 }
 

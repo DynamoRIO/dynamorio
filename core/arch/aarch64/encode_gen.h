@@ -142,7 +142,7 @@ encode_opndsgen_08dffc00(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     uint dst0 = 0, src0 = 0;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
         encode_opnd_w0(0, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_x5sp(0, opcode, pc, instr_get_src(instr, 0), &src0)) {
+        encode_opnd_mem0(enc & 0xc0000000, opcode, pc, instr_get_src(instr, 0), &src0)) {
         ASSERT((dst0 & 0xffffffe0) == 0);
         ASSERT((src0 & 0xfffffc1f) == 0);
         enc |= dst0 | src0;
@@ -5869,7 +5869,7 @@ encode_opndsgen_c8dffc00(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     uint dst0 = 0, src0 = 0;
     if (instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 1 &&
         encode_opnd_x0(0, opcode, pc, instr_get_dst(instr, 0), &dst0) &&
-        encode_opnd_x5sp(0, opcode, pc, instr_get_src(instr, 0), &src0)) {
+        encode_opnd_mem0(enc & 0xc0000000, opcode, pc, instr_get_src(instr, 0), &src0)) {
         ASSERT((dst0 & 0xffffffe0) == 0);
         ASSERT((src0 & 0xfffffc1f) == 0);
         enc |= dst0 | src0;
