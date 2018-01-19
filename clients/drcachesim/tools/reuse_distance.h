@@ -40,8 +40,8 @@
 #include <string>
 #include <assert.h>
 #include <iostream>
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
 // We see noticeable overhead in release build with an if() that directly
 // checks knob_verbose, so for debug-only uses we turn it into something the
