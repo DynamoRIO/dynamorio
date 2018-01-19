@@ -38,8 +38,8 @@
 
 #include <unordered_map>
 #include <string>
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
 class histogram_t : public analysis_tool_t
 {
