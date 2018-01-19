@@ -2212,8 +2212,10 @@ if (CLIENT_INTERFACE)
     endif ()
   elseif (AARCH64)
     add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
-    torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
-      "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
+    torunonly_api(api.dis-a64-base api.dis-a64 api/dis-a64.c ""
+      "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-base.txt" OFF)
+    torunonly_api(api.dis-a64-neon api.dis-a64 api/dis-a64.c ""
+      "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-neon.txt" OFF)
     add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"

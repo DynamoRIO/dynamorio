@@ -1560,11 +1560,157 @@ fd081041 : str    d1, [x2,#4128]          : str    %d1 -> +0x1020(%x2)[8byte]
 fd3fffff : str    d31, [sp,#32760]        : str    %d31 -> +0x7ff8(%sp)[8byte]
 fd481041 : ldr    d1, [x2,#4128]          : ldr    +0x1020(%x2)[8byte] -> %d1
 fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
-4e27d4c5 : fadd   v5.4s, v6.4s, v7.4s     : fadd   %q6 %q7 $0x00 %fpcr -> %q5 %fpsr
-4e71d60f : fadd   v15.2d, v16.2d, v17.2d  : fadd   %q16 %q17 $0x01 %fpcr -> %q15 %fpsr
-0e31d60f : fadd   v15.2s, v16.2s, v17.2s  : fadd   %v64_16 %v64_17 $0x00 %fpcr -> %v64_15 %fpsr
-0e511612 : fadd   v18.4h, v16.4h, v17.4h  : fadd   %v64_16 %v64_17 %fpcr -> %v64_18 %fpsr
-4e5a179d : fadd   v29.8h, v28.8h, v26.8h  : fadd   %q28 %q26 %fpcr -> %q29 %fpsr
+
+4e5a140b : fadd v11.8h, v0.8h, v26.8h : fadd   %q0 %q26 %fpcr -> %q11 %fpsr
+0e5a140b : fadd v11.4h, v0.4h, v26.4h : fadd   %v64_0 %v64_26 %fpcr -> %v64_11 %fpsr
+4e2ad7f1 : fadd v17.4s, v31.4s, v10.4s : fadd   %q31 %q10 $0x00 %fpcr -> %q17 %fpsr
+4e6ad7f1 : fadd v17.2d, v31.2d, v10.2d : fadd   %q31 %q10 $0x01 %fpcr -> %q17 %fpsr
+0e2ad7f1 : fadd v17.2s, v31.2s, v10.2s : fadd   %v64_31 %v64_10 $0x00 %fpcr -> %v64_17 %fpsr
+
 1e622820 : fadd   d0, d1, d2              : fadd   %d1 %d2 %fpcr -> %d0 %fpsr
 1e2a28e4 : fadd   s4, s7, s10             : fadd   %s7 %s10 %fpcr -> %s4 %fpsr
 1eff2b93 : fadd   h19, h28, h31           : fadd   %h28 %h31 %fpcr -> %h19 %fpsr
+
+6ec316fc : fabd v28.8h, v23.8h, v3.8h : fabd   %q23 %q3 %fpcr -> %q28 %fpsr
+2ec316fc : fabd v28.4h, v23.4h, v3.4h : fabd   %v64_23 %v64_3 %fpcr -> %v64_28 %fpsr
+6eadd6c5 : fabd v5.4s, v22.4s, v13.4s : fabd   %q22 %q13 $0x00 %fpcr -> %q5 %fpsr
+6eedd6c5 : fabd v5.2d, v22.2d, v13.2d : fabd   %q22 %q13 $0x01 %fpcr -> %q5 %fpsr
+2eadd6c5 : fabd v5.2s, v22.2s, v13.2s : fabd   %v64_22 %v64_13 $0x00 %fpcr -> %v64_5 %fpsr
+
+6e4e2c23 : facge v3.8h, v1.8h, v14.8h : facge  %q1 %q14 %fpcr -> %q3 %fpsr
+2e4e2c23 : facge v3.4h, v1.4h, v14.4h : facge  %v64_1 %v64_14 %fpcr -> %v64_3 %fpsr
+6e3eec05 : facge v5.4s, v0.4s, v30.4s : facge  %q0 %q30 $0x00 %fpcr -> %q5 %fpsr
+6e7eec05 : facge v5.2d, v0.2d, v30.2d : facge  %q0 %q30 $0x01 %fpcr -> %q5 %fpsr
+2e3eec05 : facge v5.2s, v0.2s, v30.2s : facge  %v64_0 %v64_30 $0x00 %fpcr -> %v64_5 %fpsr
+
+6edd2dc7 : facgt v7.8h, v14.8h, v29.8h : facgt  %q14 %q29 %fpcr -> %q7 %fpsr
+2edd2dc7 : facgt v7.4h, v14.4h, v29.4h : facgt  %v64_14 %v64_29 %fpcr -> %v64_7 %fpsr
+6ea5ef65 : facgt v5.4s, v27.4s, v5.4s : facgt  %q27 %q5 $0x00 %fpcr -> %q5 %fpsr
+6ee5ef65 : facgt v5.2d, v27.2d, v5.2d : facgt  %q27 %q5 $0x01 %fpcr -> %q5 %fpsr
+2ea5ef65 : facgt v5.2s, v27.2s, v5.2s : facgt  %v64_27 %v64_5 $0x00 %fpcr -> %v64_5 %fpsr
+
+4e4f14a8 : fadd v8.8h, v5.8h, v15.8h : fadd   %q5 %q15 %fpcr -> %q8 %fpsr
+0e4f14a8 : fadd v8.4h, v5.4h, v15.4h : fadd   %v64_5 %v64_15 %fpcr -> %v64_8 %fpsr
+4e28d4c2 : fadd v2.4s, v6.4s, v8.4s : fadd   %q6 %q8 $0x00 %fpcr -> %q2 %fpsr
+4e68d4c2 : fadd v2.2d, v6.2d, v8.2d : fadd   %q6 %q8 $0x01 %fpcr -> %q2 %fpsr
+0e28d4c2 : fadd v2.2s, v6.2s, v8.2s : fadd   %v64_6 %v64_8 $0x00 %fpcr -> %v64_2 %fpsr
+
+6e511621 : faddp v1.8h, v17.8h, v17.8h : faddp  %q17 %q17 %fpcr -> %q1 %fpsr
+2e511621 : faddp v1.4h, v17.4h, v17.4h : faddp  %v64_17 %v64_17 %fpcr -> %v64_1 %fpsr
+6e32d66d : faddp v13.4s, v19.4s, v18.4s : faddp  %q19 %q18 $0x00 %fpcr -> %q13 %fpsr
+6e72d66d : faddp v13.2d, v19.2d, v18.2d : faddp  %q19 %q18 $0x01 %fpcr -> %q13 %fpsr
+2e32d66d : faddp v13.2s, v19.2s, v18.2s : faddp  %v64_19 %v64_18 $0x00 %fpcr -> %v64_13 %fpsr
+
+4e5b2513 : fcmeq v19.8h, v8.8h, v27.8h : fcmeq  %q8 %q27 %fpcr -> %q19 %fpsr
+0e5b2513 : fcmeq v19.4h, v8.4h, v27.4h : fcmeq  %v64_8 %v64_27 %fpcr -> %v64_19 %fpsr
+4e2ae77b : fcmeq v27.4s, v27.4s, v10.4s : fcmeq  %q27 %q10 $0x00 %fpcr -> %q27 %fpsr
+4e6ae77b : fcmeq v27.2d, v27.2d, v10.2d : fcmeq  %q27 %q10 $0x01 %fpcr -> %q27 %fpsr
+0e2ae77b : fcmeq v27.2s, v27.2s, v10.2s : fcmeq  %v64_27 %v64_10 $0x00 %fpcr -> %v64_27 %fpsr
+
+6e4c27b9 : fcmge v25.8h, v29.8h, v12.8h : fcmge  %q29 %q12 %fpcr -> %q25 %fpsr
+2e4c27b9 : fcmge v25.4h, v29.4h, v12.4h : fcmge  %v64_29 %v64_12 %fpcr -> %v64_25 %fpsr
+6e2be49a : fcmge v26.4s, v4.4s, v11.4s : fcmge  %q4 %q11 $0x00 %fpcr -> %q26 %fpsr
+6e6be49a : fcmge v26.2d, v4.2d, v11.2d : fcmge  %q4 %q11 $0x01 %fpcr -> %q26 %fpsr
+2e2be49a : fcmge v26.2s, v4.2s, v11.2s : fcmge  %v64_4 %v64_11 $0x00 %fpcr -> %v64_26 %fpsr
+
+6ecd2614 : fcmgt v20.8h, v16.8h, v13.8h : fcmgt  %q16 %q13 %fpcr -> %q20 %fpsr
+2ecd2614 : fcmgt v20.4h, v16.4h, v13.4h : fcmgt  %v64_16 %v64_13 %fpcr -> %v64_20 %fpsr
+6eb9e7c4 : fcmgt v4.4s, v30.4s, v25.4s : fcmgt  %q30 %q25 $0x00 %fpcr -> %q4 %fpsr
+6ef9e7c4 : fcmgt v4.2d, v30.2d, v25.2d : fcmgt  %q30 %q25 $0x01 %fpcr -> %q4 %fpsr
+2eb9e7c4 : fcmgt v4.2s, v30.2s, v25.2s : fcmgt  %v64_30 %v64_25 $0x00 %fpcr -> %v64_4 %fpsr
+
+6e583f9e : fdiv v30.8h, v28.8h, v24.8h : fdiv   %q28 %q24 %fpcr -> %q30 %fpsr
+2e583f9e : fdiv v30.4h, v28.4h, v24.4h : fdiv   %v64_28 %v64_24 %fpcr -> %v64_30 %fpsr
+6e3efc41 : fdiv v1.4s, v2.4s, v30.4s : fdiv   %q2 %q30 $0x00 %fpcr -> %q1 %fpsr
+6e7efc41 : fdiv v1.2d, v2.2d, v30.2d : fdiv   %q2 %q30 $0x01 %fpcr -> %q1 %fpsr
+2e3efc41 : fdiv v1.2s, v2.2s, v30.2s : fdiv   %v64_2 %v64_30 $0x00 %fpcr -> %v64_1 %fpsr
+
+4e4736c0 : fmax v0.8h, v22.8h, v7.8h : fmax   %q22 %q7 %fpcr -> %q0 %fpsr
+0e4736c0 : fmax v0.4h, v22.4h, v7.4h : fmax   %v64_22 %v64_7 %fpcr -> %v64_0 %fpsr
+4e32f4c9 : fmax v9.4s, v6.4s, v18.4s : fmax   %q6 %q18 $0x00 %fpcr -> %q9 %fpsr
+4e72f4c9 : fmax v9.2d, v6.2d, v18.2d : fmax   %q6 %q18 $0x01 %fpcr -> %q9 %fpsr
+0e32f4c9 : fmax v9.2s, v6.2s, v18.2s : fmax   %v64_6 %v64_18 $0x00 %fpcr -> %v64_9 %fpsr
+
+4e560533 : fmaxnm v19.8h, v9.8h, v22.8h : fmaxnm %q9 %q22 %fpcr -> %q19 %fpsr
+0e560533 : fmaxnm v19.4h, v9.4h, v22.4h : fmaxnm %v64_9 %v64_22 %fpcr -> %v64_19 %fpsr
+4e26c644 : fmaxnm v4.4s, v18.4s, v6.4s : fmaxnm %q18 %q6 $0x00 %fpcr -> %q4 %fpsr
+4e66c644 : fmaxnm v4.2d, v18.2d, v6.2d : fmaxnm %q18 %q6 $0x01 %fpcr -> %q4 %fpsr
+0e26c644 : fmaxnm v4.2s, v18.2s, v6.2s : fmaxnm %v64_18 %v64_6 $0x00 %fpcr -> %v64_4 %fpsr
+
+6e4c04c3 : fmaxnmp v3.8h, v6.8h, v12.8h : fmaxnmp %q6 %q12 %fpcr -> %q3 %fpsr
+2e4c04c3 : fmaxnmp v3.4h, v6.4h, v12.4h : fmaxnmp %v64_6 %v64_12 %fpcr -> %v64_3 %fpsr
+6e37c41c : fmaxnmp v28.4s, v0.4s, v23.4s : fmaxnmp %q0 %q23 $0x00 %fpcr -> %q28 %fpsr
+6e77c41c : fmaxnmp v28.2d, v0.2d, v23.2d : fmaxnmp %q0 %q23 $0x01 %fpcr -> %q28 %fpsr
+2e37c41c : fmaxnmp v28.2s, v0.2s, v23.2s : fmaxnmp %v64_0 %v64_23 $0x00 %fpcr -> %v64_28 %fpsr
+
+6e4c340c : fmaxp v12.8h, v0.8h, v12.8h : fmaxp  %q0 %q12 %fpcr -> %q12 %fpsr
+2e4c340c : fmaxp v12.4h, v0.4h, v12.4h : fmaxp  %v64_0 %v64_12 %fpcr -> %v64_12 %fpsr
+6e21f6d3 : fmaxp v19.4s, v22.4s, v1.4s : fmaxp  %q22 %q1 $0x00 %fpcr -> %q19 %fpsr
+6e61f6d3 : fmaxp v19.2d, v22.2d, v1.2d : fmaxp  %q22 %q1 $0x01 %fpcr -> %q19 %fpsr
+2e21f6d3 : fmaxp v19.2s, v22.2s, v1.2s : fmaxp  %v64_22 %v64_1 $0x00 %fpcr -> %v64_19 %fpsr
+
+4ecd34fa : fmin v26.8h, v7.8h, v13.8h : fmin   %q7 %q13 %fpcr -> %q26 %fpsr
+0ecd34fa : fmin v26.4h, v7.4h, v13.4h : fmin   %v64_7 %v64_13 %fpcr -> %v64_26 %fpsr
+4eaff70c : fmin v12.4s, v24.4s, v15.4s : fmin   %q24 %q15 $0x00 %fpcr -> %q12 %fpsr
+4eeff70c : fmin v12.2d, v24.2d, v15.2d : fmin   %q24 %q15 $0x01 %fpcr -> %q12 %fpsr
+0eaff70c : fmin v12.2s, v24.2s, v15.2s : fmin   %v64_24 %v64_15 $0x00 %fpcr -> %v64_12 %fpsr
+
+4ecf04ce : fminnm v14.8h, v6.8h, v15.8h : fminnm %q6 %q15 %fpcr -> %q14 %fpsr
+0ecf04ce : fminnm v14.4h, v6.4h, v15.4h : fminnm %v64_6 %v64_15 %fpcr -> %v64_14 %fpsr
+4ebec723 : fminnm v3.4s, v25.4s, v30.4s : fminnm %q25 %q30 $0x00 %fpcr -> %q3 %fpsr
+4efec723 : fminnm v3.2d, v25.2d, v30.2d : fminnm %q25 %q30 $0x01 %fpcr -> %q3 %fpsr
+0ebec723 : fminnm v3.2s, v25.2s, v30.2s : fminnm %v64_25 %v64_30 $0x00 %fpcr -> %v64_3 %fpsr
+
+6ed40705 : fminnmp v5.8h, v24.8h, v20.8h : fminnmp %q24 %q20 %fpcr -> %q5 %fpsr
+2ed40705 : fminnmp v5.4h, v24.4h, v20.4h : fminnmp %v64_24 %v64_20 %fpcr -> %v64_5 %fpsr
+6eacc4c3 : fminnmp v3.4s, v6.4s, v12.4s : fminnmp %q6 %q12 $0x00 %fpcr -> %q3 %fpsr
+6eecc4c3 : fminnmp v3.2d, v6.2d, v12.2d : fminnmp %q6 %q12 $0x01 %fpcr -> %q3 %fpsr
+2eacc4c3 : fminnmp v3.2s, v6.2s, v12.2s : fminnmp %v64_6 %v64_12 $0x00 %fpcr -> %v64_3 %fpsr
+
+6ed134c7 : fminp v7.8h, v6.8h, v17.8h : fminp  %q6 %q17 %fpcr -> %q7 %fpsr
+2ed134c7 : fminp v7.4h, v6.4h, v17.4h : fminp  %v64_6 %v64_17 %fpcr -> %v64_7 %fpsr
+6eb6f732 : fminp v18.4s, v25.4s, v22.4s : fminp  %q25 %q22 $0x00 %fpcr -> %q18 %fpsr
+6ef6f732 : fminp v18.2d, v25.2d, v22.2d : fminp  %q25 %q22 $0x01 %fpcr -> %q18 %fpsr
+2eb6f732 : fminp v18.2s, v25.2s, v22.2s : fminp  %v64_25 %v64_22 $0x00 %fpcr -> %v64_18 %fpsr
+
+4e5c0d6e : fmla v14.8h, v11.8h, v28.8h : fmla   %q11 %q28 %fpcr -> %q14 %fpsr
+0e5c0d6e : fmla v14.4h, v11.4h, v28.4h : fmla   %v64_11 %v64_28 %fpcr -> %v64_14 %fpsr
+4e3eceda : fmla v26.4s, v22.4s, v30.4s : fmla   %q22 %q30 $0x00 %fpcr -> %q26 %fpsr
+4e7eceda : fmla v26.2d, v22.2d, v30.2d : fmla   %q22 %q30 $0x01 %fpcr -> %q26 %fpsr
+0e3eceda : fmla v26.2s, v22.2s, v30.2s : fmla   %v64_22 %v64_30 $0x00 %fpcr -> %v64_26 %fpsr
+
+4ed60e65 : fmls v5.8h, v19.8h, v22.8h : fmls   %q19 %q22 %fpcr -> %q5 %fpsr
+0ed60e65 : fmls v5.4h, v19.4h, v22.4h : fmls   %v64_19 %v64_22 %fpcr -> %v64_5 %fpsr
+4ebbce2e : fmls v14.4s, v17.4s, v27.4s : fmls   %q17 %q27 $0x00 %fpcr -> %q14 %fpsr
+4efbce2e : fmls v14.2d, v17.2d, v27.2d : fmls   %q17 %q27 $0x01 %fpcr -> %q14 %fpsr
+0ebbce2e : fmls v14.2s, v17.2s, v27.2s : fmls   %v64_17 %v64_27 $0x00 %fpcr -> %v64_14 %fpsr
+
+6e571f9c : fmul v28.8h, v28.8h, v23.8h : fmul   %q28 %q23 %fpcr -> %q28 %fpsr
+2e571f9c : fmul v28.4h, v28.4h, v23.4h : fmul   %v64_28 %v64_23 %fpcr -> %v64_28 %fpsr
+6e33df6e : fmul v14.4s, v27.4s, v19.4s : fmul   %q27 %q19 $0x00 %fpcr -> %q14 %fpsr
+6e73df6e : fmul v14.2d, v27.2d, v19.2d : fmul   %q27 %q19 $0x01 %fpcr -> %q14 %fpsr
+2e33df6e : fmul v14.2s, v27.2s, v19.2s : fmul   %v64_27 %v64_19 $0x00 %fpcr -> %v64_14 %fpsr
+
+4e411db8 : fmulx v24.8h, v13.8h, v1.8h : fmulx  %q13 %q1 %fpcr -> %q24 %fpsr
+0e411db8 : fmulx v24.4h, v13.4h, v1.4h : fmulx  %v64_13 %v64_1 %fpcr -> %v64_24 %fpsr
+4e20ddee : fmulx v14.4s, v15.4s, v0.4s : fmulx  %q15 %q0 $0x00 %fpcr -> %q14 %fpsr
+4e60ddee : fmulx v14.2d, v15.2d, v0.2d : fmulx  %q15 %q0 $0x01 %fpcr -> %q14 %fpsr
+0e20ddee : fmulx v14.2s, v15.2s, v0.2s : fmulx  %v64_15 %v64_0 $0x00 %fpcr -> %v64_14 %fpsr
+
+4e493c5e : frecps v30.8h, v2.8h, v9.8h : frecps %q2 %q9 %fpcr -> %q30 %fpsr
+0e493c5e : frecps v30.4h, v2.4h, v9.4h : frecps %v64_2 %v64_9 %fpcr -> %v64_30 %fpsr
+4e29fd50 : frecps v16.4s, v10.4s, v9.4s : frecps %q10 %q9 $0x00 %fpcr -> %q16 %fpsr
+4e69fd50 : frecps v16.2d, v10.2d, v9.2d : frecps %q10 %q9 $0x01 %fpcr -> %q16 %fpsr
+0e29fd50 : frecps v16.2s, v10.2s, v9.2s : frecps %v64_10 %v64_9 $0x00 %fpcr -> %v64_16 %fpsr
+
+4ec53e50 : frsqrts v16.8h, v18.8h, v5.8h : frsqrts %q18 %q5 %fpcr -> %q16 %fpsr
+0ec53e50 : frsqrts v16.4h, v18.4h, v5.4h : frsqrts %v64_18 %v64_5 %fpcr -> %v64_16 %fpsr
+4ea4fcf4 : frsqrts v20.4s, v7.4s, v4.4s : frsqrts %q7 %q4 $0x00 %fpcr -> %q20 %fpsr
+4ee4fcf4 : frsqrts v20.2d, v7.2d, v4.2d : frsqrts %q7 %q4 $0x01 %fpcr -> %q20 %fpsr
+0ea4fcf4 : frsqrts v20.2s, v7.2s, v4.2s : frsqrts %v64_7 %v64_4 $0x00 %fpcr -> %v64_20 %fpsr
+
+4ed4154f : fsub v15.8h, v10.8h, v20.8h : fsub   %q10 %q20 %fpcr -> %q15 %fpsr
+0ed4154f : fsub v15.4h, v10.4h, v20.4h : fsub   %v64_10 %v64_20 %fpcr -> %v64_15 %fpsr
+4eaad76b : fsub v11.4s, v27.4s, v10.4s : fsub   %q27 %q10 $0x00 %fpcr -> %q11 %fpsr
+4eead76b : fsub v11.2d, v27.2d, v10.2d : fsub   %q27 %q10 $0x01 %fpcr -> %q11 %fpsr
+0eaad76b : fsub v11.2s, v27.2s, v10.2s : fsub   %v64_27 %v64_10 $0x00 %fpcr -> %v64_11 %fpsr
