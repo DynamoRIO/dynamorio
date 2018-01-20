@@ -2441,9 +2441,14 @@ options_init()
 
     /* .lspdata pages start out writable so no unprotect needed here */
     write_lock(&options_lock);
+    SELF_UNPROTECT_OPTIONS();
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* Set to default options. */
     set_dynamo_options_defaults(&dynamo_options);
+#if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
+    /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
+    dynamo_options.deadlock_avoidance = false;
+#endif
     /* get dynamo options */
     retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
