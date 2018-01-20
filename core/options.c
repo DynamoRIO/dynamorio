@@ -2439,9 +2439,11 @@ options_init()
 {
     int ret = 0, retval;
 
-    /* .lspdata pages start out writable so no unprotect needed here */
-    write_lock(&options_lock);
-    SELF_UNPROTECT_OPTIONS();
+    /* Apart from when we start of, we might end up here due to post processing.
+     * When here due to post processing, dynamo_options would not readable.  So
+     * we make them writable first.
+     */
+    options_make_writable();
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* Set to default options. */
     set_dynamo_options_defaults(&dynamo_options);
@@ -2461,8 +2463,7 @@ options_init()
     options_enable_code_api_dependences(&dynamo_options);
 #endif
     check_option_compatibility();
-    /* options will be protected when DR init is completed */
-    write_unlock(&options_lock);
+    options_restore_readonly();
     return ret;
 }
 
