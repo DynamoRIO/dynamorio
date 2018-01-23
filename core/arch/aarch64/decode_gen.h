@@ -2163,39 +2163,33 @@ decode_opndsgen_0de0e000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 static bool
 decode_opndsgen_0e20d400(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
-    opnd_t dst0, dst1, src0, src1, src2, src3;
-    if (!decode_opnd_vq0(enc & 0x4000001f, opcode, pc, &dst0) ||
-        !decode_opnd_impFPSR(enc & 0x00000000, opcode, pc, &dst1) ||
-        !decode_opnd_vq5(enc & 0x400003e0, opcode, pc, &src0) ||
-        !decode_opnd_vq16(enc & 0x401f0000, opcode, pc, &src1) ||
-        !decode_opnd_fsz(enc & 0x00400000, opcode, pc, &src2) ||
-        !decode_opnd_impFPCR(enc & 0x00000000, opcode, pc, &src3))
+    opnd_t dst0, src0, src1, src2;
+    if (!decode_opnd_dq0(enc & 0x4000001f, opcode, pc, &dst0) ||
+        !decode_opnd_dq5(enc & 0x400003e0, opcode, pc, &src0) ||
+        !decode_opnd_dq16(enc & 0x401f0000, opcode, pc, &src1) ||
+        !decode_opnd_fsz(enc & 0x00600000, opcode, pc, &src2))
         return false;
     instr_set_opcode(instr, opcode);
-    instr_set_num_opnds(dcontext, instr, 2, 4);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
     instr_set_dst(instr, 0, dst0);
-    instr_set_dst(instr, 1, dst1);
     instr_set_src(instr, 0, src0);
     instr_set_src(instr, 1, src1);
     instr_set_src(instr, 2, src2);
-    instr_set_src(instr, 3, src3);
     return true;
 }
 
 static bool
 decode_opndsgen_0e401400(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
-    opnd_t dst0, dst1, src0, src1, src2;
-    if (!decode_opnd_vq0(enc & 0x4000001f, opcode, pc, &dst0) ||
-        !decode_opnd_impFPSR(enc & 0x00000000, opcode, pc, &dst1) ||
-        !decode_opnd_vq5(enc & 0x400003e0, opcode, pc, &src0) ||
-        !decode_opnd_vq16(enc & 0x401f0000, opcode, pc, &src1) ||
-        !decode_opnd_impFPCR(enc & 0x00000000, opcode, pc, &src2))
+    opnd_t dst0, src0, src1, src2;
+    if (!decode_opnd_dq0(enc & 0x4000001f, opcode, pc, &dst0) ||
+        !decode_opnd_dq5(enc & 0x400003e0, opcode, pc, &src0) ||
+        !decode_opnd_dq16(enc & 0x401f0000, opcode, pc, &src1) ||
+        !decode_opnd_fsz16(enc & 0x00600000, opcode, pc, &src2))
         return false;
     instr_set_opcode(instr, opcode);
-    instr_set_num_opnds(dcontext, instr, 2, 3);
+    instr_set_num_opnds(dcontext, instr, 1, 3);
     instr_set_dst(instr, 0, dst0);
-    instr_set_dst(instr, 1, dst1);
     instr_set_src(instr, 0, src0);
     instr_set_src(instr, 1, src1);
     instr_set_src(instr, 2, src2);
@@ -2375,20 +2369,16 @@ decode_opndsgen_1c000000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 static bool
 decode_opndsgen_1e202800(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
-    opnd_t dst0, dst1, src0, src1, src2;
+    opnd_t dst0, src0, src1;
     if (!decode_opnd_float_reg0(enc & 0x00c0001f, opcode, pc, &dst0) ||
-        !decode_opnd_impFPSR(enc & 0x00000000, opcode, pc, &dst1) ||
         !decode_opnd_float_reg5(enc & 0x00c003e0, opcode, pc, &src0) ||
-        !decode_opnd_float_reg16(enc & 0x00df0000, opcode, pc, &src1) ||
-        !decode_opnd_impFPCR(enc & 0x00000000, opcode, pc, &src2))
+        !decode_opnd_float_reg16(enc & 0x00df0000, opcode, pc, &src1))
         return false;
     instr_set_opcode(instr, opcode);
-    instr_set_num_opnds(dcontext, instr, 2, 3);
+    instr_set_num_opnds(dcontext, instr, 1, 2);
     instr_set_dst(instr, 0, dst0);
-    instr_set_dst(instr, 1, dst1);
     instr_set_src(instr, 0, src0);
     instr_set_src(instr, 1, src1);
-    instr_set_src(instr, 2, src2);
     return true;
 }
 

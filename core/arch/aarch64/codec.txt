@@ -133,9 +133,8 @@
 ??---?--xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
--x-------------------------xxxxx  vq0        # Q register if bit 30 is set, else V64
--x--------------------xxxxx-----  vq5        # Q register if bit 30 is set, else V64
--x---------xxxxx----------------  vq16       # Q register if bit 30 is set, else V64
+-x--------------------xxxxx-----  dq5        # Q register if bit 30 is set, else D
+-x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x-------------------------xxxxx  dq0p1      # ... add 1
 -x-------------------------xxxxx  dq0p2      # ... add 2
 -x-------------------------xxxxx  dq0p3      # ... add 3
@@ -154,8 +153,9 @@ x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
 x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
----------x----------------------  fsz        # element size of FP vector reg
 ################################################################################
+---------xx---------------------  fsz        # element size of FP vector reg
+---------xx---------------------  fsz16        # element size of FP vector reg
 # Instruction patterns
 
 # The syntax here is: pattern opcode opndtype* : opndtype*
@@ -947,8 +947,8 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 
 # Data Processing - Scalar Floating-Point and Advanced SIMD
 # FADD (vector)
-0x001110010xxxxx000101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 impFPCR
-0x0011100x1xxxxx110101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x001110010xxxxx000101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz16
+0x0011100x1xxxxx110101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz
 
 # FADD (scalar)
-00011110xx1xxxxx001010xxxxxxxxxx     fadd float_reg0 impFPSR : float_reg5 float_reg16 impFPCR
+00011110xx1xxxxx001010xxxxxxxxxx     fadd float_reg0 : float_reg5 float_reg16
