@@ -54,8 +54,6 @@
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
 --------------------------------  impx30     # implicit X30 operand
---------------------------------  impFPCR    # implicit FPCR operand
---------------------------------  impFPSR    # implicit FPCR operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
