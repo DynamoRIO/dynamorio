@@ -98,11 +98,23 @@ test_extend(void *dc)
     test_base_disp_extend(DR_EXTEND_SXTW, false, OPSZ_4, 0);
 }
 
-#define CHECK_INSTR(opcode) \
-    ASSERT(instr_get_opcode(instr) == opcode); \
-    instr_disassemble(dc, instr, STDOUT); print("\n"); \
-    pc = instr_encode(dc, instr, buf); \
-    ASSERT(pc != NULL);
+static void
+test_instr_encoding(void *dc, uint opcode, instr_t *instr)
+{
+    instr_t *decin;
+    byte *pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    instr_disassemble(dc, instr, STDOUT); print("\n");
+
+    pc = instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_same(instr, decin));
+
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
 
 static void
 test_add(void *dc)
@@ -116,13 +128,13 @@ test_add(void *dc)
     instr = INSTR_CREATE_adc(dc, opnd_create_reg(DR_REG_W0),
                                  opnd_create_reg(DR_REG_W1),
                                  opnd_create_reg(DR_REG_W2));
-    CHECK_INSTR(OP_adc);
+    test_instr_encoding(dc, OP_adc, instr);
 
     /* ADC <Xd>, <Xn>, <Xm> */
     instr = INSTR_CREATE_adc(dc, opnd_create_reg(DR_REG_X0),
                                  opnd_create_reg(DR_REG_X1),
                                  opnd_create_reg(DR_REG_X2));
-    CHECK_INSTR(OP_adc);
+    test_instr_encoding(dc, OP_adc, instr);
 
     /* Add with carry setting condition flags
      * ADCS <Wd>, <Wn>, <Wm>
@@ -130,13 +142,13 @@ test_add(void *dc)
     instr = INSTR_CREATE_adcs(dc, opnd_create_reg(DR_REG_W0),
                                   opnd_create_reg(DR_REG_W1),
                                   opnd_create_reg(DR_REG_W2));
-    CHECK_INSTR(OP_adcs);
+    test_instr_encoding(dc, OP_adcs, instr);
 
     /* ADCS <Xd>, <Xn>, <Xm> */
     instr = INSTR_CREATE_adcs(dc, opnd_create_reg(DR_REG_X0),
                                   opnd_create_reg(DR_REG_X1),
                                   opnd_create_reg(DR_REG_X2));
-    CHECK_INSTR(OP_adcs);
+    test_instr_encoding(dc, OP_adcs, instr);
 
     /* Add and set flags (shifted register, 32-bit)
      * ADDS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
@@ -148,17 +160,19 @@ test_add(void *dc)
             opnd_create_reg(DR_REG_ ## reg ## 2), \
             opnd_add_flags(OPND_CREATE_INT(shift_type), DR_OPND_IS_SHIFT), \
             opnd_create_immed_int(amount_imm6, OPSZ_6b)); \
-        CHECK_INSTR(OP_adds)
+        test_instr_encoding(dc, OP_adds, instr);
 
+    /* Shift range is 0-31 (imm6) for 32 bit variant */
     adds_shift(W, DR_SHIFT_LSL, 0);
-    adds_shift(W, DR_SHIFT_LSL, 0x3F);
+    adds_shift(W, DR_SHIFT_LSL, 0x1F);
     adds_shift(W, DR_SHIFT_LSR, 0);
-    adds_shift(W, DR_SHIFT_LSR, 0x3F);
+    adds_shift(W, DR_SHIFT_LSR, 0x1F);
     adds_shift(W, DR_SHIFT_ASR, 0);
-    adds_shift(W, DR_SHIFT_ASR, 0x3F);
+    adds_shift(W, DR_SHIFT_ASR, 0x1F);
 
     /* Add and set flags (shifted register, 64-bit)
      * ADDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+     * Shift range is 0-63 (imm6) for 64 bit variant
      */
     adds_shift(X, DR_SHIFT_LSL, 0);
     adds_shift(X, DR_SHIFT_LSL, 0x3F);
@@ -173,11 +187,12 @@ test_add(void *dc)
     instr = INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0),
                        opnd_create_reg(DR_REG_W1),
                        opnd_create_immed_int(0, OPSZ_12b), OPND_CREATE_INT8(0));
-    CHECK_INSTR(OP_adds);
+    test_instr_encoding(dc, OP_adds, instr);
+
     instr = INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_W0),
                    opnd_create_reg(DR_REG_W1),
                    opnd_create_immed_int(0xFFF, OPSZ_12b), OPND_CREATE_INT8(0));
-    CHECK_INSTR(OP_adds);
+    test_instr_encoding(dc, OP_adds, instr);
 
     /* Add and set flags (immediate, 64-bit)
      * ADDS <Xd>, <Xn|SP>, #<imm>{, <shift>}
@@ -185,11 +200,12 @@ test_add(void *dc)
     instr = INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_X0),
                        opnd_create_reg(DR_REG_X1),
                        opnd_create_immed_int(0, OPSZ_12b), OPND_CREATE_INT8(0));
-    CHECK_INSTR(OP_adds);
+    test_instr_encoding(dc, OP_adds, instr);
+
     instr = INSTR_CREATE_adds_imm(dc, opnd_create_reg(DR_REG_X0),
                    opnd_create_reg(DR_REG_X1),
                    opnd_create_immed_int(0xFFF, OPSZ_12b), OPND_CREATE_INT8(0));
-    CHECK_INSTR(OP_adds);
+    test_instr_encoding(dc, OP_adds, instr);
 
     /* Add and set flags (extended register, 32-bit)
      * ADDS <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
@@ -200,7 +216,7 @@ test_add(void *dc)
            opnd_create_reg(DR_REG_ ## reg ## 2), \
            opnd_add_flags(OPND_CREATE_INT(extend_type), DR_OPND_IS_EXTEND), \
            opnd_create_immed_int(amount_imm3, OPSZ_3b)); \
-    CHECK_INSTR(OP_adds)
+       test_instr_encoding(dc, OP_adds, instr);
 
     adds_extend(W, DR_EXTEND_UXTB, 0);
     adds_extend(W, DR_EXTEND_UXTH, 1);
@@ -230,7 +246,7 @@ test_pc_addr(void *dc)
 #if 0 /* TODO: implement OPSZ_21b */
     instr = INSTR_CREATE_adr(dc, opnd_create_reg(DR_REG_X0),
                                  opnd_create_immed_int(0, OPSZ_21b));
-    CHECK_INSTR(OP_adr);
+    test_instr_encoding(dc, OP_adr, instr);
 #endif
 }
 
@@ -242,23 +258,27 @@ test_ldar(void *dc)
 
     /* LDAR <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_W0),
-            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_4));
-    CHECK_INSTR(OP_ldar);
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false,
+                                          0, 0, OPSZ_4));
+    test_instr_encoding(dc, OP_ldar, instr);
 
     /* LDAR <Xt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_X0),
-            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_8));
-    CHECK_INSTR(OP_ldar);
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false,
+                                          0, 0, OPSZ_8));
+    test_instr_encoding(dc, OP_ldar, instr);
 
     /* LDARB <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldarb(dc, opnd_create_reg(DR_REG_W0),
-            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_1));
-    CHECK_INSTR(OP_ldarb);
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false,
+                                          0, 0, OPSZ_1));
+    test_instr_encoding(dc, OP_ldarb, instr);
 
     /* LDARH <Wt>, [<Xn|SP>{,#0}] */
     instr = INSTR_CREATE_ldarh(dc, opnd_create_reg(DR_REG_W0),
-            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_2));
-    CHECK_INSTR(OP_ldarh);
+            opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false,
+                                          0, 0, OPSZ_2));
+    test_instr_encoding(dc, OP_ldarh, instr);
 }
 
 int

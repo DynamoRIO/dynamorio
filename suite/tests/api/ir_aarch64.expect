@@ -4,11 +4,11 @@ adc    %x1 %x2 -> %x0
 adcs   %w1 %w2 -> %w0
 adcs   %x1 %x2 -> %x0
 adds   %w1 %w2 lsl $0x00 -> %w0
-adds   %w1 %w2 lsl $0x3f -> %w0
+adds   %w1 %w2 lsl $0x1f -> %w0
 adds   %w1 %w2 lsr $0x00 -> %w0
-adds   %w1 %w2 lsr $0x3f -> %w0
+adds   %w1 %w2 lsr $0x1f -> %w0
 adds   %w1 %w2 asr $0x00 -> %w0
-adds   %w1 %w2 asr $0x3f -> %w0
+adds   %w1 %w2 asr $0x1f -> %w0
 adds   %x1 %x2 lsl $0x00 -> %x0
 adds   %x1 %x2 lsl $0x3f -> %x0
 adds   %x1 %x2 lsr $0x00 -> %x0
