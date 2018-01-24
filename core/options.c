@@ -2440,8 +2440,8 @@ options_init()
     int ret = 0, retval;
 
     /* Apart from when we start of, we might end up here due to post processing.
-     * When here due to post processing, dynamo_options would not readable.  So
-     * we make them writable first.
+     * When here due to post processing, dynamo_options would not be writable.
+     * So we make them writable first.
      */
     options_make_writable();
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
@@ -2463,7 +2463,8 @@ options_init()
     options_enable_code_api_dependences(&dynamo_options);
 #endif
     check_option_compatibility();
-    options_restore_readonly();
+    /* options will be protected when DR init is completed */
+    write_unlock(&options_lock);
     return ret;
 }
 
