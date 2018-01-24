@@ -101,6 +101,20 @@ decode_opndsgen_08a07c00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 }
 
 static bool
+decode_opndsgen_08dffc00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    opnd_t dst0, src0;
+    if (!decode_opnd_w0(enc & 0x0000001f, opcode, pc, &dst0) ||
+        !decode_opnd_mem0(enc & 0xc00003e0, opcode, pc, &src0))
+        return false;
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 1);
+    instr_set_dst(instr, 0, dst0);
+    instr_set_src(instr, 0, src0);
+    return true;
+}
+
+static bool
 decode_opndsgen_0a000000(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
     opnd_t dst0, src0, src1, src2, src3;
@@ -4335,6 +4349,20 @@ decode_opndsgen_c8a07c00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *inst
 }
 
 static bool
+decode_opndsgen_c8dffc00(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    opnd_t dst0, src0;
+    if (!decode_opnd_x0(enc & 0x0000001f, opcode, pc, &dst0) ||
+        !decode_opnd_mem0(enc & 0xc00003e0, opcode, pc, &src0))
+        return false;
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 1, 1);
+    instr_set_dst(instr, 0, dst0);
+    instr_set_src(instr, 0, src0);
+    return true;
+}
+
+static bool
 decode_opndsgen_d4000001(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
 {
     opnd_t src0;
@@ -7299,8 +7327,8 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                             } else {
                                 if ((enc >> 28 & 1) == 0) {
                                     if ((enc >> 21 & 1) == 0) {
-                                        if ((enc & 0xffe08000) == 0x08c08000)
-                                            return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldarb);
+                                        if ((enc & 0xfffffc00) == 0x08dffc00)
+                                            return decode_opndsgen_08dffc00(enc, dc, pc, instr, OP_ldarb);
                                         if ((enc & 0xffe08000) == 0x08408000)
                                             return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldaxrb);
                                     } else {
@@ -7338,8 +7366,8 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                             } else {
                                 if ((enc >> 28 & 1) == 0) {
                                     if ((enc >> 21 & 1) == 0) {
-                                        if ((enc & 0xffe08000) == 0x88c08000)
-                                            return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldar);
+                                        if ((enc & 0xfffffc00) == 0x88dffc00)
+                                            return decode_opndsgen_08dffc00(enc, dc, pc, instr, OP_ldar);
                                         if ((enc & 0xffe08000) == 0x88408000)
                                             return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldaxr);
                                     } else {
@@ -7379,8 +7407,8 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                             } else {
                                 if ((enc >> 28 & 1) == 0) {
                                     if ((enc >> 21 & 1) == 0) {
-                                        if ((enc & 0xffe08000) == 0x48c08000)
-                                            return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldarh);
+                                        if ((enc & 0xfffffc00) == 0x48dffc00)
+                                            return decode_opndsgen_08dffc00(enc, dc, pc, instr, OP_ldarh);
                                         if ((enc & 0xffe08000) == 0x48408000)
                                             return decode_opndsgen_08400000(enc, dc, pc, instr, OP_ldaxrh);
                                     } else {
@@ -7418,8 +7446,8 @@ decoder(uint enc, dcontext_t *dc, byte *pc, instr_t *instr)
                             } else {
                                 if ((enc >> 28 & 1) == 0) {
                                     if ((enc >> 21 & 1) == 0) {
-                                        if ((enc & 0xffe08000) == 0xc8c08000)
-                                            return decode_opndsgen_c8400000(enc, dc, pc, instr, OP_ldar);
+                                        if ((enc & 0xfffffc00) == 0xc8dffc00)
+                                            return decode_opndsgen_c8dffc00(enc, dc, pc, instr, OP_ldar);
                                         if ((enc & 0xffe08000) == 0xc8408000)
                                             return decode_opndsgen_c8400000(enc, dc, pc, instr, OP_ldaxr);
                                     } else {
