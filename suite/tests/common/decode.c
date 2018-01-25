@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -413,9 +413,15 @@ DECL_EXTERN(_setjmp3)
 # endif
 #else
 DECL_EXTERN(my_setjmp)
-# define CALL_SETJMP \
+# ifdef X64
+#  define CALL_SETJMP \
+        lea   REG_XAX, SYMREF(mark) @N@ \
+        CALLC1(my_setjmp, REG_XAX)
+# else
+#  define CALL_SETJMP \
         lea   REG_XAX, mark @N@\
         CALLC1(my_setjmp, REG_XAX)
+# endif
 #endif
 
 /* FIXME PR 271834: we need some far ctis that actually succeed, to fully test
