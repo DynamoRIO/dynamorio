@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -3099,7 +3099,9 @@ if (UNIX)
       # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
       # which doesn't play well with clang and -static.  Adding
       # --no-export-dynamic avoids the problem.
-      "-static -Wl,--no-export-dynamic")
+      # We get two copies of memcpy (from drhelper and from libc) so we avoid
+      # linker warnings on gcc 6.x+ (i#1958).
+      "-static -Wl,--no-export-dynamic -Wl,--allow-multiple-definition")
   endif ()
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.

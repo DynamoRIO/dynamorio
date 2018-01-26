@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -108,7 +108,11 @@ ADDRTAKEN_LABEL(foo_start:)
         /* now we have as many write instrs as necessary to cause a too-big
          * selfmod fragment.  xref case 7893.
          */
+#if defined(LINUX) && defined(X64)
+        lea      REG_XDX, SYMREF(big) /* rip-relative on x64 */
+#else
         mov      REG_XDX, offset GLOBAL_REF(big)
+#endif
         mov      DWORD [REG_XDX + 0], ecx
         mov      DWORD [REG_XDX + 1], ecx
         mov      DWORD [REG_XDX + 2], ecx
