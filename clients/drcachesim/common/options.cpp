@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -123,13 +123,15 @@ droption_t<bytesize_t> op_L0I_size
 (DROPTION_SCOPE_CLIENT, "L0I_size", 32*1024U,
  "If -L0_filter, filter out instruction hits during tracing",
  "Specifies the size of the 'zero-level' instruction cache for -L0_filter.  "
- "Must be a power of 2 and a multiple of -line_size.");
+ "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
+ "which disables instruction fetch entries from appearing in the trace.");
 
 droption_t<bytesize_t> op_L0D_size
 (DROPTION_SCOPE_CLIENT, "L0D_size", 32*1024U,
  "If -L0_filter, filter out data hits during tracing",
  "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
- "Must be a power of 2 and a multiple of -line_size.");
+ "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
+ "which disables data entries from appearing in the trace.");
 
 droption_t<bool> op_use_physical
 (DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
