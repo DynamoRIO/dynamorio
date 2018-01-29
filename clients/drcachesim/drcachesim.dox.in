@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -494,7 +494,10 @@ http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b
 \section sec_drcachesim_core Core Simulation Support
 
 The \p drcachesim trace format includes information intended for use by
-core simulators as well as pure cache simulators.  On x86, string loop
+core simulators as well as pure cache simulators.  For traces that are not
+filtered by an online first-level cache, each data reference is preceded by
+the instruction fetch entry for the instruction that issued the data
+request.  Additionally, on x86, string loop
 instructions involve a single insruction fetch followed by a loop of loads
 and/or stores.  A \p drcachesim trace includes a special "no-fetch"
 instruction entry per iteration so that core simulators have the
