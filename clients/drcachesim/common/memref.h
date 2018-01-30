@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -105,12 +105,14 @@ struct _memref_marker_t {
  * Each entry identifies the originating process and thread.
  * Although the pc of each data reference is provided, the trace also guarantees that
  * an instruction entry immediately precedes the data references that it is
- * responsible for, with no intervening trace entries.
+ * responsible for, with no intervening trace entries (unless it is a trace filtered
+ * with an online first-level cache).
  * Offline traces further guarantee that an instruction entry for a branch
  * instruction is always followed by an instruction entry for the branch's
  * target (with any memory references for the branch in between of course)
  * without a thread switch intervening, to make it simpler to identify branch
- * targets.  Online traces do not currently guarantee this.
+ * targets (again, unless the trace is filtered by an online first-level cache).
+ * Online traces do not currently guarantee this.
  */
 typedef union _memref_t {
     // The C standard allows us to reference the type field of any of these, and the

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,7 +32,6 @@
 
 #include "tools.h"
 
-static char table[2] = {'A', 'B'};
 #ifdef WINDOWS
 /* based on suite/tests/win32/callback.c */
 
@@ -283,12 +282,13 @@ main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
     void * retval;
+    char table[2] = {'A', 'B'};
 #ifdef X86
     char ch;
     /* test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
-    __asm("mov %1, %%ebx\n\t"
+    __asm("mov %1, %%" IF_X64_ELSE("rbx","ebx") "\n\t"
           "mov $0x1, %%eax\n\t"
           "xlat\n\t"
           "movb %%al, %0\n\t"

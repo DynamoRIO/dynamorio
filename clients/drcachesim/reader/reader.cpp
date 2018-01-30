@@ -118,7 +118,6 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_RETURN:
         case TRACE_TYPE_INSTR_SYSENTER:
         case TRACE_TYPE_INSTR_NO_FETCH:
-            have_memref = true;
             assert(cur_tid != 0 && cur_pid != 0);
             if (input_entry->size == 0) {
                 // Just an entry to tell us the PC of the subsequent memref,
