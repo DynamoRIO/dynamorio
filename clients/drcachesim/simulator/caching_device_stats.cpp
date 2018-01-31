@@ -36,7 +36,8 @@
 #include "caching_device_stats.h"
 
 caching_device_stats_t::caching_device_stats_t(const std::string &miss_file) :
-    success(true), num_hits(0), num_misses(0), num_child_hits(0), file(nullptr)
+    success(true), num_hits(0), num_misses(0), num_child_hits(0), file(nullptr),
+    num_hits_at_reset(0), num_misses_at_reset(0), num_child_hits_at_reset(0)
 {
     if (miss_file.empty()) {
         dump_misses = false;
@@ -155,6 +156,9 @@ caching_device_stats_t::print_stats(std::string prefix)
 void
 caching_device_stats_t::reset()
 {
+    num_hits_at_reset = num_hits;
+    num_misses_at_reset = num_misses;
+    num_child_hits_at_reset = num_child_hits;
     num_hits = 0;
     num_misses = 0;
     num_child_hits = 0;

@@ -77,6 +77,12 @@ class caching_device_stats_t
     int_least64_t num_misses;
     int_least64_t num_child_hits;
 
+    // Stats saved when the last reset was called. This helps us get insight
+    // into what the stats were when the cache was warmed up.
+    int_least64_t num_misses_at_reset;
+    int_least64_t num_hits_at_reset;
+    int_least64_t num_child_hits_at_reset;
+
     // We provide a feature of dumping misses to a file.
     bool dump_misses;
 #ifdef HAS_ZLIB
