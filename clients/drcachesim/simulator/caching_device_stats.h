@@ -46,7 +46,8 @@
 class caching_device_stats_t
 {
  public:
-    explicit caching_device_stats_t(const std::string &miss_file);
+    explicit caching_device_stats_t(const std::string &miss_file,
+                                    bool warmup_enabled = false);
     virtual ~caching_device_stats_t();
 
     // Called on each access.
@@ -83,6 +84,8 @@ class caching_device_stats_t
     int_least64_t num_hits_at_reset;
     int_least64_t num_misses_at_reset;
     int_least64_t num_child_hits_at_reset;
+    // Enabled if options warmup_refs > 0 || warmup_fraction > 0
+    bool warmup_enabled;
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses;

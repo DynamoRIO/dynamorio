@@ -35,10 +35,10 @@
 #include <iomanip>
 #include "caching_device_stats.h"
 
-caching_device_stats_t::caching_device_stats_t(const std::string &miss_file) :
+caching_device_stats_t::caching_device_stats_t(const std::string &miss_file, bool warmup_enabled) :
     success(true), num_hits(0), num_misses(0), num_child_hits(0),
     num_hits_at_reset(0), num_misses_at_reset(0), num_child_hits_at_reset(0),
-    file(nullptr)
+    warmup_enabled(warmup_enabled), file(nullptr)
 {
     if (miss_file.empty()) {
         dump_misses = false;
@@ -112,9 +112,9 @@ caching_device_stats_t::dump_miss(const memref_t &memref)
 void
 caching_device_stats_t::print_warmup(std::string prefix)
 {
-    std::cerr << prefix << std::setw(18) << std::left << "Warmup Hits:" <<
+    std::cerr << prefix << std::setw(18) << std::left << "Warmup hits:" <<
         std::setw(20) << std::right << num_hits_at_reset << std::endl;
-    std::cerr << prefix << std::setw(18) << std::left << "Warmup Misses:" <<
+    std::cerr << prefix << std::setw(18) << std::left << "Warmup misses:" <<
         std::setw(20) << std::right << num_misses_at_reset << std::endl;
 }
 
@@ -157,7 +157,9 @@ void
 caching_device_stats_t::print_stats(std::string prefix)
 {
     std::cerr.imbue(std::locale("")); // Add commas, at least for my locale
-    print_warmup(prefix);
+    if (warmup_enabled) {
+        print_warmup(prefix);
+    }
     print_counts(prefix);
     print_rates(prefix);
     print_child_stats(prefix);
