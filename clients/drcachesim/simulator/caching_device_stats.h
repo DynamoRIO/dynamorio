@@ -67,6 +67,7 @@ class caching_device_stats_t
     bool success;
 
     // print different groups of information, beneficial for code reuse
+    virtual void print_warmup(std::string prefix);
     virtual void print_counts(std::string prefix); // hit/miss numbers
     virtual void print_rates(std::string prefix); // hit/miss rates
     virtual void print_child_stats(std::string prefix); // child/total info
@@ -79,8 +80,8 @@ class caching_device_stats_t
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
-    int_least64_t num_misses_at_reset;
     int_least64_t num_hits_at_reset;
+    int_least64_t num_misses_at_reset;
     int_least64_t num_child_hits_at_reset;
 
     // We provide a feature of dumping misses to a file.
