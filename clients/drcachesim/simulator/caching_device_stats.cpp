@@ -35,7 +35,8 @@
 #include <iomanip>
 #include "caching_device_stats.h"
 
-caching_device_stats_t::caching_device_stats_t(const std::string &miss_file, bool warmup_enabled) :
+caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
+                                               bool warmup_enabled) :
     success(true), num_hits(0), num_misses(0), num_child_hits(0),
     num_hits_at_reset(0), num_misses_at_reset(0), num_child_hits_at_reset(0),
     warmup_enabled(warmup_enabled), file(nullptr)
