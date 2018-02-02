@@ -2450,6 +2450,12 @@ if (CLIENT_INTERFACE)
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 50000 -exit_after_tracing 10000" "")
 
+      # Test that "Warmup hits" and "Warmup misses" are printed out
+      torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
+
+      # Test that warmup was enabled but not triggered.
+      torunonly_drcachesim(warmup-zeros ${ci_shared_app} "-warmup_refs 1000000000" "")
+
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
       if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
