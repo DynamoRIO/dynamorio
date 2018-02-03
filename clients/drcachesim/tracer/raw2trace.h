@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,6 +120,31 @@ public:
     std::string do_module_parsing();
 
     /**
+     * This interface is meant to be used with a final trace rather than a raw
+     * trace, using the module log file saved from the raw2trace conversion.
+     * This routine first calls do_module_parsing() and then maps each module into
+     * the current address space, allowing the user to augment the instruction
+     * information in the trace with additional information by decoding the
+     * instruction bytes.  The routine find_mapped_trace_address() should be used
+     * to convert from memref_t.instr.addr to the corresponding mapped address in
+     * the current process.
+     * Returns a non-empty error message on failure.
+     */
+    std::string do_module_parsing_and_mapping();
+
+    /**
+     * This interface is meant to be used with a final trace rather than a raw
+     * trace, using the module log file saved from the raw2trace conversion.
+     * When do_module_parsing_and_mapping() has been called, this routine can be used
+     * to convert an instruction program counter in a trace into an address in the
+     * current process where the instruction bytes for that instruction are mapped,
+     * allowing decoding for obtaining further information than is stored in the trace.
+     * Returns a non-empty error message on failure.
+     */
+    std::string find_mapped_trace_address(app_pc trace_address,
+                                          OUT app_pc *mapped_address);
+
+    /**
      * Performs the conversion from raw data to finished trace files.
      * Returns a non-empty error message on failure.
      */
@@ -178,6 +203,9 @@ private:
     std::vector<drmodtrack_info_t> modlist;
     std::string (*user_process)(drmodtrack_info_t *info, void *data, void *user_data);
     void *user_process_data;
+    app_pc last_orig_base;
+    size_t last_map_size;
+    byte *last_map_base;
 
     // Custom module fields that use drmodtrack are global.
     static const char * (*user_parse)(const char *src, OUT void **data);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -86,10 +86,12 @@
 
 #ifdef WINDOWS
 # define DIRSEP "\\"
+# define ALT_DIRSEP "/"
 # define IF_WINDOWS(x) x
 # define IF_UNIX(x)
 #else
 # define DIRSEP "/"
+# define ALT_DIRSEP ""
 # define IF_WINDOWS(x)
 # define IF_UNIX(x) x
 #endif

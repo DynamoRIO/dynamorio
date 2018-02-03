@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,7 @@
 #define REUSE_DIST                              "reuse_distance"
 #define REUSE_TIME                              "reuse_time"
 #define BASIC_COUNTS                            "basic_counts"
+#define OPCODE_MIX                              "opcode_mix"
 
 #include <string>
 #include "droption.h"

@@ -259,7 +259,7 @@ raw2trace_t::unmap_modules(void)
 {
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet.
-    if (modhandle != NULL &&
+    if (modhandle != nullptr &&
         drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
           return "Failed to clean up module table data";
     }
@@ -272,6 +272,42 @@ raw2trace_t::unmap_modules(void)
         }
     }
     return "";
+}
+
+std::string
+raw2trace_t::do_module_parsing_and_mapping()
+{
+   std::string error = read_and_map_modules();
+   if (!error.empty())
+       return error;
+   return "";
+}
+
+std::string
+raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
+{
+    if (modhandle == nullptr || modlist.empty())
+        return "Failed to call do_module_parsing_and_mapping() first";
+    if (mapped_address == nullptr)
+        return "Invalid parameter";
+    // For simplicity we do a linear search, caching the prior hit.
+    if (trace_address >= last_orig_base &&
+        trace_address < last_orig_base + last_map_size) {
+        *mapped_address = trace_address - last_orig_base + last_map_base;
+        return "";
+    }
+    for (std::vector<module_t>::iterator mvi = modvec.begin();
+         mvi != modvec.end(); ++mvi) {
+        if (trace_address >= mvi->orig_base &&
+            trace_address < mvi->orig_base + mvi->map_size) {
+            *mapped_address = trace_address - mvi->orig_base + mvi->map_base;
+            last_orig_base = mvi->orig_base;
+            last_map_size = mvi->map_size;
+            last_map_base = mvi->map_base;
+            return "";
+        }
+    }
+    return "Trace address not found";
 }
 
 /***************************************************************************
@@ -771,7 +807,8 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     : modmap(module_map_in), modhandle(NULL), thread_files(thread_files_in),
       out_file(out_file_in), dcontext(dcontext_in),
       prev_instr_was_rep_string(false), instrs_are_separate(false),
-      verbosity(verbosity_in), user_process(nullptr), user_process_data(nullptr)
+      verbosity(verbosity_in), user_process(nullptr), user_process_data(nullptr),
+      last_orig_base(nullptr), last_map_size(0), last_map_base(nullptr)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();

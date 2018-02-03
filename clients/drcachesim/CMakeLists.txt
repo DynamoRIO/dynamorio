@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2018 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,7 @@ add_exported_library(drmemtrace_reuse_distance STATIC tools/reuse_distance.cpp)
 add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
+add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -116,7 +117,8 @@ add_executable(drcachesim ${drcachesim_srcs})
 configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
-  drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts drmemtrace_raw2trace)
+  drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
+  drmemtrace_opcode_mix drmemtrace_raw2trace)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -150,6 +152,7 @@ install_client_nonDR_header(drmemtrace tools/reuse_distance_create.h)
 install_client_nonDR_header(drmemtrace tools/histogram_create.h)
 install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
+install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -250,6 +253,7 @@ restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
 restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
+restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_analyzer)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
@@ -283,6 +287,7 @@ add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
 add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
+add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_analyzer)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)

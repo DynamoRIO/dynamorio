@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,33 +30,24 @@
  * DAMAGE.
  */
 
-#ifndef _RAW2TRACE_DIRECTORY_H_
-#define _RAW2TRACE_DIRECTORY_H_ 1
+/* basic-counts tool creation */
 
-#include <fstream>
-#include <string>
-#include <vector>
+#ifndef _OPCODE_MIX_CREATE_H_
+#define _OPCODE_MIX_CREATE_H_ 1
 
-#include "dr_api.h"
+#include "analysis_tool.h"
 
-class raw2trace_directory_t {
-public:
-    // outname can be empty when only calling raw2trace_t::do_module_parsing().
-    raw2trace_directory_t(const std::string &indir, const std::string &outname,
-                          unsigned int verbosity = 0);
-    ~raw2trace_directory_t();
+/**
+ * @file drmemtrace/opcode_mix_create.h
+ * @brief DrMemtrace opcode mixture trace analysis tool creation.
+ */
 
-    char *modfile_bytes;
-    std::vector<std::istream*> thread_files;
-    std::ofstream out_file;
+/**
+ * Creates an analysis tool which counts the number of instances of each opcode
+ * in the trace.  This tool needs access to the modules.log and original libraries
+ * and binaries from the traced execution.  It does not support online analysis.
+ */
+analysis_tool_t *
+opcode_mix_tool_create(const std::string& module_log_dir, unsigned int verbose = 0);
 
-private:
-    void open_thread_files();
-    void open_thread_log_file(const char *basename);
-    file_t modfile;
-    std::string indir;
-    std::string outname;
-    unsigned int verbosity;
-};
-
-#endif  /* _RAW2TRACE_DIRECTORY_H_ */
+#endif /* _OPCODE_MIX_CREATE_H_ */

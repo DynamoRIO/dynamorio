@@ -65,7 +65,7 @@ droption_t<std::string> op_indir
 droption_t<std::string> op_infile
 (DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
  "Directs the simulator to use a trace file (not a raw data file from -offline: "
- "such a file neeeds to be converted via drposttrace or -indir first).");
+ "such a file neeeds to be converted via drraw2trace or -indir first).");
 
 droption_t<unsigned int> op_num_cores
 (DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",

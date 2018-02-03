@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -165,12 +165,16 @@ raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
     if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_)
         FATAL_ERROR("Didn't read whole module file %s", modfilename.c_str());
 
-    out_file.open(outname.c_str(), std::ofstream::binary);
-    if (!out_file)
-        FATAL_ERROR("Failed to open output file %s", outname.c_str());
-    VPRINT(1, "Writing to %s\n", outname.c_str());
+    // We support outname being empty for the use case of just calling
+    // raw2trace_t::do_module_parsing().
+    if (!outname.empty()) {
+        out_file.open(outname.c_str(), std::ofstream::binary);
+        if (!out_file)
+            FATAL_ERROR("Failed to open output file %s", outname.c_str());
+        VPRINT(1, "Writing to %s\n", outname.c_str());
 
-    open_thread_files();
+        open_thread_files();
+    }
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()
