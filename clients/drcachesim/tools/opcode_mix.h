@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,37 +30,31 @@
  * DAMAGE.
  */
 
-#ifndef _RAW2TRACE_DIRECTORY_H_
-#define _RAW2TRACE_DIRECTORY_H_ 1
+#ifndef _OPCODE_MIX_H_
+#define _OPCODE_MIX_H_ 1
 
-#include <fstream>
 #include <string>
-#include <vector>
+#include <unordered_map>
 
-#include "dr_api.h"
+#include "analysis_tool.h"
+#include "tracer/raw2trace.h"
 
-class raw2trace_directory_t {
-public:
-    raw2trace_directory_t(const std::string &indir, const std::string &outname,
-                          unsigned int verbosity = 0);
-    // This version is for raw2trace_t::do_module_parsing() or
-    // raw2trace_t::do_module_parsing_and_mapping().
-    raw2trace_directory_t(const std::string &module_file_path,
-                          unsigned int verbosity = 0);
-    ~raw2trace_directory_t();
+class opcode_mix_t : public analysis_tool_t
+{
+ public:
+    opcode_mix_t(const std::string& module_file_path, unsigned int verbose);
+    virtual ~opcode_mix_t();
+    virtual bool process_memref(const memref_t &memref);
+    virtual bool print_results();
 
-    char *modfile_bytes;
-    std::vector<std::istream*> thread_files;
-    std::ofstream out_file;
-
-private:
-    void read_module_file(const std::string &modfilename);
-    void open_thread_files();
-    void open_thread_log_file(const char *basename);
-    file_t modfile;
-    std::string indir;
-    std::string outname;
-    unsigned int verbosity;
+ protected:
+    void *dcontext;
+    raw2trace_t *raw2trace;
+    unsigned int knob_verbose;
+    int_least64_t instr_count;
+    std::unordered_map<int, int_least64_t> opcode_counts;
+    std::unordered_map<app_pc, int> opcode_cache;
+    static const std::string TOOL_NAME;
 };
 
-#endif  /* _RAW2TRACE_DIRECTORY_H_ */
+#endif /* _OPCODE_MIX_H_ */

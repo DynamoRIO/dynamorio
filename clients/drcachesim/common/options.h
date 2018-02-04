@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,7 @@
 #define REUSE_DIST                              "reuse_distance"
 #define REUSE_TIME                              "reuse_time"
 #define BASIC_COUNTS                            "basic_counts"
+#define OPCODE_MIX                              "opcode_mix"
 
 #include <string>
 #include "droption.h"
@@ -56,6 +57,7 @@ extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
 extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
+extern droption_t<std::string> op_module_file;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;
 extern droption_t<bytesize_t> op_L1I_size;

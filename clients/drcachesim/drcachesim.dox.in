@@ -338,7 +338,49 @@ subsequent iterations do not incur a fetch.  They are included in the trace
 as a different type of trace entry to support core simulators in addition
 to cache simulators.
 
-The top referenced lines are displayed by the \p histogram tool:
+The opcode_mix tool uses the non-fetched instruction information along with
+the preserved libraries and binaries from the traced execution to gather
+more information on each executed instruction than was stored in the trace.
+It only supports offline traces, and the \p modules.log file created during
+post-processing of the trace must be preserved.  The results are broken
+down by the opcodes used in DR's IR, where \p mov is split into a separate
+opcode for load and store but both have the same public string "mov":
+
+\code
+$ bin64/drrun -t drcachesim -offline -- suite/tests/bin/pi_estimator
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
+Opcode mix tool results:
+         267271 : total executed instructions
+          36432 :       mov
+          31075 :       mov
+          24715 :       add
+          22579 :      test
+          22539 :       cmp
+          12137 :       lea
+          11136 :       jnz
+          10568 :     movzx
+          10243 :        jz
+           9056 :       and
+           8064 :       jnz
+           7279 :        jz
+           5659 :      push
+           4528 :       sub
+           4357 :       pop
+           4001 :       shr
+           3427 :      jnbe
+           2634 :       mov
+           2469 :       shl
+           2344 :        jb
+           2291 :       ret
+           2178 :       xor
+           2164 :      call
+           2111 :   pcmpeqb
+           1472 :    movdqa
+...
+\endcode
+
+The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
 $ bin64/drrun -t drcachesim -simulator_type histogram -- suite/tests/bin/pi_estimator
@@ -578,9 +620,9 @@ use_DynamoRIO_drmemtrace(mytool)
 The \p drmemtrace_analyzer library exported by the DynamoRIO package is the
 main library to link when building a new tool.  The tools described above
 are also exported as the libraries \p drmemtrace_basic_counts, \p
-drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
 drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
-the basic_counts_tool_create(), histogram_tool_create(),
+the basic_counts_tool_create(), opcode_mix_tool_create(), histogram_tool_create(),
 reuse_distance_tool_create(), reuse_time_tool_create(),
 cache_simulator_create(), and tlb_simulator_create() functions.
 

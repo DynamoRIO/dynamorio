@@ -2590,6 +2590,12 @@ if (CLIENT_INTERFACE)
         unset(tool.drcacheoff.basic_counts_rawtemp)
       endif ()
 
+      torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
+        "@-simulator_type@opcode_mix" "")
+      # We're using the same app so we serialize to avoid racing trace dirs:
+      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.simple)
+      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.filter)
+
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
