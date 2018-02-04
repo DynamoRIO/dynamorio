@@ -36,17 +36,15 @@
  * It does not support online use, only offline.
  */
 
+#include "dr_api.h"
+#include "opcode_mix.h"
+#include "common/utils.h"
+#include "tracer/raw2trace.h"
+#include "tracer/raw2trace_directory.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <vector>
-
-#include "opcode_mix.h"
-#include "common/utils.h"
-
-#include "dr_api.h"
-#include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
 
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 

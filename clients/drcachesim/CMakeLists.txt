@@ -72,6 +72,7 @@ add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
+configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
