@@ -144,16 +144,9 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     VPRINT(1, "Opened thread log file %s\n", path);
 }
 
-raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
-                                             const std::string &outname_in,
-                                             unsigned int verbosity_in)
-    : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
+void
+raw2trace_directory_t::read_module_file(const std::string &modfilename)
 {
-    // Support passing both base dir and raw/ subdir.
-    if (indir.find(OUTFILE_SUBDIR) == std::string::npos)
-        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-    std::string modfilename = indir + std::string(DIRSEP) +
-        DRMEMTRACE_MODULE_LIST_FILENAME;
     modfile = dr_open_file(modfilename.c_str(), DR_FILE_READ);
     if (modfile == INVALID_FILE)
         FATAL_ERROR("Failed to open module file %s", modfilename.c_str());
@@ -164,17 +157,34 @@ raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
     modfile_bytes = new char[modfile_size_];
     if (dr_read_file(modfile, modfile_bytes, modfile_size_) < (ssize_t)modfile_size_)
         FATAL_ERROR("Didn't read whole module file %s", modfilename.c_str());
+}
 
-    // We support outname being empty for the use case of just calling
-    // raw2trace_t::do_module_parsing().
-    if (!outname.empty()) {
-        out_file.open(outname.c_str(), std::ofstream::binary);
-        if (!out_file)
-            FATAL_ERROR("Failed to open output file %s", outname.c_str());
-        VPRINT(1, "Writing to %s\n", outname.c_str());
-
-        open_thread_files();
+raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
+                                             const std::string &outname_in,
+                                             unsigned int verbosity_in)
+    : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
+{
+    // Support passing both base dir and raw/ subdir.
+    if (indir.find(OUTFILE_SUBDIR) == std::string::npos) {
+        indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
     }
+    std::string modfilename = indir + std::string(DIRSEP) +
+        DRMEMTRACE_MODULE_LIST_FILENAME;
+    read_module_file(modfilename);
+
+    out_file.open(outname.c_str(), std::ofstream::binary);
+    if (!out_file)
+        FATAL_ERROR("Failed to open output file %s", outname.c_str());
+    VPRINT(1, "Writing to %s\n", outname.c_str());
+
+    open_thread_files();
+}
+
+raw2trace_directory_t::raw2trace_directory_t(const std::string &module_file_path,
+                                             unsigned int verbosity_in)
+    : indir(""), outname(""), verbosity(verbosity_in)
+{
+    read_module_file(module_file_path);
 }
 
 raw2trace_directory_t::~raw2trace_directory_t()

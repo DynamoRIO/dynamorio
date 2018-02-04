@@ -41,8 +41,11 @@
 
 class raw2trace_directory_t {
 public:
-    // outname can be empty when only calling raw2trace_t::do_module_parsing().
     raw2trace_directory_t(const std::string &indir, const std::string &outname,
+                          unsigned int verbosity = 0);
+    // This version is for raw2trace_t::do_module_parsing() or
+    // raw2trace_t::do_module_parsing_and_mapping().
+    raw2trace_directory_t(const std::string &module_file_path,
                           unsigned int verbosity = 0);
     ~raw2trace_directory_t();
 
@@ -51,6 +54,7 @@ public:
     std::ofstream out_file;
 
 private:
+    void read_module_file(const std::string &modfilename);
     void open_thread_files();
     void open_thread_log_file(const char *basename);
     file_t modfile;

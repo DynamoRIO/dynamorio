@@ -49,22 +49,22 @@
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string& module_log_dir, unsigned int verbose)
+opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose)
 {
-    return new opcode_mix_t(module_log_dir, verbose);
+    return new opcode_mix_t(module_file_path, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string& module_log_dir, unsigned int verbose) :
+opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int verbose) :
     dcontext(nullptr), raw2trace(nullptr), knob_verbose(verbose), instr_count(0)
 {
-    if (module_log_dir.empty()) {
+    if (module_file_path.empty()) {
         success = false;
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace_directory_t dir(module_log_dir, "");
-    raw2trace = new raw2trace_t(dir.modfile_bytes, dir.thread_files, nullptr,
-                                dcontext, verbose);
+    raw2trace_directory_t dir(module_file_path);
+    raw2trace = new raw2trace_t(dir.modfile_bytes, std::vector<std::istream*>(),
+                                nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
         success = false;

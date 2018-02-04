@@ -42,7 +42,7 @@
 class opcode_mix_t : public analysis_tool_t
 {
  public:
-    opcode_mix_t(const std::string& module_log_dir, unsigned int verbose);
+    opcode_mix_t(const std::string& module_file_path, unsigned int verbose);
     virtual ~opcode_mix_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
