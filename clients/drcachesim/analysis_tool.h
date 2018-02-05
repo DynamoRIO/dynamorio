@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -69,9 +69,13 @@ class analysis_tool_t
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry and
      * takes whatever actions the tool needs to perform its analysis.
+     * The return value indicates whether it was successful or there was an error.
      */
     virtual bool process_memref(const memref_t &memref) = 0;
-    /** This routine reports the results of the trace analysis. */
+    /**
+     * This routine reports the results of the trace analysis.
+     * The return value indicates whether it was successful or there was an error.
+     */
     virtual bool print_results() = 0;
  protected:
     bool success;

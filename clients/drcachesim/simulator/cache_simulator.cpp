@@ -126,8 +126,11 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         return;
     }
 
+    bool warmup_enabled = ((warmup_refs > 0) || (warmup_fraction > 0.0));
+
     if (!llcache->init(knob_LL_assoc, (int)knob_line_size,
-                       (int)knob_LL_size, NULL, new cache_stats_t(knob_LL_miss_file))) {
+                       (int)knob_LL_size, NULL,
+                       new cache_stats_t(knob_LL_miss_file, warmup_enabled))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
                "associativity are powers of 2, that the total size is a multiple "
                "of the line size, and that any miss file path is writable.\n");
@@ -150,9 +153,11 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         }
 
         if (!icaches[i]->init(knob_L1I_assoc, (int)knob_line_size,
-                              (int)knob_L1I_size, llcache, new cache_stats_t) ||
+                              (int)knob_L1I_size, llcache,
+                              new cache_stats_t("", warmup_enabled)) ||
             !dcaches[i]->init(knob_L1D_assoc, (int)knob_line_size,
-                              (int)knob_L1D_size, llcache, new cache_stats_t,
+                              (int)knob_L1D_size, llcache,
+                              new cache_stats_t("", warmup_enabled),
                               data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
                               new prefetcher_t((int)knob_line_size) : nullptr)) {
             ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "

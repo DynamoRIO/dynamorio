@@ -34,8 +34,8 @@
 #include <iomanip>
 #include "cache_stats.h"
 
-cache_stats_t::cache_stats_t(const std::string &miss_file) :
-    caching_device_stats_t(miss_file),
+cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled) :
+    caching_device_stats_t(miss_file, warmup_enabled),
     num_flushes(0), num_prefetch_hits(0), num_prefetch_misses(0)
 {
 }

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -2405,6 +2405,9 @@ if (CLIENT_INTERFACE)
       get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
     endif ()
 
+    ###########################################################################
+    # drcachesim tests
+
     if (NOT ANDROID) # Pipes not working on Android yet (i#1874)
       # i#2023: to avoid stale pipe files in /tmp from prior suite runs, we place them
       # in the current build dir where they will be blown away on the next suite run.
@@ -2414,61 +2417,44 @@ if (CLIENT_INTERFACE)
         set(IPC_PREFIX "")
       endif ()
 
+      macro (torunonly_drcachesim testname exetgt sim_ops app_args)
+        torunonly_ci(tool.drcachesim.${testname} ${exetgt} drcachesim
+          "${testname}.c" # for templatex basename
+          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
+        set(tool.drcachesim.${testname}_toolname "drcachesim")
+        set(tool.drcachesim.${testname}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
+      endmacro (torunonly_drcachesim)
+
       # We have a couple of sanity checks that at least nothing crashes.
-      torunonly_ci(tool.drcachesim.simple ${ci_shared_app} drcachesim
-        "drcachesim-simple.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestpipe1" "" "")
-      set(tool.drcachesim.simple_toolname "drcachesim")
-      set(tool.drcachesim.simple_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.drcachesim.simple_rawtemp ON) # no preprocessor
+      torunonly_drcachesim(simple ${ci_shared_app} "" "")
 
       # TLB simulator's single-thread sanity check
-      torunonly_ci(tool.drcachesim.TLB-simple ${ci_shared_app} drcachesim
-        "drcachesim-TLB-simple.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtesttlbpipe1 -simulator_type TLB" "" "")
-        set(tool.drcachesim.TLB-simple_toolname "drcachesim")
-        set(tool.drcachesim.TLB-simple_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.drcachesim.TLB-simple_rawtemp ON) # no preprocessor
+      torunonly_drcachesim(TLB-simple ${ci_shared_app} "-simulator_type TLB" "")
 
       # Test that -LL_miss_file at least doesn't crash.  It's not easy to test
       # much further.
-      torunonly_ci(tool.drcachesim.missfile ${ci_shared_app} drcachesim
-        "drcachesim-simple.c" # for templatex basename
-        "-LL_miss_file ${CMAKE_CURRENT_BINARY_DIR}/drtestmf.gz -ipc_name ${IPC_PREFIX}drtestmfpipe1"
-        "" "")
-      set(tool.drcachesim.missfile_toolname "drcachesim")
-      set(tool.drcachesim.missfile_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.drcachesim.missfile_rawtemp ON) # no preprocessor
+      torunonly_drcachesim(missfile ${ci_shared_app}
+        "-LL_miss_file ${CMAKE_CURRENT_BINARY_DIR}/drtestmf.gz" "")
+      set(tool.drcachesim.missfile_source simple) # Share simple template.
 
       if (NOT WIN32) # No physaddr access on Windows.
-        torunonly_ci(tool.drcachesim.phys ${ci_shared_app} drcachesim
-          "drcachesim-phys.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe4 -use_physical" "" "")
-        set(tool.drcachesim.phys_toolname "drcachesim")
-        set(tool.drcachesim.phys_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.phys_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
       endif ()
 
-      torunonly_ci(tool.drcachesim.filter ${ci_shared_app} drcachesim
-        "drcachesim-filter-simple.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestfilter -L0_filter" "" "")
-        set(tool.drcachesim.filter_toolname "drcachesim")
-        set(tool.drcachesim.filter_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.drcachesim.filter_rawtemp ON) # no preprocessor
+      torunonly_drcachesim(filter-simple ${ci_shared_app} "-L0_filter" "")
+      torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
+      torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
 
-      torunonly_ci(tool.drcachesim.delay ${ci_shared_app} drcachesim
-        "drcachesim-delay-simple.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestdelay -trace_after_instrs 50000 -exit_after_tracing 10000"
-        "" "")
-        set(tool.drcachesim.delay_toolname "drcachesim")
-        set(tool.drcachesim.delay_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(tool.drcachesim.delay_rawtemp ON) # no preprocessor
+      torunonly_drcachesim(delay-simple ${ci_shared_app}
+        "-trace_after_instrs 50000 -exit_after_tracing 10000" "")
+
+      # Test that "Warmup hits" and "Warmup misses" are printed out
+      torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
+
+      # Test that warmup was enabled but not triggered.
+      torunonly_drcachesim(warmup-zeros ${ci_shared_app} "-warmup_refs 1000000000" "")
 
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
@@ -2478,113 +2464,69 @@ if (CLIENT_INTERFACE)
         # XXX i#1703: this may be too flaky: we may want to remove this once
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
-        torunonly_ci(tool.drcachesim.threads client.annotation-concurrency drcachesim
-          "drcachesim-threads.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe2" "" "${annotation_test_args}")
-        set(tool.drcachesim.threads_toolname "drcachesim")
-        set(tool.drcachesim.threads_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.threads_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(threads client.annotation-concurrency ""
+          "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
-        torunonly_ci(tool.drcachesim.TLB-threads client.annotation-concurrency drcachesim
-          "drcachesim-TLB-threads.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtesttlbpipe2 -simulator_type TLB" "" "${annotation_test_args}")
-        set(tool.drcachesim.TLB-threads_toolname "drcachesim")
-        set(tool.drcachesim.TLB-threads_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.TLB-threads_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(TLB-threads client.annotation-concurrency
+          "-simulator_type TLB" "${annotation_test_args}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
 
       if (ARM)
-        # allasm_thumb test
-        torunonly_ci(tool.drcachesim.thumb common.allasm_thumb drcachesim
-          "allasm-thumb.c" # for expect basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_thumb" "" "")
-        set(tool.drcachesim.thumb_toolname "drcachesim")
-        set(tool.drcachesim.thumb_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.thumb_rawtemp ON) # no preprocessor
-        # allasm_arm test
-        torunonly_ci(tool.drcachesim.arm common.allasm_arm drcachesim
-          "allasm-arm.c" # for expect basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_arm" "" "")
-        set(tool.drcachesim.arm_toolname "drcachesim")
-        set(tool.drcachesim.arm_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.arm_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(allasm-thumb common.allasm_thumb "" "")
+        torunonly_drcachesim(allasm-arm common.allasm_arm "" "")
       endif ()
 
       if (AARCH64)
-        torunonly_ci(tool.drcachesim.aarch64 common.allasm_aarch64_cache drcachesim
-          "allasm-aarch64-cache.c" # for expect basename
+        torunonly_drcachesim(allasm-aarch64-cache common.allasm_aarch64_cache
           # XXX i#2676: We disable the data prefetcher until someone with A64
           # hardware gets a chance to update the expected output.
-          "-ipc_name ${IPC_PREFIX}drtestpipe_aarch64 -data_prefetcher none" "" "")
-        set(tool.drcachesim.aarch64_toolname "drcachesim")
-        set(tool.drcachesim.aarch64_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.aarch64_rawtemp ON) # no preprocessor
+          "-data_prefetcher none" "")
       endif ()
 
-      # FIXME i#1703: add more dedicated tests (in suite/tests/clients/) for which
+      # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
       # we know the results, and check the output.
       # We have one so far:
       if (UNIX) # FIXME i#1727: on Windows the child fails to open the pipe.
         add_exe(tool.multiproc
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
         get_target_path_for_execution(tool.multiproc_path tool.multiproc)
-        torunonly_ci(tool.drcachesim.multiproc tool.multiproc drcachesim
-          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c
-          "-ipc_name ${IPC_PREFIX}drtestpipe3" "" "${tool.multiproc_path}")
-        set(tool.drcachesim.multiproc_toolname "drcachesim")
-        set(tool.drcachesim.multiproc_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.multiproc_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(multiproc tool.multiproc "" "${tool.multiproc_path}")
       endif ()
 
       # Test other analysis tools
-      torunonly_ci(tool.histogram ${ci_shared_app} drcachesim
-        "histogram.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestpipe5 -simulator_type histogram -report_top 20" "" "")
-      set(tool.histogram_toolname "drcachesim")
-      set(tool.histogram_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      macro (torunonly_simtool testname exetgt sim_ops app_args)
+        torunonly_ci(tool.${testname} ${exetgt} drcachesim
+          "${testname}.c" # for templatex basename
+          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
+        set(tool.${testname}_toolname "drcachesim")
+        set(tool.${testname}_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      endmacro (torunonly_simtool)
 
-      torunonly_ci(tool.reuse ${ci_shared_app} drcachesim
-        "reuse_distance.c" # for templatex basename
-        "-ipc_name ${IPC_PREFIX}drtestpipe6 -simulator_type reuse_distance -reuse_distance_threshold 256" "" "")
-      set(tool.reuse_toolname "drcachesim")
-      set(tool.reuse_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      torunonly_simtool(histogram ${ci_shared_app}
+        "-simulator_type histogram -report_top 20" "")
+
+      torunonly_simtool(reuse_distance ${ci_shared_app}
+        "-simulator_type reuse_distance -reuse_distance_threshold 256" "")
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
-        torunonly_ci(tool.basic_counts common.decode-bad drcachesim
-          "basic_counts.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe7 -simulator_type basic_counts" "" "")
-        set(tool.basic_counts_toolname "drcachesim")
-        set(tool.basic_counts_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        torunonly_simtool(basic_counts common.decode-bad
+          "-simulator_type basic_counts" "")
       endif ()
 
       if (X86 AND X64) # We only bother with a sample trace for x86_64.
         # We test with a fixed trace file so we can test exact numeric results.
         set(small_trace_file
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.small.x64.trace")
-        torunonly_ci(tool.reuse.offline ${ci_shared_app} drcachesim
-          "reuse_offline.c" # for expect basename
-          "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "" "")
-        set(tool.reuse.offline_toolname "drcachesim")
-        set(tool.reuse.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        torunonly_simtool(reuse_offline ${ci_shared_app}
+          "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "")
 
-        torunonly_ci(tool.reuse_time.offline ${ci_shared_app} drcachesim
-          "reuse_time_offline.c" # for expect basename
-          "-infile ${small_trace_file} -simulator_type reuse_time" "" "")
-        set(tool.reuse_time.offline_toolname "drcachesim")
-        set(tool.reuse_time.offline_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        torunonly_simtool(reuse_time_offline ${ci_shared_app}
+          "-infile ${small_trace_file} -simulator_type reuse_time" "")
       endif ()
 
       # We run an app w/ kernel xfers to test trace_invariants online.
@@ -2599,13 +2541,7 @@ if (CLIENT_INTERFACE)
         endif ()
       endif()
       if (DEBUG) # for -test_mode
-        torunonly_ci(tool.drcachesim.invariants ${kernel_xfer_app} drcachesim
-          "drcachesim-invariants.c" # for templatex basename
-          "-test_mode -ipc_name ${IPC_PREFIX}drtestpipe8" "" "")
-        set(tool.drcachesim.invariants_toolname "drcachesim")
-        set(tool.drcachesim.invariants_basedir
-          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-        set(tool.drcachesim.invariants_rawtemp ON) # no preprocessor
+        torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
       endif ()
 
       # Test offline traces.
@@ -2653,6 +2589,12 @@ if (CLIENT_INTERFACE)
           "@-simulator_type@basic_counts" "")
         unset(tool.drcacheoff.basic_counts_rawtemp)
       endif ()
+
+      torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
+        "@-simulator_type@opcode_mix" "")
+      # We're using the same app so we serialize to avoid racing trace dirs:
+      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.simple)
+      set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.filter)
 
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
@@ -2791,6 +2733,9 @@ if (CLIENT_INTERFACE)
       set_tests_properties(drmemtrace_proj PROPERTIES ENVIRONMENT
         "CFLAGS=-m32;CXXFLAGS=-m32")
     endif ()
+
+    ###########################################################################
+    # drcpusim tests
 
     if (X86) # i#1732: no ARM/AArch64 support for drcpusim yet
       torunonly_ci(tool.drcpusim.simple ${ci_shared_app} drcpusim
@@ -3099,7 +3044,9 @@ if (UNIX)
       # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
       # which doesn't play well with clang and -static.  Adding
       # --no-export-dynamic avoids the problem.
-      "-static -Wl,--no-export-dynamic")
+      # We get two copies of memcpy (from drhelper and from libc) so we avoid
+      # linker warnings on gcc 6.x+ (i#1958).
+      "-static -Wl,--no-export-dynamic -Wl,--allow-multiple-definition")
   endif ()
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
