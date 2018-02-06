@@ -54,14 +54,13 @@
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
 --------------------------------  impx30     # implicit X30 operand
---------------------------------  impFPCR    # implicit FPCR operand
---------------------------------  impFPSR    # implicit FPCR operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
 --------xx-----------------xxxxx  float_reg0 # H, S or D register including type for FP instruction
 --------xx------------xxxxx-----  float_reg5 # H, S or D register including type for FP instruction
+--------xx-------xxxxx----------  float_reg10 # H, S or D register including type for FP instruction
 --------xx-xxxxx----------------  float_reg16 # H, S or D register including type for FP instruction
 ---------------------------xxxxx  s0         # S register
 ---------------------------xxxxx  d0         # D register
@@ -133,9 +132,8 @@
 ??---?--xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
--x-------------------------xxxxx  vq0        # Q register if bit 30 is set, else V64
--x--------------------xxxxx-----  vq5        # Q register if bit 30 is set, else V64
--x---------xxxxx----------------  vq16       # Q register if bit 30 is set, else V64
+-x--------------------xxxxx-----  dq5        # Q register if bit 30 is set, else D
+-x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x-------------------------xxxxx  dq0p1      # ... add 1
 -x-------------------------xxxxx  dq0p2      # ... add 2
 -x-------------------------xxxxx  dq0p3      # ... add 3
@@ -154,8 +152,12 @@ x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
 x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
----------x----------------------  fsz        # element size of FP vector reg
 ################################################################################
+---------xx---------------------  fsz        # element size of FP vector reg
+---------xx---------------------  fsz16        # element size of FP vector reg
+--------xx----------------------  fsz83        # element size of FP vector reg
+-------------------x------------  rot12
+-------------------xx-----------  rot11
 # Instruction patterns
 
 # The syntax here is: pattern opcode opndtype* : opndtype*
@@ -279,14 +281,14 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 00001000010xxxxx0xxxxxxxxxxxxxxx  ldxrb  w0 : mem0 ign10 ign16
 00001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrb w0 : mem0 ign10 ign16
 00001000100xxxxx1xxxxxxxxxxxxxxx  stlrb  mem0 : w0 ign10 ign16
-00001000110xxxxx1xxxxxxxxxxxxxxx  ldarb  w0 : mem0 ign10 ign16
+0000100011011111111111xxxxxxxxxx  ldarb  w0 : mem0
 
 01001000000xxxxx0xxxxxxxxxxxxxxx  stxrh  mem0 w16 : w0 ign10
 01001000000xxxxx1xxxxxxxxxxxxxxx  stlxrh mem0 w16 : w0 ign10
 01001000010xxxxx0xxxxxxxxxxxxxxx  ldxrh  w0 : mem0 ign10 ign16
 01001000010xxxxx1xxxxxxxxxxxxxxx  ldaxrh w0 : mem0 ign10 ign16
 01001000100xxxxx1xxxxxxxxxxxxxxx  stlrh  mem0 : w0 ign10 ign16
-01001000110xxxxx1xxxxxxxxxxxxxxx  ldarh  w0 : mem0 ign10 ign16
+0100100011011111111111xxxxxxxxxx  ldarh  w0 : mem0
 
 10001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : w0 ign10
 10001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : w0 ign10
@@ -297,7 +299,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 10001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   w0 w10 : mem0p ign16
 10001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  w0 w10 : mem0p ign16
 10001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : w0 ign10 ign16
-10001000110xxxxx1xxxxxxxxxxxxxxx  ldar   w0 : mem0 ign10 ign16
+1000100011011111111111xxxxxxxxxx  ldar   w0 : mem0
 
 11001000000xxxxx0xxxxxxxxxxxxxxx  stxr   mem0 w16 : x0 ign10
 11001000000xxxxx1xxxxxxxxxxxxxxx  stlxr  mem0 w16 : x0 ign10
@@ -308,7 +310,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 11001000011xxxxx0xxxxxxxxxxxxxxx  ldxp   x0 x10 : mem0p ign16
 11001000011xxxxx1xxxxxxxxxxxxxxx  ldaxp  x0 x10 : mem0p ign16
 11001000100xxxxx1xxxxxxxxxxxxxxx  stlr   mem0 : x0 ign10 ign16
-11001000110xxxxx1xxxxxxxxxxxxxxx  ldar   x0 : mem0 ign10 ign16
+1100100011011111111111xxxxxxxxxx  ldar   x0 : mem0
 
 ### ARMv8.1 atomic instructions
 
@@ -946,133 +948,195 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1101101011000000000011xxxxxxxxxx  rev     x0 : x5
 
 # Data Processing - Scalar Floating-Point and Advanced SIMD
-# FADD (scalar)
-00011110xx1xxxxx001010xxxxxxxxxx     fadd float_reg0 impFPSR : float_reg5 float_reg16 impFPCR
 
 # FABD
-0x101110110xxxxx000101xxxxxxxxxx     fabd vq0 impFPSR : vq5 vq16 impFPCR
-0x1011101x1xxxxx110101xxxxxxxxxx     fabd vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x101110110xxxxx000101xxxxxxxxxx     fabd dq0 : dq5 dq16 fsz16
+0x1011101x1xxxxx110101xxxxxxxxxx     fabd dq0 : dq5 dq16 fsz
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/sub/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/sub/fp16/sisd
 
+# FABS (scalar)
+00011110xx100000110000xxxxxxxxxx     fabs float_reg0 : float_reg5
+
 # FACGE
-0x1011100x1xxxxx111011xxxxxxxxxx     facge vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110010xxxxx001011xxxxxxxxxx     facge vq0 impFPSR : vq5 vq16 impFPCR
+0x101110010xxxxx001011xxxxxxxxxx     facge dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx111011xxxxxxxxxx     facge dq0 : dq5 dq16 fsz
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp16/sisd
 
 # FACGT
-0x1011101x1xxxxx111011xxxxxxxxxx     facgt vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110110xxxxx001011xxxxxxxxxx     facgt vq0 impFPSR : vq5 vq16 impFPCR
+0x1011101x1xxxxx111011xxxxxxxxxx     facgt dq0 : dq5 dq16 fsz
+0x101110110xxxxx001011xxxxxxxxxx     facgt dq0 : dq5 dq16 fsz16
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp16/sisd
 
 # FADD (vector)
-0x0011100x1xxxxx110101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110010xxxxx000101xxxxxxxxxx     fadd vq0 impFPSR : vq5 vq16 impFPCR
+0x0011100x1xxxxx110101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz
+0x001110010xxxxx000101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz16
 
+# FADD (scalar)
+00011110xx1xxxxx001010xxxxxxxxxx     fadd float_reg0 : float_reg5 float_reg16
 
 # FADDP (vector)
-0x101110010xxxxx000101xxxxxxxxxx     faddp vq0 impFPSR : vq5 vq16 impFPCR
-0x1011100x1xxxxx110101xxxxxxxxxx     faddp vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x1011100x1xxxxx110101xxxxxxxxxx     faddp dq0 : dq5 dq16 fsz
+0x101110010xxxxx000101xxxxxxxxxx     faddp dq0 : dq5 dq16 fsz16
 
+# FCADD
+0x101110xx0xxxxx111x01xxxxxxxxxx     fcadd dq0 : dq5 dq16 rot12 fsz83
 
 # FCMEQ (register)
-0x001110010xxxxx001001xxxxxxxxxx     fcmeq vq0 impFPSR : vq5 vq16 impFPCR
-0x0011100x1xxxxx111001xxxxxxxxxx     fcmeq vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x0011100x1xxxxx111001xxxxxxxxxx     fcmeq dq0 : dq5 dq16 fsz
+0x001110010xxxxx001001xxxxxxxxxx     fcmeq dq0 : dq5 dq16 fsz16
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp16/sisd
 
 # FCMGE (register)
-0x1011100x1xxxxx111001xxxxxxxxxx     fcmge vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110010xxxxx001001xxxxxxxxxx     fcmge vq0 impFPSR : vq5 vq16 impFPCR
+0x101110010xxxxx001001xxxxxxxxxx     fcmge dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx111001xxxxxxxxxx     fcmge dq0 : dq5 dq16 fsz
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp16/sisd
 
 # FCMGT (register)
-0x101110110xxxxx001001xxxxxxxxxx     fcmgt vq0 impFPSR : vq5 vq16 impFPCR
-0x1011101x1xxxxx111001xxxxxxxxxx     fcmgt vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x101110110xxxxx001001xxxxxxxxxx     fcmgt dq0 : dq5 dq16 fsz16
+0x1011101x1xxxxx111001xxxxxxxxxx     fcmgt dq0 : dq5 dq16 fsz
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/cmp/fp16/sisd
 
-# FDIV (vector)
-0x1011100x1xxxxx111111xxxxxxxxxx     fdiv vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110010xxxxx001111xxxxxxxxxx     fdiv vq0 impFPSR : vq5 vq16 impFPCR
+# FCMLA
+0x101110xx0xxxxx110xx1xxxxxxxxxx     fcmla dq0 : dq5 dq16 rot11 fsz83
 
+# FDIV (vector)
+0x101110010xxxxx001111xxxxxxxxxx     fdiv dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx111111xxxxxxxxxx     fdiv dq0 : dq5 dq16 fsz
+
+# FDIV (scalar)
+00011110xx1xxxxx000110xxxxxxxxxx     fdiv float_reg0 : float_reg5 float_reg16
+
+# FMADD
+00011111xx0xxxxx0xxxxxxxxxxxxxxx     fmadd float_reg0 : float_reg5 float_reg16 float_reg10
 
 # FMAX (vector)
-0x0011100x1xxxxx111101xxxxxxxxxx     fmax vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110010xxxxx001101xxxxxxxxxx     fmax vq0 impFPSR : vq5 vq16 impFPCR
+0x0011100x1xxxxx111101xxxxxxxxxx     fmax dq0 : dq5 dq16 fsz
+0x001110010xxxxx001101xxxxxxxxxx     fmax dq0 : dq5 dq16 fsz16
 
+# FMAX (scalar)
+00011110xx1xxxxx010010xxxxxxxxxx     fmax float_reg0 : float_reg5 float_reg16
 
 # FMAXNM (vector)
-0x001110010xxxxx000001xxxxxxxxxx     fmaxnm vq0 impFPSR : vq5 vq16 impFPCR
-0x0011100x1xxxxx110001xxxxxxxxxx     fmaxnm vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x0011100x1xxxxx110001xxxxxxxxxx     fmaxnm dq0 : dq5 dq16 fsz
+0x001110010xxxxx000001xxxxxxxxxx     fmaxnm dq0 : dq5 dq16 fsz16
 
+# FMAXNM (scalar)
+00011110xx1xxxxx011010xxxxxxxxxx     fmaxnm float_reg0 : float_reg5 float_reg16
 
 # FMAXNMP (vector)
-0x1011100x1xxxxx110001xxxxxxxxxx     fmaxnmp vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110010xxxxx000001xxxxxxxxxx     fmaxnmp vq0 impFPSR : vq5 vq16 impFPCR
-
+0x1011100x1xxxxx110001xxxxxxxxxx     fmaxnmp dq0 : dq5 dq16 fsz
+0x101110010xxxxx000001xxxxxxxxxx     fmaxnmp dq0 : dq5 dq16 fsz16
 
 # FMAXP (vector)
-0x101110010xxxxx001101xxxxxxxxxx     fmaxp vq0 impFPSR : vq5 vq16 impFPCR
-0x1011100x1xxxxx111101xxxxxxxxxx     fmaxp vq0 impFPSR : vq5 vq16 fsz impFPCR
-
+0x101110010xxxxx001101xxxxxxxxxx     fmaxp dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx111101xxxxxxxxxx     fmaxp dq0 : dq5 dq16 fsz
 
 # FMIN (vector)
-0x0011101x1xxxxx111101xxxxxxxxxx     fmin vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110110xxxxx001101xxxxxxxxxx     fmin vq0 impFPSR : vq5 vq16 impFPCR
+0x0011101x1xxxxx111101xxxxxxxxxx     fmin dq0 : dq5 dq16 fsz
+0x001110110xxxxx001101xxxxxxxxxx     fmin dq0 : dq5 dq16 fsz16
 
+# FMIN (scalar)
+00011110xx1xxxxx010110xxxxxxxxxx     fmin float_reg0 : float_reg5 float_reg16
 
 # FMINNM (vector)
-0x001110110xxxxx000001xxxxxxxxxx     fminnm vq0 impFPSR : vq5 vq16 impFPCR
-0x0011101x1xxxxx110001xxxxxxxxxx     fminnm vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x001110110xxxxx000001xxxxxxxxxx     fminnm dq0 : dq5 dq16 fsz16
+0x0011101x1xxxxx110001xxxxxxxxxx     fminnm dq0 : dq5 dq16 fsz
 
+# FMINNM (scalar)
+00011110xx1xxxxx011110xxxxxxxxxx     fminnm float_reg0 : float_reg5 float_reg16
 
 # FMINNMP (vector)
-0x1011101x1xxxxx110001xxxxxxxxxx     fminnmp vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110110xxxxx000001xxxxxxxxxx     fminnmp vq0 impFPSR : vq5 vq16 impFPCR
-
+0x1011101x1xxxxx110001xxxxxxxxxx     fminnmp dq0 : dq5 dq16 fsz
+0x101110110xxxxx000001xxxxxxxxxx     fminnmp dq0 : dq5 dq16 fsz16
 
 # FMINP (vector)
-0x1011101x1xxxxx111101xxxxxxxxxx     fminp vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x101110110xxxxx001101xxxxxxxxxx     fminp vq0 impFPSR : vq5 vq16 impFPCR
-
+0x1011101x1xxxxx111101xxxxxxxxxx     fminp dq0 : dq5 dq16 fsz
+0x101110110xxxxx001101xxxxxxxxxx     fminp dq0 : dq5 dq16 fsz16
 
 # FMLA (vector)
-0x001110010xxxxx000011xxxxxxxxxx     fmla vq0 impFPSR : vq5 vq16 impFPCR
-0x0011100x1xxxxx110011xxxxxxxxxx     fmla vq0 impFPSR : vq5 vq16 fsz impFPCR
-
+0x0011100x1xxxxx110011xxxxxxxxxx     fmla dq0 : dq5 dq16 fsz
+0x001110010xxxxx000011xxxxxxxxxx     fmla dq0 : dq5 dq16 fsz16
 
 # FMLS (vector)
-0x001110110xxxxx000011xxxxxxxxxx     fmls vq0 impFPSR : vq5 vq16 impFPCR
-0x0011101x1xxxxx110011xxxxxxxxxx     fmls vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x001110110xxxxx000011xxxxxxxxxx     fmls dq0 : dq5 dq16 fsz16
+0x0011101x1xxxxx110011xxxxxxxxxx     fmls dq0 : dq5 dq16 fsz
 
+# FMOV (register)
+00011110xx100000010000xxxxxxxxxx     fmov float_reg0 : float_reg5
+
+# FMSUB
+00011111xx0xxxxx1xxxxxxxxxxxxxxx     fmsub float_reg0 : float_reg5 float_reg16 float_reg10
 
 # FMUL (vector)
-0x101110010xxxxx000111xxxxxxxxxx     fmul vq0 impFPSR : vq5 vq16 impFPCR
-0x1011100x1xxxxx110111xxxxxxxxxx     fmul vq0 impFPSR : vq5 vq16 fsz impFPCR
+0x101110010xxxxx000111xxxxxxxxxx     fmul dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx110111xxxxxxxxxx     fmul dq0 : dq5 dq16 fsz
 
+# FMUL (scalar)
+00011110xx1xxxxx000010xxxxxxxxxx     fmul float_reg0 : float_reg5 float_reg16
 
 # FMULX
-0x0011100x1xxxxx110111xxxxxxxxxx     fmulx vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110010xxxxx000111xxxxxxxxxx     fmulx vq0 impFPSR : vq5 vq16 impFPCR
+0x0011100x1xxxxx110111xxxxxxxxxx     fmulx dq0 : dq5 dq16 fsz
+0x001110010xxxxx000111xxxxxxxxxx     fmulx dq0 : dq5 dq16 fsz16
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/mul/fp/extended/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/mul/fp16/extended/sisd
 
+# FNEG (scalar)
+00011110xx100001010000xxxxxxxxxx     fneg float_reg0 : float_reg5
+
+# FNMADD
+00011111xx1xxxxx0xxxxxxxxxxxxxxx     fnmadd float_reg0 : float_reg5 float_reg16 float_reg10
+
+# FNMSUB
+00011111xx1xxxxx1xxxxxxxxxxxxxxx     fnmsub float_reg0 : float_reg5 float_reg16 float_reg10
+
+# FNMUL (scalar)
+00011110xx1xxxxx100010xxxxxxxxxx     fnmul float_reg0 : float_reg5 float_reg16
+
 # FRECPS
-0x0011100x1xxxxx111111xxxxxxxxxx     frecps vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110010xxxxx001111xxxxxxxxxx     frecps vq0 impFPSR : vq5 vq16 impFPCR
-# Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/recps-fp16/sisd
+0x001110010xxxxx001111xxxxxxxxxx     frecps dq0 : dq5 dq16 fsz16
+0x0011100x1xxxxx111111xxxxxxxxxx     frecps dq0 : dq5 dq16 fsz
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/recps/sisd
+# Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/recps-fp16/sisd
+
+# FRINTA (scalar)
+00011110xx100110010000xxxxxxxxxx     frinta float_reg0 : float_reg5
+
+# FRINTI (scalar)
+00011110xx100111110000xxxxxxxxxx     frinti float_reg0 : float_reg5
+
+# FRINTM (scalar)
+00011110xx100101010000xxxxxxxxxx     frintm float_reg0 : float_reg5
+
+# FRINTN (scalar)
+00011110xx100100010000xxxxxxxxxx     frintn float_reg0 : float_reg5
+
+# FRINTP (scalar)
+00011110xx100100110000xxxxxxxxxx     frintp float_reg0 : float_reg5
+
+# FRINTX (scalar)
+00011110xx100111010000xxxxxxxxxx     frintx float_reg0 : float_reg5
+
+# FRINTZ (scalar)
+00011110xx100101110000xxxxxxxxxx     frintz float_reg0 : float_reg5
 
 # FRSQRTS
-0x0011101x1xxxxx111111xxxxxxxxxx     frsqrts vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110110xxxxx001111xxxxxxxxxx     frsqrts vq0 impFPSR : vq5 vq16 impFPCR
+0x0011101x1xxxxx111111xxxxxxxxxx     frsqrts dq0 : dq5 dq16 fsz
+0x001110110xxxxx001111xxxxxxxxxx     frsqrts dq0 : dq5 dq16 fsz16
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/rsqrts-fp16/sisd
 # Missing encoding: aarch64/instrs/vector/arithmetic/binary/uniform/rsqrts/sisd
 
+# FSQRT (scalar)
+00011110xx100001110000xxxxxxxxxx     fsqrt float_reg0 : float_reg5
+
 # FSUB (vector)
-0x0011101x1xxxxx110101xxxxxxxxxx     fsub vq0 impFPSR : vq5 vq16 fsz impFPCR
-0x001110110xxxxx000101xxxxxxxxxx     fsub vq0 impFPSR : vq5 vq16 impFPCR
+0x001110110xxxxx000101xxxxxxxxxx     fsub dq0 : dq5 dq16 fsz16
+0x0011101x1xxxxx110101xxxxxxxxxx     fsub dq0 : dq5 dq16 fsz
+
+# FSUB (scalar)
+00011110xx1xxxxx001110xxxxxxxxxx     fsub float_reg0 : float_reg5 float_reg16
