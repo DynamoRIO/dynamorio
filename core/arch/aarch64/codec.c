@@ -2689,7 +2689,6 @@ decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         *opnd = opnd_create_immed_int(FSZ_DOUBLE, OPSZ_2b);
         return true;
     }
-
     return false;
 }
 
@@ -2704,7 +2703,6 @@ encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
         *enc_out = 0x03 << 21;
         return true;
     }
-
     return false;
 }
 
@@ -2729,10 +2727,8 @@ encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         *enc_out = 0x02 << 21;
         return true;
     }
-
     return false;
 }
-
 
 /******************************************************************************/
 

@@ -1562,19 +1562,19 @@ fd481041 : ldr    d1, [x2,#4128]          : ldr    +0x1020(%x2)[8byte] -> %d1
 fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 
 # FADD (vector)
-4e4e147f : fadd v31.8h, v3.8h, v14.8h : fadd   %q3 %q14 $0x01 -> %q31
-4e3bd728 : fadd v8.4s, v25.4s, v27.4s : fadd   %q25 %q27 $0x02 -> %q8
-4e7bd728 : fadd v8.2d, v25.2d, v27.2d : fadd   %q25 %q27 $0x02 -> %q8
-0e4e147f : fadd v31.4h, v3.4h, v14.4h : fadd   %d3 %d14 $0x01 -> %d31
-0e3bd728 : fadd v8.2s, v25.2s, v27.2s : fadd   %d25 %d27 $0x02 -> %d8
+4e29d7c9 : fadd v9.4s, v30.4s, v9.4s : fadd   %q30 %q9 $0x02 -> %q9
+4e50152d : fadd v13.8h, v9.8h, v16.8h : fadd   %q9 %q16 $0x01 -> %q13
+0e29d7c9 : fadd v9.2s, v30.2s, v9.2s : fadd   %d30 %d9 $0x02 -> %d9
+4e69d7c9 : fadd v9.2d, v30.2d, v9.2d : fadd   %q30 %q9 $0x03 -> %q9
+0e50152d : fadd v13.4h, v9.4h, v16.4h : fadd   %d9 %d16 $0x01 -> %d13
 
 # FADD (scalar)
-1ee52b8e : fadd h14, h28, h5 : fadd   %h28 %h5 -> %h14
-1e3529be : fadd s30, s13, s21 : fadd   %s13 %s21 -> %s30
-1e7529be : fadd d30, d13, d21 : fadd   %d13 %d21 -> %d30
-1e252b8e : fadd s14, s28, s5 : fadd   %s28 %s5 -> %s14
-1ef529be : fadd h30, h13, h21 : fadd   %h13 %h21 -> %h30
-1e752914 : fadd d20, d8, d21 : fadd   %d8 %d21 -> %d20
-1e652b8e : fadd d14, d28, d5 : fadd   %d28 %d5 -> %d14
-1e352914 : fadd s20, s8, s21 : fadd   %s8 %s21 -> %s20
-1ef52914 : fadd h20, h8, h21 : fadd   %h8 %h21 -> %h20
+1ef82a2d : fadd h13, h17, h24 : fadd   %h17 %h24 -> %h13
+1eef28e9 : fadd h9, h7, h15 : fadd   %h7 %h15 -> %h9
+1e6f28e9 : fadd d9, d7, d15 : fadd   %d7 %d15 -> %d9
+1e2d2a83 : fadd s3, s20, s13 : fadd   %s20 %s13 -> %s3
+1eed2a83 : fadd h3, h20, h13 : fadd   %h20 %h13 -> %h3
+1e782a2d : fadd d13, d17, d24 : fadd   %d17 %d24 -> %d13
+1e382a2d : fadd s13, s17, s24 : fadd   %s17 %s24 -> %s13
+1e6d2a83 : fadd d3, d20, d13 : fadd   %d20 %d13 -> %d3
+1e2f28e9 : fadd s9, s7, s15 : fadd   %s7 %s15 -> %s9
