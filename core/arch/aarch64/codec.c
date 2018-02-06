@@ -2674,29 +2674,50 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 
 /* Element size for vector floating point instructions. */
 
+/* fsz: Operand size for single and double precision encoding of floating point
+ * vector instructions. We need to convert the generic size operand to the right
+ * encoding bits. It only supports FSZ_SINGLE and FSZ_DOUBLE.
+ */
 static inline bool
 decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (((enc >> 21) & 0x03) == 0x03 || ((enc >> 21) & 0x03) == 0x01) {
-        return decode_opnd_int(21, 2, false, 0, OPSZ_2b, 0, enc, opnd);
+    if (((enc >> 21) & 0x03) == 0x01) {
+        *opnd = opnd_create_immed_int(FSZ_SINGLE, OPSZ_2b);
+        return true;
     }
+    if (((enc >> 21) & 0x03) == 0x03) {
+        *opnd = opnd_create_immed_int(FSZ_DOUBLE, OPSZ_2b);
+        return true;
+    }
+
     return false;
 }
 
 static inline bool
 encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) != 0x02) {
-        return encode_opnd_int(21, 2, false, 0, 0, opnd, enc_out);
+    if (opnd_get_immed_int(opnd) == FSZ_SINGLE) {
+        *enc_out = 0x01 << 21;
+        return true;
     }
+    if (opnd_get_immed_int(opnd) == FSZ_DOUBLE) {
+        *enc_out = 0x03 << 21;
+        return true;
+    }
+
     return false;
 }
 
+/* fsz16: Operand size for half precision encoding of floating point vector
+ * instructions. We need to convert the generic size operand to the right
+ * encoding bits. It only supports FSZ_HALF.
+ */
 static inline bool
 decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     if (((enc >> 21) & 0x03) == 0x02) {
-        return decode_opnd_int(21, 2, false, 0, OPSZ_2b, 0, enc, opnd);
+        *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
+        return true;
     }
     return false;
 }
@@ -2704,9 +2725,11 @@ decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == 0x02) {
-        return encode_opnd_int(21, 2, false, 0, 0, opnd, enc_out);
+    if (opnd_get_immed_int(opnd) == FSZ_HALF) {
+        *enc_out = 0x02 << 21;
+        return true;
     }
+
     return false;
 }
 

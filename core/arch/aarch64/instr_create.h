@@ -38,6 +38,10 @@
 #include "../instr_create_shared.h"
 #include "instr.h"
 
+#define FSZ_HALF 1
+#define FSZ_SINGLE 2
+#define FSZ_DOUBLE 3
+
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
 /* DR_API EXPORT BEGIN */
 /**
