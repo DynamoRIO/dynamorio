@@ -278,9 +278,7 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 {
 #if !defined(VMX86_SERVER) && defined(LINUX)
     /* PR 305020: must have SA_RESTORER for x64 */
-    /* Must have SA_RESTORER to handle vsyscall32 being disabled
-       (see https://github.com/DynamoRIO/dynamorio/issues/2812)
-    */
+    /* i#2812: must have SA_RESTORER to handle vsyscall32 being disabled */
     if (act != NULL && !TEST(SA_RESTORER, act->flags)) {
         act->flags |= SA_RESTORER;
         act->restorer = (void (*)(void)) dynamorio_sigreturn;
@@ -1317,9 +1315,7 @@ set_handler_sigact(kernel_sigaction_t *act, int sig, handler_t handler)
 
 #if !defined(VMX86_SERVER) && defined(LINUX)
     /* PR 305020: must have SA_RESTORER for x64 */
-    /* Must have SA_RESTORER to handle vsyscall32 being disabled
-       (see https://github.com/DynamoRIO/dynamorio/issues/2812)
-    */
+    /* i#2812: must have SA_RESTORER to handle vsyscall32 being disabled */
     act->flags |= SA_RESTORER;
     act->restorer = (void (*)(void)) dynamorio_sigreturn;
 #endif
