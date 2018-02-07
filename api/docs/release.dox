@@ -227,6 +227,7 @@ Further non-compatibility-affecting changes include:
  - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
    hashtable.
  - Added drutil_insert_get_mem_addr_ex().
+ - Added dr_vfprintf().
 
 **************************************************
 <hr>
