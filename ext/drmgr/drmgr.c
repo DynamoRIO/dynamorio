@@ -115,9 +115,11 @@ typedef struct _cb_entry_t {
 typedef struct _generic_event_entry_t {
     priority_event_entry_t pri;
     bool is_ex;
+    void *user_data;
     union {
         void (*generic_cb)(void);
         void (*thread_cb)(void *);
+        void (*thread_cb_with_user)(void *, void *);
         void (*cls_cb)(void *, bool);
         bool (*presys_cb)(void *, int);
         void (*postsys_cb)(void *, int);
@@ -1164,12 +1166,48 @@ drmgr_generic_event_add_ex(cb_list_t *list,
 }
 
 static bool
+drmgr_generic_event_add_ex_with_user_data(cb_list_t *list,
+                           void *rwlock,
+                           void (*func)(void),
+						   void *user_data,
+                           drmgr_priority_t *priority,
+                           bool is_ex)
+{
+    int idx;
+    generic_event_entry_t *e;
+    bool res = false;
+    if (func == NULL)
+        return false;
+    dr_rwlock_write_lock(rwlock);
+    idx = priority_event_add(list, priority);
+    if (idx >= 0) {
+        res = true;
+        e = &list->cbs.generic[idx];
+        e->user_data = user_data;
+        e->is_ex = is_ex;
+        e->cb.generic_cb = func;
+    }
+    dr_rwlock_write_unlock(rwlock);
+    return res;
+}
+
+static bool
 drmgr_generic_event_add(cb_list_t *list,
                         void *rwlock,
                         void (*func)(void),
                         drmgr_priority_t *priority)
 {
     return drmgr_generic_event_add_ex(list, rwlock, func, priority, false);
+}
+
+static bool
+drmgr_generic_event_add_with_data(cb_list_t *list,
+                        void *rwlock,
+                        void (*func)(void),
+						void *user_data,
+                        drmgr_priority_t *priority)
+{
+    return drmgr_generic_event_add_ex_with_user_data(list, rwlock, func, user_data, priority, false);
 }
 
 static bool
@@ -1252,16 +1290,42 @@ drmgr_register_thread_init_event(void (*func)(void *drcontext))
 
 DR_EXPORT
 bool
+drmgr_register_thread_init_event_with_user_data(void (*func)(void *drcontext,
+		void *user_data), void *user_data)
+{
+    return drmgr_register_thread_init_event_ex_with_user_data(func, user_data, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_register_thread_init_event_ex_with_user_data(void (*func)(void *drcontext, void *user_data),
+												   void *user_data,
+												   drmgr_priority_t *priority)
+{
+	return drmgr_generic_event_add_with_data(&cb_list_thread_init, thread_event_lock,
+			                                (void (*)(void)) func, user_data, priority);
+}
+
+DR_EXPORT
+bool
 drmgr_register_thread_init_event_ex(void (*func)(void *drcontext),
                                     drmgr_priority_t *priority)
 {
     return drmgr_generic_event_add(&cb_list_thread_init, thread_event_lock,
-                                   (void (*)(void)) func, priority);
+    							  (void (*)(void)) func, priority);
 }
 
 DR_EXPORT
 bool
 drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
+{
+    return drmgr_generic_event_remove(&cb_list_thread_init, thread_event_lock,
+                                      (void (*)(void)) func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_thread_init_event_with_user(void (*func)(void *drcontext, void *user_data))
 {
     return drmgr_generic_event_remove(&cb_list_thread_init, thread_event_lock,
                                       (void (*)(void)) func);
@@ -1718,7 +1782,13 @@ drmgr_thread_init_event(void *drcontext)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        (*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+
+        if (iter.cbs.generic[i].user_data == NULL)
+        	(*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+        else
+        	(*iter.cbs.generic[i].cb.thread_cb_with_user)(drcontext,
+        			iter.cbs.generic[i].user_data);
+
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
