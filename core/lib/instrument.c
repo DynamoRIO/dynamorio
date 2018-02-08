@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -5032,7 +5032,7 @@ dr_set_itimer(int which, uint millisec,
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
-    if (func == NULL)
+    if (func == NULL && millisec != 0)
         return false;
     return set_itimer_callback(dcontext, which, millisec, NULL,
                                (void (*)(dcontext_t *, dr_mcontext_t *))func);
