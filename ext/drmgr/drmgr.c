@@ -118,7 +118,10 @@ typedef struct _generic_event_entry_t {
     void *usr_data;
     union {
         void (*generic_cb)(void);
-        void (*thread_cb)(void *);
+        union {
+            void (*cb_no_usr_data)(void *);
+            void (*cb_usr_data)(void *, void *);
+        } thread_cb;
         void (*cls_cb)(void *, bool);
         bool (*presys_cb)(void *, int);
         void (*postsys_cb)(void *, int);
@@ -1304,6 +1307,13 @@ drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
                                       (void (*)(void)) func);
 }
 
+bool
+drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data))
+{
+    return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
+                                      (void (*)(void)) func);
+}
+
 DR_EXPORT
 bool
 drmgr_register_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
@@ -1731,7 +1741,13 @@ drmgr_thread_init_event(void *drcontext)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        (*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+        
+        void *usr_data = iter.cbs.generic[i].usr_data;
+        if (usr_data != NULL) 
+            (*iter.cbs.generic[i].cb.thread_cb.cb_no_usr_data)(drcontext);
+        else
+            (*iter.cbs.generic[i].cb.thread_cb.cb_usr_data)(drcontext, usr_data);
+
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
@@ -1752,7 +1768,7 @@ drmgr_thread_exit_event(void *drcontext)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        (*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+        (*iter.cbs.generic[i].cb.thread_cb.cb_no_usr_data)(drcontext);
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
