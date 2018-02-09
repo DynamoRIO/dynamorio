@@ -1301,7 +1301,7 @@ bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 {
     return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
-                                      (void (*)(void)) func, NULL);
+                                      (void (*)(void)) func);
 }
 
 DR_EXPORT
