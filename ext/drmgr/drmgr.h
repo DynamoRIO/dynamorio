@@ -764,8 +764,8 @@ DR_EXPORT
  * whenever the application creates a new thread. \return whether successful.
  */
 bool
-drmgr_register_thread_init_event_ex(void (*func)(void *drcontext, void *usr_data),
-                                    drmgr_priority_t *priority, void *usr_data);
+drmgr_register_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data),
+                                          drmgr_priority_t *priority, void *usr_data);
 
 DR_EXPORT
 /**
@@ -783,7 +783,7 @@ DR_EXPORT
  * is successful and false if it is not (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_thread_init_event_ex(void (*func)(void *drcontext, void *usr_data));
+drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data));
 
 DR_EXPORT
 /**
