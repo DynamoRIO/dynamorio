@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2017 Google, Inc. All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
 
@@ -38,12 +38,17 @@
 #include "../instr_create_shared.h"
 #include "instr.h"
 
-#define FSZ_HALF 1
-#define FSZ_SINGLE 2
-#define FSZ_DOUBLE 3
-
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
 /* DR_API EXPORT BEGIN */
+
+/** Denotes half-precision floating point vector elements. */
+#define FSZ_HALF 1
+/** Denotes single-precision floating point vector elements. */
+#define FSZ_SINGLE 2
+/** Denotes double-precision floating point vector elements. */
+#define FSZ_DOUBLE 3
+
+
 /**
  * @file dr_ir_macros_aarch64.h
  * @brief AArch64-specific instruction creation convenience macros.
