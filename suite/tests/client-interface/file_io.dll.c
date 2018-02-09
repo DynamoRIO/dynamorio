@@ -57,6 +57,7 @@ static void test_dir(void);
 static void test_relative(void);
 static void test_map_exe(void);
 static void test_times(void);
+static void test_vfprintf(void);
 
 byte *
 find_prot_edge(const byte *start, uint prot_flag)
@@ -302,6 +303,8 @@ void dr_init(client_id_t id)
     test_map_exe();
 
     test_times();
+
+    test_vfprintf();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -490,4 +493,31 @@ test_times(void)
      * in a non-flaky manner (i#2041) so we just ensure it doesn't crash.
      */
     dr_get_time(&drtime);
+}
+
+static void
+test_vfprintf_helper(file_t f, const char *fmt, ...)
+{
+    va_list ap;
+    ssize_t len1, len2;
+
+    va_start(ap, fmt);
+    len1 = dr_vfprintf(f, fmt, ap);
+    va_end(ap);
+
+    /* check length consistency, because why not. */
+    char buf[100];
+    va_start(ap, fmt);
+    len2 = dr_vsnprintf(buf, BUFFER_SIZE_ELEMENTS(buf), fmt, ap);
+    va_end(ap);
+
+    if (len1 != len2 && !(len1 > BUFFER_SIZE_ELEMENTS(buf) && len2 == -1)) {
+        dr_fprintf(STDERR, "dr_vfprintf and dr_vsnprintf disagree.\n");
+    }
+}
+
+static void
+test_vfprintf(void)
+{
+    test_vfprintf_helper(STDERR, "vfprintf check: %d\n", 1234);
 }
