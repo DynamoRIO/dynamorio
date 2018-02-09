@@ -783,7 +783,8 @@ DR_EXPORT
  * is successful and false if it is not (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data));
+drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext,
+                                            void *usr_data));
 
 DR_EXPORT
 /**
