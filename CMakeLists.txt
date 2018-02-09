@@ -777,6 +777,11 @@ if (UNIX)
     set(OPT "${OPT} -fno-omit-frame-pointer")
   endif ()
 
+  # Omit unwind tables in optimized mode.
+  if (NOT DEBUG)
+    set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -fno-unwind-tables")
+  endif ()
+
   if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
     # Generate the .hash section in addition to .gnu.hash for every target, to
     # avoid SIGFPE when running our binaries on old systems:
