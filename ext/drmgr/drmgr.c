@@ -1741,9 +1741,9 @@ drmgr_thread_init_event(void *drcontext)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        
+
         void *usr_data = iter.cbs.generic[i].usr_data;
-        if (usr_data == NULL) 
+        if (usr_data == NULL)
             (*iter.cbs.generic[i].cb.thread_cb.cb_no_usr_data)(drcontext);
         else
             (*iter.cbs.generic[i].cb.thread_cb.cb_usr_data)(drcontext, usr_data);
