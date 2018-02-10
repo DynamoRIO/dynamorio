@@ -815,7 +815,7 @@ DR_EXPORT
  */
 bool
 drmgr_register_thread_exit_event_usr_data(void (*func)(void *drcontext, void *usr_data),
-                                    drmgr_priority_t *priority);
+                                    drmgr_priority_t *priority, void *usr_data);
 
 DR_EXPORT
 /**
