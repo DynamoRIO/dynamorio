@@ -779,7 +779,7 @@ drmgr_unregister_thread_init_event(void (*func)(void *drcontext));
 DR_EXPORT
 /**
  * Unregister a callback function for the thread initialization event which
- * also has user data passed to its callback. \return true if unregistration
+ * also has user data passed to the callback. \return true if unregistration
  * is successful and false if it is not (e.g., \p func was not registered).
  */
 bool
@@ -808,12 +808,33 @@ drmgr_register_thread_exit_event_ex(void (*func)(void *drcontext),
 
 DR_EXPORT
 /**
+ * Registers a callback function for the thread exit event,
+ * ordered by \p priority. Allows for the passing of user data \p usr_data
+ * which is available upon the execution of the callback. drmgr calls \p func
+ * when an application thread exits. \return whether successful.
+ */
+bool
+drmgr_register_thread_exit_event_usr_data(void (*func)(void *drcontext, void *usr_data),
+                                    drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
  * Unregister a callback function for the thread exit event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
 bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext));
+
+DR_EXPORT
+/**
+ * Unregister a callback function for the thread exit event which
+ * also has user data passed to the callback. \return true if unregistration
+ * is successful and false if it is not (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_thread_exit_event_usr_data(void (*func)(void *drcontext,
+                                            void *usr_data));
 
 DR_EXPORT
 /**

@@ -1283,6 +1283,13 @@ drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
                                       (void (*)(void)) func);
 }
 
+bool
+drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data))
+{
+    return drmgr_generic_event_remove(&cb_list_thread_init, thread_event_lock,
+                                      (void (*)(void)) func);
+}
+
 DR_EXPORT
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext))
@@ -1301,6 +1308,15 @@ drmgr_register_thread_exit_event_ex(void (*func)(void *drcontext),
 
 DR_EXPORT
 bool
+drmgr_register_thread_exit_event_usr_data(void (*func)(void *drcontext, void *usr_data),
+                                          drmgr_priority_t *priority, void *usr_data)
+{
+    return drmgr_generic_event_add(&cb_list_thread_exit, thread_event_lock,
+                                   (void (*)(void)) func, priority, usr_data);
+}
+
+DR_EXPORT
+bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 {
     return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
@@ -1308,7 +1324,7 @@ drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 }
 
 bool
-drmgr_unregister_thread_init_event_usr_data(void (*func)(void *drcontext, void *usr_data))
+drmgr_unregister_thread_exit_event_usr_data(void (*func)(void *drcontext, void *usr_data))
 {
     return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
                                       (void (*)(void)) func);
