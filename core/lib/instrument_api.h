@@ -4149,6 +4149,13 @@ DR_API
 ssize_t
 dr_fprintf(file_t f, const char *fmt, ...);
 
+DR_API
+/**
+ * Identical to dr_fprintf() but exposes va_list.
+ */
+ssize_t
+dr_vfprintf(file_t f, const char *fmt, va_list ap);
+
 #ifdef WINDOWS
 DR_API
 /**
