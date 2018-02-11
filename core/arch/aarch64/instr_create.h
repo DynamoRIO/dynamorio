@@ -41,11 +41,22 @@
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
 /* DR_API EXPORT BEGIN */
 
-/** Denotes half-precision floating point vector elements. */
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * half-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
 #define FSZ_HALF 1
-/** Denotes single-precision floating point vector elements. */
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * single-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
 #define FSZ_SINGLE 2
-/** Denotes double-precision floating point vector elements. */
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * double-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
 #define FSZ_DOUBLE 3
 
 
