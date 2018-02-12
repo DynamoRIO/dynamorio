@@ -1165,6 +1165,7 @@ drmgr_generic_event_add_ex(cb_list_t *list,
         e = &list->cbs.generic[idx];
         e->is_ex = is_ex;
         e->cb.generic_cb = func;
+        e->is_using_user_data = is_using_user_data;
         e->user_data = user_data;
     }
     dr_rwlock_write_unlock(rwlock);
