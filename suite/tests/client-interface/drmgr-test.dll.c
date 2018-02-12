@@ -133,6 +133,12 @@ dr_init(client_id_t id)
                                   NULL, NULL, 10};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
                                   "drmgr-test-A", NULL, 5};
+    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority), 
+                                                  "drmgr-thread-init-test",
+                                                   NULL, NULL, -3};
+    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority), 
+                                                  "drmgr-thread-init-test",
+                                                   NULL, NULL, -2};
     drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
                                         NULL, NULL, -1};
     drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
@@ -145,11 +151,13 @@ dr_init(client_id_t id)
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_thread_init_event_ex(event_thread_init_ex, &thread_init_pri);
     drmgr_register_thread_exit_event_ex(event_thread_exit_ex, &thread_exit_pri);
-    drmgr_register_thread_init_event_user_data(event_thread_init_user_data, NULL,
+    drmgr_register_thread_init_event_user_data(event_thread_init_user_data,
+                                               &thread_init_user_data_pri,
                                                (void *) user_data_test);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data, NULL,
                                                (void *) user_data_test);
-    drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data, NULL,
+    drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data,
+                                               &thread_init_null_user_data_pri,
                                                NULL);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data, NULL,
                                                NULL);

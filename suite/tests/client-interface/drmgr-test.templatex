@@ -1,7 +1,7 @@
+in event_thread_init_null_user_data
+in event_thread_init_user_data
 in event_thread_init_ex
 in event_thread_init
-in event_thread_init_user_data
-in event_thread_init_null_user_data
 in pre_sys_B
 in pre_sys_A
 /* B is here with late injection */
