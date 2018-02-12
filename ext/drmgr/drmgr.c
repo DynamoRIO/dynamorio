@@ -131,8 +131,8 @@ typedef struct _generic_event_entry_t {
             void (*cb_user_data)(void *, const module_data_t *, bool, void *user_data);
         } modload_cb;
         union {
-            void (*cb_no_user_data)(void *, const module_data_t *)
-            void (*cb_user_data)(void *, const module_data_t *, void *user_data)
+            void (*cb_no_user_data)(void *, const module_data_t *);
+            void (*cb_user_data)(void *, const module_data_t *, void *user_data);
         } modunload_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
