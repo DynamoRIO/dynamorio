@@ -1544,7 +1544,8 @@ DR_EXPORT
 bool
 drmgr_register_module_unload_event_user_data(void (*func)
                                              (void *drcontext,
-                                             const module_data_t *info),
+                                             const module_data_t *info,
+                                             void *user_data),
                                              void *user_data)
 {
     return drmgr_generic_event_add(&cblist_modunload, modunload_event_lock,
