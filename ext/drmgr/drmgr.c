@@ -1289,7 +1289,8 @@ drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
 }
 
 bool
-drmgr_unregister_thread_init_event_user_data(void (*func)(void *drcontext, void *user_data))
+drmgr_unregister_thread_init_event_user_data(void (*func)(void *drcontext,
+                                             void *user_data))
 {
     return drmgr_generic_event_remove(&cb_list_thread_init, thread_event_lock,
                                       (void (*)(void)) func);
@@ -1329,7 +1330,8 @@ drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 }
 
 bool
-drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext, void *user_data))
+drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
+                                             void *user_data))
 {
     return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
                                       (void (*)(void)) func);
@@ -1664,7 +1666,8 @@ drmgr_register_restore_state_event(void (*func)
 {
     drmgr_register_fault_event();
     return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
-                                      (void (*)(void)) func, NULL, false, NULL, false/*!ex*/);
+                                      (void (*)(void)) func, NULL, false, NULL,
+                                      false/*!ex*/);
 }
 
 DR_EXPORT
@@ -1674,7 +1677,8 @@ drmgr_register_restore_state_ex_event(bool (*func)(void *drcontext, bool restore
 {
     drmgr_register_fault_event();
     return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
-                                      (void (*)(void)) func, NULL, false, NULL, true/*ex*/);
+                                      (void (*)(void)) func, NULL, false, NULL,
+                                      true/*ex*/);
 }
 
 DR_EXPORT
@@ -1686,7 +1690,8 @@ drmgr_register_restore_state_ex_event_ex(bool (*func)(void *drcontext,
 {
     drmgr_register_fault_event();
     return drmgr_generic_event_add_ex(&cblist_fault, fault_event_lock,
-                                      (void (*)(void)) func, priority, false, NULL, true/*ex*/);
+                                      (void (*)(void)) func, priority, false, NULL,
+                                      true/*ex*/);
 }
 
 DR_EXPORT
