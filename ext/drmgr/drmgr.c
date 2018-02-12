@@ -1464,7 +1464,7 @@ drmgr_register_module_load_event_ex(void (*func)
 
 DR_EXPORT
 bool
-drmgr_register_module_load_event_user_event(void (*func)(void *drcontext, 
+drmgr_register_module_load_event_user_event(void (*func)(void *drcontext,
                                             const module_data_t *info,
                                             bool loaded, void *user_data),
                                             void *user_data)
@@ -1544,7 +1544,7 @@ DR_EXPORT
 bool
 drmgr_register_module_unload_event_user_data(void (*func)
                                              (void *drcontext,
-                                             const module_data_t *info), 
+                                             const module_data_t *info),
                                              void *user_data)
 {
     return drmgr_generic_event_add(&cblist_modunload, modunload_event_lock,
@@ -1591,7 +1591,7 @@ drmgr_modunload_event(void *drcontext, const module_data_t *info)
             (*iter.cbs.generic[i].cb.modunload_cb.cb_no_user_data)(drcontext, info);
         else
             (*iter.cbs.generic[i].cb.modunload_cb.cb_user_data)(drcontext, info,
-                                                                user_data); 
+                                                                user_data);
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
