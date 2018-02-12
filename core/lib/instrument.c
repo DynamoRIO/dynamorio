@@ -4547,11 +4547,9 @@ dr_printf(const char *fmt, ...)
 }
 
 DR_API ssize_t
-dr_fprintf(file_t f, const char *fmt, ...)
+dr_vfprintf(file_t f, const char *fmt, va_list ap)
 {
     ssize_t written;
-    va_list ap;
-    va_start(ap, fmt);
 #ifdef WINDOWS
     if ((f == STDOUT || f == STDERR) && print_to_console) {
         written = dr_write_to_console(f == STDOUT, fmt, ap);
@@ -4560,8 +4558,18 @@ dr_fprintf(file_t f, const char *fmt, ...)
     } else
 #endif
         written = do_file_write(f, fmt, ap);
-    va_end(ap);
     return written;
+}
+
+DR_API ssize_t
+dr_fprintf(file_t f, const char *fmt, ...)
+{
+    va_list ap;
+    ssize_t res;
+    va_start(ap, fmt);
+    res = dr_vfprintf(f, fmt, ap);
+    va_end(ap);
+    return res;
 }
 
 DR_API int
