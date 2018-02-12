@@ -227,9 +227,9 @@ Further non-compatibility-affecting changes include:
  - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
    hashtable.
  - Added drutil_insert_get_mem_addr_ex().
- - Added drmgr_register_thread_init_event_user_data() and 
+ - Added drmgr_register_thread_init_event_user_data() and
    drmgr_unregister_thread_init_event_user_data() to enable passing of user data.
- - Added drmgr_register_thread_exit_event_user_data() and 
+ - Added drmgr_register_thread_exit_event_user_data() and
    drmgr_unregister_thread_exit_event_usr_data() to enable passing of user data.
 
 **************************************************
