@@ -133,10 +133,10 @@ dr_init(client_id_t id)
                                   NULL, NULL, 10};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
                                   "drmgr-test-A", NULL, 5};
-    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority), 
+    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority),
                                                "drmgr-thread-init-null-user-data-test",
                                                NULL, NULL, -3};
-    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority), 
+    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority),
                                                   "drmgr-thread-init-user-data-test",
                                                    NULL, NULL, -2};
     drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
