@@ -58,6 +58,9 @@
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
+--------xx-----------------xxxxx  float_reg0 # H, S or D register including type for FP instruction
+--------xx------------xxxxx-----  float_reg5 # H, S or D register including type for FP instruction
+--------xx-xxxxx----------------  float_reg16 # H, S or D register including type for FP instruction
 ---------------------------xxxxx  s0         # S register
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
@@ -128,6 +131,8 @@
 ??---?--xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
+-x--------------------xxxxx-----  dq5        # Q register if bit 30 is set, else D
+-x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 -x-------------------------xxxxx  dq0p1      # ... add 1
 -x-------------------------xxxxx  dq0p2      # ... add 2
 -x-------------------------xxxxx  dq0p3      # ... add 3
@@ -146,8 +151,10 @@ x---------------------xxxxx-----  wx5        # W/X register (or WZR/XZR)
 x---------------------xxxxx-----  wx5sp      # W/X register or WSP/XSP
 x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
-
+---------xx---------------------  fsz        # element size of FP vector reg (single (0x1) and double (0x3) encoding)
+---------xx---------------------  fsz16      # element size of FP vector reg (half (0x2) encoding)
 ################################################################################
+
 # Instruction patterns
 
 # The syntax here is: pattern opcode opndtype* : opndtype*
@@ -939,4 +946,9 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 
 # Data Processing - Scalar Floating-Point and Advanced SIMD
 
-# FIXME i#1569: Add: more data processing
+# FADD (vector)
+0x0011100x1xxxxx110101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz
+0x001110010xxxxx000101xxxxxxxxxx     fadd dq0 : dq5 dq16 fsz16
+
+# FADD (scalar)
+00011110xx1xxxxx001010xxxxxxxxxx fadd float_reg0 : float_reg5 float_reg16
