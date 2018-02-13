@@ -532,7 +532,7 @@ get_ABI_stack_alignment()
 }
 
 /* the stack size of a full context switch for clean call */
-uint
+int
 get_clean_call_switch_stack_size(void);
 /* extra temporarily-used stack usage beyond
  * get_clean_call_switch_stack_size()

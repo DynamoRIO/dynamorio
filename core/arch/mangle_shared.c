@@ -58,7 +58,7 @@ clean_call_info_t default_clean_call_info;
 callee_info_t default_callee_info;
 
 /* the stack size of a full context switch for clean call */
-uint
+int
 get_clean_call_switch_stack_size(void)
 {
     return ALIGN_FORWARD(sizeof(priv_mcontext_t), get_ABI_stack_alignment());
@@ -297,8 +297,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     ASSERT(cci->skip_save_flags    ||
            cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
-           dstack_offs == (get_clean_call_switch_stack_size() +
-                           clean_call_beyond_mcontext()));
+           (int) dstack_offs == (get_clean_call_switch_stack_size() +
+                                  clean_call_beyond_mcontext()));
     return dstack_offs;
 }
 
