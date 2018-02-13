@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,10 @@ class raw2trace_directory_t {
 public:
     raw2trace_directory_t(const std::string &indir, const std::string &outname,
                           unsigned int verbosity = 0);
+    // This version is for raw2trace_t::do_module_parsing() or
+    // raw2trace_t::do_module_parsing_and_mapping().
+    raw2trace_directory_t(const std::string &module_file_path,
+                          unsigned int verbosity = 0);
     ~raw2trace_directory_t();
 
     char *modfile_bytes;
@@ -50,6 +54,7 @@ public:
     std::ofstream out_file;
 
 private:
+    void read_module_file(const std::string &modfilename);
     void open_thread_files();
     void open_thread_log_file(const char *basename);
     file_t modfile;

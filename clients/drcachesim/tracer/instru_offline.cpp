@@ -500,8 +500,8 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
-                           pc, memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
+    adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
+                             memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
     if (!memref_needs_full_info)
         *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);

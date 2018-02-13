@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,41 +30,24 @@
  * DAMAGE.
  */
 
-/* cache_stats: represents a CPU cache.
+/* basic-counts tool creation */
+
+#ifndef _OPCODE_MIX_CREATE_H_
+#define _OPCODE_MIX_CREATE_H_ 1
+
+#include "analysis_tool.h"
+
+/**
+ * @file drmemtrace/opcode_mix_create.h
+ * @brief DrMemtrace opcode mixture trace analysis tool creation.
  */
 
-#ifndef _CACHE_STATS_H_
-#define _CACHE_STATS_H_ 1
+/**
+ * Creates an analysis tool which counts the number of instances of each opcode
+ * in the trace.  This tool needs access to the modules.log and original libraries
+ * and binaries from the traced execution.  It does not support online analysis.
+ */
+analysis_tool_t *
+opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose = 0);
 
-#include <string>
-#include "caching_device_stats.h"
-
-class cache_stats_t : public caching_device_stats_t
-{
- public:
-    explicit cache_stats_t(const std::string &miss_file = "",
-                           bool warmup_enabled = false);
-
-    // In addition to caching_device_stats_t::access,
-    // cache_stats_t::access processes prefetching requests.
-    virtual void access(const memref_t &memref, bool hit);
-
-    // process CPU cache flushes
-    virtual void flush(const memref_t &memref);
-
-    virtual void reset();
-
- protected:
-    // In addition to caching_device_stats_t::print_counts,
-    // cache_stats_t::print_counts prints stats for flushes and
-    // prefetching requests.
-    virtual void print_counts(std::string prefix);
-
-    // A CPU cache handles flushes and prefetching requests
-    // as well as regular memory accesses.
-    int_least64_t num_flushes;
-    int_least64_t num_prefetch_hits;
-    int_least64_t num_prefetch_misses;
-};
-
-#endif /* _CACHE_STATS_H_ */
+#endif /* _OPCODE_MIX_CREATE_H_ */

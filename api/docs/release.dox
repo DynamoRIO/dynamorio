@@ -183,7 +183,11 @@ Further non-compatibility-affecting changes include:
    drmemtrace_get_modlist_path(), and a separate rawtrace library for
    post-processing customization with raw2trace_t::handle_custom_data(),
    raw2trace_t::do_module_parsing(), raw2trace_t::do_conversion(), and
-   raw2trace_directory_t.  A corresponding CMake function for finding the
+   raw2trace_directory_t.  The raw2trace library also includes an interface
+   for obtaining further instruction information than is stored in the
+   trace via raw2trace_t::do_module_parsing_and_mapping() and
+   raw2trace_t::find_mapped_trace_address().
+   A corresponding CMake function for finding the
    tracer customization header is use_DynamoRIO_drmemtrace_tracer().
  - Added a set_value() function to the \ref page_droption.
  - Added instrlist_get_auto_predicate() and instrlist_set_auto_predicate().
@@ -223,6 +227,7 @@ Further non-compatibility-affecting changes include:
  - Added hashtable_apply_to_all_payloads() to iterate over all payloads in a
    hashtable.
  - Added drutil_insert_get_mem_addr_ex().
+ - Added dr_vfprintf().
 
 **************************************************
 <hr>

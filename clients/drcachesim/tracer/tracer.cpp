@@ -643,6 +643,8 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg_idx;
     bool is_icache = opnd_is_null(ref);
     uint64 cache_size = is_icache ? op_L0I_size.get_value() : op_L0D_size.get_value();
+    if (cache_size == 0)
+        return DR_REG_NULL; // Skip instru.
     ptr_int_t mask = (ptr_int_t)(cache_size / op_line_size.get_value()) - 1;
     int line_bits = compute_log2(op_line_size.get_value());
     uint offs = is_icache ? MEMTRACE_TLS_OFFS_ICACHE : MEMTRACE_TLS_OFFS_DCACHE;
@@ -1328,14 +1330,20 @@ init_thread_in_process(void *drcontext)
     }
 
     if (op_L0_filter.get_value()) {
-        data->l0_dcache = (byte *) dr_raw_mem_alloc
-            ((size_t)op_L0D_size.get_value()/op_line_size.get_value()*sizeof(void*),
-             DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_DCACHE) = data->l0_dcache;
-        data->l0_icache = (byte *) dr_raw_mem_alloc
-            ((size_t)op_L0I_size.get_value()/op_line_size.get_value()*sizeof(void*),
-             DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
-        *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) = data->l0_icache;
+        if (op_L0D_size.get_value() > 0) {
+            data->l0_dcache = (byte *) dr_raw_mem_alloc
+                ((size_t)op_L0D_size.get_value()/op_line_size.get_value()*sizeof(void*),
+                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_DCACHE) =
+                data->l0_dcache;
+        }
+        if (op_L0I_size.get_value() > 0) {
+            data->l0_icache = (byte *) dr_raw_mem_alloc
+                ((size_t)op_L0I_size.get_value()/op_line_size.get_value()*sizeof(void*),
+                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+            *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) =
+                data->l0_icache;
+        }
     }
 
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1381,12 +1389,16 @@ event_thread_exit(void *drcontext)
         file_ops_func.close_file(data->file);
 
     if (op_L0_filter.get_value()) {
-        dr_raw_mem_free(data->l0_dcache,
-                        (size_t)op_L0D_size.get_value()/op_line_size.get_value()
-                        *sizeof(void*));
-        dr_raw_mem_free(data->l0_icache,
-                        (size_t)op_L0D_size.get_value()/op_line_size.get_value()
-                        *sizeof(void*));
+        if (op_L0D_size.get_value() > 0) {
+            dr_raw_mem_free(data->l0_dcache,
+                            (size_t)op_L0D_size.get_value()/op_line_size.get_value()
+                            *sizeof(void*));
+        }
+        if (op_L0I_size.get_value() > 0) {
+            dr_raw_mem_free(data->l0_icache,
+                            (size_t)op_L0I_size.get_value()/op_line_size.get_value()
+                            *sizeof(void*));
+        }
     }
 
     dr_mutex_lock(mutex);
@@ -1544,9 +1556,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
     if (op_L0_filter.get_value() &&
-        (!IS_POWER_OF_2(op_L0I_size.get_value()) ||
-         !IS_POWER_OF_2(op_L0D_size.get_value()))) {
-        FATAL("Usage error: L0I_size and L0D_size must be powers of 2.");
+        ((!IS_POWER_OF_2(op_L0I_size.get_value()) &&
+          op_L0I_size.get_value() != 0) ||
+         (!IS_POWER_OF_2(op_L0D_size.get_value()) &&
+          op_L0D_size.get_value() != 0))) {
+        FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);

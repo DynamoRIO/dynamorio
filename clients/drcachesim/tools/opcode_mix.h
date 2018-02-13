@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,41 +30,31 @@
  * DAMAGE.
  */
 
-/* cache_stats: represents a CPU cache.
- */
-
-#ifndef _CACHE_STATS_H_
-#define _CACHE_STATS_H_ 1
+#ifndef _OPCODE_MIX_H_
+#define _OPCODE_MIX_H_ 1
 
 #include <string>
-#include "caching_device_stats.h"
+#include <unordered_map>
 
-class cache_stats_t : public caching_device_stats_t
+#include "analysis_tool.h"
+#include "tracer/raw2trace.h"
+
+class opcode_mix_t : public analysis_tool_t
 {
  public:
-    explicit cache_stats_t(const std::string &miss_file = "",
-                           bool warmup_enabled = false);
-
-    // In addition to caching_device_stats_t::access,
-    // cache_stats_t::access processes prefetching requests.
-    virtual void access(const memref_t &memref, bool hit);
-
-    // process CPU cache flushes
-    virtual void flush(const memref_t &memref);
-
-    virtual void reset();
+    opcode_mix_t(const std::string& module_file_path, unsigned int verbose);
+    virtual ~opcode_mix_t();
+    virtual bool process_memref(const memref_t &memref);
+    virtual bool print_results();
 
  protected:
-    // In addition to caching_device_stats_t::print_counts,
-    // cache_stats_t::print_counts prints stats for flushes and
-    // prefetching requests.
-    virtual void print_counts(std::string prefix);
-
-    // A CPU cache handles flushes and prefetching requests
-    // as well as regular memory accesses.
-    int_least64_t num_flushes;
-    int_least64_t num_prefetch_hits;
-    int_least64_t num_prefetch_misses;
+    void *dcontext;
+    raw2trace_t *raw2trace;
+    unsigned int knob_verbose;
+    int_least64_t instr_count;
+    std::unordered_map<int, int_least64_t> opcode_counts;
+    std::unordered_map<app_pc, int> opcode_cache;
+    static const std::string TOOL_NAME;
 };
 
-#endif /* _CACHE_STATS_H_ */
+#endif /* _OPCODE_MIX_H_ */
