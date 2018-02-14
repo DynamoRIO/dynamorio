@@ -155,8 +155,7 @@ main(int argc, const char *argv[])
      * merged result several GB's: too much for a test.  We thus cap each thread.
      */
     std::string ops =
-        std::string("-loglevel 4 -logdir /tmp/ -stderr_mask 0xc -client_lib "
-                    "';;-offline -max_trace_size 256K ");
+        std::string("-stderr_mask 0xc -client_lib ';;-offline -max_trace_size 256K ");
     /* Support passing in extra tracer options. */
     for (int i = 1; i < argc; ++i)
         ops += std::string(argv[i]) + " ";
