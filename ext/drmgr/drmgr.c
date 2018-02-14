@@ -1464,7 +1464,7 @@ drmgr_register_module_load_event_ex(void (*func)
 
 DR_EXPORT
 bool
-drmgr_register_module_load_event_user_event(void (*func)(void *drcontext,
+drmgr_register_module_load_event_user_data(void (*func)(void *drcontext,
                                             const module_data_t *info,
                                             bool loaded, void *user_data),
                                             void *user_data)
