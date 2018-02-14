@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2011-2017 Google, Inc. All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,26 @@
 
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
 /* DR_API EXPORT BEGIN */
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * half-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_HALF 1
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * single-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_SINGLE 2
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * double-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_DOUBLE 3
+
+
 /**
  * @file dr_ir_macros_aarch64.h
  * @brief AArch64-specific instruction creation convenience macros.

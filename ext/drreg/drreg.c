@@ -936,7 +936,9 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
         drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
     } else {
         restore_reg(drcontext, pt, app_reg, pt->reg[GPR_IDX(app_reg)].slot,
-                    ilist, where, false);
+                    ilist, where, !pt->reg[GPR_IDX(app_reg)].in_use);
+        if (!pt->reg[GPR_IDX(app_reg)].in_use)
+            pt->reg[GPR_IDX(app_reg)].native = true;
     }
     instrlist_set_auto_predicate(ilist, pred);
     return DRREG_SUCCESS;
@@ -1422,8 +1424,10 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
             __FUNCTION__, pt->live_idx, instr_get_app_pc(where));
         /* XXX i#2585: drreg should predicate spills and restores as appropriate */
         instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
-        res = drreg_restore_aflags(drcontext, ilist, where, pt, false/*keep slot*/);
+        res = drreg_restore_aflags(drcontext, ilist, where, pt, !pt->aflags.in_use);
         instrlist_set_auto_predicate(ilist, pred);
+        if (!pt->aflags.in_use)
+            pt->aflags.native = true;
     }
     return res;
 }

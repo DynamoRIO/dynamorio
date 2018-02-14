@@ -2623,6 +2623,16 @@ if (CLIENT_INTERFACE)
           torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
+          torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
+            "" "@-simulator_type@basic_counts" "")
+          set(tool.drcacheoff.burst_threadfilter_nodr ON)
+          torunonly_drcacheoff(burst_threadL0filter tool.drcacheoff.burst_threadfilter
+            "" "@-simulator_type@basic_counts" "-L0_filter -L0I_size 0")
+          set(tool.drcacheoff.burst_threadL0filter_nodr ON)
+          # We're using the same app so we serialize to avoid racing trace dirs:
+          set(tool.drcacheoff.burst_threadL0filter_depends
+            tool.drcacheoff.burst_threadfilter)
+
           if (X86 AND NOT APPPLE) # This test is x86-specific.
             # Test that raw2trace doesn't do more IO than it should.
             get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io)

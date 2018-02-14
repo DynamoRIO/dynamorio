@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,7 +52,8 @@ extern "C" {
 typedef enum {
     DRMEMTRACE_SUCCESS,                  /**< Operation succeeded. */
     DRMEMTRACE_ERROR,                    /**< Operation failed. */
-    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
+    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter. */
+    DRMEMTRACE_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not implemented. */
 } drmemtrace_status_t;
 
 DR_EXPORT
@@ -247,6 +248,24 @@ drmemtrace_status_t
 drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
+
+/**
+ * Activates thread filtering.  The \p should_trace_thread_cb will be
+ * called once for each new thread, with \p user_value passed in for \p
+ * user_data.  If it returns false, that thread will *not* be traced at
+ * all; if it returns true, that thread will be traced normally.  Returns
+ * whether the filter was successfully installed.  \note This feature is
+ * currently only supported for x86.
+ * This routine should be called during initialization, before any
+ * instrumentation is added.  To filter out the calling thread (the initial
+ * application thread) this should be called prior to DR initialization
+ * (via the start/stop API).  Only a single call to this routine is
+ * supported.
+ */
+drmemtrace_status_t
+drmemtrace_filter_threads(bool (*should_trace_thread_cb)(thread_id_t tid,
+                                                         void *user_data),
+                          void *user_value);
 
 #ifdef __cplusplus
 }

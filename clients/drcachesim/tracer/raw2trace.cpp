@@ -590,6 +590,8 @@ raw2trace_t::merge_and_process_thread_files()
 {
     // The current thread we're processing is tidx.  If it's set to thread_files.size()
     // that means we need to pick a new thread.
+    if (thread_files.empty())
+        return "No thread files found.";
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
