@@ -120,6 +120,8 @@ drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
                               OUT bool *scratch_used)
 {
+    if (scratch_used != NULL)
+        *scratch_used = false;
 #if defined(X86)
     return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch,
                                           scratch_used);
