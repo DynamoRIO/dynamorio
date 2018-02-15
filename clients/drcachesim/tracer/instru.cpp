@@ -114,14 +114,16 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
                              OUT bool *scratch_used)
 {
     bool ok;
+    bool we_used_scratch = false;
     if (opnd_uses_reg(ref, reg_scratch)) {
         drreg_get_app_value(drcontext, ilist, where, reg_scratch, reg_scratch);
-        if (scratch_used != NULL)
-            *scratch_used = true;
+        we_used_scratch = true;
     }
     if (opnd_uses_reg(ref, reg_addr))
         drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
     ok = drutil_insert_get_mem_addr_ex(drcontext, ilist, where, ref, reg_addr,
                                        reg_scratch, scratch_used);
     DR_ASSERT(ok);
+    if (scratch_used != NULL && we_used_scratch)
+        *scratch_used = true;
 }

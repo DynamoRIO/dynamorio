@@ -4,8 +4,6 @@
 
 /*
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
  *
@@ -122,7 +120,7 @@ static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t
                                          bool for_trace, bool translating);
 static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
-uintptr_t user_data_test = 9090;
+static const uintptr_t user_data_test = 9090;
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -133,10 +131,10 @@ dr_init(client_id_t id)
                                   NULL, NULL, 10};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
                                   "drmgr-test-A", NULL, 5};
-    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority), 
-                                               "drmgr-thread-init-null-user-data-test",
-                                               NULL, NULL, -3};
-    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority), 
+    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority),
+                                                       "drmgr-t-in-null-user-data-test",
+                                                       NULL, NULL, -3};
+    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority),
                                                   "drmgr-thread-init-user-data-test",
                                                    NULL, NULL, -2};
     drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
