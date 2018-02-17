@@ -89,6 +89,10 @@ static void event_thread_init_null_user_data(void *drcontext, void *user_data);
 static void event_thread_exit_null_user_data(void *drcontext, void *user_data);
 static void event_thread_context_init(void *drcontext, bool new_depth);
 static void event_thread_context_exit(void *drcontext, bool process_exit);
+static void event_mod_load(void *drcontext, const module_data_t *mod,
+                           bool loaded, void *user_data);
+static void event_mod_unload(void *drcontext, const module_data_t *mod,
+                             void *user_data);
 static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_sys_A(void *drcontext, int sysnum);
 static bool event_pre_sys_B(void *drcontext, int sysnum);
@@ -122,7 +126,8 @@ static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t
                                          bool for_trace, bool translating);
 static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
-static const uintptr_t user_data_test = 9090;
+static const uintptr_t thread_user_data_test = 9090;
+static const uintptr_t mod_user_data_test = 1070;
 
 DR_EXPORT void
 dr_init(client_id_t id)
@@ -153,9 +158,9 @@ dr_init(client_id_t id)
     drmgr_register_thread_exit_event_ex(event_thread_exit_ex, &thread_exit_pri);
     drmgr_register_thread_init_event_user_data(event_thread_init_user_data,
                                                &thread_init_user_data_pri,
-                                               (void *) user_data_test);
+                                               (void *) thread_user_data_test);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data, NULL,
-                                               (void *) user_data_test);
+                                               (void *) thread_user_data_test);
     drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data,
                                                &thread_init_null_user_data_pri,
                                                NULL);
@@ -186,6 +191,12 @@ dr_init(client_id_t id)
                                                     event_bb4_insert,
                                                     event_bb4_instru2instru,
                                                     &priority4);
+
+    drmgr_register_module_load_event_user_data(event_mod_load,
+                                               (void *) mod_user_data_test);
+
+    drmgr_register_module_unload_event_user_data(event_mod_unload,
+                                                 (void *) mod_user_data_test));
 
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx != -1, "drmgr_register_tls_field failed");
@@ -243,6 +254,12 @@ event_exit(void)
                                                       event_bb4_insert,
                                                       event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
+
+    if (!drmgr_unregister_module_load_event_user_data(event__mod_load))
+        CHECK(false, "drmgr mod load unregistration failed");
+
+    if (!drmgr_unregister_module_unload_event_user_data(event_mod_unload))
+        CHECK(false, "drmgr mod load unregistration failed");
 
     if (!drmgr_unregister_cls_field(event_thread_context_init,
                                     event_thread_context_exit, cls_idx))
@@ -353,6 +370,21 @@ event_thread_exit_null_user_data(void *drcontext, void *user_data)
     CHECK(user_data == NULL, "incorrect user data passed");
     thread_exit_null_user_data_events++;
     dr_mutex_unlock(threadlock);
+}
+
+static void
+event_mod_load(void *drcontext, const module_data_t *mod,
+                                  bool loaded, void *user_data)
+{
+    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod load");
+}
+
+
+static void
+event_mod_unload(void *drcontext, const module_data_t *mod,
+                        void *user_data)
+{
+    CHECK(user_data == (void *) mod_data_test, "incorrect user data for mod unload");
 }
 
 static void
