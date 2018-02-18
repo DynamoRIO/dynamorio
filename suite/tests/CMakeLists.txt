@@ -3143,7 +3143,14 @@ else (UNIX)
   tobuild_dll(win32.dll win32/dll.c "")
   tobuild(win32.fiber-rac win32/fiber-rac.c)
   tobuild(win32.finally win32/finally.c)
+
   tobuild_dll(win32.multisec win32/multisec.c "")
+  # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  get_target_property(multisec_path win32.multisec.dll LOCATION${location_suffix})
+  add_custom_command(TARGET win32.multisec.dll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${multisec_path}
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.multisec2.dll.dll VERBATIM)
+
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c
     "-native_exec_list nativeterminate.dll.dll")
   # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
@@ -3154,7 +3161,13 @@ else (UNIX)
     torunonly(win32.partial_map_FLAKY win32.partial_map win32/partial_map.c "" "")
   endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
+
   tobuild_dll(win32.rebased win32/rebased.c "")
+  # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  get_target_property(rebased_path win32.rebased.dll LOCATION${location_suffix})
+  add_custom_command(TARGET win32.rebased.dll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${rebased_path}
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.rebased2.dll.dll VERBATIM)
 
   # Memory usage does go up a bit with reloading due to traces so we disable traces.
   tobuild_dll(win32.reload win32/reload.c "-disable_traces")
