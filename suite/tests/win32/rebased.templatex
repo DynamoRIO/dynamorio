@@ -13,5 +13,5 @@ foo
 foo
 bar
 foo
-loaded win32r~[1-4].dll
+loaded win32.rebased2.dll.dll
 #endif
