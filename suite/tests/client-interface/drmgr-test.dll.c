@@ -56,6 +56,8 @@ static thread_id_t main_thread;
 static int cb_depth;
 static volatile bool in_syscall_A;
 static volatile bool in_syscall_B;
+static volatile bool in_event_mod_load;
+static volatile bool in_event_mod_unload;
 static volatile bool in_post_syscall_A;
 static volatile bool in_post_syscall_B;
 static volatile bool in_event_thread_init;
@@ -196,7 +198,7 @@ dr_init(client_id_t id)
                                                (void *) mod_user_data_test);
 
     drmgr_register_module_unload_event_user_data(event_mod_unload,
-                                                 (void *) mod_user_data_test));
+                                                 (void *) mod_user_data_test);
 
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx != -1, "drmgr_register_tls_field failed");
@@ -237,6 +239,9 @@ event_exit(void)
     CHECK(checked_cls_write_from_cache, "failed to hit clean call");
     CHECK(one_time_exec == 1, "failed to execute one-time event");
 
+    CHECK(in_event_mod_load, "Mod Load cb not tested");
+    CHECK(in_event_mod_unload, "Mod Unload cb no tested");
+
     if (thread_exit_events > 0)
         dr_fprintf(STDERR, "saw event_thread_exit\n");
     if (thread_exit_ex_events > 0)
@@ -255,7 +260,7 @@ event_exit(void)
                                                       event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
-    if (!drmgr_unregister_module_load_event_user_data(event__mod_load))
+    if (!drmgr_unregister_module_load_event_user_data(event_mod_load))
         CHECK(false, "drmgr mod load unregistration failed");
 
     if (!drmgr_unregister_module_unload_event_user_data(event_mod_unload))
@@ -310,7 +315,7 @@ event_thread_init_user_data(void *drcontext, void *user_data)
             dr_fprintf(STDERR, "in event_thread_init_user_data\n");
             in_event_thread_init_user_data = true;
 
-            CHECK(user_data == (void *) user_data_test, "incorrect user data passed");
+            CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
         }
         dr_mutex_unlock(threadlock);
     }
@@ -357,7 +362,7 @@ event_thread_exit_user_data(void *drcontext, void *user_data)
 {
     /* We do not print as on Win10 there are extra threads messing up the order. */
     dr_mutex_lock(threadlock);
-    CHECK(user_data == (void *) user_data_test, "incorrect user data passed");
+    CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
     thread_exit_user_data_events++;
     dr_mutex_unlock(threadlock);
 }
@@ -376,6 +381,7 @@ static void
 event_mod_load(void *drcontext, const module_data_t *mod,
                                   bool loaded, void *user_data)
 {
+    in_event_mod_load = true;
     CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod load");
 }
 
@@ -384,7 +390,8 @@ static void
 event_mod_unload(void *drcontext, const module_data_t *mod,
                         void *user_data)
 {
-    CHECK(user_data == (void *) mod_data_test, "incorrect user data for mod unload");
+    in_event_mod_unload = true;
+    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod unload");
 }
 
 static void
