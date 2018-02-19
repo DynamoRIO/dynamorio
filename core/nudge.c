@@ -492,12 +492,14 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
      * in the target process, for <=win7.
      */
     nudge_arg.flags = (internal ? NUDGE_IS_INTERNAL : 0);
+#ifdef WINDOWS
     if (get_os_version() >= WINDOWS_VERSION_8) {
         /* The kernel owns and frees the stack. */
         nudge_arg.flags |= NUDGE_NUDGER_FREE_STACK;
         /* The arg was placed in a new kernel alloc. */
         nudge_arg.flags |= NUDGE_FREE_ARG;
     }
+#endif
     nudge_arg.client_arg = client_arg;
     nudge_arg.client_id = client_id;
 
