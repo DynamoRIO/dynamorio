@@ -2086,7 +2086,7 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
         /* retaddr + this push => 16-byte alignment prior to call */
 # endif
         push     REG_XSI       /* save xsp */
-        CALLC4(GLOBAL_REF(internal_exception_info), \
+        CALLC5(GLOBAL_REF(internal_exception_info), \
                REG_XAX /* dcontext */,  \
                REG_XBX /* pExcptRec */, \
                REG_XDI /* cxt */,       \
