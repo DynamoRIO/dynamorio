@@ -2121,6 +2121,9 @@ our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_add
                              byte *stack_base, size_t stack_size,
                              bool suspended, thread_id_t *tid);
 
+void
+our_create_thread_wrapper(void *param);
+
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context
  * of the current thread */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3053,7 +3053,7 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
     /* We allow a client init routine to create client threads: DR is
      * initialized enough by now
      */
-    if (((void *)cxt->CXT_XIP == (void *)client_thread_target))
+    if (is_new_thread_client_thread(cxt, NULL))
         return;
 #endif
 
@@ -3127,13 +3127,9 @@ intercept_new_thread(CONTEXT *cxt)
     /* i#41/PR 222812: client threads target a certain routine and always
      * directly never via win API (so we don't check THREAT_START_ADDR)
      */
-    is_client = ((void *)cxt->CXT_XIP == (void *)client_thread_target);
+    is_client = is_new_thread_client_thread(cxt, &dstack);
     if (is_client) {
-        /* client threads start out on dstack */
-        GET_STACK_PTR(dstack);
         ASSERT(is_dynamo_address(dstack));
-        /* we assume that less than a page will have been used */
-        dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
     }
 #endif
     /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
@@ -3150,7 +3146,6 @@ intercept_new_thread(CONTEXT *cxt)
 
 #ifdef CLIENT_SIDELINE
         if (is_client) {
-            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
             /* PR 210591: hide our threads from DllMain by not executing rest
              * of Ldr init code and going straight to target.  our_create_thread()
              * already set up the arg in cxt.
@@ -3744,8 +3739,7 @@ intercept_apc(app_state_at_intercept_t *state)
              * generic_nudge_target() */
             ASSERT(!is_dynamo_address((app_pc)cxt->CXT_XIP) ||
                    cxt->CXT_XIP == (ptr_uint_t)generic_nudge_target
-                   IF_CLIENT_INTERFACE(|| cxt->CXT_XIP ==
-                                       (ptr_uint_t)client_thread_target));
+                   IF_CLIENT_INTERFACE(|| is_new_thread_client_thread(cxt, NULL)));
         }
 
         asynch_retakeover_if_native();

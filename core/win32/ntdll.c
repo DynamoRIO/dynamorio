@@ -4737,6 +4737,28 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
                                 arg_buf, arg_buf_size, &stack, suspended, tid);
 }
 
+/* is_new_thread_client_thread() assumes param is the stack */
+void
+our_create_thread_wrapper(void *param)
+{
+    /* Thread was initialized in intercept_new_thread() */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* Get the data we need from where our_create_thread_have_stack() wrote them. */
+    byte *stack_base = (byte *) param;
+    size_t stack_size = *(size_t*)(stack_base-sizeof(void*));
+    byte *src = stack_base - stack_size;
+    void *func = *(void**)src;
+    size_t args_size = *(size_t*)(src+sizeof(void*));
+    void *arg = src+2*sizeof(void*);
+    /* Update TEB for proper SEH, etc. */
+    TEB *teb = get_own_teb();
+    teb->StackLimit = src;
+    teb->StackBase = stack_base;
+    call_switch_stack(arg, stack_base, (void(*)(void*))convert_data_to_function(func),
+                      NULL, false/*no return*/);
+    ASSERT_NOT_REACHED();
+}
+
 /* Uses caller-allocated stack.  hProcess must be NT_CURRENT_PROCESS for win8+. */
 HANDLE
 our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
@@ -4745,20 +4767,36 @@ our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_add
                              bool suspended, thread_id_t *tid)
 {
     if (get_os_version() >= WINDOWS_VERSION_8) {
-        /* FIXME i#1309: we need a wrapper function so we can use NtCreateThreadEx
+        /* i#1309: we need a wrapper function so we can use NtCreateThreadEx
          * and then switch stacks.  This is too hard to arrange in another process.
-         * NtCreateThread seems to work in some cases (on Appveyor) so until we have
-         * an NtCreateThreadEx solution we fall through.
          */
         ASSERT(hProcess == NT_CURRENT_PROCESS &&
                "No support for creating a remote thread with a custom stack");
+        /* We store what the wrapper needs on the end of the stack so it won't
+         * get clobbered by call_switch_stack().
+         */
+        byte *dest = stack_base - stack_size;
+        *(void**)dest = start_addr;
+        if (arg_buf == NULL)
+            arg_buf_size = sizeof(void*);
+        *(size_t*)(dest+sizeof(void*)) = arg_buf_size;
+        if (arg_buf != NULL)
+            memcpy(dest+2*sizeof(void*), arg_buf, arg_buf_size);
+        else
+            *(void**)(dest+2*sizeof(void*)) = arg;
+        /* We store the stack size at the base so we can find the top. */
+        *(size_t*)(stack_base-sizeof(void*)) = stack_size;
+        return our_create_thread_ex(hProcess, target_64bit,
+                                    (void *)our_create_thread_wrapper, stack_base,
+                                    NULL, 0, 0, 0, suspended, tid);
+    } else {
+        USER_STACK stack = {0};
+        stack.ExpandableStackBase = stack_base;
+        stack.ExpandableStackLimit = stack_base - stack_size;
+        stack.ExpandableStackBottom = stack_base - stack_size;
+        return create_thread_common(hProcess, target_64bit, start_addr, arg,
+                                    arg_buf, arg_buf_size, &stack, suspended, tid);
     }
-    USER_STACK stack = {0};
-    stack.ExpandableStackBase = stack_base;
-    stack.ExpandableStackLimit = stack_base - stack_size;
-    stack.ExpandableStackBottom = stack_base - stack_size;
-    return create_thread_common(hProcess, target_64bit, start_addr, arg,
-                                arg_buf, arg_buf_size, &stack, suspended, tid);
 }
 #endif /* !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER) */
 

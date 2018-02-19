@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2745,6 +2745,28 @@ client_thread_target(void *param)
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
         get_thread_id());
     os_terminate(dcontext, TERMINATE_THREAD|TERMINATE_CLEANUP);
+}
+
+bool
+is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack)
+{
+    bool is_client = (void *)cxt->CXT_XIP == (void *)client_thread_target ||
+        /* i#1309: on win8+ we have to use NtCreateThreadEx via wrapper */
+        (void *)cxt->THREAD_START_ADDR == (void *)our_create_thread_wrapper;
+    if (is_client && dstack != NULL) {
+        if (get_os_version() >= WINDOWS_VERSION_8) {
+            /* We know that our_create_thread_wrapper takes the stack as its param. */
+            *dstack = (byte *)cxt->THREAD_START_ARG;
+        } else {
+            /* client threads start out on dstack */
+            byte *stack;
+            GET_STACK_PTR(stack);
+            /* we assume that less than a page will have been used */
+            stack = (byte *) ALIGN_FORWARD(stack, PAGE_SIZE);
+            *dstack = stack;
+        }
+    }
+    return is_client;
 }
 
 DR_API bool
