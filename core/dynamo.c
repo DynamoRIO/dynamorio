@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1662,6 +1662,7 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
     if (free_stack) {
         ASSERT(dcontext->dstack != NULL);
         ASSERT(!is_currently_on_dstack(dcontext));
+        LOG(GLOBAL, LOG_THREADS, 1, "Freeing DR stack "PFX"\n", dcontext->dstack);
         stack_free(dcontext->dstack, DYNAMORIO_STACK_SIZE);
     } /* else will be cleaned up by caller */
 
@@ -2313,8 +2314,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
         IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""),
         get_thread_id(), dcontext);
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
-        "DR stack is "PFX"-"PFX"\n", dcontext->dstack - DYNAMORIO_STACK_SIZE,
-        dcontext->dstack);
+        "DR stack is "PFX"-"PFX" (passed in "PFX")\n",
+        dcontext->dstack - DYNAMORIO_STACK_SIZE, dcontext->dstack, dstack_in);
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE
