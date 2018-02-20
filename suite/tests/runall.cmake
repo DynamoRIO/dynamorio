@@ -127,9 +127,10 @@ if ("${nudge}" MATCHES "<use-persisted>")
 else ()
   # nudgeunix and drconfig have different syntax:
   if (WIN32)
+    # XXX i#120: expand beyond -client.
     string(REGEX REPLACE "-client" "-nudge_pid;${pid}" nudge "${nudge}")
   else ()
-    string(REGEX REPLACE "-client" "-pid;${pid};-client" nudge "${nudge}")
+    set(nudge "-pid;${pid};${nudge}")
   endif ()
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
     RESULT_VARIABLE nudge_result

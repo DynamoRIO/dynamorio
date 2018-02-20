@@ -1,7 +1,4 @@
 thank you for testing the client interface
 nudge delivered 10
 nudge delivered 11
-#ifdef WINDOWS
-starting
-#endif
 done
