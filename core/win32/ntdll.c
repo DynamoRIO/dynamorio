@@ -4674,8 +4674,8 @@ our_create_thread_ex(HANDLE hProcess, bool target_64bit, void *start_addr,
     info.teb.buffer = &teb;
     res = NT_RAW_SYSCALL(CreateThreadEx, &hthread, THREAD_ALL_ACCESS, &oa, hProcess,
                          (LPTHREAD_START_ROUTINE)convert_data_to_function(start_addr),
-                         thread_arg, !!suspended, 0, stack_commit, stack_reserve,
-                         &info);
+                         thread_arg, suspended ? TRUE : FALSE, 0,
+                         stack_commit, stack_reserve, &info);
     if (!NT_SUCCESS(res)) {
         NTPRINT("create_thread_ex: failed to create thread: %x\n", res);
         return INVALID_HANDLE_VALUE;
