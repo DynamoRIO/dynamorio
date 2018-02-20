@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -131,6 +131,9 @@ check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 #ifdef CLIENT_SIDELINE
 void
 client_thread_target(void *param);
+
+bool
+is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
 #endif
 
 bool os_delete_file_w(const wchar_t *file_name,

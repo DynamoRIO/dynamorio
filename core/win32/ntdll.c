@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4596,7 +4596,7 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
     res = NT_SYSCALL(CreateThread, &hthread, THREAD_ALL_ACCESS, &oa,
                      hProcess, &cid, context, stack, (byte)TRUE);
     if (!NT_SUCCESS(res)) {
-        NTPRINT("create_thread: failed to create thread\n");
+        NTPRINT("create_thread: failed to create thread: %x\n", res);
         return INVALID_HANDLE_VALUE;
     }
     /* Xref PR 252008 & PR 252745 - on 32-bit Windows the kernel will set esp
@@ -4617,6 +4617,74 @@ create_thread_common(HANDLE hProcess, bool target_64bit, void *start_addr,
     return hthread;
 }
 
+static HANDLE
+our_create_thread_ex(HANDLE hProcess, bool target_64bit, void *start_addr,
+                     void *arg, const void *arg_buf, size_t arg_buf_size,
+                     uint stack_reserve, uint stack_commit, bool suspended,
+                     thread_id_t *tid)
+{
+    HANDLE hthread;
+    OBJECT_ATTRIBUTES oa;
+    CLIENT_ID cid;
+    TEB *teb;
+    void *thread_arg = arg;
+    create_thread_info_t info = {0};
+    NTSTATUS res;
+    /* NtCreateThreadEx doesn't exist prior to Vista. */
+    ASSERT(syscalls[SYS_CreateThreadEx] != SYSCALL_NOT_PRESENT);
+    GET_RAW_SYSCALL(CreateThreadEx,
+                    OUT PHANDLE ThreadHandle,
+                    IN ACCESS_MASK DesiredAccess,
+                    IN POBJECT_ATTRIBUTES ObjectAttributes,
+                    IN HANDLE ProcessHandle,
+                    IN LPTHREAD_START_ROUTINE Win32StartAddress,
+                    IN LPVOID StartParameter,
+                    IN BOOL CreateSuspended,
+                    IN uint StackZeroBits,
+                    IN SIZE_T StackCommitSize,
+                    IN SIZE_T StackReserveSize,
+                    INOUT create_thread_info_t *thread_info);
+
+    InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, NULL);
+
+    if (arg_buf != NULL) {
+        /* XXX: Currently we leak this memory, except for nudge where the caller
+         * sets NUDGE_FREE_ARG.
+         */
+        if (!NT_SUCCESS
+            (nt_remote_allocate_virtual_memory
+             (hProcess, &thread_arg, arg_buf_size, PAGE_READWRITE, MEM_COMMIT))) {
+            NTPRINT("create_thread: failed to allocate arg buf\n");
+            return INVALID_HANDLE_VALUE;
+        }
+        if (!nt_write_virtual_memory(hProcess, thread_arg, arg_buf,
+                                     arg_buf_size, NULL)) {
+            NTPRINT("create_thread: failed to write arguments\n");
+            return INVALID_HANDLE_VALUE;
+        }
+    }
+
+    info.struct_size = sizeof(info);
+    info.client_id.flags = THREAD_INFO_ELEMENT_CLIENT_ID | THREAD_INFO_ELEMENT_UNKNOWN_2;
+    info.client_id.buffer_size = sizeof(cid);
+    info.client_id.buffer = &cid;
+    /* We get STATUS_INVALID_PARAMETER unless we also ask for teb. */
+    info.teb.flags = THREAD_INFO_ELEMENT_TEB | THREAD_INFO_ELEMENT_UNKNOWN_2;
+    info.teb.buffer_size = sizeof(TEB*);
+    info.teb.buffer = &teb;
+    res = NT_RAW_SYSCALL(CreateThreadEx, &hthread, THREAD_ALL_ACCESS, &oa, hProcess,
+                         (LPTHREAD_START_ROUTINE)convert_data_to_function(start_addr),
+                         thread_arg, suspended ? TRUE : FALSE, 0,
+                         stack_commit, stack_reserve, &info);
+    if (!NT_SUCCESS(res)) {
+        NTPRINT("create_thread_ex: failed to create thread: %x\n", res);
+        return INVALID_HANDLE_VALUE;
+    }
+    if (tid != NULL)
+        *tid = (thread_id_t)cid.UniqueThread;
+    return hthread;
+}
+
 /* Creates a new stack w/ guard page */
 HANDLE
 our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
@@ -4631,6 +4699,14 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
     ASSERT(stack_commit + PAGE_SIZE <= stack_reserve &&
            ALIGNED(stack_commit, PAGE_SIZE) &&
            ALIGNED(stack_reserve, PAGE_SIZE));
+
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        /* NtCreateThread not available: use Ex where the kernel makes the stack. */
+        return our_create_thread_ex(hProcess, target_64bit, start_addr, arg, arg_buf,
+                                    arg_buf_size, stack_reserve, stack_commit,
+                                    suspended, tid);
+    }
+
     if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(hProcess,
                                                       &stack.ExpandableStackBottom,
                                                       stack_reserve, PAGE_READWRITE,
@@ -4638,8 +4714,7 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
         NTPRINT("create_thread: failed to allocate stack\n");
         return INVALID_HANDLE_VALUE;
     }
-    /* FIXME : for failures beyond this point we don't bother deallocating the
-     * stack. */
+    /* For failures beyond this point we don't bother deallocating the stack. */
     stack.ExpandableStackBase =
         ((byte *)stack.ExpandableStackBottom) + stack_reserve;
     stack.ExpandableStackLimit =
@@ -4662,19 +4737,66 @@ our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
                                 arg_buf, arg_buf_size, &stack, suspended, tid);
 }
 
-/* Uses caller-allocated stack */
+/* is_new_thread_client_thread() assumes param is the stack */
+void
+our_create_thread_wrapper(void *param)
+{
+    /* Thread was initialized in intercept_new_thread() */
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* Get the data we need from where our_create_thread_have_stack() wrote them. */
+    byte *stack_base = (byte *) param;
+    size_t stack_size = *(size_t*)(stack_base-sizeof(void*));
+    byte *src = stack_base - stack_size;
+    void *func = *(void**)src;
+    size_t args_size = *(size_t*)(src+sizeof(void*));
+    void *arg = src+2*sizeof(void*);
+    /* Update TEB for proper SEH, etc. */
+    TEB *teb = get_own_teb();
+    teb->StackLimit = src;
+    teb->StackBase = stack_base;
+    call_switch_stack(arg, stack_base, (void(*)(void*))convert_data_to_function(func),
+                      NULL, false/*no return*/);
+    ASSERT_NOT_REACHED();
+}
+
+/* Uses caller-allocated stack.  hProcess must be NT_CURRENT_PROCESS for win8+. */
 HANDLE
 our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
                              void *arg, const void *arg_buf, size_t arg_buf_size,
                              byte *stack_base, size_t stack_size,
                              bool suspended, thread_id_t *tid)
 {
-    USER_STACK stack = {0};
-    stack.ExpandableStackBase = stack_base;
-    stack.ExpandableStackLimit = stack_base - stack_size;
-    stack.ExpandableStackBottom = stack_base - stack_size;
-    return create_thread_common(hProcess, target_64bit, start_addr, arg,
-                                arg_buf, arg_buf_size, &stack, suspended, tid);
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        /* i#1309: we need a wrapper function so we can use NtCreateThreadEx
+         * and then switch stacks.  This is too hard to arrange in another process.
+         */
+        ASSERT(hProcess == NT_CURRENT_PROCESS &&
+               "No support for creating a remote thread with a custom stack");
+        /* We store what the wrapper needs on the end of the stack so it won't
+         * get clobbered by call_switch_stack().
+         */
+        byte *dest = stack_base - stack_size;
+        *(void**)dest = start_addr;
+        if (arg_buf == NULL)
+            arg_buf_size = sizeof(void*);
+        *(size_t*)(dest+sizeof(void*)) = arg_buf_size;
+        if (arg_buf != NULL)
+            memcpy(dest+2*sizeof(void*), arg_buf, arg_buf_size);
+        else
+            *(void**)(dest+2*sizeof(void*)) = arg;
+        /* We store the stack size at the base so we can find the top. */
+        *(size_t*)(stack_base-sizeof(void*)) = stack_size;
+        return our_create_thread_ex(hProcess, target_64bit,
+                                    (void *)our_create_thread_wrapper, stack_base,
+                                    NULL, 0, 0, 0, suspended, tid);
+    } else {
+        USER_STACK stack = {0};
+        stack.ExpandableStackBase = stack_base;
+        stack.ExpandableStackLimit = stack_base - stack_size;
+        stack.ExpandableStackBottom = stack_base - stack_size;
+        return create_thread_common(hProcess, target_64bit, start_addr, arg,
+                                    arg_buf, arg_buf_size, &stack, suspended, tid);
+    }
 }
 #endif /* !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER) */
 

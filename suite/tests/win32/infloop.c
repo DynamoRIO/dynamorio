@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
- * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -14,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -31,46 +30,30 @@
  * DAMAGE.
  */
 
-#include <windows.h>
-#include <stdio.h>
+/* An app that stays up long enough for testing nudges. */
 #include "tools.h"
+#include <windows.h>
 
-#define VERBOSE 0
-
-HMODULE
-myload(char* lib)
+/* Timeout to avoid leaving stale processes in case something goes wrong. */
+static VOID CALLBACK
+TimerProc(HWND hwnd, UINT msg, UINT_PTR id, DWORD time)
 {
-    HMODULE hm = LoadLibrary(lib);
-    if (hm == NULL)
-        print("error loading library %s\n", lib);
-    else if (GetProcAddress(hm, "data_attack") == NULL) {
-        /* wrong dll */
-        return NULL;
-    } else {
-        print("loaded %s\n", lib);
-#if VERBOSE
-        print("library is at "PFX"\n", hm);
-#endif
-    }
-    return hm;
+    print("timed out\n");
+    ExitProcess(1);
 }
 
-int main()
+int
+main(int argc, const char *argv[])
 {
-    HMODULE lib1;
-    HMODULE lib2;
-
-    lib1 = myload("win32.rebased.dll.dll");
-    /* We used to just load the 8.3 name, but the Win8+ loader no longer loads a
-     * separate copy that way.  Now we make an explicit separate copy.
+    /* We put the pid into the title so that tools/closewnd can target it
+     * uniquely when run in a parallel test suite.
+     * runall.cmake assumes this precise title.
      */
-    lib2 = myload("win32.rebased2.dll.dll");
-    if (lib1 == lib2) {
-        print("there is a problem - should have collided, maybe missing\n");
-    }
-
-    FreeLibrary(lib1);
-    FreeLibrary(lib2);
-
+    char title[64];
+    _snprintf_s(title, BUFFER_SIZE_BYTES(title), BUFFER_SIZE_ELEMENTS(title),
+                "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
+    SetTimer(NULL, NULL, 180*1000/*3 mins*/, TimerProc);
+    MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
+    print("done\n");
     return 0;
 }
