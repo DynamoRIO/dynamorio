@@ -1559,6 +1559,12 @@ event_exit(void)
     if (file_ops_func.exit_cb != NULL)
         (*file_ops_func.exit_cb)(file_ops_func.exit_arg);
 
+    /* Clear callbacks to support reset. */
+    memset(&file_ops_func, 0, sizeof(file_ops_func));
+    if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
+        DR_ASSERT(false && "failed to clear custom module callbacks");
+    should_trace_thread_cb = nullptr;
+
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
