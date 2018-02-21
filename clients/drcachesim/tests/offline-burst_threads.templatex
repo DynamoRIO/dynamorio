@@ -1,6 +1,15 @@
 pre-DR init
 pre-DR start
 pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
+pre-DR init
+pre-DR start
+pre-DR detach
 all done
 Cache simulation results:
 Core #0 \([0-4] thread\(s\)\)

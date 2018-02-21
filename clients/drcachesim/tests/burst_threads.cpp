@@ -81,16 +81,14 @@ void *
 thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
+    static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
+    /* We use an outer loop to test re-attaching (i#2157). */
+    for (int j = 0; j < reattach_iters; ++j) {
         if (j > 0 && idx == burst_owner)
             dr_app_setup();
         for (int i = 0; i < outer_iters; ++i) {

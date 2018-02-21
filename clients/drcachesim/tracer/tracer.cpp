@@ -174,6 +174,10 @@ static bool thread_filtering_enabled;
 
 /* file operations functions */
 struct file_ops_func_t {
+    file_ops_func_t() :
+        open_file(dr_open_file), read_file(dr_read_file), write_file(dr_write_file),
+        close_file(dr_close_file), create_dir(dr_create_dir), handoff_buf(nullptr),
+        exit_cb(nullptr), exit_arg(nullptr) {}
     drmemtrace_open_file_func_t  open_file;
     drmemtrace_read_file_func_t  read_file;
     drmemtrace_write_file_func_t write_file;
@@ -183,9 +187,7 @@ struct file_ops_func_t {
     drmemtrace_exit_func_t exit_cb;
     void *exit_arg;
 };
-static struct file_ops_func_t file_ops_func = {
-    dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
-};
+static struct file_ops_func_t file_ops_func;
 
 drmemtrace_status_t
 drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
@@ -1559,12 +1561,6 @@ event_exit(void)
     if (file_ops_func.exit_cb != NULL)
         (*file_ops_func.exit_cb)(file_ops_func.exit_arg);
 
-    /* Clear callbacks to support reset. */
-    memset(&file_ops_func, 0, sizeof(file_ops_func));
-    if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
-        DR_ASSERT(false && "failed to clear custom module callbacks");
-    should_trace_thread_cb = nullptr;
-
     if (!dr_raw_tls_cfree(tls_offs, MEMTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
@@ -1587,6 +1583,14 @@ event_exit(void)
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
+
+    /* Clear callbacks to support reset. */
+    file_ops_func = file_ops_func_t();
+    if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
+        DR_ASSERT(false && "failed to clear custom module callbacks");
+    should_trace_thread_cb = nullptr;
+    trace_thread_cb_user_data = nullptr;
+    thread_filtering_enabled = false;
 
     dr_mutex_destroy(mutex);
     drutil_exit();

@@ -2584,7 +2584,7 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.${testname}_precmd
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
         set(tool.drcacheoff.${testname}_postcmd
-          "${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
+          "firstglob@${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
