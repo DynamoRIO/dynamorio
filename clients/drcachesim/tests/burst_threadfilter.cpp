@@ -71,7 +71,7 @@ my_setenv(const char *var, const char *value)
 static file_t
 open_nothing(const char *fname, uint mode_flags)
 {
-    return static_cast<file_t>(1UL);
+    return (file_t)(1UL);
 }
 
 static void
@@ -133,7 +133,7 @@ thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     static const int reattach_iters = 4;
-    static const int outer_iters = 2048;
+    static const int outer_iters = 4096;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
@@ -159,12 +159,11 @@ thread_func(void *arg)
                                                 close_nothing, create_no_dir);
                 assert(res == DRMEMTRACE_SUCCESS);
             } else {
-                drmemtrace_status_t res =
-                    drmemtrace_replace_file_ops(nullptr, nullptr, nullptr,
-                                                nullptr, nullptr);
-                assert(res == DRMEMTRACE_SUCCESS);
+#ifdef UNIX
                 filter_call_count = 0;
-                res = drmemtrace_filter_threads(should_trace_thread_cb, cb_arg[j]);
+#endif
+                drmemtrace_status_t res =
+                    drmemtrace_filter_threads(should_trace_thread_cb, cb_arg[j]);
                 assert(res == DRMEMTRACE_SUCCESS);
             }
             dr_app_setup();
