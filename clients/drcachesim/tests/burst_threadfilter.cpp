@@ -49,6 +49,7 @@
 #ifndef UNIX
 # include <process.h>
 #endif
+#include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
@@ -57,6 +58,7 @@ static uint tid[num_threads];
 #ifdef UNIX
 static int filter_call_count;
 #endif
+static void *burst_owner_finished;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -133,7 +135,7 @@ thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     static const int reattach_iters = 4;
-    static const int outer_iters = 4096;
+    static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
@@ -191,6 +193,10 @@ thread_func(void *arg)
     if (idx == burst_owner) {
         for (int j = 0; j < reattach_iters; ++j)
             delete cb_arg[j];
+        signal_cond_var(burst_owner_finished);
+    } else {
+        /* Avoid having < num_threads/2 threads in our filter. */
+        wait_cond_var(burst_owner_finished);
     }
     finished[idx] = true;
     return 0;
@@ -218,6 +224,7 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", ops.c_str()))
         std::cerr << "failed to set env var!\n";
 
+    burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
@@ -237,5 +244,6 @@ main(int argc, const char *argv[])
             std::cerr << "thread " << i << " failed to finish\n";
     }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_finished);
     return 0;
 }
