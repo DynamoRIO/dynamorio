@@ -87,7 +87,8 @@ struct _memref_thread_exit_t {
 
 /**
  * A trace entry containing metadata identifying some event that occurred at this
- * point in the trace.  The most common marker type represents a kernel-mediated
+ * point in the trace.  Common markers include timestamp and cpu information for
+ * certain points in the trace.  Another marker type represents a kernel-mediated
  * control flow change such as a signal delivery, entry into an APC, callback, or
  * exception dispatcher on Windows, or a system call that changes the context such as
  * a signal return.
