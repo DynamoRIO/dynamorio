@@ -49,11 +49,16 @@
 #ifndef UNIX
 # include <process.h>
 #endif
+#include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
 static bool finished[num_threads];
 static uint tid[num_threads];
+#ifdef UNIX
+static int filter_call_count;
+#endif
+static void *burst_owner_finished;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -63,6 +68,30 @@ my_setenv(const char *var, const char *value)
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
+}
+
+static file_t
+open_nothing(const char *fname, uint mode_flags)
+{
+    return (file_t)(1UL);
+}
+
+static void
+close_nothing(file_t file)
+{
+    /* nothing */
+}
+
+static bool
+create_no_dir(const char *dir)
+{
+    return true;
+}
+
+static ssize_t
+write_nothing(file_t file, const void *data, size_t size)
+{
+    return size;
 }
 
 static int
@@ -76,6 +105,27 @@ do_some_work(int i)
     return (val > 0);
 }
 
+static bool
+should_trace_thread_cb(thread_id_t thread_id, void *user_data)
+{
+    /* Test user_data across reattach (see setup below). */
+    if (*static_cast<int*>(user_data) == 0)
+        std::cerr << "invalid user_data (likely reattach error)\n";
+#ifdef UNIX
+    /* We have no simple way to get the id (short of letting each thread get
+     * its own and using synch to wait for them all) so we just take the 1st N.
+     * We assume this is called exactly once per thread.  We are fine with races.
+     */
+    return filter_call_count++ < num_threads/2;
+#else
+    for (uint i = 0; i < num_threads; i++) {
+        if (thread_id == tid[i])
+            return i % 2 == 0;
+    }
+    return true;
+#endif
+}
+
 #ifdef WINDOWS
 unsigned int __stdcall
 #else
@@ -84,18 +134,42 @@ void *
 thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
+    static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
+    int *cb_arg[reattach_iters];
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
-        if (j > 0 && idx == burst_owner)
+    /* We use an outer loop to test re-attaching (i#2157). */
+    for (int j = 0; j < reattach_iters; ++j) {
+        if (idx == burst_owner) {
+            std::cerr << "pre-DR init\n";
+            assert(!dr_app_running_under_dynamorio());
+            /* We test reattach state clearing by passing a memory location as
+             * user data that we clear on reattach, and we do not filter on one
+             * of the runs.
+             */
+            cb_arg[j] = new int;
+            *cb_arg[j] = 1;
+            if (j == 1) {
+                /* Not filtering on this run, so we don't want output to avoid
+                 * messing up the template.
+                 */
+                drmemtrace_status_t res =
+                    drmemtrace_replace_file_ops(open_nothing, nullptr, write_nothing,
+                                                close_nothing, create_no_dir);
+                assert(res == DRMEMTRACE_SUCCESS);
+            } else {
+#ifdef UNIX
+                filter_call_count = 0;
+#endif
+                drmemtrace_status_t res =
+                    drmemtrace_filter_threads(should_trace_thread_cb, cb_arg[j]);
+                assert(res == DRMEMTRACE_SUCCESS);
+            }
             dr_app_setup();
+        }
         for (int i = 0; i < outer_iters; ++i) {
             if (idx == burst_owner && i == iter_start) {
                 std::cerr << "pre-DR start\n";
@@ -112,30 +186,20 @@ thread_func(void *arg)
             if (idx == burst_owner && i == iter_stop) {
                 std::cerr << "pre-DR detach\n";
                 dr_app_stop_and_cleanup();
+                *cb_arg[j] = 0;
             }
         }
     }
+    if (idx == burst_owner) {
+        for (int j = 0; j < reattach_iters; ++j)
+            delete cb_arg[j];
+        signal_cond_var(burst_owner_finished);
+    } else {
+        /* Avoid having < num_threads/2 threads in our filter. */
+        wait_cond_var(burst_owner_finished);
+    }
     finished[idx] = true;
     return 0;
-}
-
-static bool
-should_trace_thread_cb(thread_id_t thread_id, void *user_data)
-{
-#ifdef UNIX
-    /* We have no simple way to get the id (short of letting each thread get
-     * its own and using synch to wait for them all) so we just take the 1st N.
-     * We assume this is called exactly once per thread.  We are fine with races.
-     */
-    static int count;
-    return (count++ < num_threads/2);
-#else
-    for (uint i = 0; i < num_threads; i++) {
-        if (thread_id == tid[i])
-            return i % 2 == 0;
-    }
-    return true;
-#endif
 }
 
 int
@@ -146,9 +210,6 @@ main(int argc, const char *argv[])
 #else
     uintptr_t thread[num_threads];
 #endif
-
-    drmemtrace_status_t res = drmemtrace_filter_threads(should_trace_thread_cb, nullptr);
-    assert(res == DRMEMTRACE_SUCCESS);
 
     /* While the start/stop thread only runs 4 iters, the other threads end up
      * running more and their trace files get up to 65MB or more, with the
@@ -163,10 +224,7 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", ops.c_str()))
         std::cerr << "failed to set env var!\n";
 
-    std::cerr << "pre-DR init\n";
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
-
+    burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
@@ -186,5 +244,6 @@ main(int argc, const char *argv[])
             std::cerr << "thread " << i << " failed to finish\n";
     }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_finished);
     return 0;
 }

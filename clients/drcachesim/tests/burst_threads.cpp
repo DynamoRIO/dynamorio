@@ -81,18 +81,19 @@ void *
 thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
+    static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
-        if (j > 0 && idx == burst_owner)
+    /* We use an outer loop to test re-attaching (i#2157). */
+    for (int j = 0; j < reattach_iters; ++j) {
+        if (idx == burst_owner) {
+            std::cerr << "pre-DR init\n";
             dr_app_setup();
+            assert(!dr_app_running_under_dynamorio());
+        }
         for (int i = 0; i < outer_iters; ++i) {
             if (idx == burst_owner && i == iter_start) {
                 std::cerr << "pre-DR start\n";
@@ -132,10 +133,6 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;"
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
-
-    std::cerr << "pre-DR init\n";
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
 
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
