@@ -54,6 +54,6 @@ main(int argc, const char *argv[])
                 "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
     SetTimer(NULL, NULL, 180*1000/*3 mins*/, TimerProc);
     MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
-    print("done\n");
+    print("MessageBox closed\n");
     return 0;
 }
