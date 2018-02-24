@@ -24,20 +24,24 @@ Total counts:
      .* total prefetches
      .* total data loads
      .* total data stores
-#if defined(WINDOWS) && !defined(X64)
-          26 total markers
-#else
-          13 total markers
-#endif
            1 total threads
+     .* total scheduling markers
+#if defined(WINDOWS) && !defined(X64)
+          26 total transfer markers
+#else
+          13 total transfer markers
+#endif
+           0 total other markers
 Thread .* counts:
      .* \(fetched\) instructions
      .* non-fetched instructions
      .* prefetches
      .* data loads
      .* data stores
+     .* scheduling markers
 #if defined(WINDOWS) && !defined(X64)
-          26 markers
+          26 transfer markers
 #else
-          13 markers
+          13 transfer markers
 #endif
+           0 other markers

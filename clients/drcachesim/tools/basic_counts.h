@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,13 +53,17 @@ class basic_counts_t : public analysis_tool_t
     int_least64_t total_prefetches;
     int_least64_t total_loads;
     int_least64_t total_stores;
-    int_least64_t total_markers;
+    int_least64_t total_sched_markers;
+    int_least64_t total_xfer_markers;
+    int_least64_t total_other_markers;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs_nofetch;
     std::unordered_map<memref_tid_t, int_least64_t> thread_prefetches;
     std::unordered_map<memref_tid_t, int_least64_t> thread_loads;
     std::unordered_map<memref_tid_t, int_least64_t> thread_stores;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_markers;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_sched_markers;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_xfer_markers;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_other_markers;
 
     unsigned int knob_verbose;
 

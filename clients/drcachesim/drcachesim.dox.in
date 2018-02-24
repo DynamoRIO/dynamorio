@@ -303,34 +303,42 @@ Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-      260951 total (fetched) instructions
-        6543 total non-fetched instructions
+      267193 total (fetched) instructions
+         345 total non-fetched instructions
            0 total prefetches
-       71754 total data loads
-       28828 total data stores
-           0 total markers
+       67686 total data loads
+       22503 total data stores
            3 total threads
-Thread 32370 counts:
-      250579 (fetched) instructions
-        6543 non-fetched instructions
+         280 total scheduling markers
+           0 total transfer markers
+           0 total other markers
+Thread 247451 counts:
+      255009 (fetched) instructions
+         345 non-fetched instructions
            0 prefetches
-       68565 data loads
-       27694 data stores
-           0 markers
-Thread 32371 counts:
-        8729 (fetched) instructions
+       64453 data loads
+       21243 data stores
+         258 scheduling markers
+           0 transfer markers
+           0 other markers
+Thread 247453 counts:
+        9195 (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-        2673 data loads
-         926 data stores
-           0 markers
-Thread 32372 counts:
-        1643 (fetched) instructions
+        2444 data loads
+         937 data stores
+          12 scheduling markers
+           0 transfer markers
+           0 other markers
+Thread 247454 counts:
+        2989 (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-         516 data loads
-         208 data stores
-           0 markers
+         789 data loads
+         323 data stores
+          10 scheduling markers
+           0 transfer markers
+           0 other markers
 \endcode
 
 The non-fetched instructions are x86 string loop instructions, where
@@ -602,9 +610,10 @@ trace and calls the analysis_tool_t::process_memref() function of each
 tool.  An alternative mode is supported which exposes the iterator and
 allows a separate control infrastructure to be built.
 
-Each trace entry is of type #memref_t
-and represents one instruction or data reference or a metadata operation
-such as a thread exit or marker.  There are built-in markers indicating
+Each trace entry is of type #memref_t and represents one instruction or
+data reference or a metadata operation such as a thread exit or marker.
+There are built-in scheduling markers providing the timestamp and cpu
+identifier on each thread transition.  Other built-in markers indicate
 disruptions in user mode control flow such as signal handler entry and
 exit.
 
