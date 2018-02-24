@@ -99,6 +99,8 @@ public:
     static unsigned short instr_to_instr_type(instr_t *instr,
                                               bool repstr_expanded = false);
     static bool instr_is_flush(instr_t *instr);
+    static int get_cpu_id();
+    static uint64 get_timestamp();
     virtual void insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
                                     OUT bool *scratch_used = NULL);
