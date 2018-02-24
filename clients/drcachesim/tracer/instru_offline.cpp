@@ -275,7 +275,7 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
-    return (new_buf - buf_ptr);
+    return (int)(new_buf - buf_ptr);
 }
 
 int
@@ -287,7 +287,7 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     entry->timestamp.usec = instru_t::get_timestamp();
     new_buf += sizeof(*entry);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
-    return (new_buf - buf_ptr);
+    return (int)(new_buf - buf_ptr);
 }
 
 int

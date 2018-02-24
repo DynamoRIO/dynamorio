@@ -40,6 +40,11 @@
 #include "../common/trace_entry.h"
 #ifdef LINUX
 # include <sched.h>
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE // For syscall()
+# endif
+# include <unistd.h>
+# include <sys/syscall.h>
 #endif
 #ifdef WINDOWS
 # include <intrin.h>
@@ -142,20 +147,27 @@ instru_t::get_cpu_id()
     // kind of TLS issue with the private libc's query of __vdso_getcpu.
     // We could directly find and use __vdso_getcpu ourselves (i#2842).
 #endif
+#ifdef X86
     if (proc_has_feature(FEATURE_RDTSCP)) {
-#ifdef WINDOWS
+# ifdef WINDOWS
         uint cpu;
         __rdtscp(&cpu);
-#else
+# else
         int cpu;
         __asm__ __volatile__("rdtscp" : "=c"(cpu) : : "eax", "edx");
-#endif
+# endif
         return cpu;
     } else {
         // We could get the processor serial # from cpuid but we just bail since
         // this should be pretty rare and we can live without it.
         return 0;
     }
+#else
+    uint cpu;
+    if (syscall(SYS_getcpu, &cpu, NULL, NULL) < 0)
+        return 0;
+    return cpu;
+#endif
 }
 
 uint64
