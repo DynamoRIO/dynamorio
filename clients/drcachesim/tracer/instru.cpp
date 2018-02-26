@@ -139,6 +139,9 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
         *scratch_used = true;
 }
 
+// Returns -1 on error.  It's hard for callers to omit the cpu marker though
+// because the tracer assumes unit headers are always the same size: thus
+// we insert a marker with a -1 (=> unsigned) cpu id.
 int
 instru_t::get_cpu_id()
 {
@@ -160,12 +163,12 @@ instru_t::get_cpu_id()
     } else {
         // We could get the processor serial # from cpuid but we just bail since
         // this should be pretty rare and we can live without it.
-        return 0;
+        return -1;
     }
 #else
     uint cpu;
     if (syscall(SYS_getcpu, &cpu, NULL, NULL) < 0)
-        return 0;
+        return -1;
     return cpu;
 #endif
 }

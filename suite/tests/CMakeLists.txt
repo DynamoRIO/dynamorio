@@ -2440,7 +2440,11 @@ if (CLIENT_INTERFACE)
       macro (torunonly_drcachesim testname exetgt sim_ops app_args)
         torunonly_ci(tool.drcachesim.${testname} ${exetgt} drcachesim
           "${testname}.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
+          # To keep tests deterministic, we default to -static_scheduling.
+          # We override that to test cpu scheduling for several thread tests where
+          # the template already handles any core mapping.
+          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} -static_scheduling ${sim_ops}"
+          "" "${app_args}")
         set(tool.drcachesim.${testname}_toolname "drcachesim")
         set(tool.drcachesim.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2448,6 +2452,7 @@ if (CLIENT_INTERFACE)
       endmacro (torunonly_drcachesim)
 
       # We have a couple of sanity checks that at least nothing crashes.
+      # We also test some runtime parameters.
       torunonly_drcachesim(simple ${ci_shared_app} "" "")
 
       # TLB simulator's single-thread sanity check
@@ -2484,13 +2489,13 @@ if (CLIENT_INTERFACE)
         # XXX i#1703: this may be too flaky: we may want to remove this once
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
-        torunonly_drcachesim(threads client.annotation-concurrency ""
+        torunonly_drcachesim(threads client.annotation-concurrency "-no_static_scheduling"
           "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB" "${annotation_test_args}")
+          "-simulator_type TLB -no_static_scheduling" "${annotation_test_args}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
@@ -2583,8 +2588,9 @@ if (CLIENT_INTERFACE)
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
         set(tool.drcacheoff.${testname}_precmd
           "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
+        # Again, we default to -static_scheduling for determinism.
         set(tool.drcacheoff.${testname}_postcmd
-          "firstglob@${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir${sim_atops}")
+          "firstglob@${drcachesim_path}@-indir@drmemtrace.${exetgt}.*.dir@-static_scheduling${sim_atops}")
       endmacro()
 
       # We could share drcachesim-simple.templatex if we had the launcher fork
@@ -2640,7 +2646,8 @@ if (CLIENT_INTERFACE)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "" "")
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads
+            "" "@-no_static_scheduling" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter

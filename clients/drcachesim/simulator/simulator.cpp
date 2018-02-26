@@ -45,15 +45,20 @@ simulator_t::simulator_t(unsigned int num_cores,
                          uint64_t warmup_refs,
                          double warmup_fraction,
                          uint64_t sim_refs,
+                         bool static_scheduling,
                          unsigned int verbose) :
     knob_num_cores(num_cores),
     knob_skip_refs(skip_refs),
     knob_warmup_refs(warmup_refs),
     knob_warmup_fraction(warmup_fraction),
     knob_sim_refs(sim_refs),
+    knob_static_scheduling(static_scheduling),
     knob_verbose(verbose),
     last_thread(0),
-    last_core(0)
+    last_core(0),
+    cpu_counts(knob_num_cores, 0),
+    thread_counts(knob_num_cores, 0),
+    thread_ever_counts(knob_num_cores, 0)
 {
     if (knob_warmup_refs > 0 && (knob_warmup_fraction > 0.0)) {
         ERRMSG("Usage error: Either warmup_refs OR warmup_fraction can be set");
@@ -64,28 +69,72 @@ simulator_t::simulator_t(unsigned int num_cores,
 
 simulator_t::~simulator_t() {}
 
-int
-simulator_t::core_for_thread(memref_tid_t tid)
+bool
+simulator_t::process_memref(const memref_t &memref)
 {
-    std::unordered_map<memref_tid_t,int>::iterator exists = thread2core.find(tid);
-    if (exists != thread2core.end())
-        return exists->second;
-    // A new thread: we want to assign it to the least-loaded core,
-    // measured just by the number of threads.
-    // We assume the # of cores is small and that it's fastest to do a
-    // linear search versus maintaining some kind of sorted data
-    // structure.
-    unsigned int min_count = UINT_MAX;
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+        !knob_static_scheduling) {
+        int cpu = (int)(intptr_t)memref.marker.marker_value;
+        if (cpu < 0)
+            return true;
+        int min_core;
+        auto exists = cpu2core.find(cpu);
+        if (exists == cpu2core.end()) {
+            min_core = find_emptiest_core(cpu_counts);
+            ++cpu_counts[min_core];
+            cpu2core[cpu] = min_core;
+            if (knob_verbose >= 1) {
+                std::cerr << "new cpu " << cpu << " => core " << min_core <<
+                    " (count=" << cpu_counts[min_core] << ")" << std::endl;
+            }
+        } else
+            min_core = exists->second;
+        auto prior = thread2core.find(memref.marker.tid);
+        if (prior != thread2core.end())
+            --thread_counts[prior->second];
+        thread2core[memref.marker.tid] = min_core;
+        ++thread_counts[min_core];
+        ++thread_ever_counts[min_core];
+    }
+    return true;
+}
+
+int
+simulator_t::find_emptiest_core(std::vector<int> &counts) const
+{
+    // We want to assign to the least-loaded core, measured just by
+    // the number of cpus or threads already there.  We assume the #
+    // of cores is small and that it's fastest to do a linear search
+    // versus maintaining some kind of sorted data structure.
+    int min_count = INT_MAX;
     int min_core = 0;
     for (unsigned int i = 0; i < knob_num_cores; i++) {
-        if (thread_counts[i] < min_count) {
-            min_count = thread_counts[i];
+        if (counts[i] < min_count) {
+            min_count = counts[i];
             min_core = i;
         }
     }
-    if (knob_verbose >= 1) {
+    return min_core;
+}
+
+int
+simulator_t::core_for_thread(memref_tid_t tid)
+{
+    auto exists = thread2core.find(tid);
+    if (exists != thread2core.end())
+        return exists->second;
+    // Either knob_static_scheduling is on and we're ignoring cpu
+    // markers, or there has not yet been a cpu marker for this
+    // thread.  We fall back to scheduling threads directly to cores.
+    int min_core = find_emptiest_core(thread_counts);
+    if (knob_static_scheduling && knob_verbose >= 1) {
         std::cerr << "new thread " << tid << " => core " << min_core <<
             " (count=" << thread_counts[min_core] << ")" << std::endl;
+    } else if (!knob_static_scheduling && knob_verbose >= 1) {
+        std::cerr << "missing cpu marker, so placing thread " << tid << " => core "
+                  << min_core << " (count=" << thread_counts[min_core] << ")"
+                  << std::endl;
     }
     ++thread_counts[min_core];
     ++thread_ever_counts[min_core];
@@ -105,4 +154,31 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
             " (count=" << thread_counts[exists->second] << ")" << std::endl;
     }
     thread2core.erase(tid);
+}
+
+void
+simulator_t::print_core(int core) const
+{
+    if (knob_static_scheduling) {
+        std::cerr << "Core #" << core << " (" << thread_ever_counts[core]
+                  << " thread(s))" << std::endl;
+    } else {
+        std::cerr << "Core #" << core;
+        if (cpu_counts[core] == 0) {
+            // We keep the "(s)" mainly to simplify test templates.
+            std::cerr << " (0 traced CPU(s))" << std::endl;
+            return;
+        }
+        std::cerr << " (" << cpu_counts[core] << " traced CPU(s): ";
+        bool need_comma = false;
+        for (auto iter = cpu2core.begin(); iter != cpu2core.end(); ++iter) {
+            if (iter->second == core) {
+                if (need_comma)
+                    std::cerr << ", ";
+                std::cerr << "#" << iter->first;
+                need_comma = true;
+            }
+        }
+        std::cerr << ")" << std::endl;
+    }
 }

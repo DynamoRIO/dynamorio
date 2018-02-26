@@ -65,7 +65,7 @@
     ...................................................................
 ---- <application exited with code 0> ----
 TLB simulation results:
-Core #0 \([0-9]* thread\(s\)\)
+Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
@@ -80,7 +80,7 @@ Core #0 \([0-9]* thread\(s\)\)
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
     Total miss rate:                  [0-4][\.,]..%
-Core #1 \([0-9]* thread\(s\)\)
+Core #1 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
@@ -95,7 +95,7 @@ Core #1 \([0-9]* thread\(s\)\)
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
     Total miss rate:                  [0-4][\.,]..%
-Core #2 \([0-9]* thread\(s\)\)
+Core #2 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*
@@ -110,7 +110,7 @@ Core #2 \([0-9]* thread\(s\)\)
     Local miss rate:           *[0-9]*[\.,]..%
     Child hits:                *[0-9,\.]*
     Total miss rate:                  [0-4][\.,]..%
-Core #3 \([0-9]* thread\(s\)\)
+Core #3 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                    *[0-9]*[,\.]?...[,\.]?...
     Misses:                  *[0-9,\.]*

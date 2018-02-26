@@ -92,11 +92,11 @@ memory references passed to the simulator as well.
 Here is an example:
 
 \code
-$ bin64/drrun -t drcachesim -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache simulation results:
-Core #0 (1 thread(s))
+Core #0 (1 traced CPU\(s): #6)
   L1I stats:
     Hits:                          258,433
     Misses:                          1,148
@@ -107,7 +107,7 @@ Core #0 (1 thread(s))
     Prefetch hits:                     458
     Prefetch misses:                 2,166
     Miss rate:                        2.73%
-Core #1 (1 thread(s))
+Core #1 (1 traced CPU\(s): #1)
   L1I stats:
     Hits:                            8,895
     Misses:                             99
@@ -118,7 +118,7 @@ Core #1 (1 thread(s))
     Prefetch hits:                      26
     Prefetch misses:                   130
     Miss rate:                        4.33%
-Core #2 (1 thread(s))
+Core #2 (1 traced CPU\(s): #7)
   L1I stats:
     Hits:                            4,150
     Misses:                            101
@@ -129,7 +129,7 @@ Core #2 (1 thread(s))
     Prefetch hits:                      25
     Prefetch misses:                   105
     Miss rate:                        7.61%
-Core #3 (0 thread(s))
+Core #3 (0 traced CPUs)
 LL stats:
     Hits:                            1,414
     Misses:                          2,844
@@ -150,11 +150,11 @@ with the \p -simulator_type parameter.
 To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type TLB -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 TLB simulation results:
-Core #0 (1 thread(s))
+Core #0 (1 traced CPU\(s): #6)
   L1I stats:
     Hits:                          252,412
     Misses:                            401
@@ -169,7 +169,7 @@ Core #0 (1 thread(s))
     Local miss rate:                  2.24%
     Child hits:                    339,544
     Total miss rate:                  0.06%
-Core #1 (1 thread(s))
+Core #1 (1 traced CPU\(s): #4)
   L1I stats:
     Hits:                            8,709
     Misses:                             20
@@ -184,7 +184,7 @@ Core #1 (1 thread(s))
     Local miss rate:                 80.00%
     Child hits:                     12,253
     Total miss rate:                  0.49%
-Core #2 (1 thread(s))
+Core #2 (1 traced CPU\(s): #3)
   L1I stats:
     Hits:                            1,622
     Misses:                             21
@@ -199,13 +199,13 @@ Core #2 (1 thread(s))
     Local miss rate:                 94.64%
     Child hits:                      2,311
     Total miss rate:                  2.24%
-Core #3 (0 thread(s))
+Core #3 (0 traced CPUs)
 \endcode
 
 To compute reuse distance metrics:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse distance tool results:
@@ -276,7 +276,7 @@ accesses (without considering uniqueness) between accesses to the same
 address:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type reuse_time -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Reuse time tool results:
@@ -298,7 +298,7 @@ To simply see the counts of instructions and memory references broken down
 by thread use the basic counts tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type basic_counts -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -simulator_type basic_counts -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
@@ -355,7 +355,7 @@ down by the opcodes used in DR's IR, where \p mov is split into a separate
 opcode for load and store but both have the same public string "mov":
 
 \code
-$ bin64/drrun -t drcachesim -offline -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 $ bin64/drrun -t drcachesim -simulator_type opcode_mix -indir drmemtrace.*.dir
 Opcode mix tool results:
@@ -391,7 +391,7 @@ Opcode mix tool results:
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type histogram -- suite/tests/bin/pi_estimator
+$ bin64/drrun -t drcachesim -simulator_type histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache line histogram tool results:
@@ -498,15 +498,19 @@ entry number and associativity, and the virtual/physical page size,
 are user-specified (see \ref sec_drcachesim_ops).
 
 Neither simulator has a simple way to know which core any particular thread
-executed on at a given point in time.  Instead it uses a simple static
-scheduling of threads to cores, using a round-robin assignment with load
-balancing to fill in gaps with new threads after threads exit.
+executed on for each of its instructions.  The tracer records which core a
+thread is on each time it writes out a full trace buffer, giving an
+approximation of the actual scheduling.  The option "-static_scheduling"
+(see \ref sec_drcachesim_ops) can be used to ignore the recorded scheduling
+and instead use a simple static scheduling of threads to cores, with a
+round-robin assignment with load balancing to fill in gaps with new threads
+after threads exit.
 
 The memory access traces contain some optimizations that combine references
 for one basic block together.  This may result in not considering some
 thread interleavings that could occur natively.  There are no other
 disruptions to thread ordering, however, and the application runs with all
-of threads concurrently just like it would natively (although slower).
+of its threads concurrently just like it would natively (although slower).
 
 Once every process has exited, the simulator prints cache miss statistics
 for each cache to stderr.  The simulator is designed to be extensible,

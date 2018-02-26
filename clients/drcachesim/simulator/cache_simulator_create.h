@@ -65,6 +65,7 @@ struct cache_simulator_knobs_t {
         warmup_refs(0),
         warmup_fraction(0.0),
         sim_refs(1ULL << 63),
+        static_scheduling(false),
         verbose(0) {}
     unsigned int num_cores;
     unsigned int line_size;
@@ -81,6 +82,7 @@ struct cache_simulator_knobs_t {
     uint64_t warmup_refs;
     double warmup_fraction;
     uint64_t sim_refs;
+    bool static_scheduling;
     unsigned int verbose;
 };
 

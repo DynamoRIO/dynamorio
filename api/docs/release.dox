@@ -232,6 +232,8 @@ Further non-compatibility-affecting changes include:
    drmgr_unregister_thread_init_event_user_data() to enable passing of user data.
  - Added drmgr_register_thread_exit_event_user_data() and
    drmgr_unregister_thread_exit_event_usr_data() to enable passing of user data.
+ - Changed drcachesim's default core scheduler to use new cpu markers
+   recorded in the trace that store which cpu each thread executed on.
 
 **************************************************
 <hr>

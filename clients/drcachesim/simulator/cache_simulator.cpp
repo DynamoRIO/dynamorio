@@ -56,7 +56,8 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
 
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
-                knobs_.warmup_fraction, knobs_.sim_refs, knobs_.verbose),
+                knobs_.warmup_fraction, knobs_.sim_refs,
+                knobs_.static_scheduling, knobs_.verbose),
     knobs(knobs_),
     icaches(NULL),
     dcaches(NULL),
@@ -118,11 +119,6 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
             return;
         }
     }
-
-    thread_counts = new unsigned int[knob_num_cores];
-    memset(thread_counts, 0, sizeof(thread_counts[0])*knob_num_cores);
-    thread_ever_counts = new unsigned int[knob_num_cores];
-    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*knob_num_cores);
 }
 
 cache_simulator_t::~cache_simulator_t()
@@ -149,8 +145,6 @@ cache_simulator_t::~cache_simulator_t()
     }
     delete [] icaches;
     delete [] dcaches;
-    delete [] thread_counts;
-    delete [] thread_ever_counts;
 }
 
 bool
@@ -166,6 +160,19 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return true;;
 
     // Both warmup and simulated references are simulated.
+
+    simulator_t::process_memref(memref);
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        // We ignore markers before we ask core_for_thread, to avoid asking
+        // too early on a timestamp marker.
+        if (knobs.verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                "marker type " << memref.marker.marker_type <<
+                " value " << memref.marker.marker_value << "\n";
+        }
+        return true;
+    }
 
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
@@ -216,12 +223,6 @@ cache_simulator_t::process_memref(const memref_t &memref)
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
         last_thread = 0;
-    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                "marker type " << memref.marker.marker_type <<
-                " value " << memref.marker.marker_value << "\n";
-        }
     } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
         if (knobs.verbose >= 3) {
@@ -287,9 +288,8 @@ cache_simulator_t::print_results()
 {
     std::cerr << "Cache simulation results:\n";
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        unsigned int threads = thread_ever_counts[i];
-        std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
-        if (threads > 0) {
+        print_core(i);
+        if (thread_ever_counts[i] > 0) {
             std::cerr << "  L1I stats:" << std::endl;
             icaches[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;

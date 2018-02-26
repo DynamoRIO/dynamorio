@@ -37,6 +37,7 @@
 #define _SIMULATOR_H_ 1
 
 #include <unordered_map>
+#include <vector>
 #include "caching_device_stats.h"
 #include "caching_device.h"
 #include "analysis_tool.h"
@@ -50,28 +51,34 @@ class simulator_t : public analysis_tool_t
                 uint64_t warmup_refs,
                 double warmup_fraction,
                 uint64_t sim_refs,
+                bool static_scheduling,
                 unsigned int verbose);
     virtual ~simulator_t() = 0;
+    virtual bool process_memref(const memref_t &memref);
 
  protected:
+    void print_core(int core) const;
+    int find_emptiest_core(std::vector<int> &counts) const;
     virtual int core_for_thread(memref_tid_t tid);
     virtual void handle_thread_exit(memref_tid_t tid);
 
     unsigned int knob_num_cores;
-
-    // For thread mapping to cores:
-    std::unordered_map<memref_tid_t, int> thread2core;
-    unsigned int *thread_counts;
-    unsigned int *thread_ever_counts;
-
     uint64_t knob_skip_refs;
     uint64_t knob_warmup_refs;
     double knob_warmup_fraction;
     uint64_t knob_sim_refs;
+    bool knob_static_scheduling;
     unsigned int knob_verbose;
 
     memref_tid_t last_thread;
     int last_core;
+
+    // For thread mapping to cores:
+    std::unordered_map<int, int> cpu2core;
+    std::unordered_map<memref_tid_t, int> thread2core;
+    std::vector<int> cpu_counts;
+    std::vector<int> thread_counts;
+    std::vector<int> thread_ever_counts;
 };
 
 #endif /* _SIMULATOR_H_ */
