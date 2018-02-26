@@ -51,7 +51,7 @@ class simulator_t : public analysis_tool_t
                 uint64_t warmup_refs,
                 double warmup_fraction,
                 uint64_t sim_refs,
-                bool static_scheduling,
+                bool cpu_scheduling,
                 unsigned int verbose);
     virtual ~simulator_t() = 0;
     virtual bool process_memref(const memref_t &memref);
@@ -67,7 +67,7 @@ class simulator_t : public analysis_tool_t
     uint64_t knob_warmup_refs;
     double knob_warmup_fraction;
     uint64_t knob_sim_refs;
-    bool knob_static_scheduling;
+    bool knob_cpu_scheduling;
     unsigned int knob_verbose;
 
     memref_tid_t last_thread;

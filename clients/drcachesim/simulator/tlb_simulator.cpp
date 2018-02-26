@@ -53,7 +53,7 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
     simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
                 knobs_.warmup_fraction, knobs_.sim_refs,
-                knobs_.static_scheduling, knobs_.verbose),
+                knobs_.cpu_scheduling, knobs_.verbose),
     knobs(knobs_)
 {
     itlbs = new tlb_t* [knobs.num_cores];

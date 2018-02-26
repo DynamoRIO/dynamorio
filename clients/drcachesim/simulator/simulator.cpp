@@ -45,14 +45,14 @@ simulator_t::simulator_t(unsigned int num_cores,
                          uint64_t warmup_refs,
                          double warmup_fraction,
                          uint64_t sim_refs,
-                         bool static_scheduling,
+                         bool cpu_scheduling,
                          unsigned int verbose) :
     knob_num_cores(num_cores),
     knob_skip_refs(skip_refs),
     knob_warmup_refs(warmup_refs),
     knob_warmup_fraction(warmup_fraction),
     knob_sim_refs(sim_refs),
-    knob_static_scheduling(static_scheduling),
+    knob_cpu_scheduling(cpu_scheduling),
     knob_verbose(verbose),
     last_thread(0),
     last_core(0),
@@ -74,7 +74,7 @@ simulator_t::process_memref(const memref_t &memref)
 {
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
-        !knob_static_scheduling) {
+        knob_cpu_scheduling) {
         int cpu = (int)(intptr_t)memref.marker.marker_value;
         if (cpu < 0)
             return true;
@@ -124,14 +124,14 @@ simulator_t::core_for_thread(memref_tid_t tid)
     auto exists = thread2core.find(tid);
     if (exists != thread2core.end())
         return exists->second;
-    // Either knob_static_scheduling is on and we're ignoring cpu
+    // Either knob_cpu_scheduling is off and we're ignoring cpu
     // markers, or there has not yet been a cpu marker for this
     // thread.  We fall back to scheduling threads directly to cores.
     int min_core = find_emptiest_core(thread_counts);
-    if (knob_static_scheduling && knob_verbose >= 1) {
+    if (!knob_cpu_scheduling && knob_verbose >= 1) {
         std::cerr << "new thread " << tid << " => core " << min_core <<
             " (count=" << thread_counts[min_core] << ")" << std::endl;
-    } else if (!knob_static_scheduling && knob_verbose >= 1) {
+    } else if (knob_cpu_scheduling && knob_verbose >= 1) {
         std::cerr << "missing cpu marker, so placing thread " << tid << " => core "
                   << min_core << " (count=" << thread_counts[min_core] << ")"
                   << std::endl;
@@ -159,7 +159,7 @@ simulator_t::handle_thread_exit(memref_tid_t tid)
 void
 simulator_t::print_core(int core) const
 {
-    if (knob_static_scheduling) {
+    if (!knob_cpu_scheduling) {
         std::cerr << "Core #" << core << " (" << thread_ever_counts[core]
                   << " thread(s))" << std::endl;
     } else {

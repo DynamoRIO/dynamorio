@@ -57,7 +57,7 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
                 knobs_.warmup_fraction, knobs_.sim_refs,
-                knobs_.static_scheduling, knobs_.verbose),
+                knobs_.cpu_scheduling, knobs_.verbose),
     knobs(knobs_),
     icaches(NULL),
     dcaches(NULL),

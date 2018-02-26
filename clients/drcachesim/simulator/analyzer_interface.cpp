@@ -69,7 +69,7 @@ drmemtrace_analysis_tool_create()
         knobs.warmup_fraction = op_warmup_fraction.get_value();
         knobs.sim_refs = op_sim_refs.get_value();
         knobs.verbose = op_verbose.get_value();
-        knobs.static_scheduling = op_static_scheduling.get_value();
+        knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         return cache_simulator_create(knobs);
     } else if (op_simulator_type.get_value() == TLB) {
         tlb_simulator_knobs_t knobs;
@@ -87,7 +87,7 @@ drmemtrace_analysis_tool_create()
         knobs.warmup_fraction = op_warmup_fraction.get_value();
         knobs.sim_refs = op_sim_refs.get_value();
         knobs.verbose = op_verbose.get_value();
-        knobs.static_scheduling = op_static_scheduling.get_value();
+        knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         return tlb_simulator_create(knobs);
     } else if (op_simulator_type.get_value() == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(),

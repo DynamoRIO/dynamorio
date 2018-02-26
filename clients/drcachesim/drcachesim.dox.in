@@ -96,7 +96,7 @@ $ bin64/drrun -t drcachesim -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Cache simulation results:
-Core #0 (1 traced CPU\(s): #6)
+Core #0 (1 thread(s))
   L1I stats:
     Hits:                          258,433
     Misses:                          1,148
@@ -107,7 +107,7 @@ Core #0 (1 traced CPU\(s): #6)
     Prefetch hits:                     458
     Prefetch misses:                 2,166
     Miss rate:                        2.73%
-Core #1 (1 traced CPU\(s): #1)
+Core #1 (1 thread(s))
   L1I stats:
     Hits:                            8,895
     Misses:                             99
@@ -118,7 +118,7 @@ Core #1 (1 traced CPU\(s): #1)
     Prefetch hits:                      26
     Prefetch misses:                   130
     Miss rate:                        4.33%
-Core #2 (1 traced CPU\(s): #7)
+Core #2 (1 thread(s))
   L1I stats:
     Hits:                            4,150
     Misses:                            101
@@ -129,7 +129,7 @@ Core #2 (1 traced CPU\(s): #7)
     Prefetch hits:                      25
     Prefetch misses:                   105
     Miss rate:                        7.61%
-Core #3 (0 traced CPUs)
+Core #3 (0 thread(s))
 LL stats:
     Hits:                            1,414
     Misses:                          2,844
@@ -154,7 +154,7 @@ $ bin64/drrun -t drcachesim -simulator_type TLB -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 TLB simulation results:
-Core #0 (1 traced CPU\(s): #6)
+Core #0 (1 thread(s))
   L1I stats:
     Hits:                          252,412
     Misses:                            401
@@ -169,7 +169,7 @@ Core #0 (1 traced CPU\(s): #6)
     Local miss rate:                  2.24%
     Child hits:                    339,544
     Total miss rate:                  0.06%
-Core #1 (1 traced CPU\(s): #4)
+Core #1 (1 thread(s))
   L1I stats:
     Hits:                            8,709
     Misses:                             20
@@ -184,7 +184,7 @@ Core #1 (1 traced CPU\(s): #4)
     Local miss rate:                 80.00%
     Child hits:                     12,253
     Total miss rate:                  0.49%
-Core #2 (1 traced CPU\(s): #3)
+Core #2 (1 thread(s))
   L1I stats:
     Hits:                            1,622
     Misses:                             21
@@ -199,7 +199,7 @@ Core #2 (1 traced CPU\(s): #3)
     Local miss rate:                 94.64%
     Child hits:                      2,311
     Total miss rate:                  2.24%
-Core #3 (0 traced CPUs)
+Core #3 (0 thread(s))
 \endcode
 
 To compute reuse distance metrics:
@@ -500,11 +500,77 @@ are user-specified (see \ref sec_drcachesim_ops).
 Neither simulator has a simple way to know which core any particular thread
 executed on for each of its instructions.  The tracer records which core a
 thread is on each time it writes out a full trace buffer, giving an
-approximation of the actual scheduling.  The option "-static_scheduling"
-(see \ref sec_drcachesim_ops) can be used to ignore the recorded scheduling
-and instead use a simple static scheduling of threads to cores, with a
-round-robin assignment with load balancing to fill in gaps with new threads
-after threads exit.
+approximation of the actual scheduling (at the granularity of the trace
+buffer size).  By default, these cache and TLB simulators ignore that
+information and schedule threads to simulated cores in a static round-robin
+fashion with load balancing to fill in gaps with new threads after threads
+exit.  The option "-cpu_scheduling" (see \ref sec_drcachesim_ops) can be
+used to instead map each physical cpu to a simulated core and use the
+recorded cpu that each segment of thread execution occurred on to schedule
+execution in a manner that more closely resembles the traced execution on
+the physical machine.  Below is an example of the output using this option
+running an application with many threads on a pysical machine with 8 cpus.
+The 8 cpus are mapped to the 4 simulated cores:
+
+\code
+$ bin64/drrun -t drcachesim -cpu_scheduling -- ~/test/pi_estimator 20
+Estimation of pi is 3.141592653798125
+<Stopping application /home/bruening/dr/test/threadsig (213517)>
+---- <application exited with code 0> ----
+Cache simulation results:
+Core #0 (2 traced CPU(s): #2, #5)
+  L1I stats:
+    Hits:                        2,756,429
+    Misses:                          1,190
+    Miss rate:                        0.04%
+  L1D stats:
+    Hits:                        1,747,822
+    Misses:                         13,511
+    Prefetch hits:                   2,354
+    Prefetch misses:                11,157
+    Miss rate:                        0.77%
+Core #1 (2 traced CPU(s): #4, #0)
+  L1I stats:
+    Hits:                          472,948
+    Misses:                            299
+    Miss rate:                        0.06%
+  L1D stats:
+    Hits:                          895,099
+    Misses:                          1,224
+    Prefetch hits:                     253
+    Prefetch misses:                   971
+    Miss rate:                        0.14%
+Core #2 (2 traced CPU(s): #1, #7)
+  L1I stats:
+    Hits:                          448,581
+    Misses:                            649
+    Miss rate:                        0.14%
+  L1D stats:
+    Hits:                          811,483
+    Misses:                          1,723
+    Prefetch hits:                     378
+    Prefetch misses:                 1,345
+    Miss rate:                        0.21%
+Core #3 (2 traced CPU(s): #6, #3)
+  L1I stats:
+    Hits:                          275,192
+    Misses:                            154
+    Miss rate:                        0.06%
+  L1D stats:
+    Hits:                          522,655
+    Misses:                            850
+    Prefetch hits:                     173
+    Prefetch misses:                   677
+    Miss rate:                        0.16%
+LL stats:
+    Hits:                           12,491
+    Misses:                          7,109
+    Prefetch hits:                   8,922
+    Prefetch misses:                 5,228
+    Local miss rate:                 36.27%
+    Child hits:                  7,933,367
+    Total miss rate:                  0.09%
+\endcode
 
 The memory access traces contain some optimizations that combine references
 for one basic block together.  This may result in not considering some
