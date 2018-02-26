@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,10 +47,12 @@
 #ifndef UNIX
 # include <process.h>
 #endif
+#include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
 static bool finished[num_threads];
+static void *burst_owner_finished;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -113,6 +115,12 @@ thread_func(void *arg)
             }
         }
     }
+    if (idx == burst_owner) {
+        signal_cond_var(burst_owner_finished);
+    } else {
+        /* Avoid having < 1 thread per core in the output. */
+        wait_cond_var(burst_owner_finished);
+    }
     finished[idx] = true;
     return 0;
 }
@@ -134,6 +142,7 @@ main(int argc, const char *argv[])
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
+    burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
@@ -153,5 +162,6 @@ main(int argc, const char *argv[])
             std::cerr << "thread " << i << " failed to finish\n";
     }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_finished);
     return 0;
 }
