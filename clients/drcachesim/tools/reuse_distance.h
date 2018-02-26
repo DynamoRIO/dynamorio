@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,6 +41,7 @@
 #include <assert.h>
 #include <iostream>
 #include "analysis_tool.h"
+#include "reuse_distance_create.h"
 #include "memref.h"
 
 // We see noticeable overhead in release build with an if() that directly
@@ -59,13 +60,7 @@ struct line_ref_list_t;
 class reuse_distance_t : public analysis_tool_t
 {
  public:
-    reuse_distance_t(unsigned int line_size,
-                     bool report_histogram,
-                     unsigned int distance_threshold,
-                     unsigned int report_top,
-                     unsigned int skip_list_distance,
-                     bool verify_skip,
-                     unsigned int verbose);
+    reuse_distance_t(const reuse_distance_knobs_t &knobs);
     virtual ~reuse_distance_t();
     virtual bool process_memref(const memref_t &memref);
     virtual bool print_results();
@@ -79,9 +74,7 @@ class reuse_distance_t : public analysis_tool_t
     std::unordered_map<int_least64_t, int_least64_t> dist_map;
     line_ref_list_t *ref_list;
 
-    unsigned int knob_line_size;
-    bool knob_report_histogram;
-    unsigned int knob_report_top; /* most accessed lines */
+    reuse_distance_knobs_t knobs;
 
     uint64_t time_stamp;
     size_t line_size_bits;

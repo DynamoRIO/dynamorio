@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,7 +77,7 @@ simulator_t::core_for_thread(memref_tid_t tid)
     // structure.
     unsigned int min_count = UINT_MAX;
     int min_core = 0;
-    for (int i = 0; i < knob_num_cores; i++) {
+    for (unsigned int i = 0; i < knob_num_cores; i++) {
         if (thread_counts[i] < min_count) {
             min_count = thread_counts[i];
             min_core = i;
