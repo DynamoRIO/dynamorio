@@ -154,6 +154,15 @@ droption_t<unsigned int> op_virt2phys_freq
  "The units are the number of memory accesses per forced access.  A value of 0 "
  "uses the cached values for the entire application execution.");
 
+droption_t<bool> op_cpu_scheduling
+(DROPTION_SCOPE_CLIENT, "cpu_scheduling", false,
+ "Map threads to cores matching recorded cpu execution",
+ "By default, the simulator schedules threads to simulated cores in a static "
+ "round-robin fashion.  This option causes the scheduler to instead use the recorded "
+ "cpu that each thread executed on (at a granularity of the trace buffer size) "
+ "for scheduling, mapping traced cpu's to cores and running each segment of each thread "
+ "on the core that owns the recorded cpu for that segment.");
+
 droption_t<bytesize_t> op_max_trace_size
 (DROPTION_SCOPE_CLIENT, "max_trace_size", 0, "Cap on the raw trace size for each thread",
  "If non-zero, this sets a maximum size on the amount of raw trace data gathered "

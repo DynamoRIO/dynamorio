@@ -52,7 +52,8 @@ tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
 
 tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
     simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
-                knobs_.warmup_fraction, knobs_.sim_refs, knobs_.verbose),
+                knobs_.warmup_fraction, knobs_.sim_refs,
+                knobs_.cpu_scheduling, knobs_.verbose),
     knobs(knobs_)
 {
     itlbs = new tlb_t* [knobs.num_cores];
@@ -87,11 +88,6 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
             return;
         }
     }
-
-    thread_counts = new unsigned int[knobs.num_cores];
-    memset(thread_counts, 0, sizeof(thread_counts[0])*knobs.num_cores);
-    thread_ever_counts = new unsigned int[knobs.num_cores];
-    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*knobs.num_cores);
 }
 
 tlb_simulator_t::~tlb_simulator_t()
@@ -114,8 +110,6 @@ tlb_simulator_t::~tlb_simulator_t()
     delete [] itlbs;
     delete [] dtlbs;
     delete [] lltlbs;
-    delete [] thread_counts;
-    delete [] thread_ever_counts;
 }
 
 bool
@@ -131,6 +125,14 @@ tlb_simulator_t::process_memref(const memref_t &memref)
         return true;
 
     // Both warmup and simulated references are simulated.
+
+    simulator_t::process_memref(memref);
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        // We ignore markers before we ask core_for_thread, to avoid asking
+        // too early on a timestamp marker.
+        return true;
+    }
 
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
@@ -194,9 +196,8 @@ tlb_simulator_t::print_results()
 {
     std::cerr << "TLB simulation results:\n";
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        unsigned int threads = thread_ever_counts[i];
-        std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
-        if (threads > 0) {
+        print_core(i);
+        if (thread_ever_counts[i] > 0) {
             std::cerr << "  L1I stats:" << std::endl;
             itlbs[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;
