@@ -2440,7 +2440,8 @@ if (CLIENT_INTERFACE)
       macro (torunonly_drcachesim testname exetgt sim_ops app_args)
         torunonly_ci(tool.drcachesim.${testname} ${exetgt} drcachesim
           "${testname}.c" # for templatex basename
-          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}" "" "${app_args}")
+          "-ipc_name ${IPC_PREFIX}drtestpipe_${testname} ${sim_ops}"
+          "" "${app_args}")
         set(tool.drcachesim.${testname}_toolname "drcachesim")
         set(tool.drcachesim.${testname}_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
@@ -2448,6 +2449,7 @@ if (CLIENT_INTERFACE)
       endmacro (torunonly_drcachesim)
 
       # We have a couple of sanity checks that at least nothing crashes.
+      # We also test some runtime parameters.
       torunonly_drcachesim(simple ${ci_shared_app} "" "")
 
       # TLB simulator's single-thread sanity check
@@ -2484,13 +2486,14 @@ if (CLIENT_INTERFACE)
         # XXX i#1703: this may be too flaky: we may want to remove this once
         # we add some dedicated multi-thread (and multi-process) tests with
         # more deterministic output.
-        torunonly_drcachesim(threads client.annotation-concurrency ""
+        # We test -cpu_scheduling on several tests with many threads.
+        torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
           "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
         # TLB simulator's multi-thread sanity check
         torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB" "${annotation_test_args}")
+          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args}")
         # i#2063: this test can time out.
         set(tool.drcachesim.TLB-threads_timeout 150)
       endif ()
@@ -2640,7 +2643,9 @@ if (CLIENT_INTERFACE)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
-          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads "" "" "")
+          torunonly_drcacheoff(burst_threads tool.drcacheoff.burst_threads
+            # We test cpu_scheduling for offline traces here.
+            "" "@-cpu_scheduling" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
           torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
