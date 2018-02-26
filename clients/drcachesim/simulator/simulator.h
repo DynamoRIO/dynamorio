@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,7 +57,7 @@ class simulator_t : public analysis_tool_t
     virtual int core_for_thread(memref_tid_t tid);
     virtual void handle_thread_exit(memref_tid_t tid);
 
-    int knob_num_cores;
+    unsigned int knob_num_cores;
 
     // For thread mapping to cores:
     std::unordered_map<memref_tid_t, int> thread2core;
