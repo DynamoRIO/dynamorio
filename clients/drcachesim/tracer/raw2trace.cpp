@@ -610,6 +610,12 @@ raw2trace_t::merge_and_process_thread_files()
     for (uint i=0; i<thread_files.size(); ++i) {
         if (!read_from_thread_file(i, &in_entry, 1))
             return "Failed to read header from input file";
+        // Handle legacy traces which have the timestamp first.
+        if (in_entry.tid.type == OFFLINE_TYPE_TIMESTAMP) {
+            times[i] = in_entry.timestamp.usec;
+            if (!read_from_thread_file(i, &in_entry, 1))
+                return "Failed to read header from input file";
+        }
         DR_ASSERT(in_entry.tid.type == OFFLINE_TYPE_THREAD);
         VPRINT(2, "File %u is thread %u\n", i, (uint)in_entry.tid.tid);
         tids[i] = in_entry.tid.tid;
