@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,10 +47,12 @@
 #ifndef UNIX
 # include <process.h>
 #endif
+#include "../../../suite/tests/condvar.h"
 
 static const int num_threads = 8;
 static const int burst_owner = 4;
 static bool finished[num_threads];
+static void *burst_owner_finished;
 
 bool
 my_setenv(const char *var, const char *value)
@@ -81,18 +83,19 @@ void *
 thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
+    static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static const int iter_start = outer_iters/3;
     static const int iter_stop = iter_start + 4;
 
-    /* We use an outer loop to test re-attaching (i#2157), except
-     * there is an unfixed bug i#2175.
-     * XXX i#2175: up the iter count once we fix the bug.
-     */
-    for (int j = 0; j < 1; ++j) {
-        if (j > 0 && idx == burst_owner)
+    /* We use an outer loop to test re-attaching (i#2157). */
+    for (int j = 0; j < reattach_iters; ++j) {
+        if (idx == burst_owner) {
+            std::cerr << "pre-DR init\n";
             dr_app_setup();
+            assert(!dr_app_running_under_dynamorio());
+        }
         for (int i = 0; i < outer_iters; ++i) {
             if (idx == burst_owner && i == iter_start) {
                 std::cerr << "pre-DR start\n";
@@ -111,6 +114,12 @@ thread_func(void *arg)
                 dr_app_stop_and_cleanup();
             }
         }
+    }
+    if (idx == burst_owner) {
+        signal_cond_var(burst_owner_finished);
+    } else {
+        /* Avoid having < 1 thread per core in the output. */
+        wait_cond_var(burst_owner_finished);
     }
     finished[idx] = true;
     return 0;
@@ -133,10 +142,7 @@ main(int argc, const char *argv[])
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
-    std::cerr << "pre-DR init\n";
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
-
+    burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
@@ -156,5 +162,6 @@ main(int argc, const char *argv[])
             std::cerr << "thread " << i << " failed to finish\n";
     }
     std::cerr << "all done\n";
+    destroy_cond_var(burst_owner_finished);
     return 0;
 }
