@@ -160,8 +160,7 @@ static uint     tls_offs;
 static int      tls_idx;
 #define TLS_SLOT(tls_base, enum_val) (((void **)((byte *)(tls_base)+tls_offs))+(enum_val))
 #define BUF_PTR(tls_base) *(byte **)TLS_SLOT(tls_base, MEMTRACE_TLS_OFFS_BUF_PTR)
-/* We leave a slot at the start so we can easily insert a header entry */
-#define BUF_HDR_SLOTS 1
+/* We leave slot(s) at the start so we can easily insert a header entry */
 static size_t buf_hdr_slots_size;
 
 static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
@@ -174,6 +173,10 @@ static bool thread_filtering_enabled;
 
 /* file operations functions */
 struct file_ops_func_t {
+    file_ops_func_t() :
+        open_file(dr_open_file), read_file(dr_read_file), write_file(dr_write_file),
+        close_file(dr_close_file), create_dir(dr_create_dir), handoff_buf(nullptr),
+        exit_cb(nullptr), exit_arg(nullptr) {}
     drmemtrace_open_file_func_t  open_file;
     drmemtrace_read_file_func_t  read_file;
     drmemtrace_write_file_func_t write_file;
@@ -183,9 +186,7 @@ struct file_ops_func_t {
     drmemtrace_exit_func_t exit_cb;
     void *exit_arg;
 };
-static struct file_ops_func_t file_ops_func = {
-    dr_open_file, dr_read_file, dr_write_file, dr_close_file, dr_create_dir,
-};
+static struct file_ops_func_t file_ops_func;
 
 drmemtrace_status_t
 drmemtrace_replace_file_ops(drmemtrace_open_file_func_t  open_file_func,
@@ -316,15 +317,15 @@ static inline byte *
 atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 {
     ssize_t towrite = pipe_end - pipe_start;
-    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() &&
-              towrite > (ssize_t)buf_hdr_slots_size);
+    DR_ASSERT(towrite <= ipc_pipe.get_atomic_write_size() && towrite > 0);
     if (ipc_pipe.write((void *)pipe_start, towrite) < (ssize_t)towrite) {
         FATAL("Fatal error: failed to write to pipe\n");
     }
-    // Re-emit thread entry header
-    DR_ASSERT(pipe_end - buf_hdr_slots_size > pipe_start);
-    pipe_start = pipe_end - buf_hdr_slots_size;
-    instru->append_tid(pipe_start, dr_get_thread_id(drcontext));
+    // Re-emit buffer unit header to handle split pipe writes.
+    if (pipe_end - buf_hdr_slots_size > pipe_start) {
+        pipe_start = pipe_end - buf_hdr_slots_size;
+        instru->append_unit_header(pipe_start, dr_get_thread_id(drcontext));
+    }
     return pipe_start;
 }
 
@@ -361,21 +362,20 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *mem_ref, *buf_ptr;
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
-    size_t header_size = buf_hdr_slots_size;
+    size_t header_size = 0;
     uint num_refs = 0;
 
     buf_ptr = BUF_PTR(data->seg_base);
-    // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
-    if (buf_ptr == data->buf_base + buf_hdr_slots_size)
-        return;
-    /* The initial slot is left empty for the header entry, which we add here,
-     * unless this is the very first buffer for this thread, in which case it
-     * already has a header.
-     */
+    // For online we already wrote the thread header but for offline it is in
+    // the first buffer, so skip over it.
     if (data->num_refs == 0 && op_offline.get_value())
         header_size = data->init_header_size;
-    else
-        instru->append_unit_header(data->buf_base, dr_get_thread_id(drcontext));
+    // We may get called with nothing to write: e.g., on a syscall for -L0_filter.
+    if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size)
+        return;
+    // The initial slots are left empty for the header, which we add here.
+    header_size += instru->append_unit_header(data->buf_base + header_size,
+                                              dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
@@ -1430,23 +1430,18 @@ init_thread_in_process(void *drcontext)
         /* Write initial headers at the top of the first buffer. */
         data->init_header_size =
             instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
-        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size;
-        BUF_PTR(data->seg_base) +=
-            instru->append_tid(BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-        BUF_PTR(data->seg_base) +=
-            instru->append_pid(BUF_PTR(data->seg_base), dr_get_process_id());
+        BUF_PTR(data->seg_base) = data->buf_base + data->init_header_size +
+            buf_hdr_slots_size;
     } else {
         /* pass pid and tid to the simulator to register current thread */
         proc_info = (byte *)buf;
-        DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= 3*instru->sizeof_entry());
         proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
-        proc_info += instru->append_tid(proc_info, dr_get_thread_id(drcontext));
-        proc_info += instru->append_pid(proc_info, dr_get_process_id());
+        DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(proc_info - (byte *)buf));
         write_trace_data(drcontext, (byte *)buf, proc_info);
 
         /* put buf_base to TLS plus header slots as starting buf_ptr */
-        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         data->init_header_size = buf_hdr_slots_size;
+        BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
     }
 
     if (op_L0_filter.get_value()) {
@@ -1582,6 +1577,14 @@ event_exit(void)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
 
+    /* Clear callbacks to support reset. */
+    file_ops_func = file_ops_func_t();
+    if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
+        DR_ASSERT(false && "failed to clear custom module callbacks");
+    should_trace_thread_cb = nullptr;
+    trace_thread_cb_user_data = nullptr;
+    thread_filtering_enabled = false;
+
     dr_mutex_destroy(mutex);
     drutil_exit();
     if (op_trace_after_instrs.get_value() > 0)
@@ -1668,6 +1671,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
     drreg_options_t ops = {sizeof(ops), 3, false};
+    byte buf[MAXIMUM_PATH];
 
     dr_set_client_name("DynamoRIO Cache Simulator Tracer",
                        "http://dynamorio.org/issues");
@@ -1784,7 +1788,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
     /* Mark any padding as redzone as well */
     redzone_size = max_buf_size - trace_buf_size;
-    buf_hdr_slots_size = instru->sizeof_entry() * BUF_HDR_SLOTS;
+    /* Append a throwaway header to get its size. */
+    buf_hdr_slots_size = instru->append_unit_header(buf, 0/*doesn't matter*/);
+    DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= buf_hdr_slots_size);
 
     client_id = id;
     mutex = dr_mutex_create();
