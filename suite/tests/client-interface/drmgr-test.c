@@ -181,7 +181,7 @@ run_func(void * arg)
 }
 
 int
-main()
+main(int argc, char **argv)
 {
     int tid;
     HANDLE hThread;
