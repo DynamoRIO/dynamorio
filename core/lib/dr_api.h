@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,6 +121,15 @@ DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 
 /* A flag that can be used to identify whether this file was included */
 #define DYNAMORIO_API
+
+/**
+ * A declaration that requests debug-build sanity checks in DR's private loader
+ * that complain if malloc or free is called outside of process initialization
+ * or exit.  This is meant for client libraries that want to support statically
+ * linking with an application, where using the system allocator causes
+ * transparency issues.
+ */
+#define DR_DISALLOW_MALLOC DR_EXPORT LINK_ONCE int _DR_DISALLOW_MALLOC_ = 1;
 
 #ifdef __cplusplus
 }

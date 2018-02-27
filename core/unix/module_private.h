@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,6 +89,12 @@ struct _os_privmod_data_t {
     uint           tls_first_byte; /* aligned addr of the first tls variable */
     app_pc         tls_image;      /* tls block address in memory */
 };
+
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+# define DR_DISALLOW_MALLOC_NAME "_DR_DISALLOW_MALLOC_"
+extern bool disallow_midrun_malloc;
+#endif
 
 void
 module_get_os_privmod_data(app_pc base, size_t size, bool relocated,

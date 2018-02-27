@@ -68,6 +68,11 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
 }
 #endif
 
+/* Request debug-build checks on use of malloc mid-run which will break statically
+ * linking this client into an app.
+ */
+DR_DISALLOW_MALLOC
+
 #define NOTIFY(level, ...) do {            \
     if (op_verbose.get_value() >= (level)) \
         dr_fprintf(STDERR, __VA_ARGS__);   \
