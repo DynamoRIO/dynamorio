@@ -56,8 +56,6 @@ static thread_id_t main_thread;
 static int cb_depth;
 static volatile bool in_syscall_A;
 static volatile bool in_syscall_B;
-static volatile bool in_event_mod_load;
-static volatile bool in_event_mod_unload;
 static volatile bool in_post_syscall_A;
 static volatile bool in_post_syscall_B;
 static volatile bool in_event_thread_init;
@@ -68,6 +66,8 @@ static int thread_exit_events;
 static int thread_exit_ex_events;
 static int thread_exit_user_data_events;
 static int thread_exit_null_user_data_events;
+static int mod_load_events;
+static int mod_unload_events;
 
 static void *syslock;
 static void *threadlock;
@@ -194,10 +194,10 @@ dr_init(client_id_t id)
                                                     event_bb4_instru2instru,
                                                     &priority4);
 
-    drmgr_register_module_load_event_user_data(event_mod_load,
+    drmgr_register_module_load_event_user_data(event_mod_load, NULL,
                                                (void *) mod_user_data_test);
 
-    drmgr_register_module_unload_event_user_data(event_mod_unload,
+    drmgr_register_module_unload_event_user_data(event_mod_unload, NULL,
                                                  (void *) mod_user_data_test);
 
     tls_idx = drmgr_register_tls_field();
@@ -239,9 +239,6 @@ event_exit(void)
     CHECK(checked_cls_write_from_cache, "failed to hit clean call");
     CHECK(one_time_exec == 1, "failed to execute one-time event");
 
-    CHECK(in_event_mod_load, "Mod Load cb not tested");
-    CHECK(in_event_mod_unload, "Mod Unload cb no tested");
-
     if (thread_exit_events > 0)
         dr_fprintf(STDERR, "saw event_thread_exit\n");
     if (thread_exit_ex_events > 0)
@@ -250,6 +247,11 @@ event_exit(void)
         dr_fprintf(STDERR, "saw event_thread_exit_user_data\n");
     if (thread_exit_null_user_data_events > 0)
         dr_fprintf(STDERR, "saw event_thread_exit_null_user_data\n");
+
+    if (mod_load_events > 0)
+        dr_fprintf(STDERR, "saw event_mod_load\n");
+    if (mod_unload_events > 0)
+        dr_fprintf(STDERR, "saw event_mod_unload\n");
 
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
@@ -378,19 +380,17 @@ event_thread_exit_null_user_data(void *drcontext, void *user_data)
 }
 
 static void
-event_mod_load(void *drcontext, const module_data_t *mod,
-                                  bool loaded, void *user_data)
+event_mod_load(void *drcontext, const module_data_t *mod, bool loaded, void *user_data)
 {
-    in_event_mod_load = true;
+    mod_load_events++;
     CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod load");
 }
 
 
 static void
-event_mod_unload(void *drcontext, const module_data_t *mod,
-                        void *user_data)
+event_mod_unload(void *drcontext, const module_data_t *mod, void *user_data)
 {
-    in_event_mod_unload = true;
+    mod_unload_events++;
     CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod unload");
 }
 

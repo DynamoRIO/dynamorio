@@ -2017,7 +2017,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "")
+  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
   use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
   if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
     target_link_libraries(client.drmgr-test ${libpthread})

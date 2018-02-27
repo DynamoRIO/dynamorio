@@ -934,10 +934,10 @@ DR_EXPORT
  * the execution of the callback. \return whether successful.
  */
 bool
-drmgr_register_module_load_event_user_data(void (*func)(void *drcontext,
-                                           const module_data_t *info,
-                                           bool loaded, void *user_data),
-                                           void *user_data);
+drmgr_register_module_load_event_user_data(void (*func)
+                                           (void *drcontext, const module_data_t *info,
+                                            bool loaded, void *user_data),
+                                           drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
 /**
@@ -958,9 +958,8 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_module_load_event_user_data(void (*func)
-                                             (void *drcontext,
-                                             const module_data_t *info,
-                                             bool loaded, void *user_data));
+                                             (void *drcontext, const module_data_t *info,
+                                              bool loaded, void *user_data));
 
 DR_EXPORT
 /**
@@ -996,9 +995,10 @@ DR_EXPORT
  */
 bool
 drmgr_register_module_unload_event_user_data(void (*func)
-                                             (void *drcontext,
-                                             const module_data_t *info,
-                                             void *user_data), void *user_data);
+                                             (void *drcontext, const module_data_t *info,
+                                              void *user_data),
+                                             drmgr_priority_t *priority,
+                                             void *user_data);
 DR_EXPORT
 /**
  * Unregister a callback function for the module unload event.
@@ -1018,8 +1018,8 @@ DR_EXPORT
 bool
 drmgr_unregister_module_unload_event_user_data(void (*func)
                                                (void *drcontext,
-                                               const module_data_t *info,
-                                               void *user_data));
+                                                const module_data_t *info,
+                                                void *user_data));
 
 DR_EXPORT
 /**

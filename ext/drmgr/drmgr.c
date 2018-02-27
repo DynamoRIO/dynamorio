@@ -1466,13 +1466,13 @@ drmgr_register_module_load_event_ex(void (*func)
 
 DR_EXPORT
 bool
-drmgr_register_module_load_event_user_data(void (*func)(void *drcontext,
-                                            const module_data_t *info,
+drmgr_register_module_load_event_user_data(void (*func)
+                                           (void *drcontext, const module_data_t *info,
                                             bool loaded, void *user_data),
-                                            void *user_data)
+                                           drmgr_priority_t *priority, void *user_data)
 {
     return drmgr_generic_event_add(&cblist_modload, modload_event_lock,
-                                   (void (*)(void)) func, NULL, true, user_data);
+                                   (void (*)(void)) func, priority, true, user_data);
 }
 
 DR_EXPORT
@@ -1488,9 +1488,8 @@ drmgr_unregister_module_load_event(void (*func)
 DR_EXPORT
 bool
 drmgr_unregister_module_load_event_user_data(void (*func)
-                                             (void *drcontext,
-                                             const module_data_t *info,
-                                             bool loaded, void *user_data))
+                                             (void *drcontext, const module_data_t *info,
+                                              bool loaded, void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_modload, modload_event_lock,
                                       (void (*)(void)) func);
@@ -1514,11 +1513,13 @@ drmgr_modload_event(void *drcontext, const module_data_t *info,
         bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
         void *user_data = iter.cbs.generic[i].user_data;
         if (is_using_user_data == false)
+        {
             (*iter.cbs.generic[i].cb.modload_cb.cb_no_user_data)(drcontext, info,
                                                                  loaded);
-        else
+        } else {
             (*iter.cbs.generic[i].cb.modload_cb.cb_user_data)(drcontext, info, loaded,
                                                               user_data);
+        }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
@@ -1545,13 +1546,12 @@ drmgr_register_module_unload_event_ex(void (*func)
 DR_EXPORT
 bool
 drmgr_register_module_unload_event_user_data(void (*func)
-                                             (void *drcontext,
-                                             const module_data_t *info,
-                                             void *user_data),
-                                             void *user_data)
+                                             (void *drcontext, const module_data_t *info,
+                                              void *user_data),
+                                             drmgr_priority_t *priority, void *user_data)
 {
     return drmgr_generic_event_add(&cblist_modunload, modunload_event_lock,
-                                   (void (*)(void)) func, NULL, true, user_data);
+                                   (void (*)(void)) func, priority, true, user_data);
 }
 
 DR_EXPORT
@@ -1567,8 +1567,8 @@ DR_EXPORT
 bool
 drmgr_unregister_module_unload_event_user_data(void (*func)
                                                (void *drcontext,
-                                               const module_data_t *info,
-                                               void *user_data))
+                                                const module_data_t *info,
+                                                void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_modunload, modunload_event_lock,
                                       (void (*)(void)) func);
@@ -1592,9 +1592,10 @@ drmgr_modunload_event(void *drcontext, const module_data_t *info)
         void *user_data = iter.cbs.generic[i].user_data;
         if (is_using_user_data == false)
             (*iter.cbs.generic[i].cb.modunload_cb.cb_no_user_data)(drcontext, info);
-        else
+        else {
             (*iter.cbs.generic[i].cb.modunload_cb.cb_user_data)(drcontext, info,
                                                                 user_data);
+        }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
