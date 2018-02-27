@@ -151,10 +151,10 @@ dr_init(client_id_t id)
     drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
                                         NULL, NULL, 1};
     drmgr_priority_t thread_exit_user_data_pri = {sizeof(priority),
-                                                  "drmgr-thread-exit-test",
+                                                  "drmgr-thread-exit-user-data-test",
                                                   NULL, NULL, 2};
     drmgr_priority_t thread_exit_null_user_data_pri = {sizeof(priority),
-                                                       "drmgr-thread-exit-test",
+                                                       "drmgr-t-exit-null-usr-data-test",
                                                        NULL, NULL, 3};
 
     bool ok;

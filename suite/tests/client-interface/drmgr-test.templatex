@@ -9,6 +9,7 @@ in post_sys_B
 in post_sys_A
 #ifdef UNIX
 B
+appdll initialized
 #endif
 #ifdef WINDOWS
 About to create thread
