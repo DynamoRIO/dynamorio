@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -38,7 +39,8 @@
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * toolbindir
 # * out = file where output of background process will be sent
-# * nudge = arguments to nudgeunix
+# * pidfile = file where the pid of the background process will be written
+# * nudge = arguments to nudgeunix or drconfig
 # * clear = dir to clear ahead of time
 
 # intra-arg space=@@ and inter-arg space=@
@@ -57,7 +59,13 @@ if (NOT "${clear}" STREQUAL "")
   endif ()
 endif ()
 
-# run in the background
+# Remove any stale files.
+if (pidfile)
+  file(REMOVE ${pidfile})
+endif ()
+file(REMOVE ${out})
+
+# Run the target in the background.
 execute_process(COMMAND ${cmd}
   RESULT_VARIABLE cmd_result
   ERROR_VARIABLE cmd_err
@@ -70,23 +78,46 @@ if (UNIX)
   find_program(SLEEP "sleep")
   if (NOT SLEEP)
     message(FATAL_ERROR "cannot find 'sleep'")
-  endif (NOT SLEEP)
+  endif ()
+  set(nudge_cmd nudgeunix)
 else (UNIX)
-  message(FATAL_ERROR "need a sleep on Windows")
-  # FIXME i#120: add tools/sleep.exe?
-  # or use perl?  trying to get away from perl though
+  # We use "ping" on Windows to "sleep" :)
+  find_program(PING "ping")
+  if (NOT PING)
+    message(FATAL_ERROR "cannot find 'ping'")
+  endif ()
+  set(nudge_cmd drconfig)
 endif (UNIX)
 
+function (do_sleep ms)
+  if (UNIX)
+    execute_process(COMMAND "${SLEEP}" ${ms})
+  else ()
+    # XXX: ping's units are secs.  For now we always do 1 sec.
+    # We could try to use cygwin bash or perl.
+    execute_process(COMMAND ${PING} 127.0.0.1 -n 1 OUTPUT_QUIET)
+  endif ()
+endfunction (do_sleep)
+
+if (pidfile)
+  while (NOT EXISTS "${pidfile}")
+    do_sleep(0.1)
+  endwhile ()
+  file(READ "${pidfile}" pid)
+  string(REGEX REPLACE "\n" "" pid ${pid})
+endif ()
+
 while (NOT EXISTS "${out}")
-  execute_process(COMMAND "${SLEEP}" 0.1)
+  do_sleep(0.1)
 endwhile ()
 file(READ "${out}" output)
 # we require that all runall tests write at least one line up front
 while (NOT "${output}" MATCHES "\n")
-  execute_process(COMMAND "${SLEEP}" 0.1)
+  do_sleep(0.1)
   file(READ "${out}" output)
 endwhile()
 
+set(orig_nudge "${nudge}")
 if ("${nudge}" MATCHES "<use-persisted>")
   # ensure using pcaches, instead of nudging
   file(READ "/proc/${pid}/maps" maps)
@@ -94,7 +125,14 @@ if ("${nudge}" MATCHES "<use-persisted>")
     set(fail_msg "no .dpc files found in ${maps}: not using pcaches!")
   endif ()
 else ()
-  execute_process(COMMAND "${toolbindir}/nudgeunix" -pid ${pid} ${nudge}
+  # nudgeunix and drconfig have different syntax:
+  if (WIN32)
+    # XXX i#120: expand beyond -client.
+    string(REGEX REPLACE "-client" "-nudge_pid;${pid}" nudge "${nudge}")
+  else ()
+    set(nudge "-pid;${pid};${nudge}")
+  endif ()
+  execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
     RESULT_VARIABLE nudge_result
     ERROR_VARIABLE nudge_err
     OUTPUT_VARIABLE nudge_out
@@ -102,17 +140,17 @@ else ()
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
   if (nudge_result)
-    message(FATAL_ERROR "*** nudgeunix failed (${nudge_result}): ${nudge_err}***\n")
+    message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 endif ()
 
-if ("${nudge}" MATCHES "-client")
+if ("${orig_nudge}" MATCHES "-client")
   # wait for more output to file
   string(LENGTH "${output}" prev_outlen)
   file(READ "${out}" output)
   string(LENGTH "${output}" new_outlen)
   while (NOT ${new_outlen} GREATER ${prev_outlen})
-    execute_process(COMMAND "${SLEEP}" 0.1)
+    do_sleep(0.1)
     file(READ "${out}" output)
     string(LENGTH "${output}" new_outlen)
   endwhile()
@@ -120,7 +158,7 @@ else ()
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
   # FIXME: should we instead turn on stderr_mask?
-  execute_process(COMMAND "${SLEEP}" 0.5)
+  do_sleep(0.5)
 endif ()
 
 if (UNIX)
@@ -139,7 +177,16 @@ if (UNIX)
     message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
   endif (kill_result)
 else (UNIX)
-  # FIXME i#120: for Windows, use ${toolbindir}/DRkill.exe
+  # win32.infloop has a title with the pid in it so we can uniquely target it
+  # for a cleaner exit than using drkill.
+  execute_process(COMMAND "${toolbindir}/closewnd.exe" "Infloop pid=${pid}" 10
+    RESULT_VARIABLE kill_result
+    ERROR_VARIABLE kill_err
+    OUTPUT_VARIABLE kill_out)
+  set(kill_err "${kill_out}${kill_err}")
+  if (kill_result)
+    message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
+  endif (kill_result)
 endif (UNIX)
 
 if (NOT "${fail_msg}" STREQUAL "")
@@ -149,7 +196,7 @@ endif ()
 # we require that test print "done" as last line once done
 file(READ "${out}" output)
 while (NOT "${output}" MATCHES "\ndone\n")
-  execute_process(COMMAND "${SLEEP}" 0.1)
+  do_sleep(0.1)
   file(READ "${out}" output)
 endwhile()
 
@@ -160,6 +207,8 @@ message("${output}")
 if (UNIX)
   # sometimes infloop keeps running: FIXME: figure out why
   execute_process(COMMAND "${KILL}" -9 ${pid} ERROR_QUIET OUTPUT_QUIET)
-  find_program(PKILL "pkill")
   # we can't run pkill b/c there are other tests running infloop (i#1341)
-endif (UNIX)
+else ()
+  # We could run "${toolbindir}/DRkill.exe" -pid ${pid} but we shouldn't need to
+  # as the app itself has a timeout.
+endif ()

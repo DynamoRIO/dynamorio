@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,7 +87,7 @@ int main()
 
     /* same as rebased test */
     lib1 = myload("win32.multisec.dll.dll");
-    lib2 = myload("win32m~1.dll");
+    lib2 = myload("win32.multisec2.dll.dll");
     if (lib1 == lib2) {
         print("there is a problem - should have collided, maybe missing\n");
     }

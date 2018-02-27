@@ -1237,52 +1237,70 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
   endif ()
 
   if (is_runall)
-    # to run the test we use a series of commands in runall.cmake.
+    # To run the test we use a series of commands in runall.cmake.
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # swap from drrun to run_in_bg to run the test in the background
-      # XXX i#1874: add support for running on Android
-      set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
-      string(REGEX REPLACE "^[^/]*(/.*)/drrun" "\\1/run_in_bg;-out;${tmpfile};\\1/drrun"
+      # We always run infloop.
+      get_target_path_for_execution(app_path linux.infloop)
+    else ()
+      # It's easier to run our own infloop, which prints so we know when it's up,
+      # than to run notepad or sthg.
+      get_target_path_for_execution(app_path win32.infloop)
+    endif ()
+    # Swap from drrun to run_in_bg to run the test in the background and print the pid.
+    # XXX i#1874: add support for running on Android
+    set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${key}-out")
+    if (UNIX)
+      set(pidfile "")
+      string(REGEX REPLACE "^(.*)/drrun" "\\1/run_in_bg;-out;${tmpfile};\\1/drrun"
         rundr "${rundr}")
-      # Remove timeout args to drrun to ensure that it doesn't fork the app.
-      string(REGEX REPLACE ";-s;[0-9]+" "" rundr "${rundr}")
-      string(REGEX REPLACE ";-killpg" "" rundr "${rundr}")
-      set(clear_arg "")
-      if ("${runall}" MATCHES "<reset>")
-        set(nudge_arg "-type\;reset")
-      elseif ("${runall}" MATCHES "<freeze>")
-        set(nudge_arg "-type\;freeze")
-      elseif ("${runall}" MATCHES "<persist>")
-        set(nudge_arg "-type\;persist")
-        # clear out pcache dir prior to run
-        set(clear_arg "${PCACHE_SHARED_DIR}")
-      elseif ("${runall}" MATCHES "<use-persisted>")
-        set(nudge_arg "<use-persisted>")
-      elseif ("${runall}" MATCHES "<client")
-        string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
-        string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
-        string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
-      endif ()
-    endif (UNIX)
-    # FIXME i#120: for Windows, get app name to run from .runall file.
-    # For linux we always run linux.infloop.
-    get_target_path_for_execution(infloop_path linux.infloop)
-    set(cmd_with_at ${rundr} ${infloop_path} ${exe_ops})
+    else ()
+      set(pidfile "${CMAKE_CURRENT_BINARY_DIR}/${key}-pid")
+      # We want the pid not of drrun but its child so we pass -pidfile to drrun rather
+      # than -pid to run_in_bg.
+      # XXX i#120: add systemwide injection testing.  For now we only test drrun.
+      string(REGEX REPLACE "^(.*)/drrun.exe"
+        "\\1/run_in_bg;-out;${tmpfile};\\1/drrun.exe;-pidfile;${pidfile}"
+        rundr "${rundr}")
+    endif ()
+    # Remove timeout args to drrun to ensure that it doesn't fork the app.
+    string(REGEX REPLACE ";-s;[0-9]+" "" rundr "${rundr}")
+    string(REGEX REPLACE ";-killpg" "" rundr "${rundr}")
+    set(clear_arg "")
+    if ("${runall}" MATCHES "<reset>")
+      set(nudge_arg "-type\;reset")
+    elseif ("${runall}" MATCHES "<freeze>")
+      set(nudge_arg "-type\;freeze")
+    elseif ("${runall}" MATCHES "<persist>")
+      set(nudge_arg "-type\;persist")
+      # clear out pcache dir prior to run
+      set(clear_arg "${PCACHE_SHARED_DIR}")
+    elseif ("${runall}" MATCHES "<use-persisted>")
+      set(nudge_arg "<use-persisted>")
+    elseif ("${runall}" MATCHES "<client")
+      string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
+      string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
+      string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+    endif ()
+    set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
-      get_target_path_for_execution(toolbindir nudgeunix)
+      if (UNIX)
+        get_target_path_for_execution(toolbindir nudgeunix)
+      else ()
+        get_target_path_for_execution(toolbindir drconfig)
+      endif ()
     else ()
       set(toolbindir "i#1286-not-implemented-for-Mac")
     endif ()
     get_filename_component(toolbindir ${toolbindir} DIRECTORY)
     add_test(${test} ${CMAKE_COMMAND} -D toolbindir=${toolbindir}
       -D cmd=${cmd_with_at} -D out=${tmpfile} -D nudge=${nudge_arg}
-      -D clear=${clear_arg}
+      -D clear=${clear_arg} -D pidfile=${pidfile}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
@@ -1934,7 +1952,9 @@ if (CLIENT_INTERFACE)
     #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
     #  "" "" "")
     #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
-    #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
+    # I reworked Windows .runall support to run the new win32.infloop but have not yet
+    # looked at other tests:
+    tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
     if (NOT X64)
       # FIXME i#16, does not work in Win-X64 because of inline assembly code.
@@ -3121,6 +3141,7 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 else (UNIX)
+  add_exe(win32.infloop win32/infloop.c)
   if (VPS)
     # too flaky across platforms so we limit to VPS only: not too useful
     # for other than testing our ASLR anyway
@@ -3143,7 +3164,14 @@ else (UNIX)
   tobuild_dll(win32.dll win32/dll.c "")
   tobuild(win32.fiber-rac win32/fiber-rac.c)
   tobuild(win32.finally win32/finally.c)
+
   tobuild_dll(win32.multisec win32/multisec.c "")
+  # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  get_target_property(multisec_path win32.multisec.dll LOCATION${location_suffix})
+  add_custom_command(TARGET win32.multisec.dll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${multisec_path}
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.multisec2.dll.dll VERBATIM)
+
   tobuild_dll(win32.nativeterminate win32/nativeterminate.c
     "-native_exec_list nativeterminate.dll.dll")
   # FIXME i#192: oomtest ends up killing parent shell: investigate, fix, re-enable!
@@ -3154,7 +3182,13 @@ else (UNIX)
     torunonly(win32.partial_map_FLAKY win32.partial_map win32/partial_map.c "" "")
   endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
+
   tobuild_dll(win32.rebased win32/rebased.c "")
+  # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  get_target_property(rebased_path win32.rebased.dll LOCATION${location_suffix})
+  add_custom_command(TARGET win32.rebased.dll POST_BUILD
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${rebased_path}
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.rebased2.dll.dll VERBATIM)
 
   # Memory usage does go up a bit with reloading due to traces so we disable traces.
   tobuild_dll(win32.reload win32/reload.c "-disable_traces")

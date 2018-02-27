@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,6 +59,18 @@ typedef NTSTATUS (NTAPI *NtCreateThreadType) (OUT PHANDLE ThreadHandle,
                                               IN PUSER_STACK UserStack,
                                               IN BOOLEAN CreateSuspended);
 NtCreateThreadType NtCreateThread = NULL;
+typedef NTSTATUS (NTAPI *NtCreateThreadExType) (OUT PHANDLE ThreadHandle,
+                                                IN ACCESS_MASK DesiredAccess,
+                                                IN POBJECT_ATTRIBUTES ObjectAttributes,
+                                                IN HANDLE ProcessHandle,
+                                                IN LPTHREAD_START_ROUTINE StartAddress,
+                                                IN LPVOID StartParameter,
+                                                IN BOOL CreateSuspended,
+                                                IN uint StackZeroBits,
+                                                IN SIZE_T StackCommitSize,
+                                                IN SIZE_T StackReserveSize,
+                                                INOUT create_thread_info_t *thread_info);
+NtCreateThreadExType NtCreateThreadEx = NULL;
 
 #ifdef X64
 typedef unsigned __int64 ptr_uint_t;
@@ -175,16 +187,15 @@ get_kernel_thread_start_thunk()
  *     possible, could try to share. */
 /* NOTE - stack_reserve and stack commit must be multiples of PAGE_SIZE and reserve
  *     should be at least 5 pages larger then commit */
-/* NOTE - if !target_api, target thread routine can't exit by by returning, instead it
- *     must terminate itself.
+/* NOTE - if !target_api && < win8, target thread routine can't exit by returning:
+ *    instead it must terminate itself.
  * NOTE - caller or target thread routine is responsible for informing csrss (if
  *    necessary) and freeing the the thread stack (caller is informed of the stack
  *    via OUT remote_stack arg).
- * If arg_buf is non-null then the arg_buf_size bytes of arg_buf are copied onto the
- * new thread's stack and pointer to them is passed as the argument to the start
- * routine instead of arg.
- * FIXME - on Vista we could be using NtCreateThreadEx (like all the api routines do),
- *    but this still works fine and that would complicate argument handling.
+ * If arg_buf is non-null then the arg_buf_size bytes of arg_buf are copied onto
+ * the new thread's stack (< win8) or into a new alloc (>= win8) and pointer to
+ * them is passed as the argument to the start routine instead of arg.  For >= win8,
+ * the arg_buf copy must be freed with NtFreeVirtualMemory by the caller.
  */
 static HANDLE
 nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
@@ -210,11 +221,22 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     DO_ASSERT(!target_64bit); /* Not supported. */
 #endif
 
-    if (NtCreateThread == NULL) {
-        /* FIXME - on Vista we could instead use NtCreateThreadEx which is what all
-         * the api routines use and requires less setup. But it also uses structs that
-         * we haven't fully reversed or found good documentation for. */
-        /* Don't need a lock, writing the pointer (4 [8 on 64-bit] byte write) is atomic. */
+    get_platform(&platform);
+    DO_ASSERT(platform != 0);
+
+    if (platform >= PLATFORM_WIN_8) {
+        /* NtCreateThread is not supported to we have to use NtCreateThreadEx,
+         * which simplifies the stack but complicates arg_buf and uses undocumented
+         * structures.
+         */
+        if (NtCreateThreadEx == NULL) {
+            NtCreateThreadEx = (NtCreateThreadExType)
+                GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThreadEx");
+            if (NtCreateThreadEx == NULL)
+                goto error;
+        }
+    } else if (NtCreateThread == NULL) {
+        /* Don't need a lock, writing the pointer (4 [8 on x64] byte write) is atomic. */
         NtCreateThread = (NtCreateThreadType)
             GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtCreateThread");
         if (NtCreateThread == NULL)
@@ -267,131 +289,165 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
 
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, sd);
 
-    stack.ExpandableStackBottom =
-        VirtualAllocEx(hProcess, NULL,
-                       /* we leave the top page MEM_FREE: we could reserve it instead
-                        * and then adjust our get_stack_bounds() core assert */
-                       stack_reserve - PAGE_SIZE,
-                       MEM_RESERVE, PAGE_READWRITE);
-    if (remote_stack != NULL)
-        *remote_stack = stack.ExpandableStackBottom;
-    if (stack.ExpandableStackBottom == NULL)
-        goto error;
-
-    /* We provide non-committed boundary page on each side of the stack just to
-     * be safe (note we will get a stack overflow exception if stack grows to
-     * 3rd to last page of this region (xpsp2)). */
-    stack.ExpandableStackBottom =
-        ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
-    stack.ExpandableStackBase =
-        ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
-    /* PR 252008: WOW64's initial APC uses the stack base, ignoring CONTEXT.Esp,
-     * so we put an extra page in place for the nudge arg.  It should be
-     * freed w/ no problems since the Bottom's region is freed.
-     * An alternative is a separate allocation and setting NUDGE_FREE_ARG,
-     * but the caller is the one who knows the structure of the arg.
-     */
-    if (wow64)
-        stack.ExpandableStackBase = ((byte*)stack.ExpandableStackBase) - PAGE_SIZE;
-
-    stack.ExpandableStackLimit =
-        ((byte *)stack.ExpandableStackBase) - stack_commit;
-    num_commit_bytes = stack_commit + PAGE_SIZE;
-    p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
-    if (wow64)
-        num_commit_bytes += PAGE_SIZE;
-    p = VirtualAllocEx(hProcess, p, num_commit_bytes, MEM_COMMIT, PAGE_READWRITE);
-    if (p == NULL)
-        goto error;
-    if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE|PAGE_GUARD, &old_prot))
-        goto error;
-
-    get_platform(&platform);
-    DO_ASSERT(platform != 0);
-
-    /* set the context: initialize with our own */
-    context.ContextFlags = CONTEXT_FULL;
-    GetThreadContext(GetCurrentThread(), &context);
-
-    /* set esp */
-    context.CXT_XSP = (ptr_uint_t)stack.ExpandableStackBase;
-    /* On vista, the kernel sets esp a random number of bytes in from the base of
-     * the stack as part of the stack ASLR.  RtlUserThreadStart assumes that
-     * esp will be set at least 8 bytes into the region by writing to esp+4 and
-     * esp+8. So we need to move up by at least 8 bytes.  The smallest offset
-     * I've seen is 56 bytes so we'll go with that as there could be another
-     * place assuming there's room above esp. We do it irregardless of whether we
-     * target api or not in case it's relied on elsewhere. */
-#define VISTA_THREAD_STACK_PAD 56
-    if (platform >= PLATFORM_VISTA) {
-        context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
-    }
-    /* Anticipating x64 we align to 16 bytes everywhere */
-#define STACK_ALIGNMENT 16
-    /* write the argument buffer to the stack */
-    if (arg_buf != NULL) {
-        SIZE_T written;
-        if (wow64) { /* PR 252008: see above */
-            thread_arg = (void *)
-                (((byte *)stack.ExpandableStackBase) + PAGE_SIZE - arg_buf_size);
-        } else {
-            context.CXT_XSP -= ALIGN_FORWARD(arg_buf_size, STACK_ALIGNMENT);
-            thread_arg = (void *)context.CXT_XSP;
+    if (platform >= PLATFORM_WIN_8) {
+        create_thread_info_t info = {0};
+        CLIENT_ID cid;
+        TEB *teb;
+        if (arg_buf != NULL) {
+            SIZE_T written;
+            void *arg_copy = VirtualAllocEx(hProcess, NULL, arg_buf_size,
+                                            MEM_COMMIT, PAGE_READWRITE);
+            if (arg_copy == NULL)
+                goto error;
+            if (!WriteProcessMemory(hProcess, arg_copy, arg_buf, arg_buf_size,
+                                    &written) ||
+                written != arg_buf_size) {
+                goto error;
+            }
+            thread_arg = arg_copy;
         }
-        if (!WriteProcessMemory(hProcess, thread_arg, arg_buf, arg_buf_size, &written) ||
-            written != arg_buf_size) {
+        info.struct_size = sizeof(info);
+        info.client_id.flags = THREAD_INFO_ELEMENT_CLIENT_ID |
+            THREAD_INFO_ELEMENT_UNKNOWN_2;
+        info.client_id.buffer_size = sizeof(cid);
+        info.client_id.buffer = &cid;
+        /* We get STATUS_INVALID_PARAMETER unless we also ask for teb. */
+        info.teb.flags = THREAD_INFO_ELEMENT_TEB | THREAD_INFO_ELEMENT_UNKNOWN_2;
+        info.teb.buffer_size = sizeof(TEB*);
+        info.teb.buffer = &teb;
+        if (!NT_SUCCESS(NtCreateThreadEx(&hThread, THREAD_ALL_ACCESS, &oa,
+                                         hProcess, start_addr, thread_arg,
+                                         suspended ? TRUE : FALSE, 0, 0, 0, &info))) {
             goto error;
         }
+        if (tid != NULL)
+            *tid = (ptr_uint_t)cid.UniqueThread;
+    } else {
+        stack.ExpandableStackBottom =
+            VirtualAllocEx(hProcess, NULL,
+                           /* we leave the top page MEM_FREE: we could reserve it instead
+                            * and then adjust our get_stack_bounds() core assert */
+                           stack_reserve - PAGE_SIZE,
+                           MEM_RESERVE, PAGE_READWRITE);
+        if (remote_stack != NULL)
+            *remote_stack = stack.ExpandableStackBottom;
+        if (stack.ExpandableStackBottom == NULL)
+            goto error;
+
+        /* We provide non-committed boundary page on each side of the stack just to
+         * be safe (note we will get a stack overflow exception if stack grows to
+         * 3rd to last page of this region (xpsp2)). */
+        stack.ExpandableStackBottom =
+            ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
+        stack.ExpandableStackBase =
+            ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
+        /* PR 252008: WOW64's initial APC uses the stack base, ignoring CONTEXT.Esp,
+         * so we put an extra page in place for the nudge arg.  It should be
+         * freed w/ no problems since the Bottom's region is freed.
+         * An alternative is a separate allocation and setting NUDGE_FREE_ARG,
+         * but the caller is the one who knows the structure of the arg.
+         */
+        if (wow64)
+            stack.ExpandableStackBase = ((byte*)stack.ExpandableStackBase) - PAGE_SIZE;
+
+        stack.ExpandableStackLimit =
+            ((byte *)stack.ExpandableStackBase) - stack_commit;
+        num_commit_bytes = stack_commit + PAGE_SIZE;
+        p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
+        if (wow64)
+            num_commit_bytes += PAGE_SIZE;
+        p = VirtualAllocEx(hProcess, p, num_commit_bytes, MEM_COMMIT, PAGE_READWRITE);
+        if (p == NULL)
+            goto error;
+        if (!VirtualProtectEx(hProcess, p, PAGE_SIZE, PAGE_READWRITE|PAGE_GUARD,
+                              &old_prot))
+            goto error;
+
+        /* set the context: initialize with our own */
+        context.ContextFlags = CONTEXT_FULL;
+        GetThreadContext(GetCurrentThread(), &context);
+
+        /* set esp */
+        context.CXT_XSP = (ptr_uint_t)stack.ExpandableStackBase;
+        /* On vista, the kernel sets esp a random number of bytes in from the base of
+         * the stack as part of the stack ASLR.  RtlUserThreadStart assumes that
+         * esp will be set at least 8 bytes into the region by writing to esp+4 and
+         * esp+8. So we need to move up by at least 8 bytes.  The smallest offset
+         * I've seen is 56 bytes so we'll go with that as there could be another
+         * place assuming there's room above esp. We do it irregardless of whether we
+         * target api or not in case it's relied on elsewhere. */
+#define VISTA_THREAD_STACK_PAD 56
         if (platform >= PLATFORM_VISTA) {
-            /* pad after our argument so RtlUserThreadStart won't clobber it */
             context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
         }
-    }
-
-    /* set eip and argument */
-    if (target_api) {
-        if (platform >= PLATFORM_VISTA) {
-            context.CXT_XIP = (ptr_uint_t)GetProcAddress(GetModuleHandle(L"ntdll.dll"),
-                                               "RtlUserThreadStart");
-        } else {
-            context.CXT_XIP = (ptr_uint_t)get_kernel_thread_start_thunk();
+        /* Anticipating x64 we align to 16 bytes everywhere */
+#define STACK_ALIGNMENT 16
+        /* write the argument buffer to the stack */
+        if (arg_buf != NULL) {
+            SIZE_T written;
+            if (wow64) { /* PR 252008: see above */
+                thread_arg = (void *)
+                    (((byte *)stack.ExpandableStackBase) + PAGE_SIZE - arg_buf_size);
+            } else {
+                context.CXT_XSP -= ALIGN_FORWARD(arg_buf_size, STACK_ALIGNMENT);
+                thread_arg = (void *)context.CXT_XSP;
+            }
+            if (!WriteProcessMemory(hProcess, thread_arg, arg_buf, arg_buf_size,
+                                    &written) ||
+                written != arg_buf_size) {
+                goto error;
+            }
+            if (platform >= PLATFORM_VISTA) {
+                /* pad after our argument so RtlUserThreadStart won't clobber it */
+                context.CXT_XSP -= VISTA_THREAD_STACK_PAD;
+            }
         }
-        /* For kernel32!BaseThreadStartThunk and ntdll!RltUserThreadStartThunk
-         * Eax contains the address of the thread routine and Ebx the arg */
-        context.THREAD_START_ADDR = (ptr_uint_t)start_addr;
-        context.THREAD_START_ARG = (ptr_uint_t)thread_arg;
-    } else {
-        void *buf[2];
-        BOOL res;
-        SIZE_T written;
-        /* directly targeting the start_address */
-        context.CXT_XIP = (ptr_uint_t)start_addr;
-        context.CXT_XSP -= sizeof(buf);
-        /* set up arg on stack, give NULL return address */
-        buf[1] = thread_arg;
-        buf[0] = NULL;
-        res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf,
-                                 sizeof(buf), &written);
-        if (!res || written != sizeof(buf)) {
+
+        /* set eip and argument */
+        if (target_api) {
+            if (platform >= PLATFORM_VISTA) {
+                context.CXT_XIP = (ptr_uint_t)
+                    GetProcAddress(GetModuleHandle(L"ntdll.dll"), "RtlUserThreadStart");
+            } else {
+                context.CXT_XIP = (ptr_uint_t)get_kernel_thread_start_thunk();
+            }
+            /* For kernel32!BaseThreadStartThunk and ntdll!RltUserThreadStartThunk
+             * Eax contains the address of the thread routine and Ebx the arg */
+            context.THREAD_START_ADDR = (ptr_uint_t)start_addr;
+            context.THREAD_START_ARG = (ptr_uint_t)thread_arg;
+        } else {
+            void *buf[2];
+            BOOL res;
+            SIZE_T written;
+            /* directly targeting the start_address */
+            context.CXT_XIP = (ptr_uint_t)start_addr;
+            context.CXT_XSP -= sizeof(buf);
+            /* set up arg on stack, give NULL return address */
+            buf[1] = thread_arg;
+            buf[0] = NULL;
+            res = WriteProcessMemory(hProcess, (void *)context.CXT_XSP, &buf,
+                                     sizeof(buf), &written);
+            if (!res || written != sizeof(buf)) {
+                goto error;
+            }
+        }
+        if (context.CXT_XIP == 0) {
+            DO_ASSERT(false);
             goto error;
         }
-    }
-    if (context.CXT_XIP == 0) {
-        DO_ASSERT(false);
-        goto error;
-    }
 
-    /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
-     * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
-     * specify the security descriptor. */
-    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
-                                   hProcess, &cid, &context, &stack,
-                                   (byte)(suspended ? TRUE : FALSE)))) {
-        goto error;
-    }
+        /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
+         * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
+         * specify the security descriptor. */
+        if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
+                                       hProcess, &cid, &context, &stack,
+                                       (byte)(suspended ? TRUE : FALSE)))) {
+            goto error;
+        }
 
-    if (tid != NULL)
-       *tid = (ptr_uint_t)cid.UniqueThread;
+        if (tid != NULL)
+            *tid = (ptr_uint_t)cid.UniqueThread;
+    }
 
  exit:
     if (sd != NULL) {
@@ -410,6 +466,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     }
     DO_ASSERT(hThread == NULL);
     hThread = NULL; /* just to be safe */
+    SetLastError(ERROR_INVALID_HANDLE);
     goto exit;
 }
 
@@ -466,7 +523,8 @@ get_dr_marker(process_id_t ProcessID, dr_marker_t *marker,
               hotp_policy_status_table_t **hotp_status, int *found);
 
 DWORD
-nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_arg_t *nudge_arg)
+nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms,
+         nudge_arg_t *nudge_arg)
 {
     DWORD res = ERROR_SUCCESS;
     int found;
@@ -605,9 +663,19 @@ generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask,
               DWORD timeout_ms)
 {
     nudge_arg_t arg = {0};
+    DWORD platform = 0;
+    get_platform(&platform);
+    DO_ASSERT(platform != 0);
     arg.version = NUDGE_ARG_CURRENT_VERSION;
     arg.nudge_action_mask = action_mask;
     /* default flags */
+    if (platform >= PLATFORM_WIN_8) {
+        /* i#1309: We use NtCreateThreadEx which is different: */
+        /* The kernel owns and frees the stack. */
+        arg.flags |= NUDGE_NUDGER_FREE_STACK;
+        /* The arg is placed in a new kernel alloc. */
+        arg.flags |= NUDGE_FREE_ARG;
+    }
     arg.client_id = client_id;
     arg.client_arg = client_arg;
     return nudge_dr(pid, allow_upgraded_perms, timeout_ms, &arg);
@@ -671,7 +739,8 @@ inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
         }
     }
 
-    pfnThreadRtn = (PTHREAD_START_ROUTINE) GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "LoadLibraryW");
+    pfnThreadRtn = (PTHREAD_START_ROUTINE)
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "LoadLibraryW");
     if (pfnThreadRtn == NULL) {
         res = GetLastError();
         goto exit;
