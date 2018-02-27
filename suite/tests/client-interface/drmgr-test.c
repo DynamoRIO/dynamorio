@@ -232,6 +232,14 @@ main(int argc, char **argv)
     WaitForSingleObject(hThread, INFINITE);
     print("All done\n");
 
+    HMODULE hmod;
+
+    /*
+     * Load and unload a module to cause a module unload event
+     */
+    hmod = LoadLibrary(argv[1]);
+    FreeLibrary(hmod);
+
     return 0;
 }
 
