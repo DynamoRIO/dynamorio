@@ -150,6 +150,13 @@ dr_init(client_id_t id)
                                         NULL, NULL, -1};
     drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
                                         NULL, NULL, 1};
+    drmgr_priority_t thread_exit_user_data_pri = {sizeof(priority),
+                                                  "drmgr-thread-exit-test",
+                                                  NULL, NULL, 2};
+    drmgr_priority_t thread_exit_null_user_data_pri = {sizeof(priority),
+                                                       "drmgr-thread-exit-test",
+                                                       NULL, NULL, 3};
+
     bool ok;
 
     drmgr_init();
@@ -161,12 +168,14 @@ dr_init(client_id_t id)
     drmgr_register_thread_init_event_user_data(event_thread_init_user_data,
                                                &thread_init_user_data_pri,
                                                (void *) thread_user_data_test);
-    drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data, NULL,
+    drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data,
+                                               &thread_exit_user_data_pri,
                                                (void *) thread_user_data_test);
     drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data,
                                                &thread_init_null_user_data_pri,
                                                NULL);
-    drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data, NULL,
+    drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data,
+                                               &thread_exit_null_user_data_pri,
                                                NULL);
 
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
