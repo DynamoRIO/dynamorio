@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -839,6 +839,16 @@ DR_API
  */
 void
 dr_set_process_exit_behavior(dr_exit_flags_t flags);
+
+DR_API
+/**
+ * The #DR_DISALLOW_UNSAFE_STATIC declaration requests that DR perform sanity
+ * checks to ensure that client libraries will also operate safely when linked
+ * statically into an application.  This overrides that request, facilitating
+ * having runtime options that are not supported in a static context.
+ */
+void
+dr_allow_unsafe_static_behavior(void);
 
 #ifdef UNIX
 DR_API
