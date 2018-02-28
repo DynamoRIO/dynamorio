@@ -39,6 +39,7 @@
 #include "drcovlib.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
+#include <new>
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for strlen */
@@ -100,14 +101,17 @@ offline_instru_t::load_custom_module_data(module_data_t *module)
     const char *name = dr_module_preferred_name(module);
     // For vdso we include the entire contents so we can decode it during
     // post-processing.
+    // We use placement new for better isolation, esp w/ static linkage into the app.
     if ((name != nullptr &&
          (strstr(name, "linux-gate.so") == name ||
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
-        return new custom_module_data_t((const char *)module->start,
-                                        module->end - module->start, user_data);
+        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
+        return new(alloc) custom_module_data_t((const char *)module->start,
+                                               module->end - module->start, user_data);
     } else if (user_data != nullptr) {
-        return new custom_module_data_t(nullptr, 0, user_data);
+        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
+        return new(alloc) custom_module_data_t(nullptr, 0, user_data);
     }
     return nullptr;
 }
@@ -150,7 +154,8 @@ offline_instru_t::free_custom_module_data(void *data)
         return;
     if (user_free != nullptr)
         (*user_free)(custom->user_data);
-    delete custom;
+    custom->~custom_module_data_t();
+    dr_global_free(custom, sizeof(*custom));
 }
 
 bool

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -168,6 +168,17 @@ redirect_free(void *ptr);
 
 void *
 redirect_realloc(void *ptr, size_t size);
+
+#ifdef DEBUG
+void *
+redirect_malloc_initonly(size_t size);
+void *
+redirect_realloc_initonly(void *mem, size_t size);
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size);
+void
+redirect_free_initonly(void *mem);
+#endif
 
 #if defined(MACOS) || defined(ANDROID)
 typedef FILE stdfile_t;

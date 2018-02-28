@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -413,6 +413,12 @@ void
 os_loader_thread_exit(dcontext_t *dcontext)
 {
     /* do nothing in Windows */
+}
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+    /* XXX i#975: NYI */
 }
 
 #ifdef CLIENT_INTERFACE

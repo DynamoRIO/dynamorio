@@ -2510,6 +2510,12 @@ dr_set_process_exit_behavior(dr_exit_flags_t flags)
     }
 }
 
+void
+dr_allow_unsafe_static_behavior(void)
+{
+    loader_allow_unsafe_static_behavior();
+}
+
 DR_API
 /* Returns the option string passed along with a client path via DR's
  * -client_lib option.
