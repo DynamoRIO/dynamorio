@@ -92,8 +92,8 @@ struct _os_privmod_data_t {
 
 #ifdef DEBUG
 /* i#975: used for debug checks for static-link-ready clients. */
-# define DR_DISALLOW_MALLOC_NAME "_DR_DISALLOW_MALLOC_"
-extern bool disallow_midrun_malloc;
+# define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
+extern bool disallow_unsafe_static_calls;
 #endif
 
 void

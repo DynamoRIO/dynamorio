@@ -1226,8 +1226,16 @@ privload_fill_os_module_info(app_pc base,
 
 #ifdef DEBUG
 /* i#975: used for debug checks for static-link-ready clients. */
-bool disallow_midrun_malloc;
+bool disallow_unsafe_static_calls;
 #endif
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+#ifdef DEBUG
+    disallow_unsafe_static_calls = false;
+#endif
+}
 
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
@@ -1388,7 +1396,7 @@ privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
 #ifdef DEBUG
-    if (disallow_midrun_malloc) {
+    if (disallow_unsafe_static_calls) {
         for (i = 0; i < REDIRECT_DEBUG_IMPORTS_NUM; i++) {
             if (strcmp(redirect_debug_imports[i].name, name) == 0) {
                 *r_addr = (ptr_uint_t)redirect_debug_imports[i].func;

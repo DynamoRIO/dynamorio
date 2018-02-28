@@ -1312,8 +1312,8 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
     module_init_os_privmod_data_from_dyn(pd, dyn, load_delta);
     DODEBUG({
         if (get_proc_address_from_os_data(&pd->os_data, pd->load_delta,
-                                          DR_DISALLOW_MALLOC_NAME, NULL) != NULL)
-            disallow_midrun_malloc = true;
+                                          DR_DISALLOW_UNSAFE_STATIC_NAME, NULL) != NULL)
+            disallow_unsafe_static_calls = true;
     });
 }
 

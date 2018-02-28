@@ -71,7 +71,7 @@ DR_EXPORT void drmemtrace_client_main(client_id_t id, int argc, const char *argv
 /* Request debug-build checks on use of malloc mid-run which will break statically
  * linking this client into an app.
  */
-DR_DISALLOW_MALLOC
+DR_DISALLOW_UNSAFE_STATIC
 
 #define NOTIFY(level, ...) do {            \
     if (op_verbose.get_value() >= (level)) \
@@ -1816,6 +1816,14 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         have_phys = physaddr.init();
         if (!have_phys)
             NOTIFY(0, "Unable to open pagemap: using virtual addresses.\n");
+        /* Unfortunately the use of std::unordered_map in physaddr_t calls malloc
+         * and thus we cannot support it for static linking, so we override the
+         * DR_DISALLOW_UNSAFE_STATIC declaration.
+         */
+        dr_allow_unsafe_static_behavior();
+#ifdef DRMEMTRACE_STATIC
+        NOTIFY(0, "-use_physical is unsafe with statically linked clients\n");
+#endif
     }
 }
 

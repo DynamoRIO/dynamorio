@@ -123,13 +123,16 @@ DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 #define DYNAMORIO_API
 
 /**
- * A declaration that requests debug-build sanity checks in DR's private loader
- * that complain if malloc or free is called outside of process initialization
- * or exit.  This is meant for client libraries that want to support statically
- * linking with an application, where using the system allocator causes
- * transparency issues.
+ * This declaration requests that DR perform sanity checks to ensure that client
+ * libraries will also operate safely when linked statically into an
+ * application.  These checks include ensuring that the system allocator is not
+ * called outside of process initialization or exit, where such calls raise
+ * transparency issues due to the lack of isolation without a private loader.
+ * Currently, these checks are only performed in debug builds on UNIX.  This can
+ * be overridden in client code by calling dr_allow_unsafe_static_behavior().
  */
-#define DR_DISALLOW_MALLOC DR_EXPORT LINK_ONCE int _DR_DISALLOW_MALLOC_ = 1;
+#define DR_DISALLOW_UNSAFE_STATIC \
+    DR_EXPORT LINK_ONCE int _DR_DISALLOW_UNSAFE_STATIC_ = 1;
 
 #ifdef __cplusplus
 }
