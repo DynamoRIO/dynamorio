@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -1224,6 +1224,19 @@ privload_fill_os_module_info(app_pc base,
  * Function Redirection
  */
 
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+bool disallow_unsafe_static_calls;
+#endif
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+#ifdef DEBUG
+    disallow_unsafe_static_calls = false;
+#endif
+}
+
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1366,11 +1379,32 @@ static const redirect_import_t redirect_imports[] = {
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 
+#ifdef DEBUG
+static const redirect_import_t redirect_debug_imports[] = {
+    {"calloc",  (app_pc)redirect_calloc_initonly},
+    {"malloc",  (app_pc)redirect_malloc_initonly},
+    {"free",    (app_pc)redirect_free_initonly},
+    {"realloc", (app_pc)redirect_realloc_initonly},
+};
+# define REDIRECT_DEBUG_IMPORTS_NUM \
+    (sizeof(redirect_debug_imports)/sizeof(redirect_debug_imports[0]))
+#endif
+
 bool
 privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
 {
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
+#ifdef DEBUG
+    if (disallow_unsafe_static_calls) {
+        for (i = 0; i < REDIRECT_DEBUG_IMPORTS_NUM; i++) {
+            if (strcmp(redirect_debug_imports[i].name, name) == 0) {
+                *r_addr = (ptr_uint_t)redirect_debug_imports[i].func;
+                return true;;
+            }
+        }
+    }
+#endif
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
             *r_addr = (ptr_uint_t)redirect_imports[i].func;

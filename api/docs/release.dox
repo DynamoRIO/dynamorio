@@ -240,6 +240,8 @@ Further non-compatibility-affecting changes include:
    executed on along with an optional simulator scheduling feature to
    schedule threads on simulated cores to match the recorded execution on
    physical cpus.
+ - Added #DR_DISALLOW_UNSAFE_STATIC and dr_disallow_unsafe_static_behavior()
+   for sanity checks to help support statically-linked clients.
 
 **************************************************
 <hr>

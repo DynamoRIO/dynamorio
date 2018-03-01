@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1310,6 +1310,11 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
         load_delta = 0;
     }
     module_init_os_privmod_data_from_dyn(pd, dyn, load_delta);
+    DODEBUG({
+        if (get_proc_address_from_os_data(&pd->os_data, pd->load_delta,
+                                          DR_DISALLOW_UNSAFE_STATIC_NAME, NULL) != NULL)
+            disallow_unsafe_static_calls = true;
+    });
 }
 
 /* Returns a pointer to the phdr of the given type.
