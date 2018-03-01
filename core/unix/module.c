@@ -33,8 +33,8 @@
  */
 
 #include "../globals.h"
-#include "module_private.h"
 #include "../module_shared.h"
+#include "module_private.h"
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
