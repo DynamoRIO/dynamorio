@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -149,7 +149,10 @@ sig_is_alarm_signal(int sig)
  * as seen in kernel sources.
  */
 #define APP_HAS_SIGSTACK(info) \
-  ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
+    ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
+
+#define USE_APP_SIGSTACK(info, sig) \
+    (APP_HAS_SIGSTACK(info) && TEST(SA_ONSTACK, (info)->app_sigaction[sig]->flags))
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
@@ -1057,6 +1060,15 @@ share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
     signal_thread_inherit(dcontext, &crec);
 }
 
+static void
+free_pending_signal(thread_sig_info_t *info, int sig)
+{
+    sigpending_t *temp = info->sigpending[sig];
+    info->sigpending[sig] = temp->next;
+    special_heap_free(info->sigheap, temp);
+    info->num_pending--;
+}
+
 /* This is split from os_fork_init() so the new logfiles are available
  * (xref i#189/PR 452168).  It had to be after dynamo_other_thread_exit()
  * called in dynamorio_fork_init() after os_fork_init() else we clean
@@ -1107,9 +1119,7 @@ signal_fork_init(dcontext_t *dcontext)
         /* "A child created via fork(2) initially has an empty pending signal set" */
         dcontext->signals_pending = 0;
         while (info->sigpending[i] != NULL) {
-            sigpending_t *temp = info->sigpending[i];
-            info->sigpending[i] = temp->next;
-            special_heap_free(info->sigheap, temp);
+            free_pending_signal(info, i);
         }
         info->num_pending = 0;
     }
@@ -2764,8 +2774,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
         LOG(THREAD, LOG_ASYNCH, 3, "get_sigstack_frame_ptr: using app xsp "PFX"\n", sp);
     }
 
-    if (APP_HAS_SIGSTACK(info)) {
-        /* app has own signal stack */
+    if (USE_APP_SIGSTACK(info, sig)) {
+        /* app has own signal stack which is enabled for this handler */
         LOG(THREAD, LOG_ASYNCH, 3,
             "get_sigstack_frame_ptr: app has own stack "PFX"\n",
             info->app_sigstack.ss_sp);
@@ -2857,28 +2867,6 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
 # endif /* X86 */
     LOG(THREAD, LOG_ASYNCH, 3, "\tconverted sig=%d rt frame to non-rt frame\n",
         f_new->sig_noclobber);
-}
-
-/* separated out to avoid the stack size cost on the common path */
-static void
-convert_frame_to_nonrt_partial(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
-                               sigframe_plain_t *f_new, size_t size)
-{
-# ifdef X86
-    /* We create a full-size buffer for conversion and then copy the partial amount. */
-    byte *frame_and_xstate =
-        heap_alloc(dcontext, sizeof(sigframe_plain_t) + signal_frame_extra_size(true)
-                   HEAPACCT(ACCT_OTHER));
-    sigframe_plain_t *f_plain = (sigframe_plain_t *) frame_and_xstate;
-    ASSERT_NOT_TESTED(); /* XXX: we have no test of this for change to heap_alloc */
-    convert_frame_to_nonrt(dcontext, sig, f_old, f_plain);
-    memcpy(f_new, f_plain, size);
-    heap_free(dcontext, frame_and_xstate, sizeof(sigframe_plain_t) +
-              signal_frame_extra_size(true) HEAPACCT(ACCT_OTHER));
-# elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-# endif /* X86/ARM */
 }
 #endif
 
@@ -3018,7 +3006,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #if defined(LINUX) && defined(X86_32)
     bool has_restorer = sig_has_restorer(info, sig);
 #endif
-    byte *check_pc;
+    byte *flush_pc;
+    bool stack_unwritable = false;
     uint size = frame_size;
 #if defined(LINUX) && defined(X86)
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
@@ -3028,58 +3017,39 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
 
-    /* before we write to the app's stack we need to see if it's writable */
-    check_pc = (byte *) ALIGN_BACKWARD(sp, PAGE_SIZE);
-    while (check_pc < (byte *)sp + size) {
-        uint prot;
-        DEBUG_DECLARE(bool ok = )
-            get_memory_info(check_pc, NULL, NULL, &prot);
-        ASSERT(ok);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            size_t rest = (byte *)sp + size - check_pc;
-            if (is_executable_area_writable(check_pc)) {
-                LOG(THREAD, LOG_ASYNCH, 2,
-                    "\tcopy_frame_to_stack: part of stack is unwritable-by-us @"PFX"\n",
-                    check_pc);
-                flush_fragments_and_remove_region(dcontext, check_pc, rest,
-                                                  false /* don't own initexit_lock */,
-                                                  false /* keep futures */);
-            } else {
-                LOG(THREAD, LOG_ASYNCH, 2,
-                    "\tcopy_frame_to_stack: part of stack is unwritable @"PFX"\n",
-                    check_pc);
-                /* copy what we can */
-                if (rtframe)
-                    memcpy(sp, frame, rest);
-#if defined(LINUX) && !defined(X64)
-                else {
-                    convert_frame_to_nonrt_partial(dcontext, sig, frame,
-                                                   (sigframe_plain_t *) sp, rest);
-                }
-#endif
-                /* now throw exception
-                 * FIXME: what give as address?  what does kernel use?
-                 * If the app intercepts SIGSEGV then we'll come right back
-                 * here, so we terminate explicitly instead.  FIXME: set exit
-                 * code properly: xref PR 205310.
-                 */
-                if (info->app_sigaction[SIGSEGV] == NULL)
-                    os_forge_exception(0, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
-                else
-                    os_terminate(dcontext, TERMINATE_PROCESS);
-                ASSERT_NOT_REACHED();
-            }
+    /* We avoid querying memory as it incurs global contended locks. */
+    flush_pc = is_executable_area_writable_overlap(sp, sp + size);
+    if (flush_pc != NULL) {
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "\tcopy_frame_to_stack: part of stack is unwritable-by-us @"PFX"\n",
+            flush_pc);
+        flush_fragments_and_remove_region(dcontext, flush_pc, sp + size - flush_pc,
+                                          false /* don't own initexit_lock */,
+                                          false /* keep futures */);
+    }
+    TRY_EXCEPT(dcontext, /* try */ {
+        if (rtframe) {
+            ASSERT(frame_size == sizeof(*frame));
+            memcpy_rt_frame(frame, sp, from_pending);
         }
-        check_pc += PAGE_SIZE;
+        IF_NOT_X64(IF_LINUX(
+        else convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *) sp);));
+    }, /* except */ {
+        stack_unwritable = true;
+    });
+    if (stack_unwritable) {
+        /* Override the no-nested check in record_pending_signal(): it's ok b/c
+         * receive_pending_signal() calls to here at a consistent point,
+         * and we won't return there.
+         */
+        info->nested_pending_ok = true;
+        /* Just throw away this signal and deliver SIGSEGV instead with the
+         * same sigcontext, like the kernel does.
+         */
+        free_pending_signal(info, sig);
+        os_forge_exception(0, UNREADABLE_MEMORY_EXECUTION_EXCEPTION);
+        ASSERT_NOT_REACHED();
     }
-    if (rtframe) {
-        ASSERT(frame_size == sizeof(*frame));
-        memcpy_rt_frame(frame, sp, from_pending);
-    }
-#if defined(LINUX) && !defined(X64)
-    else
-        convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *) sp);
-#endif
 
     /* if !has_restorer we do NOT add the restorer code to the exec list here,
      * to avoid removal problems (if handler never returns) and consistency problems
@@ -3776,6 +3746,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * just drop this one: should only happen for alarm signal
          */
         (info->accessing_sigpending &&
+         !info->nested_pending_ok &&
          /* we do want to report a crash in receive_pending_signal() */
          (can_always_delay[sig] ||
           is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, &frame->info)))) {
@@ -5717,6 +5688,10 @@ receive_pending_signal(dcontext_t *dcontext)
                 continue;
             }
             LOG(THREAD, LOG_ASYNCH, 3, "\treceiving signal %d\n", sig);
+            /* execute_handler_from_dispatch()'s call to copy_frame_to_stack() is
+             * allowed to remove the front entry from info->sigpending[sig] and
+             * jump to dispatch.
+             */
             executing = execute_handler_from_dispatch(dcontext, sig);
             temp = info->sigpending[sig];
             info->sigpending[sig] = temp->next;
