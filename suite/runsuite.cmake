@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -45,6 +45,7 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
+set(arg_package OFF)
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
@@ -56,6 +57,11 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
     endif()
+  elseif (${arg} STREQUAL "package")
+    # This builds a package out of *all* build dirs.  That will result in
+    # conflicts if different architectures are being built: e.g., ARM
+    # and AArch64.  It's up to the caller to arrange things properly.
+    set(arg_package ON)
   endif ()
 endforeach (arg)
 
@@ -228,7 +234,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ${install_path_cache}
-    " OFF OFF "${install_build_args}")
+    " OFF ${arg_package} "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
@@ -239,7 +245,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     INTERNAL:BOOL=OFF
     ${install_path_cache}
     ${32bit_path}
-    " OFF OFF "${install_build_args}")
+    " OFF ${arg_package} "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
@@ -326,23 +332,23 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=ON
     BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 
@@ -383,7 +389,7 @@ if (UNIX AND ARCH_IS_X86)
   # For Travis cross_android_only builds, we want to fail on config failures.
   # For user suite runs, we want to just skip if there's no cross setup.
   if (NOT cross_android_only)
-      set(optional_cross_compile ON)
+    set(optional_cross_compile ON)
   endif ()
 
   testbuild_ex("android-debug-internal-32" OFF "
@@ -392,13 +398,13 @@ if (UNIX AND ARCH_IS_X86)
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     BUILD_TESTS:BOOL=ON
     ${android_extra_dbg}
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("android-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     ${android_extra_rel}
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   set(run_tests ${prev_run_tests})
 
   set(optional_cross_compile ${prev_optional_cross_compile})
@@ -426,5 +432,5 @@ function (error_string str outvar)
   endif (crash OR assert OR curiosity)
 endfunction (error_string)
 
-set(build_package OFF)
+set(build_package ${arg_package})
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_post.cmake")

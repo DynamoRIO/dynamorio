@@ -508,8 +508,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
                           "Use -root to specify a proper DynamoRIO root directory.", buf);
                 }
                 return false;
-            } else if (!nowarn) {
-                warn("cannot find %s: is this an incomplete installation?", buf);
+            } else {
+                if (strstr(checked_files[i], arch) == NULL) {
+                    /* Support a single-bitwidth package. */
+                    ok = true;
+                } else if (!nowarn)
+                    warn("cannot find %s: is this an incomplete installation?", buf);
             }
         }
     }
