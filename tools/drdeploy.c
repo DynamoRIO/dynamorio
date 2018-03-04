@@ -455,26 +455,20 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64\\release\\dynamorio.dll",
         "lib64\\debug\\dynamorio.dll"
 #elif defined(MACOS)
-# ifdef X64
-        "lib64/debug/libdrpreload.dylib",
-        "lib64/debug/libdynamorio.dylib",
-        "lib64/release/libdrpreload.dylib",
-        "lib64/release/libdynamorio.dylib"
-# else
         "lib32/debug/libdrpreload.dylib",
         "lib32/debug/libdynamorio.dylib",
         "lib32/release/libdrpreload.dylib",
         "lib32/release/libdynamorio.dylib",
-# endif
+        "lib64/debug/libdrpreload.dylib",
+        "lib64/debug/libdynamorio.dylib",
+        "lib64/release/libdrpreload.dylib",
+        "lib64/release/libdynamorio.dylib"
 #else /* LINUX */
         /* With early injection the default, we don't require preload to exist. */
-# ifdef X64
-        "lib64/debug/libdynamorio.so",
-        "lib64/release/libdynamorio.so"
-# else
         "lib32/debug/libdynamorio.so",
         "lib32/release/libdynamorio.so",
-# endif
+        "lib64/debug/libdynamorio.so",
+        "lib64/release/libdynamorio.so"
 #endif
     };
 
@@ -514,8 +508,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
                           "Use -root to specify a proper DynamoRIO root directory.", buf);
                 }
                 return false;
-            } else if (!nowarn) {
-                warn("cannot find %s: is this an incomplete installation?", buf);
+            } else {
+                if (strstr(checked_files[i], arch) == NULL) {
+                    /* Support a single-bitwidth package. */
+                    ok = true;
+                } else if (!nowarn)
+                    warn("cannot find %s: is this an incomplete installation?", buf);
             }
         }
     }

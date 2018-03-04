@@ -409,7 +409,7 @@ endfunction(get_default_config)
 # + returns the build dir in "last_build_dir"
 # + for each build for which add_to_package is true:
 #   - returns the build dir in "last_package_build_dir"
-#   - prepends to "cpack_projects" for project "${cpack_project_name}"
+#   - adds to "cpack_projects" for project "${cpack_project_name}"
 #     (set by outer file)
 function(testbuild_ex name is64 initial_cache test_only_in_long
     add_to_package build_args)
@@ -687,11 +687,17 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     # w/ certain params, since they're pretty similar at this point?
     # communicate w/ caller
     set(last_package_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
-    # prepend rather than append to get debug first, so we take release
-    # files preferentially in case of overlap
-    set(cpack_projects
-      "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
-      PARENT_SCOPE)
+    if (CTEST_BINARY_DIRECTORY MATCHES "debug")
+      # prepend rather than append to get debug first, so we take release
+      # files preferentially in case of overlap
+      set(cpack_projects
+        "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
+        PARENT_SCOPE)
+    else ()
+      set(cpack_projects
+        "${cpack_projects}\n  \"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\""
+        PARENT_SCOPE)
+    endif ()
 
     if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
       # i#390: workaround for cpack limitation where cpack is run w/
