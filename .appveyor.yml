@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2017 Google, Inc.  All rights reserved.
+# Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -100,4 +100,25 @@ build_script:
   - cd build
   - echo %PATH%
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
-  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja %EXTRA_ARGS%
+  # XXX i#1967: can we pass "package" only when deploying to save time?
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja package %EXTRA_ARGS%
+
+# Automated deployment of builds to GitHub Releases.
+# We rely on a Travis cron job to push a tag to the repo which then
+# triggers this deployment.
+artifacts:
+  - path: build*/DynamoRIO*.zip
+    name: Release package
+    type: zip
+deploy:
+  description: 'Automated periodic Appveyor build'
+  provider: GitHub
+  auth_token:
+    secure: mfNFJ47dV/0CNpg156CiHuK3t6VUNCVhAIYNVkJfwjwY0dbhD1kIdMPfTMdarCnz
+  artifact: build*/DynamoRIO*.zip
+  draft: false
+  prerelease: false
+  force_update: true
+  on:
+    branch: master
+    appveyor_repo_tag: true
