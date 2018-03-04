@@ -154,6 +154,9 @@ else ()
           # the diff checks.
           message(STATUS "No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
           set(diff_contents "")
+        elseif (WIN32 AND arg_travis)
+          # This happens with tagged builds, such as cronbuilds, where there
+          # is no master in the shallow clone.
         else ()
           message(FATAL_ERROR "*** Unable to retrieve diff for content checks: do you have a custom remote setup?")
         endif ()
