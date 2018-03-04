@@ -455,20 +455,26 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64\\release\\dynamorio.dll",
         "lib64\\debug\\dynamorio.dll"
 #elif defined(MACOS)
-        "lib32/debug/libdrpreload.dylib",
-        "lib32/debug/libdynamorio.dylib",
-        "lib32/release/libdrpreload.dylib",
-        "lib32/release/libdynamorio.dylib",
+# ifdef X64
         "lib64/debug/libdrpreload.dylib",
         "lib64/debug/libdynamorio.dylib",
         "lib64/release/libdrpreload.dylib",
         "lib64/release/libdynamorio.dylib"
+# else
+        "lib32/debug/libdrpreload.dylib",
+        "lib32/debug/libdynamorio.dylib",
+        "lib32/release/libdrpreload.dylib",
+        "lib32/release/libdynamorio.dylib",
+# endif
 #else /* LINUX */
         /* With early injection the default, we don't require preload to exist. */
-        "lib32/debug/libdynamorio.so",
-        "lib32/release/libdynamorio.so",
+# ifdef X64
         "lib64/debug/libdynamorio.so",
         "lib64/release/libdynamorio.so"
+# else
+        "lib32/debug/libdynamorio.so",
+        "lib32/release/libdynamorio.so",
+# endif
 #endif
     };
 

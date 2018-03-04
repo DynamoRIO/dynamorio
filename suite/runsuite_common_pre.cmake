@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -160,6 +160,15 @@ if (arg_ssh)
     GENERATE_PDBS:BOOL=OFF")
 endif (arg_ssh)
 
+# Make it clear that single-bitwidth packages only contain that bitwidth
+# (and provide unique names for Travis deployment).
+if (arg_64_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=x86_64-")
+elseif (arg_32_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=i386-")
+endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
   if (NOT MAKE_COMMAND)
@@ -616,6 +625,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         set(DO_SUBMIT OFF)
         message("Warning: optional cross-compilation \"${name}\" is not available"
           "--skipping")
+        set(add_to_package OFF)
         file(WRITE ${CTEST_BINARY_DIRECTORY}/Testing/missing-cross-compile "${name}")
       endif (optional_cross_compile)
     endif (config_success EQUAL 0)
