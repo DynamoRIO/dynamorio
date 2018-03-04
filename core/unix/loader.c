@@ -120,7 +120,6 @@ static const char *const system_lib_paths[] = {
 #define APP_BRK_GAP 64*1024*1024
 
 static os_privmod_data_t *libdr_opd;
-static bool privmod_initialized = false;
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -156,9 +155,6 @@ static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
-privload_call_modules_entry(privmod_t *mod, uint reason);
-
-static void
 privload_call_lib_func(fp_t func);
 
 static void
@@ -173,6 +169,9 @@ privload_delete_os_privmod_data(privmod_t *privmod);
 #ifdef LINUX
 void
 privload_mod_tls_init(privmod_t *mod);
+
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod);
 #endif
 
 /***************************************************************************/
@@ -341,20 +340,11 @@ os_loader_exit(void)
 #endif
 }
 
+/* These are called before loader_init for the primary thread for UNIX. */
 void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
-    if (!privmod_initialized) {
-        /* Because TLS is not setup at loader_init, we cannot call
-         * loaded libraries' init functions there, so have to postpone
-         * the invocation until here.
-         */
-        acquire_recursive_lock(&privload_lock);
-        privmod_t *mod = privload_first_module();
-        privload_call_modules_entry(mod, DLL_PROCESS_INIT);
-        release_recursive_lock(&privload_lock);
-        privmod_initialized = true;
-    }
+    /* do nothing */
 }
 
 void
@@ -547,13 +537,15 @@ privload_process_imports(privmod_t *mod)
     /* Relocate library's symbols after load dependent libraries (so that we
      * can resolve symbols in the global ELF namespace).
      */
-    if (!mod->externally_loaded)
+    if (!mod->externally_loaded) {
         privload_relocate_mod(mod);
+    }
     return true;
 #else
     /* XXX i#1285: implement MacOS private loader */
-    if (!mod->externally_loaded)
+    if (!mod->externally_loaded) {
         privload_relocate_mod(mod);
+    }
     return false;
 #endif
 }
@@ -562,20 +554,7 @@ bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    if (os_get_priv_tls_base(NULL, TLS_REG_LIB) == NULL) {
-        /* HACK: i#338
-         * The privload_call_entry is called in privload_load_finalize
-         * from loader_init.
-         * Because the loader_init is before os_tls_init,
-         * the tls is not setup yet, and cannot call init function,
-         * but cannot return false either as it cause loading failure.
-         * Cannot change the privload_load_finalize as it affects windows.
-         * so can only return true, and call it later in lader_thread_init.
-         * Also see comment from os_loader_thread_init_prologue.
-         * Any other possible way?
-         */
-        return true;
-    }
+    ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
     if (reason == DLL_PROCESS_INIT) {
         /* calls init and init array */
         LOG(GLOBAL, LOG_LOADER, 3, "%s: calling init routines of %s\n", __FUNCTION__,
@@ -912,36 +891,6 @@ get_private_library_address(app_pc modbase, const char *name)
 }
 
 static void
-privload_call_modules_entry(privmod_t *mod, uint reason)
-{
-    if (reason == DLL_PROCESS_INIT) {
-        /* call the init function in the reverse order, to make sure the
-         * dependent libraries are inialized first.
-         * We recursively call privload_call_modules_entry to call
-         * the privload_call_entry in the reverse order.
-         * The stack should be big enough since it loaded all libraries
-         * recursively.
-         * XXX: we can change privmod to be double-linked list to avoid
-         * recursion.
-         */
-        privmod_t *next = privload_next_module(mod);
-        if (next != NULL)
-            privload_call_modules_entry(next, reason);
-        if (!mod->externally_loaded)
-            privload_call_entry(mod, reason);
-    } else {
-        ASSERT(reason == DLL_PROCESS_EXIT);
-        /* call exit in the module list order. */
-        while (mod != NULL) {
-            if (!mod->externally_loaded)
-                privload_call_entry(mod, reason);
-            mod = privload_next_module(mod);
-        }
-    }
-}
-
-
-static void
 privload_call_lib_func(fp_t func)
 {
     char dummy_str[] = "dummy";
@@ -1129,11 +1078,22 @@ privload_relocate_mod(privmod_t *mod)
 
     LOG(GLOBAL, LOG_LOADER, 3, "relocating %s\n", mod->name);
 
-    /* If module has tls block need update its tls offset value */
+    /* If module has tls block need update its tls offset value.
+     * This must be done *before* relocating as relocating needs the os_privmod_data_t
+     * TLS fields set here.
+     */
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
 
     privload_relocate_os_privmod_data(opd, mod->base);
+
+#ifdef LINUX
+    /* For the primary thread, we now perform TLS block copying, after relocating.
+     * For subsequent threads this is done in privload_tls_init().
+     */
+    if (opd->tls_block_size != 0)
+        privload_mod_tls_primary_thread_init(mod);
+#endif
 
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
