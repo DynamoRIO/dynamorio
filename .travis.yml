@@ -144,8 +144,8 @@ deploy:
   file_glob: true
   file: "build*/DynamoRIO*.tar.gz"
   skip_cleanup: true
-  name: "Auto-generated periodic build $TRAVIS_BUILD_NUMBER."
-  body: "Auto-generated periodic build $TRAVIS_BUILD_NUMBER.  Unlike official release builds, Dr. Memory is not included in this build, and i686 is separated from x86_64 rather than combined in one package."
+  name: $GIT_TAG
+  body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER).  Unlike official release builds, Dr. Memory is not included in this build, and i686 is separated from x86_64 rather than combined in one package."
   on:
     repo: DynamoRIO/dynamorio
     branch: master

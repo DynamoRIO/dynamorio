@@ -111,8 +111,8 @@ artifacts:
     name: DR.zip
     type: zip
 deploy:
-  release: 'Auto-generated periodic build $(appveyor_build_version).'
-  description: 'Auto-generated periodic build $(appveyor_build_version).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
+  # Using the default "release:" name (the tag) to match Travis.
+  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
   provider: GitHub
   auth_token:
     secure: mfNFJ47dV/0CNpg156CiHuK3t6VUNCVhAIYNVkJfwjwY0dbhD1kIdMPfTMdarCnz
