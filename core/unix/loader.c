@@ -1087,13 +1087,11 @@ privload_relocate_mod(privmod_t *mod)
 
     privload_relocate_os_privmod_data(opd, mod->base);
 
-#ifdef LINUX
     /* For the primary thread, we now perform TLS block copying, after relocating.
      * For subsequent threads this is done in privload_tls_init().
      */
     if (opd->tls_block_size != 0)
         privload_mod_tls_primary_thread_init(mod);
-#endif
 
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
