@@ -51,10 +51,10 @@ set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
-    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
+    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} STREQUAL "yes")
       set(cross_aarchxx_linux_only ON)
     endif()
-    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
+    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} STREQUAL "yes")
       set(cross_android_only ON)
     endif()
   elseif (${arg} STREQUAL "package")
@@ -72,6 +72,17 @@ if (arg_travis)
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
+  if ($ENV{TRAVIS_EVENT_TYPE} STREQUAL "cron" OR
+      $ENV{APPVEYOR_REPO_TAG} STREQUAL "true")
+    # We don't want flaky tests to derail package deployment.  We've already run
+    # the tests for this same commit via regular master-push triggers: these
+    # package builds are coming from a cron trigger (Travis) or a tag addition
+    # (Appveyor), not a code change.
+    # XXX: I'd rather set this in the .yml files but I don't see a way to set
+    # one env var based on another's value there.
+    set(run_tests OFF)
+    message("Detected a cron package build: disabling running of tests")
+  endif()
 endif()
 
 if (TEST_LONG)
