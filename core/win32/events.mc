@@ -628,4 +628,12 @@ Application %1!s! (%2!s!). Cannot correctly handle a received signal.
 .
 ;#endif
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_TAKE_OVER_THREADS
+Language=English
+Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts
+.
+
 ;// ADD NEW MESSAGES HERE

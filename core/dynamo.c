@@ -2861,10 +2861,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     os_process_under_dynamorio_complete(dcontext);
 
     if (found_threads) {
-        SYSLOG(SYSLOG_WARNING, INTERNAL_SYSLOG_WARNING,
-               3, get_application_name(), get_application_pid(),
-               "Failed to take over all threads after multiple attempts");
-        ASSERT_NOT_REACHED();
+        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_TAKE_OVER_THREADS,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
     DO_ONCE({
         char buf[16];
