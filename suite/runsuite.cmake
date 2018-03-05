@@ -51,10 +51,10 @@ set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
-    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} STREQUAL "yes")
+    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
       set(cross_aarchxx_linux_only ON)
     endif()
-    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} STREQUAL "yes")
+    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
     endif()
   elseif (${arg} STREQUAL "package")
@@ -72,8 +72,8 @@ if (arg_travis)
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
-  if ($ENV{TRAVIS_EVENT_TYPE} STREQUAL "cron" OR
-      $ENV{APPVEYOR_REPO_TAG} STREQUAL "true")
+  if ($ENV{TRAVIS_EVENT_TYPE} MATCHES "cron" OR
+      $ENV{APPVEYOR_REPO_TAG} MATCHES "true")
     # We don't want flaky tests to derail package deployment.  We've already run
     # the tests for this same commit via regular master-push triggers: these
     # package builds are coming from a cron trigger (Travis) or a tag addition
