@@ -3534,12 +3534,9 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
         // while we waited for the change_linking_lock.
         if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
             unlink_fragment_outgoing(dcontext, f);
-            // TODO(during review): should we set `changed`? the code below that
-            // says "already unlinked" is effectively equivalent to this case,
-            // and it doesn't set 'changed'.
+            changed = true;
         }
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-        changed = true;
     } else {
         LOG(THREAD, LOG_ASYNCH, 3,
             "\toutgoing already unlinked for interrupted F%d\n", f->id);
