@@ -3530,9 +3530,13 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
         LOG(THREAD, LOG_ASYNCH, 3,
             "\tunlinking outgoing for interrupted F%d\n", f->id);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-        unlink_fragment_outgoing(dcontext, f);
+        // Double-check flags to ensure some other thread didn't unlink
+        // while we waited for the change_linking_lock.
+        if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
+            unlink_fragment_outgoing(dcontext, f);
+            changed = true;
+        }
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-        changed = true;
     } else {
         LOG(THREAD, LOG_ASYNCH, 3,
             "\toutgoing already unlinked for interrupted F%d\n", f->id);
@@ -5625,7 +5629,11 @@ receive_pending_signal(dcontext_t *dcontext)
                 info->interrupted->id);
             SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
                                         change_linking_lock);
-            link_fragment_outgoing(dcontext, info->interrupted, false);
+            // Double-check flags to ensure some other thread didn't link
+            // while we waited for the change_linking_lock.
+            if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
+                link_fragment_outgoing(dcontext, info->interrupted, false);
+            }
             SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
                                         change_linking_lock);
         }
