@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -137,10 +137,6 @@ loader_init(void)
     }
     /* os specific loader initialization epilogue after finalize the load */
     os_loader_init_epilogue();
-    /* FIXME i#338: call loader_thread_init here once get
-     * loader_init called after dynamo_thread_init but in a way that
-     * works with Windows
-     */
     release_recursive_lock(&privload_lock);
 }
 
