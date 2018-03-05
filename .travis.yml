@@ -126,6 +126,8 @@ script:
   - suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
 # For now we create packages as part of each (enabled) job.
+# We disable test running for these package builds in runsuite.cmake by
+# looking for $TRAVIS_EVENT_TYPE=="cron".
 # Longer-term we may want to use package.cmake instead and even make official
 # builds on Travis (i#2861).
 before_deploy:
@@ -144,7 +146,9 @@ deploy:
   file_glob: true
   file: "build*/DynamoRIO*.tar.gz"
   skip_cleanup: true
+  # The name must just be the tag in order to match Appveyor.
   name: $GIT_TAG
+  # This body is clobbered by Appveyor.
   body: "Auto-generated periodic build (Travis build $TRAVIS_BUILD_NUMBER).  Unlike official release builds, Dr. Memory is not included in this build, and i686 is separated from x86_64 rather than combined in one package."
   on:
     repo: DynamoRIO/dynamorio
