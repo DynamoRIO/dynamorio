@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -117,6 +117,13 @@ size_of_pthread_internal(void)
 
 void
 privload_mod_tls_init(privmod_t *mod)
+{
+    /* Android does not yet support per-module TLS */
+}
+
+/* Called post-reloc. */
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod)
 {
     /* Android does not yet support per-module TLS */
 }

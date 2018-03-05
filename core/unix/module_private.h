@@ -119,4 +119,7 @@ module_init_os_privmod_data_from_dyn(os_privmod_data_t *opd,
                                      ptr_int_t load_delta);
 #endif
 
+void
+privload_mod_thread_tls_init(void);
+
 #endif /* MODULE_PRIVATE_H */

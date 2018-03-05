@@ -1781,6 +1781,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel,
     case ELF_R_IRELATIVE:
         res = (byte *)pd->load_delta + (is_rela ? addend : *r_addr);
         *r_addr =  ((ELF_ADDR (*) (void)) res) ();
+        LOG(GLOBAL, LOG_LOADER, 4, "privmod ifunc reloc %s => "PFX"\n", name, *r_addr);
         break;
 #endif /* ANDROID */
     default:
