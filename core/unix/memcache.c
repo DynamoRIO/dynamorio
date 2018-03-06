@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -446,25 +446,18 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
              * are holes in all_memory_areas
              */
             from_os_prot != MEMPROT_NONE) {
-            /* FIXME i#2037: today the start/stop API does not re-scan on start,
-             * so our cache is wrong.  Worse than a false negative here, which we
-             * can handle as lazy lookup, is a false positive: we need to clear the
-             * cache at start.  For now we just quiet the complaints here.
-             */
-            DODEBUG({
-                if (!dr_api_entry) {
-                    SYSLOG_INTERNAL_ERROR
-                        ("all_memory_areas is missing region " PFX"-"PFX"!",
-                         from_os_base_pc, from_os_base_pc + from_os_size);
-                }
-            });
+            SYSLOG_INTERNAL_ERROR_ONCE
+                ("all_memory_areas is missing regions including " PFX"-"PFX,
+                 from_os_base_pc, from_os_base_pc + from_os_size);
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
-            ASSERT(dr_api_entry);
             /* be paranoid */
             out_info->base_pc = from_os_base_pc;
             out_info->size = from_os_size;
             out_info->prot = from_os_prot;
             out_info->type = DR_MEMTYPE_DATA; /* hopefully we won't miss an image */
+            /* Update our list to avoid coming back here again (i#2037). */
+            memcache_update_locked(from_os_base_pc, from_os_base_pc+from_os_size,
+                                   from_os_prot, -1, false/*!exists*/);
         }
 #else
         /* We now have nested probes, but currently probing sometimes calls
@@ -585,3 +578,20 @@ memcache_handle_app_brk(byte *lowest_brk/*if known*/, byte *old_brk, byte *new_b
     }
 }
 
+void
+memcache_update_all_from_os(void)
+{
+    memquery_iter_t iter;
+    LOG(GLOBAL, LOG_SYSCALLS, 1, "updating memcache from maps file\n");
+    memquery_iterator_start(&iter, NULL, true/*may alloc*/);
+    memcache_lock();
+    /* We clear the entire cache to avoid false positive queries. */
+    vmvector_reset_vector(GLOBAL_DCONTEXT, all_memory_areas);
+    while (memquery_iterator_next(&iter)) {
+        /* We do a heavyweight overlap check with everything. */
+        memcache_update_locked(iter.vm_start, iter.vm_end, iter.prot,
+                               -1, false/*!exists*/);
+    }
+    memcache_unlock();
+    memquery_iterator_stop(&iter);
+}
