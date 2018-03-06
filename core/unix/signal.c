@@ -151,9 +151,11 @@ sig_is_alarm_signal(int sig)
 #define APP_HAS_SIGSTACK(info) \
     ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
-// Under normal circumstances the app_sigaction is always fully initialized,
-// but during detach there are points where we are still sending/receiving
-// signals after app_sigaction has been set to zeros.
+/* Under normal circumstances the app_sigaction is lazily initialized when the
+ * app registers a signal handler, but during detach there are points where we
+ * are still intercepting signals after app_sigaction has been set to
+ * zeros. To be extra defensive, we do a NULL check.
+ */
 #define USE_APP_SIGSTACK(info, sig) \
     (APP_HAS_SIGSTACK(info) \
      && (info)->app_sigaction[sig] != NULL \
