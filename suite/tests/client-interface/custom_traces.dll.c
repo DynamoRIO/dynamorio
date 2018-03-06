@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -190,7 +191,7 @@ dr_init(client_id_t id)
     dr_register_end_trace_event(query_end_trace);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'inline' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inline' initializing\n");
     num_complete_inlines = 0;
 }
 
@@ -225,7 +226,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, b
             e->is_trace_head = true;
             dr_mutex_unlock(htable_mutex);
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
+            dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: marking bb "PFX" as trace head\n", tag);
 #endif
             /* doesn't matter what's in rest of bb */
@@ -278,7 +279,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
              * end up never entering the call trace
              */
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
+            dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: ending trace "PFX" before block "PFX" containing call\n",
                    trace_tag, next_tag);
 #endif
@@ -289,7 +290,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
         e->end_next--;
         if (e->end_next == 0) {
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
+            dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: ending trace "PFX" before "PFX"\n",
                    trace_tag, next_tag);
 #endif
@@ -303,7 +304,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
         e->size += size;
         if (e->size > INLINE_SIZE_LIMIT) {
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
+            dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: ending trace "PFX" before "PFX" because reached size limit\n",
                    trace_tag, next_tag);
 #endif
@@ -314,7 +315,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
             /* end trace after NEXT block */
             e->end_next = 2;
 #ifdef VERBOSE
-            dr_log(drcontext, LOG_ALL, 3,
+            dr_log(drcontext, DR_LOG_ALL, 3,
                    "inline: going to be ending trace "PFX" after "PFX"\n",
                    trace_tag, next_tag);
 #endif
@@ -324,7 +325,7 @@ query_end_trace(void *drcontext, void *trace_tag, void *next_tag)
     }
     /* do not end trace */
 #ifdef VERBOSE
-    dr_log(drcontext, LOG_ALL, 3,
+    dr_log(drcontext, DR_LOG_ALL, 3,
            "inline: NOT ending trace "PFX" after "PFX"\n", trace_tag, next_tag);
 #endif
     dr_mutex_unlock(htable_mutex);

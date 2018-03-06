@@ -140,6 +140,11 @@ compatibility changes:
    DRMGR_PRIORITY_NAME_CLS_ENTRY, and DRMGR_PRIORITY_NAME_CLS_EXIT, as
    the new kernel xfer event (drmgr_register_kernel_xfer_event()) removes the
    need for them.
+ - Renamed the LOG_ macros (#LOG_NONE, #LOG_ALL, etc.) to have a DR_ prefix
+   to avoid name conflicts.  Clients should set(DynamoRIO_LOG_COMPATIBILITY ON)
+   prior to configure_DynamoRIO_client() to use the old constants and avoid
+   any source changes; this will happen automatically if the client
+   targets version 7.0.0 or earlier.  Binary compatibility is unaffected.
 
 Further non-compatibility-affecting changes include:
 

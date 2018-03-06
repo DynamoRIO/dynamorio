@@ -1543,7 +1543,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING"\n",
+    dr_log(NULL, DR_LOG_ALL, 1, "drcachesim num refs seen: " UINT64_FORMAT_STRING"\n",
            num_refs);
     NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " UINT64_FORMAT_STRING
            " references.\n", dr_get_process_id(), num_refs);
@@ -1810,7 +1810,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "drcachesim client initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "drcachesim client initializing\n");
 
     if (op_use_physical.get_value()) {
         have_phys = physaddr.init();
