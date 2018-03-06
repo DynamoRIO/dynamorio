@@ -151,8 +151,13 @@ sig_is_alarm_signal(int sig)
 #define APP_HAS_SIGSTACK(info) \
     ((info)->app_sigstack.ss_sp != NULL && (info)->app_sigstack.ss_flags != SS_DISABLE)
 
+// Under normal circumstances the app_sigaction is always fully initialized,
+// but during detach there are points where we are still sending/receiving
+// signals after app_sigaction has been set to zeros.
 #define USE_APP_SIGSTACK(info, sig) \
-    (APP_HAS_SIGSTACK(info) && TEST(SA_ONSTACK, (info)->app_sigaction[sig]->flags))
+    (APP_HAS_SIGSTACK(info) \
+     && (info)->app_sigaction[sig] != NULL \
+     && TEST(SA_ONSTACK, (info)->app_sigaction[sig]->flags))
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
