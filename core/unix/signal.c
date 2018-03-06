@@ -1183,11 +1183,10 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         os_thread_yield();
     }
 
-    if (dynamo_exited) {
-        /* stop itimers before removing signal handlers */
-        for (i = 0; i < NUM_ITIMERS; i++)
-            set_actual_itimer(dcontext, i, info, false/*disable*/);
-    }
+    /* stop_itimer() was already called by os_thread_not_under_dynamo() called
+     * from dynamo_thread_exit_common().  We need to leave the app itimers in place
+     * in case we're detaching.
+     */
 
 #if defined(X86) && defined(LINUX)
     if (info->xstate_alloc != NULL) {
