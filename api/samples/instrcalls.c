@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -77,7 +77,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_init();
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrcalls' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrcalls' initializing\n");
     /* also give notification to stderr */
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
@@ -94,7 +94,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmgr_register_thread_exit_event(event_thread_exit);
 #ifdef SHOW_SYMBOLS
     if (drsym_init(0) != DRSYM_SUCCESS) {
-        dr_log(NULL, LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
+        dr_log(NULL, DR_LOG_ALL, 1, "WARNING: unable to initialize symbol translation\n");
     }
 #endif
     tls_idx = drmgr_register_tls_field();
@@ -106,7 +106,7 @@ event_exit(void)
 {
 #ifdef SHOW_SYMBOLS
     if (drsym_exit() != DRSYM_SUCCESS) {
-        dr_log(NULL, LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
+        dr_log(NULL, DR_LOG_ALL, 1, "WARNING: error cleaning up symbol library\n");
     }
 #endif
     drmgr_unregister_tls_field(tls_idx);

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -139,7 +139,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     DR_ASSERT(tls_index != -1);
 
     code_cache_init();
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrace' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrace' initializing\n");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
