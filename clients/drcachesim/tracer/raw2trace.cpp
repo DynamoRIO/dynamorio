@@ -200,7 +200,7 @@ raw2trace_t::read_and_map_modules()
 {
     std::string err;
     if (modlist.empty())
-        do_module_parsing(); // May have already been called, since public.
+        err = do_module_parsing(); // May have already been called, since public.
     if (!err.empty())
         return err;
     for (auto it = modlist.begin(); it != modlist.end(); ++it) {
