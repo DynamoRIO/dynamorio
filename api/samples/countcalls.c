@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,7 +90,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     tls_idx = drmgr_register_tls_field();
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'countcalls' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'countcalls' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
@@ -145,7 +145,7 @@ event_thread_init(void *drcontext)
     data->num_direct_calls = 0;
     data->num_indirect_calls = 0;
     data->num_returns = 0;
-    dr_log(drcontext, LOG_ALL, 1, "countcalls: set up for thread "TIDFMT"\n",
+    dr_log(drcontext, DR_LOG_ALL, 1, "countcalls: set up for thread "TIDFMT"\n",
            dr_get_thread_id(drcontext));
 }
 

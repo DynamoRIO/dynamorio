@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -79,7 +79,7 @@ log_file_open(client_id_t id, void *drcontext,
         len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), "Data file %s created", buf);
         DR_ASSERT(len > 0);
         NULL_TERMINATE_BUFFER(msg);
-        dr_log(drcontext, LOG_ALL, 1, "%s", msg);
+        dr_log(drcontext, DR_LOG_ALL, 1, "%s", msg);
 #ifdef SHOW_RESULTS
         DISPLAY_STRING(msg);
 # ifdef WINDOWS

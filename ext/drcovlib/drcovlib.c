@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -102,7 +102,7 @@ log_file_create_helper(void *drcontext, const char *suffix, char *buf, size_t bu
                                    DR_FILE_ALLOW_LARGE,
                                    buf, buf_els);
     if (log != INVALID_FILE) {
-        dr_log(drcontext, LOG_ALL, 1, "drcov: log file is %s\n", buf);
+        dr_log(drcontext, DR_LOG_ALL, 1, "drcov: log file is %s\n", buf);
         NOTIFY(1, "<created log file %s>\n", buf);
     }
     return log;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,7 +98,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     enable = true;
 
     /* Make it easy to tell by looking at the log file which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'inc2add' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inc2add' initializing\n");
 #ifdef SHOW_RESULTS
     /* Also give notification to stderr */
     if (dr_is_notify_on()) {

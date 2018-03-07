@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -111,7 +111,7 @@ dr_init(client_id_t id)
 {
     dr_set_client_name("DynamoRIO client 'ssljack'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client ssljack initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client ssljack initializing\n");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
         dr_fprintf(STDERR, "Client ssljack running! See trace-* files for SSL logs!\n");
