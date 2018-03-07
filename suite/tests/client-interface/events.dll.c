@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -431,7 +431,7 @@ static void
 kernel_xfer_event2(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     inc_count_second(EVENT_KERNEL_XFER_2);
-    dr_log(drcontext, LOG_ALL, 2, "%s: %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
+    dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
            info->source_mcontext == NULL ? 0 : info->source_mcontext->pc,
            info->target_pc, info->target_xsp);
     if (info->type == DR_XFER_CLIENT_REDIRECT) {

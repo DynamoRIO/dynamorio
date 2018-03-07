@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -95,7 +95,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' exiting");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'cbrtrace' exiting");
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on())
         dr_fprintf(STDERR, "Client 'cbrtrace' exiting\n");
@@ -111,7 +111,7 @@ void dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'cbrtrace'",
                        "http://dynamorio.org/issues");
-    dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' initializing");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'cbrtrace' initializing");
 
     drmgr_init();
 
