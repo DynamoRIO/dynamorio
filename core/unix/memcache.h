@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,5 +77,8 @@ memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
 
 void
 memcache_handle_app_brk(byte *lowest_brk/*if known*/, byte *old_brk, byte *new_brk);
+
+void
+memcache_update_all_from_os(void);
 
 #endif /* _MEMCACHE_H_ */

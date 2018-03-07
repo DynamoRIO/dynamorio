@@ -2116,6 +2116,12 @@ vmvector_reset_vector(dcontext_t *dcontext, vm_area_vector_t *v)
     });
     /* with thread shared cache it is in fact possible to have no thread local vmareas */
     if (v->buf != NULL) {
+        if (v->free_payload_func != NULL) {
+            int i;
+            for (i = 0; i < v->length; i++) {
+                v->free_payload_func(v->buf[i].custom.client);
+            }
+        }
         /* FIXME: walk through and make sure frags lists are all freed */
         global_heap_free(v->buf, v->size*sizeof(struct vm_area_t) HEAPACCT(ACCT_VMAREAS));
         v->size = 0;
@@ -2136,12 +2142,6 @@ vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 void
 vmvector_delete_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 {
-    if (v->free_payload_func != NULL) {
-        int i;
-        for (i = 0; i < v->length; i++) {
-            v->free_payload_func(v->buf[i].custom.client);
-        }
-    }
     vmvector_free_vector(dcontext, v);
     HEAP_TYPE_FREE(dcontext, v, vm_area_vector_t, ACCT_VMAREAS, PROTECTED);
 }
