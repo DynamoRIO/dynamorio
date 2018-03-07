@@ -106,20 +106,24 @@ build_script:
 # Automated deployment of builds to GitHub Releases.
 # We rely on a Travis cron job to push a tag to the repo which then
 # triggers this deployment.
+# We disable test running for these package builds in runsuite.cmake by
+# looking for $APPVEYOR_REPO_TAG=="true".
 artifacts:
   - path: 'build\build_*\DynamoRIO*.zip'
     name: DR.zip
     type: zip
 deploy:
-  # Using the default "release:" name (the tag) to match Travis.
-  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
   provider: GitHub
   auth_token:
     secure: mfNFJ47dV/0CNpg156CiHuK3t6VUNCVhAIYNVkJfwjwY0dbhD1kIdMPfTMdarCnz
   artifact: DR.zip
   draft: false
   prerelease: false
+  # We want to use the same release as Travis.
   force_update: true
+  # Using the default "release:" name (the tag) to match Travis.
+  # This description replaces the one provided by Travis.
+  description: 'Auto-generated periodic build (Appveyor build $(appveyor_build_version)).  Unlike official release builds, Dr. Memory is not included in this build, and for Linux, i686 is separated from x86_64 rather than being combined in one package.'
   on:
     branch: master
     appveyor_repo_tag: true

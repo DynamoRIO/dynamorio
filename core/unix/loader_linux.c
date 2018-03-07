@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -208,7 +208,11 @@ typedef struct _dr_pthread_t {
 #endif
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-/* FIXME: add description here to talk how TLS is setup. */
+/* XXX: add description here to talk how TLS is setup.
+ * This should be done *before* relocating the module.
+ * There are TLS-specific relocations that depend on having os_privmod_data_t
+ * tls fields set.
+ */
 void
 privload_mod_tls_init(privmod_t *mod)
 {
@@ -247,10 +251,54 @@ privload_mod_tls_init(privmod_t *mod)
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     tls_info.offset = offset;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s for #%d %s: offset %zu\n",
+        __FUNCTION__, opd->tls_modid, mod->name, offset);
+
     tls_info.num_mods++;
     if (opd->tls_align > tls_info.max_align) {
         tls_info.max_align = opd->tls_align;
     }
+}
+
+static void
+privload_copy_tls_block(app_pc priv_tls_base, uint mod_idx)
+{
+    os_privmod_data_t *opd = tls_info.mods[mod_idx]->os_privmod_data;
+    void *dest;
+    /* now copy the tls memory from the image */
+    dest = priv_tls_base - tls_info.offs[mod_idx];
+    LOG(GLOBAL, LOG_LOADER, 2,
+        "%s: copying ELF TLS from "PFX" to "PFX" block %zu image %zu\n",
+        __FUNCTION__, opd->tls_image, dest, opd->tls_block_size, opd->tls_image_size);
+    DOLOG(3, LOG_LOADER, {
+        dump_buffer_as_bytes(GLOBAL, opd->tls_image, opd->tls_image_size,
+                             DUMP_RAW | DUMP_ADDRESS);
+        LOG(GLOBAL, LOG_LOADER, 2, "\n");
+    });
+    memcpy(dest, opd->tls_image, opd->tls_image_size);
+    /* set all 0 to the rest of memory.
+     * tls_block_size refers to the size in memory, and
+     * tls_image_size refers to the size in file.
+     * We use the same way as libc to name them.
+     */
+    ASSERT(opd->tls_block_size >= opd->tls_image_size);
+    memset(dest + opd->tls_image_size, 0,
+           opd->tls_block_size - opd->tls_image_size);
+}
+
+/* Called post-reloc. */
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod)
+{
+    ASSERT(!dynamo_initialized);
+    /* Copy ELF block for primary thread for use in init funcs (i#2751).
+     * We do this after relocs and assume reloc ifuncs don't need this:
+     * else we'd have to assume there are no relocs in the TLS blocks.
+     */
+    os_local_state_t *os_tls = get_os_tls();
+    app_pc priv_tls_base = os_tls->os_seg_info.priv_lib_tls_base;
+    os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
+    privload_copy_tls_block(priv_tls_base, opd->tls_modid);
 }
 #endif
 
@@ -260,7 +308,6 @@ privload_tls_init(void *app_tp)
     size_t client_tls_alloc_size = ALIGN_FORWARD(client_tls_size, PAGE_SIZE);
     app_pc dr_tp;
     tcb_head_t *dr_tcb;
-    uint i;
     size_t tls_bytes_read;
 
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
@@ -322,21 +369,16 @@ privload_tls_init(void *app_tp)
     dr_tcb->private = NULL;
 #endif
 
-    for (i = 0; i < tls_info.num_mods; i++) {
-        os_privmod_data_t *opd = tls_info.mods[i]->os_privmod_data;
-        void *dest;
-        /* now copy the tls memory from the image */
-        dest = dr_tp - tls_info.offs[i];
-        memcpy(dest, opd->tls_image, opd->tls_image_size);
-        /* set all 0 to the rest of memory.
-         * tls_block_size refers to the size in memory, and
-         * tls_image_size refers to the size in file.
-         * We use the same way as libc to name them.
-         */
-        ASSERT(opd->tls_block_size >= opd->tls_image_size);
-        memset(dest + opd->tls_image_size, 0,
-               opd->tls_block_size - opd->tls_image_size);
+    /* We initialize the primary thread's ELF TLS in privload_mod_tls_init()
+     * after finalizing the module load (dependent libs not loaded yet here).
+     * For subsequent threads we walk the module list here.
+     */
+    if (dynamo_initialized) {
+        uint i;
+        for (i = 0; i < tls_info.num_mods; i++)
+            privload_copy_tls_block(dr_tp, i);
     }
+
     return dr_tp;
 }
 
