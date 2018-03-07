@@ -446,7 +446,7 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
              * are holes in all_memory_areas
              */
             from_os_prot != MEMPROT_NONE) {
-            SYSLOG_INTERNAL_ERROR_ONCE
+            SYSLOG_INTERNAL_WARNING_ONCE
                 ("all_memory_areas is missing regions including " PFX"-"PFX,
                  from_os_base_pc, from_os_base_pc + from_os_size);
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
