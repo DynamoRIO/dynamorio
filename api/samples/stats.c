@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -189,7 +189,7 @@ shared_memory_init(void)
             break;
         num++;
     }
-    dr_log(NULL, LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
+    dr_log(NULL, DR_LOG_ALL, 1, "Shared memory key is: \"%S\"\n", shared_keyname);
 #ifdef SHOW_RESULTS
     dr_fprintf(STDERR, "Shared memory key is: \"%S\"\n", shared_keyname);
 #endif
@@ -241,7 +241,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* Make it easy to tell by looking at the log which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'stats' initializing\n");
 
     if (!drmgr_init())
         DR_ASSERT(false);

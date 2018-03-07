@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     }
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'prefetch' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'prefetch' initializing\n");
 
     /* must create the counting mutex */
     count_mutex = dr_mutex_create();
@@ -79,7 +79,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "Removed %d prefetches and %d prefetchws.\n",
+    dr_log(NULL, DR_LOG_ALL, 1, "Removed %d prefetches and %d prefetchws.\n",
            prefetches_removed, prefetchws_removed);
     dr_mutex_destroy(count_mutex);
     drmgr_exit();
