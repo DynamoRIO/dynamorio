@@ -209,6 +209,10 @@ Further non-compatibility-affecting changes include:
    drmgr_unregister_thread_init_event_user_data() to enable passing of user data.
  - Added drmgr_register_thread_exit_event_user_data() and
    drmgr_unregister_thread_exit_event_usr_data() to enable passing of user data.
+ - Added drmgr_register_module_load_event_user_data() and
+   drmgr_unregister_module_load_event_user_data() to enable passing of user data.
+ - Added drmgr_register_module_unload_event_user_data() and
+   drmgr_unregister_module_unload_event() to enable passing of user data.
  - Added a new drcachesim feature that records which cpu each thread
    executed on along with an optional simulator scheduling feature to
    schedule threads on simulated cores to match the recorded execution on
