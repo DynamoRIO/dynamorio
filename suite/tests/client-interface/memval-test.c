@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -90,9 +90,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XDI, REG_XBP
         sub      REG_XDI, 12
         mov      [REG_XBP - 80], REG_XBP
-        jmp      test
+        /* We can't use "test" as a label on Mac NASM. */
+        jmp      test_start
 
-     test:
+     test_start:
         mov      REG_XCX, [REG_XDI + 12]
         mov      REG_XDX, [REG_XBP - 72]
         mov      REG_XBX, [REG_XBP - 80]

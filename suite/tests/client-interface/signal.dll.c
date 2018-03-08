@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,7 +62,7 @@ static void
 kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     dr_fprintf(STDERR, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
-    dr_log(drcontext, LOG_ALL, 2, "%s: %d %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
+    dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
            info->sig, info->source_mcontext->pc, info->target_pc, info->target_xsp);
     dr_mcontext_t mc = {sizeof(mc)};
     mc.flags = DR_MC_CONTROL;

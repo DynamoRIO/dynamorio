@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -97,7 +97,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* Local tests */
         res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
         CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-        dr_log(drcontext, LOG_ALL, 3, "drreg at "PFX" scratch=%s\n",
+        dr_log(drcontext, DR_LOG_ALL, 3, "drreg at "PFX" scratch=%s\n",
                instr_get_app_pc(inst), get_register_name(reg));
         /* test restore app value back to reg */
         res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
@@ -166,7 +166,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
         /* Cross-app-instr tests */
-        dr_log(drcontext, LOG_ALL, 1, "drreg test #1/2/3\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #1/2/3\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
             CHECK(res == DRREG_SUCCESS, "reserve of test reg should work");
@@ -183,7 +183,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_4_C ||
                subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
-        dr_log(drcontext, LOG_ALL, 1, "drreg test #4\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");

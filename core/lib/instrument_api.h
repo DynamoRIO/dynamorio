@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -839,6 +839,16 @@ DR_API
  */
 void
 dr_set_process_exit_behavior(dr_exit_flags_t flags);
+
+DR_API
+/**
+ * The #DR_DISALLOW_UNSAFE_STATIC declaration requests that DR perform sanity
+ * checks to ensure that client libraries will also operate safely when linked
+ * statically into an application.  This overrides that request, facilitating
+ * having runtime options that are not supported in a static context.
+ */
+void
+dr_allow_unsafe_static_behavior(void);
 
 #ifdef UNIX
 DR_API
@@ -3986,7 +3996,7 @@ DR_API
 /**
  * Writes to DR's log file for the thread with drcontext \p drcontext if the current
  * loglevel is >= \p level and the current \p logmask & \p mask != 0.
- * The mask constants are below.
+ * The mask constants are the DR_LOG_* defines below.
  * Logging is disabled for the release build.
  * If \p drcontext is NULL, writes to the main log file.
  */
@@ -3999,35 +4009,63 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...);
 /* DR_API EXPORT BEGIN */
 
 /* The log mask constants */
-#define LOG_NONE           0x00000000  /**< Log no data. */
-#define LOG_STATS          0x00000001  /**< Log per-thread and global statistics. */
-#define LOG_TOP            0x00000002  /**< Log top-level information. */
-#define LOG_THREADS        0x00000004  /**< Log data related to threads. */
-#define LOG_SYSCALLS       0x00000008  /**< Log data related to system calls. */
-#define LOG_ASYNCH         0x00000010  /**< Log data related to signals/callbacks/etc. */
-#define LOG_INTERP         0x00000020  /**< Log data related to app interpretation. */
-#define LOG_EMIT           0x00000040  /**< Log data related to emitting code. */
-#define LOG_LINKS          0x00000080  /**< Log data related to linking code. */
-#define LOG_CACHE          0x00000100  /**< Log data related to code cache management. */
-#define LOG_FRAGMENT       0x00000200  /**< Log data related to app code fragments. */
-#define LOG_DISPATCH       0x00000400  /**< Log data on every context switch dispatch. */
-#define LOG_MONITOR        0x00000800  /**< Log data related to trace building. */
-#define LOG_HEAP           0x00001000  /**< Log data related to memory management. */
-#define LOG_VMAREAS        0x00002000  /**< Log data related to address space regions. */
-#define LOG_SYNCH          0x00004000  /**< Log data related to synchronization. */
-#define LOG_MEMSTATS       0x00008000  /**< Log data related to memory statistics. */
-#define LOG_OPTS           0x00010000  /**< Log data related to optimizations. */
-#define LOG_SIDELINE       0x00020000  /**< Log data related to sideline threads. */
-#define LOG_SYMBOLS        0x00040000  /**< Log data related to app symbols. */
-#define LOG_RCT            0x00080000  /**< Log data related to indirect transfers. */
-#define LOG_NT             0x00100000  /**< Log data related to Windows Native API. */
-#define LOG_HOT_PATCHING   0x00200000  /**< Log data related to hot patching. */
-#define LOG_HTABLE         0x00400000  /**< Log data related to hash tables. */
-#define LOG_MODULEDB       0x00800000  /**< Log data related to the module database. */
-#define LOG_ALL            0x00ffffff  /**< Log all data. */
-/* DR_API EXPORT END */
+#define DR_LOG_NONE         0x00000000  /**< Log no data. */
+#define DR_LOG_STATS        0x00000001  /**< Log per-thread and global statistics. */
+#define DR_LOG_TOP          0x00000002  /**< Log top-level information. */
+#define DR_LOG_THREADS      0x00000004  /**< Log data related to threads. */
+#define DR_LOG_SYSCALLS     0x00000008  /**< Log data related to system calls. */
+#define DR_LOG_ASYNCH       0x00000010  /**< Log data related to signals/callbacks/etc. */
+#define DR_LOG_INTERP       0x00000020  /**< Log data related to app interpretation. */
+#define DR_LOG_EMIT         0x00000040  /**< Log data related to emitting code. */
+#define DR_LOG_LINKS        0x00000080  /**< Log data related to linking code. */
+#define DR_LOG_CACHE        0x00000100  /**< Log data related to code cache management. */
+#define DR_LOG_FRAGMENT     0x00000200  /**< Log data related to app code fragments. */
+#define DR_LOG_DISPATCH     0x00000400  /**< Log data on every context switch dispatch. */
+#define DR_LOG_MONITOR      0x00000800  /**< Log data related to trace building. */
+#define DR_LOG_HEAP         0x00001000  /**< Log data related to memory management. */
+#define DR_LOG_VMAREAS      0x00002000  /**< Log data related to address space regions. */
+#define DR_LOG_SYNCH        0x00004000  /**< Log data related to synchronization. */
+#define DR_LOG_MEMSTATS     0x00008000  /**< Log data related to memory statistics. */
+#define DR_LOG_OPTS         0x00010000  /**< Log data related to optimizations. */
+#define DR_LOG_SIDELINE     0x00020000  /**< Log data related to sideline threads. */
+#define DR_LOG_SYMBOLS      0x00040000  /**< Log data related to app symbols. */
+#define DR_LOG_RCT          0x00080000  /**< Log data related to indirect transfers. */
+#define DR_LOG_NT           0x00100000  /**< Log data related to Windows Native API. */
+#define DR_LOG_HOT_PATCHING 0x00200000  /**< Log data related to hot patching. */
+#define DR_LOG_HTABLE       0x00400000  /**< Log data related to hash tables. */
+#define DR_LOG_MODULEDB     0x00800000  /**< Log data related to the module database. */
+#define DR_LOG_ALL          0x00ffffff  /**< Log all data. */
+#ifdef DR_LOG_DEFINE_COMPATIBILITY
+# define LOG_NONE           DR_LOG_NONE         /**< Identical to #DR_LOG_NONE. */
+# define LOG_STATS          DR_LOG_STATS        /**< Identical to #DR_LOG_STATS. */
+# define LOG_TOP            DR_LOG_TOP          /**< Identical to #DR_LOG_TOP. */
+# define LOG_THREADS        DR_LOG_THREADS      /**< Identical to #DR_LOG_THREADS. */
+# define LOG_SYSCALLS       DR_LOG_SYSCALLS     /**< Identical to #DR_LOG_SYSCALLS. */
+# define LOG_ASYNCH         DR_LOG_ASYNCH       /**< Identical to #DR_LOG_ASYNCH. */
+# define LOG_INTERP         DR_LOG_INTERP       /**< Identical to #DR_LOG_INTERP. */
+# define LOG_EMIT           DR_LOG_EMIT         /**< Identical to #DR_LOG_EMIT. */
+# define LOG_LINKS          DR_LOG_LINKS        /**< Identical to #DR_LOG_LINKS. */
+# define LOG_CACHE          DR_LOG_CACHE        /**< Identical to #DR_LOG_CACHE. */
+# define LOG_FRAGMENT       DR_LOG_FRAGMENT     /**< Identical to #DR_LOG_FRAGMENT. */
+# define LOG_DISPATCH       DR_LOG_DISPATCH     /**< Identical to #DR_LOG_DISPATCH. */
+# define LOG_MONITOR        DR_LOG_MONITOR      /**< Identical to #DR_LOG_MONITOR. */
+# define LOG_HEAP           DR_LOG_HEAP         /**< Identical to #DR_LOG_HEAP. */
+# define LOG_VMAREAS        DR_LOG_VMAREAS      /**< Identical to #DR_LOG_VMAREAS. */
+# define LOG_SYNCH          DR_LOG_SYNCH        /**< Identical to #DR_LOG_SYNCH. */
+# define LOG_MEMSTATS       DR_LOG_MEMSTATS     /**< Identical to #DR_LOG_MEMSTATS. */
+# define LOG_OPTS           DR_LOG_OPTS         /**< Identical to #DR_LOG_OPTS. */
+# define LOG_SIDELINE       DR_LOG_SIDELINE     /**< Identical to #DR_LOG_SIDELINE. */
+# define LOG_SYMBOLS        DR_LOG_SYMBOLS      /**< Identical to #DR_LOG_SYMBOLS. */
+# define LOG_RCT            DR_LOG_RCT          /**< Identical to #DR_LOG_RCT. */
+# define LOG_NT             DR_LOG_NT           /**< Identical to #DR_LOG_NT. */
+# define LOG_HOT_PATCHING   DR_LOG_HOT_PATCHING /**< Identical to #DR_LOG_HOT_PATCHING. */
+# define LOG_HTABLE         DR_LOG_HTABLE       /**< Identical to #DR_LOG_HTABLE. */
+# define LOG_MODULEDB       DR_LOG_MODULEDB     /**< Identical to #DR_LOG_MODULEDB. */
+# define LOG_ALL            DR_LOG_ALL          /**< Identical to #DR_LOG_ALL. */
 #endif
 
+/* DR_API EXPORT END */
+#endif
 
 DR_API
 /**

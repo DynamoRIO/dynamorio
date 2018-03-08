@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -34,6 +34,7 @@
 
 #include "../globals.h"
 #include "../module_shared.h"
+#include "module_private.h"
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
@@ -664,6 +665,40 @@ redirect_free(void *mem)
     }
 }
 
+# ifdef DEBUG
+/* i#975: these help clients support static linking with the app. */
+void *
+redirect_malloc_initonly(size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "malloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_malloc(size);
+}
+
+void *
+redirect_realloc_initonly(void *mem, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "realloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_realloc(mem, size);
+}
+
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "calloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_calloc(nmemb, size);
+}
+
+void
+redirect_free_initonly(void *mem)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "free invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    redirect_free(mem);
+}
+# endif
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool

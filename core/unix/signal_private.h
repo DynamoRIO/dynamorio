@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -407,6 +407,7 @@ typedef struct _thread_sig_info_t {
     bool multiple_pending_units;
     /* "lock" to prevent interrupting signal from messing up sigpending array */
     bool accessing_sigpending;
+    bool nested_pending_ok;
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;

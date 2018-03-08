@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -148,7 +148,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'bbcount' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'bbcount' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {

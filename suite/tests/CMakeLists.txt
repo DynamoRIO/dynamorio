@@ -3033,6 +3033,7 @@ if (UNIX)
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
   endif ()
+  tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
   # i#1145: test re-starting syscalls, both inlined and from dispatch
   tobuild(linux.eintr linux/eintr.c)

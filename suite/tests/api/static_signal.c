@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -217,6 +217,12 @@ main(int argc, const char *argv[])
 
     signal_cond_var(thread_exit);
     pthread_join(thread, NULL);
+
+    // i#2871: ensure our itimer is still there.
+    rc = getitimer(ITIMER_PROF, &timer);
+    assert(rc == 0);
+    // We don't compare to 1000 b/c the min may be larger.
+    assert(timer.it_interval.tv_usec > 0);
 
     print("all done\n");
     return 0;

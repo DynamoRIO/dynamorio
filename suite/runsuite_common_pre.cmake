@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -160,6 +160,15 @@ if (arg_ssh)
     GENERATE_PDBS:BOOL=OFF")
 endif (arg_ssh)
 
+# Make it clear that single-bitwidth packages only contain that bitwidth
+# (and provide unique names for Travis deployment).
+if (arg_64_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=x86_64-")
+elseif (arg_32_only)
+  set(base_cache "${base_cache}
+      PACKAGE_PLATFORM:STRING=i386-")
+endif ()
 if (arg_use_make)
   find_program(MAKE_COMMAND make DOC "make command")
   if (NOT MAKE_COMMAND)
@@ -400,7 +409,7 @@ endfunction(get_default_config)
 # + returns the build dir in "last_build_dir"
 # + for each build for which add_to_package is true:
 #   - returns the build dir in "last_package_build_dir"
-#   - prepends to "cpack_projects" for project "${cpack_project_name}"
+#   - adds to "cpack_projects" for project "${cpack_project_name}"
 #     (set by outer file)
 function(testbuild_ex name is64 initial_cache test_only_in_long
     add_to_package build_args)
@@ -616,6 +625,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         set(DO_SUBMIT OFF)
         message("Warning: optional cross-compilation \"${name}\" is not available"
           "--skipping")
+        set(add_to_package OFF)
         file(WRITE ${CTEST_BINARY_DIRECTORY}/Testing/missing-cross-compile "${name}")
       endif (optional_cross_compile)
     endif (config_success EQUAL 0)
@@ -677,11 +687,17 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     # w/ certain params, since they're pretty similar at this point?
     # communicate w/ caller
     set(last_package_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
-    # prepend rather than append to get debug first, so we take release
-    # files preferentially in case of overlap
-    set(cpack_projects
-      "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
-      PARENT_SCOPE)
+    if (CTEST_BINARY_DIRECTORY MATCHES "debug")
+      # prepend rather than append to get debug first, so we take release
+      # files preferentially in case of overlap
+      set(cpack_projects
+        "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
+        PARENT_SCOPE)
+    else ()
+      set(cpack_projects
+        "${cpack_projects}\n  \"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\""
+        PARENT_SCOPE)
+    endif ()
 
     if ("${CTEST_CMAKE_GENERATOR}" MATCHES "Visual Studio")
       # i#390: workaround for cpack limitation where cpack is run w/

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -290,7 +290,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrace' num refs seen: "SZFMT"\n", num_refs);
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrace' num refs seen: "SZFMT"\n", num_refs);
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
@@ -336,5 +336,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0))
         DR_ASSERT(false);
 
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrace' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrace' initializing\n");
 }
