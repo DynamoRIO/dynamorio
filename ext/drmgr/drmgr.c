@@ -1512,7 +1512,7 @@ drmgr_modload_event(void *drcontext, const module_data_t *info,
             continue;
         bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
         void *user_data = iter.cbs.generic[i].user_data;
-        if (is_using_user_data == false){
+        if (is_using_user_data == false) {
             (*iter.cbs.generic[i].cb.modload_cb.cb_no_user_data)(drcontext, info,
                                                                  loaded);
         } else {
