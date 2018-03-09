@@ -131,7 +131,7 @@ typedef struct _generic_event_entry_t {
         union {
             void (*cb_no_user_data)(void *, int);
             void (*cb_user_data)(void *, int, void *);
-        } postsys_cb;        
+        } postsys_cb;
         union {
             void (*cb_no_user_data)(void *, const module_data_t *, bool);
             void (*cb_user_data)(void *, const module_data_t *, bool, void *);
