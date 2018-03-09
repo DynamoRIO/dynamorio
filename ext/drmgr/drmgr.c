@@ -124,15 +124,21 @@ typedef struct _generic_event_entry_t {
             void (*cb_user_data)(void *, void *);
         } thread_cb;
         void (*cls_cb)(void *, bool);
-        bool (*presys_cb)(void *, int);
-        void (*postsys_cb)(void *, int);
+        union {
+            bool (*cb_no_user_data)(void *, int);
+            bool (*cb_user_data)(void *, int, void *);
+        } presys_cb;
+        union {
+            void (*cb_no_user_data)(void *, int);
+            void (*cb_user_data)(void *, int, void *);
+        } postsys_cb;        
         union {
             void (*cb_no_user_data)(void *, const module_data_t *, bool);
-            void (*cb_user_data)(void *, const module_data_t *, bool, void *user_data);
+            void (*cb_user_data)(void *, const module_data_t *, bool, void *);
         } modload_cb;
         union {
             void (*cb_no_user_data)(void *, const module_data_t *);
-            void (*cb_user_data)(void *, const module_data_t *, void *user_data);
+            void (*cb_user_data)(void *, const module_data_t *, void *);
         } modunload_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
@@ -1362,7 +1368,26 @@ drmgr_register_pre_syscall_event_ex(bool (*func)(void *drcontext, int sysnum),
 
 DR_EXPORT
 bool
+drmgr_register_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                        void *user_data),
+                                           drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_presys, presys_event_lock,
+                                   (void (*)(void)) func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
 drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
+{
+    return drmgr_generic_event_remove(&cblist_presys, presys_event_lock,
+                                      (void (*)(void)) func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                          void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_presys, presys_event_lock,
                                       (void (*)(void)) func);
@@ -1383,7 +1408,18 @@ drmgr_presyscall_event(void *drcontext, int sysnum)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        execute = (*iter.cbs.generic[i].cb.presys_cb)(drcontext, sysnum) && execute;
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false) {
+             execute = (*iter.cbs.generic[i].cb.presys_cb.cb_no_user_data)(drcontext,
+                                                                           sysnum)
+                       && execute;
+        } else {
+            execute = (*iter.cbs.generic[i].cb.presys_cb.cb_user_data)(drcontext,
+                                                                       sysnum,
+                                                                       user_data)
+                       && execute;
+         }
     }
 
     /* We used to track NtCallbackReturn for CLS (before DR provided the kernel xfer
@@ -1407,7 +1443,7 @@ drmgr_register_post_syscall_event(void (*func)(void *drcontext, int sysnum))
 DR_EXPORT
 bool
 drmgr_register_post_syscall_event_ex(void (*func)(void *drcontext, int sysnum),
-                                    drmgr_priority_t *priority)
+                                     drmgr_priority_t *priority)
 {
     return drmgr_generic_event_add(&cblist_postsys, postsys_event_lock,
                                    (void (*)(void)) func, priority, false, NULL);
@@ -1415,7 +1451,26 @@ drmgr_register_post_syscall_event_ex(void (*func)(void *drcontext, int sysnum),
 
 DR_EXPORT
 bool
+drmgr_register_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
+                                                         void *user_data),
+                                            drmgr_priority_t *priority, void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_postsys, postsys_event_lock,
+                                   (void (*)(void)) func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
 drmgr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum))
+{
+    return drmgr_generic_event_remove(&cblist_postsys, postsys_event_lock,
+                                      (void (*)(void)) func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
+                                                           void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_postsys, postsys_event_lock,
                                       (void (*)(void)) func);
@@ -1435,7 +1490,14 @@ drmgr_postsyscall_event(void *drcontext, int sysnum)
     for (i = 0; i < iter.num; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
-        (*iter.cbs.generic[i].cb.postsys_cb)(drcontext, sysnum);
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
+        if (is_using_user_data == false)
+             (*iter.cbs.generic[i].cb.postsys_cb.cb_no_user_data)(drcontext, sysnum);
+        else {
+            (*iter.cbs.generic[i].cb.postsys_cb.cb_user_data)(drcontext, sysnum,
+                                                              user_data);
+        }
     }
     cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }

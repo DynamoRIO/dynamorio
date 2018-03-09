@@ -219,6 +219,10 @@ Further non-compatibility-affecting changes include:
    physical cpus.
  - Added #DR_DISALLOW_UNSAFE_STATIC and dr_disallow_unsafe_static_behavior()
    for sanity checks to help support statically-linked clients.
+ - Added drmgr_register_pre_syscall_event_user_data() and
+   drmgr_unregister_pre_syscall_event_user_data to enable passing of user data.
+ - Added drmgr_register_post_syscall_event_user_data() and
+   drmgr_unregister_post_syscall_event_user_data to enable passing of user data.
 
 **************************************************
 <hr>

@@ -55,9 +55,13 @@ static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
 static volatile bool in_syscall_A;
+static volatile bool in_syscall_A_user_data;
 static volatile bool in_syscall_B;
+static volatile bool in_syscall_B_user_data;
 static volatile bool in_post_syscall_A;
+static volatile bool in_post_syscall_A_user_data;
 static volatile bool in_post_syscall_B;
+static volatile bool in_post_syscall_B_user_data;
 static volatile bool in_event_thread_init;
 static volatile bool in_event_thread_init_ex;
 static volatile bool in_event_thread_init_user_data;
@@ -97,9 +101,13 @@ static void event_mod_unload(void *drcontext, const module_data_t *mod,
                              void *user_data);
 static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_sys_A(void *drcontext, int sysnum);
+static bool event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
 static bool event_pre_sys_B(void *drcontext, int sysnum);
+static bool event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
 static void event_post_sys_A(void *drcontext, int sysnum);
+static void event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
 static void event_post_sys_B(void *drcontext, int sysnum);
+static void event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
 static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating,
                                          OUT void **user_data);
@@ -128,7 +136,11 @@ static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t
                                          bool for_trace, bool translating);
 static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
+/* The following test values are arbitrary */
+
 static const uintptr_t thread_user_data_test = 9090;
+static const uintptr_t syscall_A_user_data_test = 7189;
+static const uintptr_t syscall_B_user_data_test = 3218;
 static const uintptr_t mod_user_data_test = 1070;
 
 DR_EXPORT void
@@ -138,8 +150,15 @@ dr_init(client_id_t id)
     drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
     drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A",
                                   NULL, NULL, 10};
+    drmgr_priority_t sys_pri_A_user_data = {sizeof(priority),
+                                            "drmgr-test-A-usr-data-test",
+                                            "drmgr-test-A", NULL, 9};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
-                                  "drmgr-test-A", NULL, 5};
+                                  "drmgr-test-A-usr-data-test", NULL, 5};
+    drmgr_priority_t sys_pri_B_user_data = {sizeof(priority),
+                                            "drmgr-test-B-usr-data-test",
+                                            "drmgr-test-B",
+                                            NULL, 4};
     drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority),
                                                        "drmgr-t-in-null-user-data-test",
                                                        NULL, NULL, -3};
@@ -217,10 +236,22 @@ dr_init(client_id_t id)
 
     dr_register_filter_syscall_event(event_filter_syscall);
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
-        drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B);
+        drmgr_register_pre_syscall_event_user_data(event_pre_sys_A_user_data,
+                                                   &sys_pri_A_user_data,
+                                                   (void *) syscall_A_user_data_test) &&
+        drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B) &&
+        drmgr_register_pre_syscall_event_user_data(event_pre_sys_B_user_data,
+                                                   &sys_pri_B_user_data,
+                                                   (void *) syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
     ok = drmgr_register_post_syscall_event_ex(event_post_sys_A, &sys_pri_A) &&
-        drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B);
+        drmgr_register_post_syscall_event_user_data(event_post_sys_A_user_data,
+                                                    &sys_pri_A_user_data,
+                                                    (void *) syscall_A_user_data_test) &&
+        drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B) &&
+        drmgr_register_post_syscall_event_user_data(event_post_sys_B_user_data,
+                                                    &sys_pri_B_user_data,
+                                                    (void *) syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
@@ -602,6 +633,22 @@ event_pre_sys_A(void *drcontext, int sysnum)
 }
 
 static bool
+event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_syscall_A_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_A_user_data) {
+            dr_fprintf(STDERR, "in pre_sys_A_user_data\n");
+            in_syscall_A_user_data = true;
+            CHECK(user_data == (void *) syscall_A_user_data_test,
+                                "incorrect user data pre-syscall A");
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
 event_pre_sys_B(void *drcontext, int sysnum)
 {
     if (!in_syscall_B) {
@@ -609,6 +656,22 @@ event_pre_sys_B(void *drcontext, int sysnum)
         if (!in_syscall_B) {
             dr_fprintf(STDERR, "in pre_sys_B\n");
             in_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
+event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_syscall_B_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_B_user_data) {
+            dr_fprintf(STDERR, "in pre_sys_B_user_data\n");
+            in_syscall_B_user_data = true;
+            CHECK(user_data == (void *) syscall_B_user_data_test,
+                                "incorrect user data pre-syscall B");
         }
         dr_mutex_unlock(syslock);
     }
@@ -629,6 +692,21 @@ event_post_sys_A(void *drcontext, int sysnum)
 }
 
 static void
+event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_post_syscall_A_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_A_user_data) {
+            dr_fprintf(STDERR, "in post_sys_A_user_data\n");
+            in_post_syscall_A_user_data = true;
+            CHECK(user_data == (void *) syscall_A_user_data_test,
+                                "incorrect user data post-syscall A");
+        }
+        dr_mutex_unlock(syslock);
+    }
+}
+
+static void
 event_post_sys_B(void *drcontext, int sysnum)
 {
     if (!in_post_syscall_B) {
@@ -636,6 +714,19 @@ event_post_sys_B(void *drcontext, int sysnum)
         if (!in_post_syscall_B) {
             dr_fprintf(STDERR, "in post_sys_B\n");
             in_post_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+}
+
+static void
+event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_post_syscall_B_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_B_user_data) {
+            dr_fprintf(STDERR, "in post_sys_B_user_data\n");
+            in_post_syscall_B_user_data = true;
         }
         dr_mutex_unlock(syslock);
     }
