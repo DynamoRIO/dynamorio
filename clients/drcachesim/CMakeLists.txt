@@ -208,6 +208,7 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
+append_property_string(TARGET drmemtrace_static COMPILE_FLAGS "-DDRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
 install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
@@ -422,6 +423,12 @@ if (BUILD_TESTS)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_threads drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_threads)
     target_link_libraries(tool.drcacheoff.burst_threads ${libpthread})
+
+    add_executable(tool.drcacheoff.burst_threadfilter tests/burst_threadfilter.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_threadfilter)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_threadfilter drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_threadfilter)
+    target_link_libraries(tool.drcacheoff.burst_threadfilter ${libpthread})
 
     if (X64 AND UNIX)
       add_executable(tool.drcacheoff.burst_noreach tests/burst_noreach.cpp)

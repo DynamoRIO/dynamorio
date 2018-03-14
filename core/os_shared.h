@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1191,5 +1191,6 @@ void loader_exit(void);
 void loader_thread_init(dcontext_t *dcontext);
 void loader_thread_exit(dcontext_t *dcontext);
 bool in_private_library(app_pc pc);
+void loader_allow_unsafe_static_behavior(void);
 
 #endif /* OS_SHARED_H */

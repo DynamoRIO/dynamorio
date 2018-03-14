@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -594,7 +594,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      REG_XBX, PTRSZ [1*ARG_SZ + REG_XBP] /* dcontext */
         SAVE_TO_DCONTEXT_VIA_REG(REG_XBX,is_exiting_OFFSET,1)
         CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_XBX) /* xbx is callee-saved */
-        cmp      REG_XAX, 0
+        cmp      al, 0
         jnz      cat_save_dstack
         mov      REG_XBX, 0 /* save 0 for dstack to avoid double-free */
         jmp      cat_done_saving_dstack
@@ -1486,7 +1486,7 @@ GLOBAL_LABEL(master_signal_handler:)
         mov      REG_XAX, REG_XSP
         /* call a C routine rather than writing everything in asm */
         CALLC2(GLOBAL_REF(sig_should_swap_stack), REG_XAX, REG_XDX)
-        cmp      REG_XAX, 0
+        cmp      al, 0
         pop      REG_XAX /* clone_and_swap_args.stack */
         pop      REG_XCX /* clone_and_swap_args.tos */
         je       no_swap
@@ -2086,7 +2086,7 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
         /* retaddr + this push => 16-byte alignment prior to call */
 # endif
         push     REG_XSI       /* save xsp */
-        CALLC4(GLOBAL_REF(internal_exception_info), \
+        CALLC5(GLOBAL_REF(internal_exception_info), \
                REG_XAX /* dcontext */,  \
                REG_XBX /* pExcptRec */, \
                REG_XDI /* cxt */,       \

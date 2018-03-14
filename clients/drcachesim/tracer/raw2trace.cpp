@@ -200,7 +200,7 @@ raw2trace_t::read_and_map_modules()
 {
     std::string err;
     if (modlist.empty())
-        do_module_parsing(); // May have already been called, since public.
+        err = do_module_parsing(); // May have already been called, since public.
     if (!err.empty())
         return err;
     for (auto it = modlist.begin(); it != modlist.end(); ++it) {
@@ -590,14 +590,41 @@ raw2trace_t::merge_and_process_thread_files()
 {
     // The current thread we're processing is tidx.  If it's set to thread_files.size()
     // that means we need to pick a new thread.
+    if (thread_files.empty())
+        return "No thread files found.";
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
     online_instru_t instru(NULL, false, NULL);
     bool last_bb_handled = true;
+    size_t size;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
+    std::vector<process_id_t> pids(thread_files.size(), (process_id_t)INVALID_PROCESS_ID);
+    std::vector<bool> wrote_pid(thread_files.size(), false);
     std::vector<uint64> times(thread_files.size(), 0);
     byte buf_base[MAX_COMBINED_ENTRIES * sizeof(trace_entry_t)];
+
+    // First read the tid and pid entries which precede any timestamps.
+    // We append the tid to the output on every thread switch, and the pid
+    // the very first time (using wrote_pid[]).
+    for (uint i=0; i<thread_files.size(); ++i) {
+        if (!read_from_thread_file(i, &in_entry, 1))
+            return "Failed to read header from input file";
+        // Handle legacy traces which have the timestamp first.
+        if (in_entry.tid.type == OFFLINE_TYPE_TIMESTAMP) {
+            times[i] = in_entry.timestamp.usec;
+            if (!read_from_thread_file(i, &in_entry, 1))
+                return "Failed to read header from input file";
+        }
+        DR_ASSERT(in_entry.tid.type == OFFLINE_TYPE_THREAD);
+        VPRINT(2, "File %u is thread %u\n", i, (uint)in_entry.tid.tid);
+        tids[i] = in_entry.tid.tid;
+        if (!read_from_thread_file(i, &in_entry, 1))
+            return "Failed to read header from input file";
+        DR_ASSERT(in_entry.pid.type == OFFLINE_TYPE_PID);
+        VPRINT(2, "File %u is process %u\n", i, (uint)in_entry.pid.pid);
+        pids[i] = in_entry.pid.pid;
+    }
 
     // We read the thread files simultaneously in lockstep and merge them into
     // a single output file in timestamp order.
@@ -605,7 +632,6 @@ raw2trace_t::merge_and_process_thread_files()
     // We convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
     do {
-        int size = 0;
         byte *buf = buf_base;
         if (tidx >= thread_files.size()) {
             // Pick the next thread by looking for the smallest timestamp.
@@ -630,20 +656,24 @@ raw2trace_t::merge_and_process_thread_files()
             VPRINT(2, "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
                    "\n", (uint)tids[next_tidx], times[next_tidx]);
             tidx = next_tidx;
+            // Write out the tid (and pid for the first entry).
+            DR_ASSERT(tids[tidx] != INVALID_THREAD_ID);
+            buf += instru.append_tid(buf, tids[tidx]);
+            if (!wrote_pid[tidx]) {
+                DR_ASSERT(pids[tidx] != (process_id_t)INVALID_PROCESS_ID);
+                buf += instru.append_pid(buf, pids[tidx]);
+                wrote_pid[tidx] = true;
+            }
+            buf += instru.append_marker(buf, TRACE_MARKER_TYPE_TIMESTAMP,
+                                        // Truncated for 32-bit, as documented.
+                                        (uintptr_t)times[tidx]);
+            // We have to write this now before we append any bb entries.
+            size = buf - buf_base;
+            CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
+            if (!out_file->write((char*)buf_base, size))
+                return "Failed to write to output file";
+            buf = buf_base;
             times[tidx] = 0; // Read from file for this thread's next timestamp.
-            if (tids[tidx] != INVALID_THREAD_ID) {
-                // The initial read from a file may not have seen its tid entry
-                // yet.  We expect to hit that entry next.
-                size += instru.append_tid(buf, tids[tidx]);
-            }
-            if (size > 0) {
-                // We have to write this now before we append any bb entries.
-                CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-                if (!out_file->write((char*)buf_base, size))
-                    return "Failed to write to output file";
-                buf = buf_base;
-            }
-            size = 0;
         }
         VPRINT(4, "About to read thread %d at pos %d\n",
                (uint)tids[tidx], (int)thread_files[tidx]->tellg());
@@ -679,19 +709,16 @@ raw2trace_t::merge_and_process_thread_files()
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
-                size += instru.append_thread_exit(buf, tids[tidx]);
-                buf += size;
+                buf += instru.append_thread_exit(buf, tids[tidx]);
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
             } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER) {
-                trace_entry_t *entry = (trace_entry_t *) buf;
-                entry->type = TRACE_TYPE_MARKER;
-                entry->size = in_entry.extended.valueB;
-                entry->addr = (addr_t) in_entry.extended.valueA;
-                VPRINT(3, "Appended marker type %u value %zu\n", entry->size,
-                       entry->addr);
-                size += sizeof(*entry);
-                buf += size;
+                buf += instru.append_marker(buf,
+                                            (trace_marker_type_t)in_entry.extended.valueB,
+                                            (uintptr_t)in_entry.extended.valueA);
+                VPRINT(3, "Appended marker type %u value %zu\n",
+                       (trace_marker_type_t)in_entry.extended.valueB,
+                       (uintptr_t)in_entry.extended.valueA);
             } else {
                 std::stringstream ss;
                 ss << "Invalid extension type " << (int)in_entry.extended.ext;
@@ -708,8 +735,7 @@ raw2trace_t::merge_and_process_thread_files()
                 entry->addr = (addr_t) in_entry.combined_value;
                 VPRINT(4, "Appended non-module memref to " PFX "\n",
                        (ptr_uint_t)entry->addr);
-                size += sizeof(*entry);
-                buf += size;
+                buf += sizeof(*entry);
             } else {
                 // We should see an instr entry first
                 return "memref entry found outside of bb";
@@ -718,16 +744,6 @@ raw2trace_t::merge_and_process_thread_files()
             result = append_bb_entries(tidx, &in_entry, &last_bb_handled);
             if (!result.empty())
                 return result;
-        } else if (in_entry.tid.type == OFFLINE_TYPE_THREAD) {
-            VPRINT(2, "Thread %u entry\n", (uint)in_entry.tid.tid);
-            if (tids[tidx] == INVALID_THREAD_ID)
-                tids[tidx] = in_entry.tid.tid;
-            size += instru.append_tid(buf, in_entry.tid.tid);
-            buf += size;
-        } else if (in_entry.pid.type == OFFLINE_TYPE_PID) {
-            VPRINT(2, "Process %u entry\n", (uint)in_entry.pid.pid);
-            size += instru.append_pid(buf, in_entry.pid.pid);
-            buf += size;
         } else if (in_entry.addr.type == OFFLINE_TYPE_IFLUSH) {
             offline_entry_t entry;
             if (!read_from_thread_file(tidx, &entry, 1) ||
@@ -735,15 +751,15 @@ raw2trace_t::merge_and_process_thread_files()
                 return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
-            size += instru.append_iflush(buf, in_entry.addr.addr,
-                                         (size_t)(entry.addr.addr - in_entry.addr.addr));
-            buf += size;
+            buf += instru.append_iflush(buf, in_entry.addr.addr,
+                                        (size_t)(entry.addr.addr - in_entry.addr.addr));
         } else {
             std::stringstream ss;
             ss << "Unknown trace type " << (int)in_entry.timestamp.type;
             return ss.str();
         }
-        if (size > 0) {
+        if (buf > buf_base) {
+            size_t size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
             if (!out_file->write((char*)buf_base, size))
                 return "Failed to write to output file";

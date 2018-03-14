@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -99,7 +99,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     dr_set_client_name("DynamoRIO Sample Client 'wrap'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'wrap' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'wrap' initializing\n");
     /* also give notification to stderr */
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {

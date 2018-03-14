@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -508,8 +508,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
                           "Use -root to specify a proper DynamoRIO root directory.", buf);
                 }
                 return false;
-            } else if (!nowarn) {
-                warn("cannot find %s: is this an incomplete installation?", buf);
+            } else {
+                if (strstr(checked_files[i], arch) == NULL) {
+                    /* Support a single-bitwidth package. */
+                    ok = true;
+                } else if (!nowarn)
+                    warn("cannot find %s: is this an incomplete installation?", buf);
             }
         }
     }
@@ -1597,16 +1601,15 @@ _tmain(int argc, TCHAR *targv[])
                 printf("process %d is not running under DR\n", nudge_pid);
             if (res != DR_SUCCESS && res != DR_NUDGE_TIMEOUT) {
                 count = 0;
-                res = ERROR_SUCCESS;
             }
         } else
             res = dr_nudge_process(process, nudge_id, nudge_arg, nudge_timeout, &count);
 
         printf("%d processes nudged\n", count);
         if (res == DR_NUDGE_TIMEOUT)
-            printf("timed out waiting for nudge to complete");
+            printf("timed out waiting for nudge to complete\n");
         else if (res != DR_SUCCESS)
-            printf("nudge operation failed, verify adequate permissions for this operation.");
+            printf("nudge operation failed, verify permissions and parameters.\n");
     }
 #  ifdef WINDOWS
     /* FIXME i#840: Process iterator NYI for Linux. */

@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -268,7 +268,8 @@ sub keep_define($)
             $def eq "X86_32" || $def eq "X86_64" ||
             $def eq "ANDROID" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR" || $def eq "__cplusplus" || $def eq "PAGE_SIZE" ||
-            $def eq "DR_PAGE_SIZE_COMPATIBILITY");
+            $def eq "DR_PAGE_SIZE_COMPATIBILITY" ||
+            $def eq "DR_LOG_DEFINE_COMPATIBILITY");
 }
 
 foreach $file (@headers) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,37 +30,30 @@
  * DAMAGE.
  */
 
-/* tlb_simulator: controls the multi-level TLB simulation.
- */
+/* An app that stays up long enough for testing nudges. */
+#include "tools.h"
+#include <windows.h>
 
-#ifndef _TLB_SIMULATOR_H_
-#define _TLB_SIMULATOR_H_ 1
-
-#include <unordered_map>
-#include "simulator.h"
-#include "tlb_simulator_create.h"
-#include "tlb_stats.h"
-#include "tlb.h"
-
-class tlb_simulator_t : public simulator_t
+/* Timeout to avoid leaving stale processes in case something goes wrong. */
+static VOID CALLBACK
+TimerProc(HWND hwnd, UINT msg, UINT_PTR id, DWORD time)
 {
- public:
-    tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
-    virtual ~tlb_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    print("timed out\n");
+    ExitProcess(1);
+}
 
- protected:
-    // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *create_tlb(std::string policy);
-
-    tlb_simulator_knobs_t knobs;
-
-    // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
-    // All of them are private to the core.
-    tlb_t **itlbs;
-    tlb_t **dtlbs;
-    tlb_t **lltlbs;
-};
-
-#endif /* _TLB_SIMULATOR_H_ */
+int
+main(int argc, const char *argv[])
+{
+    /* We put the pid into the title so that tools/closewnd can target it
+     * uniquely when run in a parallel test suite.
+     * runall.cmake assumes this precise title.
+     */
+    char title[64];
+    _snprintf_s(title, BUFFER_SIZE_BYTES(title), BUFFER_SIZE_ELEMENTS(title),
+                "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
+    SetTimer(NULL, NULL, 180*1000/*3 mins*/, TimerProc);
+    MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
+    print("MessageBox closed\n");
+    return 0;
+}

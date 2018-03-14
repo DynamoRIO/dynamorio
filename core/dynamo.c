@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -545,11 +545,13 @@ dynamorio_app_init(void)
         }
 #endif /* WINDOWS */
 
+#ifdef WINDOWS
         /* loader initialization, finalize the private lib load.
-         * FIXME i#338: this must be before arch_init() for Windows, but Linux
-         * wants it later.
+         * i#338: this must be before arch_init() for Windows, but Linux
+         * wants it later (i#2751).
          */
         loader_init();
+#endif
         arch_init();
         synch_init();
 
@@ -621,6 +623,10 @@ dynamorio_app_init(void)
 #ifdef UNIX
         /* i#27: we need to special-case the 1st thread */
         signal_thread_inherit(get_thread_private_dcontext(), NULL);
+#endif
+#ifndef WINDOWS
+        /* i#2751: we need TLS to be set up to relocate and call init funcs. */
+        loader_init();
 #endif
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
@@ -1662,6 +1668,7 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
     if (free_stack) {
         ASSERT(dcontext->dstack != NULL);
         ASSERT(!is_currently_on_dstack(dcontext));
+        LOG(GLOBAL, LOG_THREADS, 1, "Freeing DR stack "PFX"\n", dcontext->dstack);
         stack_free(dcontext->dstack, DYNAMORIO_STACK_SIZE);
     } /* else will be cleaned up by caller */
 
@@ -2313,8 +2320,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
         IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""),
         get_thread_id(), dcontext);
     LOG(THREAD, LOG_TOP|LOG_THREADS, 1,
-        "DR stack is "PFX"-"PFX"\n", dcontext->dstack - DYNAMORIO_STACK_SIZE,
-        dcontext->dstack);
+        "DR stack is "PFX"-"PFX" (passed in "PFX")\n",
+        dcontext->dstack - DYNAMORIO_STACK_SIZE, dcontext->dstack, dstack_in);
 #endif
 
 #ifdef DEADLOCK_AVOIDANCE
@@ -2860,10 +2867,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     os_process_under_dynamorio_complete(dcontext);
 
     if (found_threads) {
-        SYSLOG(SYSLOG_WARNING, INTERNAL_SYSLOG_WARNING,
-               3, get_application_name(), get_application_pid(),
-               "Failed to take over all threads after multiple attempts");
-        ASSERT_NOT_REACHED();
+        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_TAKE_OVER_THREADS,
+                                    2, get_application_name(),
+                                    get_application_pid());
     }
     DO_ONCE({
         char buf[16];

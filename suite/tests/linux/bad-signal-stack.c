@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,37 +30,53 @@
  * DAMAGE.
  */
 
-/* tlb_simulator: controls the multi-level TLB simulation.
- */
+#include "tools.h"
+#include <unistd.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <errno.h>
+#include <stdlib.h>
 
-#ifndef _TLB_SIMULATOR_H_
-#define _TLB_SIMULATOR_H_ 1
+#define ALT_STACK_SIZE  (SIGSTKSZ*4)
 
-#include <unordered_map>
-#include "simulator.h"
-#include "tlb_simulator_create.h"
-#include "tlb_stats.h"
-#include "tlb.h"
-
-class tlb_simulator_t : public simulator_t
+static void
+signal_handler(int sig)
 {
- public:
-    tlb_simulator_t(const tlb_simulator_knobs_t &knobs);
-    virtual ~tlb_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    print("Got signal %d\n", sig);
+}
 
- protected:
-    // Create a tlb_t object with a specific replacement policy.
-    virtual tlb_t *create_tlb(std::string policy);
+int
+main(int argc, char *argv[])
+{
+    char *sp;
+    int rc;
+    INIT();
 
-    tlb_simulator_knobs_t knobs;
+    /* Make an alternate stack that's not writable. */
+    stack_t sigstack;
+    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    rc = sigaltstack(&sigstack, NULL);
+    ASSERT_NOERR(rc);
+    protect_mem((void *)sigstack.ss_sp, ALT_STACK_SIZE, ALLOW_READ);
 
-    // Each CPU core contains a L1 ITLB, L1 DTLB and L2 TLB.
-    // All of them are private to the core.
-    tlb_t **itlbs;
-    tlb_t **dtlbs;
-    tlb_t **lltlbs;
-};
+    /* Test checking for SA_ONSTACK: this one should be delivered to the main
+     * stack and should work.
+     */
+    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, false);
+    print("Sending SIGUSR1\n");
+    kill(getpid(), SIGUSR1);
 
-#endif /* _TLB_SIMULATOR_H_ */
+    /* Now route to the alt stack, which is unwritable and thus should
+     * crash with SIGSEGV, which we handle on the main stack and whose
+     * resumption is the same post-kill point, letting us continue.
+     */
+    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, true);
+    print("Sending SIGUSR1\n");
+    kill(getpid(), SIGUSR1);
+
+    print("All done\n");
+    return 0;
+}

@@ -38,6 +38,17 @@
 #include "drutil.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
+#ifdef LINUX
+# include <sched.h>
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE // For syscall()
+# endif
+# include <unistd.h>
+# include <sys/syscall.h>
+#endif
+#ifdef WINDOWS
+# include <intrin.h>
+#endif
 
 unsigned short
 instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
@@ -114,14 +125,60 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
                              OUT bool *scratch_used)
 {
     bool ok;
+    bool we_used_scratch = false;
     if (opnd_uses_reg(ref, reg_scratch)) {
         drreg_get_app_value(drcontext, ilist, where, reg_scratch, reg_scratch);
-        if (scratch_used != NULL)
-            *scratch_used = true;
+        we_used_scratch = true;
     }
     if (opnd_uses_reg(ref, reg_addr))
         drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
     ok = drutil_insert_get_mem_addr_ex(drcontext, ilist, where, ref, reg_addr,
                                        reg_scratch, scratch_used);
     DR_ASSERT(ok);
+    if (scratch_used != NULL && we_used_scratch)
+        *scratch_used = true;
+}
+
+// Returns -1 on error.  It's hard for callers to omit the cpu marker though
+// because the tracer assumes unit headers are always the same size: thus
+// we insert a marker with a -1 (=> unsigned) cpu id.
+int
+instru_t::get_cpu_id()
+{
+#ifdef LINUX
+    // We'd like to use sched_getcpu() but it crashes on secondary threads: some
+    // kind of TLS issue with the private libc's query of __vdso_getcpu.
+    // We could directly find and use __vdso_getcpu ourselves (i#2842).
+#endif
+#ifdef X86
+    if (proc_has_feature(FEATURE_RDTSCP)) {
+# ifdef WINDOWS
+        uint cpu;
+        __rdtscp(&cpu);
+# else
+        int cpu;
+        __asm__ __volatile__("rdtscp" : "=c"(cpu) : : "eax", "edx");
+# endif
+        return cpu;
+    } else {
+        // We could get the processor serial # from cpuid but we just bail since
+        // this should be pretty rare and we can live without it.
+        return -1;
+    }
+#else
+    uint cpu;
+    if (syscall(SYS_getcpu, &cpu, NULL, NULL) < 0)
+        return -1;
+    return cpu;
+#endif
+}
+
+uint64
+instru_t::get_timestamp()
+{
+    // We use dr_get_microseconds() for a simple, cross-platform implementation.
+    // We call this just once per buffer write, so a syscall here should be ok.
+    // If we want something faster we can try to use the VDSO gettimeofday (via
+    // libc) or KUSER_SHARED_DATA on Windows (i#2842).
+    return dr_get_microseconds();
 }

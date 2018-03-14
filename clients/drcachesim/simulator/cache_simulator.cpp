@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,89 +48,41 @@
 #include "cache_simulator.h"
 #include "droption.h"
 
-// XXX i#2006: making this a library means that these options or knobs are
-// duplicated in multiple places as we pass them through the various layers.
-// We lose the convenience of adding a new option and its default value
-// in a single place.
-// It is also error-prone to pass in this long list if we want to set
-// just one option in the middle: should we switch to a struct of options
-// where we can set by field name?
 analysis_tool_t *
-cache_simulator_create(unsigned int num_cores,
-                       unsigned int line_size,
-                       uint64_t L1I_size,
-                       uint64_t L1D_size,
-                       unsigned int L1I_assoc,
-                       unsigned int L1D_assoc,
-                       uint64_t LL_size,
-                       unsigned int LL_assoc,
-                       const std::string &LL_miss_file,
-                       const std::string &replace_policy,
-                       const std::string &data_prefetcher,
-                       uint64_t skip_refs,
-                       uint64_t warmup_refs,
-                       double warmup_fraction,
-                       uint64_t sim_refs,
-                       unsigned int verbose)
+cache_simulator_create(const cache_simulator_knobs_t &knobs)
 {
-    return new cache_simulator_t(num_cores, line_size, L1I_size, L1D_size,
-                                 L1I_assoc, L1D_assoc, LL_size, LL_assoc,
-                                 LL_miss_file, replace_policy, data_prefetcher,
-                                 skip_refs, warmup_refs, warmup_fraction, sim_refs,
-                                 verbose);
+    return new cache_simulator_t(knobs);
 }
 
-cache_simulator_t::cache_simulator_t(unsigned int num_cores,
-                                     unsigned int line_size,
-                                     uint64_t L1I_size,
-                                     uint64_t L1D_size,
-                                     unsigned int L1I_assoc,
-                                     unsigned int L1D_assoc,
-                                     uint64_t LL_size,
-                                     unsigned int LL_assoc,
-                                     const std::string &LL_miss_file,
-                                     const std::string &replace_policy,
-                                     const std::string &data_prefetcher,
-                                     uint64_t skip_refs,
-                                     uint64_t warmup_refs,
-                                     double warmup_fraction,
-                                     uint64_t sim_refs,
-                                     unsigned int verbose) :
-    simulator_t(num_cores, skip_refs, warmup_refs, warmup_fraction, sim_refs, verbose),
-    knob_line_size(line_size),
-    knob_L1I_size(L1I_size),
-    knob_L1D_size(L1D_size),
-    knob_L1I_assoc(L1I_assoc),
-    knob_L1D_assoc(L1D_assoc),
-    knob_LL_size(LL_size),
-    knob_LL_assoc(LL_assoc),
-    knob_LL_miss_file(LL_miss_file),
-    knob_replace_policy(replace_policy),
-    knob_data_prefetcher(data_prefetcher),
+cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
+    simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
+                knobs_.warmup_fraction, knobs_.sim_refs,
+                knobs_.cpu_scheduling, knobs_.verbose),
+    knobs(knobs_),
     icaches(NULL),
     dcaches(NULL),
     is_warmed_up(false)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
-    llcache = create_cache(knob_replace_policy);
+    llcache = create_cache(knobs.replace_policy);
     if (llcache == NULL) {
         success = false;
         return;
     }
 
-    if (data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
-        data_prefetcher != PREFETCH_POLICY_NONE) {
+    if (knobs.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
+        knobs.data_prefetcher != PREFETCH_POLICY_NONE) {
         // Unknown value.
         success = false;
         return;
     }
 
-    bool warmup_enabled = ((warmup_refs > 0) || (warmup_fraction > 0.0));
+    bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
-    if (!llcache->init(knob_LL_assoc, (int)knob_line_size,
-                       (int)knob_LL_size, NULL,
-                       new cache_stats_t(knob_LL_miss_file, warmup_enabled))) {
+    if (!llcache->init(knobs.LL_assoc, (int)knobs.line_size,
+                       (int)knobs.LL_size, NULL,
+                       new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
                "associativity are powers of 2, that the total size is a multiple "
                "of the line size, and that any miss file path is writable.\n");
@@ -138,28 +90,28 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
         return;
     }
 
-    icaches = new cache_t* [knob_num_cores];
-    dcaches = new cache_t* [knob_num_cores];
-    for (int i = 0; i < knob_num_cores; i++) {
-        icaches[i] = create_cache(knob_replace_policy);
+    icaches = new cache_t* [knobs.num_cores];
+    dcaches = new cache_t* [knobs.num_cores];
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+        icaches[i] = create_cache(knobs.replace_policy);
         if (icaches[i] == NULL) {
             success = false;
             return;
         }
-        dcaches[i] = create_cache(knob_replace_policy);
+        dcaches[i] = create_cache(knobs.replace_policy);
         if (dcaches[i] == NULL) {
             success = false;
             return;
         }
 
-        if (!icaches[i]->init(knob_L1I_assoc, (int)knob_line_size,
-                              (int)knob_L1I_size, llcache,
+        if (!icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
+                              (int)knobs.L1I_size, llcache,
                               new cache_stats_t("", warmup_enabled)) ||
-            !dcaches[i]->init(knob_L1D_assoc, (int)knob_line_size,
-                              (int)knob_L1D_size, llcache,
+            !dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
+                              (int)knobs.L1D_size, llcache,
                               new cache_stats_t("", warmup_enabled),
-                              data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
-                              new prefetcher_t((int)knob_line_size) : nullptr)) {
+                              knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
+                              new prefetcher_t((int)knobs.line_size) : nullptr)) {
             ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
                    "associativity are powers of 2 "
                    "and that the total sizes are multiples of the line size.\n");
@@ -167,11 +119,6 @@ cache_simulator_t::cache_simulator_t(unsigned int num_cores,
             return;
         }
     }
-
-    thread_counts = new unsigned int[knob_num_cores];
-    memset(thread_counts, 0, sizeof(thread_counts[0])*knob_num_cores);
-    thread_ever_counts = new unsigned int[knob_num_cores];
-    memset(thread_ever_counts, 0, sizeof(thread_ever_counts[0])*knob_num_cores);
 }
 
 cache_simulator_t::~cache_simulator_t()
@@ -183,7 +130,7 @@ cache_simulator_t::~cache_simulator_t()
     delete llcache;
     if (icaches == NULL)
         return;
-    for (int i = 0; i < knob_num_cores; i++) {
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
         // Try to handle failure during construction.
         if (icaches[i] == NULL)
             return;
@@ -198,23 +145,34 @@ cache_simulator_t::~cache_simulator_t()
     }
     delete [] icaches;
     delete [] dcaches;
-    delete [] thread_counts;
-    delete [] thread_ever_counts;
 }
 
 bool
 cache_simulator_t::process_memref(const memref_t &memref)
 {
-    if (knob_skip_refs > 0) {
-        knob_skip_refs--;
+    if (knobs.skip_refs > 0) {
+        knobs.skip_refs--;
         return true;
     }
 
     // The references after warmup and simulated ones are dropped.
-    if (check_warmed_up() && knob_sim_refs == 0)
+    if (check_warmed_up() && knobs.sim_refs == 0)
         return true;;
 
     // Both warmup and simulated references are simulated.
+
+    simulator_t::process_memref(memref);
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        // We ignore markers before we ask core_for_thread, to avoid asking
+        // too early on a timestamp marker.
+        if (knobs.verbose >= 3) {
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
+                "marker type " << memref.marker.marker_type <<
+                " value " << memref.marker.marker_value << "\n";
+        }
+        return true;
+    }
 
     // We use a static scheduling of threads to cores, as it is
     // not practical to measure which core each thread actually
@@ -230,7 +188,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR) {
-        if (knob_verbose >= 3) {
+        if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.instr.addr << " instr x" <<
                 memref.instr.size << "\n";
@@ -241,7 +199,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                // We may potentially handle prefetches differently.
                // TRACE_TYPE_PREFETCH_INSTR is handled above.
                type_is_prefetch(memref.data.type)) {
-        if (knob_verbose >= 3) {
+        if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc <<
                 " " << trace_type_names[memref.data.type] << " " <<
@@ -249,14 +207,14 @@ cache_simulator_t::process_memref(const memref_t &memref)
         }
         dcaches[core]->request(memref);
     } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
-        if (knob_verbose >= 3) {
+        if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc << " iflush " <<
                 (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
         icaches[core]->flush(memref);
     } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
-        if (knob_verbose >= 3) {
+        if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc << " dflush " <<
                 (void *)memref.data.addr << " x" << memref.data.size << "\n";
@@ -265,15 +223,9 @@ cache_simulator_t::process_memref(const memref_t &memref)
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
         last_thread = 0;
-    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (knob_verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                "marker type " << memref.marker.marker_type <<
-                " value " << memref.marker.marker_value << "\n";
-        }
     } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
-        if (knob_verbose >= 3) {
+        if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.instr.addr << " non-fetched instr x" <<
                 memref.instr.size << "\n";
@@ -285,16 +237,16 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     // reset cache stats when warming up is completed
     if (!is_warmed_up && check_warmed_up()) {
-        for (int i = 0; i < knob_num_cores; i++) {
+        for (unsigned int i = 0; i < knobs.num_cores; i++) {
             icaches[i]->get_stats()->reset();
             dcaches[i]->get_stats()->reset();
         }
         llcache->get_stats()->reset();
-        if (knob_verbose >= 1) {
+        if (knobs.verbose >= 1) {
             std::cerr << "Cache simulation warmed up\n";
         }
     } else {
-        knob_sim_refs--;
+        knobs.sim_refs--;
     }
     return true;
 }
@@ -311,17 +263,17 @@ cache_simulator_t::check_warmed_up()
 
     // If the warmup_fraction option is set then check if the last level has
     // loaded enough data to be warmed up.
-    if (knob_warmup_fraction > 0.0 &&
-        llcache->get_loaded_fraction() > knob_warmup_fraction) {
+    if (knobs.warmup_fraction > 0.0 &&
+        llcache->get_loaded_fraction() > knobs.warmup_fraction) {
         is_warmed_up = true;
         return true;
     }
 
     // If warmup_refs is set then decrement and indicate warmup done when
     // counter hits zero.
-    if (knob_warmup_refs > 0) {
-        knob_warmup_refs--;
-        if (knob_warmup_refs == 0) {
+    if (knobs.warmup_refs > 0) {
+        knobs.warmup_refs--;
+        if (knobs.warmup_refs == 0) {
             is_warmed_up = true;
             return true;
         }
@@ -335,10 +287,9 @@ bool
 cache_simulator_t::print_results()
 {
     std::cerr << "Cache simulation results:\n";
-    for (int i = 0; i < knob_num_cores; i++) {
-        unsigned int threads = thread_ever_counts[i];
-        std::cerr << "Core #" << i << " (" << threads << " thread(s))" << std::endl;
-        if (threads > 0) {
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+        print_core(i);
+        if (thread_ever_counts[i] > 0) {
             std::cerr << "  L1I stats:" << std::endl;
             icaches[i]->get_stats()->print_stats("    ");
             std::cerr << "  L1D stats:" << std::endl;

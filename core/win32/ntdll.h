@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -939,6 +939,7 @@ typedef enum { /* NOTE - these are speculative */
                                                 * - INOUT */
     THREAD_INFO_ELEMENT_UNKNOWN_1       = 0x9, /* Unknown - ptr_uint_t sized
                                                 * [ observed 1 ] - IN */
+    THREAD_INFO_ELEMENT_UNKNOWN_2       = 0x10000,
 } thread_info_elm_buf_type_t;
 
 typedef struct _thread_info_element_t { /* NOTE - this is speculative */
@@ -2102,18 +2103,26 @@ nt_stop_profile(HANDLE profile_handle);
 HANDLE
 create_process(wchar_t *exe, wchar_t *cmdline);
 
-/* NOTE see important usage information in ntdll.c, threads created with this
- * function can NOT return from their start routine */
+/* See important usage information in ntdll.c: threads created with this
+ * function can NOT return from their start routine.
+ * On Win8+, the kernel owns the created stack; o/w, we own it.
+ * On Win8+, if arg_buf != NULL, it's placed in a new virtual alloc and it's
+ * up to the caller to free it.
+ */
 HANDLE
 our_create_thread(HANDLE hProcess, bool target_64bit, void *start_addr,
                   void *arg, const void *arg_buf, size_t arg_buf_size,
                   uint stack_reserve, uint stack_commit, bool suspended,
                   thread_id_t *tid);
+/* Uses caller-allocated stack.  hProcess must be NT_CURRENT_PROCESS for win8+. */
 HANDLE
 our_create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
                              void *arg, const void *arg_buf, size_t arg_buf_size,
                              byte *stack_base, size_t stack_size,
                              bool suspended, thread_id_t *tid);
+
+void
+our_create_thread_wrapper(void *param);
 
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context

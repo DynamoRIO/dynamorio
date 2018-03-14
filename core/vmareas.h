@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -330,6 +330,9 @@ mark_executable_area_coarse_frozen(coarse_info_t *info);
  */
 bool
 is_executable_area_writable(app_pc addr);
+
+app_pc
+is_executable_area_writable_overlap(app_pc start, app_pc end);
 
 /* combines is_executable_area_writable and is_pretend_writable_address */
 bool

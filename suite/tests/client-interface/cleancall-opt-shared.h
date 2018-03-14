@@ -129,7 +129,7 @@ codegen_instrumentation_funcs(void)
     for (i = 0; i < N_FUNCS; i++) {
         pc = (byte*)ALIGN_FORWARD(pc, CALLEE_ALIGNMENT);
         func_ptrs[i] = pc;
-        dr_log(dc, LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
+        dr_log(dc, DR_LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
                ":", func_names[i], pc);
         instrlist_disassemble(dc, pc, ilists[i], dr_get_logfile(dc));
         pc = instrlist_encode(dc, ilists[i], pc, true);
@@ -587,7 +587,7 @@ before_callee(app_pc func, const char *func_name)
 # endif /* X86 */
     end_pc = instrlist_encode(dc, ilist, func, false /* no jump targets */);
     instrlist_clear_and_destroy(dc, ilist);
-    dr_log(dc, LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
+    dr_log(dc, DR_LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
            (func_name ? func_name : "(null)"), func);
 
     /* Check there was enough room in the function.  We align every callee

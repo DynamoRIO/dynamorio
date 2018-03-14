@@ -39,6 +39,7 @@
 #include "drcovlib.h"
 #include "instru.h"
 #include "../common/trace_entry.h"
+#include <new>
 #include <limits.h> /* for USHRT_MAX */
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for strlen */
@@ -100,14 +101,17 @@ offline_instru_t::load_custom_module_data(module_data_t *module)
     const char *name = dr_module_preferred_name(module);
     // For vdso we include the entire contents so we can decode it during
     // post-processing.
+    // We use placement new for better isolation, esp w/ static linkage into the app.
     if ((name != nullptr &&
          (strstr(name, "linux-gate.so") == name ||
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
-        return new custom_module_data_t((const char *)module->start,
-                                        module->end - module->start, user_data);
+        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
+        return new(alloc) custom_module_data_t((const char *)module->start,
+                                               module->end - module->start, user_data);
     } else if (user_data != nullptr) {
-        return new custom_module_data_t(nullptr, 0, user_data);
+        void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
+        return new(alloc) custom_module_data_t(nullptr, 0, user_data);
     }
     return nullptr;
 }
@@ -150,7 +154,8 @@ offline_instru_t::free_custom_module_data(void *data)
         return;
     if (user_free != nullptr)
         (*user_free)(custom->user_data);
-    delete custom;
+    custom->~custom_module_data_t();
+    dr_global_free(custom, sizeof(*custom));
 }
 
 bool
@@ -266,26 +271,28 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 int
 offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    byte * new_buf = buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *) new_buf;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
     entry->extended.valueA = OFFLINE_FILE_VERSION;
     entry->extended.valueB = 0;
-    return sizeof(offline_entry_t) +
-        append_unit_header(buf_ptr + sizeof(offline_entry_t), tid);
+    new_buf += sizeof(*entry);
+    new_buf += append_tid(new_buf, tid);
+    new_buf += append_pid(new_buf, dr_get_process_id());
+    return (int)(new_buf - buf_ptr);
 }
 
 int
 offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    byte * new_buf = buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *) new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    // We use dr_get_microseconds() for a simple, cross-platform implementation.
-    // This is once per buffer write, so a syscall here should be ok.
-    // If we want something faster we can try to use the VDSO gettimeofday (via
-    // libc) or KUSER_SHARED_DATA on Windows.
-    entry->timestamp.usec = dr_get_microseconds();
-    return sizeof(offline_entry_t);
+    entry->timestamp.usec = instru_t::get_timestamp();
+    new_buf += sizeof(*entry);
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    return (int)(new_buf - buf_ptr);
 }
 
 int

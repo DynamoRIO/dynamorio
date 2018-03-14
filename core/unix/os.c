@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -2597,6 +2597,13 @@ os_process_under_dynamorio_complete(dcontext_t *dcontext)
 {
     /* i#2161: only now do we un-ignore alarm signals. */
     signal_reinstate_alarm_handlers(dcontext);
+    IF_NO_MEMQUERY({
+        /* Update the memory cache (i#2037) now that we've taken over all the
+         * threads, if there may have been a gap between setup and start.
+         */
+        if (dr_api_entry)
+            memcache_update_all_from_os();
+    });
 }
 
 void
