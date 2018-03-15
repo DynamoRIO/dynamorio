@@ -285,7 +285,7 @@ static inline reg_t
 sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
     /* sys_param is also called from handle_system_call where dcontext->whereami
-     * is not set to WHERE_SYSCALL_HANDLER yet.
+     * is not set to DR_WHERE_SYSCALL_HANDLER yet.
      */
     ASSERT(!dcontext->post_syscall);
     return *sys_param_addr(dcontext, param_base, num);
@@ -294,7 +294,7 @@ sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 static inline reg_t
 postsys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
-    ASSERT(dcontext->whereami == WHERE_SYSCALL_HANDLER &&
+    ASSERT(dcontext->whereami == DR_WHERE_SYSCALL_HANDLER &&
            dcontext->post_syscall);
 #ifdef X64
     switch (num) {

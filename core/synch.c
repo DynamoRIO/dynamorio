@@ -354,10 +354,10 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
             IF_CLIENT_INTERFACE(!IS_CLIENT_THREAD(dcontext) &&)
 #ifdef HOT_PATCHING_INTERFACE
             /* Shouldn't be in the middle of executing a hotp_only patch.  The
-             * check for being in hotp_dll is WHERE_HOTPATCH because the patch can
+             * check for being in hotp_dll is DR_WHERE_HOTPATCH because the patch can
              * change esp.
              */
-            (dcontext->whereami != WHERE_HOTPATCH &&
+            (dcontext->whereami != DR_WHERE_HOTPATCH &&
              /* dynamo dll check has been done */
              !hotp_only_in_tramp(pc)) &&
 #endif
@@ -456,7 +456,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
      * fine with us.  For other threads the app shouldn't be asking about them
      * unless they're suspended, and the same goes for us.
      */
-    ASSERT_CURIOSITY(trec->dcontext->whereami == WHERE_FCACHE ||
+    ASSERT_CURIOSITY(trec->dcontext->whereami == DR_WHERE_FCACHE ||
                      native_translate ||
                      trec->id == get_thread_id());
     LOG(THREAD_GET, LOG_SYNCH, 2,
@@ -596,7 +596,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
         }
 #ifdef CLIENT_INTERFACE
     } else if (desired_state == THREAD_SYNCH_TERMINATED_AND_CLEANED &&
-               trec->dcontext->whereami == WHERE_FCACHE &&
+               trec->dcontext->whereami == DR_WHERE_FCACHE &&
                trec->dcontext->client_data->at_safe_to_terminate_syscall) {
         /* i#1420: At safe to terminate syscall like dr_sleep in a clean call.
          * XXX: A thread in dr_sleep might not be safe to terminate for some
@@ -622,7 +622,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
         safe = true;
     }
     if (safe) {
-        ASSERT(trec->dcontext->whereami == WHERE_FCACHE ||
+        ASSERT(trec->dcontext->whereami == DR_WHERE_FCACHE ||
                is_thread_currently_native(trec));
         LOG(THREAD_GET, LOG_SYNCH, 2,
             "thread "TIDFMT" suspended at safe spot pc="PFX"\n", trec->id, mc->pc);
@@ -1809,7 +1809,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         LOG(GLOBAL, LOG_CACHE, 2,
             "\tsent to reset exit stub "PFX"\n", mc->pc);
         /* make dispatch happy */
-        dcontext->whereami = WHERE_FCACHE;
+        dcontext->whereami = DR_WHERE_FCACHE;
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app

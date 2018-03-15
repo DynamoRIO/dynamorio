@@ -147,7 +147,7 @@ dispatch(dcontext_t *dcontext)
 # endif
     ASSERT(dcontext == get_thread_private_dcontext() ||
            /* i#813: the app hit our post-sysenter hook while native */
-           (dcontext->whereami == WHERE_APP &&
+           (dcontext->whereami == DR_WHERE_APP &&
             dcontext->last_exit == get_syscall_linkstub()));
 #else
 # ifdef UNIX
@@ -517,7 +517,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
          * to be safe for unlinking.
          */
         KSTOP_NOT_MATCHING(fcache_default);
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         enter_couldbelinking(dcontext, NULL, true);
         dcontext->next_tag = dcontext->asynch_target;
         LOG(THREAD, LOG_DISPATCH, 2,
@@ -569,7 +569,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
     }
 #endif
 
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     (*entry)(dcontext);
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
@@ -711,7 +711,7 @@ dispatch_enter_native(dcontext_t *dcontext)
 #endif
     }
     set_fcache_target(dcontext, dcontext->next_tag);
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
 #ifdef UNIX
     do {
         (*go_native)(dcontext);
@@ -731,14 +731,14 @@ static void
 dispatch_enter_dynamorio(dcontext_t *dcontext)
 {
     /* We're transitioning to DynamoRIO from somewhere: either the fcache,
-     * the kernel (WHERE_TRAMPOLINE), or the app itself via our start/stop API.
-     * N.B.: set whereami to WHERE_APP iff this is the first dispatch() entry
+     * the kernel (DR_WHERE_TRAMPOLINE), or the app itself via our start/stop API.
+     * N.B.: set whereami to DR_WHERE_APP iff this is the first dispatch() entry
      * for this thread!
      */
-    where_am_i_t wherewasi = dcontext->whereami;
+    dr_where_am_i_t wherewasi = dcontext->whereami;
 #ifdef UNIX
-    if (!(wherewasi == WHERE_FCACHE || wherewasi == WHERE_TRAMPOLINE ||
-          wherewasi == WHERE_APP)) {
+    if (!(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
+          wherewasi == DR_WHERE_APP)) {
         /* This is probably our own syscalls hitting our own sysenter
          * hook (PR 212570), since we're not completely user library
          * independent (PR 206369).
@@ -756,9 +756,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                        "DR's own syscall (via user library) hit the sysenter hook");
     }
 #endif
-    ASSERT(wherewasi == WHERE_FCACHE || wherewasi == WHERE_TRAMPOLINE ||
-           wherewasi == WHERE_APP);
-    dcontext->whereami = WHERE_DISPATCH;
+    ASSERT(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
+           wherewasi == DR_WHERE_APP);
+    dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));
     /* CANNOT hold any locks across cache execution, as our thread synch
@@ -775,7 +775,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 #endif
 
     DOLOG(2, LOG_INTERP, {
-        if (wherewasi == WHERE_APP) {
+        if (wherewasi == DR_WHERE_APP) {
             LOG(THREAD, LOG_INTERP, 2, "\ninitial dispatch: target = "PFX"\n",
                 dcontext->next_tag);
             dump_mcontext_callstack(dcontext);
@@ -791,7 +791,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      * messy that we're violating assumption of no ptrs...
      */
 
-    if (wherewasi == WHERE_APP) { /* first entrance */
+    if (wherewasi == DR_WHERE_APP) { /* first entrance */
         if (dcontext->last_exit == get_syscall_linkstub()) {
             /* i#813: the app hit our post-sysenter hook while native.
              * XXX: should we try to process ni syscalls here?  But we're only
@@ -870,7 +870,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     /* KSWITCHed next time around for a better explanation */
     KSTART_DC(dcontext, dispatch_num_exits);
 
-    if (wherewasi != WHERE_APP) { /* if not first entrance */
+    if (wherewasi != DR_WHERE_APP) { /* if not first entrance */
         if (get_at_syscall(dcontext))
             handle_post_system_call(dcontext);
 
@@ -967,7 +967,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         ASSERT(LINKSTUB_FAKE(dcontext->last_exit));
     }
 
-    if (wherewasi != WHERE_APP) { /* if not first entrance */
+    if (wherewasi != DR_WHERE_APP) { /* if not first entrance */
         /* now fully process the last cache exit as couldbelinking */
         dispatch_exit_fcache(dcontext);
     }
@@ -2047,7 +2047,7 @@ handle_system_call(dcontext_t *dcontext)
             /* avoid synch errors with dispatch -- since enter_fcache will set
              * whereami for prev dcontext, not real one!
              */
-            tmp_dcontext->whereami = WHERE_FCACHE;
+            tmp_dcontext->whereami = DR_WHERE_FCACHE;
         }
 #endif
 
@@ -2085,7 +2085,7 @@ handle_system_call(dcontext_t *dcontext)
         if (dcontext->signals_pending) {
             /* i#2019: see comments in dispatch_enter_fcache() */
             KSTOP(syscall_fcache);
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             set_at_syscall(dcontext, false);
             /* We need to remember both the post-syscall resumption point and
              * the fact that we need to execute a syscall, but we only have
@@ -2237,7 +2237,7 @@ handle_callback_return(dcontext_t *dcontext)
     SELF_PROTECT_LOCAL(dcontext, READONLY);
 
     /* obey flushing protocol, plus set whereami (both using real dcontext) */
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     set_at_syscall(dcontext, true); /* will be set to false on other end's post-syscall */
     ASSERT(!is_couldbelinking(dcontext));
 

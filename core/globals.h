@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -598,25 +598,30 @@ extern mutex_t bb_building_lock;
 extern volatile bool bb_lock_start;
 extern recursive_lock_t change_linking_lock;
 
-/* where the current app thread's control is */
+/* DR_API EXPORT BEGIN */
+/**
+ * Identifies where a thread's control is at any one point.
+ * Used with client PC sampling using dr_set_itimer().
+ */
 typedef enum {
-    WHERE_APP=0,
-    WHERE_INTERP,
-    WHERE_DISPATCH,
-    WHERE_MONITOR,
-    WHERE_SYSCALL_HANDLER,
-    WHERE_SIGNAL_HANDLER,
-    WHERE_TRAMPOLINE,
-    WHERE_CONTEXT_SWITCH,
-    WHERE_IBL,
-    WHERE_FCACHE,
-    WHERE_CLEAN_CALLEE,
-    WHERE_UNKNOWN,
+    DR_WHERE_APP=0,            /**< Control is in native application code. */
+    DR_WHERE_INTERP,           /**< Control is in basic block building. */
+    DR_WHERE_DISPATCH,         /**< Control is in dispatch. */
+    DR_WHERE_MONITOR,          /**< Control is in trace building. */
+    DR_WHERE_SYSCALL_HANDLER,  /**< Control is in system call handling. */
+    DR_WHERE_SIGNAL_HANDLER,   /**< Control is in signal handling. */
+    DR_WHERE_TRAMPOLINE,       /**< Control is in trampoline hooks. */
+    DR_WHERE_CONTEXT_SWITCH,   /**< Control is in context switching. */
+    DR_WHERE_IBL,              /**< Control is in inlined indirect branch lookup. */
+    DR_WHERE_FCACHE,           /**< Control is in the code cache. */
+    DR_WHERE_CLEAN_CALLEE,     /**< Control is in a clean call. */
+    DR_WHERE_UNKNOWN,          /**< Control is in an unknown location. */
 #ifdef HOT_PATCHING_INTERFACE
-    WHERE_HOTPATCH,
+    DR_WHERE_HOTPATCH,         /**< Control is in hotpatching. */
 #endif
-    WHERE_LAST
-} where_am_i_t;
+    DR_WHERE_LAST              /**< Equals the count of DR_WHERE_xxx locations. */
+} dr_where_am_i_t;
+/* DR_API EXPORT END */
 
 /* make args easier to read for protection change calls
  * since only two possibilities not using new type
@@ -786,7 +791,7 @@ struct _dcontext_t {
         coarse_info_t *dir_exit;
     } coarse_exit;
 
-    where_am_i_t   whereami;        /* where control is at the moment */
+    dr_where_am_i_t   whereami;        /* where control is at the moment */
 #ifdef UNIX
     char           signals_pending; /* != 0: pending; < 0: currently handling one */
 #endif

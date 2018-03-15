@@ -8207,9 +8207,9 @@ detach_helper(int detach_type)
         return;
 
     ASSERT(detach_type < DETACH_NORMAL_TYPE ||
-           ((my_dcontext != NULL && my_dcontext->whereami == WHERE_FCACHE) ||
-            /* If detaching in thin_client/hotp_only mode, must only be WHERE_APP!  */
-            (RUNNING_WITHOUT_CODE_CACHE() && my_dcontext->whereami == WHERE_APP)));
+           ((my_dcontext != NULL && my_dcontext->whereami == DR_WHERE_FCACHE) ||
+            /* If detaching in thin_client/hotp_only mode, must only be DR_WHERE_APP!  */
+            (RUNNING_WITHOUT_CODE_CACHE() && my_dcontext->whereami == DR_WHERE_APP)));
 
     detach_on_permanent_stack(internal_detach,
                               detach_type != DETACH_BAD_STATE_NO_CLEANUP);
@@ -8629,7 +8629,7 @@ early_inject_init()
     dcontext_t *dcontext = get_thread_private_dcontext();
     module_handle_t mod;
     bool under_dr_save;
-    where_am_i_t whereami_save;
+    dr_where_am_i_t whereami_save;
     wchar_t buf[MAX_PATH];
     int os_version_number = get_os_version();
     GET_NTDLL(LdrLoadDll, (IN PCWSTR PathToFile OPTIONAL,

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -140,6 +141,11 @@ bool fragment_lookup_deleted(dcontext_t *dcontext, app_pc tag);
 /* Returns the fragment_t whose body (not cache slot) contains lookup_pc */
 fragment_t *
 fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *wrapper);
+
+/* This is safe to call from a signal handler. */
+dr_where_am_i_t
+fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
+                       OUT fragment_t **containing_fragment);
 
 void
 fcache_coarse_cache_delete(dcontext_t *dcontext, coarse_info_t *info);
