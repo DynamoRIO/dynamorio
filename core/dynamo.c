@@ -1704,7 +1704,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
      */
     memset(dcontext->upcontext_ptr, 0, sizeof(unprotected_context_t));
     dcontext->initialized = true;
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = NULL;
     dcontext->native_exec_postsyscall = NULL;
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));

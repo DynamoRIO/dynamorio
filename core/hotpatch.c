@@ -3007,7 +3007,7 @@ nudge_action_read_policies(void)
     if (new_vul_table != NULL) {
         bool old_value;
         hotp_vul_tab_t *temp;
-        where_am_i_t wherewasi;
+        dr_where_am_i_t wherewasi;
         dcontext_t *dcontext = get_thread_private_dcontext();
         vm_area_vector_t toflush; /* never initialized for hotp_only */
 
@@ -3039,7 +3039,7 @@ nudge_action_read_policies(void)
 
         /* Fix for case 5367.  TODO: undo fix after writing own loader. */
         wherewasi = dcontext->whereami;
-        dcontext->whereami = WHERE_APP;     /* WHERE_APP?  more like WHERE_DR */
+        dcontext->whereami = DR_WHERE_APP;     /* DR_WHERE_APP?  more like DR_WHERE_DR */
         dcontext->nudge_thread = true;
 
         /* Fix for case 5376.  There can be a deadlock if a nudge happened
@@ -3066,7 +3066,7 @@ nudge_action_read_policies(void)
         /* If whereami changed, that means, the probably was a callback,
          * which can lead to other bugs.  So, let us make sure it doesn't.
          */
-        ASSERT(dcontext->whereami == WHERE_APP);
+        ASSERT(dcontext->whereami == DR_WHERE_APP);
         dcontext->whereami = wherewasi;
         dcontext->thread_record->under_dynamo_control = old_value;
 
@@ -4989,7 +4989,7 @@ hotp_execute_patch(hotp_func_t hotp_fn_ptr, hotp_context_t *hotp_cxt,
     hotp_exec_status_t exec_status, exec_status_only;
     hotp_context_t local_cxt;
     dcontext_t *dcontext = get_thread_private_dcontext();
-    where_am_i_t wherewasi;
+    dr_where_am_i_t wherewasi;
 
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
     if (dcontext == NULL ||     /* case 9385: unknown thread */
@@ -5000,14 +5000,14 @@ hotp_execute_patch(hotp_func_t hotp_fn_ptr, hotp_context_t *hotp_cxt,
 
     /* For hot patching with fcache, today, hot patches are executed only from
      * within the fcache.  For hotp_only, there is no fcache; hot patches are
-     * executed directly when they are WHERE_APP.
+     * executed directly when they are DR_WHERE_APP.
 
 Question for reviewer: for hotp_only, when control comes to the gateway, should
-    whereami be changed to something other than WHERE_APP because we are technically
-    in the core now; if so, would it be WHERE_TRAMPOLINE?
+    whereami be changed to something other than DR_WHERE_APP because we are technically
+    in the core now; if so, would it be DR_WHERE_TRAMPOLINE?
      */
-    ASSERT(dcontext->whereami == WHERE_FCACHE ||
-           (dcontext->whereami == WHERE_APP && DYNAMO_OPTION(hotp_only)));
+    ASSERT(dcontext->whereami == DR_WHERE_FCACHE ||
+           (dcontext->whereami == DR_WHERE_APP && DYNAMO_OPTION(hotp_only)));
     wherewasi = dcontext->whereami;
 
     /* In case the hot patch causes an exception, the context may be in an
@@ -5016,7 +5016,7 @@ Question for reviewer: for hotp_only, when control comes to the gateway, should
      * Note: nothing is done for partial memory writes.  TODO: how to fix this?
      */
     memcpy(&local_cxt, hotp_cxt, sizeof(hotp_context_t));
-    dcontext->whereami = WHERE_HOTPATCH;
+    dcontext->whereami = DR_WHERE_HOTPATCH;
 
     if (DR_SETJMP(&dcontext->hotp_excpt_state) == 0) {  /* TRY block */
         exec_status = (*hotp_fn_ptr)(&local_cxt);
@@ -5428,7 +5428,7 @@ hotp_change_control_flow(const hotp_context_t *app_reg_ptr, const app_pc target)
     ASSERT(dcontext != NULL && dcontext != GLOBAL_DCONTEXT);
 
     dcontext->next_tag = target;    /* Set up actual control flow change. */
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     /* FIXME: should determine the actual fragment exiting from */
     set_last_exit(dcontext, (linkstub_t *) get_hot_patch_linkstub());
 

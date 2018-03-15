@@ -1829,8 +1829,8 @@ monitor_cache_exit(dcontext_t *dcontext)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
     if (md->trace_tag != NULL && md->last_fragment != NULL) {
         /* unprotect local heap */
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
@@ -1862,7 +1862,7 @@ monitor_cache_exit(dcontext_t *dcontext)
             (TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags) &&
              TEST(LINK_NI_SYSCALL, dcontext->last_exit->flags));
     }
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
 }
 
 static void
@@ -1920,8 +1920,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
 
     /* default internal routine */
 
@@ -2116,7 +2116,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             /* add_size is set when !end_trace */
             f = internal_extend_trace(dcontext, f, dcontext->last_exit, add_size);
         }
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
         KSTOP(trace_building);
@@ -2129,7 +2129,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         /* nothing to do */
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         return f;
     }
 
@@ -2177,7 +2177,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         }
 
         if (!trace_head) {
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             return f;
         }
     }
@@ -2336,7 +2336,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
              * export the size expansion factors considered?
              */
             /* now return */
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             /* link unprotects on demand, we then re-protect all */
             SELF_PROTECT_CACHE(dcontext, NULL, READONLY);
             /* re-protect local heap */
@@ -2355,7 +2355,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* release rest of state */
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
     return f;
 }
 
