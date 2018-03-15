@@ -2176,7 +2176,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
 
 /* PR 205795: to avoid lock problems w/ in_fcache (it grabs a lock, we
  * could have interrupted someone holding that), we first check
- * whereami --- if whereami is WHERE_FCACHE we still check the pc
+ * whereami --- if whereami is DR_WHERE_FCACHE we still check the pc
  * to distinguish generated routines, but at least we're certain
  * it's not in DR where it could own a lock.
  * We can't use is_on_dstack() here b/c we need to handle clean call
@@ -2186,7 +2186,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
 static bool
 safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 {
-    if (dcontext->whereami != WHERE_FCACHE ||
+    if (dcontext->whereami != DR_WHERE_FCACHE ||
         IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||)
         is_in_dynamo_dll(pc) ||
         is_on_initstack(xsp))
@@ -2198,7 +2198,7 @@ safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 static bool
 safe_is_in_coarse_stubs(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 {
-    if (dcontext->whereami != WHERE_FCACHE ||
+    if (dcontext->whereami != DR_WHERE_FCACHE ||
         IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||)
         is_in_dynamo_dll(pc) ||
         is_on_initstack(xsp))
@@ -4805,7 +4805,7 @@ master_signal_handler_C(byte *xsp)
         if ((is_on_dstack(dcontext, (byte *)sc->SC_XSP)
              /* PR 302951: clean call arg processing => pass to app/client.
               * Rather than call the risky in_fcache we check whereami. */
-             IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE))) ||
+             IF_CLIENT_INTERFACE(&& (dcontext->whereami != DR_WHERE_FCACHE))) ||
             is_on_alt_stack(dcontext, (byte *)sc->SC_XSP) ||
             is_on_initstack((byte *)sc->SC_XSP)) {
             /* Checks here need to cover everything that record_pending_signal()
@@ -6023,7 +6023,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     char frame_no_xstate[sizeof(sigframe_rt_t)];
     sigframe_rt_t *frame = (sigframe_rt_t *) frame_no_xstate;
     int sig;
-    where_am_i_t cur_whereami = dcontext->whereami;
+    dr_where_am_i_t cur_whereami = dcontext->whereami;
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     switch (type) {
@@ -6082,14 +6082,14 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * this is good b/c it resets us to the base of dstack.
      */
     /* tell dispatch() why we're coming there */
-    dcontext->whereami = WHERE_TRAMPOLINE;
+    dcontext->whereami = DR_WHERE_TRAMPOLINE;
     KSTART(dispatch_num_exits);
     set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
     if (is_couldbelinking(dcontext))
         enter_nolinking(dcontext, NULL, false);
     transfer_to_dispatch(dcontext, get_mcontext(dcontext),
-                         cur_whereami != WHERE_FCACHE &&
-                         cur_whereami != WHERE_SIGNAL_HANDLER
+                         cur_whereami != DR_WHERE_FCACHE &&
+                         cur_whereami != DR_WHERE_SIGNAL_HANDLER
                          /*full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
@@ -6480,6 +6480,8 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
         /* we save stack space by allocating superset dr_mcontext_t */
         dr_mcontext_t dmc;
         dr_mcontext_init(&dmc);
+        priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(&dmc);
+        ucontext_to_mcontext(mc, ucxt);
         void (*cb)(dcontext_t *, priv_mcontext_t *) = (*info->itimer)[which].cb;
         void (*cb_api)(dcontext_t *, dr_mcontext_t *) = (*info->itimer)[which].cb_api;
 
@@ -6489,9 +6491,6 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
         }
 
         if (cb != NULL) {
-            priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(&dmc);
-
-            ucontext_to_mcontext(mc, ucxt);
             cb(dcontext, mc);
         } else {
             cb_api(dcontext, &dmc);

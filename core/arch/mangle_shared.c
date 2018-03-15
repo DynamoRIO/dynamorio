@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -437,7 +437,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 XINST_CREATE_store(dcontext,
                                    OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
                                    opnd_create_reg(SCRATCH_REG1)));
-            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)WHERE_CLEAN_CALLEE,
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
                                              opnd_create_reg(SCRATCH_REG1),
                                              ilist, instr, NULL, NULL);
             PRE(ilist, instr,
@@ -449,14 +449,14 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
 # else
             PRE(ilist, instr,
-                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
-                                                      WHEREAMI_OFFSET,
-                                                      (uint) WHERE_CLEAN_CALLEE, OPSZ_4));
+                instr_create_save_immed_to_dc_via_reg
+                (dcontext, SCRATCH_REG0, WHEREAMI_OFFSET,
+                 (uint) DR_WHERE_CLEAN_CALLEE, OPSZ_4));
 # endif
         } else {
             PRE(ilist, instr, XINST_CREATE_store(dcontext,
                 opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
-                OPND_CREATE_INT32(WHERE_CLEAN_CALLEE)));
+                OPND_CREATE_INT32(DR_WHERE_CLEAN_CALLEE)));
         }
     }
 #endif
@@ -480,9 +480,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         uint whereami;
 
         if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
-            whereami = (uint) WHERE_APP;
+            whereami = (uint) DR_WHERE_APP;
         else
-            whereami = (uint) WHERE_FCACHE;
+            whereami = (uint) DR_WHERE_FCACHE;
 
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */

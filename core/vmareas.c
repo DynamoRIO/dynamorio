@@ -7656,7 +7656,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                                  own_execareas_writelock,
                                                  caller_execareas_writelock);
                     /* avoid assert in dispatch_enter_dynamorio() */
-                    dcontext->whereami = WHERE_TRAMPOLINE;
+                    dcontext->whereami = DR_WHERE_TRAMPOLINE;
                     set_last_exit(dcontext, (linkstub_t *)
                                   get_ibl_sourceless_linkstub(LINK_RETURN, 0));
                     if (is_couldbelinking(dcontext))

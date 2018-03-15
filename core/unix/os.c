@@ -6661,8 +6661,8 @@ pre_system_call(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool execute_syscall = true;
-    where_am_i_t old_whereami = dcontext->whereami;
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     /* FIXME We haven't yet done the work to detect which syscalls we
      * can determine a priori will fail. Once we do, we will set the
      * expect_last_syscall_to_fail to true for those case, and can
@@ -8069,13 +8069,13 @@ post_system_call(dcontext_t *dcontext)
     app_pc base;
     size_t size;
     uint prot;
-    where_am_i_t old_whereami;
+    dr_where_am_i_t old_whereami;
     DEBUG_DECLARE(bool ok;)
 
     RSTATS_INC(post_syscall);
 
     old_whereami = dcontext->whereami;
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
 
 #if defined(LINUX) && defined(X86)
     /* PR 313715: restore xbp since for some vsyscall sequences that use
@@ -10020,7 +10020,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     dynamo_thread_under_dynamo(dcontext);
     dc_mc = get_mcontext(dcontext);
     *dc_mc = *mc;
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
     dcontext->next_tag = mc->pc;
 
     os_thread_signal_taken_over();

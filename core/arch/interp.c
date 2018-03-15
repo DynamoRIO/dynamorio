@@ -5150,10 +5150,10 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 {
     fragment_t *f;
     build_bb_t bb;
-    where_am_i_t wherewasi = dcontext->whereami;
+    dr_where_am_i_t wherewasi = dcontext->whereami;
     bool image_entry;
     KSTART(bb_building);
-    dcontext->whereami = WHERE_INTERP;
+    dcontext->whereami = DR_WHERE_INTERP;
 
     /* Neither thin_client nor hotp_only should be building any bbs. */
     ASSERT(!RUNNING_WITHOUT_CODE_CACHE());

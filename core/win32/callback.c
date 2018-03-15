@@ -337,7 +337,7 @@ call stack or anything else for diagnostics, and we'll have clobbered
 the real xsp in the mcontext slot, which we use for forging the
 exception.
 
-Could perhaps use whereami==WHERE_FCACHE, but could get exception during
+Could perhaps use whereami==DR_WHERE_FCACHE, but could get exception during
 clean call or cxt switch when on dstack but prior to whereami change.
 
 Note: the app registers passed to the handler are restored when going back to
@@ -3017,8 +3017,8 @@ asynch_take_over(app_state_at_intercept_t *state)
     /* may have been inside syscall...now we're in app! */
     set_at_syscall(dcontext, false);
     /* tell dispatch() why we're coming there */
-    if (dcontext->whereami != WHERE_APP) /* new thread, typically: leave it that way */
-        dcontext->whereami = WHERE_TRAMPOLINE;
+    if (dcontext->whereami != DR_WHERE_APP) /* new thread, typically: leave it that way */
+        dcontext->whereami = DR_WHERE_TRAMPOLINE;
     set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
 
     transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
@@ -3591,7 +3591,7 @@ intercept_apc(app_state_at_intercept_t *state)
                 return AFTER_INTERCEPT_LET_GO;
         } else {
             /* should not receive APC while in DR code! */
-            ASSERT(get_thread_private_dcontext()->whereami == WHERE_FCACHE);
+            ASSERT(get_thread_private_dcontext()->whereami == DR_WHERE_FCACHE);
             LOG(GLOBAL, LOG_ASYNCH|LOG_THREADS, 2,
                 "APC thread was already initialized!\n");
             LOG(THREAD_GET, LOG_ASYNCH, 2,
@@ -5144,7 +5144,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
     if ((is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)
          /* PR 302951: clean call arg processing => pass to app/client.
           * Rather than call the risky in_fcache we check whereami. */
-         IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE ||
+         IF_CLIENT_INTERFACE(&& (dcontext->whereami != DR_WHERE_FCACHE ||
                                  /* i#263: do not pass to app if fault is in
                                   * client lib or ntdll called by client
                                   */
@@ -5406,7 +5406,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
 #ifdef HOT_PATCHING_INTERFACE
         /* Recover from a hot patch exception. */
-        if (dcontext != NULL && dcontext->whereami == WHERE_HOTPATCH) {
+        if (dcontext != NULL && dcontext->whereami == DR_WHERE_HOTPATCH) {
             /* Note: If we use a separate stack for executing hot patches, this
              * assert should be changed.
              */
@@ -5681,17 +5681,17 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif /* PROGRAM_SHEPHERDING */
 
                 /* Note - temporarily lost control threads (UNDER_DYN_HACK) are
-                 * whereami == WHERE_FCACHE (FIXME would be more logical to be
-                 * WHERE_APP) and !takeover, but unlike the forge case we don't
+                 * whereami == DR_WHERE_FCACHE (FIXME would be more logical to be
+                 * DR_WHERE_APP) and !takeover, but unlike the forge case we don't
                  * need to fix them up here. */
                 if (!thread_is_lost) {
                     /* xref 8267, can't just check that exception addr matches
                      * forged addr because that can falsely match at 0, so
                      * we base on whereami instead. */
-                    if (dcontext->whereami == WHERE_FCACHE) {
+                    if (dcontext->whereami == DR_WHERE_FCACHE) {
                         /* Xref case 8219 - forge exception sets whereami to
-                         * WHERE_FCACHE while we perform the RaiseException.  Need
-                         * to set the whereami back to WHERE_APP now since not
+                         * DR_WHERE_FCACHE while we perform the RaiseException.  Need
+                         * to set the whereami back to DR_WHERE_APP now since not
                          * taking over. */
                         ASSERT_CURIOSITY(pExcptRec->ExceptionAddress ==
                                          forged_exception_addr);
@@ -5701,10 +5701,10 @@ intercept_exception(app_state_at_intercept_t *state)
 #else
                         ASSERT_CURIOSITY(false && "should not be reached");
 #endif
-                        dcontext->whereami = WHERE_APP;
+                        dcontext->whereami = DR_WHERE_APP;
                     } else {
-                        /* should already be WHERE_APP then */
-                        ASSERT_CURIOSITY(dcontext->whereami == WHERE_APP);
+                        /* should already be DR_WHERE_APP then */
+                        ASSERT_CURIOSITY(dcontext->whereami == DR_WHERE_APP);
                         /* this should not be a forged exception */
                         ASSERT_CURIOSITY(pExcptRec->ExceptionAddress !=
                                          forged_exception_addr || /* 8267 */
@@ -5862,7 +5862,7 @@ intercept_exception(app_state_at_intercept_t *state)
                         /* Will return to execute instruction
                          * where single step exception will be forged.
                          */
-                        dcontext->whereami = WHERE_FCACHE;
+                        dcontext->whereami = DR_WHERE_FCACHE;
                         set_last_exit(dcontext, (linkstub_t *)get_asynch_linkstub());
                         if (instr_get_opcode(&instr) == OP_iret) {
                             /* Emulating the rest of iret which is just a pop into rsp
@@ -6313,7 +6313,7 @@ intercept_callback_start(app_state_at_intercept_t *state)
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* won't be re-protected until dispatch->fcache */
         ASSERT(is_thread_initialized());
-        ASSERT(dcontext->whereami == WHERE_FCACHE);
+        ASSERT(dcontext->whereami == DR_WHERE_FCACHE);
         DODEBUG({
             /* get callback target address
              * we want ((fs:0x18):0x30):0x2c => TEB->PEB->KernelCallbackTable
@@ -6588,7 +6588,7 @@ callback_setup(app_pc next_pc)
 
     /* now prepare to use new dcontext, pointed to by old_dcontext ptr */
     initialize_dynamo_context(old_dcontext);
-    old_dcontext->whereami = WHERE_TRAMPOLINE;
+    old_dcontext->whereami = DR_WHERE_TRAMPOLINE;
     old_dcontext->next_tag = next_pc;
     ASSERT(old_dcontext->next_tag != NULL);
     return old_dcontext;
