@@ -212,6 +212,9 @@ os_set_app_tls_base(dcontext_t *dcontext, reg_id_t reg, void *base);
 void
 set_executable_path(const char *);
 
+void
+set_application_cl_args(int *, char **);
+
 uint
 memprot_to_osprot(uint prot);
 
