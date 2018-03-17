@@ -260,6 +260,7 @@ int os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext_liv
 
 char *get_application_pid(void);
 char *get_application_name(void);
+bool get_application_cl_args(int **argc, char ***argv);
 const char *get_application_short_name(void);
 char *get_computer_name(void); /* implemented on win32 only, in eventlog.c */
 
