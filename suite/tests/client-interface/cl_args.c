@@ -31,11 +31,11 @@
  */
 
 #ifdef WINDOWS
-# include "windows.h"
+#include "windows.h"
 #endif
 
-include <stdio.h>
-include <string.h>
+#include <stdio.h>
+#include <string.h>
 
 int main(int argc, char **argv)
 {
