@@ -2653,7 +2653,7 @@ DR_API bool
 dr_get_application_cl_args(OUT int **argc, OUT char ***argv)
 {
 #ifdef UNIX
-    return get_application_cl_args(argc, argv); 
+    return get_application_cl_args(argc, argv);
 #else
     return false;
 #endif
