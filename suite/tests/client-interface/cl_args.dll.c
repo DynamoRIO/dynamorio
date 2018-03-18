@@ -46,8 +46,8 @@ void dr_init(client_id_t id)
 #ifdef UNIX
     ASSERT(*app_argc == 2);
     ASSERT(strcmp(app_argv[1], "Test") == 0);
-    ASSERT(result == true);    
+    ASSERT(result == true);
 #else
-    ASSERT(result == false);             
+    ASSERT(result == false);
 #endif
 }
