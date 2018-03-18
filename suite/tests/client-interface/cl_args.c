@@ -30,12 +30,12 @@
  * DAMAGE.
  */
 
-#ifdef UNIX
-# include <stdio.h>
-# include <string.h>
-#else
+#ifdef WINDOWS
 # include "windows.h"
 #endif
+
+include <stdio.h>
+include <string.h>
 
 int main(int argc, char **argv)
 {
