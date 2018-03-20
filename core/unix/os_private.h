@@ -236,7 +236,9 @@ fd_table_add(file_t fd, uint flags);
 
 uint permstr_to_memprot(const char * const perm);
 
-/* The caller needs to bracket this with memquery_iterator_{start,stop}. */
+/* The caller needs to bracket this with memquery_iterator_{start,stop}.
+ * Returns the number of executable regions found in the address space.
+ */
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 

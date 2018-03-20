@@ -8923,6 +8923,54 @@ get_dynamorio_dll_preferred_base()
     return get_dynamorio_dll_start();
 }
 
+static void
+found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
+{
+#ifndef X64
+    /* We assume no vsyscall page for x64; thus, checking the
+     * hardcoded address shouldn't have any false positives.
+     */
+    ASSERT(iter->vm_end - iter->vm_start == PAGE_SIZE ||
+           /* i#1583: recent kernels have 2-page vdso */
+           iter->vm_end - iter->vm_start == 2*PAGE_SIZE);
+    ASSERT(!dynamo_initialized); /* .data should be +w */
+    /* we're not considering as "image" even if part of ld.so (xref i#89) and
+     * thus we aren't adjusting our code origins policies to remove the
+     * vsyscall page exemption.
+     */
+    DODEBUG({ *map_type = "VDSO"; });
+    /* On re-attach, the vdso can be split into two entries (from DR's hook),
+     * so take just the first one as the start (xref i#2157).
+     */
+    if (vsyscall_page_start == NULL)
+        vsyscall_page_start = iter->vm_start;
+    if (vdso_page_start == NULL)
+        vdso_page_start = vsyscall_page_start; /* assume identical for now */
+    LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
+        vsyscall_page_start, iter->comment);
+#else
+    /* i#172
+     * fix bugs for OS where vdso page is set unreadable as below
+     * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
+     * but it is readable indeed.
+     */
+    /* i#430
+     * fix bugs for OS where vdso page is set unreadable as below
+     * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vsyscall]
+     * but it is readable indeed.
+     */
+    if (!TESTALL((PROT_READ|PROT_EXEC), iter->prot))
+        iter->prot |= (PROT_READ|PROT_EXEC);
+    /* i#1908: vdso and vsyscall pages are now split */
+    if (strncmp(iter->comment, VSYSCALL_PAGE_MAPS_NAME,
+                strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
+        vdso_page_start = iter->vm_start;
+    else if (strncmp(iter->comment, VSYSCALL_REGION_MAPS_NAME,
+                     strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
+        vsyscall_page_start = iter->vm_start;
+#endif
+}
+
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
@@ -9005,60 +9053,21 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                            strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0 ||
                    IF_X64_ELSE(strncmp(iter->comment, VSYSCALL_REGION_MAPS_NAME,
                                        strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
-            /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
-            /* 32-bit */
+                               /* Older kernels do not label it as "[vdso]", but it is
+                                * hardcoded there.
+                                */
+                               /* 32-bit */
                                iter->vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
-# ifndef X64
-            /* We assume no vsyscall page for x64; thus, checking the
-             * hardcoded address shouldn't have any false positives.
-             */
-            ASSERT(iter->vm_end - iter->vm_start == PAGE_SIZE ||
-                   /* i#1583: recent kernels have 2-page vdso */
-                   iter->vm_end - iter->vm_start == 2*PAGE_SIZE);
-            ASSERT(!dynamo_initialized); /* .data should be +w */
-            /* we're not considering as "image" even if part of ld.so (xref i#89) and
-             * thus we aren't adjusting our code origins policies to remove the
-             * vsyscall page exemption.
-             */
-            DODEBUG({ map_type = "VDSO"; });
-            /* On re-attach, the vdso can be split into two entries (from DR's hook),
-             * so take just the first one as the start (xref i#2157).
-             */
-            if (vsyscall_page_start == NULL)
-                vsyscall_page_start = iter->vm_start;
-            if (vdso_page_start == NULL)
-                vdso_page_start = vsyscall_page_start; /* assume identical for now */
-            LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
-                vsyscall_page_start, iter->comment);
-# else
-            /* i#172
-             * fix bugs for OS where vdso page is set unreadable as below
-             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
-             * but it is readable indeed.
-             */
-            /* i#430
-             * fix bugs for OS where vdso page is set unreadable as below
-             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vsyscall]
-             * but it is readable indeed.
-             */
-            if (!TESTALL((PROT_READ|PROT_EXEC), iter->prot))
-                iter->prot |= (PROT_READ|PROT_EXEC);
-            /* i#1908: vdso and vsyscall pages are now split */
-            if (strncmp(iter->comment, VSYSCALL_PAGE_MAPS_NAME,
-                        strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
-                vdso_page_start = iter->vm_start;
-            else if (strncmp(iter->comment, VSYSCALL_REGION_MAPS_NAME,
-                             strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
-                vsyscall_page_start = iter->vm_start;
-# endif
-            /* We'd like to add vsyscall to the module list too but when it's
-             * separate from vdso it has no ELF header which is too complex
-             * to force into the module list.
-             */
-            if (add_modules &&
-                module_is_header(iter->vm_start, iter->vm_end - iter->vm_start)) {
-                module_list_add(iter->vm_start, iter->vm_end - iter->vm_start,
-                                false, iter->comment, iter->inode);
+            if (add_modules) {
+                found_vsyscall_page(iter _IF_DEBUG(&map_type));
+                /* We'd like to add vsyscall to the module list too but when it's
+                 * separate from vdso it has no ELF header which is too complex
+                 * to force into the module list.
+                 */
+                if (module_is_header(iter->vm_start, iter->vm_end - iter->vm_start)) {
+                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start,
+                                    false, iter->comment, iter->inode);
+                }
             }
         } else if (add_modules &&
                    mmap_check_for_module_overlap(iter->vm_start, size,
