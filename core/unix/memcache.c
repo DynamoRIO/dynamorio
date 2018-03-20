@@ -587,11 +587,7 @@ memcache_update_all_from_os(void)
     memcache_lock();
     /* We clear the entire cache to avoid false positive queries. */
     vmvector_reset_vector(GLOBAL_DCONTEXT, all_memory_areas);
-    while (memquery_iterator_next(&iter)) {
-        /* We do a heavyweight overlap check with everything. */
-        memcache_update_locked(iter.vm_start, iter.vm_end, iter.prot,
-                               -1, false/*!exists*/);
-    }
+    os_walk_address_space(&iter, false);
     memcache_unlock();
     memquery_iterator_stop(&iter);
 }
