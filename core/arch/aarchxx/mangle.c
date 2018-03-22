@@ -603,6 +603,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                   DR_REG_LIST_LENGTH_ARM, DR_REG_LIST_ARM));
     }
     dstack_offs += 15 * XSP_SZ;
+
+    /* Make dstack_offs 8-byte algined, as we only accounted for 17 4-byte slots. */
+    dstack_offs += XSP_SZ;
     ASSERT(cci->skip_save_flags    ||
            cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||

@@ -5011,10 +5011,10 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                        SCRATCH_REG0 _IF_AARCH64(false));
 # ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
-    ASSERT(offset == sizeof(priv_mcontext_t));
+    ASSERT(offset == get_clean_call_switch_stack_size());
     APP(&ilist, XINST_CREATE_add_2src
         (dcontext, opnd_create_reg(SCRATCH_REG0),
-         opnd_create_reg(REG_XSP), OPND_CREATE_INT32(sizeof(priv_mcontext_t))));
+         opnd_create_reg(REG_XSP), OPND_CREATE_INT32(offset)));
     APP(&ilist, XINST_CREATE_store
         (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(SCRATCH_REG0)));
