@@ -5638,11 +5638,11 @@ insert_entering_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
      */
 
     /* C equivalent:
-     *   whereami = WHERE_APP
+     *   whereami = DR_WHERE_APP
      */
     PRE(ilist, where,
         instr_create_save_immed_to_dc_via_reg(dcontext, reg_dc, WHEREAMI_OFFSET,
-                                              (ptr_int_t) WHERE_APP, OPSZ_4));
+                                              (ptr_int_t) DR_WHERE_APP, OPSZ_4));
 
     /* skip C equivalent:
      *   STATS_INC(num_native_module_enter)
@@ -5703,11 +5703,11 @@ insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wh
                          ilist, where, reg_dc);
 
     /* C equivalent:
-     *   whereami = WHERE_FCACHE
+     *   whereami = DR_WHERE_FCACHE
      */
     PRE(ilist, where,
         instr_create_save_immed_to_dc_via_reg(dcontext, reg_dc, WHEREAMI_OFFSET,
-                                              (ptr_int_t) WHERE_FCACHE, OPSZ_4));
+                                              (ptr_int_t) DR_WHERE_FCACHE, OPSZ_4));
 }
 
 /* Emit code to transfer execution from native module to code cache of non-native

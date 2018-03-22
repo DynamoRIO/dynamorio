@@ -663,7 +663,7 @@ syscall_while_native(app_state_at_intercept_t *state)
                 * redirect *everything*.  From privlib we need to keep
                 * the syscall native as DR locks may be held.
                 */
-               IF_CLIENT_INTERFACE(&& dcontext->whereami == WHERE_APP)) {
+               IF_CLIENT_INTERFACE(&& dcontext->whereami == DR_WHERE_APP)) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
@@ -756,8 +756,8 @@ syscall_while_native(app_state_at_intercept_t *state)
          */
         ASSERT(syscall_trampoline_skip_pc[sysnum] != NULL);
         dcontext->native_exec_postsyscall = syscall_trampoline_skip_pc[sysnum];
-        ASSERT(dcontext->whereami == WHERE_APP);
-        dcontext->whereami = WHERE_TRAMPOLINE;
+        ASSERT(dcontext->whereami == DR_WHERE_APP);
+        dcontext->whereami = DR_WHERE_TRAMPOLINE;
         set_last_exit(dcontext, (linkstub_t *) get_native_exec_syscall_linkstub());
         /* assumption: no special cleanup from tail of trampoline needed */
         transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
@@ -2832,8 +2832,8 @@ pre_system_call(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     int sysnum = (int) mc->xax;
     reg_t *param_base = pre_system_call_param_base(mc);
-    where_am_i_t old_whereami = dcontext->whereami;
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
@@ -4225,9 +4225,9 @@ void post_system_call(dcontext_t *dcontext)
     reg_t *param_base = dcontext->sys_param_base;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool success = NT_SUCCESS(mc->xax);
-    where_am_i_t old_whereami = dcontext->whereami;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
     KSTART(post_syscall);
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     DODEBUG({ dcontext->post_syscall = true; });
 
     LOG(THREAD, LOG_SYSCALLS, 2,

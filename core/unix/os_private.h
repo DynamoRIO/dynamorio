@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,6 +46,7 @@
 #include <sys/time.h> /* struct itimerval */
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
+#include "memquery.h"
 
 /* for inline asm */
 #ifdef X86
@@ -234,6 +235,12 @@ void
 fd_table_add(file_t fd, uint flags);
 
 uint permstr_to_memprot(const char * const perm);
+
+/* The caller needs to bracket this with memquery_iterator_{start,stop}.
+ * Returns the number of executable regions found in the address space.
+ */
+int
+os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 
 /* in signal.c */
 struct _kernel_sigaction_t;

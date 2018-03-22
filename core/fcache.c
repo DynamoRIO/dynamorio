@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1174,6 +1174,45 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
     }
     PROTECT_CACHE(unit->cache, unlock);
     return found;
+}
+
+/* This is safe to call from a signal handler. */
+dr_where_am_i_t
+fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
+                       OUT fragment_t **containing_fragment)
+{
+    if (whereami != DR_WHERE_FCACHE) {
+        if (containing_fragment != NULL)
+            *containing_fragment = NULL;
+        return whereami;
+    }
+    fragment_t wrapper;
+    fragment_t *fragment = fragment_pclookup(dcontext, pc, &wrapper);
+    if (fragment == NULL) {
+        /* Since we're DR_WHERE_FCACHE, our locks shouldn't be held.
+         * XXX: we could double-check fcache_unit_areas.lock before
+         * calling (case 1317) and assert on it.
+         */
+        if (in_fcache(pc)) {
+            whereami = DR_WHERE_UNKNOWN;
+        } else {
+            /* Identify parts of our assembly code now.
+             * It's all generated and post-process can't identify.
+             * Assume code order is as follows:
+             */
+            if (in_context_switch_code(dcontext, (cache_pc)pc)) {
+                whereami = DR_WHERE_CONTEXT_SWITCH;
+            } else if (in_indirect_branch_lookup_code(dcontext,
+                                                      (cache_pc)pc)) {
+                whereami = DR_WHERE_IBL;
+            } else {
+                whereami = DR_WHERE_UNKNOWN;
+            }
+        }
+    }
+    if (containing_fragment != NULL)
+        *containing_fragment = fragment;
+    return whereami;
 }
 
 #ifdef DEBUG

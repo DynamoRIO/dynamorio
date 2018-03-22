@@ -231,7 +231,7 @@ entering_native(dcontext_t *dcontext)
     ASSERT(!is_building_trace(dcontext));
     set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
     /* now we're in app! */
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
     SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively");
     STATS_INC(num_native_module_enter);
 }
@@ -337,12 +337,12 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     /* ASSUMPTION: was native entire time, don't need to initialize dcontext
      * or anything, and next_tag is still there!
      */
-    ASSERT(dcontext->whereami == WHERE_APP);
+    ASSERT(dcontext->whereami == DR_WHERE_APP);
     ASSERT(dcontext->last_exit == get_native_exec_linkstub());
     ASSERT(!is_native_pc(target));
     dcontext->next_tag = target;
     /* tell dispatch() why we're coming there */
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     /* FIXME i#2375: for -native_exec_opt on UNIX we need to update the gencode
      * to do what os_thread_{,not_}under_dynamo() and os_thread_re_take_over() do.
      */

@@ -861,12 +861,35 @@ drmgr_register_pre_syscall_event_ex(bool (*func)(void *drcontext, int sysnum),
 
 DR_EXPORT
 /**
+ * Registers a callback function for the pre-syscall event,
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                        void *user_data),
+                                           drmgr_priority_t *priority,
+                                           void *user_data);
+
+DR_EXPORT
+/**
  * Unregister a callback function for the pre-syscall event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
 bool
 drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Unregister a callback function, which takes user data, for the pre-syscall event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
+                                                          void *user_data));
 
 DR_EXPORT
 /**
@@ -889,7 +912,20 @@ DR_EXPORT
  */
 bool
 drmgr_register_post_syscall_event_ex(void (*func)(void *drcontext, int sysnum),
-                                    drmgr_priority_t *priority);
+                                     drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Registers a callback function for the post-syscall event,
+ * ordered by \p priority. Allows for the passing of user data \p user_data
+ * which is available upon the execution of the callback.
+ * \return whether successful.
+ */
+bool
+drmgr_register_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
+                                                         void *user_data),
+                                            drmgr_priority_t *priority,
+                                            void *user_data);
 
 DR_EXPORT
 /**
@@ -899,6 +935,16 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
+
+DR_EXPORT
+/**
+ * Unregister a callback function, which takes user data, for the post-syscall event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
+                                                           void *user_data));
 
 DR_EXPORT
 /**

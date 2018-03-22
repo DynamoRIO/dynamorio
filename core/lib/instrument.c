@@ -51,6 +51,7 @@
 #include "decode.h"
 #include "disassemble.h"
 #include "../fragment.h"
+#include "../fcache.h"
 #include "../emit.h"
 #include "../link.h"
 #include "../monitor.h" /* for mark_trace_head */
@@ -5052,6 +5053,7 @@ dr_set_itimer(int which, uint millisec,
                                (void (*)(dcontext_t *, dr_mcontext_t *))func);
 }
 
+DR_API
 uint
 dr_get_itimer(int which)
 {
@@ -5061,6 +5063,25 @@ dr_get_itimer(int which)
 }
 # endif /* UNIX */
 
+DR_API
+dr_where_am_i_t
+dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag_out)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "invalid param");
+    void *tag = NULL;
+    dr_where_am_i_t whereami = dcontext->whereami;
+    /* Further refine if pc is in the cache. */
+    if (whereami == DR_WHERE_FCACHE) {
+        fragment_t *fragment;
+        whereami = fcache_refine_whereami(dcontext, whereami, pc, &fragment);
+        if (fragment != NULL)
+            tag = fragment->tag;
+    }
+    if (tag_out != NULL)
+        *tag_out = tag;
+    return whereami;
+}
 #endif /* CLIENT_INTERFACE */
 
 DR_API
@@ -6433,7 +6454,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
      * but the mcontext is not available at those points.
      *
      * Since DR calls this routine when recreating state and wants the
-     * clean call version, can't distinguish by whereami=WHERE_FCACHE,
+     * clean call version, can't distinguish by whereami=DR_WHERE_FCACHE,
      * so we set a flag in the supported events. If client routine
      * crashes and we recreate then we want clean call version anyway
      * so should be ok.  Note that we want in_pre_syscall for other
@@ -6631,7 +6652,7 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     }
 
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
 #ifdef CLIENT_INTERFACE
     if (kernel_xfer_callbacks.num > 0) {

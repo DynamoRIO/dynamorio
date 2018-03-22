@@ -410,7 +410,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     dcontext->next_tag = next_pc;
     ASSERT(dcontext->next_tag != NULL);
     set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
-    dcontext->whereami = WHERE_TRAMPOLINE;
+    dcontext->whereami = DR_WHERE_TRAMPOLINE;
 
     *get_mcontext(dcontext) = *mc;
     /* clear pc */

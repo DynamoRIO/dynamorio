@@ -4755,6 +4755,8 @@ DR_API
  * The itimer will operate successfully in the presence of an
  * application itimer of the same type.
  *
+ * Additional itimer signals are blocked while in our signal handler.
+ *
  * The return value indicates whether the timer was successfully
  * installed (or uninstalled if 0 was passed for \p millisec).
  *
@@ -4776,6 +4778,16 @@ DR_API
 uint
 dr_get_itimer(int which);
 #endif /* UNIX */
+
+DR_API
+/**
+ * Returns the #dr_where_am_i_t value indicating in which area of code \p pc
+ * resides.  This is meant for use with dr_set_itimer() for PC sampling for
+ * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside
+ * a fragment in the code cache, the fragment's tag is returned in \p tag.
+ */
+dr_where_am_i_t
+dr_where_am_i(void *drcontext, app_pc pc, OUT void**tag);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

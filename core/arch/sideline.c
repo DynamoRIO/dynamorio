@@ -591,7 +591,7 @@ sideline_optimize(fragment_t *f,
     pause_for_sideline = dcontext->owning_thread;
     ASSERT(is_thread_known(pause_for_sideline));
 
-    if (dcontext->whereami != WHERE_FCACHE) {
+    if (dcontext->whereami != DR_WHERE_FCACHE) {
         /* wait for thread to reach waiting point in dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\nsideline_optimize: waiting for target thread "TIDFMT"\n",
