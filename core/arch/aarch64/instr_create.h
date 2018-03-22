@@ -48,16 +48,31 @@
 #define FSZ_HALF 1
 
 /**
+ * Operand indication half-precision floating point vector elements.
+ */
+#define OPND_CREATE_HALF() OPND_CREATE_INT8(FSZ_HALF)
+
+/**
  * Used in an additional immediate source operand to a vector operation, denotes
  * single-precision floating point vector elements. See \ref sec_IR_AArch64.
  */
 #define FSZ_SINGLE 2
 
 /**
+ * Operand indication single-precision floating point vector elements.
+ */
+#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(FSZ_SINGLE)
+
+/**
  * Used in an additional immediate source operand to a vector operation, denotes
  * double-precision floating point vector elements. See \ref sec_IR_AArch64.
  */
 #define FSZ_DOUBLE 3
+
+/**
+ * Operand indication double-precision floating point vector elements.
+ */
+#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(FSZ_DOUBLE)
 
 
 /**
@@ -557,6 +572,27 @@
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
 
+
+/**
+ * Creates a FMUL vector instruction.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd output register
+ * \param Rm input register
+ * \param Rn input register
+ * \param width vector element width as immediate
+ */
+#define INSTR_CREATE_fmul_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_fmul, Rd, Rm, Rn, width)
+
+/**
+ * Creates a FMUL floating point instruction.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd output register
+ * \param Rm input register
+ * \param Rn input register
+ */
+#define INSTR_CREATE_fmul_scalar(dc, Rd, Rm, Rn) \
+    instr_create_1dst_2src(dc, OP_fmul, Rd, Rm, Rn)
 /* DR_API EXPORT END */
 
 #endif /* INSTR_CREATE_H */

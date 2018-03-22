@@ -281,6 +281,94 @@ test_ldar(void *dc)
     test_instr_encoding(dc, OP_ldarh, instr);
 }
 
+static void
+test_fmul(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    /* FMUL scalar half precision
+     * FMUL <Sd>, <Sn>, <Sm>
+     */
+    instr = INSTR_CREATE_fmul_scalar(dc, opnd_create_reg(DR_REG_H7),
+                                     opnd_create_reg(DR_REG_H6),
+                                     opnd_create_reg(DR_REG_H5));
+    test_instr_encoding(dc, OP_fmul, instr);
+
+
+    /* FMUL scalar single precision
+     * FMUL <Sd>, <Sn>, <Sm>
+     */
+    instr = INSTR_CREATE_fmul_scalar(dc, opnd_create_reg(DR_REG_S0),
+                                     opnd_create_reg(DR_REG_S1),
+                                     opnd_create_reg(DR_REG_S2));
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL scalar single precision
+     * FMUL <Dd>, <Dn>, <Dm>
+     */
+    instr = INSTR_CREATE_fmul_scalar(dc, opnd_create_reg(DR_REG_D10),
+                                     opnd_create_reg(DR_REG_D15),
+                                     opnd_create_reg(DR_REG_D18));
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 64 bit vector half precision
+     * FMUL <Vd>.4h, <Vn>.4h, <Vd>.4h
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_D10),
+                                     opnd_create_reg(DR_REG_D15),
+                                     opnd_create_reg(DR_REG_D18),
+                                     OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 64 bit vector single precision
+     * FMUL <Vd>.2s, <Vn>.2s, <Vd>.2s
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_D10),
+                                     opnd_create_reg(DR_REG_D15),
+                                     opnd_create_reg(DR_REG_D18),
+                                     OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 128 bit vector half precision
+     * FMUL <Vd>.8h, <Vn>.8h, <Vd>.8h
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_Q10),
+                                     opnd_create_reg(DR_REG_Q15),
+                                     opnd_create_reg(DR_REG_Q18),
+                                     OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 128 bit vector single precision
+     * FMUL <Vd>.4s, <Vn>.4s, <Vd>.4s
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_Q10),
+                                     opnd_create_reg(DR_REG_Q15),
+                                     opnd_create_reg(DR_REG_Q18),
+                                     OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 128 bit vector single precision
+     * FMUL <Vd>.4s, <Vn>.4s, <Vd>.4s
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_Q10),
+                                     opnd_create_reg(DR_REG_Q15),
+                                     opnd_create_reg(DR_REG_Q18),
+                                     OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+    /* FMUL 128 bit vector double precision
+     * FMUL <Vd>.2d, <Vn>.2d, <Vd>.2d
+     */
+    instr = INSTR_CREATE_fmul_vector(dc, opnd_create_reg(DR_REG_Q10),
+                                     opnd_create_reg(DR_REG_Q15),
+                                     opnd_create_reg(DR_REG_Q18),
+                                     OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_fmul, instr);
+
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -298,6 +386,10 @@ main(int argc, char *argv[])
 
     test_ldar(dcontext);
     print("test_ldar complete\n");
+
+    test_fmul(dcontext);
+    print("test_fmul complete\n");
+
 
     print("All tests complete\n");
     return 0;
