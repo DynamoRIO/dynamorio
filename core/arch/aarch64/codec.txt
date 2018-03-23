@@ -952,3 +952,10 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 
 # FADD (scalar)
 00011110xx1xxxxx001010xxxxxxxxxx fadd float_reg0 : float_reg5 float_reg16
+
+# FMUL (vector)
+0x101110010xxxxx000111xxxxxxxxxx     fmul dq0 : dq5 dq16 fsz16
+0x1011100x1xxxxx110111xxxxxxxxxx     fmul dq0 : dq5 dq16 fsz
+
+# FMUL (scalar)
+00011110xx1xxxxx000010xxxxxxxxxx     fmul float_reg0 : float_reg5 float_reg16

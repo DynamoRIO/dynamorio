@@ -41,4 +41,14 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+fmul   %h6 %h5 -> %h7
+fmul   %s1 %s2 -> %s0
+fmul   %d15 %d18 -> %d10
+fmul   %d15 %d18 $0x01 -> %d10
+fmul   %d15 %d18 $0x02 -> %d10
+fmul   %q15 %q18 $0x01 -> %q10
+fmul   %q15 %q18 $0x02 -> %q10
+fmul   %q15 %q18 $0x02 -> %q10
+fmul   %q15 %q18 $0x03 -> %q10
+test_fmul complete
 All tests complete
