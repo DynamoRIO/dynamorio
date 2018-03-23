@@ -1578,3 +1578,21 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1e382a2d : fadd s13, s17, s24 : fadd   %s17 %s24 -> %s13
 1e6d2a83 : fadd d3, d20, d13 : fadd   %d20 %d13 -> %d3
 1e2f28e9 : fadd s9, s7, s15 : fadd   %s7 %s15 -> %s9
+
+# FMUL (vector)
+2e30deb3 : fmul v19.2s, v21.2s, v16.2s : fmul   %d21 %d16 $0x02 -> %d19
+6e5e1fd6 : fmul v22.8h, v30.8h, v30.8h : fmul   %q30 %q30 $0x01 -> %q22
+2e5e1fd6 : fmul v22.4h, v30.4h, v30.4h : fmul   %d30 %d30 $0x01 -> %d22
+6e70deb3 : fmul v19.2d, v21.2d, v16.2d : fmul   %q21 %q16 $0x03 -> %q19
+6e30deb3 : fmul v19.4s, v21.4s, v16.4s : fmul   %q21 %q16 $0x02 -> %q19
+
+# FMUL (scalar)
+1e6d0ad6 : fmul d22, d22, d13 : fmul   %d22 %d13 -> %d22
+1e2d0ad6 : fmul s22, s22, s13 : fmul   %s22 %s13 -> %s22
+1e260817 : fmul s23, s0, s6 : fmul   %s0 %s6 -> %s23
+1e660817 : fmul d23, d0, d6 : fmul   %d0 %d6 -> %d23
+1ee409fe : fmul h30, h15, h4 : fmul   %h15 %h4 -> %h30
+1e6409fe : fmul d30, d15, d4 : fmul   %d15 %d4 -> %d30
+1e2409fe : fmul s30, s15, s4 : fmul   %s15 %s4 -> %s30
+1eed0ad6 : fmul h22, h22, h13 : fmul   %h22 %h13 -> %h22
+1ee60817 : fmul h23, h0, h6 : fmul   %h0 %h6 -> %h23

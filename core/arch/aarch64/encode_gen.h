@@ -3244,7 +3244,7 @@ encode_opndsgen_1c000000(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 }
 
 static uint
-encode_opndsgen_1e202800(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+encode_opndsgen_1e200800(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     int opcode = instr->opcode;
     uint dst0 = 0, src0 = 0, src1 = 0;
@@ -6723,7 +6723,15 @@ encoder(byte *pc, instr_t *instr, decode_info_t *di)
         enc = encode_opndsgen_0e401400(pc, instr, 0x0e401400, di);
         if (enc != ENCFAIL)
             return enc;
-        return encode_opndsgen_1e202800(pc, instr, 0x1e202800, di);
+        return encode_opndsgen_1e200800(pc, instr, 0x1e202800, di);
+    case OP_fmul:
+        enc = encode_opndsgen_0e20d400(pc, instr, 0x2e20dc00, di);
+        if (enc != ENCFAIL)
+            return enc;
+        enc = encode_opndsgen_0e401400(pc, instr, 0x2e401c00, di);
+        if (enc != ENCFAIL)
+            return enc;
+        return encode_opndsgen_1e200800(pc, instr, 0x1e200800, di);
     case OP_hlt:
         return encode_opndsgen_d4000001(pc, instr, 0xd4400000, di);
     case OP_hvc:
