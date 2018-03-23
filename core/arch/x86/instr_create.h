@@ -124,7 +124,8 @@
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
 /**
  * Create a memory reference operand appropriately sized for OP_xsave32,
- * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xrstor32, or OP_xrstor64.
+ * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xsavec32, OP_xsavec64,
+ * OP_xrstor32, or OP_xrstor64.
  */
 #define OPND_CREATE_MEM_xsave(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_xsave)
@@ -304,6 +305,21 @@
 #define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_jmp_short((dc), (t))
 
 /**
+ * This platform-independent macro creates an instr_t for a conditional
+ * branch instruction that branches if the previously-set condition codes
+ * indicate the condition indicated by \p pred.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param pred  The #dr_pred_type_t condition to match.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_jump_cond(dc, pred, t) \
+    (INSTR_CREATE_jcc((dc), (pred) - DR_PRED_O + OP_jo, (t)))
+
+/**
  * This platform-independent macro creates an instr_t for an unconditional
  * branch instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -346,6 +362,25 @@
 
 /**
  * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags and takes two register sources
+ * plus a destination, with one source being shifted logically left by
+ * an immediate amount that is limited to either 0, 1, 2, or 3.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s1  The opnd_t explicit first source operand for the instruction.  This
+ * must be a register.
+ * \param s2_toshift  The opnd_t explicit source operand for the instruction.  This
+ * must be a register.
+ * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
+ */
+#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
+  INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(s1), \
+    opnd_get_reg(s2_toshift), ((shift_amount) == 0 ? 1 : ((shift_amount) == 1 ? 2 : \
+      ((shift_amount) == 2 ? 4 : ((shift_amount) == 3 ? 8 : \
+        (DR_ASSERT_MSG(false, "invalid shift amount"), 0))))), 0))
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
  * instruction that does affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d  The opnd_t explicit destination operand for the instruction.
@@ -382,6 +417,15 @@
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 #define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_and((dc), (d), (s))
+
+/**
+ * This platform-independent macro creates an instr_t for a logical right shift
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_slr_s(dc, d, s) INSTR_CREATE_shr((dc), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a comparison
@@ -666,10 +710,10 @@
 
 #ifdef IA32_ON_IA64
 /* DR_API EXPORT BEGIN */
-#define INSTR_CREATE_jmpe(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmpe, (t))
-#define INSTR_CREATE_jmpe_abs(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
+# define INSTR_CREATE_jmpe(dc, t) \
+   instr_create_0dst_1src((dc), OP_jmpe, (t))
+# define INSTR_CREATE_jmpe_abs(dc, t) \
+   instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
 #endif
 
 /* floating-point */
@@ -2895,6 +2939,12 @@
     opnd_create_reg(DR_REG_EAX))
 #define INSTR_CREATE_xsaveopt64(dc, d) \
   instr_create_1dst_2src((dc), OP_xsaveopt64, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsavec32(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsavec32, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsavec64(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsavec64, (d), opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 

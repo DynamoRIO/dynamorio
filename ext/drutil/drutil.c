@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -94,11 +94,13 @@ drutil_exit(void)
 #ifdef X86
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch);
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                               OUT bool *scratch_used);
 #elif defined(AARCHXX)
 static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch);
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                               OUT bool *scratch_used);
 #endif /* X86/ARM */
 
 
@@ -114,20 +116,40 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
  */
 DR_EXPORT
 bool
+drutil_insert_get_mem_addr_ex(void *drcontext, instrlist_t *bb, instr_t *where,
+                              opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                              OUT bool *scratch_used)
+{
+    if (scratch_used != NULL)
+        *scratch_used = false;
+#if defined(X86)
+    return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch,
+                                          scratch_used);
+#elif defined(AARCHXX)
+    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
+                                          scratch_used);
+#endif
+}
+
+DR_EXPORT
+bool
 drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                            opnd_t memref, reg_id_t dst, reg_id_t scratch)
 {
 #if defined(X86)
-    return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch);
+    return drutil_insert_get_mem_addr_x86(drcontext, bb, where, memref, dst, scratch,
+                                          NULL);
 #elif defined(AARCHXX)
-    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch);
+    return drutil_insert_get_mem_addr_arm(drcontext, bb, where, memref, dst, scratch,
+                                          NULL);
 #endif
 }
 
 #ifdef X86
 static bool
 drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch)
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                               OUT bool *scratch_used)
 {
     if (opnd_is_far_base_disp(memref) &&
         /* We assume that far memory references via %ds and %es are flat,
@@ -137,26 +159,32 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
          * and inserts "mov 0 => reg" for %ds and %es instead.
          */
         opnd_get_segment(memref) != DR_SEG_ES &&
-        opnd_get_segment(memref) != DR_SEG_DS) {
-        /* get segment base into scratch, then add to memref base and lea */
-        instr_t *near_in_dst = NULL;
-        if (opnd_uses_reg(memref, scratch) ||
+        opnd_get_segment(memref) != DR_SEG_DS &&
+        /* cs: is sometimes seen, as here on win10:
+         *   RPCRT4!Invoke+0x28:
+         *   76d85ea0 2eff1548d5de76  call dword ptr cs:[RPCRT4!
+         *                              __guard_check_icall_fptr (76ded548)]
+         * We assume it's flat.
+         */
+        opnd_get_segment(memref) != DR_SEG_CS) {
+        /* get segment base into dst, then add to memref base and lea */
+        instr_t *near_in_scratch = NULL;
+        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref), dst))
+            return false;
+        if (opnd_uses_reg(memref, dst) ||
             (opnd_get_base(memref) != DR_REG_NULL &&
              opnd_get_index(memref) != DR_REG_NULL)) {
             /* have to take two steps */
+            if (scratch == DR_REG_NULL)
+                return false;
             opnd_set_size(&memref, OPSZ_lea);
-            near_in_dst = INSTR_CREATE_lea(drcontext, opnd_create_reg(dst), memref);
-            PRE(bb, where, near_in_dst);
+            if (scratch_used != NULL)
+                *scratch_used = true;
+            near_in_scratch =
+                INSTR_CREATE_lea(drcontext, opnd_create_reg(scratch), memref);
+            PRE(bb, where, near_in_scratch);
         }
-        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref),
-                                    scratch)) {
-            if (near_in_dst != NULL) {
-                instrlist_remove(bb, near_in_dst);
-                instr_destroy(drcontext, near_in_dst);
-            }
-            return false;
-        }
-        if (near_in_dst != NULL) {
+        if (near_in_scratch != NULL) {
             PRE(bb, where,
                 INSTR_CREATE_lea(drcontext, opnd_create_reg(dst),
                                  opnd_create_base_disp(dst, scratch, 1, 0, OPSZ_lea)));
@@ -166,9 +194,9 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
             int scale = opnd_get_scale(memref);
             int disp = opnd_get_disp(memref);
             if (opnd_get_base(memref) == DR_REG_NULL) {
-                base = scratch;
+                base = dst;
             } else if (opnd_get_index(memref) == DR_REG_NULL) {
-                index = scratch;
+                index = dst;
                 scale = 1;
             } else {
                 ASSERT(false, "memaddr internal error");
@@ -188,8 +216,12 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
         bool is_xlat = false;
         if (opnd_get_index(memref) == DR_REG_AL) {
             is_xlat = true;
+            if (scratch == DR_REG_NULL)
+                return false;
             if (scratch != DR_REG_XAX && dst != DR_REG_XAX) {
                 /* we do not have to save xax if it is saved by caller */
+                if (scratch_used != NULL)
+                    *scratch_used = true;
                 PRE(bb, where,
                     INSTR_CREATE_mov_ld(drcontext,
                                         opnd_create_reg(scratch),
@@ -265,10 +297,12 @@ instrlist_find_app_instr(instrlist_t *ilist, instr_t *where, opnd_t opnd)
 
 static reg_id_t
 replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where,
-                   opnd_t memref, reg_id_t dst, reg_id_t scratch)
+                   opnd_t memref, reg_id_t dst, reg_id_t scratch, OUT bool *scratch_used)
 {
     reg_id_t reg;
     reg = opnd_uses_reg(memref, dst) ? scratch : dst;
+    if (scratch_used != NULL && reg == scratch)
+        *scratch_used = true;
     DR_ASSERT(!opnd_uses_reg(memref, reg));
     dr_insert_get_stolen_reg_value(drcontext, bb, where, reg);
     return reg;
@@ -276,7 +310,8 @@ replace_stolen_reg(void *drcontext, instrlist_t *bb, instr_t *where,
 
 static bool
 drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
-                               opnd_t memref, reg_id_t dst, reg_id_t scratch)
+                               opnd_t memref, reg_id_t dst, reg_id_t scratch,
+                               OUT bool *scratch_used)
 {
     if (!opnd_is_base_disp(memref) IF_AARCH64(&& !opnd_is_rel_addr(memref)))
         return false;
@@ -319,10 +354,14 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
         }
         if (dst == stolen || scratch == stolen)
             return false;
-        if (base == stolen)
-            base = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
-        else if (index == stolen)
-            index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch);
+        if (base == stolen) {
+            base = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
+                                      scratch_used);
+        }
+        else if (index == stolen) {
+            index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
+                                       scratch_used);
+        }
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */
             instr = negated ?
@@ -334,7 +373,7 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
                                       opnd_create_reg(dst),
                                       opnd_create_reg(base),
                                       OPND_CREATE_INT(disp));
-#           define MAX_ADD_IMM_DISP (1 << 12)
+# define MAX_ADD_IMM_DISP (1 << 12)
             if (IF_ARM_ELSE(instr_is_encoding_possible(instr),
                             disp < MAX_ADD_IMM_DISP)) {
                 PRE(bb, where, instr);
@@ -347,6 +386,8 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
              */
             /* if dst is used in memref, we use scratch instead */
             index = (base == dst) ? scratch : dst;
+            if (scratch_used != NULL && index == scratch)
+                *scratch_used = true;
             PRE(bb, where, XINST_CREATE_load_int(drcontext,
                                                  opnd_create_reg(index),
                                                  OPND_CREATE_INT(disp)));

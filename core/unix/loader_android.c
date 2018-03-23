@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -67,8 +67,8 @@ get_pthread_tls_offs(void)
 void
 init_android_version(void)
 {
-#   define VER_FILE "/system/build.prop"
-#   define VER_PROP "ro.build.version.release="
+#define VER_FILE "/system/build.prop"
+#define VER_PROP "ro.build.version.release="
     file_t fd = os_open(VER_FILE, OS_OPEN_READ);
     uint read_ver = 0;
     if (fd != INVALID_FILE) {
@@ -117,6 +117,13 @@ size_of_pthread_internal(void)
 
 void
 privload_mod_tls_init(privmod_t *mod)
+{
+    /* Android does not yet support per-module TLS */
+}
+
+/* Called post-reloc. */
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod)
 {
     /* Android does not yet support per-module TLS */
 }
@@ -175,7 +182,8 @@ privload_tls_init(void *app_tls)
             res = init_thread_v6.tls[ANDROID_TLS_SLOT_SELF];
         }
     } else {
-        res = heap_mmap(ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE));
+        res = heap_mmap(ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
+                        VMM_SPECIAL_MMAP);
         LOG(GLOBAL, LOG_LOADER, 2, "%s: allocated new TLS at "PFX"; copying from "PFX"\n",
             __FUNCTION__, res, app_tls);
         if (app_tls != NULL)
@@ -215,7 +223,8 @@ privload_tls_exit(void *dr_tp)
     if (dr_tp == NULL || dr_tp == init_thread_v5.tls || dr_tp == init_thread_v6.tls)
         return;
     alloc = (byte *)dr_tp - get_pthread_tls_offs();
-    heap_munmap(alloc, ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE));
+    heap_munmap(alloc, ALIGN_FORWARD(size_of_pthread_internal(), PAGE_SIZE),
+                VMM_SPECIAL_MMAP);
 }
 
 /* For standalone lib usage (i#1862: the Android loader passes

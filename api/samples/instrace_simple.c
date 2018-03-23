@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -211,6 +211,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
                       instr_t *instr, bool for_trace,
                       bool translating, void *user_data)
 {
+    /* we don't want to auto-predicate any instrumentation */
+    drmgr_disable_auto_predication(drcontext, bb);
+
     if (!instr_is_app(instr))
         return DR_EMIT_DEFAULT;
 
@@ -218,12 +221,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
     instrument_instr(drcontext, bb, instr);
 
     /* insert code once per bb to call clean_call for processing the buffer */
-    if (drmgr_is_first_instr(drcontext, instr) &&
-        /* XXX i#1702:  We cannot insert a clean call inside an IT block.
-         * It is ok to skip a few clean calls on predicated instructions,
-         * since the buffer will be dumped later by other clean calls.
-         */
-        IF_ARM_ELSE(!instr_is_predicated(instr), true)
+    if (drmgr_is_first_instr(drcontext, instr)
         /* XXX i#1698: there are constraints for code between ldrex/strex pairs,
          * so we minimize the instrumentation in between by skipping the clean call.
          * We're relying a bit on the typical code sequence with either ldrex..strex
@@ -292,7 +290,7 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrace' num refs seen: "SZFMT"\n", num_refs);
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrace' num refs seen: "SZFMT"\n", num_refs);
     if (!dr_raw_tls_cfree(tls_offs, INSTRACE_TLS_COUNT))
         DR_ASSERT(false);
 
@@ -338,5 +336,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0))
         DR_ASSERT(false);
 
-    dr_log(NULL, LOG_ALL, 1, "Client 'instrace' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'instrace' initializing\n");
 }

@@ -120,8 +120,8 @@ DECLARE_CXTSWPROT_VAR(mutex_t bb_building_lock, INIT_LOCK_FREE(bb_building_lock)
 /* i#1111: we do not use the lock until the 2nd thread is created */
 volatile bool bb_lock_start;
 
-#ifdef INTERNAL
-file_t bbdump_file = INVALID_FILE;
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
+static file_t bbdump_file = INVALID_FILE;
 #endif
 
 #ifdef DEBUG
@@ -132,7 +132,7 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 void
 interp_init()
 {
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
         ASSERT(bbdump_file != INVALID_FILE);
@@ -151,7 +151,7 @@ static int num_rets_removed;
 void
 interp_exit()
 {
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);
     }
@@ -252,6 +252,14 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
               overlap_info_t *overlap_info)
 {
     memset(bb, 0, sizeof(*bb));
+#if defined(LINUX) && defined(X86_32)
+    /* With SA_RESTART (i#2659) we end up interpreting the int 0x80 in vsyscall,
+     * whose fall-through hits our hook.  We avoid interpreting our own hook
+     * by shifting it to the displaced pc.
+     */
+    if (start_pc == vsyscall_sysenter_return_pc)
+        start_pc = vsyscall_sysenter_displaced_pc;
+#endif
     bb->check_vm_area = true;
     bb->start_pc = start_pc;
     bb->app_interp = app_interp;
@@ -469,7 +477,7 @@ must_escape_from(app_pc pc)
      * because of stubs, etc. that end up doing indirect jumps to them!
      */
     bool res = false
-#ifdef DR_APP_EXPORTS
+# ifdef DR_APP_EXPORTS
         || (automatic_startup &&
             (pc == (app_pc)dynamorio_app_init ||
              pc == (app_pc)dr_app_start ||
@@ -477,11 +485,11 @@ must_escape_from(app_pc pc)
              pc == (app_pc)dynamorio_app_exit ||
              /* dr_app_stop is a nop already */
              pc == (app_pc)dynamo_thread_exit))
-#endif
+# endif
         ;
-#ifdef DEBUG
+# ifdef DEBUG
     if (res) {
-# ifdef DR_APP_EXPORTS
+#  ifdef DR_APP_EXPORTS
         LOG(THREAD_GET, LOG_INTERP, 3, "must_escape_from: found ");
         if (pc == (app_pc)dynamorio_app_init)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamorio_app_init\n");
@@ -494,9 +502,9 @@ must_escape_from(app_pc pc)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamorio_app_exit\n");
         else if (pc ==  (app_pc)dynamo_thread_exit)
             LOG(THREAD_GET, LOG_INTERP, 3, "dynamo_thread_exit\n");
-# endif
+#  endif
     }
-#endif
+# endif
 
     return res;
 }
@@ -827,6 +835,7 @@ bb_process_single_step(dcontext_t *dcontext, build_bb_t *bb)
      * before the single step exception.
      */
     instrlist_append(bb->ilist, bb->instr);
+    instr_set_translation(bb->instr, bb->instr_start);
 
     /* Mark instruction as special exit. */
     instr_branch_set_special_exit(bb->instr, true);
@@ -1083,12 +1092,12 @@ static inline bool
 bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
 {
     byte *callee = (byte *)opnd_get_pc(instr_get_target(bb->instr));
-# ifdef CUSTOM_TRACES_RET_REMOVAL
+#ifdef CUSTOM_TRACES_RET_REMOVAL
     if (callee == bb->instr_start + 5) {
         LOG(THREAD, LOG_INTERP, 4, "found call to next instruction\n");
     } else
         dcontext->num_calls++;
-# endif
+#endif
     STATS_INC(num_all_calls);
     BBPRINT(bb, 4, "interp: direct call at "PFX"\n", bb->instr_start);
     if (leave_call_native(callee)) {
@@ -2565,7 +2574,7 @@ bb_process_IAT_convertible_indjmp(dcontext_t *dcontext, build_bb_t *bb,
  * OUT elide_continue is set when bb building should continue in target,
  * and not set when bb building should be stopped.
  */
-bool
+static bool
 bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
                                    bool *elide_continue)
 {
@@ -2759,11 +2768,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
     app_pc trailing_annotation_pc = NULL, instrumentation_pc = NULL;
     bool found_instrumentation_pc = false;
     instr_t *annotation_label = NULL;
-#endif
+# endif
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2865,7 +2874,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         }
 
         if (instr_is_meta(inst)) {
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
             /* Save the trailing_annotation_pc in case a client truncated the bb there. */
             if (is_annotation_label(inst) && last_app_instr == NULL) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
@@ -2873,15 +2882,15 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 instrumentation_pc = GET_ANNOTATION_INSTRUMENTATION_PC(label_data);
                 annotation_label = inst;
             }
-#endif
+# endif
             continue;
         }
 
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
         if (instrumentation_pc != NULL && !found_instrumentation_pc &&
             instr_get_translation(inst) == instrumentation_pc)
             found_instrumentation_pc = true;
-#endif
+# endif
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2905,6 +2914,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                       IF_WINDOWS(|| dr_fragment_app_pc(bb->start_pc) != bb->start_pc),
                       "block's app sources (instr_set_translation() targets) "
                       "must remain within original bounds");
+
+# ifdef AARCH64
+        if (instr_get_opcode(inst) == OP_isb) {
+            CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                          "OP_isb must be last instruction in block");
+        }
+# endif
 
         /* PR 307284: we didn't process syscalls and ints pre-client
          * so do so now to get bb->flags and bb->exit_type set
@@ -2971,11 +2987,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                                   "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
-#ifdef ARM
+# ifdef ARM
                     if (instr_get_opcode(inst) == OP_blx)
                         bb->ibl_branch_type = IBL_INDCALL;
                     else
-#endif
+# endif
                         bb->ibl_branch_type = get_ibl_branch_type(inst);
                     bb->exit_target = get_ibl_routine(dcontext,
                                                       get_ibl_entry_type(bb->exit_type),
@@ -3052,7 +3068,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (last_app_instr != NULL) {
         bool adjusted_cur_pc = false;
         app_pc xl8 = instr_get_translation(last_app_instr);
-#ifdef ANNOTATIONS
+# ifdef ANNOTATIONS
         if (annotation_label != NULL) {
             if (found_instrumentation_pc) {
                 /* i#1613: if the last app instruction precedes an annotation, extend the
@@ -3077,8 +3093,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 }
             }
         }
-#endif
-#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
+# endif
+# if defined(WINDOWS) && !defined(STANDALONE_DECODER)
         /* i#1632: if the last app instruction was taken from an intercept because it was
          * occluded by the corresponding hook, `bb->cur_pc` should point to the original
          * app pc (where that instruction was copied from). Cannot use `decode_next_pc()`
@@ -3097,7 +3113,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     "to intercept instr at "PFX"\n", intercept_pc, bb->cur_pc);
             }
         }
-#endif
+# endif
         /* We do not take instr_length of what the client put in, but rather
          * the length of the translation target
          */
@@ -3209,7 +3225,6 @@ bb_safe_to_stop(dcontext_t *dcontext, instrlist_t *ilist, instr_t *stop_after)
 #endif /* ARM */
     return true;
 }
-
 
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
@@ -3494,6 +3509,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
+#ifdef X86
+            /* If the next instruction at bb->cur_pc fires a debug register,
+             * then we should stop this basic block before getting to it.
+             */
+            if (my_dcontext != NULL && debug_register_fire_on_addr(bb->instr_start)) {
+                stop_bb_on_fallthrough = true;
+                break;
+            }
+#endif
             /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag
@@ -3713,7 +3737,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 # endif /* X86 */
 #endif /* WINDOWS */
 
-        if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
+        if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->instr_start) {
             bb_process_single_step(dcontext, bb);
             /* Stops basic block right now. */
             break;
@@ -3895,6 +3919,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#ifdef AARCH64
+        /* OP_isb, when mangled, has a potential side exit. */
+        else if (instr_get_opcode(bb->instr) == OP_isb)
+            break;
+#endif
 #if 0/*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to
@@ -4204,7 +4233,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef HOT_PATCHING_INTERFACE
         && !hotp_injected
 #endif
-        && (my_dcontext == NULL || my_dcontext->single_step_addr != bb->start_pc)
+        && (my_dcontext == NULL || my_dcontext->single_step_addr != bb->instr_start)
        ) {
         /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
@@ -4234,7 +4263,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
     }
-    else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->start_pc) {
+    else if (my_dcontext != NULL && my_dcontext->single_step_addr == bb->instr_start) {
         /* Field exit_type might have been cleared by client_process_bb. */
         bb->exit_type |= LINK_SPECIAL_EXIT;
     }
@@ -5121,10 +5150,10 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 {
     fragment_t *f;
     build_bb_t bb;
-    where_am_i_t wherewasi = dcontext->whereami;
+    dr_where_am_i_t wherewasi = dcontext->whereami;
     bool image_entry;
     KSTART(bb_building);
-    dcontext->whereami = WHERE_INTERP;
+    dcontext->whereami = DR_WHERE_INTERP;
 
     /* Neither thin_client nor hotp_only should be building any bbs. */
     ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
@@ -5209,7 +5238,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             disassemble_fragment(dcontext, f, false);
         }
     });
-#ifdef INTERNAL
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         disassemble_fragment_header(dcontext, f, bbdump_file);
     }
@@ -5884,7 +5913,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     /* saving in the trace and restoring in ibl means that
      * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
      */
-    if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+    if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
         if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             added_size += tracelist_add
                 (dcontext, trace, targeter, INSTR_CREATE_mov_st
@@ -6115,7 +6144,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         LOG(THREAD, LOG_INTERP, 4, "next_flags for post-ibl-cmp: 0x%x\n",
             next_flags);
         if (!TEST(FRAG_WRITES_EFLAGS_6, next_flags) &&
-            !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+            !INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
             if (!TEST(FRAG_WRITES_EFLAGS_OF, next_flags) &&  /* OF was saved */
                 !INTERNAL_OPTION(unsafe_ignore_overflow)) {
                 /* restore OF using add that overflows if OF was on when we did seto */

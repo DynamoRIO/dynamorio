@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,14 +125,17 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
      *  terminate nudge threads instead of allowing them to return and exit normally.
      *  On XP and 2k3 none of our nudge creation routines inform csrss of the new thread
      *  (which is who typically frees the stacks).
-     *  On Vista we don't use NtCreateThreadEx to create the nudge threads so the kernel
-     *  doesn't free the stack.
+     * On Vista and Win7 we don't use NtCreateThreadEx to create the nudge threads so
+     *  the kernel doesn't free the stack.
      * As such we are left with two options: free the app stack here (nudgee free) or
-     * have the nudge thread creator free the app stack (nudger free).  Going with
-     * nudgee free means we leak exit race nudge stacks whereas if we go with nudger free
-     * for external nudges then we'll leak timed out nudge stacks (for internal nudges
-     * we pretty much have to do nudgee free).  A nudge_arg_t flag is used to specify
-     * which model we use, but currently we always nudgee free.
+     *  have the nudge thread creator free the app stack (nudger free).  Going with
+     *  nudgee free means we leak exit race nudge stacks whereas if we go with nudger free
+     *  for external nudges then we'll leak timed out nudge stacks (for internal nudges
+     *  we pretty much have to do nudgee free).  A nudge_arg_t flag is used to specify
+     *  which model we use, but currently we always nudgee free.
+     * On Win8+ we do use NtCreateThreadEx to create the nudge threads so the kernel
+     *  does free the stack.  We could use this on Vista and Win7 too -- should we?
+     *  It requires someone to free the argument buffer (NUDGE_FREE_ARG).
      *
      * dynamo_thread_exit_common() is where the app stack is actually freed, not here.
      */
@@ -144,23 +147,23 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
          * before dr exited (i.e. before drmarker was freed) but didn't end up getting
          * scheduled till after dr exited. */
         ASSERT(!exit_process); /* shouldn't happen */
-#ifdef WINDOWS
+# ifdef WINDOWS
         if (dcontext != NULL)
             swap_peb_pointer(dcontext, false/*to app*/);
-#endif
+# endif
 
         os_terminate(dcontext, TERMINATE_THREAD);
     } else {
         /* Nudge threads should exit without holding any locks. */
         ASSERT_OWN_NO_LOCKS();
 
-#ifdef WINDOWS
+# ifdef WINDOWS
         /* if exiting the process, os_loader_exit will swap to app, and we want to
          * remain private during exit (esp client exit)
          */
         if (!exit_process && dcontext != NULL)
             swap_peb_pointer(dcontext, false/*to app*/);
-#endif
+# endif
 
         /* if freeing the app stack we must be on the dstack when we cleanup */
         if (dcontext->free_app_stack && !is_currently_on_dstack(dcontext)) {
@@ -199,13 +202,13 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     nudge_arg_t safe_arg = {0};
     uint nudge_action_mask = 0;
 
-#ifdef WINDOWS
+# ifdef WINDOWS
     /* this routine is run natively via leave_call_native() so there's no
      * cxt switch that swapped for us
      */
     if (dcontext != NULL)
         swap_peb_pointer(dcontext, true/*to priv*/);
-#endif
+# endif
 
     /* To be extra safe we use safe_read() to access the nudge argument, though once
      * we get past the checks below we are trusting its content. */
@@ -219,8 +222,6 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
     /* if needed tell thread exit to free the application stack */
     if (!TEST(NUDGE_NUDGER_FREE_STACK, safe_arg.flags)) {
         dcontext->free_app_stack = true;
-    } else {
-        ASSERT_NOT_TESTED();
     }
 
     /* FIXME - would be nice to inform nudge creator if we need to nop the nudge. */
@@ -262,7 +263,6 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* Free the arg if requested. */
     if (TEST(NUDGE_FREE_ARG, safe_arg.flags)) {
-        ASSERT_NOT_TESTED();
         nt_free_virtual_memory(arg_dont_use);
     }
 
@@ -488,10 +488,18 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
 
     nudge_arg.version = NUDGE_ARG_CURRENT_VERSION;
     nudge_arg.nudge_action_mask = nudge_action_mask;
-    /* we do not set NUDGE_NUDGER_FREE_STACK so the stack will be freed
-     * in the target process
+    /* We do not set NUDGE_NUDGER_FREE_STACK so the stack will be freed
+     * in the target process, for <=win7.
      */
     nudge_arg.flags = (internal ? NUDGE_IS_INTERNAL : 0);
+#ifdef WINDOWS
+    if (get_os_version() >= WINDOWS_VERSION_8) {
+        /* The kernel owns and frees the stack. */
+        nudge_arg.flags |= NUDGE_NUDGER_FREE_STACK;
+        /* The arg was placed in a new kernel alloc. */
+        nudge_arg.flags |= NUDGE_FREE_ARG;
+    }
+#endif
     nudge_arg.client_arg = client_arg;
     nudge_arg.client_id = client_id;
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -151,7 +151,11 @@ thread_id_t get_thread_id(void);
 process_id_t get_process_id(void);
 void os_thread_yield(void);
 void os_thread_sleep(uint64 milliseconds);
-bool os_thread_suspend(thread_record_t *tr);
+/* os_thread_suspend may return false in the case of a timeout. Note that the
+ * timeout field is best effort and may be ignored by implementations (i.e.
+ * Windows); setting timeout to 0 results in blocking forever.
+ */
+bool os_thread_suspend(thread_record_t *tr, int timeout_ms);
 bool os_thread_resume(thread_record_t *tr);
 bool os_thread_terminate(thread_record_t *tr);
 
@@ -341,6 +345,7 @@ enum {
     DUMPCORE_APP_EXCEPTION      = 0x40000,
     DUMPCORE_TRY_EXCEPT         = 0x80000, /* even when we do have a handler */
     DUMPCORE_UNSUPPORTED_APP    = 0x100000,
+    DUMPCORE_STACK_OVERFLOW     = 0x200000, /* modifies DUMPCORE_INTERNAL_EXCEPTION */
 
 #ifdef UNIX
     DUMPCORE_OPTION_PAUSE       = DUMPCORE_WAIT_FOR_DEBUGGER  |
@@ -561,6 +566,7 @@ bool get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
 
 bool is_readable_without_exception(const byte *pc, size_t size);
 bool is_readable_without_exception_query_os(byte *pc, size_t size);
+bool is_readable_without_exception_query_os_noblock(byte *pc, size_t size);
 bool safe_read(const void *base, size_t size, void *out_buf);
 bool safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 bool safe_write_ex(void *base, size_t size, const void *in_buf, size_t *bytes_written);
@@ -755,7 +761,9 @@ app_pc get_dynamorio_dll_start(void);
 app_pc get_dynamorio_dll_preferred_base(void);
 
 bool is_in_dynamo_dll(app_pc pc);
+/* Returns the number of separate regions added to the dynamo vm areas list. */
 int find_dynamo_library_vm_areas(void);
+/* Returns the number of executable regions found in the address space. */
 int find_executable_vm_areas(void);
 
 /* all_memory_areas is !HAVE_MEMINFO-only: nop elsewhere */
@@ -933,7 +941,11 @@ bool at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fr
 
 /* contended path of mutex operations */
 bool ksynch_var_initialized(KSYNCH_TYPE *var);
-void mutex_wait_contended_lock(mutex_t *lock);
+/* If mc != NULL we mark this thread safe to suspend and transfer with a valid
+ * mcontext (THREAD_SYNCH_VALID_MCONTEXT). Note that means that all fields of
+ * \p mc must be valid (e.g. PC, control, integer, MMX fields).
+ */
+void mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc));
 void mutex_notify_released_lock(mutex_t *lock);
 void mutex_free_contended_event(mutex_t *lock);
 /* contended path of rwlock operations */
@@ -952,10 +964,14 @@ typedef struct linux_event_t *event_t;
 #endif
 
 event_t create_event(void);
+/* A broadcast event wakes all waiting threads when signaled. */
+event_t create_broadcast_event(void);
 void destroy_event(event_t e);
+/* For a broadcast event, wakes all threads; o/w wakes at most one thread. */
 void signal_event(event_t e);
 void reset_event(event_t e);
-void wait_for_event(event_t e);
+/* 0 means to wait forever.  Returns false on timeout, true on event firing. */
+bool wait_for_event(event_t e, int timeout_ms);
 
 /* get current timer frequency in KHz */
 /* NOTE: Keep in mind that with voltage scaling in power saving mode
@@ -1177,5 +1193,6 @@ void loader_exit(void);
 void loader_thread_init(dcontext_t *dcontext);
 void loader_thread_exit(dcontext_t *dcontext);
 bool in_private_library(app_pc pc);
+void loader_allow_unsafe_static_behavior(void);
 
 #endif /* OS_SHARED_H */

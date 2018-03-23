@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -307,7 +307,7 @@ sideline_exit()
         child_sleep = false;
         signal_event(wake_event);
     }
-    wait_for_event(exited_event);
+    wait_for_event(exited_event, 0);
 
 #ifdef WINDOWS
     /* wait for child to die */
@@ -423,7 +423,7 @@ sideline_stop()
         child_sleep = true;
         /* signal paused_for_sideline_event to prevent wait-forever */
         signal_event(paused_for_sideline_event);
-        wait_for_event(asleep_event);
+        wait_for_event(asleep_event, 0);
     }
 }
 
@@ -444,7 +444,7 @@ sideline_run(void *arg)
         if (child_sleep) {
             LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: sideline thread going to sleep\n");
             signal_event(asleep_event);
-            wait_for_event(wake_event);
+            wait_for_event(wake_event, 0);
             continue;
         }
 
@@ -591,7 +591,7 @@ sideline_optimize(fragment_t *f,
     pause_for_sideline = dcontext->owning_thread;
     ASSERT(is_thread_known(pause_for_sideline));
 
-    if (dcontext->whereami != WHERE_FCACHE) {
+    if (dcontext->whereami != DR_WHERE_FCACHE) {
         /* wait for thread to reach waiting point in dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\nsideline_optimize: waiting for target thread "TIDFMT"\n",
@@ -605,7 +605,7 @@ sideline_optimize(fragment_t *f,
              */
             fragment_now_optimizing = f;
             mutex_unlock(&do_not_delete_lock);
-            wait_for_event(paused_for_sideline_event);
+            wait_for_event(paused_for_sideline_event, 0);
             mutex_lock(&do_not_delete_lock);
             /* if f was deleted, exit now */
             if (fragment_now_optimizing == NULL)

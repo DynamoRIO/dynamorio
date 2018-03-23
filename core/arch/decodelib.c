@@ -35,7 +35,7 @@
  */
 
 /***************************************************************************/
-#ifdef STANDALONE_DECODER
+#ifdef STANDALONE_DECODER /* around whole file */
 
 #include "../globals.h"
 #include "instr.h"
@@ -232,9 +232,9 @@ print_file(file_t f, const char *fmt, ...)
 ssize_t
 os_write(file_t f, const void *buf, size_t count)
 {
-# ifdef UNIX
+#ifdef UNIX
     return write(f, buf, count);
-# else
+#else
     /* file_t is HANDLE opened with CreateFile */
     DWORD written = 0;
     ssize_t out = -1;
@@ -246,7 +246,7 @@ os_write(file_t f, const void *buf, size_t count)
     if (ok)
         out = (ssize_t)written;
     return out;
-# endif
+#endif
 }
 
 #endif /* STANDALONE_DECODER */

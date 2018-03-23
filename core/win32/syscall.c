@@ -93,7 +93,8 @@ const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     "Nt"#name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -102,11 +103,82 @@ const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 /* i#1598: we try to make progress on unknown versions */
 int windows_unknown_syscalls[TRAMPOLINE_MAX];
 
+/* XXX i#2713: With the frequent major win10 updates, adding new tables here is
+ * getting tedious and taking up space.  Should we stop adding the win10 updates here
+ * and give up on our table of numbers, relying on reading the wrappers (i#1598
+ * changed DR to work purely on wrapper-obtained numbers)?  We'd lose robustness vs
+ * hooks, and clients like Dr. Memory who have to distinguish win10 versions would
+ * have to do their own versioning.  I guess we could still have
+ * DR_WINDOWS_VERSION_xx and not have corresponding tables here.  Or we could go the
+ * planned Dr. Memory route (DrMi#1848) and store these numbers in a separate file
+ * that is updated via a separate standalone utility run once by the user.
+ */
+SYS_CONST int windows_10_1709_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w14x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1709_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w14w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1709_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w14x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_x64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w13x64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_wow64_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w13w64,
+#include "syscallx.h"
+#undef SYSCALL
+};
+SYS_CONST int windows_10_1703_x86_syscalls[TRAMPOLINE_MAX] = {
+#define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
+                w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
+                w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
+    w13x86,
+#include "syscallx.h"
+#undef SYSCALL
+};
 SYS_CONST int windows_10_1607_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w12x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -115,7 +187,8 @@ SYS_CONST int windows_10_1607_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w12w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -124,7 +197,8 @@ SYS_CONST int windows_10_1607_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w12x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -133,7 +207,8 @@ SYS_CONST int windows_10_1511_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w11x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -142,7 +217,8 @@ SYS_CONST int windows_10_1511_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w11w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -151,7 +227,8 @@ SYS_CONST int windows_10_1511_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w11x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -160,7 +237,8 @@ SYS_CONST int windows_10_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w10x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -169,7 +247,8 @@ SYS_CONST int windows_10_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w10w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -178,7 +257,8 @@ SYS_CONST int windows_10_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w10x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -187,7 +267,8 @@ SYS_CONST int windows_81_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w81x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -196,7 +277,8 @@ SYS_CONST int windows_81_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w81w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -205,7 +287,8 @@ SYS_CONST int windows_81_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w81x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -214,7 +297,8 @@ SYS_CONST int windows_8_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w8x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -223,7 +307,8 @@ SYS_CONST int windows_8_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w8w64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -232,7 +317,8 @@ SYS_CONST int windows_8_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w8x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -241,7 +327,8 @@ SYS_CONST int windows_7_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w7x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -250,7 +337,8 @@ SYS_CONST int windows_7_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w7x86,
 #include "syscallx.h"
 #undef SYSCALL
@@ -259,7 +347,8 @@ SYS_CONST int windows_vista_sp1_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     vista1_x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -268,7 +357,8 @@ SYS_CONST int windows_vista_sp1_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     vista1,
 #include "syscallx.h"
 #undef SYSCALL
@@ -277,7 +367,8 @@ SYS_CONST int windows_vista_sp0_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     vista0_x64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -286,7 +377,8 @@ SYS_CONST int windows_vista_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     vista0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -295,7 +387,8 @@ SYS_CONST int windows_2003_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w2k3,
 #include "syscallx.h"
 #undef SYSCALL
@@ -304,7 +397,8 @@ SYS_CONST int windows_XP_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     xp64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -314,7 +408,8 @@ SYS_CONST int windows_XP_wow64_index[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     wow64,
 #include "syscallx.h"
 #undef SYSCALL
@@ -323,7 +418,8 @@ SYS_CONST int windows_XP_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     xp,
 #include "syscallx.h"
 #undef SYSCALL
@@ -332,7 +428,8 @@ SYS_CONST int windows_2000_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     w2k,
 #include "syscallx.h"
 #undef SYSCALL
@@ -341,7 +438,8 @@ SYS_CONST int windows_NT_sp4_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     ntsp4,
 #include "syscallx.h"
 #undef SYSCALL
@@ -351,7 +449,8 @@ SYS_CONST int windows_NT_sp3_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     ntsp3,
 #include "syscallx.h"
 #undef SYSCALL
@@ -361,7 +460,8 @@ SYS_CONST int windows_NT_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     ntsp0,
 #include "syscallx.h"
 #undef SYSCALL
@@ -373,13 +473,15 @@ SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 # define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                  w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                  w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     nargs,
 #else
 # define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                  w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                  w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     arg32,
 #endif
 #include "syscallx.h"
@@ -393,7 +495,8 @@ static SYS_CONST int syscall_requires_action[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     act,
 #include "syscallx.h"
 #undef SYSCALL
@@ -560,7 +663,7 @@ syscall_while_native(app_state_at_intercept_t *state)
                 * redirect *everything*.  From privlib we need to keep
                 * the syscall native as DR locks may be held.
                 */
-               IF_CLIENT_INTERFACE(&& dcontext->whereami == WHERE_APP)) {
+               IF_CLIENT_INTERFACE(&& dcontext->whereami == DR_WHERE_APP)) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
@@ -653,8 +756,8 @@ syscall_while_native(app_state_at_intercept_t *state)
          */
         ASSERT(syscall_trampoline_skip_pc[sysnum] != NULL);
         dcontext->native_exec_postsyscall = syscall_trampoline_skip_pc[sysnum];
-        ASSERT(dcontext->whereami == WHERE_APP);
-        dcontext->whereami = WHERE_TRAMPOLINE;
+        ASSERT(dcontext->whereami == DR_WHERE_APP);
+        dcontext->whereami = DR_WHERE_TRAMPOLINE;
         set_last_exit(dcontext, (linkstub_t *) get_native_exec_syscall_linkstub());
         /* assumption: no special cleanup from tail of trampoline needed */
         transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
@@ -897,7 +1000,7 @@ align_page_boundary(dcontext_t *dcontext,
 bool
 is_newly_created_process(HANDLE process_handle)
 {
-    uint remote_ldr_data;
+    int remote_ldr_data;
     /* We check based on - trait 3) PEB.Ldr
      *    The Ldr entry is created by the running process itself later */
 
@@ -2729,8 +2832,8 @@ pre_system_call(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     int sysnum = (int) mc->xax;
     reg_t *param_base = pre_system_call_param_base(mc);
-    where_am_i_t old_whereami = dcontext->whereami;
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
@@ -3273,10 +3376,10 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * synch_with_thread will take care of the last case at
                  * least so we fall through to that. */
             } else if (thread_get_context(tr, cxt)) {
-                priv_mcontext_t mc;
-                context_to_mcontext(&mc, cxt);
+                priv_mcontext_t mc_thread;
+                context_to_mcontext(&mc_thread, cxt);
                 SELF_PROTECT_LOCAL(tr->dcontext, WRITABLE);
-                if (at_safe_spot(tr, &mc,
+                if (at_safe_spot(tr, &mc_thread,
                                  THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT)) {
                     /* suspended at good spot, skip synch */
                     mutex_unlock(&thread_initexit_lock);
@@ -4122,9 +4225,9 @@ void post_system_call(dcontext_t *dcontext)
     reg_t *param_base = dcontext->sys_param_base;
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool success = NT_SUCCESS(mc->xax);
-    where_am_i_t old_whereami = dcontext->whereami;
+    dr_where_am_i_t old_whereami = dcontext->whereami;
     KSTART(post_syscall);
-    dcontext->whereami = WHERE_SYSCALL_HANDLER;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     DODEBUG({ dcontext->post_syscall = true; });
 
     LOG(THREAD, LOG_SYSCALLS, 2,

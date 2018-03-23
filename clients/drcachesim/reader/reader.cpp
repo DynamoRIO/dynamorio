@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,6 @@
  */
 
 #include <assert.h>
-#include <map>
 #include "reader.h"
 #include "../common/memref.h"
 #include "../common/utils.h"
@@ -43,7 +42,7 @@
 // Following typical stream iterator convention, the default constructor
 // produces an EOF object.
 reader_t::reader_t() : at_eof(true), input_entry(NULL), cur_tid(0), cur_pid(0),
-                       cur_pc(0), bundle_idx(0)
+                       cur_pc(0), prev_instr_addr(0), bundle_idx(0)
 {
     /* Empty. */
 }
@@ -91,6 +90,7 @@ reader_t::operator++()
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
             have_memref = true;
+            assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.data.pid = cur_pid;
             cur_ref.data.tid = cur_tid;
             cur_ref.data.type = (trace_type_t) input_entry->type;
@@ -100,6 +100,15 @@ reader_t::operator++()
             // use to obtain the PC for subsequent data references.
             cur_ref.data.pc = cur_pc;
             break;
+        case TRACE_TYPE_INSTR_MAYBE_FETCH:
+            // While offline traces can convert rep string per-iter instrs into
+            // no-fetch entries, online can't w/o extra work, so we do the work
+            // here:
+            if (prev_instr_addr == input_entry->addr)
+                input_entry->type = TRACE_TYPE_INSTR_NO_FETCH;
+            else
+                input_entry->type = TRACE_TYPE_INSTR;
+            ANNOTATE_FALLTHROUGH;
         case TRACE_TYPE_INSTR:
         case TRACE_TYPE_INSTR_DIRECT_JUMP:
         case TRACE_TYPE_INSTR_INDIRECT_JUMP:
@@ -107,19 +116,31 @@ reader_t::operator++()
         case TRACE_TYPE_INSTR_DIRECT_CALL:
         case TRACE_TYPE_INSTR_INDIRECT_CALL:
         case TRACE_TYPE_INSTR_RETURN:
-            have_memref = true;
-            cur_ref.instr.pid = cur_pid;
-            cur_ref.instr.tid = cur_tid;
-            cur_ref.instr.type = (trace_type_t) input_entry->type;
-            cur_ref.instr.size = input_entry->size;
-            cur_pc = input_entry->addr;
-            cur_ref.instr.addr = cur_pc;
-            next_pc = cur_pc + cur_ref.instr.size;
+        case TRACE_TYPE_INSTR_SYSENTER:
+        case TRACE_TYPE_INSTR_NO_FETCH:
+            assert(cur_tid != 0 && cur_pid != 0);
+            if (input_entry->size == 0) {
+                // Just an entry to tell us the PC of the subsequent memref,
+                // used with -L0_filter where we don't reliably have icache
+                // entries prior to data entries.
+                cur_pc = input_entry->addr;
+            } else {
+                have_memref = true;
+                cur_ref.instr.pid = cur_pid;
+                cur_ref.instr.tid = cur_tid;
+                cur_ref.instr.type = (trace_type_t) input_entry->type;
+                cur_ref.instr.size = input_entry->size;
+                cur_pc = input_entry->addr;
+                cur_ref.instr.addr = cur_pc;
+                next_pc = cur_pc + cur_ref.instr.size;
+                prev_instr_addr = input_entry->addr;
+            }
             break;
         case TRACE_TYPE_INSTR_BUNDLE:
             have_memref = true;
             // The trace stream always has the instr fetch first, which we
             // use to compute the starting PC for the subsequent instructions.
+            assert(type_is_instr(cur_ref.instr.type));
             cur_ref.instr.size = input_entry->length[bundle_idx++];
             cur_pc = next_pc;
             cur_ref.instr.addr = cur_pc;
@@ -131,6 +152,7 @@ reader_t::operator++()
             break;
         case TRACE_TYPE_INSTR_FLUSH:
         case TRACE_TYPE_DATA_FLUSH:
+            assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.flush.pid = cur_pid;
             cur_ref.flush.tid = cur_tid;
             cur_ref.flush.type = (trace_type_t) input_entry->type;
@@ -146,11 +168,15 @@ reader_t::operator++()
             break;
         case TRACE_TYPE_THREAD:
             cur_tid = (memref_tid_t) input_entry->addr;
+            // tid2pid might not be filled in yet: if so, we expect a
+            // TRACE_TYPE_PID entry right after this one, and later asserts
+            // will complain if it wasn't there.
             cur_pid = tid2pid[cur_tid];
             break;
         case TRACE_TYPE_THREAD_EXIT:
             cur_tid = (memref_tid_t) input_entry->addr;
             cur_pid = tid2pid[cur_tid];
+            assert(cur_tid != 0 && cur_pid != 0);
             // We do pass this to the caller but only some fields are valid:
             cur_ref.exit.pid = cur_pid;
             cur_ref.exit.tid = cur_tid;
@@ -158,8 +184,18 @@ reader_t::operator++()
             have_memref = true;
             break;
         case TRACE_TYPE_PID:
+            cur_pid = (memref_pid_t) input_entry->addr;
             // We do want to replace, in case of tid reuse.
-            tid2pid[cur_tid] = (memref_pid_t) input_entry->addr;
+            tid2pid[cur_tid] = cur_pid;
+            break;
+        case TRACE_TYPE_MARKER:
+            have_memref = true;
+            cur_ref.marker.type = (trace_type_t) input_entry->type;
+            assert(cur_tid != 0 && cur_pid != 0);
+            cur_ref.marker.pid = cur_pid;
+            cur_ref.marker.tid = cur_tid;
+            cur_ref.marker.marker_type = (trace_marker_type_t) input_entry->size;
+            cur_ref.marker.marker_value = input_entry->addr;
             break;
         default:
             ERRMSG("Unknown trace entry type %d\n", input_entry->type);

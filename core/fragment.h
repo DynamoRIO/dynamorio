@@ -391,7 +391,7 @@ typedef struct _unprot_ht_statistics_t {
     /* FIXME: this should really go to arch/arch.c instead of here */
 # ifdef WINDOWS
     hashtable_statistics_t shared_syscall_hit_stats; /* miss path shared with trace_ibl */
-#  endif
+# endif
 } unprot_ht_statistics_t;
 #endif /* HASHTABLE_STATISTICS */
 
@@ -463,13 +463,13 @@ typedef struct _fragment_entry_t {
 
 #if defined(RETURN_AFTER_CALL) || defined (RCT_IND_BRANCH)
 /* 3 macros w/ name and types are duplicated in fragment.c -- keep in sync */
-#define NAME_KEY app_pc
-#define ENTRY_TYPE app_pc
+# define NAME_KEY app_pc
+# define ENTRY_TYPE app_pc
 /* not defining HASHTABLE_USE_LOOKUPTABLE */
-#define CUSTOM_FIELDS /* none */
-#define HASHTABLEX_HEADER 1
-#include "hashtablex.h"
-#undef HASHTABLEX_HEADER
+# define CUSTOM_FIELDS /* none */
+# define HASHTABLEX_HEADER 1
+# include "hashtablex.h"
+# undef HASHTABLEX_HEADER
 #endif /* defined(RETURN_AFTER_CALL) || defined (RCT_IND_BRANCH) */
 
 

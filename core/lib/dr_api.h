@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,11 +113,26 @@ DR_EXPORT void dr_init(client_id_t id);
 /* This equals major*100 + minor */
 DR_EXPORT LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
 #else
-LINK_ONCE int _USES_DR_VERSION_ = ${VERSION_NUMBER_INTEGER};
+/* We provide the version as a define but we don't want an actual symbol to avoid
+ * problems when standalone-using libraries are combined with clients.
+ */
+# define _USES_DR_VERSION_ ${VERSION_NUMBER_INTEGER}
 #endif
 
 /* A flag that can be used to identify whether this file was included */
 #define DYNAMORIO_API
+
+/**
+ * This declaration requests that DR perform sanity checks to ensure that client
+ * libraries will also operate safely when linked statically into an
+ * application.  These checks include ensuring that the system allocator is not
+ * called outside of process initialization or exit, where such calls raise
+ * transparency issues due to the lack of isolation without a private loader.
+ * Currently, these checks are only performed in debug builds on UNIX.  This can
+ * be overridden in client code by calling dr_allow_unsafe_static_behavior().
+ */
+#define DR_DISALLOW_UNSAFE_STATIC \
+    DR_EXPORT LINK_ONCE int _DR_DISALLOW_UNSAFE_STATIC_ = 1;
 
 #ifdef __cplusplus
 }

@@ -305,6 +305,8 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc);
 
 void init_emulated_brk(app_pc exe_end);
 
+bool is_DR_segment_reader_entry(app_pc pc);
+
 /***************************************************************************/
 /* in signal.c */
 
@@ -313,9 +315,9 @@ void init_emulated_brk(app_pc exe_end);
 #define NUM_NONRT   32 /* includes 0 */
 #define OFFS_RT     32
 #ifdef LINUX
-#  define NUM_RT    33 /* RT signals are [32..64] inclusive, hence 33. */
+# define NUM_RT    33 /* RT signals are [32..64] inclusive, hence 33. */
 #else
-#  define NUM_RT     0 /* no RT signals */
+# define NUM_RT     0 /* no RT signals */
 #endif
 /* MAX_SIGNUM is the highest valid signum. */
 #define MAX_SIGNUM  ((OFFS_RT) + (NUM_RT) - 1)
@@ -362,6 +364,27 @@ typedef struct _sig_full_cxt_t {
     sigcontext_t *sc;
     void *fp_simd_state;
 } sig_full_cxt_t;
+
+typedef sig_full_cxt_t os_cxt_ptr_t;
+
+extern os_cxt_ptr_t osc_empty;
+
+static inline bool
+is_os_cxt_ptr_null(os_cxt_ptr_t osc)
+{
+    return osc.sc == NULL;
+}
+
+static inline void
+set_os_cxt_ptr_null(os_cxt_ptr_t *osc)
+{
+    *osc = osc_empty;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc);
+/* Only one of mc and dmc can be non-NULL. */
+bool mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc);
 
 void *
 #ifdef MACOS

@@ -68,6 +68,8 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+/* global writable variable for debug registers value */
+DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], {0});
 
 static void
 get_cache_sizes_amd(uint max_ext_val)
@@ -303,6 +305,8 @@ get_processor_specific_info(void)
 void
 proc_init_arch(void)
 {
+    size_t i;
+
     get_processor_specific_info();
 #ifdef X64
     CLIENT_ASSERT(proc_has_feature(FEATURE_LAHF),
@@ -366,6 +370,9 @@ proc_init_arch(void)
         } else {
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
+    }
+    for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
+        debugRegister[i] = NULL;
     }
 }
 

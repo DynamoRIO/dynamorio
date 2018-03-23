@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -355,11 +355,11 @@ fopen_utf8(const char *path, const char *mode)
 static char tool_list[MAXIMUM_PATH];
 
 static void
-print_tool_list(void)
+print_tool_list(FILE *stream)
 {
 #ifdef DRRUN
     if (tool_list[0] != '\0')
-        fprintf(stderr, "       available tools include: %s\n", tool_list);
+        fprintf(stream, "       available tools include: %s\n", tool_list);
 #endif
 }
 
@@ -403,14 +403,16 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
 }
 
 #define usage(list_ops, msg, ...) do {                          \
+    FILE *stream = (list_ops == true) ? stdout : stderr;        \
     if ((msg)[0] != '\0')                                       \
       fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);     \
-    fprintf(stderr, "%s", usage_str);                           \
-    print_tool_list();                                          \
+    fprintf(stream, "%s", usage_str);                           \
+    print_tool_list(stream);                                    \
     if (list_ops) {                                             \
-        fprintf(stderr, options_list_str, tool_list);           \
+        fprintf(stream, options_list_str, tool_list);           \
+        exit(0);                                                \
     } else {                                                    \
-        fprintf(stderr, "Run with -help to see "TOOLNAME" option list\n"); \
+        fprintf(stream, "Run with -help to see "TOOLNAME" option list\n"); \
     }                                                           \
     die();                                                      \
 } while (0)
@@ -506,8 +508,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
                           "Use -root to specify a proper DynamoRIO root directory.", buf);
                 }
                 return false;
-            } else if (!nowarn) {
-                warn("cannot find %s: is this an incomplete installation?", buf);
+            } else {
+                if (strstr(checked_files[i], arch) == NULL) {
+                    /* Support a single-bitwidth package. */
+                    ok = true;
+                } else if (!nowarn)
+                    warn("cannot find %s: is this an incomplete installation?", buf);
             }
         }
     }
@@ -1595,16 +1601,15 @@ _tmain(int argc, TCHAR *targv[])
                 printf("process %d is not running under DR\n", nudge_pid);
             if (res != DR_SUCCESS && res != DR_NUDGE_TIMEOUT) {
                 count = 0;
-                res = ERROR_SUCCESS;
             }
         } else
             res = dr_nudge_process(process, nudge_id, nudge_arg, nudge_timeout, &count);
 
         printf("%d processes nudged\n", count);
         if (res == DR_NUDGE_TIMEOUT)
-            printf("timed out waiting for nudge to complete");
+            printf("timed out waiting for nudge to complete\n");
         else if (res != DR_SUCCESS)
-            printf("nudge operation failed, verify adequate permissions for this operation.");
+            printf("nudge operation failed, verify permissions and parameters.\n");
     }
 #  ifdef WINDOWS
     /* FIXME i#840: Process iterator NYI for Linux. */

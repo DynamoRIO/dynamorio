@@ -266,7 +266,7 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
     /* i#1376c#12: we want to use the pre-SDK 8.0 size.  Otherwise we'll
      * fail when used with an older dbghelp.dll.
      */
-#   define IMAGEHLP_MODULEW64_SIZE_COMPAT 0xcb8
+#define IMAGEHLP_MODULEW64_SIZE_COMPAT 0xcb8
     memset(&info, 0, sizeof(info));
     info.SizeOfStruct = IMAGEHLP_MODULEW64_SIZE_COMPAT;
     /* i#1197: SymGetModuleInfo64 fails on internal wide-to-ascii conversion,
@@ -1844,7 +1844,7 @@ drsym_module_has_symbols(const char *modpath)
                  * override it and assume its value will not change (unlikely
                  * since that would break binary compatibility).
                  */
-#               define sfPdb 2
+#define sfPdb 2
                 if ((*func)(GetCurrentProcess(), NULL, wmodpath, sfPdb,
                             pdb_name, BUFFER_SIZE_ELEMENTS(pdb_name),
                             pdb_path, BUFFER_SIZE_ELEMENTS(pdb_path))) {

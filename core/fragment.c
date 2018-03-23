@@ -5632,7 +5632,7 @@ wait_for_flusher_nolinking(dcontext_t *dcontext)
             dcontext->owning_thread, flusher->owning_thread, flushtime_global);
         mutex_unlock(&pt->linking_lock);
         STATS_INC(num_wait_flush);
-        wait_for_event(pt->finished_all_unlink);
+        wait_for_event(pt->finished_all_unlink, 0);
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
             "Thread "TIDFMT" resuming after flush\n", dcontext->owning_thread);
         mutex_lock(&pt->linking_lock);
@@ -5655,7 +5655,7 @@ wait_for_flusher_linking(dcontext_t *dcontext)
         mutex_unlock(&pt->linking_lock);
         signal_event(pt->waiting_for_unlink);
         STATS_INC(num_wait_flush);
-        wait_for_event(pt->finished_with_unlink);
+        wait_for_event(pt->finished_with_unlink, 0);
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
             "Thread "TIDFMT" resuming after flush\n", dcontext->owning_thread);
         mutex_lock(&pt->linking_lock);
@@ -6441,7 +6441,7 @@ flush_fragments_synch_priv(dcontext_t *dcontext, app_pc base, size_t size,
                 "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
             tgt_pt->wait_for_unlink = true;
             mutex_unlock(&tgt_pt->linking_lock);
-            wait_for_event(tgt_pt->waiting_for_unlink);
+            wait_for_event(tgt_pt->waiting_for_unlink, 0);
             mutex_lock(&tgt_pt->linking_lock);
             tgt_pt->wait_for_unlink = false;
             LOG(THREAD, LOG_FRAGMENT, 2,

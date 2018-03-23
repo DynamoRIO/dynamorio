@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,8 @@
  * get_windows_version() in suite/tests/tools.c, defines in libutil/mfapi.h,
  * and get_platform() in libutil/utils.c.
  */
+#define WINDOWS_VERSION_10_1709 104 /* 10.4 is artificial */
+#define WINDOWS_VERSION_10_1703 103 /* 10.3 is artificial */
 #define WINDOWS_VERSION_10_1607 102 /* 10.2 is artificial */
 #define WINDOWS_VERSION_10_1511 101 /* 10.1 is artificial */
 #define WINDOWS_VERSION_10      100
@@ -170,6 +172,26 @@ int exception_frame_chain_depth(dcontext_t *dcontext);
 /* PR 263338: we have to pad for alignment */
 #define CONTEXT_HEAP_SIZE(cxt) (sizeof(cxt) IF_X64(+8)/*heap is 8-aligned already*/)
 #define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(CONTEXT))
+
+typedef CONTEXT *os_cxt_ptr_t;
+#define osc_empty NULL
+
+static inline bool
+is_os_cxt_ptr_null(os_cxt_ptr_t osc)
+{
+    return osc == NULL;
+}
+
+static inline void
+set_os_cxt_ptr_null(os_cxt_ptr_t *osc)
+{
+    *osc = NULL;
+}
+
+/* Only one of mc and dmc can be non-NULL. */
+bool os_context_to_mcontext(dr_mcontext_t *dmc, priv_mcontext_t *mc, os_cxt_ptr_t osc);
+/* Only one of mc and dmc can be non-NULL. */
+bool mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc);
 
 bool
 thread_get_context(thread_record_t *tr, CONTEXT *context);

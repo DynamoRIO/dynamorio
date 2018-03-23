@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,6 @@
 #include <setjmp.h>
 
 static SIGJMP_BUF mark;
-static int bar;
 
 static void
 #ifdef UNIX
@@ -93,6 +92,7 @@ unintercept_signal(int sig)
 int
 main(int argc, char** argv)
 {
+    int bar;
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGUSR2, signal_handler, false);
     intercept_signal(SIGURG, signal_handler, false);

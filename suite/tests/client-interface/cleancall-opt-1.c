@@ -45,6 +45,7 @@
         FUNCTION(modify_gprs) \
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
+        FUNCTION(bbcount) \
         LAST_FUNCTION()
 
 /* Definitions for every function. */

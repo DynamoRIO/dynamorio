@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -215,11 +215,15 @@ bool
 sysnum_is_not_restartable(int sysnum)
 {
     /* Check the list of non-restartable syscalls.
+     * Since we only check the number, we're inaccurate!
+     * We err on the side of thinking more things are non-restartable
+     * than actually are, as this is only really used for inserting
+     * nops to ensure post-syscall points are safe spots, and too many
+     * nops is better than too few.
      * We're missing:
      * + SYS_read from an inotify file descriptor.
      * We're overly aggressive on:
-     * + Socket interfaces: supposed to restart if no timeout has been set
-     *   but we never restart for simplicity for now.
+     * + Socket interfaces: supposed to restart if no timeout has been set.
      */
     return (
 #ifdef SYS_pause
@@ -316,7 +320,7 @@ sigfd_pipe_free(dcontext_t *dcontext, void *ptr)
 void
 signalfd_init(void)
 {
-#   define SIGNALFD_HTABLE_INIT_SIZE 6
+#define SIGNALFD_HTABLE_INIT_SIZE 6
     sigfd_table =
         generic_hash_create(GLOBAL_DCONTEXT, SIGNALFD_HTABLE_INIT_SIZE,
                             80 /* load factor: not perf-critical */,

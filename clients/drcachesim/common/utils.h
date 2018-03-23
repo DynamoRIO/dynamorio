@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,6 +48,10 @@
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 #define BUFFER_LAST_ELEMENT(buf)    buf[BUFFER_SIZE_ELEMENTS(buf) - 1]
 #define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+#define ALIGN_FORWARD(x, alignment) \
+    ((((ptr_uint_t)x) + ((alignment)-1)) & (~((ptr_uint_t)(alignment)-1)))
 
 #define BOOLS_MATCH(b1, b2) (!!(b1) == !!(b2))
 
@@ -68,12 +72,26 @@
 # define END_PACKED_STRUCTURE __attribute__ ((__packed__))
 #endif
 
+#ifndef __has_cpp_attribute
+# define __has_cpp_attribute(x) 0  // Compatibility with non-clang compilers.
+#endif
+// We annotate to support building with -Wimplicit-fallthrough.
+#if __has_cpp_attribute(clang::fallthrough)
+# define ANNOTATE_FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(gnu::fallthrough)
+# define ANNOTATE_FALLTHROUGH [[gnu::fallthrough]]
+#else
+# define ANNOTATE_FALLTHROUGH
+#endif
+
 #ifdef WINDOWS
 # define DIRSEP "\\"
+# define ALT_DIRSEP "/"
 # define IF_WINDOWS(x) x
 # define IF_UNIX(x)
 #else
 # define DIRSEP "/"
+# define ALT_DIRSEP ""
 # define IF_WINDOWS(x)
 # define IF_UNIX(x) x
 #endif

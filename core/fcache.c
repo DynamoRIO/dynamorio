@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -946,13 +946,13 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
         RSTATS_DEC(fcache_num_free);
         STATS_SUB(fcache_free_capacity, u->size);
     }
-    STATS_SUB(fcache_combined_capacity, u->size);
+    RSTATS_SUB(fcache_combined_capacity, u->size);
     /* remove from interval data struct first to avoid races w/ it
      * being re-used and not showing up in in_fcache
      */
     vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
     if (dealloc_unit)
-        heap_munmap((void*)u->start_pc, UNIT_RESERVED_SIZE(u));
+        heap_munmap((void*)u->start_pc, UNIT_RESERVED_SIZE(u), VMM_CACHE);
     /* always dealloc the metadata */
     nonpersistent_heap_free(GLOBAL_DCONTEXT, u, sizeof(fcache_unit_t)
                             HEAPACCT(ACCT_MEM_MGT));
@@ -1176,6 +1176,45 @@ fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *w
     return found;
 }
 
+/* This is safe to call from a signal handler. */
+dr_where_am_i_t
+fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc,
+                       OUT fragment_t **containing_fragment)
+{
+    if (whereami != DR_WHERE_FCACHE) {
+        if (containing_fragment != NULL)
+            *containing_fragment = NULL;
+        return whereami;
+    }
+    fragment_t wrapper;
+    fragment_t *fragment = fragment_pclookup(dcontext, pc, &wrapper);
+    if (fragment == NULL) {
+        /* Since we're DR_WHERE_FCACHE, our locks shouldn't be held.
+         * XXX: we could double-check fcache_unit_areas.lock before
+         * calling (case 1317) and assert on it.
+         */
+        if (in_fcache(pc)) {
+            whereami = DR_WHERE_UNKNOWN;
+        } else {
+            /* Identify parts of our assembly code now.
+             * It's all generated and post-process can't identify.
+             * Assume code order is as follows:
+             */
+            if (in_context_switch_code(dcontext, (cache_pc)pc)) {
+                whereami = DR_WHERE_CONTEXT_SWITCH;
+            } else if (in_indirect_branch_lookup_code(dcontext,
+                                                      (cache_pc)pc)) {
+                whereami = DR_WHERE_IBL;
+            } else {
+                whereami = DR_WHERE_UNKNOWN;
+            }
+        }
+    }
+    if (containing_fragment != NULL)
+        *containing_fragment = fragment;
+    return whereami;
+}
+
 #ifdef DEBUG
 static bool
 fcache_pc_in_live_unit(fcache_t *cache, cache_pc pc)
@@ -1322,7 +1361,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
             /* allocate new unit */
             commit_size = DYNAMO_OPTION(cache_commit_increment);
             ASSERT(commit_size <= size);
-            u->start_pc = (cache_pc) heap_mmap_reserve(size, commit_size);
+            u->start_pc = (cache_pc) heap_mmap_reserve(size, commit_size, VMM_CACHE);
         }
         ASSERT(u->start_pc != NULL);
         ASSERT(proc_is_cache_aligned((void *)u->start_pc));
@@ -1331,8 +1370,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
         u->end_pc = u->start_pc + commit_size;
         u->reserved_end_pc = u->start_pc + size;
         vmvector_add(fcache_unit_areas, u->start_pc, u->reserved_end_pc, (void *) u);
-        STATS_ADD(fcache_combined_capacity, u->size);
-        STATS_MAX(peak_fcache_combined_capacity, fcache_combined_capacity);
+        RSTATS_ADD_PEAK(fcache_combined_capacity, u->size);
 
 #ifdef WINDOWS_PC_SAMPLE
         if (dynamo_options.profile_pcs &&
@@ -1845,14 +1883,14 @@ cache_extend_commitment(fcache_unit_t *unit, size_t commit_size)
 {
     ASSERT(unit != NULL);
     ASSERT(ALIGNED(commit_size, DYNAMO_OPTION(cache_commit_increment)));
-    heap_mmap_extend_commitment(unit->end_pc, commit_size);
+    heap_mmap_extend_commitment(unit->end_pc, commit_size, VMM_CACHE);
     unit->end_pc += commit_size;
     unit->size += commit_size;
     unit->cache->size += commit_size;
     unit->full = false;
     STATS_FCACHE_ADD(unit->cache, capacity, commit_size);
     STATS_FCACHE_MAX(unit->cache, capacity_peak, capacity);
-    STATS_ADD(fcache_combined_capacity, commit_size);
+    RSTATS_ADD_PEAK(fcache_combined_capacity, commit_size);
     ASSERT(unit->end_pc <= unit->reserved_end_pc);
     ASSERT(unit->size <= UNIT_RESERVED_SIZE(unit));
 }
@@ -1951,7 +1989,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                 tu->pending_unmap_pc = unit->start_pc;
                 tu->pending_unmap_size = UNIT_RESERVED_SIZE(unit);
                 STATS_FCACHE_SUB(cache, capacity, unit->size);
-                STATS_SUB(fcache_combined_capacity, unit->size);
+                RSTATS_SUB(fcache_combined_capacity, unit->size);
 #ifdef WINDOWS_PC_SAMPLE
                 if (u->profile != NULL) {
                     free_profile(u->profile);
@@ -1982,13 +2020,12 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         ASSERT(commit_size >= slot_size);
         commit_size += unit->size;
         ASSERT(commit_size <= new_size);
-        new_memory = (cache_pc) heap_mmap_reserve(new_size, commit_size);
+        new_memory = (cache_pc) heap_mmap_reserve(new_size, commit_size, VMM_CACHE);
         STATS_FCACHE_SUB(cache, capacity, unit->size);
         STATS_FCACHE_ADD(cache, capacity, commit_size);
         STATS_FCACHE_MAX(cache, capacity_peak, capacity);
-        STATS_SUB(fcache_combined_capacity, unit->size);
-        STATS_ADD(fcache_combined_capacity, commit_size);
-        STATS_MAX(peak_fcache_combined_capacity, fcache_combined_capacity);
+        RSTATS_SUB(fcache_combined_capacity, unit->size);
+        RSTATS_ADD_PEAK(fcache_combined_capacity, commit_size);
         LOG(THREAD, LOG_HEAP, 3, "fcache_increase_size -> "PFX"\n", new_memory);
         ASSERT(new_memory != NULL);
         ASSERT(proc_is_cache_aligned((void *)new_memory));
@@ -2154,7 +2191,7 @@ fcache_thread_reset_free(dcontext_t *dcontext)
          */
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
                         tu->pending_unmap_pc+tu->pending_unmap_size);
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
         tu->pending_unmap_pc = NULL;
     }
     if (tu->bb != NULL) {
@@ -2704,9 +2741,9 @@ removed_fragment_stats(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
         if (!EXIT_HAS_LOCAL_STUB(l->flags, f->flags))
             continue; /* it's kept elsewhere */
         sz = linkstub_size(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
+# ifdef CUSTOM_EXIT_STUBS
         sz += l->fixed_stub_offset;
-#endif
+# endif
         if (LINKSTUB_INDIRECT(l->flags))
             STATS_FCACHE_ADD(cache, indirect_stubs, -sz);
         else {
@@ -3607,7 +3644,7 @@ fcache_add_fragment(dcontext_t *dcontext, fragment_t *f)
         vmvector_remove(fcache_unit_areas, tu->pending_unmap_pc,
                         tu->pending_unmap_pc+tu->pending_unmap_size);
         /* caller must dec stats since here we don't know type of cache */
-        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size);
+        heap_munmap(tu->pending_unmap_pc, tu->pending_unmap_size, VMM_CACHE);
         tu->pending_unmap_pc = NULL;
     }
 
@@ -4265,9 +4302,9 @@ fcache_reset_all_caches_proactively(uint target)
         /* monitor only has thread-private data */
         /* arch and os data is all persistent */
         vm_areas_reset_free();
-# ifdef HOT_PATCHING_INTERFACE
+#ifdef HOT_PATCHING_INTERFACE
         hotp_reset_free();
-# endif
+#endif
         /* now we throw out all non-persistent global heap units */
         heap_reset_free();
 

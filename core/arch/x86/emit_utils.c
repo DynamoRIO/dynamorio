@@ -2558,7 +2558,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
 #ifdef X64
     if (IS_IBL_TRACE(ibl_code->source_fragment_type) &&
         !GENCODE_IS_X86(code->gencode_mode)) {
-        if (DYNAMO_OPTION(unsafe_ignore_eflags_trace)) { /*==unsafe_ignore_eflags_ibl */
+        if (INTERNAL_OPTION(unsafe_ignore_eflags_trace)) { /*==unsafe_ignore_eflags_ibl */
             /* trace_cmp link and unlink entries are identical to regular */
             add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
                              0 /* beginning of instruction */,
@@ -2745,7 +2745,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
 #ifdef X64
         if (IS_IBL_TRACE(ibl_code->source_fragment_type) &&
             !GENCODE_IS_X86(code->gencode_mode) &&
-            !DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
+            !INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
             instr_t *trace_cmp_unlinked = INSTR_CREATE_label(dcontext);
             APP(&ilist, trace_cmp_unlinked);
             add_patch_marker(patch, trace_cmp_unlinked, PATCH_ASSEMBLE_ABSOLUTE,

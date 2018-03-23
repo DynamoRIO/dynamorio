@@ -147,7 +147,7 @@ dispatch(dcontext_t *dcontext)
 # endif
     ASSERT(dcontext == get_thread_private_dcontext() ||
            /* i#813: the app hit our post-sysenter hook while native */
-           (dcontext->whereami == WHERE_APP &&
+           (dcontext->whereami == DR_WHERE_APP &&
             dcontext->last_exit == get_syscall_linkstub()));
 #else
 # ifdef UNIX
@@ -517,7 +517,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
          * to be safe for unlinking.
          */
         KSTOP_NOT_MATCHING(fcache_default);
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         enter_couldbelinking(dcontext, NULL, true);
         dcontext->next_tag = dcontext->asynch_target;
         LOG(THREAD, LOG_DISPATCH, 2,
@@ -569,7 +569,7 @@ enter_fcache(dcontext_t *dcontext, fcache_enter_func_t entry, cache_pc pc)
     }
 #endif
 
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     (*entry)(dcontext);
     IF_WINDOWS(ASSERT_NOT_REACHED()); /* returns for signals on unix */
 }
@@ -711,7 +711,7 @@ dispatch_enter_native(dcontext_t *dcontext)
 #endif
     }
     set_fcache_target(dcontext, dcontext->next_tag);
-    dcontext->whereami = WHERE_APP;
+    dcontext->whereami = DR_WHERE_APP;
 #ifdef UNIX
     do {
         (*go_native)(dcontext);
@@ -731,14 +731,14 @@ static void
 dispatch_enter_dynamorio(dcontext_t *dcontext)
 {
     /* We're transitioning to DynamoRIO from somewhere: either the fcache,
-     * the kernel (WHERE_TRAMPOLINE), or the app itself via our start/stop API.
-     * N.B.: set whereami to WHERE_APP iff this is the first dispatch() entry
+     * the kernel (DR_WHERE_TRAMPOLINE), or the app itself via our start/stop API.
+     * N.B.: set whereami to DR_WHERE_APP iff this is the first dispatch() entry
      * for this thread!
      */
-    where_am_i_t wherewasi = dcontext->whereami;
+    dr_where_am_i_t wherewasi = dcontext->whereami;
 #ifdef UNIX
-    if (!(wherewasi == WHERE_FCACHE || wherewasi == WHERE_TRAMPOLINE ||
-          wherewasi == WHERE_APP)) {
+    if (!(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
+          wherewasi == DR_WHERE_APP)) {
         /* This is probably our own syscalls hitting our own sysenter
          * hook (PR 212570), since we're not completely user library
          * independent (PR 206369).
@@ -756,9 +756,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                        "DR's own syscall (via user library) hit the sysenter hook");
     }
 #endif
-    ASSERT(wherewasi == WHERE_FCACHE || wherewasi == WHERE_TRAMPOLINE ||
-           wherewasi == WHERE_APP);
-    dcontext->whereami = WHERE_DISPATCH;
+    ASSERT(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
+           wherewasi == DR_WHERE_APP);
+    dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));
     /* CANNOT hold any locks across cache execution, as our thread synch
@@ -775,7 +775,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 #endif
 
     DOLOG(2, LOG_INTERP, {
-        if (wherewasi == WHERE_APP) {
+        if (wherewasi == DR_WHERE_APP) {
             LOG(THREAD, LOG_INTERP, 2, "\ninitial dispatch: target = "PFX"\n",
                 dcontext->next_tag);
             dump_mcontext_callstack(dcontext);
@@ -791,14 +791,14 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      * messy that we're violating assumption of no ptrs...
      */
 
-    if (wherewasi == WHERE_APP) { /* first entrance */
+    if (wherewasi == DR_WHERE_APP) { /* first entrance */
         if (dcontext->last_exit == get_syscall_linkstub()) {
             /* i#813: the app hit our post-sysenter hook while native.
              * XXX: should we try to process ni syscalls here?  But we're only
              * seeing post- and not pre-.
              */
             LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
-            ASSERT(dcontext->currently_stopped);
+            ASSERT(dcontext->currently_stopped || IS_CLIENT_THREAD(dcontext));
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
             dcontext->native_exec_postsyscall =
                 IF_UNIX_ELSE(vsyscall_sysenter_displaced_pc, vsyscall_syscall_end_pc);
@@ -870,9 +870,20 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
     /* KSWITCHed next time around for a better explanation */
     KSTART_DC(dcontext, dispatch_num_exits);
 
-    if (wherewasi != WHERE_APP) { /* if not first entrance */
+    if (wherewasi != DR_WHERE_APP) { /* if not first entrance */
         if (get_at_syscall(dcontext))
             handle_post_system_call(dcontext);
+
+#ifdef X86
+        /* If the next basic block starts at a debug register value,
+         * we fire a single step exception before getting to the basic block. */
+        if (debug_register_fire_on_addr(dcontext->next_tag)) {
+            LOG(THREAD, LOG_DISPATCH, 2, "Generates single step before "PFX"\n",
+                dcontext->next_tag);
+            os_forge_exception(dcontext->next_tag, SINGLE_STEP_EXCEPTION);
+            ASSERT_NOT_REACHED();
+        }
+#endif
 
         /* A non-ignorable syscall or cb return ending a bb must be acted on
          * We do it here to avoid becoming couldbelinking twice.
@@ -956,7 +967,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         ASSERT(LINKSTUB_FAKE(dcontext->last_exit));
     }
 
-    if (wherewasi != WHERE_APP) { /* if not first entrance */
+    if (wherewasi != DR_WHERE_APP) { /* if not first entrance */
         /* now fully process the last cache exit as couldbelinking */
         dispatch_exit_fcache(dcontext);
     }
@@ -1130,7 +1141,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
-                wait_for_event(resume_from_sideline_event);
+                wait_for_event(resume_from_sideline_event, 0);
                 mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH|LOG_THREADS|LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);
@@ -1769,8 +1780,11 @@ adjust_syscall_continuation(dcontext_t *dcontext)
                /* dr_syscall_invoke_another() hits this */
                dcontext->asynch_target == vsyscall_sysenter_displaced_pc);
         /* i#1939: we do need to adjust for 4.4.8+ kernels */
-        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL)
+        if (!dcontext->sys_was_int && vsyscall_sysenter_displaced_pc != NULL) {
             dcontext->asynch_target = vsyscall_sysenter_displaced_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
+        }
 # endif
     } else if (vsyscall_syscall_end_pc != NULL &&
                /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
@@ -1784,6 +1798,8 @@ adjust_syscall_continuation(dcontext_t *dcontext)
         if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
             ASSERT(vsyscall_sysenter_return_pc != NULL);
             dcontext->asynch_target = vsyscall_sysenter_return_pc;
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "%s: asynch_target => "PFX"\n", __FUNCTION__, dcontext->asynch_target);
         }
     }
 }
@@ -2031,7 +2047,7 @@ handle_system_call(dcontext_t *dcontext)
             /* avoid synch errors with dispatch -- since enter_fcache will set
              * whereami for prev dcontext, not real one!
              */
-            tmp_dcontext->whereami = WHERE_FCACHE;
+            tmp_dcontext->whereami = DR_WHERE_FCACHE;
         }
 #endif
 
@@ -2069,7 +2085,7 @@ handle_system_call(dcontext_t *dcontext)
         if (dcontext->signals_pending) {
             /* i#2019: see comments in dispatch_enter_fcache() */
             KSTOP(syscall_fcache);
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             set_at_syscall(dcontext, false);
             /* We need to remember both the post-syscall resumption point and
              * the fact that we need to execute a syscall, but we only have
@@ -2221,7 +2237,7 @@ handle_callback_return(dcontext_t *dcontext)
     SELF_PROTECT_LOCAL(dcontext, READONLY);
 
     /* obey flushing protocol, plus set whereami (both using real dcontext) */
-    dcontext->whereami = WHERE_FCACHE;
+    dcontext->whereami = DR_WHERE_FCACHE;
     set_at_syscall(dcontext, true); /* will be set to false on other end's post-syscall */
     ASSERT(!is_couldbelinking(dcontext));
 

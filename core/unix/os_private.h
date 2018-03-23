@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,6 +46,7 @@
 #include <sys/time.h> /* struct itimerval */
 #include "dr_config.h" /* for dr_platform_t */
 #include "tls.h"
+#include "memquery.h"
 
 /* for inline asm */
 #ifdef X86
@@ -86,17 +87,17 @@
 /* While there is no clone system call, we use the same clone flags to share
  * code more easily with Linux.
  */
-#  define CLONE_VM             0x00000100
-#  define CLONE_FS             0x00000200
-#  define CLONE_FILES          0x00000400
-#  define CLONE_SIGHAND        0x00000800
-#  define CLONE_VFORK          0x00004000
-#  define CLONE_PARENT         0x00008000
-#  define CLONE_THREAD         0x00010000
-#  define CLONE_SYSVSEM        0x00040000
-#  define CLONE_SETTLS         0x00080000
-#  define CLONE_PARENT_SETTID  0x00100000
-#  define CLONE_CHILD_CLEARTID 0x00200000
+# define CLONE_VM             0x00000100
+# define CLONE_FS             0x00000200
+# define CLONE_FILES          0x00000400
+# define CLONE_SIGHAND        0x00000800
+# define CLONE_VFORK          0x00004000
+# define CLONE_PARENT         0x00008000
+# define CLONE_THREAD         0x00010000
+# define CLONE_SYSVSEM        0x00040000
+# define CLONE_SETTLS         0x00080000
+# define CLONE_PARENT_SETTID  0x00100000
+# define CLONE_CHILD_CLEARTID 0x00200000
 #endif
 
 /* Clone flags use by pthreads on Linux 2.6.38.  May need updating over time.
@@ -192,7 +193,7 @@ typedef struct ptrace_stack_args_t {
 } ptrace_stack_args_t;
 
 /* in os.c */
-void os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
+bool os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset);
 
 void *os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t seg);
 
@@ -234,6 +235,12 @@ void
 fd_table_add(file_t fd, uint flags);
 
 uint permstr_to_memprot(const char * const perm);
+
+/* The caller needs to bracket this with memquery_iterator_{start,stop}.
+ * Returns the number of executable regions found in the address space.
+ */
+int
+os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 
 /* in signal.c */
 struct _kernel_sigaction_t;
@@ -302,10 +309,12 @@ signal_handle_close(dcontext_t *dcontext, file_t fd);
 #endif
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full);
+sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
+                       dr_mcontext_flags_t flags);
 
 void
-mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc);
+mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
+                       dr_mcontext_flags_t flags);
 
 bool
 set_default_signal_action(int sig);
@@ -356,7 +365,7 @@ void pcprofile_fork_init(dcontext_t *dcontext);
 void os_request_live_coredump(const char *msg);
 
 #ifdef VMX86_SERVER
-#  include "vmkuw.h"
+# include "vmkuw.h"
 #endif
 
 /* in loader.c */

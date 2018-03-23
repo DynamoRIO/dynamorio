@@ -87,10 +87,12 @@ ksynch_set_value(mac_synch_t *synch, int new_val);
 KSYNCH_TYPE *
 mutex_get_contended_event(mutex_t *lock);
 
-/* These return 0 on success: */
+/* These return 0 on success and a negative value on failure. ksynch_wait
+ * returns -ETIMEDOUT if there was a timeout condition.
+ */
 
 ptr_int_t
-ksynch_wait(KSYNCH_TYPE *var, int mustbe);
+ksynch_wait(KSYNCH_TYPE *var, int mustbe, int timeout_ms);
 
 ptr_int_t
 ksynch_wake(KSYNCH_TYPE *var);

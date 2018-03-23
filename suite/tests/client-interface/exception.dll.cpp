@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,7 +48,7 @@ static int
 dl_iterate_cb(struct dl_phdr_info *info, size_t size, void *data)
 {
 # ifdef VERBOSE
-    dr_printf("dl_iterate_cb: addr="PFX" hdrs="PFX" num=%d name=%s\n",
+    dr_printf("dl_iterate_cb: addr=" PFX" hdrs=" PFX" num=%d name=%s\n",
               info->dlpi_addr, info->dlpi_phdr, info->dlpi_phnum, info->dlpi_name);
 # endif
     return 0; /* continue */

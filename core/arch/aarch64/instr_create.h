@@ -1,7 +1,7 @@
 /* **********************************************************
+ * Copyright (c) 2011-2017 Google, Inc. All rights reserved.
+ * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
- * Copyright (c) 2011-2015 Google, Inc. All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,44 @@
 
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
 /* DR_API EXPORT BEGIN */
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * half-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_HALF 1
+
+/**
+ * Operand indicating half-precision floating point vector elements for the
+ * other operands of the containing instruction.
+ */
+#define OPND_CREATE_HALF() OPND_CREATE_INT8(FSZ_HALF)
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * single-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_SINGLE 2
+
+/**
+ * Operand indicating single-precision floating point vector elements for the
+ * other operands of the containing instruction.
+ */
+#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(FSZ_SINGLE)
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * double-precision floating point vector elements. See \ref sec_IR_AArch64.
+ */
+#define FSZ_DOUBLE 3
+
+/**
+ * Operand indicating double-precision floating point vector elements for the
+ * other operands of the containing instruction.
+ */
+#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(FSZ_DOUBLE)
+
+
 /**
  * @file dr_ir_macros_aarch64.h
  * @brief AArch64-specific instruction creation convenience macros.
@@ -251,6 +289,21 @@
 #define XINST_CREATE_call(dc, t) INSTR_CREATE_bl(dc, t)
 
 /**
+ * This platform-independent macro creates an instr_t for a conditional
+ * branch instruction that branches if the previously-set condition codes
+ * indicate the condition indicated by \p pred.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param pred  The #dr_pred_type_t condition to match.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define XINST_CREATE_jump_cond(dc, pred, t) \
+    (INSTR_PRED(INSTR_CREATE_bcond((dc), (t)), (pred)))
+
+/**
  * This platform-independent macro creates an instr_t for an addition
  * instruction that does not affect the status flags.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
@@ -271,6 +324,23 @@
  * can be either a register or an immediate integer.
  */
 #define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add(dc, d, s1, s2)
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags and takes two register sources
+ * plus a destination, with one source being shifted logically left by
+ * an immediate amount that is limited to either 0, 1, 2, or 3.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s1  The opnd_t explicit first source operand for the instruction.  This
+ * must be a register.
+ * \param s2_toshift  The opnd_t explicit source operand for the instruction.  This
+ * must be a register.
+ * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
+ */
+#define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
+  INSTR_CREATE_add_shift((dc), (d), (s1), (s2_toshift), \
+    OPND_CREATE_LSL(), OPND_CREATE_INT8(shift_amount))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -326,6 +396,25 @@
 #define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_svc(dc, (i))
 
 /**
+ * This platform-independent macro creates an instr_t for a logical right shift
+ * instruction that does affect the status flags.
+ * \param dc         The void * dcontext used to allocate memory for the instr_t.
+ * \param d          The opnd_t explicit destination operand for the instruction.
+ * \param rm_or_imm  The opnd_t explicit source operand for the instruction.
+ */
+/* FIXME i#2440: I'm not sure this is correct.  Use INSTR_CREATE_lsr once available!
+ * Also, what about writing the flags?  Most users don't want to read the flag results,
+ * they just need to know whether they need to preserve the app's flags, so maybe
+ * we can just document that this may not write them.
+ */
+#define XINST_CREATE_slr_s(dc, d, rm_or_imm) \
+  (opnd_is_reg(rm_or_imm) ? \
+    instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm) : \
+    instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm, \
+                           reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : \
+                                                           OPND_CREATE_INT(63)))
+
+/**
  * This platform-independent macro creates an instr_t for a nop instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
@@ -352,18 +441,9 @@
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
   instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
-#define INSTR_CREATE_adds_extend(dc, rd, rn, rm, ext, exa) \
-  instr_create_1dst_4src(dc, OP_adds, rd, rn, \
-    opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
-    opnd_add_flags(ext, DR_OPND_IS_EXTEND), \
-    exa)
-#define INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, sht, sha) \
-  opnd_is_reg(rm_or_imm) ? \
-  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), \
-    opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED), \
-    opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha)) : \
-  instr_create_1dst_4src((dc), OP_adds, (rd), (rn), (rm_or_imm), (sht), (sha))
+  (opnd_is_reg(rm_or_imm) ? \
+    INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)) : \
+    INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
 #define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
   INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
@@ -378,7 +458,14 @@
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) \
   instr_create_0dst_1src((dc), OP_b, (pc))
-
+/**
+ * This macro creates an instr_t for a conditional branch instruction. The condition
+ * can be set using INSTR_PRED macro.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The opnd_t target operand containing the program counter to jump to.
+ */
+#define INSTR_CREATE_bcond(dc, pc) \
+  instr_create_0dst_1src((dc), OP_bcond, (pc))
 /**
  * This macro creates an instr_t for a BL (branch and link) instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
@@ -387,6 +474,16 @@
 #define INSTR_CREATE_bl(dc, pc) \
   instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
+#define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) \
+  instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
+#define INSTR_CREATE_adds_extend(dc, Rd, Rn, Rm, shift, imm3) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED), opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
+#define INSTR_CREATE_adds_imm(dc, Rd, Rn, imm12, shift_amt) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), (imm12), OPND_CREATE_LSL(), (shift_amt))
+#define INSTR_CREATE_adds_shift(dc, Rd, Rn, Rm, shift, imm6) \
+  instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
 #define INSTR_CREATE_br(dc, xn) \
   instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn) \
@@ -398,7 +495,7 @@
 #define INSTR_CREATE_cbz(dc, pc, reg) \
   instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
-  instr_create_1dst_2src(dc, OP_subs, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+  INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
   instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) \
@@ -407,6 +504,12 @@
   instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrh(dc, Rd, mem) \
   instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldar(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
+#define INSTR_CREATE_ldarb(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
+#define INSTR_CREATE_ldarh(dc, Rt, mem) \
+  instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
   instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
@@ -471,6 +574,29 @@
   INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)
 #define INSTR_CREATE_sub_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
+
+
+/**
+ * Creates a FMUL vector instruction.
+ * \param dc     The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd     The output register.
+ * \param Rm     The first input register.
+ * \param Rn     The second input register.
+ * \param width  The vector element width. Use either OPND_CREATE_HALF(),
+ *               OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fmul_vector(dc, Rd, Rm, Rn, width) \
+    instr_create_1dst_3src(dc, OP_fmul, Rd, Rm, Rn, width)
+
+/**
+ * Creates a FMUL floating point instruction.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd   The output register.
+ * \param Rm   The first input register.
+ * \param Rn   The second input register.
+ */
+#define INSTR_CREATE_fmul_scalar(dc, Rd, Rm, Rn) \
+    instr_create_1dst_2src(dc, OP_fmul, Rd, Rm, Rn)
 
 /* DR_API EXPORT END */
 

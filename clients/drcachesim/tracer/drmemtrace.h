@@ -1,5 +1,5 @@
 /* **********************************************************
- * (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,18 +41,30 @@
 
 /**
  * @file drmemtrace.h
- * @brief Header for DynamoRIO Tracer Library
+ * @brief Header for customizing the DrMemtrace tracer.
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** Status return values from drmemtrace functions. */
 typedef enum {
     DRMEMTRACE_SUCCESS,                  /**< Operation succeeded. */
     DRMEMTRACE_ERROR,                    /**< Operation failed. */
-    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
+    DRMEMTRACE_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter. */
+    DRMEMTRACE_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not implemented. */
 } drmemtrace_status_t;
+
+DR_EXPORT
+/**
+ * To support statically linking multiple clients on UNIX, dr_client_main() inside
+ * drmemtrace is a weak symbol which just calls the real initializer
+ * drmemtrace_client_main().  An enclosing application can override dr_client_main()
+ * and invoke drmemtrace_client_main() explicitly at a time of its choosing.
+ */
+void
+drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
 
 /**
  * Function for file open.
@@ -205,11 +217,17 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the output directory in -offline mode
+ * where data is being written.
+ */
+drmemtrace_status_t
+drmemtrace_get_output_path(OUT const char **path);
+
+DR_EXPORT
+/**
  * Retrieves the full path to the file in -offline mode where module data is written.
- * Its creation can be customized using drmemtrace_custom_module_data()
- * and then modified before passing to raw2trace via
- * drmodtrack_add_custom_data() with a parse and free callback
- * and drmodtrack_offline_write() to produce new file contents.
+ * Its creation can be customized using drmemtrace_custom_module_data() with
+ * corresponding post-processing with raw2trace_t::handle_custom_data().
  */
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path);
@@ -222,18 +240,32 @@ DR_EXPORT
  * to a string with \p print_cb, which should return the number of characters
  * printed or -1 on error.  The data is freed with \p free_cb.
  *
- * The user can read and modify the resulting \p modules.log file, prior to
- * passing through the raw2trace post-processor.  Its path can be obtained from
- * drmemtrace_get_modlist_path() (unless drmemtrace_replace_file_ops() moved it:
- * then it's up to the caller to locate and process it), and the \p drmodtrack
- * API can be used to remove the custom field, update the path, and rewrite the
- * file: drmodtrack_add_custom_data(), drmodtrack_offline_read(),
- * drmodtrack_offline_lookup(), drmodtrack_offline_write().
+ * On the post-processing side, the user should create a custom post-processor
+ * by linking with raw2trace and calling raw2trace_t::handle_custom_data() to provide
+ * parsing and processing routines for the custom data.
  */
 drmemtrace_status_t
 drmemtrace_custom_module_data(void * (*load_cb)(module_data_t *module),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
+
+/**
+ * Activates thread filtering.  The \p should_trace_thread_cb will be
+ * called once for each new thread, with \p user_value passed in for \p
+ * user_data.  If it returns false, that thread will *not* be traced at
+ * all; if it returns true, that thread will be traced normally.  Returns
+ * whether the filter was successfully installed.  \note This feature is
+ * currently only supported for x86.
+ * This routine should be called during initialization, before any
+ * instrumentation is added.  To filter out the calling thread (the initial
+ * application thread) this should be called prior to DR initialization
+ * (via the start/stop API).  Only a single call to this routine is
+ * supported.
+ */
+drmemtrace_status_t
+drmemtrace_filter_threads(bool (*should_trace_thread_cb)(thread_id_t tid,
+                                                         void *user_data),
+                          void *user_value);
 
 #ifdef __cplusplus
 }

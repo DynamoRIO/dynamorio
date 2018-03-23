@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,7 +38,8 @@
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
-#include "../common/memref.h"
+#include "memref.h"
+#include "prefetcher.h"
 
 // Statistics collection is abstracted out into the caching_device_stats_t class.
 
@@ -53,12 +54,18 @@ class caching_device_t
  public:
     caching_device_t();
     virtual bool init(int associativity, int block_size, int num_blocks,
-                      caching_device_t *parent, caching_device_stats_t *stats);
+                      caching_device_t *parent, caching_device_stats_t *stats,
+                      prefetcher_t *prefetcher = nullptr);
     virtual ~caching_device_t();
     virtual void request(const memref_t &memref);
 
     caching_device_stats_t *get_stats() const { return stats; }
+    void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
+    prefetcher_t *get_prefetcher() const { return prefetcher; }
     caching_device_t *get_parent() const { return parent; }
+    inline double get_loaded_fraction() const {
+        return double(loaded_blocks)/num_blocks;
+    }
 
  protected:
     virtual void access_update(int block_idx, int way);
@@ -77,6 +84,8 @@ class caching_device_t
     int associativity;
     int block_size;
     int num_blocks;
+    // Current valid blocks in the cache
+    int loaded_blocks;
     caching_device_t *parent;
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
@@ -89,6 +98,7 @@ class caching_device_t
     int block_size_bits;
 
     caching_device_stats_t *stats;
+    prefetcher_t *prefetcher;
 
     // Optimization: remember last tag
     addr_t last_tag;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1802,6 +1802,12 @@ vm_areas_exit()
 }
 
 void
+vm_areas_post_exit()
+{
+    vm_areas_exited = false;
+}
+
+void
 vm_areas_thread_reset_init(dcontext_t *dcontext)
 {
     thread_data_t *data = (thread_data_t *) dcontext->vm_areas_field;
@@ -2110,6 +2116,12 @@ vmvector_reset_vector(dcontext_t *dcontext, vm_area_vector_t *v)
     });
     /* with thread shared cache it is in fact possible to have no thread local vmareas */
     if (v->buf != NULL) {
+        if (v->free_payload_func != NULL) {
+            int i;
+            for (i = 0; i < v->length; i++) {
+                v->free_payload_func(v->buf[i].custom.client);
+            }
+        }
         /* FIXME: walk through and make sure frags lists are all freed */
         global_heap_free(v->buf, v->size*sizeof(struct vm_area_t) HEAPACCT(ACCT_VMAREAS));
         v->size = 0;
@@ -2130,12 +2142,6 @@ vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 void
 vmvector_delete_vector(dcontext_t *dcontext, vm_area_vector_t *v)
 {
-    if (v->free_payload_func != NULL) {
-        int i;
-        for (i = 0; i < v->length; i++) {
-            v->free_payload_func(v->buf[i].custom.client);
-        }
-    }
     vmvector_free_vector(dcontext, v);
     HEAP_TYPE_FREE(dcontext, v, vm_area_vector_t, ACCT_VMAREAS, PROTECTED);
 }
@@ -3123,6 +3129,8 @@ mark_executable_area_coarse_frozen(coarse_info_t *frozen)
  */
 static bool
 executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_area,
+                             /* first_match_start is only set for !are_all_matching */
+                             app_pc *first_match_start,
                              bool are_all_matching /* ALL when true,
                                                       EXISTS when false */,
                              uint match_vm_flags, uint match_frag_flags)
@@ -3148,8 +3156,11 @@ executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_are
                 return false;
         } else {
             if (TESTALL(match_vm_flags, area->vm_flags) &&
-                TESTALL(match_frag_flags, area->frag_flags))
+                TESTALL(match_frag_flags, area->frag_flags)) {
+                if (first_match_start != NULL)
+                    *first_match_start = area->start;
                 return true;
+            }
         }
         if (area->end < page_end || page_end == NULL)
             page_start = area->end;
@@ -3169,10 +3180,22 @@ is_executable_area_writable(app_pc addr)
     bool writable;
     read_lock(&executable_areas->lock);
     writable = executable_areas_match_flags(addr, addr+1 /* open ended */,
-                                            NULL, false /* EXISTS */,
+                                            NULL, NULL, false /* EXISTS */,
                                             VM_MADE_READONLY, 0);
     read_unlock(&executable_areas->lock);
     return writable;
+}
+
+app_pc
+is_executable_area_writable_overlap(app_pc start, app_pc end)
+{
+    app_pc match_start = NULL;
+    bool writable;
+    read_lock(&executable_areas->lock);
+    writable = executable_areas_match_flags(start, end, NULL, &match_start,
+                                            false /* EXISTS */, VM_MADE_READONLY, 0);
+    read_unlock(&executable_areas->lock);
+    return match_start;
 }
 
 #if defined(DEBUG) /* since only used for a stat right now */
@@ -3185,13 +3208,13 @@ is_executable_area_writable(app_pc addr)
  * whether all regions need to match flags, or whether a matching
  * region exists.
  */
-static bool
-is_executable_area_writable_overlap(app_pc start, app_pc end,
-                                    bool are_all_matching, uint match_vm_flags)
+bool
+is_executable_area_overlap(app_pc start, app_pc end,
+                           bool are_all_matching, uint match_vm_flags)
 {
     bool writable;
     read_lock(&executable_areas->lock);
-    writable = executable_areas_match_flags(start, end, NULL,
+    writable = executable_areas_match_flags(start, end, NULL, NULL,
                                             are_all_matching, match_vm_flags, 0);
     read_unlock(&executable_areas->lock);
     return writable;
@@ -3216,7 +3239,7 @@ executable_vm_area_coarse_overlap(app_pc start, app_pc end)
 {
     bool match;
     read_lock(&executable_areas->lock);
-    match = executable_areas_match_flags(start, end, NULL, false/*exists, not all*/,
+    match = executable_areas_match_flags(start, end, NULL, NULL, false/*exists, not all*/,
                                          0, FRAG_COARSE_GRAIN);
     read_unlock(&executable_areas->lock);
     return match;
@@ -3230,7 +3253,7 @@ executable_vm_area_persisted_overlap(app_pc start, app_pc end)
 {
     bool match;
     read_lock(&executable_areas->lock);
-    match = executable_areas_match_flags(start, end, NULL, false/*exists, not all*/,
+    match = executable_areas_match_flags(start, end, NULL, NULL, false/*exists, not all*/,
                                          VM_PERSISTED_CACHE, 0);
     read_unlock(&executable_areas->lock);
     return match;
@@ -3242,7 +3265,7 @@ executable_vm_area_executed_from(app_pc start, app_pc end)
 {
     bool match;
     read_lock(&executable_areas->lock);
-    match = executable_areas_match_flags(start, end, NULL, false/*exists, not all*/,
+    match = executable_areas_match_flags(start, end, NULL, NULL, false/*exists, not all*/,
                                          VM_EXECUTED_FROM, 0);
     read_unlock(&executable_areas->lock);
     return match;
@@ -3377,14 +3400,14 @@ vm_area_coarse_iter_stop(vmvector_iterator_t *vmvi)
 /* returns true if addr is on a page that contains at least one selfmod
  * region and no non-selfmod regions.
  */
-bool
+static bool
 is_executable_area_on_all_selfmod_pages(app_pc start, app_pc end)
 {
     bool all_selfmod;
     bool found;
     read_lock(&executable_areas->lock);
     all_selfmod = executable_areas_match_flags(start, end,
-                                               &found, true /* ALL */,
+                                               &found, NULL, true /* ALL */,
                                                0, FRAG_SELFMOD_SANDBOXED);
     read_unlock(&executable_areas->lock);
     /* we require at least one area to be present */
@@ -3403,7 +3426,7 @@ was_executable_area_writable(app_pc addr)
 {
     bool found_area = false, was_writable = false;
     read_lock(&executable_areas->lock);
-    was_writable = executable_areas_match_flags(addr, addr+1, &found_area,
+    was_writable = executable_areas_match_flags(addr, addr+1, &found_area, NULL,
                                                 false /* EXISTS */,
                                                 VM_MADE_READONLY, 0);
     /* seg fault could have happened, then area was made writable before
@@ -6746,9 +6769,9 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
              * consistency purposes.  We haven't implemented this optimization
              * as it's quite rare (though does happen xref case 8104) and
              * previous implementations of this optimization proved buggy. */
-            if (is_executable_area_writable_overlap(base, base + size,
-                                                     true /* ALL regions are: */,
-                                                     VM_WRITABLE|VM_DELAY_READONLY)) {
+            if (is_executable_area_overlap(base, base + size,
+                                           true /* ALL regions are: */,
+                                           VM_WRITABLE|VM_DELAY_READONLY)) {
                 STATS_INC(num_possible_app_to_rwx_skip_flush);
             }
         });
@@ -6804,7 +6827,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             bool check_iat = false;
             bool free_iat = false;
 #endif
-            uint frag_flags = 0;
+            uint frag_flags_pfx = 0;
             DEBUG_DECLARE(const char *comment = "";)
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" is being made executable\n",
@@ -6879,7 +6902,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                     /* case 8640: let add_executable_vm_area() decide whether to
                      * keep the coarse-grain flag
                      */
-                    frag_flags |= FRAG_COARSE_GRAIN;
+                    frag_flags_pfx |= FRAG_COARSE_GRAIN;
                 } else {
                     free_iat = false;
                     ASSERT(!os_module_free_IAT_code(base));
@@ -6890,7 +6913,7 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                 /* FIXME : see note at top of function about bug 2833 */
                 ASSERT(!TEST(MEMPROT_WRITE, prot)); /* sanity check */
                 add_executable_vm_area(base, base + size,
-                                       0 /* not an unmodified image */, frag_flags,
+                                       0 /* not an unmodified image */, frag_flags_pfx,
                                        false/*no lock*/ _IF_DEBUG(comment));
             }
 #ifdef WINDOWS
@@ -7633,7 +7656,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                                  own_execareas_writelock,
                                                  caller_execareas_writelock);
                     /* avoid assert in dispatch_enter_dynamorio() */
-                    dcontext->whereami = WHERE_TRAMPOLINE;
+                    dcontext->whereami = DR_WHERE_TRAMPOLINE;
                     set_last_exit(dcontext, (linkstub_t *)
                                   get_ibl_sourceless_linkstub(LINK_RETURN, 0));
                     if (is_couldbelinking(dcontext))

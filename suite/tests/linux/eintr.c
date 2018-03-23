@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -136,6 +136,7 @@ main(int argc, char **argv)
     pthread_mutex_destroy(&lock);
 
     print("all done\n");
+    close(pipefd[1]);
 
     return 0;
 }

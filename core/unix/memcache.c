@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -326,10 +326,16 @@ void
 memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists)
 {
     memcache_lock();
-    ASSERT(!exists ||
-           vmvector_overlap(all_memory_areas, start, end) ||
-           /* we could synch up: instead we relax the assert if DR areas not in allmem */
-           are_dynamo_vm_areas_stale());
+    /* A curiosity as it can happen when attaching to a many-threaded
+     * app (e.g., the api.detach_spawn test), or when dr_app_setup is
+     * separate from dr_app_start (i#2037).
+     */
+    ASSERT_CURIOSITY(!exists ||
+                     vmvector_overlap(all_memory_areas, start, end) ||
+                     /* we could synch up: instead we relax the assert if DR areas not
+                      * in allmem
+                      */
+                     are_dynamo_vm_areas_stale());
     LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
         start, end, prot);
     memcache_update(start, end, prot, type);
@@ -440,25 +446,18 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
              * are holes in all_memory_areas
              */
             from_os_prot != MEMPROT_NONE) {
-            /* FIXME i#2037: today the start/stop API does not re-scan on start,
-             * so our cache is wrong.  Worse than a false negative here, which we
-             * can handle as lazy lookup, is a false positive: we need to clear the
-             * cache at start.  For now we just quiet the complaints here.
-             */
-            DODEBUG({
-                if (!dr_api_entry) {
-                    SYSLOG_INTERNAL_ERROR
-                        ("all_memory_areas is missing region " PFX"-"PFX"!",
-                         from_os_base_pc, from_os_base_pc + from_os_size);
-                }
-            });
+            SYSLOG_INTERNAL_WARNING_ONCE
+                ("all_memory_areas is missing regions including " PFX"-"PFX,
+                 from_os_base_pc, from_os_base_pc + from_os_size);
             DOLOG(4, LOG_VMAREAS, memcache_print(THREAD_GET, ""););
-            ASSERT(dr_api_entry);
             /* be paranoid */
             out_info->base_pc = from_os_base_pc;
             out_info->size = from_os_size;
             out_info->prot = from_os_prot;
             out_info->type = DR_MEMTYPE_DATA; /* hopefully we won't miss an image */
+            /* Update our list to avoid coming back here again (i#2037). */
+            memcache_update_locked(from_os_base_pc, from_os_base_pc+from_os_size,
+                                   from_os_prot, -1, false/*!exists*/);
         }
 #else
         /* We now have nested probes, but currently probing sometimes calls
@@ -579,3 +578,16 @@ memcache_handle_app_brk(byte *lowest_brk/*if known*/, byte *old_brk, byte *new_b
     }
 }
 
+void
+memcache_update_all_from_os(void)
+{
+    memquery_iter_t iter;
+    LOG(GLOBAL, LOG_SYSCALLS, 1, "updating memcache from maps file\n");
+    memquery_iterator_start(&iter, NULL, true/*may alloc*/);
+    memcache_lock();
+    /* We clear the entire cache to avoid false positive queries. */
+    vmvector_reset_vector(GLOBAL_DCONTEXT, all_memory_areas);
+    os_walk_address_space(&iter, false);
+    memcache_unlock();
+    memquery_iterator_stop(&iter);
+}

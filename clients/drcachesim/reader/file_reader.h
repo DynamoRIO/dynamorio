@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +50,7 @@ class file_reader_t : public reader_t
     explicit file_reader_t(const char *file_name);
     virtual ~file_reader_t();
     virtual bool init();
-    bool is_complete();
+    virtual bool is_complete();
 
  protected:
     virtual trace_entry_t * read_next_entry();

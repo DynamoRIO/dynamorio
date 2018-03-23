@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -507,7 +507,9 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 # N.B.: if VERSION_NUMBER's major number is incremented without also
 # incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
 # symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "6.2.${VERSION_NUMBER_PATCHLEVEL}")
+# N.B.: when updating this, update the git tag in .travis.yml.
+# We should find a way to share (xref i#1565).
+set(VERSION_NUMBER_DEFAULT "7.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -520,12 +522,14 @@ message(STATUS "Version number: ${VERSION_NUMBER}")
 set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
+set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
   BUILD_NUMBER
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
+  PACKAGE_PLATFORM
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -688,6 +692,7 @@ set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
   # FIXME case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
@@ -774,6 +779,11 @@ if (UNIX)
   set(OPT "-O3 ${DBG}")
   if (PROFILE)
     set(OPT "${OPT} -fno-omit-frame-pointer")
+  endif ()
+
+  # Omit unwind tables in optimized mode.
+  if (NOT DEBUG)
+    set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -fno-unwind-tables")
   endif ()
 
   if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
@@ -1063,7 +1073,7 @@ endif (UNIX)
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
@@ -1071,7 +1081,7 @@ else (DEBUG)
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
@@ -1916,7 +1926,7 @@ string(REGEX REPLACE
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

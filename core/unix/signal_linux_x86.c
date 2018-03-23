@@ -314,7 +314,7 @@ static void
 dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
 {
     int i,j;
-#ifdef X64
+# ifdef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\tcwd="PFX"\n", fp->cwd);
     LOG(THREAD, LOG_ASYNCH, 1, "\tswd="PFX"\n", fp->swd);
     LOG(THREAD, LOG_ASYNCH, 1, "\ttwd="PFX"\n", fp->twd);
@@ -337,7 +337,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-#else
+# else
     LOG(THREAD, LOG_ASYNCH, 1, "\tcw="PFX"\n", fp->cw);
     LOG(THREAD, LOG_ASYNCH, 1, "\tsw="PFX"\n", fp->sw);
     LOG(THREAD, LOG_ASYNCH, 1, "\ttag="PFX"\n", fp->tag);
@@ -372,7 +372,7 @@ dump_fpstate(dcontext_t *dcontext, kernel_fpstate_t *fp)
             LOG(THREAD, LOG_ASYNCH, 1, "%04x ", fp->_xmm[i].element[j]);
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-#endif
+# endif
     /* ignore padding */
     if (YMM_ENABLED()) {
         kernel_xstate_t *xstate = (kernel_xstate_t *) fp;
@@ -401,10 +401,10 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
         sc->gs _IF_NOT_X64(sc->__gsh));
     LOG(THREAD, LOG_ASYNCH, 1, "\tfs=0x%04x"IF_NOT_X64(", __fsh=0x%04x")"\n",
         sc->fs _IF_NOT_X64(sc->__fsh));
-#ifndef X64
+# ifndef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\tes=0x%04x, __esh=0x%04x\n", sc->es, sc->__esh);
     LOG(THREAD, LOG_ASYNCH, 1, "\tds=0x%04x, __dsh=0x%04x\n", sc->ds, sc->__dsh);
-#endif
+# endif
     LOG(THREAD, LOG_ASYNCH, 1, "\txdi="PFX"\n", sc->SC_XDI);
     LOG(THREAD, LOG_ASYNCH, 1, "\txsi="PFX"\n", sc->SC_XSI);
     LOG(THREAD, LOG_ASYNCH, 1, "\txbp="PFX"\n", sc->SC_XBP);
@@ -413,7 +413,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\txdx="PFX"\n", sc->SC_XDX);
     LOG(THREAD, LOG_ASYNCH, 1, "\txcx="PFX"\n", sc->SC_XCX);
     LOG(THREAD, LOG_ASYNCH, 1, "\txax="PFX"\n", sc->SC_XAX);
-#ifdef X64
+# ifdef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\t r8="PFX"\n", sc->r8);
     LOG(THREAD, LOG_ASYNCH, 1, "\t r9="PFX"\n", sc->r8);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr10="PFX"\n", sc->r10);
@@ -422,17 +422,17 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\tr13="PFX"\n", sc->r13);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr14="PFX"\n", sc->r14);
     LOG(THREAD, LOG_ASYNCH, 1, "\tr15="PFX"\n", sc->r15);
-#endif
+# endif
     LOG(THREAD, LOG_ASYNCH, 1, "\ttrapno="PFX"\n", sc->trapno);
     LOG(THREAD, LOG_ASYNCH, 1, "\terr="PFX"\n", sc->err);
     LOG(THREAD, LOG_ASYNCH, 1, "\txip="PFX"\n", sc->SC_XIP);
     LOG(THREAD, LOG_ASYNCH, 1, "\tcs=0x%04x"IF_NOT_X64(", __esh=0x%04x")"\n",
         sc->cs _IF_NOT_X64(sc->__csh));
     LOG(THREAD, LOG_ASYNCH, 1, "\teflags="PFX"\n", sc->SC_XFLAGS);
-#ifndef X64
+# ifndef X64
     LOG(THREAD, LOG_ASYNCH, 1, "\tesp_at_signal="PFX"\n", sc->esp_at_signal);
     LOG(THREAD, LOG_ASYNCH, 1, "\tss=0x%04x, __ssh=0x%04x\n", sc->ss, sc->__ssh);
-#endif
+# endif
     if (sc->fpstate == NULL)
         LOG(THREAD, LOG_ASYNCH, 1, "\tfpstate=<NULL>\n");
     else
@@ -526,8 +526,7 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
     ASSERT_CURIOSITY(sig == XSTATE_QUERY_SIG);
     if (sig == XSTATE_QUERY_SIG) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        if (YMM_ENABLED()) {
-            ASSERT(sc->fpstate != NULL); /* i#2438: we force-initialized xmm state */
+        if (YMM_ENABLED() && sc->fpstate != NULL) {
             ASSERT_CURIOSITY(sc->fpstate->sw_reserved.magic1 == FP_XSTATE_MAGIC1);
             LOG(GLOBAL, LOG_ASYNCH, 1, "orig xstate size = " SZFMT"\n", xstate_size);
             if (sc->fpstate->sw_reserved.extended_size != xstate_size) {
@@ -535,6 +534,12 @@ xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt
                 xstate_has_extra_fields = true;
             }
             LOG(GLOBAL, LOG_ASYNCH, 1, "new xstate size = " SZFMT"\n", xstate_size);
+        } else {
+            /* i#2438: we force-initialized xmm state in signal_arch_init().
+             * But, on WSL it's still NULL (i#1896) so we make this just a curiosity
+             * until we've tackled signals on WSL.
+             */
+            ASSERT_CURIOSITY(sc->fpstate != NULL);
         }
     }
 }
@@ -543,7 +548,7 @@ void
 signal_arch_init(void)
 {
     xstate_size = sizeof(kernel_xstate_t) + 4 /* trailing FP_XSTATE_MAGIC2 */;
-    if (YMM_ENABLED()) {
+    if (YMM_ENABLED() && !standalone_library/* avoid SIGILL for standalone */) {
         kernel_sigaction_t act, oldact;
         int rc;
         /* i#2438: it's possible that our init code to this point has not yet executed

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,10 +43,12 @@
 #include <ucontext.h>
 #include <unistd.h>
 #include <assert.h>
+#include <setjmp.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
 volatile double intervals; /* How many intervals? */
+static SIGJMP_BUF mark;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -65,6 +67,12 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #endif
         break;
     }
+    case SIGSEGV:
+#if VERBOSE
+        print("thread %d got SIGSEGV @ "PFX"\n", getpid(), pc);
+#endif
+        SIGLONGJMP(mark, 1);
+        break;
     default:
         assert(0);
     }
@@ -80,14 +88,6 @@ process(void *arg)
 
 #if VERBOSE
     print("thread %s starting\n", id);
-#endif
-    if (id[0] == '1') {
-        intercept_signal(SIGUSR1, (handler_3_t) SIG_IGN, false);
-#if VERBOSE
-        print("thread %d ignoring SIGUSR1\n", getpid());
-#endif
-    }
-#if VERBOSE
     print("thread %d sending SIGUSR1\n", getpid());
 #endif
     kill(getpid(), SIGUSR1);
@@ -137,6 +137,7 @@ main(int argc, char **argv)
     pthread_mutex_init(&pi_lock, NULL);
 
     intercept_signal(SIGUSR1, signal_handler, false);
+    intercept_signal(SIGSEGV, signal_handler, false);
 
     /* Make the two threads */
     if (pthread_create(&thread0, NULL, process, (void *)"0") ||
@@ -156,6 +157,12 @@ main(int argc, char **argv)
     print("thread %d sending SIGUSR1\n", getpid());
 #endif
     kill(getpid(), SIGUSR1);
+#if VERBOSE
+    print("thread %d hitting SIGSEGV\n", getpid());
+#endif
+    if (SIGSETJMP(mark) == 0) {
+        *(int*)42 = 0;
+    }
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);

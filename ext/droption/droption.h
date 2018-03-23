@@ -453,6 +453,14 @@ droption_t<unsigned int>::convert_from_string(const std::string s)
     return true;
 }
 template<> inline bool
+droption_t<double>::convert_from_string(const std::string s)
+{
+    // strtod will return 0.0 for invalid conversions
+    char * pEnd = NULL;
+    value = strtod(s.c_str(), &pEnd);
+    return true;
+}
+template<> inline bool
 droption_t<bool>::convert_from_string(const std::string s)
 {
     // We shouldn't get here
@@ -529,14 +537,23 @@ droption_t<std::string>::default_as_string() const
 template<> inline std::string
 droption_t<int>::default_as_string() const
 {
-    return dynamic_cast< std::ostringstream & >
-        ((std::ostringstream() << std::dec << defval)).str();
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
 }
 template<> inline std::string
 droption_t<unsigned int>::default_as_string() const
 {
-    return dynamic_cast< std::ostringstream & >
-        ((std::ostringstream() << std::dec << defval)).str();
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
+}
+template<> inline std::string
+droption_t<double>::default_as_string() const
+{
+    std::ostringstream stream;
+    stream << std::dec << defval;
+    return stream.str();
 }
 template<> inline std::string
 droption_t<bool>::default_as_string() const
@@ -558,8 +575,9 @@ droption_t<bytesize_t>::default_as_string() const
         suffix = "K";
         val /= 1024;
     }
-    return dynamic_cast< std::ostringstream & >
-        ((std::ostringstream() << std::dec << val)).str() + suffix;
+    std::ostringstream stream;
+    stream << std::dec << val;
+    return stream.str() + suffix;
 }
 template<> inline std::string
 droption_t<twostring_t>::default_as_string() const

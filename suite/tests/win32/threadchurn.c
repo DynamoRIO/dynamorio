@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,13 +39,9 @@
 #endif
 
 #include "tools.h"
+#include "thread.h"
 
 typedef unsigned char* app_pc;
-
-#ifdef WINDOWS
-#  include <process.h> /* for _beginthreadex */
-#else
-#endif
 
 #define SILENT                  /* no writes at all */
 
@@ -79,7 +75,7 @@ enum {ROUNDS = 10};
 enum {LOOP_WORK = 100};
 
 /* --------- */
-thread_handle thread[TOTAL_THREADS];
+thread_t thread[TOTAL_THREADS];
 
 long global_started = 0;                   /* unsynchronized */
 long global_finished = 0;                   /* unsynchronized */
@@ -164,7 +160,7 @@ main()
         /* do in a batch */
         for (b = 0; b < TOTAL_THREADS / BATCH_SIZE; b++) {
             for (t = 0; t < BATCH_SIZE; t++) {
-                thread[t] = create_thread(executor);
+                thread[t] = create_thread(executor, NULL);
                 if (thread[t] == NULL)
                     print("GLE: %d\n", GetLastError());
                 assert(thread[t] != NULL);
@@ -181,7 +177,6 @@ main()
             for (t = 0; t < BATCH_SIZE; t++) {
                 assert(thread[t] != NULL);
                 join_thread(thread[t]);
-                CloseHandle((HANDLE)thread[t]);
                 thread[t] = NULL; /* in case want to synch with some in a batch, but with all at the end */
 
                 if (SWAP_OUT_AFTER_THREAD) {

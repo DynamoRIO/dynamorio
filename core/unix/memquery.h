@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -64,7 +64,7 @@ typedef struct _memquery_iter_t {
      * without using static data and limiting to one iterator (and having
      * to unprotect and reprotect if in .data).
      */
-#   define MEMQUERY_INTERNAL_DATA_LEN 96 /* 84 bytes needed for Mac 10.9.1 */
+#define MEMQUERY_INTERNAL_DATA_LEN 96 /* 84 bytes needed for Mac 10.9.1 */
     char internal[MEMQUERY_INTERNAL_DATA_LEN];
 } memquery_iter_t;
 
@@ -124,8 +124,16 @@ int
 find_vm_areas_via_probe(void);
 #endif
 
-/* This routine does not acquire locks */
+/* This routine might acquire locks.  is_readable_without_exception_query_os_noblock()
+ * can be used to avoid blocking.
+ */
 bool
 memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type);
+
+/* The result can change if another thread grabs the lock, but this will identify
+ * whether the current thread holds the lock, avoiding a hang.
+ */
+bool
+memquery_from_os_will_block(void);
 
 #endif /* _MEMQUERY_H_ */

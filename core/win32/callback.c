@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -179,10 +179,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t map_intercept_pc_lock,
 DECLARE_CXTSWPROT_VAR(static mutex_t emulate_write_lock,
                       INIT_LOCK_FREE(emulate_write_lock));
 
-#ifdef STACK_GUARD_PAGE
 DECLARE_CXTSWPROT_VAR(static mutex_t exception_stack_lock,
                       INIT_LOCK_FREE(exception_stack_lock));
-#endif
 
 DECLARE_CXTSWPROT_VAR(static mutex_t intercept_hook_lock,
                       INIT_LOCK_FREE(intercept_hook_lock));
@@ -206,9 +204,10 @@ static byte *KiFastSystemCall = NULL;
 
 /* i#1443: we need to identify threads queued up waiting for DR init.
  * We can't use heap of course so we have to use a max count.
- * We've never seen more than one at a time.
+ * We've never seen more than one at a time, but the api.detach_spawn test
+ * has 100 of them.
  */
-#define MAX_THREADS_WAITING_FOR_DR_INIT 8
+#define MAX_THREADS_WAITING_FOR_DR_INIT 128
 /* We assume INVALID_THREAD_ID is 0 (checked in callback_init()). */
 /* These need to be neverprot for use w/ new threads.  The risk is small. */
 DECLARE_NEVERPROT_VAR(static thread_id_t threads_waiting_for_dr_init
@@ -338,7 +337,7 @@ call stack or anything else for diagnostics, and we'll have clobbered
 the real xsp in the mcontext slot, which we use for forging the
 exception.
 
-Could perhaps use whereami==WHERE_FCACHE, but could get exception during
+Could perhaps use whereami==DR_WHERE_FCACHE, but could get exception during
 clean call or cxt switch when on dstack but prior to whereami change.
 
 Note: the app registers passed to the handler are restored when going back to
@@ -509,7 +508,6 @@ if (AFTER_INTERCEPT_TAKE_OVER || AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT
     else
       push no_cleanup # state->start_pc
     endif
-      push $0 # we assume always want !save_dcontext as arg to asynch_take_over
       push/mov xsp # app_state_at_intercept_t *
       call asynch_take_over
       # should never reach here
@@ -568,8 +566,7 @@ endif (!AFTER_INTERCEPT_TAKE_OVER)
 => handler signature, exported as typedef intercept_function_t:
 void handler(app_state_at_intercept_t *args)
 
-if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called, with "false" for
-its save_dcontext parameter
+if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called.
 
 handler must make sure all paths exiting handler routine clear the
 initstack mutex once not using the initstack itself!
@@ -2855,6 +2852,29 @@ is_syscall_trampoline(byte *pc, byte **tgt)
     return false;
 }
 
+#ifdef CLIENT_INTERFACE
+static void
+instrument_dispatcher(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
+                      app_state_at_intercept_t *state, CONTEXT *interrupted_cxt)
+{
+    app_pc nohook_pc = dr_fragment_app_pc(state->start_pc);
+    state->mc.pc = nohook_pc;
+    DWORD orig_flags = 0;
+    if (interrupted_cxt != NULL) {
+        /* Avoid copying simd fields: this event does not provide them. */
+        orig_flags = interrupted_cxt->ContextFlags;
+        interrupted_cxt->ContextFlags &=
+            ~(CONTEXT_DR_STATE & ~(CONTEXT_INTEGER|CONTEXT_CONTROL));
+    }
+    if (instrument_kernel_xfer(dcontext, type, interrupted_cxt, NULL, NULL,
+                               state->mc.pc, state->mc.xsp, NULL, &state->mc, 0) &&
+        state->mc.pc != nohook_pc)
+        state->start_pc = state->mc.pc;
+    if (interrupted_cxt != NULL)
+        interrupted_cxt->ContextFlags = orig_flags;
+}
+#endif
+
 /****************************************************************************
  */
 /* TRACK_NTDLL: try to find where kernel re-emerges into user mode when it
@@ -2997,8 +3017,8 @@ asynch_take_over(app_state_at_intercept_t *state)
     /* may have been inside syscall...now we're in app! */
     set_at_syscall(dcontext, false);
     /* tell dispatch() why we're coming there */
-    if (dcontext->whereami != WHERE_APP) /* new thread, typically: leave it that way */
-        dcontext->whereami = WHERE_TRAMPOLINE;
+    if (dcontext->whereami != DR_WHERE_APP) /* new thread, typically: leave it that way */
+        dcontext->whereami = DR_WHERE_TRAMPOLINE;
     set_last_exit(dcontext, (linkstub_t *) get_asynch_linkstub());
 
     transfer_to_dispatch(dcontext, &state->mc, false/*!full_DR_state*/);
@@ -3033,7 +3053,7 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
     /* We allow a client init routine to create client threads: DR is
      * initialized enough by now
      */
-    if (((void *)cxt->CXT_XIP == (void *)client_thread_target))
+    if (is_new_thread_client_thread(cxt, NULL))
         return;
 #endif
 
@@ -3107,15 +3127,16 @@ intercept_new_thread(CONTEXT *cxt)
     /* i#41/PR 222812: client threads target a certain routine and always
      * directly never via win API (so we don't check THREAT_START_ADDR)
      */
-    is_client = ((void *)cxt->CXT_XIP == (void *)client_thread_target);
+    is_client = is_new_thread_client_thread(cxt, &dstack);
     if (is_client) {
-        /* client threads start out on dstack */
-        GET_STACK_PTR(dstack);
         ASSERT(is_dynamo_address(dstack));
-        /* we assume that less than a page will have been used */
-        dstack = (byte *) ALIGN_FORWARD(dstack, PAGE_SIZE);
     }
 #endif
+    /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
+     * the actual code to be run by the thread *now*, and not this CONTEXT which
+     * is what will be run later!  We should make sure nobody is relying on
+     * the current (broken) context first.
+     */
     context_to_mcontext_new_thread(&mc, cxt);
     if (dynamo_thread_init(dstack, &mc _IF_CLIENT_INTERFACE(is_client)) != -1) {
         app_pc thunk_xip = (app_pc)cxt->CXT_XIP;
@@ -3125,7 +3146,6 @@ intercept_new_thread(CONTEXT *cxt)
 
 #ifdef CLIENT_SIDELINE
         if (is_client) {
-            ASSERT(is_on_dstack(dcontext, (byte *)cxt->CXT_XSP));
             /* PR 210591: hide our threads from DllMain by not executing rest
              * of Ldr init code and going straight to target.  our_create_thread()
              * already set up the arg in cxt.
@@ -3369,6 +3389,14 @@ intercept_ldr_init(app_state_at_intercept_t *state)
         if (!is_thread_initialized()) {
             if (intercept_new_thread(cxt))
                 return AFTER_INTERCEPT_LET_GO;
+#ifdef CLIENT_INTERFACE
+            /* We treat this as a kernel xfer, partly b/c of i#2718 where our
+             * thread init mcontext is wrong.
+             * We pretend it's an APC.
+             */
+            instrument_dispatcher(get_thread_private_dcontext(),
+                                  DR_XFER_APC_DISPATCHER, state, cxt);
+#endif
         } else {
             /* ntdll!LdrInitializeThunk is only used for initializing new
              * threads so we should never get here unless early injected
@@ -3445,6 +3473,35 @@ ntdll!KiUserApcDispatcher:
   00000000`78ef393e ebf7            jmp     ntdll!KiUserApcDispatch+0x27 (0`78ef3937)
   00000000`78ef3940 cc              int     3
 
+On Win10-1703 there's some logic for delegation before the regular lea sequence:
+  ntdll!KiUserApcDispatcher:
+  778b3fe0 833dc887957700  cmp     dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                              (779587c8)],0
+  778b3fe7 740e            je      ntdll!KiUserApcDispatcher+0x17 (778b3ff7)  Branch
+  778b3fe9 8b0dc8879577    mov     ecx,dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                                  (779587c8)]
+  778b3fef ff15d0919577    call    dword ptr [ntdll!__guard_check_icall_fptr (779591d0)]
+  778b3ff5 ffe1            jmp     ecx
+  778b3ff7 8d8424dc020000  lea     eax,[esp+2DCh]
+  778b3ffe 648b0d00000000  mov     ecx,dword ptr fs:[0]
+  778b4005 bac03f8b77      mov     edx,offset ntdll!KiUserApcExceptionHandler (778b3fc0)
+  778b400a 8908            mov     dword ptr [eax],ecx
+  778b400c 895004          mov     dword ptr [eax+4],edx
+  778b400f 64a300000000    mov     dword ptr fs:[00000000h],eax
+  778b4015 58              pop     eax
+  778b4016 8d7c240c        lea     edi,[esp+0Ch]
+  778b401a 8bc8            mov     ecx,eax
+  778b401c ff15d0919577    call    dword ptr [ntdll!__guard_check_icall_fptr (779591d0)]
+  778b4022 ffd1            call    ecx
+  778b4024 8b8fcc020000    mov     ecx,dword ptr [edi+2CCh]
+  778b402a 64890d00000000  mov     dword ptr fs:[0],ecx
+  778b4031 6a01            push    1
+  778b4033 57              push    edi
+  778b4034 e807e1ffff      call    ntdll!NtContinue (778b2140)
+  778b4039 8bf0            mov     esi,eax
+  778b403b 56              push    esi
+  778b403c e89f230100      call    ntdll!RtlRaiseStatus (778c63e0)
+  778b4041 ebf8            jmp     ntdll!KiUserApcDispatcher+0x5b (778b403b)  Branch
 
 FIXME case 6395/case 6050: what are KiUserCallbackExceptionHandler and
 KiUserApcExceptionHandler, added on 2003 sp1?  We're assuming not
@@ -3534,7 +3591,7 @@ intercept_apc(app_state_at_intercept_t *state)
                 return AFTER_INTERCEPT_LET_GO;
         } else {
             /* should not receive APC while in DR code! */
-            ASSERT(get_thread_private_dcontext()->whereami == WHERE_FCACHE);
+            ASSERT(get_thread_private_dcontext()->whereami == DR_WHERE_FCACHE);
             LOG(GLOBAL, LOG_ASYNCH|LOG_THREADS, 2,
                 "APC thread was already initialized!\n");
             LOG(THREAD_GET, LOG_ASYNCH, 2,
@@ -3682,12 +3739,14 @@ intercept_apc(app_state_at_intercept_t *state)
              * generic_nudge_target() */
             ASSERT(!is_dynamo_address((app_pc)cxt->CXT_XIP) ||
                    cxt->CXT_XIP == (ptr_uint_t)generic_nudge_target
-                   IF_CLIENT_INTERFACE(|| cxt->CXT_XIP ==
-                                       (ptr_uint_t)client_thread_target));
+                   IF_CLIENT_INTERFACE(|| is_new_thread_client_thread(cxt, NULL)));
         }
 
         asynch_retakeover_if_native();
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_APC_DISPATCHER, state, cxt);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_APCs_noasynch);
@@ -3722,6 +3781,16 @@ check_apc_context_offset(byte *apc_entry)
            opnd_get_base(instr_get_src(&instr, 0)) == REG_XSP &&
            opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL);
 #else
+    /* Skip over the Win10-1703 delegation prefx */
+    if (instr_get_opcode(&instr) == OP_cmp &&
+        get_os_version() >= WINDOWS_VERSION_10_1703) {
+        app_pc pc = apc_entry + instr_length(dcontext, &instr);
+        while (instr_get_opcode(&instr) != OP_lea &&
+               pc - apc_entry < 32) {
+            instr_reset(dcontext, &instr);
+            pc = decode(dcontext, pc, &instr);
+        }
+    }
     /* In Win 2003 SP1, the context offset used is 0xc, and DR works with it;
      * the first lea used there has an offset of 0x2dc, not 0xc.  See case 3522.
      */
@@ -3773,6 +3842,89 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
 
         LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
         DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
+
+#ifdef CLIENT_INTERFACE
+        get_mcontext(dcontext)->pc = dcontext->next_tag;
+        instrument_kernel_xfer(dcontext, DR_XFER_CONTINUE,
+                               NULL, NULL, get_mcontext(dcontext),
+                               (app_pc)cxt->CXT_XIP, cxt->CXT_XSP, cxt, NULL, 0);
+#endif
+
+        /* Updates debug register values.
+         * FIXME should check dr7 upper bits, and maybe dr6
+         * We ignore the potential race condition.
+         */
+        if (TESTALL(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags)) {
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0) ) {
+                /* Flush only when debug register value changes. */
+                if (debugRegister[0] != (app_pc) cxt->Dr0) {
+                    debugRegister[0] = (app_pc) cxt->Dr0;
+                    flush_fragments_from_region(dcontext, debugRegister[0],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[0] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[0],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[0] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1) ) {
+                if (debugRegister[1] != (app_pc) cxt->Dr1) {
+                    debugRegister[1] = (app_pc) cxt->Dr1;
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[1] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[1],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[1] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2) ) {
+                if (debugRegister[2] != (app_pc) cxt->Dr2) {
+                    debugRegister[2] = (app_pc) cxt->Dr2;
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[2] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[2],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[2] = NULL;
+                }
+            }
+            if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3) ) {
+                if (debugRegister[3] != (app_pc) cxt->Dr3) {
+                    debugRegister[3] = (app_pc) cxt->Dr3;
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                }
+            }
+            else {
+                /* Disable debug register. */
+                if (debugRegister[3] != NULL) {
+                    flush_fragments_from_region(dcontext, debugRegister[3],
+                                                1 /* size */,
+                                                false/*don't force synchall*/);
+                    debugRegister[3] = NULL;
+                }
+            }
+        }
 
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 2, "intercept_nt_continue: squashing old trace\n");
@@ -3886,6 +4038,13 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
         LOG(THREAD, LOG_ASYNCH, 2, "intercept_nt_setcontext: squashing old trace\n");
         trace_abort(dcontext);
     }
+
+#ifdef CLIENT_INTERFACE
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
+    instrument_kernel_xfer(dcontext, DR_XFER_SET_CONTEXT_THREAD,
+                           NULL, NULL, get_mcontext(dcontext),
+                           (app_pc)cxt->CXT_XIP, cxt->CXT_XSP, cxt, NULL, 0);
+#endif
 
     /* Yes, we use the same x86.asm and x86_code.c procedures as
      * NtContinue: nt_continue_dynamo_start and nt_continue_start_setup
@@ -4226,15 +4385,13 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     ASSERT_NOT_REACHED(); /* should never get here */
 }
 
-#ifdef STACK_GUARD_PAGE
 static bool
 is_dstack_overflow(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                    CONTEXT *cxt)
 {
-    if (pExcptRec->ExceptionCode == EXCEPTION_GUARD_PAGE) {
-        /* Richter book says that only access violation fills in info array,
-         * but on win2k guard page seems to fill it in!
-         */
+    if (pExcptRec->ExceptionCode == EXCEPTION_GUARD_PAGE ||
+        pExcptRec->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+        /* Both of these seem to put the target in info slot 1. */
         if (pExcptRec->NumberParameters >= 2) {
             app_pc target = (app_pc) pExcptRec->ExceptionInformation[1];
             LOG(THREAD, LOG_ASYNCH, 2,
@@ -4244,7 +4401,6 @@ is_dstack_overflow(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     }
     return false;
 }
-#endif /* STACK_GUARD_PAGE */
 
 /* To allow execution from a writable memory region, we mark it read-only.
  * When we get a seg fault, we call this routine, which determines if it's
@@ -4703,7 +4859,8 @@ report_app_exception(dcontext_t *dcontext, uint appfault_flags,
 
 void
 report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                          CONTEXT *cxt, uint dumpcore_flag, const char *prefix)
+                          CONTEXT *cxt, uint dumpcore_flag, const char *prefix,
+                          const char *crash_label)
 {
     /* WARNING: a fault in DR means that potentially anything could be
      * inconsistent or corrupted!  Do not grab locks or traverse
@@ -4764,7 +4921,7 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     report_dynamorio_problem(dcontext, dumpcore_flag,
                              (app_pc) pExcptRec->ExceptionAddress,
                              (app_pc) cxt->CXT_XBP,
-                             fmt, prefix, CRASH_NAME,
+                             fmt, prefix, crash_label,
                              (app_pc) pExcptRec->ExceptionAddress,
                              pExcptRec->ExceptionCode, pExcptRec->ExceptionFlags,
                              cxt->CXT_XIP, pExcptRec->ExceptionAddress,
@@ -4784,23 +4941,26 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
 
 void
 internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
-                        CONTEXT *cxt, bool dstack_overflow)
+                        CONTEXT *cxt, bool dstack_overflow, bool is_client)
 {
-    report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_INTERNAL_EXCEPTION,
-                              /* for clients we need to let them override the label */
-                              IF_NOT_CLIENT_INTERFACE(dstack_overflow ?
-                                                      "Stack overflow" :)
-                              exception_label_core);
+    report_internal_exception
+        (dcontext, pExcptRec, cxt,
+         (IF_CLIENT_INTERFACE(is_client ? DUMPCORE_CLIENT_EXCEPTION :)
+          DUMPCORE_INTERNAL_EXCEPTION) |
+         (dstack_overflow ? DUMPCORE_STACK_OVERFLOW : 0),
+         /* for clients we need to let them override the label */
+         IF_CLIENT_INTERFACE(is_client ? exception_label_client :) exception_label_core,
+         dstack_overflow ? STACK_OVERFLOW_NAME : CRASH_NAME);
 }
 
 static void
-internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *cxt)
+internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *cxt,
+                          bool is_client)
 {
     /* recursive bailout: avoid infinite loop due to fault in fault handling
      * by using DO_ONCE
      * FIXME: any worries about lack of mutex w/ DO_ONCE?
      */
-#ifdef STACK_GUARD_PAGE
     /* PR 203701: If we've exhausted the dstack, then we'll switch
      * to a separate exception handling stack to make sure we have
      * enough space to report the problem.  One guard page is not
@@ -4813,12 +4973,9 @@ internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CON
             mutex_unlock(&exception_stack_lock);
         }
         else {
-            internal_exception_info(dcontext, pExcptRec, cxt, false);
+            internal_exception_info(dcontext, pExcptRec, cxt, false, is_client);
         }
     });
-#else
-    DO_ONCE({ internal_exception_info(dcontext, pExcptRec, cxt, false); });
-#endif
     os_terminate(dcontext, TERMINATE_PROCESS);
     ASSERT_NOT_REACHED();
 }
@@ -4987,7 +5144,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
     if ((is_on_dstack(dcontext, (byte *)cxt->CXT_XSP)
          /* PR 302951: clean call arg processing => pass to app/client.
           * Rather than call the risky in_fcache we check whereami. */
-         IF_CLIENT_INTERFACE(&& (dcontext->whereami != WHERE_FCACHE ||
+         IF_CLIENT_INTERFACE(&& (dcontext->whereami != DR_WHERE_FCACHE ||
                                  /* i#263: do not pass to app if fault is in
                                   * client lib or ntdll called by client
                                   */
@@ -5088,7 +5245,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
             }
         }
 
-        internal_dynamo_exception(dcontext, pExcptRec, cxt);
+        internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
         ASSERT_NOT_REACHED();
     }
 }
@@ -5208,7 +5365,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* there is no good reason for this, other than DR error */
             ASSERT(is_dynamo_address((app_pc)pExcptRec->ExceptionAddress));
             pExcptRec->ExceptionFlags = 0xbadDC;
-            internal_dynamo_exception(dcontext, pExcptRec, cxt);
+            internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
             ASSERT_NOT_REACHED();
         }
 
@@ -5249,7 +5406,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
 #ifdef HOT_PATCHING_INTERFACE
         /* Recover from a hot patch exception. */
-        if (dcontext != NULL && dcontext->whereami == WHERE_HOTPATCH) {
+        if (dcontext != NULL && dcontext->whereami == DR_WHERE_HOTPATCH) {
             /* Note: If we use a separate stack for executing hot patches, this
              * assert should be changed.
              */
@@ -5360,8 +5517,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 /* won't return if it was a made-read-only code page */
                 check_for_modified_code(dcontext, pExcptRec, cxt, MOD_CODE_APP_CXT, NULL);
             }
-            report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_CLIENT_EXCEPTION,
-                                      exception_label_client);
+            internal_dynamo_exception(dcontext, pExcptRec, cxt, true);
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
@@ -5525,17 +5681,17 @@ intercept_exception(app_state_at_intercept_t *state)
 #endif /* PROGRAM_SHEPHERDING */
 
                 /* Note - temporarily lost control threads (UNDER_DYN_HACK) are
-                 * whereami == WHERE_FCACHE (FIXME would be more logical to be
-                 * WHERE_APP) and !takeover, but unlike the forge case we don't
+                 * whereami == DR_WHERE_FCACHE (FIXME would be more logical to be
+                 * DR_WHERE_APP) and !takeover, but unlike the forge case we don't
                  * need to fix them up here. */
                 if (!thread_is_lost) {
                     /* xref 8267, can't just check that exception addr matches
                      * forged addr because that can falsely match at 0, so
                      * we base on whereami instead. */
-                    if (dcontext->whereami == WHERE_FCACHE) {
+                    if (dcontext->whereami == DR_WHERE_FCACHE) {
                         /* Xref case 8219 - forge exception sets whereami to
-                         * WHERE_FCACHE while we perform the RaiseException.  Need
-                         * to set the whereami back to WHERE_APP now since not
+                         * DR_WHERE_FCACHE while we perform the RaiseException.  Need
+                         * to set the whereami back to DR_WHERE_APP now since not
                          * taking over. */
                         ASSERT_CURIOSITY(pExcptRec->ExceptionAddress ==
                                          forged_exception_addr);
@@ -5545,10 +5701,10 @@ intercept_exception(app_state_at_intercept_t *state)
 #else
                         ASSERT_CURIOSITY(false && "should not be reached");
 #endif
-                        dcontext->whereami = WHERE_APP;
+                        dcontext->whereami = DR_WHERE_APP;
                     } else {
-                        /* should already be WHERE_APP then */
-                        ASSERT_CURIOSITY(dcontext->whereami == WHERE_APP);
+                        /* should already be DR_WHERE_APP then */
+                        ASSERT_CURIOSITY(dcontext->whereami == DR_WHERE_APP);
                         /* this should not be a forged exception */
                         ASSERT_CURIOSITY(pExcptRec->ExceptionAddress !=
                                          forged_exception_addr || /* 8267 */
@@ -5684,9 +5840,6 @@ intercept_exception(app_state_at_intercept_t *state)
                     /* Checks that exception address translate on a popf. */
                     if (instr_get_opcode(&instr) == OP_popf ||
                         instr_get_opcode(&instr) == OP_iret) {
-                        LOG(THREAD, LOG_ASYNCH, 2,
-                            "Caught generated single step exception at "PFX"\n",
-                            pExcptRec->ExceptionAddress);
                         /* Will continue after one byte popf or iret. */
                         if (instr_get_opcode(&instr) == OP_popf) {
                             dcontext->next_tag = mcontext.pc + POPF_LENGTH;
@@ -5703,10 +5856,13 @@ intercept_exception(app_state_at_intercept_t *state)
                                                     false/*don't force synchall*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
+                        LOG(THREAD, LOG_ASYNCH, 2,
+                            "Caught generated single step exception at "PFX" to "PFX"\n",
+                            pExcptRec->ExceptionAddress, dcontext->next_tag);
                         /* Will return to execute instruction
                          * where single step exception will be forged.
                          */
-                        dcontext->whereami = WHERE_FCACHE;
+                        dcontext->whereami = DR_WHERE_FCACHE;
                         set_last_exit(dcontext, (linkstub_t *)get_asynch_linkstub());
                         if (instr_get_opcode(&instr) == OP_iret) {
                             /* Emulating the rest of iret which is just a pop into rsp
@@ -5776,7 +5932,7 @@ intercept_exception(app_state_at_intercept_t *state)
                  * native or in the cache we hack the exception flags
                  */
                 pExcptRec->ExceptionFlags = 0xbadcad;
-                internal_dynamo_exception(dcontext, pExcptRec, cxt);
+                internal_dynamo_exception(dcontext, pExcptRec, cxt, false);
                 ASSERT_NOT_REACHED();
             }
 
@@ -5841,6 +5997,9 @@ intercept_exception(app_state_at_intercept_t *state)
          * We don't save the cur dcontext.
          */
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_EXCEPTION_DISPATCHER, state, cxt);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_exceptions_noasynch);
@@ -5899,6 +6058,10 @@ intercept_raise_exception(app_state_at_intercept_t *state)
          * We don't save the cur dcontext.
          */
         state->callee_arg = (void *) false /* use cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(get_thread_private_dcontext(),
+                              DR_XFER_RAISE_DISPATCHER, state, NULL);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_raise_exceptions_noasynch);
@@ -6150,7 +6313,7 @@ intercept_callback_start(app_state_at_intercept_t *state)
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
         /* won't be re-protected until dispatch->fcache */
         ASSERT(is_thread_initialized());
-        ASSERT(dcontext->whereami == WHERE_FCACHE);
+        ASSERT(dcontext->whereami == DR_WHERE_FCACHE);
         DODEBUG({
             /* get callback target address
              * we want ((fs:0x18):0x30):0x2c => TEB->PEB->KernelCallbackTable
@@ -6259,6 +6422,9 @@ intercept_callback_start(app_state_at_intercept_t *state)
 
         asynch_retakeover_if_native();
         state->callee_arg = (void *)(ptr_uint_t) true /* save cur dcontext */;
+#ifdef CLIENT_INTERFACE
+        instrument_dispatcher(dcontext, DR_XFER_CALLBACK_DISPATCHER, state, NULL);
+#endif
         asynch_take_over(state);
     } else
         STATS_INC(num_callbacks_noasynch);
@@ -6422,7 +6588,7 @@ callback_setup(app_pc next_pc)
 
     /* now prepare to use new dcontext, pointed to by old_dcontext ptr */
     initialize_dynamo_context(old_dcontext);
-    old_dcontext->whereami = WHERE_TRAMPOLINE;
+    old_dcontext->whereami = DR_WHERE_TRAMPOLINE;
     old_dcontext->next_tag = next_pc;
     ASSERT(old_dcontext->next_tag != NULL);
     return old_dcontext;
@@ -6602,6 +6768,20 @@ callback_start_return(priv_mcontext_t *mc)
         dump_mcontext(get_mcontext(cur_dcontext), cur_dcontext->logfile,
                       DUMP_NOT_XML);
     });
+
+# ifdef CLIENT_INTERFACE
+    priv_mcontext_t *cur_mc = get_mcontext(cur_dcontext);
+    /* XXX: if the retaddr is in the xsi slot, how do we get back the orig xsi value?
+     * Presumably we can't: should we document this?
+     */
+    cur_mc->pc = POST_SYSCALL_PC(cur_dcontext);
+    get_mcontext(prev_dcontext)->pc = prev_dcontext->next_tag;
+      /* We don't support changing the target context for cbret. */
+    instrument_kernel_xfer(cur_dcontext, DR_XFER_CALLBACK_RETURN,
+                           NULL, NULL, get_mcontext(prev_dcontext),
+                           cur_mc->pc, cur_mc->xsp, NULL, cur_mc, 0);
+# endif
+
 #else /* DCONTEXT_IN_EDI */
     /* restore previous dcontext */
     prev_dcontext = cur_dcontext->next_saved;
@@ -6659,7 +6839,8 @@ get_pc_after_call(byte *entry, byte **cbret)
         pc = decode_cti(dcontext, pc, &instr);
         ASSERT(pc != NULL);
         num_instrs++;
-        ASSERT_CURIOSITY(num_instrs <= 15); /* win8.1 x86 call* is 13th instr */
+        /* win8.1 x86 call* is 13th instr, win10 1703 is 16th */
+        ASSERT_CURIOSITY(num_instrs <= 18);
         if (instr_opcode_valid(&instr)) {
             if (instr_is_call_indirect(&instr)) {
                 /* i#1599: Win8.1 has an extra call that we have to rule out:
@@ -6670,6 +6851,10 @@ get_pc_after_call(byte *entry, byte **cbret)
                 if (opnd_is_base_disp(tgt) && opnd_get_base(tgt) == REG_NULL)
                     continue;
             }
+            /* Skip the LdrDelegatedKiUserApcDispatcher, etc. prefixes on 1703 */
+            if (get_os_version() >= WINDOWS_VERSION_10_1703 &&
+                (instr_get_opcode(&instr) == OP_jmp_ind || instr_is_cbr(&instr)))
+                continue;
             break; /* don't expect any other decode_cti instrs */
         }
     } while (true);
@@ -6683,7 +6868,7 @@ get_pc_after_call(byte *entry, byte **cbret)
             pc = decode_cti(dcontext, pc, &instr);
             ASSERT_CURIOSITY(pc != NULL);
             num_instrs++;
-            ASSERT_CURIOSITY(num_instrs <= 20);     /* case 3522. */
+            ASSERT_CURIOSITY(num_instrs <= 32);     /* case 3522. */
             if (instr_opcode_valid(&instr)) {
                 if (instr_is_interrupt(&instr)) {
                     int num = instr_get_interrupt_number(&instr);
@@ -7447,6 +7632,14 @@ callback_interception_init_start(void)
                                     ACCT_OTHER, PROTECTED);
     memset(intercept_map, 0, sizeof(*intercept_map));
 
+    /* we assume callback_interception_init_finish() is called immediately
+     * after client init, and that leaving interception_code off exec areas
+     * and writable during client init is ok: but now that the buffer is inside
+     * our data section, we must mark it +x, before we set up any hooks.
+     */
+    set_protection(interception_code, INTERCEPTION_CODE_SIZE,
+                   MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
+
     /* Note that if we switch to using a non-5-byte-reljmp for our Ki hooks
      * we need to change our drmarker reader. */
 
@@ -7541,13 +7734,6 @@ callback_interception_init_start(void)
                         NULL, NULL);
 
     interception_cur_pc = pc; /* save for callback_interception_init_finish() */
-    /* we assume callback_interception_init_finish() is called immediately
-     * after client init, and that leaving interception_code off exec areas
-     * and writable during client init is ok: but now that the buffer is inside
-     * our data section, we must mark it +x
-     */
-    set_protection(interception_code, INTERCEPTION_CODE_SIZE,
-                   MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
 
     /* other initialization */
 #ifndef X64
@@ -8454,9 +8640,7 @@ callback_exit()
 {
     DELETE_LOCK(emulate_write_lock);
     DELETE_LOCK(map_intercept_pc_lock);
-#ifdef STACK_GUARD_PAGE
     DELETE_LOCK(exception_stack_lock);
-#endif
     DELETE_LOCK(intercept_hook_lock);
 }
 

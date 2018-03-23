@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -141,6 +141,11 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, DRREG_TEST_2_ASM
         mov      TEST_REG_ASM, REG_XSP
+        mov      PTRSZ [TEST_REG_ASM - 8], TEST_REG_ASM
+        mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM - 8]
+        /* Test accessing the reg again to ensure the app spill slot and tool value
+         * are handled in the proper order:
+         */
         mov      TEST_REG_ASM, PTRSZ [TEST_REG_ASM]
 
         jmp      test4

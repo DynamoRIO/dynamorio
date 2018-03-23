@@ -37,6 +37,7 @@
 #include "drmgr.h"
 #include "client_tools.h"
 #include <string.h> /* memset */
+#include <stdint.h> /* uintptr_t */
 
 #define CHECK(x, msg) do {               \
     if (!(x)) {                          \
@@ -54,13 +55,24 @@ static int cls_idx;
 static thread_id_t main_thread;
 static int cb_depth;
 static volatile bool in_syscall_A;
+static volatile bool in_syscall_A_user_data;
 static volatile bool in_syscall_B;
+static volatile bool in_syscall_B_user_data;
 static volatile bool in_post_syscall_A;
+static volatile bool in_post_syscall_A_user_data;
 static volatile bool in_post_syscall_B;
+static volatile bool in_post_syscall_B_user_data;
 static volatile bool in_event_thread_init;
 static volatile bool in_event_thread_init_ex;
+static volatile bool in_event_thread_init_user_data;
+static volatile bool in_event_thread_init_null_user_data;
 static int thread_exit_events;
 static int thread_exit_ex_events;
+static int thread_exit_user_data_events;
+static int thread_exit_null_user_data_events;
+static int mod_load_events;
+static int mod_unload_events;
+
 static void *syslock;
 static void *threadlock;
 static uint one_time_exec;
@@ -77,13 +89,25 @@ static void event_thread_init(void *drcontext);
 static void event_thread_exit(void *drcontext);
 static void event_thread_init_ex(void *drcontext);
 static void event_thread_exit_ex(void *drcontext);
+static void event_thread_init_user_data(void *drcontext, void *user_data);
+static void event_thread_exit_user_data(void *drcontext, void *user_data);
+static void event_thread_init_null_user_data(void *drcontext, void *user_data);
+static void event_thread_exit_null_user_data(void *drcontext, void *user_data);
 static void event_thread_context_init(void *drcontext, bool new_depth);
 static void event_thread_context_exit(void *drcontext, bool process_exit);
+static void event_mod_load(void *drcontext, const module_data_t *mod,
+                           bool loaded, void *user_data);
+static void event_mod_unload(void *drcontext, const module_data_t *mod,
+                             void *user_data);
 static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_sys_A(void *drcontext, int sysnum);
+static bool event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
 static bool event_pre_sys_B(void *drcontext, int sysnum);
+static bool event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
 static void event_post_sys_A(void *drcontext, int sysnum);
+static void event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
 static void event_post_sys_B(void *drcontext, int sysnum);
+static void event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
 static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating,
                                          OUT void **user_data);
@@ -110,6 +134,15 @@ static dr_emit_flags_t event_bb4_insert2(void *drcontext, void *tag, instrlist_t
 
 static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
+static void event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
+
+/* The following test values are arbitrary */
+
+static const uintptr_t thread_user_data_test = 9090;
+static const uintptr_t syscall_A_user_data_test = 7189;
+static const uintptr_t syscall_B_user_data_test = 3218;
+static const uintptr_t mod_user_data_test = 1070;
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -117,12 +150,32 @@ dr_init(client_id_t id)
     drmgr_priority_t priority4 = {sizeof(priority), "drmgr-test4", NULL, NULL, 0};
     drmgr_priority_t sys_pri_A = {sizeof(priority), "drmgr-test-A",
                                   NULL, NULL, 10};
+    drmgr_priority_t sys_pri_A_user_data = {sizeof(priority),
+                                            "drmgr-test-A-usr-data-test",
+                                            "drmgr-test-A", NULL, 9};
     drmgr_priority_t sys_pri_B = {sizeof(priority), "drmgr-test-B",
-                                  "drmgr-test-A", NULL, 5};
+                                  "drmgr-test-A-usr-data-test", NULL, 5};
+    drmgr_priority_t sys_pri_B_user_data = {sizeof(priority),
+                                            "drmgr-test-B-usr-data-test",
+                                            "drmgr-test-B",
+                                            NULL, 4};
+    drmgr_priority_t thread_init_null_user_data_pri = {sizeof(priority),
+                                                       "drmgr-t-in-null-user-data-test",
+                                                       NULL, NULL, -3};
+    drmgr_priority_t thread_init_user_data_pri = {sizeof(priority),
+                                                  "drmgr-thread-init-user-data-test",
+                                                   NULL, NULL, -2};
     drmgr_priority_t thread_init_pri = {sizeof(priority), "drmgr-thread-init-test",
                                         NULL, NULL, -1};
     drmgr_priority_t thread_exit_pri = {sizeof(priority), "drmgr-thread-exit-test",
                                         NULL, NULL, 1};
+    drmgr_priority_t thread_exit_user_data_pri = {sizeof(priority),
+                                                  "drmgr-thread-exit-user-data-test",
+                                                  NULL, NULL, 2};
+    drmgr_priority_t thread_exit_null_user_data_pri = {sizeof(priority),
+                                                       "drmgr-t-exit-null-usr-data-test",
+                                                       NULL, NULL, 3};
+
     bool ok;
 
     drmgr_init();
@@ -131,6 +184,18 @@ dr_init(client_id_t id)
     drmgr_register_thread_exit_event(event_thread_exit);
     drmgr_register_thread_init_event_ex(event_thread_init_ex, &thread_init_pri);
     drmgr_register_thread_exit_event_ex(event_thread_exit_ex, &thread_exit_pri);
+    drmgr_register_thread_init_event_user_data(event_thread_init_user_data,
+                                               &thread_init_user_data_pri,
+                                               (void *) thread_user_data_test);
+    drmgr_register_thread_exit_event_user_data(event_thread_exit_user_data,
+                                               &thread_exit_user_data_pri,
+                                               (void *) thread_user_data_test);
+    drmgr_register_thread_init_event_user_data(event_thread_init_null_user_data,
+                                               &thread_init_null_user_data_pri,
+                                               NULL);
+    drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data,
+                                               &thread_exit_null_user_data_pri,
+                                               NULL);
 
     ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
                                                  event_bb_insert,
@@ -157,6 +222,12 @@ dr_init(client_id_t id)
                                                     event_bb4_instru2instru,
                                                     &priority4);
 
+    drmgr_register_module_load_event_user_data(event_mod_load, NULL,
+                                               (void *) mod_user_data_test);
+
+    drmgr_register_module_unload_event_user_data(event_mod_unload, NULL,
+                                                 (void *) mod_user_data_test);
+
     tls_idx = drmgr_register_tls_field();
     CHECK(tls_idx != -1, "drmgr_register_tls_field failed");
     cls_idx = drmgr_register_cls_field(event_thread_context_init,
@@ -165,10 +236,22 @@ dr_init(client_id_t id)
 
     dr_register_filter_syscall_event(event_filter_syscall);
     ok = drmgr_register_pre_syscall_event_ex(event_pre_sys_A, &sys_pri_A) &&
-        drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B);
+        drmgr_register_pre_syscall_event_user_data(event_pre_sys_A_user_data,
+                                                   &sys_pri_A_user_data,
+                                                   (void *) syscall_A_user_data_test) &&
+        drmgr_register_pre_syscall_event_ex(event_pre_sys_B, &sys_pri_B) &&
+        drmgr_register_pre_syscall_event_user_data(event_pre_sys_B_user_data,
+                                                   &sys_pri_B_user_data,
+                                                   (void *) syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
     ok = drmgr_register_post_syscall_event_ex(event_post_sys_A, &sys_pri_A) &&
-        drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B);
+        drmgr_register_post_syscall_event_user_data(event_post_sys_A_user_data,
+                                                    &sys_pri_A_user_data,
+                                                    (void *) syscall_A_user_data_test) &&
+        drmgr_register_post_syscall_event_ex(event_post_sys_B, &sys_pri_B) &&
+        drmgr_register_post_syscall_event_user_data(event_post_sys_B_user_data,
+                                                    &sys_pri_B_user_data,
+                                                    (void *) syscall_B_user_data_test);
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
@@ -176,6 +259,13 @@ dr_init(client_id_t id)
 
     ok = drmgr_register_bb_app2app_event(one_time_bb_event, NULL);
     CHECK(ok, "drmgr app2app registration failed");
+
+    ok = drmgr_register_kernel_xfer_event(event_kernel_xfer);
+    CHECK(ok, "drmgr_register_kernel_xfer_event failed");
+    ok = drmgr_unregister_kernel_xfer_event(event_kernel_xfer);
+    CHECK(ok, "drmgr_unregister_kernel_xfer_event failed");
+    ok = drmgr_register_kernel_xfer_event_ex(event_kernel_xfer, &priority);
+    CHECK(ok, "drmgr_register_kernel_xfer_event_ex failed");
 }
 
 static void
@@ -193,6 +283,15 @@ event_exit(void)
         dr_fprintf(STDERR, "saw event_thread_exit\n");
     if (thread_exit_ex_events > 0)
         dr_fprintf(STDERR, "saw event_thread_exit_ex\n");
+    if (thread_exit_user_data_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit_user_data\n");
+    if (thread_exit_null_user_data_events > 0)
+        dr_fprintf(STDERR, "saw event_thread_exit_null_user_data\n");
+
+    if (mod_load_events > 0)
+        dr_fprintf(STDERR, "saw event_mod_load\n");
+    if (mod_unload_events > 0)
+        dr_fprintf(STDERR, "saw event_mod_unload\n");
 
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
@@ -203,9 +302,17 @@ event_exit(void)
                                                       event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
+    if (!drmgr_unregister_module_load_event_user_data(event_mod_load))
+        CHECK(false, "drmgr mod load unregistration failed");
+
+    if (!drmgr_unregister_module_unload_event_user_data(event_mod_unload))
+        CHECK(false, "drmgr mod load unregistration failed");
+
     if (!drmgr_unregister_cls_field(event_thread_context_init,
                                     event_thread_context_exit, cls_idx))
         CHECK(false, "drmgr unregistration failed");
+    if (!drmgr_unregister_kernel_xfer_event(event_kernel_xfer))
+        CHECK(false, "drmgr_unregister_kernel_xfer_event failed");
 
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
@@ -242,6 +349,36 @@ event_thread_init_ex(void *drcontext)
 }
 
 static void
+event_thread_init_user_data(void *drcontext, void *user_data)
+{
+    if (!in_event_thread_init_user_data) {
+        dr_mutex_lock(threadlock);
+        if (!in_event_thread_init_user_data) {
+            dr_fprintf(STDERR, "in event_thread_init_user_data\n");
+            in_event_thread_init_user_data = true;
+
+            CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
+        }
+        dr_mutex_unlock(threadlock);
+    }
+}
+
+static void
+event_thread_init_null_user_data(void *drcontext, void *user_data)
+{
+    if (!in_event_thread_init_null_user_data) {
+        dr_mutex_lock(threadlock);
+        if (!in_event_thread_init_null_user_data) {
+            dr_fprintf(STDERR, "in event_thread_init_null_user_data\n");
+            in_event_thread_init_null_user_data = true;
+
+            CHECK(user_data == NULL, "incorrect user data passed");
+        }
+        dr_mutex_unlock(threadlock);
+    }
+}
+
+static void
 event_thread_exit(void *drcontext)
 {
     CHECK(drmgr_get_tls_field(drcontext, tls_idx) ==
@@ -260,6 +397,41 @@ event_thread_exit_ex(void *drcontext)
     dr_mutex_lock(threadlock);
     thread_exit_ex_events++;
     dr_mutex_unlock(threadlock);
+}
+
+static void
+event_thread_exit_user_data(void *drcontext, void *user_data)
+{
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    CHECK(user_data == (void *) thread_user_data_test, "incorrect user data passed");
+    thread_exit_user_data_events++;
+    dr_mutex_unlock(threadlock);
+}
+
+static void
+event_thread_exit_null_user_data(void *drcontext, void *user_data)
+{
+    /* We do not print as on Win10 there are extra threads messing up the order. */
+    dr_mutex_lock(threadlock);
+    CHECK(user_data == NULL, "incorrect user data passed");
+    thread_exit_null_user_data_events++;
+    dr_mutex_unlock(threadlock);
+}
+
+static void
+event_mod_load(void *drcontext, const module_data_t *mod, bool loaded, void *user_data)
+{
+    mod_load_events++;
+    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod load");
+}
+
+
+static void
+event_mod_unload(void *drcontext, const module_data_t *mod, void *user_data)
+{
+    mod_unload_events++;
+    CHECK(user_data == (void *) mod_user_data_test, "incorrect user data for mod unload");
 }
 
 static void
@@ -461,6 +633,22 @@ event_pre_sys_A(void *drcontext, int sysnum)
 }
 
 static bool
+event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_syscall_A_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_A_user_data) {
+            dr_fprintf(STDERR, "in pre_sys_A_user_data\n");
+            in_syscall_A_user_data = true;
+            CHECK(user_data == (void *) syscall_A_user_data_test,
+                                "incorrect user data pre-syscall A");
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
 event_pre_sys_B(void *drcontext, int sysnum)
 {
     if (!in_syscall_B) {
@@ -468,6 +656,22 @@ event_pre_sys_B(void *drcontext, int sysnum)
         if (!in_syscall_B) {
             dr_fprintf(STDERR, "in pre_sys_B\n");
             in_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+    return true;
+}
+
+static bool
+event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_syscall_B_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_syscall_B_user_data) {
+            dr_fprintf(STDERR, "in pre_sys_B_user_data\n");
+            in_syscall_B_user_data = true;
+            CHECK(user_data == (void *) syscall_B_user_data_test,
+                                "incorrect user data pre-syscall B");
         }
         dr_mutex_unlock(syslock);
     }
@@ -488,6 +692,21 @@ event_post_sys_A(void *drcontext, int sysnum)
 }
 
 static void
+event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_post_syscall_A_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_A_user_data) {
+            dr_fprintf(STDERR, "in post_sys_A_user_data\n");
+            in_post_syscall_A_user_data = true;
+            CHECK(user_data == (void *) syscall_A_user_data_test,
+                                "incorrect user data post-syscall A");
+        }
+        dr_mutex_unlock(syslock);
+    }
+}
+
+static void
 event_post_sys_B(void *drcontext, int sysnum)
 {
     if (!in_post_syscall_B) {
@@ -495,6 +714,19 @@ event_post_sys_B(void *drcontext, int sysnum)
         if (!in_post_syscall_B) {
             dr_fprintf(STDERR, "in post_sys_B\n");
             in_post_syscall_B = true;
+        }
+        dr_mutex_unlock(syslock);
+    }
+}
+
+static void
+event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data)
+{
+    if (!in_post_syscall_B_user_data) {
+        dr_mutex_lock(syslock);
+        if (!in_post_syscall_B_user_data) {
+            dr_fprintf(STDERR, "in post_sys_B_user_data\n");
+            in_post_syscall_B_user_data = true;
         }
         dr_mutex_unlock(syslock);
     }
@@ -541,4 +773,14 @@ one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     }
 
     return DR_EMIT_DEFAULT;
+}
+
+/* test kernel xfer event callback */
+static void
+event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
+{
+    /* We rely on other tests for the details here.  Mostly we're just testing
+     * the register/unregister logic.
+     */
+    CHECK(drcontext == dr_get_current_drcontext(), "sanity check");
 }

@@ -535,14 +535,11 @@ mutex_collect_callstack(mutex_t *lock)
 
     /* only interested in DR addresses which should all be readable */
     while (depth < max_depth &&
-           (is_on_initstack(fp) || is_on_dstack(dcontext, fp))
-#ifdef STACK_GUARD_PAGE
+           (is_on_initstack(fp) || is_on_dstack(dcontext, fp)) &&
            /* is_on_initstack() and is_on_dstack() do include the guard pages
             * yet we cannot afford to call is_readable_without_exception()
             */
-           && !is_stack_overflow(dcontext, fp)
-#endif
-           ) {
+           !is_stack_overflow(dcontext, fp)) {
         app_pc our_ret = *((app_pc*)fp+1);
         fp = *(byte **)fp;
         if (skip) {
@@ -844,17 +841,12 @@ mutex_ownable(mutex_t *lock)
 #endif
 
 void
-mutex_lock(mutex_t *lock)
+mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
     bool ownable = mutex_ownable(lock);
 #endif
-
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        spinmutex_lock((spin_mutex_t *)lock);
-        return;
-    }
 
     /* we may want to first spin the lock for a while if we are on a multiprocessor
      * machine
@@ -896,7 +888,7 @@ mutex_lock(mutex_t *lock)
     DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
-        mutex_wait_contended_lock(lock);
+        mutex_wait_contended_lock(lock _IF_CLIENT_INTERFACE(mc));
 #       ifdef DEADLOCK_AVOIDANCE
         DEADLOCK_AVOIDANCE_LOCK(lock, true, ownable); /* now we got it  */
         /* this and previous owner are not included in lock_requests */
@@ -904,6 +896,12 @@ mutex_lock(mutex_t *lock)
             lock->max_contended_requests = (uint)lock->lock_requests;
 #       endif
     }
+}
+
+void
+mutex_lock(mutex_t *lock)
+{
+    mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 /* try once to grab the lock, return whether or not successful */
@@ -914,10 +912,6 @@ mutex_trylock(mutex_t *lock)
 #ifdef DEADLOCK_AVOIDANCE
     bool ownable = mutex_ownable(lock);
 #endif
-
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        return spinmutex_trylock((spin_mutex_t *)lock);
-    }
 
     /* preserve old value in case not LOCK_FREE_STATE */
     acquired = atomic_compare_exchange(&lock->lock_requests,
@@ -938,11 +932,6 @@ mutex_unlock(mutex_t *lock)
     bool ownable = mutex_ownable(lock);
 #endif
 
-    if (INTERNAL_OPTION(spin_yield_mutex)) {
-        spinmutex_unlock((spin_mutex_t *)lock);
-        return;
-    }
-
     ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
     DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
 
@@ -959,6 +948,11 @@ void
 mutex_delete(mutex_t *lock)
 {
     LOG(GLOBAL, LOG_THREADS, 3, "mutex_delete lock "PFX"\n", lock);
+    /* When doing detach, application locks may be held on threads which have
+     * already been interrupted and will never execute lock code again. Just
+     * ignore the assert on the lock_requests field below in those cases.
+     */
+    DEBUG_DECLARE(bool skip_lock_request_assert = false;)
 #ifdef DEADLOCK_AVOIDANCE
     LOG(THREAD_GET, LOG_THREADS, 3, "mutex_delete "
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
@@ -971,9 +965,19 @@ mutex_delete(mutex_t *lock)
          * as they're deleted) and then walk it from dynamo_exit_post_detach().
          */
         lock->count_times_acquired = 0;
+# if defined(CLIENT_INTERFACE) && defined(DEBUG)
+        skip_lock_request_assert = lock->app_lock;
+# endif /* CLIENT_INTERFACE && DEBUG */
     }
-#endif
-    ASSERT(lock->lock_requests == LOCK_FREE_STATE);
+#else
+# ifdef DEBUG
+    /* We don't support !DEADLOCK_AVOIDANCE && DEBUG: we need to know whether to
+     * skip the assert lock_requests but don't know if this lock is an app lock
+     */
+#  error DEBUG mode not supported without DEADLOCK_AVOIDANCE
+# endif /* DEBUG */
+#endif /* DEADLOCK_AVOIDANCE */
+    ASSERT(skip_lock_request_assert || lock->lock_requests == LOCK_FREE_STATE);
 
     if (ksynch_var_initialized(&lock->contended_event)) {
         mutex_free_contended_event(lock);
@@ -1001,9 +1005,9 @@ own_recursive_lock(recursive_lock_t *lock)
     lock->count = 1;
 }
 
-/* FIXME: rename recursive routines to parallel mutex_ routines */
 void
-acquire_recursive_lock(recursive_lock_t *lock)
+acquire_recursive_app_lock(recursive_lock_t *lock
+                           _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     /* we no longer use the pattern of implementing acquire_lock as a
        busy try_lock
@@ -1013,9 +1017,16 @@ acquire_recursive_lock(recursive_lock_t *lock)
     if (lock->owner == get_thread_id()) {
         lock->count++;
     } else {
-        mutex_lock(&lock->lock);
+        mutex_lock_app(&lock->lock _IF_CLIENT_INTERFACE(mc));
         own_recursive_lock(lock);
     }
+}
+
+/* FIXME: rename recursive routines to parallel mutex_ routines */
+void
+acquire_recursive_lock(recursive_lock_t *lock)
+{
+    acquire_recursive_app_lock(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 bool
@@ -1340,73 +1351,6 @@ self_owns_write_lock(read_write_lock_t *rw)
     /* ASSUMPTION: reading owner field is atomic */
     return (rw->writer == get_thread_id());
 }
-
-/***************************************************/
-/* broadcast events */
-
-/* FIXME: once we're happy with these, change rwlock reader
- *  notification to use these same routines
- */
-
-struct _broadcast_event_t {
-    event_t event;
-    volatile int num_waiting;
-};
-
-broadcast_event_t *
-create_broadcast_event()
-{
-    broadcast_event_t *be = (broadcast_event_t *)
-        global_heap_alloc(sizeof(broadcast_event_t) HEAPACCT(ACCT_OTHER));
-    be->event = create_event();
-    be->num_waiting = 0;
-    return be;
-}
-
-void
-destroy_broadcast_event(broadcast_event_t *be)
-{
-    destroy_event(be->event);
-    global_heap_free(be, sizeof(broadcast_event_t) HEAPACCT(ACCT_OTHER));
-}
-
-/* NOTE : to avoid races a signaler should always do the required action to
- * make any do_wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the
- * event false BEFORE signaling the event
- */
-void
-signal_broadcast_event(broadcast_event_t *be)
-{
-    /* we rely on each woken-up thread to wake another */
-    if (be->num_waiting > 0)
-        signal_event(be->event);
-}
-
-/* Note : waiting on a broadcast event is done through the
- * WAIT_FOR_BROADCAST_EVENT macro, don't use the helper functions below
- */
-void
-intend_wait_broadcast_event_helper(broadcast_event_t *be)
-{
-    ATOMIC_INC(int, be->num_waiting);
-}
-void
-unintend_wait_broadcast_event_helper(broadcast_event_t *be)
-{
-    ATOMIC_DEC(int, be->num_waiting);
-}
-void
-wait_broadcast_event_helper(broadcast_event_t *be)
-{
-    wait_for_event(be->event);
-    /* once woken, we must wake next thread in the chain,
-     * unless we are the last
-     */
-    if (!atomic_dec_becomes_zero(&be->num_waiting)) {
-        signal_event(be->event);
-    }
-}
-
 
 /****************************************************************************/
 /* HASHING */
@@ -2142,6 +2086,7 @@ set_exception_strings(const char *override_label, const char *override_url)
         exception_report_url = override_url;
     if (override_label != NULL)
         exception_label_core = override_label;
+    ASSERT(strlen(CRASH_NAME) == strlen(STACK_OVERFLOW_NAME));
     snprintf(exception_prefix, BUFFER_SIZE_ELEMENTS(exception_prefix),
              "%s %s at PC "PFX, exception_label_core, CRASH_NAME, 0);
     NULL_TERMINATE_BUFFER(exception_prefix);
@@ -2171,7 +2116,7 @@ set_display_version(const char *ver)
 }
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
- * If dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION, does a full SYSLOG;
+ * If TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag), does a full SYSLOG;
  * else, does a SYSLOG_INTERNAL_ERROR.
  * Fine to pass NULL for report_ebp: will use current ebp for you.
  */
@@ -2244,16 +2189,15 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     }
     for (num = 0, pc = (ptr_uint_t *) report_ebp;
          num < REPORT_NUM_STACK && pc != NULL &&
-             is_readable_without_exception_query_os((app_pc) pc, 2*sizeof(reg_t));
+             is_readable_without_exception_query_os_noblock((app_pc) pc, 2*sizeof(reg_t));
          num++, pc = (ptr_uint_t *) *pc) {
         len = snprintf(curbuf, REPORT_LEN_STACK_EACH, PFX" "PFX"\n",
                        pc, *(pc+1));
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
-
 #ifdef CLIENT_INTERFACE
     /* Only walk the module list if we think the data structs are safe */
-    if (dumpcore_flag != DUMPCORE_INTERNAL_EXCEPTION) {
+    if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
         size_t sofar = 0;
         /* We decided it's better to include the paths even if it means we may
          * not fit all the modules (i#968).  We plan to add the modules to the
@@ -2280,15 +2224,17 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION
-        IF_CLIENT_INTERFACE(|| dumpcore_flag == DUMPCORE_CLIENT_EXCEPTION)) {
+    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)
+        IF_CLIENT_INTERFACE(|| TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag))) {
         char saddr[IF_X64_ELSE(19,11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
-        if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION) {
+        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
             SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   exception_label_core, CRASH_NAME,
+                                   exception_label_core,
+                                   TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ?
+                                   STACK_OVERFLOW_NAME : CRASH_NAME,
                                    saddr, exception_report_url,
                                    /* skip the prefix since the event log string
                                     * already has it */
@@ -2298,19 +2244,21 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         else {
             SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   exception_label_client, CRASH_NAME,
+                                   exception_label_client,
+                                   TEST(DUMPCORE_STACK_OVERFLOW, dumpcore_flag) ?
+                                   STACK_OVERFLOW_NAME : CRASH_NAME,
                                    saddr, exception_report_url,
                                    reportbuf + report_client_exception_skip_prefix());
         }
 #endif
-    } else if (dumpcore_flag == DUMPCORE_ASSERTION) {
+    } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(),
                                reportbuf);
-    } else if (dumpcore_flag == DUMPCORE_CURIOSITY) {
+    } else if (TEST(DUMPCORE_CURIOSITY, dumpcore_flag)) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, "%s", reportbuf);
     } else {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_ERROR, "%s", reportbuf);
@@ -2332,7 +2280,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
      * for client and app crashes but not DR crashes.
      */
     DOLOG(1, LOG_ALL, {
-        if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION)
+        if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag))
             dump_callstack(exception_addr, report_ebp, THREAD, DUMP_NOT_XML);
         else
             dump_dr_callstack(THREAD);
@@ -3281,8 +3229,28 @@ print_timestamp(file_t logfile)
         print_file(logfile, buffer);
     return len;
 }
-
 #endif /* DEBUG */
+
+void
+dump_global_rstats_to_stderr(void)
+{
+    if (GLOBAL_STATS_ON()) {
+        print_file(STDERR, "%s statistics:\n", PRODUCT_NAME);
+#undef RSTATS_DEF
+        /* It doesn't make sense to print Current stats.  We assume no rstat starts
+         * with "Cu".
+         */
+#define RSTATS_DEF(desc, stat) \
+        if (GLOBAL_STAT(stat) && (desc[0] != 'C' || desc[1] != 'u')) { \
+            print_file(STDERR, "%50s :"IF_X64_ELSE("%18","%9")SSZFC    \
+                       "\n", desc, GLOBAL_STAT(stat));                 \
+        }
+#define RSTATS_ONLY
+#include "statsx.h"
+#undef RSTATS_ONLY
+#undef RSTATS_DEF
+    }
+}
 
 static void
 dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)
@@ -3663,7 +3631,7 @@ convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
                 dr_time->second) * 1000 + dr_time->milliseconds);
 }
 
-const uint crctab[] = {
+static const uint crctab[] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
     0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
     0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,

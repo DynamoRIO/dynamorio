@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -413,6 +413,12 @@ void
 os_loader_thread_exit(dcontext_t *dcontext)
 {
     /* do nothing in Windows */
+}
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+    /* XXX i#975: NYI */
 }
 
 #ifdef CLIENT_INTERFACE
@@ -1239,7 +1245,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
          */
         if (forwfunc == (char *)(ptr_int_t)1 || strchr(forwfunc+1, '.') != NULL) {
             CLIENT_ASSERT(false, "unexpected forwarder string");
-            return NULL;
+            return false;
         }
         if (forwfunc - forwarder + strlen("dll") >=
             BUFFER_SIZE_ELEMENTS(forwmodpath)) {
@@ -1504,7 +1510,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
-    else if (str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
+    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L3-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
@@ -2198,7 +2205,7 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
      *   .reload bbcount.dll=74ad0000;.echo "Loaded bbcount.dll";
      *
      */
-#define WINDBG_ADD_PATH ".block{.sympath+ "
+# define WINDBG_ADD_PATH ".block{.sympath+ "
     if (*sofar + strlen(WINDBG_ADD_PATH) + (last_dir - path) < WINDBG_CMD_MAX_LEN) {
         res = _snprintf(marker->windbg_cmds + *sofar,
                         strlen(WINDBG_ADD_PATH) + last_dir - path,

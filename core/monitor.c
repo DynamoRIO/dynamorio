@@ -46,7 +46,7 @@
 #include "fcache.h"
 #include "monitor.h"
 #ifdef CUSTOM_TRACES
-#  include "instrument.h"
+# include "instrument.h"
 #endif
 #include <string.h> /* for memset */
 #include "instr.h"
@@ -360,7 +360,7 @@ monitor_thread_init(dcontext_t *dcontext)
      * FIXME: we can optimize even more to not allocate md at all, but would need
      * to have hotp_only checks in monitor_cache_exit(), etc.
      */
-    if (RUNNING_WITHOUT_CODE_CACHE())
+    if (RUNNING_WITHOUT_CODE_CACHE() || DYNAMO_OPTION(disable_traces))
         return;
 
     md->thead_table = generic_hash_create(dcontext, INIT_COUNTER_TABLE_SIZE,
@@ -393,14 +393,9 @@ monitor_thread_exit(dcontext_t *dcontext)
         heap_free(dcontext, md->blk_info, md->blk_info_length*sizeof(trace_bb_build_t)
                   HEAPACCT(ACCT_TRACE));
     }
-
-    /* case 7966: don't initialize at all for hotp_only
-     * FIXME: could set initial sizes to 0 for all configurations, instead
-     */
-    if (!RUNNING_WITHOUT_CODE_CACHE()) {
+    if (md->thead_table != NULL)
         generic_hash_destroy(dcontext, md->thead_table);
-        heap_free(dcontext, md, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
-    }
+    heap_free(dcontext, md, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
 #endif
 }
 
@@ -432,8 +427,10 @@ void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-    generic_hash_range_remove(dcontext, md->thead_table,
-                              (ptr_uint_t) start, (ptr_uint_t) end);
+    if (md->thead_table != NULL) {
+        generic_hash_range_remove(dcontext, md->thead_table,
+                                  (ptr_uint_t) start, (ptr_uint_t) end);
+    }
 }
 
 bool
@@ -1339,9 +1336,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
 #ifdef INTERNAL
     if (dynamo_options.optimize
-#  ifdef SIDELINE
+# ifdef SIDELINE
         && !dynamo_options.sideline
-#  endif
+# endif
         ) {
         optimize_trace(dcontext, tag, trace);
         externally_mangled = true;
@@ -1584,7 +1581,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
 
     if (DYNAMO_OPTION(remove_trace_components)) {
-        uint i;
         fragment_t *f;
         /* use private md values, don't trust trace_tr */
         for (i = 1/*skip trace head*/; i < md->num_blks; i++) {
@@ -1833,8 +1829,8 @@ monitor_cache_exit(dcontext_t *dcontext)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
     if (md->trace_tag != NULL && md->last_fragment != NULL) {
         /* unprotect local heap */
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
@@ -1866,7 +1862,7 @@ monitor_cache_exit(dcontext_t *dcontext)
             (TEST(FRAG_IS_TRACE, dcontext->last_fragment->flags) &&
              TEST(LINK_NI_SYSCALL, dcontext->last_exit->flags));
     }
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
 }
 
 static void
@@ -1924,8 +1920,8 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* where processing */
-    ASSERT(dcontext->whereami == WHERE_DISPATCH);
-    dcontext->whereami = WHERE_MONITOR;
+    ASSERT(dcontext->whereami == DR_WHERE_DISPATCH);
+    dcontext->whereami = DR_WHERE_MONITOR;
 
     /* default internal routine */
 
@@ -2120,7 +2116,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             /* add_size is set when !end_trace */
             f = internal_extend_trace(dcontext, f, dcontext->last_exit, add_size);
         }
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
         KSTOP(trace_building);
@@ -2133,7 +2129,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         /* nothing to do */
-        dcontext->whereami = WHERE_DISPATCH;
+        dcontext->whereami = DR_WHERE_DISPATCH;
         return f;
     }
 
@@ -2181,7 +2177,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         }
 
         if (!trace_head) {
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             return f;
         }
     }
@@ -2340,7 +2336,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
              * export the size expansion factors considered?
              */
             /* now return */
-            dcontext->whereami = WHERE_DISPATCH;
+            dcontext->whereami = DR_WHERE_DISPATCH;
             /* link unprotects on demand, we then re-protect all */
             SELF_PROTECT_CACHE(dcontext, NULL, READONLY);
             /* re-protect local heap */
@@ -2359,7 +2355,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     }
 
     /* release rest of state */
-    dcontext->whereami = WHERE_DISPATCH;
+    dcontext->whereami = DR_WHERE_DISPATCH;
     return f;
 }
 

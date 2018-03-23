@@ -128,14 +128,14 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 {
     byte *last_pc;
     /* FIXME i#1551: merge w/ GENCODE_IS_X86 below */
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode)) {
         /* parts of x86 gencode are 64-bit but it's hard to know which here
          * so we dump all as x86
          */
         set_x86_mode(dcontext, true/*x86*/);
     }
-#endif
+# endif
 
     print_file(file, "%s routines created:\n", code_description);
     {
@@ -218,10 +218,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                    code->commit_end_pc - code->gen_start_pc);
     }
 
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
     if (GENCODE_IS_X86(code->gencode_mode))
         set_x86_mode(dcontext, false/*x64*/);
-#endif
+# endif
 }
 
 void
@@ -278,7 +278,7 @@ check_size_and_cache_line(dr_isa_mode_t isa_mode, generated_code_t *code, byte *
     byte *next_pc = move_to_start_of_cache_line(isa_mode, pc);
     if ((byte *)ALIGN_FORWARD(pc, PAGE_SIZE) + PAGE_SIZE > code->commit_end_pc) {
         ASSERT(code->commit_end_pc + PAGE_SIZE <= ((byte *)code) + GENCODE_RESERVE_SIZE);
-        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE);
+        heap_mmap_extend_commitment(code->commit_end_pc, PAGE_SIZE, VMM_SPECIAL_MMAP);
         code->commit_end_pc += PAGE_SIZE;
     }
     return next_pc;
@@ -296,7 +296,8 @@ release_final_page(generated_code_t *code)
     ASSERT(ALIGNED(code->commit_end_pc, PAGE_SIZE));
     ASSERT(ALIGNED(leftover, PAGE_SIZE));
     if (leftover > 0) {
-        heap_mmap_retract_commitment(code->commit_end_pc - leftover, leftover);
+        heap_mmap_retract_commitment(code->commit_end_pc - leftover, leftover,
+                                     VMM_SPECIAL_MMAP);
         code->commit_end_pc -= leftover;
     }
     LOG(THREAD_GET, LOG_EMIT, 1,
@@ -491,7 +492,8 @@ shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void))
     bool x86_to_x64_mode = false;
 #endif
 
-    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE);
+    gencode = heap_mmap_reserve(GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                                VMM_SPECIAL_MMAP);
     /* we would return gencode and let caller assign, but emit routines
      * that this routine calls query the shared vars so we set here
      */
@@ -869,13 +871,13 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 #endif
     /* on x64 we have syscall routines in the shared code so can't free if detaching */
     if (IF_WINDOWS(IF_X64(!detach_stacked_callbacks &&)) shared_code != NULL) {
-        heap_munmap(shared_code, GENCODE_RESERVE_SIZE);
+        heap_munmap(shared_code, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
     }
 #if defined(X86) && defined(X64)
     if (shared_code_x86 != NULL)
-        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE);
+        heap_munmap(shared_code_x86, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
     if (shared_code_x86_to_x64 != NULL)
-        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE);
+        heap_munmap(shared_code_x86_to_x64, GENCODE_RESERVE_SIZE, VMM_SPECIAL_MMAP);
 #endif
     interp_exit();
     mangle_exit();
@@ -1178,8 +1180,8 @@ arch_thread_init(dcontext_t *dcontext)
      */
     ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
     /* case 9474; share allocation unit w/ thread-private stack */
-    code = heap_mmap_reserve_post_stack(dcontext,
-                                        GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE);
+    code = heap_mmap_reserve_post_stack(dcontext, GENCODE_RESERVE_SIZE,
+                                        GENCODE_COMMIT_SIZE, VMM_SPECIAL_MMAP);
     ASSERT(code != NULL);
     /* FIXME case 6493: if we split private from shared, remove this
      * memset since we will no longer have a bunch of fields we don't use
@@ -1230,11 +1232,11 @@ arch_thread_init(dcontext_t *dcontext)
         if (!DYNAMO_OPTION(shared_traces)) {
             /* copy all bookkeeping information from shared_code into thread private
                needed by get_ibl_routine*() */
-            ibl_branch_type_t branch_type;
-            for (branch_type = IBL_BRANCH_TYPE_START;
-                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-                code->trace_ibl[branch_type] =
-                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[branch_type];
+            ibl_branch_type_t ibl_branch_type;
+            for (ibl_branch_type = IBL_BRANCH_TYPE_START;
+                 ibl_branch_type < IBL_BRANCH_TYPE_END; ibl_branch_type++) {
+                code->trace_ibl[ibl_branch_type] =
+                    SHARED_GENCODE(code->gencode_mode)->trace_ibl[ibl_branch_type];
             }
         } /* FIXME: no private traces supported right now w/ -shared_traces */
     } else if (PRIVATE_TRACES_ENABLED()) {
@@ -1394,7 +1396,8 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
 #ifdef WINDOWS
     if (!detach_stacked_callbacks)
 #endif
-        heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE);
+        heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE,
+                               VMM_SPECIAL_MMAP);
 }
 
 #ifdef WINDOWS
@@ -1930,7 +1933,12 @@ bool
 get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                         _IF_X86_64(gencode_mode_t *mode_out))
 {
-    ibl_entry_point_type_t link_state;
+    /* This variable is int instead of ibl_entry_point_type_t.  This is because
+     * below we use it as loop index variable which can take negative values.
+     * It is possible that ibl_entry_point_type_t, which is an enum, has an
+     * underlying unsigned type which can cause problems due to wrap around.
+     */
+    int link_state;
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
 #if defined(X86) && defined(X64)
@@ -1962,7 +1970,7 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
     /* iterate in order <linked, unlinked> */
     for (link_state = IBL_LINKED;
          /* keep in mind we need a signed comparison when going downwards */
-         (int)link_state >= (int)IBL_UNLINKED; link_state-- ) {
+         link_state >= (int)IBL_UNLINKED; link_state--) {
         /* it is OK to compare to IBL_BB_PRIVATE even when !SHARED_FRAGMENTS_ENABLED() */
         for (source_fragment_type = IBL_SOURCE_TYPE_START;
              source_fragment_type < IBL_SOURCE_TYPE_END;
@@ -1998,23 +2006,23 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
         if (type != NULL) {
             type->branch_type = IBL_SHARED_SYSCALL;
             type->source_fragment_type = DEFAULT_IBL_BB();
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
-#endif
+# endif
                 if (target == unlinked_shared_syscall_routine_ex(dcontext
                                                                  _IF_X86_64(mode)))
                     type->link_state = IBL_UNLINKED;
                 else IF_X64(if (target ==
                                 shared_syscall_routine_ex(dcontext _IF_X86_64(mode))))
                     type->link_state = IBL_LINKED;
-#if defined(X86) && defined(X64)
+# if defined(X86) && defined(X64)
                 else
                     continue;
                 if (mode_out != NULL)
                     *mode_out = mode;
                 break;
             }
-#endif
+# endif
         }
         return true;
     }
@@ -2568,12 +2576,12 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
 cache_pc
 get_new_thread_start(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
-#ifdef HAVE_TLS
+# ifdef HAVE_TLS
     /* for HAVE_TLS we use the shared version; w/o TLS we don't
      * make any shared routines (PR 361894)
      */
     dcontext = GLOBAL_DCONTEXT;
-#endif
+# endif
     generated_code_t *gen = get_emitted_routines_code(dcontext _IF_X86_64(mode));
     return gen->new_thread_dynamo_start;
 }
@@ -2814,12 +2822,12 @@ unhook_vsyscall(void)
  * and control on asynch in/out events.
  */
 
-#define VSYS_DISPLACED_LEN 4
+# define VSYS_DISPLACED_LEN 4
 
 bool
 hook_vsyscall(dcontext_t *dcontext, bool method_changing)
 {
-#ifdef X86
+# ifdef X86
     bool res = true;
     instr_t instr;
     byte *pc;
@@ -2847,7 +2855,7 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
            instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
     /* We fail if the pattern looks different */
-# define CHECK(x) do {                                \
+#  define CHECK(x) do {                                \
     if (!(x)) {                                       \
         ASSERT(false && "vsyscall pattern mismatch"); \
         res = false;                                  \
@@ -2933,20 +2941,20 @@ hook_vsyscall(dcontext_t *dcontext, bool method_changing)
  hook_vsyscall_return:
     instr_free(dcontext, &instr);
     return res;
-# undef CHECK
-#elif defined(AARCHXX)
+#  undef CHECK
+# elif defined(AARCHXX)
     /* No vsyscall support needed for our ARM targets -- still called on
      * os_process_under_dynamorio().
      */
     ASSERT(!method_changing);
     return false;
-#endif /* X86/ARM */
+# endif /* X86/ARM */
 }
 
 bool
 unhook_vsyscall(void)
 {
-#ifdef X86
+# ifdef X86
     uint prot;
     bool res;
     uint len = VSYS_DISPLACED_LEN;
@@ -2970,10 +2978,10 @@ unhook_vsyscall(void)
         ASSERT(res);
     }
     return true;
-#elif defined(AARCHXX)
+# elif defined(AARCHXX)
     ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
     return false;
-#endif /* X86/ARM */
+# endif /* X86/ARM */
 }
 #endif /* LINUX */
 
@@ -3253,6 +3261,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
+            /* XXX i#2710: mc->lr should be under DR_MC_CONTROL */
             dst->xsp = src->xsp;
             dst->xflags = src->xflags;
             dst->pc = src->pc;
@@ -3473,19 +3482,19 @@ set_stolen_reg_val(priv_mcontext_t *mc, reg_t newval)
 
 #ifdef PROFILE_RDTSC
 /* This only works on Pentium I or later */
-#ifdef UNIX
+# ifdef UNIX
 __inline__ uint64 get_time()
 {
     uint64 res;
     RDTSC_LL(res);
     return res;
 }
-#else /* WINDOWS */
+# else /* WINDOWS */
 uint64 get_time()
 {
     return __rdtsc(); /* compiler intrinsic */
 }
-#endif
+# endif
 #endif /* PROFILE_RDTSC */
 
 

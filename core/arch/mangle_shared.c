@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -61,12 +61,7 @@ callee_info_t default_callee_info;
 int
 get_clean_call_switch_stack_size(void)
 {
-#ifdef AARCH64
-    /* Stack size needs to be 16 byte aligned on ARM */
-    return ALIGN_FORWARD(sizeof(priv_mcontext_t), 16);
-#else
-    return sizeof(priv_mcontext_t);
-#endif
+    return ALIGN_FORWARD(sizeof(priv_mcontext_t), get_ABI_stack_alignment());
 }
 
 /* extra temporarily-used stack usage beyond
@@ -156,7 +151,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
 #define NUM_EXTRA_SLOTS 2 /* pc, aflags */
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *instr)
+                       instrlist_t *ilist, instr_t *instr, byte *encode_pc)
 {
     uint dstack_offs = 0;
 
@@ -259,7 +254,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (cci->out_of_line_swap) {
         dstack_offs +=
-            insert_out_of_line_context_switch(dcontext, ilist, instr, true);
+            insert_out_of_line_context_switch(dcontext, ilist, instr, true, encode_pc);
     } else {
         dstack_offs +=
             insert_push_all_registers(dcontext, cci, ilist, instr, (uint)PAGE_SIZE,
@@ -276,37 +271,40 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * We do not need to preserve DR's Linux errno across app execution.
      */
 
-#if (defined(X86) && defined(X64)) || defined(MACOS)
-    /* PR 218790: maintain 16-byte rsp alignment.
-     * insert_parameter_preparation() currently assumes we leave rsp aligned.
-     */
     /* check if need adjust stack for alignment. */
     if (cci->should_align) {
+#if (defined(X86) && defined(X64)) || defined(MACOS)
+        /* PR 218790: maintain 16-byte rsp alignment.
+         * insert_parameter_preparation() currently assumes we leave rsp aligned.
+         */
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
         if (cci->skip_save_flags)
             num_slots -= 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
-        if ((num_slots % 2) == 1) {
+        /* For out-of-line calls, the stack size gets aligned by
+         * get_clean_call_switch_stack_size.
+         */
+        if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
             ASSERT((dstack_offs % 16) == 8);
             PRE(ilist, instr, INSTR_CREATE_lea
                 (dcontext, opnd_create_reg(REG_XSP),
                  OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, -(int)XSP_SZ)));
             dstack_offs += XSP_SZ;
-        } else {
-            ASSERT((dstack_offs % 16) == 0);
         }
-    }
 #endif
+        ASSERT((dstack_offs % get_ABI_stack_alignment()) == 0);
+    }
     ASSERT(cci->skip_save_flags    ||
            cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
-           dstack_offs == sizeof(priv_mcontext_t) + clean_call_beyond_mcontext());
+           (int) dstack_offs == (get_clean_call_switch_stack_size() +
+                                  clean_call_beyond_mcontext()));
     return dstack_offs;
 }
 
 void
 cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *instr)
+                         instrlist_t *ilist, instr_t *instr, byte *encode_pc)
 {
     if (cci == NULL)
         cci = &default_clean_call_info;
@@ -319,7 +317,10 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         if (cci->skip_save_flags)
             num_slots += 2;
         num_slots -= cci->num_regs_skip; /* regs that not saved */
-        if ((num_slots % 2) == 1) {
+        /* For out-of-line calls, the stack size gets aligned by
+         * get_clean_call_switch_stack_size.
+         */
+        if (!cci->out_of_line_swap && (num_slots % 2) == 1) {
             PRE(ilist, instr, INSTR_CREATE_lea
                 (dcontext, opnd_create_reg(REG_XSP),
                  OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0, XSP_SZ)));
@@ -329,7 +330,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
     /* now restore everything */
     if (cci->out_of_line_swap) {
-        insert_out_of_line_context_switch(dcontext, ilist, instr, false);
+        insert_out_of_line_context_switch(dcontext, ilist, instr, false, encode_pc);
     } else {
         /* XXX: add a cci field for optimizing this away if callee makes no calls */
         insert_pop_all_registers(dcontext, cci, ilist, instr,
@@ -437,7 +438,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 XINST_CREATE_store(dcontext,
                                    OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
                                    opnd_create_reg(SCRATCH_REG1)));
-            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)WHERE_CLEAN_CALLEE,
+            instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
                                              opnd_create_reg(SCRATCH_REG1),
                                              ilist, instr, NULL, NULL);
             PRE(ilist, instr,
@@ -449,14 +450,14 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
 # else
             PRE(ilist, instr,
-                instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
-                                                      WHEREAMI_OFFSET,
-                                                      (uint) WHERE_CLEAN_CALLEE, OPSZ_4));
+                instr_create_save_immed_to_dc_via_reg
+                (dcontext, SCRATCH_REG0, WHEREAMI_OFFSET,
+                 (uint) DR_WHERE_CLEAN_CALLEE, OPSZ_4));
 # endif
         } else {
             PRE(ilist, instr, XINST_CREATE_store(dcontext,
                 opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
-                OPND_CREATE_INT32(WHERE_CLEAN_CALLEE)));
+                OPND_CREATE_INT32(DR_WHERE_CLEAN_CALLEE)));
         }
     }
 #endif
@@ -480,9 +481,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         uint whereami;
 
         if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
-            whereami = (uint) WHERE_APP;
+            whereami = (uint) DR_WHERE_APP;
         else
-            whereami = (uint) WHERE_FCACHE;
+            whereami = (uint) DR_WHERE_FCACHE;
 
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
@@ -692,7 +693,6 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         sysnum_is_not_restartable(ilist_find_sysnum(ilist, instr))) {
         /* i#1216: we insert a nop instr right after inlined non-auto-restart
          * syscall to make it a safe point for suspending.
-         * XXX-i#1216-c#2: we still need handle auto-restart syscall
          */
         instr_t *nop = XINST_CREATE_nop(dcontext);
         /* We make a fake app nop instr for easy handling in recreate_app_state.
@@ -900,7 +900,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #ifdef AARCH64
         if (instr_is_icache_op(instr) && instr_is_app(instr)) {
             next_instr = mangle_icache_op(dcontext, ilist, instr, next_instr,
-                                          get_app_instr_xl8(next_instr));
+                                          get_app_instr_xl8(instr) + AARCH64_INSTR_SIZE);
             continue;
         }
 #endif
@@ -1008,11 +1008,15 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             mangle_possible_single_step(dcontext, ilist, instr);
             continue;
         }
-        else if (dcontext->single_step_addr != NULL &&
+        else if (dcontext->single_step_addr != NULL && instr_is_app(instr) &&
                  dcontext->single_step_addr == instr->translation) {
-            mangle_single_step(dcontext, ilist, *flags, instr);
-            /* Resets to generate single step exception only once. */
-            dcontext->single_step_addr = NULL;
+            instr_t * last_addr = instr_get_next_app(instr);
+            /* Checks if sandboxing added another app instruction. */
+            if (last_addr == NULL || last_addr->translation != instr->translation) {
+                mangle_single_step(dcontext, ilist, *flags, instr);
+                /* Resets to generate single step exception only once. */
+                dcontext->single_step_addr = NULL;
+            }
         }
 #endif
 #ifdef FOOL_CPUID

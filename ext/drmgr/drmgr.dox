@@ -136,6 +136,14 @@ added by callbacks during that stage.  Furthermore, \p drmgr automatically
 adds IT instructions after all stages are complete, to ensure that all
 condtional instructions are legal in Thumb mode.
 
+\subsection sec_drmgr_autopred Auto Predication
+
+Most client instrumentation wants to be predicated to match the app instruction,
+so we do it by default. Clients may opt-out by calling
+drmgr_disable_auto_predication() at the start of the insertion bb event. Clients
+may also control auto predication with finer granularity by directly calling
+instrlist_set_auto_predicate() and instrlist_get_auto_predicate().
+
 \section sec_drmgr_tls Thread-Local and Callback-Local Storage
 
 \p drmgr also coordinates sharing of the thread-local-storage field among

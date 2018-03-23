@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,8 +42,10 @@
 #include <stddef.h> /* for offsetof */
 
 online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
-                                                         instr_t *, reg_id_t))
-    : instru_t(insert_load_buf)
+                                                         instr_t *, reg_id_t),
+                                 bool memref_needs_info,
+                                 drvector_t *reg_vector)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector)
 {
 }
 
@@ -116,6 +118,16 @@ online_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 }
 
 int
+online_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
+{
+    trace_entry_t *entry = (trace_entry_t *) buf_ptr;
+    entry->type = TRACE_TYPE_MARKER;
+    entry->size = (ushort) type;
+    entry->addr = (addr_t) val;
+    return sizeof(trace_entry_t);
+}
+
+int
 online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
     trace_entry_t *entry = (trace_entry_t *) buf_ptr;
@@ -135,14 +147,22 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 int
 online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 {
-    // The caller separately calls append_tid for us which is all we need.
-    return 0;
+    byte *new_buf = buf_ptr;
+    new_buf += append_tid(new_buf, tid);
+    new_buf += append_pid(new_buf, dr_get_process_id());
+    return (int)(new_buf - buf_ptr);
 }
 
 int
 online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
-    return append_tid(buf_ptr, tid);
+    byte *new_buf = buf_ptr;
+    new_buf += append_tid(new_buf, tid);
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
+                             // Truncated to 32 bits for 32-bit: we live with it.
+                             (uintptr_t)instru_t::get_timestamp());
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    return (int)(new_buf - buf_ptr);
 }
 
 void
@@ -177,17 +197,13 @@ online_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t *
                                   reg_id_t reg_ptr, reg_id_t reg_addr, int adjust,
                                   opnd_t ref)
 {
-    bool ok;
     int disp = adjust + offsetof(trace_entry_t, addr);
-    if (opnd_uses_reg(ref, reg_ptr))
-        drreg_get_app_value(drcontext, ilist, where, reg_ptr, reg_ptr);
-    if (opnd_uses_reg(ref, reg_addr))
-        drreg_get_app_value(drcontext, ilist, where, reg_addr, reg_addr);
-    /* we use reg_ptr as scratch to get addr */
-    ok = drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg_addr, reg_ptr);
-    DR_ASSERT(ok);
-    // drutil_insert_get_mem_addr may clobber reg_ptr, so we need reload reg_ptr
-    insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    bool reg_ptr_used;
+    insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref, &reg_ptr_used);
+    if (reg_ptr_used) {
+        // drutil_insert_get_mem_addr clobbered reg_ptr, so we need to reload reg_ptr.
+        insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+    }
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext,
                                OPND_CREATE_MEMPTR(reg_ptr, disp),
@@ -265,62 +281,87 @@ online_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
 
 int
 online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
-                                   opnd_t ref, bool write, dr_pred_type_t pred)
+                                   reg_id_t reg_ptr, int adjust,
+                                   instr_t *app, opnd_t ref, bool write,
+                                   dr_pred_type_t pred)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
-    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
-    instr_t *label = INSTR_CREATE_label(drcontext);
-    MINSERT(ilist, where, label);
+    ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    if (!memref_needs_full_info) // For full info we skip this for !pred
+        instrlist_set_auto_predicate(ilist, pred);
+    if (memref_needs_full_info) {
+        // When filtering we have to insert a PC entry for every memref.
+        // The 0 size indicates it's a non-icache entry.
+        insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                  TRACE_TYPE_INSTR, 0, adjust);
+        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
+                       // XXX: For repstr do we want tag insted of skipping rep prefix?
+                       instr_get_app_pc(app), adjust);
+        adjust += sizeof(trace_entry_t);
+    }
+    insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
     // Special handling for prefetch instruction
-    if (instr_is_prefetch(where)) {
-        type = instru_t::instr_to_prefetch_type(where);
+    if (instr_is_prefetch(app)) {
+        type = instru_t::instr_to_prefetch_type(app);
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
-    } else if (instru_t::instr_is_flush(where)) {
+    } else if (instru_t::instr_is_flush(app)) {
         // XXX: OP_clflush invalidates all levels of the processor cache
         // hierarchy (data and instruction)
         type = TRACE_TYPE_DATA_FLUSH;
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                               type, size, adjust);
-    insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
-#ifdef ARM // X86 does not support general predicated execution
-    if (pred != DR_PRED_NONE) {
-        instr_t *instr;
-        for (instr  = instr_get_prev(where);
-             instr != label;
-             instr  = instr_get_prev(instr)) {
-            DR_ASSERT(!instr_is_predicated(instr));
-            instr_set_predicate(instr, pred);
-        }
-    }
-#endif
+    instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return (adjust + sizeof(trace_entry_t));
 }
 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instrlist_t *ilist, instr_t *where,
-                                  reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                  reg_id_t reg_ptr, int adjust,
                                   instr_t *app)
 {
+    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
+    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    // To handle zero-iter repstr loops this routine is called at the top of the bb
+    // where "app" is jecxz so we have to hardcode the rep str type and get length
+    // from the tag.
+    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH :
+        instr_to_instr_type(app, repstr_expanded);
+    ushort size = repstr_expanded ?
+        (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL)) :
+        (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
-                              instr_to_instr_type(app),
-                              (ushort)instr_length(drcontext, app), adjust);
-    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                   instr_get_app_pc(app), adjust);
+                              type, size, adjust);
+    insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return (adjust + sizeof(trace_entry_t));
 }
 
 int
 online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, reg_id_t reg_tmp, int adjust,
+                                    reg_id_t reg_ptr, int adjust,
                                     instr_t **delay_instrs, int num_delay_instrs)
 {
     // Create and instrument for INSTR_BUNDLE
     trace_entry_t entry;
     int i;
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     entry.type = TRACE_TYPE_INSTR_BUNDLE;
     entry.size = 0;
     for (i = 0; i < num_delay_instrs; i++) {
@@ -336,6 +377,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
             entry.size = 0;
         }
     }
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
 }
 
@@ -343,5 +386,5 @@ void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
-    // Nothing to do.
+    *bb_field = (void *)repstr_expanded;
 }

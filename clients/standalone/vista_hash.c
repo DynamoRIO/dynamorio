@@ -203,8 +203,8 @@ prot_is_writable(uint prot)
             prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY);
 }
 
-# define OPT_HDR(nt_hdr_p, field) ((nt_hdr_p)->OptionalHeader.field)
-# define OPT_HDR_P(nt_hdr_p, field) (&((nt_hdr_p)->OptionalHeader.field))
+#define OPT_HDR(nt_hdr_p, field) ((nt_hdr_p)->OptionalHeader.field)
+#define OPT_HDR_P(nt_hdr_p, field) (&((nt_hdr_p)->OptionalHeader.field))
 bool
 get_IAT_section_bounds(app_pc module_base, app_pc *iat_start, app_pc *iat_end)
 {

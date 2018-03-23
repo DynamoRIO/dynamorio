@@ -119,19 +119,31 @@ for (my $i = 0; $i < $#lines; ++$i) {
             %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.pcache-use' => 1,
+                                   'code_api|api.detach' => 1, # i#2246
+                                   'code_api|api.detach_spawn' => 1, # i#2611
+                                   'code_api|api.startstop' => 1, # i#2093
                                    'code_api|client.nudge_ex' => 1);
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.loader' => 1,
+                                   'code_api|client.drmgr-test' => 1, # i#1369
                                    'code_api|client.nudge_ex' => 1,
+                                   'code_api|api.detach' => 1, # i#2246
+                                   'code_api|api.detach_spawn' => 1, # i#2611
+                                   'code_api|api.startstop' => 1, # i#2093
                                    'code_api|api.static_noclient' => 1,
                                    'code_api|api.static_noinit' => 1);
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests
             %ignore_failures_32 = ('code_api|tool.histogram.offline' => 1,
+                                   'code_api|linux.eintr-noinline' => 1, # i#2894
+                                   'code_api|pthreads.ptsig' => 1,
                                    'code_api|linux.sigaction_nosignals' => 1,
                                    'code_api|linux.signal_race' => 1,
+                                   'code_api|client.drmgr-test' => 1, # i#2893
+                                   'code_api|tool.drcachesim.delay-simple' => 1, # i#2892
+                                   'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
                                    'code_api|tool.histogram.gzip' => 1);
             # FIXME i#2417: fix flaky AArch64 tests

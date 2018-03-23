@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -45,13 +45,23 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
 set(arg_travis OFF)
-set(cross_only OFF)
+set(arg_package OFF)
+set(cross_aarchxx_linux_only OFF)
+set(cross_android_only OFF)
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
-    if ($ENV{DYNAMORIO_CROSS_ONLY} MATCHES "yes")
-      set(cross_only ON)
+    if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
+      set(cross_aarchxx_linux_only ON)
     endif()
+    if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
+      set(cross_android_only ON)
+    endif()
+  elseif (${arg} STREQUAL "package")
+    # This builds a package out of *all* build dirs.  That will result in
+    # conflicts if different architectures are being built: e.g., ARM
+    # and AArch64.  It's up to the caller to arrange things properly.
+    set(arg_package ON)
   endif ()
 endforeach (arg)
 
@@ -62,6 +72,17 @@ if (arg_travis)
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
+  if ("$ENV{TRAVIS_EVENT_TYPE}" STREQUAL "cron" OR
+      "$ENV{APPVEYOR_REPO_TAG}" STREQUAL "true")
+    # We don't want flaky tests to derail package deployment.  We've already run
+    # the tests for this same commit via regular master-push triggers: these
+    # package builds are coming from a cron trigger (Travis) or a tag addition
+    # (Appveyor), not a code change.
+    # XXX: I'd rather set this in the .yml files but I don't see a way to set
+    # one env var based on another's value there.
+    set(run_tests OFF)
+    message("Detected a cron package build: disabling running of tests")
+  endif()
 endif()
 
 if (TEST_LONG)
@@ -122,6 +143,8 @@ else ()
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE diff_contents)
+      # Remove tabs from the revision lines
+      string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
@@ -142,6 +165,9 @@ else ()
           # the diff checks.
           message(STATUS "No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
           set(diff_contents "")
+        elseif (WIN32 AND arg_travis)
+          # This happens with tagged builds, such as cronbuilds, where there
+          # is no master in the shallow clone.
         else ()
           message(FATAL_ERROR "*** Unable to retrieve diff for content checks: do you have a custom remote setup?")
         endif ()
@@ -187,7 +213,7 @@ endif ()
 # (since building takes forever on windows): so we only turn
 # on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
 
-if (NOT cross_only)
+if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
   testbuild_ex("debug-internal-32" OFF "
     DEBUG:BOOL=ON
@@ -222,7 +248,7 @@ if (NOT cross_only)
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     ${install_path_cache}
-    " OFF OFF "${install_build_args}")
+    " OFF ${arg_package} "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
@@ -233,7 +259,7 @@ if (NOT cross_only)
     INTERNAL:BOOL=OFF
     ${install_path_cache}
     ${32bit_path}
-    " OFF OFF "${install_build_args}")
+    " OFF ${arg_package} "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
@@ -299,35 +325,46 @@ if (NOT cross_only)
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_only)
+endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
   # compilers are on the PATH.
-  set(optional_cross_compile ON)
+  set(prev_optional_cross_compile ${optional_cross_compile})
+  if (NOT cross_aarchxx_linux_only)
+    # For Travis cross_aarchxx_linux_only builds, we want to fail on config failures.
+    # For user suite runs, we want to just skip if there's no cross setup.
+    set(optional_cross_compile ON)
+  endif ()
   set(ARCH_IS_X86 OFF)
   set(ENV{CFLAGS} "") # environment vars do not obey the normal scope rules--must reset
   set(ENV{CXXFLAGS} "")
+  set(prev_run_tests ${run_tests})
+  set(run_tests OFF) # build tests but don't run them
   testbuild_ex("arm-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
+    BUILD_TESTS:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("arm-release-external-64" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF OFF "")
+    " OFF ${arg_package} "")
+  set(run_tests ${prev_run_tests})
+  set(optional_cross_compile ${prev_optional_cross_compile})
 
   # Android cross-compilation and running of tests using "adb shell"
   find_program(ADB adb DOC "adb Android utility")
@@ -354,22 +391,37 @@ if (UNIX AND ARCH_IS_X86)
     set(android_extra_rel "")
     set(run_tests OFF) # build tests but don't run them
   endif ()
+
+  # Pass through toolchain file.
+  if (DEFINED ENV{DYNAMORIO_ANDROID_TOOLCHAIN})
+    set(android_extra_dbg "${android_extra_dbg}
+                           ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+    set(android_extra_rel "${android_extra_dbg}
+                           ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
+  endif()
+
+  # For Travis cross_android_only builds, we want to fail on config failures.
+  # For user suite runs, we want to just skip if there's no cross setup.
+  if (NOT cross_android_only)
+    set(optional_cross_compile ON)
+  endif ()
+
   testbuild_ex("android-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     BUILD_TESTS:BOOL=ON
     ${android_extra_dbg}
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   testbuild_ex("android-release-external-32" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-android.cmake
     ${android_extra_rel}
-    " OFF OFF "")
+    " OFF ${arg_package} "")
   set(run_tests ${prev_run_tests})
 
-  set(optional_cross_compile OFF)
+  set(optional_cross_compile ${prev_optional_cross_compile})
   set(ARCH_IS_X86 ON)
 endif (UNIX AND ARCH_IS_X86)
 
@@ -394,5 +446,5 @@ function (error_string str outvar)
   endif (crash OR assert OR curiosity)
 endfunction (error_string)
 
-set(build_package OFF)
+set(build_package ${arg_package})
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_post.cmake")

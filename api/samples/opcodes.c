@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -102,7 +102,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* Make it easy to tell from the log file which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'opcodes' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'opcodes' initializing\n");
 #ifdef SHOW_RESULTS
     /* Also give notification to stderr. */
     if (dr_is_notify_on()) {
@@ -135,15 +135,15 @@ compare_counts(const void *a_in, const void *b_in)
 static const char *
 get_isa_mode_name(uint isa_mode)
 {
-#ifdef X86
+# ifdef X86
     return (isa_mode == ISA_X86_32) ? "32-bit X86" : "64-bit AMD64";
-#elif defined(ARM)
+# elif defined(ARM)
     return (isa_mode == ISA_ARM_A32) ? "32-bit ARM" : "32-bit Thumb";
-#elif defined(AARCH64)
+# elif defined(AARCH64)
     return "64-bit AArch64";
-#else
+# else
     return "unknown";
-#endif
+# endif
 }
 #endif
 
@@ -218,6 +218,7 @@ static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                       bool for_trace, bool translating, void *user_data)
 {
+    drmgr_disable_auto_predication(drcontext, bb);
     if (drmgr_is_first_instr(drcontext, instr)) {
         instr_t *ins;
         uint isa_idx = get_count_isa_idx(drcontext);

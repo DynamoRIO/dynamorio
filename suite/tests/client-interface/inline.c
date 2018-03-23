@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include "configure.h"
+
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
 # define EXPORT __declspec(dllexport)
@@ -37,21 +39,28 @@
 # define EXPORT __attribute__((visibility("default")))
 #endif
 
-/* List of instrumented functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(empty_1arg) \
-        FUNCTION(inscount) \
-        FUNCTION(gcc47_inscount) \
-        FUNCTION(callpic_pop) \
-        FUNCTION(callpic_mov) \
-        FUNCTION(nonleaf) \
-        FUNCTION(cond_br) \
-        FUNCTION(tls_clobber) \
-        FUNCTION(aflags_clobber) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(xax_arg) \
+#ifdef X86
+# define FUNCTIONS() \
+         FUNCTION(empty) \
+         FUNCTION(empty_1arg) \
+         FUNCTION(inscount) \
+         FUNCTION(gcc47_inscount) \
+         FUNCTION(callpic_pop) \
+         FUNCTION(callpic_mov) \
+         FUNCTION(nonleaf) \
+         FUNCTION(cond_br) \
+         FUNCTION(tls_clobber) \
+         FUNCTION(aflags_clobber) \
+         FUNCTION(compiler_inscount) \
+         LAST_FUNCTION()
+#elif defined(AARCH64)
+# define FUNCTIONS() \
+         FUNCTION(empty) \
+         FUNCTION(empty_1arg) \
+         FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
         LAST_FUNCTION()
+#endif
 
 /* Definitions for every function. */
 #define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }

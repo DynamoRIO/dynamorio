@@ -40,7 +40,11 @@
 # include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
+#include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
+#ifdef DEBUG
+# include "tests/trace_invariants.h"
+#endif
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -65,8 +69,11 @@ analyzer_multi_t::analyzer_multi_t()
             trace_iter = existing;
         else {
             delete existing;
-            raw2trace_t raw2trace(op_indir.get_value(), tracefile);
-            raw2trace.do_conversion();
+            raw2trace_directory_t dir(op_indir.get_value(), tracefile);
+            raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file);
+            std::string error = raw2trace.do_conversion();
+            if (!error.empty())
+                ERRMSG("raw2trace failed: %s\n", error.c_str());
             trace_iter = new file_reader_t(tracefile.c_str());
         }
         // We don't support a compressed file here (is_complete() is too hard
@@ -75,6 +82,15 @@ analyzer_multi_t::analyzer_multi_t()
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
+        if (!*trace_iter) {
+            success = false;
+#ifdef UNIX
+            // This is the most likely cause of the error.
+            // XXX: Even better would be to propagate the mkfifo errno here.
+            error_string = "try removing stale pipe file " +
+                reinterpret_cast<ipc_reader_t*>(trace_iter)->get_pipe_name();
+#endif
+        }
     } else {
 #ifdef HAS_ZLIB
         // Even for uncompressed files, zlib's gzip interface is faster than fstream.
@@ -110,6 +126,18 @@ analyzer_multi_t::create_analysis_tools()
     if (tools[0] == NULL)
         return false;
     num_tools = 1;
+#ifdef DEBUG
+    if (op_test_mode.get_value()) {
+        tools[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+        if (tools[1] != NULL && !*tools[1]) {
+            delete tools[1];
+            tools[1] = NULL;
+        }
+        if (tools[1] == NULL)
+            return false;
+        num_tools = 2;
+    }
+#endif
     return true;
 }
 

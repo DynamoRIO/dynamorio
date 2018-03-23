@@ -2889,6 +2889,7 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
      * like 1 long instr).
      */
     decode_state_reset(get_decode_state(dcontext));
+    encode_reset_it_block(dcontext);
     for (check = instrlist_first(ilist); check != NULL; check = instr_get_next(check)) {
         byte buf[THUMB_LONG_INSTR_SIZE];
         instr_t tmp;
@@ -3041,7 +3042,7 @@ decode_check_opnds(int src_type[], uint num_srcs, int dst_type[], uint num_dsts)
 static void
 check_ISA(dr_isa_mode_t isa_mode)
 {
-#   define MAX_TYPES 8
+# define MAX_TYPES 8
     DOCHECK(2, {
         uint opc;
         uint i;

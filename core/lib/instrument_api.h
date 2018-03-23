@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -221,6 +221,8 @@ DR_API
  * - A system call or interrupt instruction can only be added
  * if it satisfies the above constraints: i.e., if it is the final
  * instruction in the block and the only system call or interrupt.
+ * - Any AArch64 #OP_isb instruction must be the last instruction
+ * in its block.
  * - All IT blocks must be legal.  For example, application instructions
  * inside an IT block cannot be removed or added to without also
  * updating the OP_it instruction itself.  Clients can use
@@ -838,6 +840,16 @@ DR_API
 void
 dr_set_process_exit_behavior(dr_exit_flags_t flags);
 
+DR_API
+/**
+ * The #DR_DISALLOW_UNSAFE_STATIC declaration requests that DR perform sanity
+ * checks to ensure that client libraries will also operate safely when linked
+ * statically into an application.  This overrides that request, facilitating
+ * having runtime options that are not supported in a static context.
+ */
+void
+dr_allow_unsafe_static_behavior(void);
+
 #ifdef UNIX
 DR_API
 /**
@@ -917,6 +929,104 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
                                                const module_data_t *info));
 
 /* DR_API EXPORT BEGIN */
+/** Identifies the type of kernel transfer for dr_register_kernel_xfer_event(). */
+typedef enum {
+    DR_XFER_SIGNAL_DELIVERY, /**< Signal delivery to application handler. */
+    DR_XFER_SIGNAL_RETURN,   /**< Signal return system call. */
+    DR_XFER_APC_DISPATCHER,  /**< Asynchronous procedure call dispatcher. */
+    DR_XFER_EXCEPTION_DISPATCHER, /**< Exception dispatcher. */
+    DR_XFER_RAISE_DISPATCHER, /**< Raised exception dispatcher. */
+    DR_XFER_CALLBACK_DISPATCHER,  /**< Callback dispatcher. */
+    DR_XFER_CALLBACK_RETURN, /**< A return from a callback by syscall or interrupt. */
+    DR_XFER_CONTINUE,        /**< NtContinue system call. */
+    DR_XFER_SET_CONTEXT_THREAD, /**< NtSetContextThread system call. */
+    DR_XFER_CLIENT_REDIRECT, /**< dr_redirect_execution() or #DR_SIGNAL_REDIRECT. */
+} dr_kernel_xfer_type_t;
+
+/** Data structure passed for dr_register_kernel_xfer_event(). */
+typedef struct _dr_kernel_xfer_info_t {
+    /** The type of event. */
+    dr_kernel_xfer_type_t type;
+    /**
+     * The source machine context which is about to be changed.  This may be NULL
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     */
+    const dr_mcontext_t *source_mcontext;
+    /**
+     * The target program counter of the transfer.  To obtain the full target state,
+     * call dr_get_mcontext().  (For efficiency purposes, only frequently needed
+     * state is included by default.)
+     */
+    app_pc target_pc;
+    /**
+     * The target stack pointer of the transfer.  To obtain the full target state,
+     * call dr_get_mcontext().  (For efficiency purposes, only frequently needed
+     * state is included by default.)
+     */
+    reg_t target_xsp;
+    /** For #DR_XFER_SIGNAL_DELIVERY and #DR_XFER_SIGNAL_RETURN, the signal number. */
+    int sig;
+} dr_kernel_xfer_info_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Registers a callback function for the kernel transfer event.  DR
+ * calls \p func whenever the kernel is about to directly transfer control
+ * without an explicit user-mode control transfer instruction.
+ * This includes the following scenarios, which are distinguished by \p type:
+ * - On UNIX, a signal is about to be delivered to an application handler.
+ *   This event differs from a dr_register_signal_event() callback in that the
+ *   latter is called regardless of whether the application has a handler,
+ *   and it does not provide the target context of any handler.
+ * - On UNIX, a signal return system call is about to be invoked.
+ * - On Windows, the asynchronous procedure call dispatcher is about to be invoked.
+ * - On Windows, the callback dispatcher is about to be invoked.
+ * - On Windows, the exception dispatcher is about to be invoked.
+ * - On Windows, the NtContinue system call is about to be invoked.
+ * - On Windows, the NtSetContextThread system call is about to be invoked.
+ * - On Windows, the NtCallbackReturn system call is about to be invoked.
+ * - On Windows, interrupt 0x2b is about to be invoked.
+ * - The client requests redirection using dr_redirect_execution() or
+ *   #DR_SIGNAL_REDIRECT.
+ *
+ * The prior context, if known, is provided in \p info->source_mcontext; if
+ * unknown, \p info->source_mcontext is NULL.  Multimedia state is typically
+ * not provided in \p info->source_mcontext, which is reflected in its \p flags.
+ *
+ * The target program counter and stack are provided in \p info->target_pc and \p
+ * info->target_xsp.  Further target state can be examined by calling
+ * dr_get_mcontext() and modified by calling dr_set_mcontext().  Changes to the
+ * target state, including the pc, are supported for all cases except
+ * NtCallbackReturn and interrupt 0x2b.  However, dr_get_mcontext() and
+ * dr_set_mcontext() are limited for the Windows system calls NtContinue and
+ * NtSetContextThread to the ContextFlags set by the application: dr_get_mcontext()
+ * will adjust the dr_mcontext_t.flags to reflect what's available, and
+ * dr_set_mcontext() will only set what's also set in ContextFlags.  Given the
+ * disparity in how Ebp/Rbp is handled (in #DR_MC_INTEGER but in CONTEXT_CONTROL),
+ * clients that care about that register are better off using system call events
+ * instead of kernel transfer events to take actions on these two system calls.
+ *
+ * This is a convenience event: all of the above events can be detected using
+ * combinations of other events.  This event is meant to be used to identify all
+ * changes in the program counter that do not arise from explicit control flow
+ * instructions.
+ */
+void
+dr_register_kernel_xfer_event(void (*func)(void *drcontext,
+                                           const dr_kernel_xfer_info_t *info));
+
+DR_API
+/**
+ * Unregister a callback function for the kernel transfer event.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+dr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
+                                             const dr_kernel_xfer_info_t *info));
+
+/* DR_API EXPORT BEGIN */
 #ifdef WINDOWS
 /* DR_API EXPORT END */
 
@@ -928,7 +1038,7 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
 typedef struct _dr_exception_t {
     /**
      * Machine context at exception point.  The client should not
-     * change \p mcontext.flags: it should remain DR_MC_ALL.
+     * change \p mcontext->flags: it should remain DR_MC_ALL.
      */
     dr_mcontext_t *mcontext;
     EXCEPTION_RECORD *record; /**< Win32 exception record. */
@@ -1674,6 +1784,10 @@ dr_get_parent_id(void);
 /** Windows versions */
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
+    /** Windows 10 1709 major update. */
+    DR_WINDOWS_VERSION_10_1709 = 104,
+    /** Windows 10 1703 major update. */
+    DR_WINDOWS_VERSION_10_1703 = 103,
     /** Windows 10 1607 major update. */
     DR_WINDOWS_VERSION_10_1607 = 102,
     /**
@@ -2593,6 +2707,10 @@ DR_API
  * Use this routine with caution and do not call it on a DR lock that is
  * used in DR contexts, as it disables debug checks.
  *
+ * \warning This routine is not sufficient on its own to prevent deadlocks
+ * during scenarios where DR wants to suspend all threads such as detach or
+ * relocation. See dr_app_recurlock_lock() and dr_mark_safe_to_suspend().
+ *
  * \return whether successful.
  */
 bool
@@ -2677,6 +2795,26 @@ void
 dr_recurlock_lock(void *reclock);
 
 DR_API
+/**
+ * Acquires \p reclock, or increments the ownership count if already owned.
+ * Calls to this method which block (i.e. when the lock is already held) are
+ * marked safe to suspend AND transfer; in that case the provided mcontext \p mc
+ * will overwrite the current thread's mcontext. \p mc must have a valid PC
+ * and its flags must be DR_MC_ALL.
+ *
+ * This routine must be used in clients holding application locks to prevent
+ * deadlocks in a way similar to dr_mark_safe_to_suspend(), but this routine
+ * is intended to be called by a clean call and may return execution to the
+ * provided mcontext rather than returning normally.
+ *
+ * If this routine is called from a clean call, callers should not return
+ * normally. Instead, dr_redirect_execution() or dr_redirect_native_target()
+ * should be called to to prevent a return into a flushed code page.
+ */
+void
+dr_app_recurlock_lock(void *reclock, dr_mcontext_t *mc);
+
+DR_API
 /** Decrements the ownership count of \p reclock and releases if zero. */
 void
 dr_recurlock_unlock(void *reclock);
@@ -2740,7 +2878,8 @@ DR_API
  * This function must be used in client code that acquires application locks.
  * Use this feature with care!  Do not mark code as safe to suspend that has
  * a code cache return point.  I.e., do not call this routine from a clean
- * call.
+ * call. For acquiring application locks from a clean call, see
+ * dr_app_recurlock_lock().
  *
  * No DR locks can be held while in a safe region.  Consequently, do
  * not call this routine from any DR event callback.  It may only be used
@@ -3857,7 +3996,7 @@ DR_API
 /**
  * Writes to DR's log file for the thread with drcontext \p drcontext if the current
  * loglevel is >= \p level and the current \p logmask & \p mask != 0.
- * The mask constants are below.
+ * The mask constants are the DR_LOG_* defines below.
  * Logging is disabled for the release build.
  * If \p drcontext is NULL, writes to the main log file.
  */
@@ -3870,35 +4009,63 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...);
 /* DR_API EXPORT BEGIN */
 
 /* The log mask constants */
-#define LOG_NONE           0x00000000  /**< Log no data. */
-#define LOG_STATS          0x00000001  /**< Log per-thread and global statistics. */
-#define LOG_TOP            0x00000002  /**< Log top-level information. */
-#define LOG_THREADS        0x00000004  /**< Log data related to threads. */
-#define LOG_SYSCALLS       0x00000008  /**< Log data related to system calls. */
-#define LOG_ASYNCH         0x00000010  /**< Log data related to signals/callbacks/etc. */
-#define LOG_INTERP         0x00000020  /**< Log data related to app interpretation. */
-#define LOG_EMIT           0x00000040  /**< Log data related to emitting code. */
-#define LOG_LINKS          0x00000080  /**< Log data related to linking code. */
-#define LOG_CACHE          0x00000100  /**< Log data related to code cache management. */
-#define LOG_FRAGMENT       0x00000200  /**< Log data related to app code fragments. */
-#define LOG_DISPATCH       0x00000400  /**< Log data on every context switch dispatch. */
-#define LOG_MONITOR        0x00000800  /**< Log data related to trace building. */
-#define LOG_HEAP           0x00001000  /**< Log data related to memory management. */
-#define LOG_VMAREAS        0x00002000  /**< Log data related to address space regions. */
-#define LOG_SYNCH          0x00004000  /**< Log data related to synchronization. */
-#define LOG_MEMSTATS       0x00008000  /**< Log data related to memory statistics. */
-#define LOG_OPTS           0x00010000  /**< Log data related to optimizations. */
-#define LOG_SIDELINE       0x00020000  /**< Log data related to sideline threads. */
-#define LOG_SYMBOLS        0x00040000  /**< Log data related to app symbols. */
-#define LOG_RCT            0x00080000  /**< Log data related to indirect transfers. */
-#define LOG_NT             0x00100000  /**< Log data related to Windows Native API. */
-#define LOG_HOT_PATCHING   0x00200000  /**< Log data related to hot patching. */
-#define LOG_HTABLE         0x00400000  /**< Log data related to hash tables. */
-#define LOG_MODULEDB       0x00800000  /**< Log data related to the module database. */
-#define LOG_ALL            0x00ffffff  /**< Log all data. */
-/* DR_API EXPORT END */
+#define DR_LOG_NONE         0x00000000  /**< Log no data. */
+#define DR_LOG_STATS        0x00000001  /**< Log per-thread and global statistics. */
+#define DR_LOG_TOP          0x00000002  /**< Log top-level information. */
+#define DR_LOG_THREADS      0x00000004  /**< Log data related to threads. */
+#define DR_LOG_SYSCALLS     0x00000008  /**< Log data related to system calls. */
+#define DR_LOG_ASYNCH       0x00000010  /**< Log data related to signals/callbacks/etc. */
+#define DR_LOG_INTERP       0x00000020  /**< Log data related to app interpretation. */
+#define DR_LOG_EMIT         0x00000040  /**< Log data related to emitting code. */
+#define DR_LOG_LINKS        0x00000080  /**< Log data related to linking code. */
+#define DR_LOG_CACHE        0x00000100  /**< Log data related to code cache management. */
+#define DR_LOG_FRAGMENT     0x00000200  /**< Log data related to app code fragments. */
+#define DR_LOG_DISPATCH     0x00000400  /**< Log data on every context switch dispatch. */
+#define DR_LOG_MONITOR      0x00000800  /**< Log data related to trace building. */
+#define DR_LOG_HEAP         0x00001000  /**< Log data related to memory management. */
+#define DR_LOG_VMAREAS      0x00002000  /**< Log data related to address space regions. */
+#define DR_LOG_SYNCH        0x00004000  /**< Log data related to synchronization. */
+#define DR_LOG_MEMSTATS     0x00008000  /**< Log data related to memory statistics. */
+#define DR_LOG_OPTS         0x00010000  /**< Log data related to optimizations. */
+#define DR_LOG_SIDELINE     0x00020000  /**< Log data related to sideline threads. */
+#define DR_LOG_SYMBOLS      0x00040000  /**< Log data related to app symbols. */
+#define DR_LOG_RCT          0x00080000  /**< Log data related to indirect transfers. */
+#define DR_LOG_NT           0x00100000  /**< Log data related to Windows Native API. */
+#define DR_LOG_HOT_PATCHING 0x00200000  /**< Log data related to hot patching. */
+#define DR_LOG_HTABLE       0x00400000  /**< Log data related to hash tables. */
+#define DR_LOG_MODULEDB     0x00800000  /**< Log data related to the module database. */
+#define DR_LOG_ALL          0x00ffffff  /**< Log all data. */
+#ifdef DR_LOG_DEFINE_COMPATIBILITY
+# define LOG_NONE           DR_LOG_NONE         /**< Identical to #DR_LOG_NONE. */
+# define LOG_STATS          DR_LOG_STATS        /**< Identical to #DR_LOG_STATS. */
+# define LOG_TOP            DR_LOG_TOP          /**< Identical to #DR_LOG_TOP. */
+# define LOG_THREADS        DR_LOG_THREADS      /**< Identical to #DR_LOG_THREADS. */
+# define LOG_SYSCALLS       DR_LOG_SYSCALLS     /**< Identical to #DR_LOG_SYSCALLS. */
+# define LOG_ASYNCH         DR_LOG_ASYNCH       /**< Identical to #DR_LOG_ASYNCH. */
+# define LOG_INTERP         DR_LOG_INTERP       /**< Identical to #DR_LOG_INTERP. */
+# define LOG_EMIT           DR_LOG_EMIT         /**< Identical to #DR_LOG_EMIT. */
+# define LOG_LINKS          DR_LOG_LINKS        /**< Identical to #DR_LOG_LINKS. */
+# define LOG_CACHE          DR_LOG_CACHE        /**< Identical to #DR_LOG_CACHE. */
+# define LOG_FRAGMENT       DR_LOG_FRAGMENT     /**< Identical to #DR_LOG_FRAGMENT. */
+# define LOG_DISPATCH       DR_LOG_DISPATCH     /**< Identical to #DR_LOG_DISPATCH. */
+# define LOG_MONITOR        DR_LOG_MONITOR      /**< Identical to #DR_LOG_MONITOR. */
+# define LOG_HEAP           DR_LOG_HEAP         /**< Identical to #DR_LOG_HEAP. */
+# define LOG_VMAREAS        DR_LOG_VMAREAS      /**< Identical to #DR_LOG_VMAREAS. */
+# define LOG_SYNCH          DR_LOG_SYNCH        /**< Identical to #DR_LOG_SYNCH. */
+# define LOG_MEMSTATS       DR_LOG_MEMSTATS     /**< Identical to #DR_LOG_MEMSTATS. */
+# define LOG_OPTS           DR_LOG_OPTS         /**< Identical to #DR_LOG_OPTS. */
+# define LOG_SIDELINE       DR_LOG_SIDELINE     /**< Identical to #DR_LOG_SIDELINE. */
+# define LOG_SYMBOLS        DR_LOG_SYMBOLS      /**< Identical to #DR_LOG_SYMBOLS. */
+# define LOG_RCT            DR_LOG_RCT          /**< Identical to #DR_LOG_RCT. */
+# define LOG_NT             DR_LOG_NT           /**< Identical to #DR_LOG_NT. */
+# define LOG_HOT_PATCHING   DR_LOG_HOT_PATCHING /**< Identical to #DR_LOG_HOT_PATCHING. */
+# define LOG_HTABLE         DR_LOG_HTABLE       /**< Identical to #DR_LOG_HTABLE. */
+# define LOG_MODULEDB       DR_LOG_MODULEDB     /**< Identical to #DR_LOG_MODULEDB. */
+# define LOG_ALL            DR_LOG_ALL          /**< Identical to #DR_LOG_ALL. */
 #endif
 
+/* DR_API EXPORT END */
+#endif
 
 DR_API
 /**
@@ -4019,6 +4186,13 @@ DR_API
  */
 ssize_t
 dr_fprintf(file_t f, const char *fmt, ...);
+
+DR_API
+/**
+ * Identical to dr_fprintf() but exposes va_list.
+ */
+ssize_t
+dr_vfprintf(file_t f, const char *fmt, va_list ap);
 
 #ifdef WINDOWS
 DR_API
@@ -4399,6 +4573,10 @@ DR_API
  * the code cache as the underlying fragments might be removed by another
  * thread.
  *
+ * Client threads are suspended while DR is not executing the application.
+ * This includes initialization time: the client thread's \p func code will not
+ * execute until DR starts executing the application.
+ *
  * \note Thread creation via this routine is not yet fully
  * transparent: on Windows, the thread will show up in the list of
  * application threads if the operating system is queried about
@@ -4577,6 +4755,8 @@ DR_API
  * The itimer will operate successfully in the presence of an
  * application itimer of the same type.
  *
+ * Additional itimer signals are blocked while in our signal handler.
+ *
  * The return value indicates whether the timer was successfully
  * installed (or uninstalled if 0 was passed for \p millisec).
  *
@@ -4598,6 +4778,16 @@ DR_API
 uint
 dr_get_itimer(int which);
 #endif /* UNIX */
+
+DR_API
+/**
+ * Returns the #dr_where_am_i_t value indicating in which area of code \p pc
+ * resides.  This is meant for use with dr_set_itimer() for PC sampling for
+ * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside
+ * a fragment in the code cache, the fragment's tag is returned in \p tag.
+ */
+dr_where_am_i_t
+dr_where_am_i(void *drcontext, app_pc pc, OUT void**tag);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
@@ -5025,7 +5215,8 @@ typedef enum {
     /** Skip saving any XMM or YMM registers that are never used as return values. */
     DR_CLEANCALL_NOSAVE_XMM_NONRET      = 0x0010,
     /**
-     * Requests that an indirect call be used to ensure reachability.
+     * Requests that an indirect call be used to ensure reachability, both for
+     * reaching the callee and for any out-of-line helper routine calls.
      * Only honored for 64-bit mode, where r11 will be used for the indirection.
      */
     DR_CLEANCALL_INDIRECT               = 0x0020,
@@ -5332,7 +5523,7 @@ DR_API
 /**
  * Returns true if the xmm fields in dr_mcontext_t are valid
  * (i.e., whether the underlying processor supports SSE).
- * \note If DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
+ * \note If #DR_MC_MULTIMEDIA is not specified when calling dr_get_mcontext(),
  * the xmm fields will not be filled in regardless of the return value
  * of this routine.
  */
@@ -5361,10 +5552,20 @@ DR_API
  *   dr_register_exit_event())
  * - A thread init event (dr_register_thread_init_event()) for all but
  *   the initial thread.
+ * - A kernel transfer event (dr_register_kernel_xfer_event()).  Here the obtained
+ *   context is the target context of the transfer, not the source (about to be
+ *   changed) context.  For Windows system call event types #DR_XFER_CONTINUE and
+ *   #DR_XFER_SET_CONTEXT_THREAD, only the portions of the context selected by the
+ *   application are available.  The \p flags field of \p context is adjusted to
+ *   reflect which fields were returned.  Given the disparity in how Ebp/Rbp is
+ *   handled (in #DR_MC_INTEGER but in CONTEXT_CONTROL), clients that care about that
+ *   register are better off using system call events instead of kernel transfer events
+ *   to take actions on these two system calls.
  *
- * Even when DR_MC_CONTROL is specified, does NOT copy the pc field,
+ * Even when #DR_MC_CONTROL is specified, does NOT copy the pc field,
  * except for system call events, when it will point at the
- * post-syscall address.
+ * post-syscall address, and kernel transfer events, when it will point to the
+ * target pc.
  *
  * Returns false if called from the init event or the initial thread's
  * init event; returns true otherwise (cannot distinguish whether the
@@ -5382,7 +5583,7 @@ DR_API
  *
  * \note NUM_SIMD_SLOTS in the dr_mcontext_t.xmm array are filled in,
  * but only if dr_mcontext_xmm_fields_valid() returns true and
- * DR_MC_MULTIMEDIA is set in the flags field.
+ * #DR_MC_MULTIMEDIA is set in the flags field.
  *
  * \note The context is the context saved at the dr_insert_clean_call() or
  * dr_prepare_for_call() points.  It does not correct for any registers saved
@@ -5407,12 +5608,21 @@ DR_API
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  *   dr_register_thread_exit_event())
- * - Basic block or trace creation events (dr_register_bb_event(),
- *   dr_register_trace_event()), but for basic block creation only when the
- *   basic block callback parameters \p for_trace and \p translating are
- *   false, and for trace creation only when \p translating is false.
+ * - A kernel transfer event (dr_register_kernel_xfer_event()) other than
+ *   #DR_XFER_CALLBACK_RETURN.  Here the modified context is the target context of
+ *   the transfer, not the source (about to be changed) context.  For Windows system
+ *   call event types #DR_XFER_CONTINUE and #DR_XFER_SET_CONTEXT_THREAD, only the
+ *   portions of the context selected by the application can be changed.  The \p
+ *   flags field of \p context is adjusted to reflect which fields these are.  Given
+ *   the disparity in how Ebp/Rbp is handled (in #DR_MC_INTEGER but in
+ *   CONTEXT_CONTROL), clients that care about that register are better off using
+ *   system call events instead of kernel transfer events to take actions on these
+ *   two system calls.  - Basic block or trace creation events
+ *   (dr_register_bb_event(), dr_register_trace_event()), but for basic block
+ *   creation only when the basic block callback parameters \p for_trace and \p
+ *   translating are false, and for trace creation only when \p translating is false.
  *
- * Ignores the pc field.
+ * Ignores the pc field, except for kernel transfer events.
  *
  * If the size field of \p context is invalid, this routine will
  * return false.  A dr_mcontext_t obtained from DR will have the size field set.
@@ -5446,7 +5656,7 @@ DR_API
  * of fields is not suported.
  *
  * \note dr_get_mcontext() can be used to get the register state (except pc)
- * saved in dr_insert_clean_call() or dr_prepare_for_call()
+ * saved in dr_insert_clean_call() or dr_prepare_for_call().
  *
  * \note If floating point state was saved by dr_prepare_for_call() or
  * dr_insert_clean_call() it is not restored (other than the valid xmm
@@ -5465,7 +5675,7 @@ DR_API
  * \note This routine may only be called from a clean call from the cache. It can not be
  * called from any registered event callback except the exception event
  * (dr_register_exception_event()).  From a signal event callback, use the
- * DR_SIGNAL_REDIRECT return value rather than calling this routine.
+ * #DR_SIGNAL_REDIRECT return value rather than calling this routine.
  *
  * \note For ARM, to redirect execution to a Thumb target (#DR_ISA_ARM_THUMB),
  * set the least significant bit of the mcontext pc to 1. Reference
@@ -5520,11 +5730,13 @@ DR_API
 /**
  * Copies the machine state in \p src into \p dst.  Sets the \p
  * ContextFlags field of \p dst to reflect the \p flags field of \p
- * src.
+ * src.  However, CONTEXT_CONTROL includes Ebp/Rbp, while that's under
+ * #DR_MC_INTEGER, so we recommend always setting both #DR_MC_INTEGER
+ * and #DR_MC_CONTROL when calling this routine.
  *
  * It is up to the caller to ensure that \p dst is allocated and
  * initialized properly in order to contain multimedia processor
- * state, if DR_MC_MULTIMEDIA is set in the \p flags field of \p src.
+ * state, if #DR_MC_MULTIMEDIA is set in the \p flags field of \p src.
  *
  * The current segment register values are filled in under the assumption
  * that this context is for the calling thread.
@@ -5974,6 +6186,20 @@ DR_API
  */
 void
 dr_switch_to_dr_state_ex(void *drcontext, dr_state_flags_t flags);
+
+DR_API
+/**
+ * Intended to be called between dr_app_setup() and dr_app_start() to
+ * pre-create code cache fragments for each basic block address in the
+ * \p tags array.  This speeds up the subsequent attach when
+ * dr_app_start() is called.
+ * If any code in the passed-in tags array is not readable, it is up to the
+ * caller to handle any fault, as DR's own signal handlers are not enabled
+ * at this point.
+ * Returns whether successful.
+ */
+bool
+dr_prepopulate_cache(app_pc *tags, size_t tags_count);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */

@@ -38,35 +38,75 @@
 #ifndef _ANALYZER_H_
 #define _ANALYZER_H_ 1
 
-#include "analysis_tool.h"
+/**
+ * @file drmemtrace/analyzer.h
+ * @brief DrMemtrace top-level trace analysis driver.
+ */
+
+#include <iterator>
 #include <string>
+#include "analysis_tool.h"
+#include "reader.h"
 
-// We avoid reader.h here to make it easier for standalone tools
-// along the lines of histogram_launcher.
-class reader_t;
-
+/**
+ * An analyzer is the top-level driver of a set of trace analysis tools.
+ * It supports two different modes of operation: either it iterates over the
+ * trace and calls the process_memref() routine of each tool, or it exposes
+ * an iteration interface to external control code.
+ */
 class analyzer_t
 {
  public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
+    /**
+     * Usage: errors encountered during a constructor will set a flag that should
+     * be queried via operator!().  If operator!() returns true, get_error_string()
+     * can be used to try to obtain more information.
+     */
     analyzer_t();
-    // The analyzer will reference the tools array passed in during its lifetime:
-    // it does not make a copy.
-    // The user must free them afterward.
+    virtual ~analyzer_t(); /**< Destructor. */
+    /** Returns whether the analyzer was created successfully. */
+    virtual bool operator!();
+    /** Returns further information on an error in initializing the analyzer. */
+    virtual std::string get_error_string();
+
+    /**
+     * We have two usage models: one where there are multiple tools and the
+     * trace iteration is performed by analyzer_t, and another where a single
+     * tool controls the iteration.
+     *
+     * The default, simpler, multiple-tool-supporting model uses this constructor.
+     * The analyzer will reference the tools array passed in during its lifetime:
+     * it does not make a copy.
+     * The user must free them afterward.
+     */
     analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
                int num_tools);
-    virtual ~analyzer_t();
-    virtual bool operator!();
+    /** Launches the analysis process. */
     virtual bool run();
+    /** Presents the results of the analysis. */
     virtual bool print_stats();
 
+    /** The alternate usage model exposes the iterator to a single tool. */
+    analyzer_t(const std::string &trace_file);
+    /**
+     * As the iterator is more heavyweight than regular container iterators
+     * we hold it internally and return a reference.  Copying will fail to compile
+     * as reader_t is virtual, reminding the caller of begin() to use a reference.
+     * This usage model supports only a single user of the iterator: the
+     * multi-tool model above should be used if multiple tools are involved.
+     */
+    virtual reader_t & begin();
+    virtual reader_t & end(); /** End iterator for the external-iterator usage model. */
+
  protected:
+    bool init_file_reader(const std::string &trace_file);
+
     // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run().
+    // called at the top of run() or begin().
     bool start_reading();
 
     bool success;
+    std::string error_string;
     reader_t *trace_iter;
     reader_t *trace_end;
     int num_tools;

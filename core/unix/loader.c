@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -71,7 +71,7 @@ extern size_t wcslen(const wchar_t *str); /* in string.c */
  * so we just list possible common but in-complete paths for now.
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
-char *ld_library_path = NULL;
+static char *ld_library_path = NULL;
 static const char *const system_lib_paths[] = {
 #ifdef X86
     "/lib/tls/i686/cmov",
@@ -120,7 +120,6 @@ static const char *const system_lib_paths[] = {
 #define APP_BRK_GAP 64*1024*1024
 
 static os_privmod_data_t *libdr_opd;
-static bool privmod_initialized = false;
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -156,9 +155,6 @@ static privmod_t *
 privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachable);
 
 static void
-privload_call_modules_entry(privmod_t *mod, uint reason);
-
-static void
 privload_call_lib_func(fp_t func);
 
 static void
@@ -173,6 +169,9 @@ privload_delete_os_privmod_data(privmod_t *privmod);
 #ifdef LINUX
 void
 privload_mod_tls_init(privmod_t *mod);
+
+void
+privload_mod_tls_primary_thread_init(privmod_t *mod);
 #endif
 
 /***************************************************************************/
@@ -253,24 +252,29 @@ os_loader_init_prologue(void)
     /* If DR was loaded by system ld.so, then .dynamic *was* relocated (i#1589) */
     privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *) mod->os_privmod_data;
-    if (DYNAMO_OPTION(early_inject)) {
-        /* i#1659: fill in the text-data segment gap to ensure no mmaps in between.
-         * The kernel does not do this.  Our private loader does, so if we reloaded
-         * ourselves this is already in place, but it's expensive to query so
-         * we blindly clobber w/ another no-access mapping.
-         */
-        int i;
-        for (i = 0; i <libdr_opd->os_data.num_segments - 1; i++) {
-            size_t sz = libdr_opd->os_data.segments[i+1].start -
-                libdr_opd->os_data.segments[i].end;
-            if (sz > 0) {
-                DEBUG_DECLARE(byte *fill =)
-                    os_map_file(-1, &sz, 0, libdr_opd->os_data.segments[i].end,
-                                MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE|MAP_FILE_FIXED);
-                ASSERT(fill != NULL);
+    DODEBUG({
+        if (DYNAMO_OPTION(early_inject)) {
+            /* We've already filled the gap in dynamorio_lib_gap_empty().  We just
+             * verify here now that we have segment info.
+             */
+            int i;
+            for (i = 0; i <libdr_opd->os_data.num_segments - 1; i++) {
+                size_t sz = libdr_opd->os_data.segments[i+1].start -
+                    libdr_opd->os_data.segments[i].end;
+                if (sz > 0) {
+                    dr_mem_info_t info;
+                    bool ok = query_memory_ex_from_os(libdr_opd->os_data.segments[i].end,
+                                                      &info);
+                    ASSERT(ok);
+                    ASSERT(info.base_pc == libdr_opd->os_data.segments[i].end &&
+                           info.size == sz &&
+                           (info.type == DR_MEMTYPE_FREE ||
+                            /* If we reloaded DR, our own loader filled it in. */
+                            info.prot == DR_MEMPROT_NONE));
+                }
             }
         }
-    }
+    });
     mod->externally_loaded = true;
 # if defined(LINUX)/*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
     if (DYNAMO_OPTION(early_inject)) {
@@ -336,20 +340,11 @@ os_loader_exit(void)
 #endif
 }
 
+/* These are called before loader_init for the primary thread for UNIX. */
 void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
-    if (!privmod_initialized) {
-        /* Because TLS is not setup at loader_init, we cannot call
-         * loaded libraries' init functions there, so have to postpone
-         * the invocation until here.
-         */
-        acquire_recursive_lock(&privload_lock);
-        privmod_t *mod = privload_first_module();
-        privload_call_modules_entry(mod, DLL_PROCESS_INIT);
-        release_recursive_lock(&privload_lock);
-        privmod_initialized = true;
-    }
+    /* do nothing */
 }
 
 void
@@ -542,13 +537,15 @@ privload_process_imports(privmod_t *mod)
     /* Relocate library's symbols after load dependent libraries (so that we
      * can resolve symbols in the global ELF namespace).
      */
-    if (!mod->externally_loaded)
+    if (!mod->externally_loaded) {
         privload_relocate_mod(mod);
+    }
     return true;
 #else
     /* XXX i#1285: implement MacOS private loader */
-    if (!mod->externally_loaded)
+    if (!mod->externally_loaded) {
         privload_relocate_mod(mod);
+    }
     return false;
 #endif
 }
@@ -557,20 +554,7 @@ bool
 privload_call_entry(privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    if (os_get_priv_tls_base(NULL, TLS_REG_LIB) == NULL) {
-        /* HACK: i#338
-         * The privload_call_entry is called in privload_load_finalize
-         * from loader_init.
-         * Because the loader_init is before os_tls_init,
-         * the tls is not setup yet, and cannot call init function,
-         * but cannot return false either as it cause loading failure.
-         * Cannot change the privload_load_finalize as it affects windows.
-         * so can only return true, and call it later in lader_thread_init.
-         * Also see comment from os_loader_thread_init_prologue.
-         * Any other possible way?
-         */
-        return true;
-    }
+    ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
     if (reason == DLL_PROCESS_INIT) {
         /* calls init and init array */
         LOG(GLOBAL, LOG_LOADER, 3, "%s: calling init routines of %s\n", __FUNCTION__,
@@ -907,36 +891,6 @@ get_private_library_address(app_pc modbase, const char *name)
 }
 
 static void
-privload_call_modules_entry(privmod_t *mod, uint reason)
-{
-    if (reason == DLL_PROCESS_INIT) {
-        /* call the init function in the reverse order, to make sure the
-         * dependent libraries are inialized first.
-         * We recursively call privload_call_modules_entry to call
-         * the privload_call_entry in the reverse order.
-         * The stack should be big enough since it loaded all libraries
-         * recursively.
-         * XXX: we can change privmod to be double-linked list to avoid
-         * recursion.
-         */
-        privmod_t *next = privload_next_module(mod);
-        if (next != NULL)
-            privload_call_modules_entry(next, reason);
-        if (!mod->externally_loaded)
-            privload_call_entry(mod, reason);
-    } else {
-        ASSERT(reason == DLL_PROCESS_EXIT);
-        /* call exit in the module list order. */
-        while (mod != NULL) {
-            if (!mod->externally_loaded)
-                privload_call_entry(mod, reason);
-            mod = privload_next_module(mod);
-        }
-    }
-}
-
-
-static void
 privload_call_lib_func(fp_t func)
 {
     char dummy_str[] = "dummy";
@@ -1124,11 +1078,20 @@ privload_relocate_mod(privmod_t *mod)
 
     LOG(GLOBAL, LOG_LOADER, 3, "relocating %s\n", mod->name);
 
-    /* If module has tls block need update its tls offset value */
+    /* If module has tls block need update its tls offset value.
+     * This must be done *before* relocating as relocating needs the os_privmod_data_t
+     * TLS fields set here.
+     */
     if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
 
     privload_relocate_os_privmod_data(opd, mod->base);
+
+    /* For the primary thread, we now perform TLS block copying, after relocating.
+     * For subsequent threads this is done in privload_tls_init().
+     */
+    if (opd->tls_block_size != 0)
+        privload_mod_tls_primary_thread_init(mod);
 
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
@@ -1219,6 +1182,19 @@ privload_fill_os_module_info(app_pc base,
  * Function Redirection
  */
 
+#ifdef DEBUG
+/* i#975: used for debug checks for static-link-ready clients. */
+bool disallow_unsafe_static_calls;
+#endif
+
+void
+loader_allow_unsafe_static_behavior(void)
+{
+#ifdef DEBUG
+    disallow_unsafe_static_calls = false;
+#endif
+}
+
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1229,7 +1205,7 @@ redirect____tls_get_addr();
 #endif
 
 #ifdef LINUX
-int
+static int
 redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info,
                                          size_t size, void *data),
                          void *data)
@@ -1361,11 +1337,32 @@ static const redirect_import_t redirect_imports[] = {
 };
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 
+#ifdef DEBUG
+static const redirect_import_t redirect_debug_imports[] = {
+    {"calloc",  (app_pc)redirect_calloc_initonly},
+    {"malloc",  (app_pc)redirect_malloc_initonly},
+    {"free",    (app_pc)redirect_free_initonly},
+    {"realloc", (app_pc)redirect_realloc_initonly},
+};
+# define REDIRECT_DEBUG_IMPORTS_NUM \
+    (sizeof(redirect_debug_imports)/sizeof(redirect_debug_imports[0]))
+#endif
+
 bool
 privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
 {
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
+#ifdef DEBUG
+    if (disallow_unsafe_static_calls) {
+        for (i = 0; i < REDIRECT_DEBUG_IMPORTS_NUM; i++) {
+            if (strcmp(redirect_debug_imports[i].name, name) == 0) {
+                *r_addr = (ptr_uint_t)redirect_debug_imports[i].func;
+                return true;;
+            }
+        }
+    }
+#endif
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
             *r_addr = (ptr_uint_t)redirect_imports[i].func;
@@ -1506,6 +1503,25 @@ reserve_brk(app_pc post_app)
     }
 }
 
+byte *
+map_exe_file_and_brk(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+                     map_flags_t map_flags)
+{
+    /* A little hacky: we assume the MEMPROT_NONE is the overall mmap for the whole
+     * region, where our goal is to push it back for top-down PIE filling to leave
+     * room for a reasonable brk.
+     */
+    if (prot == MEMPROT_NONE && offs == 0) {
+        size_t sz_with_brk = *size + APP_BRK_GAP;
+        byte *res = os_map_file(f, &sz_with_brk, offs, addr, prot, map_flags);
+        if (res != NULL)
+            os_unmap_file(res + sz_with_brk - APP_BRK_GAP, APP_BRK_GAP);
+        *size = sz_with_brk - APP_BRK_GAP;
+        return res;
+    } else
+        return os_map_file(f, size, offs, addr, prot, map_flags);
+}
+
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1587,6 +1603,53 @@ privload_mem_is_elf_so_header(byte *mem)
     return true;
 }
 
+/* Returns false if the text-data gap is not empty.  Else, fills the gap with
+ * no-access mappings and returns true.
+ */
+static bool
+dynamorio_lib_gap_empty(void)
+{
+    /* XXX: get_dynamorio_dll_start() is already calling
+     * memquery_library_bounds_by_iterator() which is doing this maps walk: can we
+     * avoid this extra walk by somehow passing info back to us?  Have an
+     * "interrupted" output param or sthg and is_dynamorio_dll_interrupted()?
+     */
+    memquery_iter_t iter;
+    bool res = true;
+    if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+        byte *dr_start = get_dynamorio_dll_start();
+        byte *dr_end = get_dynamorio_dll_end();
+        byte *gap_start = dr_start;
+        while (memquery_iterator_next(&iter) && iter.vm_start < dr_end) {
+            if (iter.vm_start >= dr_start && iter.vm_end <= dr_end &&
+                iter.comment[0] != '\0' &&
+                strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
+                /* There's a non-anon mapping inside: probably vvar and/or vdso. */
+                res = false;
+                break;
+            }
+            /* i#1659: fill in the text-data segment gap to ensure no mmaps in between.
+             * The kernel does not do this.  Our private loader does, so if we reloaded
+             * ourselves this is already in place.  We do this now rather than in
+             * os_loader_init_prologue() to prevent our brk mmap from landing here.
+             */
+            if (iter.vm_start > gap_start) {
+                size_t sz = iter.vm_start - gap_start;
+                ASSERT(sz > 0);
+                DEBUG_DECLARE(byte *fill =)
+                    os_map_file(-1, &sz, 0, gap_start,
+                                MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE|MAP_FILE_FIXED);
+                ASSERT(fill != NULL);
+                gap_start = iter.vm_end;
+            } else if (iter.vm_end > gap_start) {
+                gap_start = iter.vm_end;
+            }
+        }
+        memquery_iterator_stop(&iter);
+    }
+    return res;
+}
+
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1623,33 +1686,63 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 {
     elf_loader_t dr_ld;
     os_privmod_data_t opd;
-    byte *dr_map, *temp1_map = NULL, *temp2_map = NULL;
+    byte *dr_map;
+    /* We expect at most vvar+vdso+stack+vsyscall => 5 different mappings
+     * even if they were all in the conflict area.
+     */
+#define MAX_TEMP_MAPS 16
+    byte *temp_map[MAX_TEMP_MAPS];
+    size_t temp_size[MAX_TEMP_MAPS];
+    uint num_temp_maps = 0, i;
+    memquery_iter_t iter;
     app_pc entry;
     byte *cur_dr_map = get_dynamorio_dll_start();
     byte *cur_dr_end = get_dynamorio_dll_end();
     size_t dr_size = cur_dr_end - cur_dr_map;
-    size_t temp1_size, temp2_size;
     IF_DEBUG(bool success = )
         elf_loader_read_headers(&dr_ld, get_dynamorio_library_path());
     ASSERT(success);
 
     /* XXX: have better strategy for picking base: currently we rely on
      * the kernel picking an address, so we have to block out the conflicting
-     * region first.
+     * region first, avoiding any existing mappings (like vvar+vdso: i#2641).
      */
-    if (conflict_start < cur_dr_map) {
-        temp1_size = cur_dr_map - conflict_start;
-        temp1_map = os_map_file(-1, &temp1_size, 0, conflict_start, MEMPROT_NONE,
-                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
-        ASSERT(temp1_map != NULL);
-    }
-    if (conflict_end > cur_dr_end) {
-        /* Leave room for the brk */
-        conflict_end += APP_BRK_GAP;
-        temp2_size = conflict_end - cur_dr_end;
-        temp2_map = os_map_file(-1, &temp2_size, 0, cur_dr_end, MEMPROT_NONE,
-                                MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
-        ASSERT(temp2_map != NULL);
+    if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+        /* Strategy: track the leading edge ("tocover_start") of the conflict region.
+         * Find the next block beyond that edge so we know the safe endpoint for a
+         * temp mmap.
+         */
+        byte *tocover_start = conflict_start;
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start > tocover_start) {
+                temp_map[num_temp_maps] = tocover_start;
+                temp_size[num_temp_maps] =
+                    MIN(iter.vm_start, conflict_end) - tocover_start;
+                tocover_start = iter.vm_end;
+                if (temp_size[num_temp_maps] > 0) {
+                    temp_map[num_temp_maps] =
+                        os_map_file(-1, &temp_size[num_temp_maps], 0,
+                                    temp_map[num_temp_maps], MEMPROT_NONE,
+                                    MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+                    ASSERT(temp_map[num_temp_maps] != NULL);
+                    num_temp_maps++;
+                }
+            } else if (iter.vm_end > tocover_start) {
+                tocover_start = iter.vm_end;
+            }
+            if (iter.vm_start >= conflict_end)
+                break;
+        }
+        memquery_iterator_stop(&iter);
+        if (tocover_start < conflict_end) {
+            temp_map[num_temp_maps] = tocover_start;
+            temp_size[num_temp_maps] = conflict_end - tocover_start;
+            temp_map[num_temp_maps] =
+                os_map_file(-1, &temp_size[num_temp_maps], 0, temp_map[num_temp_maps],
+                            MEMPROT_NONE, MAP_FILE_COPY_ON_WRITE | MAP_FILE_FIXED);
+            ASSERT(temp_map[num_temp_maps] != NULL);
+            num_temp_maps++;
+        }
     }
 
     /* Now load the 2nd libdynamorio.so */
@@ -1659,7 +1752,6 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     ASSERT(is_elf_so_header(dr_map, 0));
 
     /* Relocate it */
-    /* Relocate it */
     memset(&opd, 0, sizeof(opd));
     module_get_os_privmod_data(dr_map, dr_size, false/*!relocated*/, &opd);
     /* XXX: we assume libdynamorio has no tls block b/c we're not calling
@@ -1668,10 +1760,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     ASSERT(opd.tls_block_size == 0);
     privload_relocate_os_privmod_data(&opd, dr_map);
 
-    if (temp1_map != NULL)
-        os_unmap_file(temp1_map, temp1_size);
-    if (temp2_map != NULL)
-        os_unmap_file(temp2_map, temp2_size);
+    for (i = 0; i < num_temp_maps; i++)
+        os_unmap_file(temp_map[i], temp_size[i]);
 
     entry = (app_pc)dr_ld.ehdr->e_entry + dr_ld.load_delta;
     elf_loader_destroy(&dr_ld);
@@ -1727,8 +1817,26 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     }
 
     /* i#1227: if we reloaded ourselves, unload the old libdynamorio */
-    if (old_libdr_base != NULL)
-        os_unmap_file(old_libdr_base, old_libdr_size);
+    if (old_libdr_base != NULL) {
+        /* i#2641: we can't blindly unload the whole region as vvar+vdso may be
+         * in the text-data gap.
+         */
+        if (memquery_iterator_start(&iter, NULL, false/*no heap*/)) {
+            while (memquery_iterator_next(&iter)) {
+                if (iter.vm_start >= old_libdr_base &&
+                    iter.vm_end <= old_libdr_base + old_libdr_size &&
+                    (iter.comment[0] == '\0' /* .bss */ ||
+                     /* The kernel sometimes mis-labels our .bss as "[heap]". */
+                     strcmp(iter.comment, "[heap]") == 0 ||
+                     strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)) {
+                    os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
+                }
+                if (iter.vm_start >= old_libdr_base + old_libdr_size)
+                    break;
+            }
+            memquery_iterator_stop(&iter);
+        }
+    }
 
     dynamorio_set_envp(envp);
 
@@ -1756,10 +1864,20 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     /* Find range of app */
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs,
                                             exe_ld.ehdr->e_phnum, NULL, &exe_end);
-    /* i#1227: on a conflict with the app: reload ourselves */
-    if (get_dynamorio_dll_start() < exe_end &&
+    /* i#1227: on a conflict with the app (+ room for the brk): reload ourselves */
+    if (get_dynamorio_dll_start() < exe_end+APP_BRK_GAP &&
         get_dynamorio_dll_end() > exe_map) {
-        reload_dynamorio(sp, exe_map, exe_end);
+        reload_dynamorio(sp, exe_map, exe_end+APP_BRK_GAP);
+        ASSERT_NOT_REACHED();
+    }
+    /* i#2641: we can't handle something in the text-data gap.
+     * Various parts of DR assume there's nothing inside (and we even fill the
+     * gap with a PROT_NONE mmap later: i#1659), so we reload to avoid it,
+     * under the assumption that it's rare and we're not paying this cost
+     * very often.
+     */
+    if (!dynamorio_lib_gap_empty()) {
+        reload_dynamorio(sp, get_dynamorio_dll_start(), get_dynamorio_dll_end());
         ASSERT_NOT_REACHED();
     }
 
@@ -1768,7 +1886,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                     * will be overridden if preferred base is 0
                                     */
                                    true,
-                                   os_map_file,
+                                   /* ensure there's space for the brk */
+                                   map_exe_file_and_brk,
                                    os_unmap_file, os_set_protection, 0/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");

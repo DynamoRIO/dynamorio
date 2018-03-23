@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -351,7 +351,7 @@ enum {
 
     LOCK_RANK(bb_building_lock), /* < change_linking_lock + all vm and heap locks */
 
-#if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
+#ifdef WINDOWS
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
 #endif
     /* FIXME: grabbed on an exception, which could happen anywhere!
@@ -723,6 +723,12 @@ void mutex_fork_reset(mutex_t *mutex);
 #endif
 #ifdef CLIENT_INTERFACE
 void mutex_mark_as_app(mutex_t *lock);
+/* Use this version of 'lock' when obtaining a lock in an app context. In the
+ * case that there is contention on this lock, this thread will be marked safe
+ * to be relocated and even detached. The current thread's mcontext may be
+ * clobbered with the provided value even if the thread is not suspended.
+ */
+void mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
 #endif
 
 /* spinmutex synchronization */
@@ -748,12 +754,25 @@ mutex_testlock(mutex_t *lock)
     return lock->lock_requests > LOCK_FREE_STATE;
 }
 
+static inline bool
+spinmutex_testlock(spin_mutex_t *spin_lock)
+{
+    return mutex_testlock(&spin_lock->lock);
+}
 
 /* A recursive lock can be taken more than once by the owning thread */
 void acquire_recursive_lock(recursive_lock_t *lock);
 bool try_recursive_lock(recursive_lock_t *lock);
 void release_recursive_lock(recursive_lock_t *lock);
 bool self_owns_recursive_lock(recursive_lock_t *lock);
+#ifdef CLIENT_INTERFACE
+/* Use this version of 'lock' when obtaining a lock in an app context. In the
+ * case that there is contention on this lock, this thread will be marked safe
+ * to be relocated and even detached. The current thread's mcontext may be
+ * clobbered with the provided value even if the thread is not suspended.
+ */
+void acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
+#endif
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void read_lock(read_write_lock_t *rw);
@@ -762,47 +781,6 @@ bool write_trylock(read_write_lock_t *rw);
 void read_unlock(read_write_lock_t *rw);
 void write_unlock(read_write_lock_t *rw);
 bool self_owns_write_lock(read_write_lock_t *rw);
-
-/* a broadcast event wakes all waiting threads when signalled */
-struct _broadcast_event_t;
-typedef struct _broadcast_event_t broadcast_event_t;
-broadcast_event_t * create_broadcast_event(void);
-void destroy_broadcast_event(broadcast_event_t *be);
-/* NOTE : to avoid races a signaler should always do the required action to
- * make any wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the
- * event false BEFORE signaling the event
- */
-void signal_broadcast_event(broadcast_event_t *be);
-/* the wait macro, we force people to use a while loop since our current
- * implementation has a race (ATOMIC_INC, else clause ATOMIC_DEC, in the
- * middle someone could signal thinking we are waiting)
- *
- * event is the broadcast event
- * wait_condition is the conditional expression we want to become true
- * pre is code we should execute before we actually do a wait
- * post is code we should execute after we return from a wait
- *
- * in typical usage pre and post might be empty, or might free and regrab a
- * lock we shouldn't hold during the wait
- * NOTE : because we loop to handle certain race conditions, wait_condition
- * pre and post might all be evaluated several times
- */
-#define WAIT_FOR_BROADCAST_EVENT(wait_condition, pre, post, event) do {     \
-        while (wait_condition) {                                            \
-            intend_wait_broadcast_event_helper(event);                      \
-            if (wait_condition) {                                           \
-                pre;                                                        \
-                wait_broadcast_event_helper(event);                         \
-                post;                                                       \
-            } else {                                                        \
-                unintend_wait_broadcast_event_helper(event);                \
-            }                                                               \
-        }                                                                   \
-    } while (0)
-/* helpers for the broadcast event wait macro, don't call these directly */
-void intend_wait_broadcast_event_helper(broadcast_event_t *be);
-void unintend_wait_broadcast_event_helper(broadcast_event_t *be);
-void wait_broadcast_event_helper(broadcast_event_t *be);
 
 /* test whether locks are held at all */
 #define WRITE_LOCK_HELD(rw) (mutex_testlock(&(rw)->lock) && ((rw)->num_readers == 0))
@@ -1854,7 +1832,9 @@ extern const char *exception_label_core;
 #ifdef CLIENT_INTERFACE
 extern const char *exception_label_client;
 #endif
-#define CRASH_NAME "internal crash"
+/* These should be the same size for our report_exception_skip_prefix() */
+#define CRASH_NAME          "internal crash"
+#define STACK_OVERFLOW_NAME "stack overflow"
 
 /* pass NULL to use defaults */
 void
@@ -1929,6 +1909,19 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
     DODEBUG_ONCE(SYSLOG_INTERNAL_ERROR(__VA_ARGS__))
 #define SYSLOG_INTERNAL_CRITICAL_ONCE(...) \
     DODEBUG_ONCE(SYSLOG_INTERNAL_CRITICAL(__VA_ARGS__))
+
+#define FATAL_ERROR_EXIT_CODE 40
+
+#define REPORT_FATAL_ERROR_AND_EXIT(dcontext, msg_id, arg_count, ...) \
+    do {                                                              \
+        /* Right now we just print an error message. In the future */ \
+        /* it may make sense to generate a core dump too. */          \
+        SYSLOG_COMMON(false, SYSLOG_CRITICAL, msg_id, arg_count,      \
+                      __VA_ARGS__);                                   \
+        os_terminate_with_code(dcontext, TERMINATE_PROCESS,           \
+                               FATAL_ERROR_EXIT_CODE);                \
+        ASSERT_NOT_REACHED();                                         \
+    } while (0)
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating
@@ -2029,6 +2022,8 @@ void
 print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only);
 
 #endif /* DEBUG */
+
+void dump_global_rstats_to_stderr(void);
 
 bool
 under_internal_exception(void);

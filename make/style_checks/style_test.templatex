@@ -7,3 +7,9 @@
 .*make/style_checks/style_test.c:50: error: Multi-line body needs {}.
 .*make/style_checks/style_test.c:53: error: Multi-line body needs {}.
 .*make/style_checks/style_test.c:59: error: Extra space after function name: "foo ".
+.*make/style_checks/style_test.c:63: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#define'.
+.*make/style_checks/style_test.c:64: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#include "foo.h"'.
+.*make/style_checks/style_test.c:67: error: Wrong indentation for macro, current indentation level is 1 and line should start with '#elif'.
+.*make/style_checks/style_test.c:68: error: Wrong indentation for macro, current indentation level is 1 and line should start with '#else'.
+.*make/style_checks/style_test.c:69: error: Wrong indentation for macro, current indentation level is 1 and line should start with '# undef'.
+.*make/style_checks/style_test.c:70: error: Wrong indentation for macro, current indentation level is 0 and line should start with '#endif'.

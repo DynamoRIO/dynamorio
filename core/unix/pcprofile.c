@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@
  */
 #define USE_SYMTAB 0
 #if USE_SYMTAB
-#include "symtab.h"
+# include "symtab.h"
 static bool valid_symtab;
 #endif
 
@@ -78,7 +78,7 @@ typedef struct _pc_profile_entry_t {
     int                     id;      /* if in fragment, id */
 #endif
     ushort              offset;      /* if in fragment, offset from start pc */
-    where_am_i_t    whereami:8;      /* location of pc */
+    dr_where_am_i_t    whereami:8;      /* location of pc */
     bool               trace:1;      /* if in fragment, is it a trace? */
     bool             retired:1;      /* owning fragment was deleted */
     int                counter;      /* execution counter */
@@ -93,7 +93,7 @@ typedef struct _thread_pc_info_t {
     pc_profile_entry_t **htable; /* HASH_BITS-bit addressed hash table, key is pc */
     void *special_heap;
     file_t file;
-    int where[WHERE_LAST];
+    int where[DR_WHERE_LAST];
 } thread_pc_info_t;
 
 #define ALARM_FREQUENCY 10 /* milliseconds */
@@ -139,7 +139,7 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
 #if USE_SYMTAB
     valid_symtab = symtab_init();
 #endif
-    for (i = 0; i < WHERE_LAST; i++)
+    for (i = 0; i < DR_WHERE_LAST; i++)
         info->where[i] = 0;
     info->file = open_log_file("pcsamples", NULL, 0);
     /* FIXME PR 596808: we can easily fill up the initial special heap unit,
@@ -237,8 +237,6 @@ pcprofile_alarm(dcontext_t *dcontext, priv_mcontext_t *mcontext)
 {
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
     pc_profile_entry_t *entry;
-    fragment_t *fragment;
-    fragment_t wrapper;
     void *pc = (void *) mcontext->pc;
 
     entry = pcprofile_lookup(info, pc);
@@ -259,30 +257,11 @@ pcprofile_alarm(dcontext_t *dcontext, priv_mcontext_t *mcontext)
          */
         entry = pcprofile_add_entry(info, pc, dcontext->whereami);
         /* if in a fragment, get fragment tag & offset now */
-        if (entry->whereami == WHERE_FCACHE) {
-            fragment = fragment_pclookup(dcontext, pc, &wrapper);
-            if (fragment == NULL) {
-                /* FIXME: should check fcache_unit_areas.lock before
-                 * calling (case 1317) and at least assert on it, if counting
-                 * on whereami to ensure no DR locks are held
-                 */
-                if (in_fcache(pc)) {
-                    entry->whereami = WHERE_UNKNOWN;
-                } else {
-                    /* identify parts of our assembly code now.
-                     * it's all generated and post-process can't identify.
-                     * assume code order is as follows:
-                     */
-                    if (in_context_switch_code(dcontext, (cache_pc)pc)) {
-                        entry->whereami = WHERE_CONTEXT_SWITCH;
-                    } else if (in_indirect_branch_lookup_code(dcontext,
-                                                              (cache_pc)pc)) {
-                        entry->whereami = WHERE_IBL;
-                    } else {
-                        entry->whereami = WHERE_UNKNOWN;
-                    }
-                }
-            } else {
+        if (entry->whereami == DR_WHERE_FCACHE) {
+            fragment_t *fragment;
+            entry->whereami = fcache_refine_whereami(dcontext, entry->whereami,
+                                                     pc, &fragment);
+            if (fragment != NULL) {
 #ifdef DEBUG
                 entry->id = fragment->id;
 #endif
@@ -410,7 +389,7 @@ pcprofile_reset(thread_pc_info_t *info)
         }
         info->htable[i] = NULL;
     }
-    for (i = 0; i < WHERE_LAST; i++)
+    for (i = 0; i < DR_WHERE_LAST; i++)
         info->where[i] = 0;
 }
 
@@ -428,7 +407,7 @@ pcprofile_results(thread_pc_info_t *info)
     int i, total = 0;
     pc_profile_entry_t *e;
 
-    for (i = 0; i < WHERE_LAST; i++)
+    for (i = 0; i < DR_WHERE_LAST; i++)
         total += info->where[i];
 
     print_file(info->file, "DynamoRIO library: "PFX"-"PFX"\n",
@@ -443,60 +422,60 @@ pcprofile_results(thread_pc_info_t *info)
     }
 #endif
     print_file(info->file, "ITIMER distribution (%d):\n", total);
-    if (info->where[WHERE_APP] > 0) {
+    if (info->where[DR_WHERE_APP] > 0) {
         print_file(info->file, "  %5.1f%% of time in APPLICATION (%d)\n",
-                   (float)info->where[WHERE_APP]/(float)total * 100.0,
-                   info->where[WHERE_APP]);
+                   (float)info->where[DR_WHERE_APP]/(float)total * 100.0,
+                   info->where[DR_WHERE_APP]);
     }
-    if (info->where[WHERE_INTERP] > 0) {
+    if (info->where[DR_WHERE_INTERP] > 0) {
         print_file(info->file, "  %5.1f%% of time in INTERPRETER (%d)\n",
-                   (float)info->where[WHERE_INTERP]/(float)total * 100.0,
-                   info->where[WHERE_INTERP]);
+                   (float)info->where[DR_WHERE_INTERP]/(float)total * 100.0,
+                   info->where[DR_WHERE_INTERP]);
     }
-    if (info->where[WHERE_DISPATCH] > 0) {
+    if (info->where[DR_WHERE_DISPATCH] > 0) {
         print_file(info->file, "  %5.1f%% of time in DISPATCH (%d)\n",
-                   (float)info->where[WHERE_DISPATCH]/(float)total * 100.0,
-                   info->where[WHERE_DISPATCH]);
+                   (float)info->where[DR_WHERE_DISPATCH]/(float)total * 100.0,
+                   info->where[DR_WHERE_DISPATCH]);
     }
-    if (info->where[WHERE_MONITOR] > 0) {
+    if (info->where[DR_WHERE_MONITOR] > 0) {
         print_file(info->file, "  %5.1f%% of time in MONITOR (%d)\n",
-                   (float)info->where[WHERE_MONITOR]/(float)total * 100.0,
-                   info->where[WHERE_MONITOR]);
+                   (float)info->where[DR_WHERE_MONITOR]/(float)total * 100.0,
+                   info->where[DR_WHERE_MONITOR]);
     }
-    if (info->where[WHERE_SYSCALL_HANDLER] > 0) {
+    if (info->where[DR_WHERE_SYSCALL_HANDLER] > 0) {
         print_file(info->file, "  %5.1f%% of time in SYSCALL HANDLER (%d)\n",
-                   (float)info->where[WHERE_SYSCALL_HANDLER]/(float)total * 100.0,
-                   info->where[WHERE_SYSCALL_HANDLER]);
+                   (float)info->where[DR_WHERE_SYSCALL_HANDLER]/(float)total * 100.0,
+                   info->where[DR_WHERE_SYSCALL_HANDLER]);
     }
-    if (info->where[WHERE_SIGNAL_HANDLER] > 0) {
+    if (info->where[DR_WHERE_SIGNAL_HANDLER] > 0) {
         print_file(info->file, "  %5.1f%% of time in SIGNAL HANDLER (%d)\n",
-                   (float)info->where[WHERE_SIGNAL_HANDLER]/(float)total * 100.0,
-                   info->where[WHERE_SIGNAL_HANDLER]);
+                   (float)info->where[DR_WHERE_SIGNAL_HANDLER]/(float)total * 100.0,
+                   info->where[DR_WHERE_SIGNAL_HANDLER]);
     }
-    if (info->where[WHERE_TRAMPOLINE] > 0) {
+    if (info->where[DR_WHERE_TRAMPOLINE] > 0) {
         print_file(info->file, "  %5.1f%% of time in TRAMPOLINES (%d)\n",
-                   (float)info->where[WHERE_TRAMPOLINE]/(float)total * 100.0,
-                   info->where[WHERE_TRAMPOLINE]);
+                   (float)info->where[DR_WHERE_TRAMPOLINE]/(float)total * 100.0,
+                   info->where[DR_WHERE_TRAMPOLINE]);
     }
-    if (info->where[WHERE_CONTEXT_SWITCH] > 0) {
+    if (info->where[DR_WHERE_CONTEXT_SWITCH] > 0) {
         print_file(info->file, "  %5.1f%% of time in CONTEXT SWITCH (%d)\n",
-                   (float)info->where[WHERE_CONTEXT_SWITCH]/(float)total * 100.0,
-                   info->where[WHERE_CONTEXT_SWITCH]);
+                   (float)info->where[DR_WHERE_CONTEXT_SWITCH]/(float)total * 100.0,
+                   info->where[DR_WHERE_CONTEXT_SWITCH]);
     }
-    if (info->where[WHERE_IBL] > 0) {
+    if (info->where[DR_WHERE_IBL] > 0) {
         print_file(info->file, "  %5.1f%% of time in INDIRECT BRANCH LOOKUP (%d)\n",
-                   (float)info->where[WHERE_IBL]/(float)total * 100.0,
-                   info->where[WHERE_IBL]);
+                   (float)info->where[DR_WHERE_IBL]/(float)total * 100.0,
+                   info->where[DR_WHERE_IBL]);
     }
-    if (info->where[WHERE_FCACHE] > 0) {
+    if (info->where[DR_WHERE_FCACHE] > 0) {
         print_file(info->file, "  %5.1f%% of time in FRAGMENT CACHE (%d)\n",
-                   (float)info->where[WHERE_FCACHE]/(float)total * 100.0,
-                   info->where[WHERE_FCACHE]);
+                   (float)info->where[DR_WHERE_FCACHE]/(float)total * 100.0,
+                   info->where[DR_WHERE_FCACHE]);
     }
-    if (info->where[WHERE_UNKNOWN] > 0) {
+    if (info->where[DR_WHERE_UNKNOWN] > 0) {
         print_file(info->file, "  %5.1f%% of time in UNKNOWN (%d)\n",
-                   (float)info->where[WHERE_UNKNOWN]/(float)total * 100.0,
-                   info->where[WHERE_UNKNOWN]);
+                   (float)info->where[DR_WHERE_UNKNOWN]/(float)total * 100.0,
+                   info->where[DR_WHERE_UNKNOWN]);
     }
 
     print_file(info->file, "\nPC PROFILING RESULTS\n");
@@ -504,7 +483,7 @@ pcprofile_results(thread_pc_info_t *info)
     for (i = 0; i < HASHTABLE_SIZE(HASH_BITS); i++) {
         e = info->htable[i];
         while (e) {
-            if (e->whereami == WHERE_FCACHE) {
+            if (e->whereami == DR_WHERE_FCACHE) {
                 const char *type;
                 if (e->trace)
                     type = "trace";
@@ -526,7 +505,7 @@ pcprofile_results(thread_pc_info_t *info)
                             symtab_lookup_pc((void *)(e->tag+e->offset)));
                 }
 #endif
-            } else if (e->whereami == WHERE_APP) {
+            } else if (e->whereami == DR_WHERE_APP) {
 #if USE_SYMTAB
                 if (valid_symtab) {
                     print_file(info->file, "pc="PFX"\t#=%d\tin the app = %s\n",
@@ -539,7 +518,7 @@ pcprofile_results(thread_pc_info_t *info)
 #if USE_SYMTAB
                 }
 #endif
-            } else if (e->whereami == WHERE_UNKNOWN) {
+            } else if (e->whereami == DR_WHERE_UNKNOWN) {
                 if (is_dynamo_address(e->pc)) {
                     print_file(info->file, "pc="PFX"\t#=%d\tin DynamoRIO <SOMEWHERE> | ",
                                e->pc, e->counter);
@@ -566,21 +545,21 @@ pcprofile_results(thread_pc_info_t *info)
 #else
                     print_file(info->file, "pc="PFX"\t#=%d\tin DynamoRIO",
                                e->pc, e->counter);
-                    if (e->whereami == WHERE_INTERP) {
+                    if (e->whereami == DR_WHERE_INTERP) {
                         print_file(info->file, " interpreter\n");
-                    } else if (e->whereami == WHERE_DISPATCH) {
+                    } else if (e->whereami == DR_WHERE_DISPATCH) {
                         print_file(info->file, " dispatch\n");
-                    } else if (e->whereami == WHERE_MONITOR) {
+                    } else if (e->whereami == DR_WHERE_MONITOR) {
                         print_file(info->file, " monitor\n");
-                    } else if (e->whereami == WHERE_SIGNAL_HANDLER) {
+                    } else if (e->whereami == DR_WHERE_SIGNAL_HANDLER) {
                         print_file(info->file, " signal handler\n");
-                    } else if (e->whereami == WHERE_SYSCALL_HANDLER) {
+                    } else if (e->whereami == DR_WHERE_SYSCALL_HANDLER) {
                         print_file(info->file, " syscall handler\n");
-                    } else if (e->whereami == WHERE_CONTEXT_SWITCH) {
+                    } else if (e->whereami == DR_WHERE_CONTEXT_SWITCH) {
                         print_file(info->file, " context switch\n");
-                    } else if (e->whereami == WHERE_IBL) {
+                    } else if (e->whereami == DR_WHERE_IBL) {
                         print_file(info->file, " indirect_branch_lookup\n");
-                    } else if (e->whereami == WHERE_CLEAN_CALLEE) {
+                    } else if (e->whereami == DR_WHERE_CLEAN_CALLEE) {
                         print_file(info->file, " clean call\n");
                     } else {
                         print_file(STDERR, "ERROR: unknown whereAmI %d\n",

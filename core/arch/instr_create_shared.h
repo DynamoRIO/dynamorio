@@ -100,7 +100,7 @@
  * \note This is only relevant for x86: for ARM where immediate sizes are
  * ignored, simply use OPND_CREATE_INT().
  */
-#define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
+# define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
 /**
  * Create a pointer-sized immediate integer operand.
  * \note This is only relevant for x86: for ARM where immediate sizes are

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -41,6 +41,12 @@
  */
 
 #include "../globals.h"
+#include <errno.h>
+/* avoid problems with use of errno as var name in rest of file */
+#if !defined(STANDALONE_UNIT_TEST) && !defined(MACOS)
+# undef errno
+#endif
+
 #include "ksynch.h"
 
 #include <mach/mach.h>
@@ -114,11 +120,27 @@ ksynch_set_value(mac_synch_t *synch, int new_val)
 }
 
 ptr_int_t
-ksynch_wait(mac_synch_t *synch, int mustbe)
+ksynch_wait(mac_synch_t *synch, int mustbe, int timeout_ms)
 {
     /* We don't need to bother with "mustbe" b/c of SYNC_POLICY_PREPOST */
-    kern_return_t res = semaphore_wait(synch->sem);
-    return (res == KERN_SUCCESS ? 0 : -1);
+    kern_return_t res;
+    if (timeout_ms > 0) {
+        mach_timespec_t timeout;
+        timeout.tv_sec = (timeout_ms / 1000);
+        timeout.tv_nsec = ((int64)timeout_ms % 1000) * 1000000;
+        res = semaphore_timedwait(synch->sem, timeout);
+    } else
+        res = semaphore_wait(synch->sem);
+
+    /* Conform to the API specified in ksynch.h */
+    switch (res) {
+    case KERN_SUCCESS:
+        return 0;
+    case KERN_OPERATION_TIMED_OUT:
+        return -ETIMEDOUT;
+    default:
+        return -1;
+    }
 }
 
 ptr_int_t

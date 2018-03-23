@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -178,8 +178,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     reg_id_t reg2 = IF_X86_ELSE(REG_XDX, DR_REG_R1);
     CHECK(!instr_is_stringop_loop(instr), "rep str conversion missed one");
     if (instr_writes_memory(instr)) {
-        for (i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+        for (i = 0; i < instr_num_srcs(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
                 dr_save_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
                 dr_save_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
                 /* XXX: should come up w/ some clever way to ensure
@@ -187,7 +187,19 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  * it doesn't crash
                  */
                 drutil_insert_get_mem_addr(drcontext, bb, instr,
-                                           instr_get_dst(instr, i), reg1, reg2);
+                                           instr_get_src(instr, i), reg1, reg2);
+                dr_restore_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
+                dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
+            }
+        }
+        /* We test the _ex version on the dests. */
+        for (i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                bool used;
+                dr_save_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
+                dr_save_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
+                drutil_insert_get_mem_addr_ex(drcontext, bb, instr,
+                                              instr_get_dst(instr, i), reg1, reg2, &used);
                 dr_restore_reg(drcontext, bb, instr, reg2, SPILL_SLOT_2);
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
@@ -196,5 +208,3 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     check_label_data(bb);
     return DR_EMIT_DEFAULT;
 }
-
-

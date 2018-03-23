@@ -111,7 +111,7 @@ physaddr_t::virtual2physical(addr_t virt)
             return last_ppage + PAGE_OFFS(virt);
         // XXX i#1703: add (debug-build-only) internal stats here and
         // on cache_t::request() fastpath.
-        std::map<addr_t,addr_t>::iterator exists = v2p.find(vpage);
+        std::unordered_map<addr_t,addr_t>::iterator exists = v2p.find(vpage);
         if (exists != v2p.end()) {
             last_vpage = vpage;
             last_ppage = exists->second;

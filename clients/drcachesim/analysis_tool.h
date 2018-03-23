@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,19 +36,46 @@
 #ifndef _ANALYSIS_TOOL_H_
 #define _ANALYSIS_TOOL_H_ 1
 
+/**
+ * @file drmemtrace/analysis_tool.h
+ * @brief DrMemtrace analysis tool base class.
+ */
+
 // To support installation of headers for analysis tools into a single
 // separate directory we omit common/ here and rely on -I.
 #include "memref.h"
 
+/**
+ * The base class for a tool that analyzes a trace.  A new tool should subclass this
+ * class.  Two key functions should be overridden: process_memref(), which operates
+ * on a single trace entry, and print_results(), which is called just once after
+ * processing the entire trace and should present the results of analysis.  In the
+ * default mode of operation, the #analyzer_t class iterates over the trace and calls
+ * the process_memref() function of each tool.  An alternative mode is supported
+ * which exposes the iterator and allows a separate control infrastructure to be
+ * built.
+ */
 class analysis_tool_t
 {
  public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
+    /**
+     * Errors encountered during the constructor will set the success flag, which should
+     * be queried via operator!.
+     */
     analysis_tool_t() : success(true) {};
-    virtual ~analysis_tool_t() {};
+    virtual ~analysis_tool_t() {}; /**< Destructor. */
+    /** Returns whether the tool was created successfully. */
     virtual bool operator!() { return !success; }
+    /**
+     * The heart of an analysis tool, this routine operates on a single trace entry and
+     * takes whatever actions the tool needs to perform its analysis.
+     * The return value indicates whether it was successful or there was an error.
+     */
     virtual bool process_memref(const memref_t &memref) = 0;
+    /**
+     * This routine reports the results of the trace analysis.
+     * The return value indicates whether it was successful or there was an error.
+     */
     virtual bool print_results() = 0;
  protected:
     bool success;

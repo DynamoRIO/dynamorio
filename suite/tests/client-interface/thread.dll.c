@@ -126,6 +126,24 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     int num_nops = 0;
     bool in_nops = false;
 
+    if (child_alive == NULL) {
+        /* We run this once here: we can't do it in dr_init() b/c the client thread
+         * won't execute until the app starts (i#2335).
+         */
+        bool success;
+        child_alive = dr_event_create();
+        child_continue = dr_event_create();
+        child_dead = dr_event_create();
+
+        /* PR 222812: start up and shut down a client thread */
+        success = dr_create_client_thread(thread_func, THREAD_ARG);
+        ASSERT(success);
+        dr_event_wait(child_alive);
+        dr_event_signal(child_continue);
+        dr_event_wait(child_dead);
+        dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
+    }
+
     for (instr = instrlist_first(bb);
          instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
@@ -286,16 +304,4 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         dr_mutex_destroy(lock2);
         dr_fprintf(STDERR, "...passed\n");
     }
-
-    child_alive = dr_event_create();
-    child_continue = dr_event_create();
-    child_dead = dr_event_create();
-
-    /* PR 222812: start up and shut down a client thread */
-    success = dr_create_client_thread(thread_func, THREAD_ARG);
-    ASSERT(success);
-    dr_event_wait(child_alive);
-    dr_event_signal(child_continue);
-    dr_event_wait(child_dead);
-    dr_fprintf(STDERR, "PR 222812: client thread test passed\n");
 }

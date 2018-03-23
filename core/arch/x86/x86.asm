@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -594,7 +594,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      REG_XBX, PTRSZ [1*ARG_SZ + REG_XBP] /* dcontext */
         SAVE_TO_DCONTEXT_VIA_REG(REG_XBX,is_exiting_OFFSET,1)
         CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_XBX) /* xbx is callee-saved */
-        cmp      REG_XAX, 0
+        cmp      al, 0
         jnz      cat_save_dstack
         mov      REG_XBX, 0 /* save 0 for dstack to avoid double-free */
         jmp      cat_done_saving_dstack
@@ -1164,6 +1164,7 @@ GLOBAL_LABEL(_start:)
         cmp     REG_XDI, 0 /* if reloaded, skip for speed + preserve xdi and xsi */
         jne     reloaded_xfer
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, REG_XSP)
+        mov     REG_XDI, 0 /* xdi should be callee-saved but is not always: i#2641 */
 
 reloaded_xfer:
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
@@ -1485,7 +1486,7 @@ GLOBAL_LABEL(master_signal_handler:)
         mov      REG_XAX, REG_XSP
         /* call a C routine rather than writing everything in asm */
         CALLC2(GLOBAL_REF(sig_should_swap_stack), REG_XAX, REG_XDX)
-        cmp      REG_XAX, 0
+        cmp      al, 0
         pop      REG_XAX /* clone_and_swap_args.stack */
         pop      REG_XCX /* clone_and_swap_args.tos */
         je       no_swap
@@ -2060,10 +2061,8 @@ call_modcode_alt_stack_no_free:
 #undef flags
 #undef using_initstack
 
-#ifdef STACK_GUARD_PAGE
-/*
- * void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
- *                                CONTEXT *cxt, byte *stack)
+/* void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
+ *                                CONTEXT *cxt, byte *stack, bool is_client)
  *
  * Routine to switch to a separate exception stack before calling
  * internal_exception_info().  This switch is useful if the dstack
@@ -2074,22 +2073,25 @@ call_modcode_alt_stack_no_free:
 #define pExcptRec       ARG2
 #define cxt             ARG3
 #define stack           ARG4
+#define is_client       ARG5
         DECLARE_FUNC(call_intr_excpt_alt_stack)
 GLOBAL_LABEL(call_intr_excpt_alt_stack:)
         mov      REG_XAX, dcontext
         mov      REG_XBX, pExcptRec
         mov      REG_XDI, cxt
+        mov      REG_XBP, is_client
         mov      REG_XSI, REG_XSP
         mov      REG_XSP, stack
 # ifdef X64
         /* retaddr + this push => 16-byte alignment prior to call */
 # endif
         push     REG_XSI       /* save xsp */
-        CALLC4(GLOBAL_REF(internal_exception_info), \
+        CALLC5(GLOBAL_REF(internal_exception_info), \
                REG_XAX /* dcontext */,  \
                REG_XBX /* pExcptRec */, \
                REG_XDI /* cxt */,       \
-               1       /* dstack overflow == true */)
+               1       /* dstack overflow == true */, \
+               REG_XBP /* is_client */)
         pop      REG_XSP
         ret
         END_FUNC(call_intr_excpt_alt_stack)
@@ -2097,7 +2099,6 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #undef pExcptRec
 #undef cxt
 #undef stack
-#endif /* STACK_GUARD_PAGE */
 
 /* CONTEXT.Seg* is WORD for x64 but DWORD for x86 */
 #ifdef X64

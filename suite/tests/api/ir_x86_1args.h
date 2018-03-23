@@ -116,6 +116,8 @@ OPCODE(xrstor32, xrstor32, xrstor32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xrstor64, xrstor64, xrstor64, X64_ONLY, MEMARG(OPSZ_xsave))
 OPCODE(xsaveopt32, xsaveopt32, xsaveopt32, 0, MEMARG(OPSZ_xsave))
 OPCODE(xsaveopt64, xsaveopt64, xsaveopt64, X64_ONLY, MEMARG(OPSZ_xsave))
+OPCODE(xsavec32, xsavec32, xsavec32, 0, MEMARG(OPSZ_xsave))
+OPCODE(xsavec64, xsavec64, xsavec64, X64_ONLY, MEMARG(OPSZ_xsave))
 
 /****************************************************************************/
 /* single immed argument */

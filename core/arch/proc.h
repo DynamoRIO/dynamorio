@@ -105,7 +105,7 @@ enum {
 /* DR_API EXPORT END */
 #ifdef IA32_ON_IA64 /* don't export IA64 stuff! */
 /* IA-64 */
-#define FAMILY_IA64         7
+# define FAMILY_IA64         7
 #endif
 /* DR_API EXPORT BEGIN */
 /* Remember that we add extended family to family as Intel suggests */

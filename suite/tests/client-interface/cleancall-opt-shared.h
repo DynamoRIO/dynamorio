@@ -129,7 +129,7 @@ codegen_instrumentation_funcs(void)
     for (i = 0; i < N_FUNCS; i++) {
         pc = (byte*)ALIGN_FORWARD(pc, CALLEE_ALIGNMENT);
         func_ptrs[i] = pc;
-        dr_log(dc, LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
+        dr_log(dc, DR_LOG_EMIT, 3, "Generated instrumentation function %s at "PFX
                ":", func_names[i], pc);
         instrlist_disassemble(dc, pc, ilists[i], dr_get_logfile(dc));
         pc = instrlist_encode(dc, ilists[i], pc, true);
@@ -187,7 +187,9 @@ dr_init(client_id_t id)
    /* For compiler_inscount, we don't use generated code, we just point
     * straight at the compiled code.
     */
+#if !defined(TEST_INLINE) || defined(X86)
     func_ptrs[FN_compiler_inscount] = (void*)&compiler_inscount;
+#endif
 }
 
 #ifdef X86
@@ -281,7 +283,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 
 #ifdef TEST_INLINE
    /* Check xflags for all funcs except bbcount, which has dead flags. */
-    if (mc_a->xflags != mc_b->xflags && func_index != FN_bbcount)
+    if (mc_a->xflags != mc_b->xflags IF_X86(&& func_index != FN_bbcount))
         return false;
 #else
    if (mc_a->xflags != mc_b->xflags)
@@ -460,8 +462,16 @@ after_callee(app_pc start_inline, app_pc end_inline, bool inline_expected,
 
     /* Function-specific checks. */
     switch (func_index) {
+    case FN_bbcount:
+        if (global_count != 1) {
+            dr_fprintf(STDERR, "global_count not updated properly after bbcount!\n");
+            dump_cc_code(dc, start_inline, end_inline, func_index);
+        }
+        break;
     case FN_inscount:
+#if !defined(TEST_INLINE) || defined(X86)
     case FN_compiler_inscount:
+#endif
         if (global_count != 0xDEAD) {
             dr_fprintf(STDERR, "global_count not updated properly after inscount!\n");
             dump_cc_code(dc, start_inline, end_inline, func_index);
@@ -577,7 +587,7 @@ before_callee(app_pc func, const char *func_name)
 # endif /* X86 */
     end_pc = instrlist_encode(dc, ilist, func, false /* no jump targets */);
     instrlist_clear_and_destroy(dc, ilist);
-    dr_log(dc, LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
+    dr_log(dc, DR_LOG_EMIT, 3, "Patched instrumentation function %s at "PFX":\n",
            (func_name ? func_name : "(null)"), func);
 
     /* Check there was enough room in the function.  We align every callee
@@ -633,6 +643,17 @@ codegen_empty(void *dc)
     APP(ilist, XINST_CREATE_return(dc));
     return ilist;
 }
+
+/* i#988: We fail to inline if the number of arguments to the same clean call
+ * routine increases. empty is used for a 0 arg clean call, so we add empty_1arg
+ * for test_inlined_call_args(), which passes 1 arg.
+ */
+static instrlist_t *
+codegen_empty_1arg(void *dc)
+{
+    return codegen_empty(dc);
+}
+
 
 /* Return either a stack access opnd_t or the first regparm.  Assumes frame
  * pointer is not omitted. */
@@ -714,6 +735,48 @@ codegen_inscount(void *dc)
                                  scratch2));
 #else
 # error NYI
+#endif
+    codegen_epilogue(dc, ilist);
+    return ilist;
+}
+
+/*
+X86
+  bbcount:
+      push REG_XBP
+      mov REG_XBP, REG_XSP
+      inc [global_count]
+      leave
+      ret
+
+AArch64
+   bbcount:
+     x0 and x1 are used as scratch registers
+     mov &global_count to x0 using a series of movz and movk instructions
+     ldr x1, [x0]
+     add x1, x1, #1
+     str [x0], x1
+
+*/
+static instrlist_t *
+codegen_bbcount(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+#ifndef X86
+    reg_t reg1 = DR_REG_X0;
+    reg_t reg2 = DR_REG_X1;
+#endif
+
+    codegen_prologue(dc, ilist);
+#ifdef X86
+    APP(ilist, INSTR_CREATE_inc(dc, OPND_CREATE_ABSMEM(&global_count, OPSZ_PTR)));
+#else
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_int_t)&global_count, opnd_create_reg(reg1),
+                                     ilist, NULL, NULL, NULL);
+    APP(ilist, XINST_CREATE_load(dc, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
+    APP(ilist, XINST_CREATE_add(dc, opnd_create_reg(reg2), OPND_CREATE_INT(1)));
+    APP(ilist, XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(reg1, 0),
+                                  opnd_create_reg(reg2)));
 #endif
     codegen_epilogue(dc, ilist);
     return ilist;

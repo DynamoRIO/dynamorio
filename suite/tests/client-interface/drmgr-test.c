@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,7 +32,6 @@
 
 #include "tools.h"
 
-static char table[2] = {'A', 'B'};
 #ifdef WINDOWS
 /* based on suite/tests/win32/callback.c */
 
@@ -182,7 +181,7 @@ run_func(void * arg)
 }
 
 int
-main()
+main(int argc, char **argv)
 {
     int tid;
     HANDLE hThread;
@@ -233,6 +232,14 @@ main()
     WaitForSingleObject(hThread, INFINITE);
     print("All done\n");
 
+    HMODULE hmod;
+
+    /*
+     * Load and unload a module to cause a module unload event
+     */
+    hmod = LoadLibrary(argv[1]);
+    FreeLibrary(hmod);
+
     return 0;
 }
 
@@ -244,6 +251,7 @@ main()
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+# include <dlfcn.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -283,12 +291,13 @@ main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
     void * retval;
+    char table[2] = {'A', 'B'};
 #ifdef X86
     char ch;
     /* test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
-    __asm("mov %1, %%ebx\n\t"
+    __asm("mov %1, %%" IF_X64_ELSE("rbx","ebx") "\n\t"
           "mov $0x1, %%eax\n\t"
           "xlat\n\t"
           "movb %%al, %0\n\t"
@@ -319,6 +328,13 @@ main(int argc, char **argv)
         print("%s: thread join failed\n", argv[0]);
         exit(1);
     }
+
+    void *hmod;
+    hmod = dlopen(argv[1], RTLD_LAZY|RTLD_LOCAL);
+    if (hmod != NULL)
+        dlclose(hmod);
+    else
+        print("module load failed: %s\n", dlerror());
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);

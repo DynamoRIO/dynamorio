@@ -52,12 +52,12 @@ void dr_fpu_exception_init(void);
 #include <stdarg.h> /* for varargs */
 
 #ifdef UNIX
-#  ifdef MACOS
+# ifdef MACOS
 /* request extern functions to avoid conflicts with our own tolower() */
-#    define _EXTERNALIZE_CTYPE_INLINES_TOP_
-#    define _EXTERNALIZE_CTYPE_INLINES_
-#  endif
-#  include <wchar.h>
+#  define _EXTERNALIZE_CTYPE_INLINES_TOP_
+#  define _EXTERNALIZE_CTYPE_INLINES_
+# endif
+# include <wchar.h>
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -532,6 +532,15 @@ our_vsscanf(const char *str, const char *fmt, va_list ap)
                               "dr_sscanf: can't use %lh modifier");
                 int_size = SZ_SHORT;
                 continue;
+            case 'z':
+                CLIENT_ASSERT(int_size == SZ_INT,
+                              "dr_sscanf: can't combine z with l or h");
+#if defined(WINDOWS) && defined(X64)
+                int_size = SZ_LONGLONG;
+#else
+                int_size = SZ_LONG;
+#endif
+                continue;
             case '*':
                 is_ignored = true;
                 continue;
@@ -799,7 +808,14 @@ test_sscanf_all_specs(void)
     int signed_int_2;
     uint unsigned_int;
     uint hex_num;
+    short signed_short;
+    long signed_long;
     unsigned long long ull_num;
+# if defined(WINDOWS) && defined(X64)
+    long long z_num;
+# else
+    long z_num;
+# endif
 
     /* ULLONG_MAX is a corner case. */
     res = our_sscanf("c str -123 +456 0x789 0xffffffffffffffff",
@@ -842,6 +858,14 @@ test_sscanf_all_specs(void)
     EXPECT(signed_int, 123);
     EXPECT(signed_int_2, 456);
     EXPECT(unsigned_int, 0x9ab);
+
+    /* Test modifiers for integers. */
+    res = our_sscanf("123456 789012345 678901234", "%hd %ld %zd",
+                     &signed_short, &signed_long, &z_num);
+    EXPECT(res, 3);
+    EXPECT(signed_short, -7616);
+    EXPECT(signed_long, 789012345);
+    EXPECT(z_num, 678901234);
 
     /* Test skipping leading whitespace for integer conversions. */
     res = our_sscanf(" \t123456\t\n 0x9abc", "%d%x",
@@ -1109,7 +1133,7 @@ unit_test_io(void)
     wbuf[6] = L'\0';
     EXPECT(wcscmp(wbuf, L"narrow"), 0);
 
-#ifdef WINDOWS
+# ifdef WINDOWS
     /* test UTF-16 to UTF-8 */
     res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S",
                        L"\x0391\x03A9\x20Ac"); /* alpha, omega, euro sign */
@@ -1152,7 +1176,7 @@ unit_test_io(void)
                             "\xce\x91\xce\xa9\xe2\x82\xac"); /* alpha, omega, euro sign */
     EXPECT(res == 2, true);
     EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == L'\0', true);
-#endif
+# endif
 
     test_integer();
 
@@ -1161,14 +1185,14 @@ unit_test_io(void)
     test_sscanf_maps_x64();
     test_sscanf_all_specs();
 
-#ifdef UNIX
+# ifdef UNIX
     /* memcpy tests */
     test_our_memcpy();
     our_memcpy_vs_libc();
 
     /* memset tests */
     test_our_memset();
-#endif /* UNIX */
+# endif /* UNIX */
 
     /* XXX: add more tests */
 

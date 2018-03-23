@@ -40,6 +40,8 @@
  *
  */
 
+#include <stddef.h>
+
 #ifndef NOT_DYNAMORIO_CORE
 #  include "globals.h"
 #  include "fcache.h"
@@ -104,26 +106,54 @@ static void ignore_varargs_function(char *format, ...) { }
 
 #endif /* NOT_DYNAMORIO_CORE */
 
+typedef enum option_type_t {
+    OPTION_TYPE_bool,
+    OPTION_TYPE_uint,
+    OPTION_TYPE_uint_addr,
+    OPTION_TYPE_uint_size,
+    OPTION_TYPE_uint_time,
+    OPTION_TYPE_pathstring_t,
+    OPTION_TYPE_liststring_t,
+} option_type_t;
+
+typedef enum option_modifier_t {
+    OPTION_MOD_STATIC,
+    OPTION_MOD_DYNAMIC
+} option_modifier_t;
+
+typedef uint uint_size;
+typedef uint uint_time;
+typedef ptr_uint_t uint_addr;
+
+/* Structure with all the information about an option. */
+typedef struct _option_t {
+    const char *name;
+    uint offset;
+    uint size;
+    option_type_t type;
+    op_pcache_t affects_pcache;
+    option_modifier_t modifier;
+} option_t;
 
 #ifndef EXPOSE_INTERNAL_OPTIONS
 /* default values for internal options are kept in a separate struct */
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
-                                  statement, description, flag, pcache) default_value,
-#  define OPTION_COMMAND(type, name, default_value, command_line_option, \
-                         statement, description, flag, pcache) /* nothing */
+# define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                 statement, description, flag, pcache) default_value,
+# define OPTION_COMMAND(type, name, default_value, command_line_option, \
+                        statement, description, flag, pcache) /* nothing */
 /* read only source for default internal option values and names
  * no lock needed since never written
  */
 const internal_options_t default_internal_options = {
-#  include "optionsx.h"
+# include "optionsx.h"
 };
-#undef OPTION_COMMAND_INTERNAL
-#undef OPTION_COMMAND
+# undef OPTION_COMMAND_INTERNAL
+# undef OPTION_COMMAND
 #endif
 
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
-#  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
+# define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else
 /* DON'T FIXME: In order to support easy switching of an internal
    option into user accessible one we could waste some memory by
@@ -135,10 +165,23 @@ const internal_options_t default_internal_options = {
    in other object files since more option fields need longer than 8-bit offsets)
    For now we can live without this.
 */
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
-                                  statement, description, flag, pcache) /* nothing, */
+# define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                 statement, description, flag, pcache) /* nothing, */
 #endif
 
+/* Traits of all the options. */
+#define OPTION_COMMAND(type, name, default_value, command_line_option, \
+                       statement, description, flag, pcache) \
+{ command_line_option, offsetof(options_t, name), sizeof(type), \
+  OPTION_TYPE_##type, pcache, OPTION_MOD_##flag},
+
+static const option_t option_traits[] = {
+#include "optionsx.h"
+};
+
+#undef OPTION_COMMAND
+
+static const int num_options = sizeof(option_traits) / sizeof(option_t);
 
 /* all to default values */
 #define OPTION_COMMAND(type, name, default_value, command_line_option, \
@@ -147,7 +190,7 @@ const internal_options_t default_internal_options = {
  * no lock needed since never written
  */
 const options_t default_options = {
-#  include "optionsx.h"
+#include "optionsx.h"
 };
 
 #ifndef NOT_DYNAMORIO_CORE /*****************************************/
@@ -175,10 +218,9 @@ options_t dynamo_options = {
  * and put back as synchronize_dynamic_options() local var.
  */
 DECLARE_FREQPROT_VAR(char new_option_string[MAX_OPTIONS_STRING], {0,});
-/* temporary structure */
-options_t temp_options = {
-# include "optionsx.h"
-};
+
+/* Temporary structure.  Do not assume that it is initialized. */
+options_t temp_options;
 
 /* dynamo_options and temp_options, the two writable option structures,
  * are both protected by this lock, which is kept outside of the protected
@@ -216,9 +258,16 @@ adjust_defaults_for_page_size(options_t *options)
     options->vmm_block_size =
         ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size =
-        MAX(ALIGN_FORWARD(options->stack_size, page_size), 2 * page_size);
+        MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
+# ifdef UNIX
+    options->signal_stack_size =
+        MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
+# endif
     options->initial_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size),
+            3 * page_size);
+    options->initial_heap_nonpers_size =
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size),
             3 * page_size);
     options->initial_global_heap_unit_size =
         MAX(ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size),
@@ -245,10 +294,10 @@ set_dynamo_options_defaults(options_t *options)
  * to either OPTION_COMMAND or nothing.
  */
 #ifdef EXPOSE_INTERNAL_OPTIONS
-#  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
+# define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
-                                  statement, description, flag, pcache) /* nothing */
+# define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                 statement, description, flag, pcache) /* nothing */
 #endif
 
 /* PARSING HANDLER */
@@ -381,6 +430,8 @@ parse_uint_size(uint *var, void *value)
         case 'k': factor = 1024; break;
         case 'M': // Mega (bytes)
         case 'm': factor = 1024*1024; break;
+        case 'G': // Giga (bytes)
+        case 'g': factor = 1024*1024*1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -477,28 +528,75 @@ parse_liststring_t(liststring_t *var, void *value) {
     (*var)[MAX_LIST_OPTION_LENGTH-1] = '\0';
 }
 
+static void
+parse_by_type(enum option_type_t type, void *ptr1, void *ptr2)
+{
+    switch (type) {
+    case OPTION_TYPE_bool:
+        parse_bool(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint:
+        parse_uint(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_size:
+        parse_uint_size(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_time:
+        parse_uint_time(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_addr:
+        parse_uint_addr(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_pathstring_t:
+        parse_pathstring_t(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_liststring_t:
+        parse_liststring_t(ptr1, ptr2);
+        break;
+    }
+}
 
-#define OPTION_COMMAND(type, name, default_value, command_line_option,  \
-                       statement, description, flag, pcache) {          \
-    value = NULL;                                                       \
-    if (ISBOOL_##type) {                                                \
-        if (!strcmp(opt+1, command_line_option)) {                      \
-            value = &value_true;                                        \
-        } else if (!strncmp(opt+1, "no_", 3)                            \
-                   && !strcmp(opt+4, command_line_option)) {            \
-            value = &value_false;                                       \
-        }                                                               \
-    } else {                                                            \
-        if (!strcmp(opt+1, command_line_option)) {                      \
-            value = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer));\
-            /* FIXME: check argument */                                 \
-        }                                                               \
-    }                                                                   \
-    if (value) {                                                        \
-        parse_##type(&options->name, value);                            \
-        statement;                                                      \
-        continue; /* match found */                                     \
-    }                                                                   \
+/* We mark this function to be NOINLINE so that in case the compiler unrolls the
+ * loop where this function is used, this function is not copied over there
+ * mutliple times.  Copying over this code increases code size significantly
+ * especially since strcmp() is declared either as macro or as inline.
+ */
+static NOINLINE void
+set_bool_opt(const char *opt, const char *command_line_option,
+             bool *value_true, bool *value_false, void **value)
+{
+    if (strcmp(opt+1, command_line_option) == 0) {
+        *value = value_true;
+    } else if (strncmp(opt+1, "no_", 3) == 0 &&
+               strcmp(opt+4, command_line_option) == 0) {
+        *value = value_false;
+    }
+}
+
+static NOINLINE void
+set_nonbool_opt(const char *opt, const char *command_line_option,
+                const char *optstr, const char **pos,
+                char *wordbuffer, int max_option_length, void **value)
+{
+    if (strcmp(opt+1, command_line_option) == 0) {
+        *value = getword(optstr, pos, wordbuffer, max_option_length);
+        /* FIXME: check argument */
+    }
+}
+
+static NOINLINE void
+run_option_command(int index, options_t *options, bool for_this_process)
+{
+    int j = 0;
+#define OPTION_COMMAND(type, name, default_value, command_line_option, \
+                       statement, description, flag, pcache) \
+    if (index == j) { \
+        statement; \
+    } \
+    ++j;
+#include "optionsx.h"
+
+#undef OPTION_COMMAND
 }
 
 /* PR 330860: the for_this_process bool is read in OPTION_COMMAND statements */
@@ -507,7 +605,6 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
 {
     char *opt;
     const char *pos = optstr;
-    const char *prev_pos;
     bool got_badopt = false;
     char badopt[MAX_OPTION_LENGTH];
 
@@ -525,20 +622,28 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
     ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options,
                             &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
-    prev_pos = pos;
     while ((opt = getword(optstr, &pos, wordbuffer, sizeof(wordbuffer))) != NULL) {
         if (opt[0]=='-') {
-            /* N.B.: case 7853,7863: this expansion results in excessive stack
-             * usage under gcc.  If strcmp is intrinsic, gcc 4.1 uses 3 local
-             * slots per strcmp, and doesn't overlap them at all.  With -O2 it
-             * reduces it to 1 slot per strcmp, though it should be 0!  But
-             * gcc 3.4 only makes it intrinsic at -O1+, so -O2 fixes the
-             * problem for 4.1 but makes it appear in 3.4!  For now we
-             * explicitly use -fno-builtin-strcmp to handle all gcc versions.
-             * Long-term we may need our own strcmp inline just for this
-             * expansion that knows it needs no per-cmp slot.
-             */
-#include "optionsx.h"             // will continue if a match is found
+            value = NULL;
+            int i = 0;
+            for (i = 0; i < num_options; ++i) {
+                if (option_traits[i].type == OPTION_TYPE_bool) {
+                    set_bool_opt(opt, option_traits[i].name, &value_true,
+                                 &value_false, &value);
+                } else {
+                    set_nonbool_opt(opt, option_traits[i].name, optstr, &pos,
+                                    wordbuffer, sizeof(wordbuffer), &value);
+                }
+                if (value != NULL) {
+                    void *optptr = (char*)(options) + option_traits[i].offset;
+                    parse_by_type(option_traits[i].type, optptr, value);
+                    run_option_command(i, options, for_this_process);
+                    break;
+                }
+            }
+            if (value != NULL) {
+                continue;
+            }
         }
 
         /* no matching option found */
@@ -547,8 +652,6 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
             NULL_TERMINATE_BUFFER(badopt);
         }
         got_badopt = true;
-
-        prev_pos = pos;
     }
 
     /* we only report the first bad option */
@@ -560,7 +663,6 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
 
     return (int)got_badopt;
 }
-#undef OPTION_COMMAND
 
 CORE_STATIC int
 set_dynamo_options(options_t *options, const char *optstr)
@@ -590,11 +692,11 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %d, resetting from %d to %d",
+            USAGE_ERROR("%s must be >= %u, resetting from %u to %u",
                         name, min, *val, new_val);
         } else {
-            new_val = min;
-            USAGE_ERROR("%s must be >= %d and <= %d, resetting from %d to %d",
+            new_val = max;
+            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u",
                         name, min, max, *val, new_val);
         }
         *val = new_val;
@@ -604,7 +706,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %d KB\n", name, *val/1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val/1024);
         }
     });
     return ret;
@@ -619,48 +721,221 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
  * size of the release build dll by ~7kb.
  */
 static void
-PRINT_STRING_bool(char *optionbuff, bool value, const char *option)
+PRINT_STRING_bool(char *optionbuff, const void *val_ptr, const char *option)
 {
+    bool value = *(const bool*)val_ptr;
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s%s ",
              value ? "" : "no_", option);
 }
 static void
-PRINT_STRING_uint(char *optionbuff, uint value, const char *option)
+PRINT_STRING_uint(char *optionbuff, const void *val_ptr, const char *option)
 {
     /* FIXME: 0x100 hack to get logmask printed in hex,
      * loglevel etc in decimal */
+    uint value = *(const uint*)val_ptr;
     snprintf(optionbuff, MAX_OPTION_LENGTH,
-             (value > 0x100 ? "-%s 0x%x " : "-%s %d "), option, value);
+             (value > 0x100 ? "-%s 0x%x " : "-%s %u "), option, value);
 }
-#define PRINT_STRING_uint_size(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option, \
-             ((value) % 1024 == 0 ? (value)/1024 : (value)), \
-             ((value) % 1024 == 0 ? "K" : "B"))
-#define PRINT_STRING_uint_time(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d ", option, (value))
-#define PRINT_STRING_uint_addr(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s "PFX" ", option, (value));
-#define PRINT_STRING_pathstring_t(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
-#define PRINT_STRING_liststring_t(optionbuff,value,option) \
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option, (value));
+static void
+PRINT_STRING_uint_size(char *optionbuff, const void *val_ptr,
+                       const char *option)
+{
+    uint value = *(const uint*)val_ptr;
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option,
+             (value % 1024 == 0 ? value/1024 : value),
+             (value % 1024 == 0 ? "K" : "B"));
+}
+static void
+PRINT_STRING_uint_time(char *optionbuff, const void *val_ptr,
+                       const char *option)
+{
+    uint value = *(const uint*)val_ptr;
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d ", option, value);
+}
+static void
+PRINT_STRING_uint_addr(char *optionbuff, const void *val_ptr,
+                       const char *option)
+{
+    ptr_uint_t value = *(const ptr_uint_t*)val_ptr;
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s "PFX" ", option, value);
+}
+static void
+PRINT_STRING_pathstring_t(char *optionbuff, const void *val_ptr,
+                          const char *option)
+{
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option,
+             (*(const pathstring_t*)val_ptr));
+}
+static void
+PRINT_STRING_liststring_t(char *optionbuff, const void *val_ptr,
+                          const char *option)
+{
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s '%s' ", option,
+             (*(const liststring_t*)val_ptr));
+}
 
+static void
+print_option_type(enum option_type_t type, char *optionbuff, const void *val_ptr,
+                  const char *option)
+{
+    switch (type) {
+    case OPTION_TYPE_bool:
+        PRINT_STRING_bool(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_uint:
+        PRINT_STRING_uint(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_uint_size:
+        PRINT_STRING_uint_size(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_uint_time:
+        PRINT_STRING_uint_time(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_uint_addr:
+        PRINT_STRING_uint_addr(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_pathstring_t:
+        PRINT_STRING_pathstring_t(optionbuff, val_ptr, option);
+        break;
+    case OPTION_TYPE_liststring_t:
+        PRINT_STRING_liststring_t(optionbuff, val_ptr, option);
+        break;
+    }
+}
 
-#define DIFF_bool(value1,value2) ( value1 != value2 )
-#define DIFF_uint(value1,value2) ( value1 != value2 )
-#define DIFF_uint_size(value1,value2) ( value1 != value2 )
-#define DIFF_uint_time(value1,value2) ( value1 != value2 )
-#define DIFF_uint_addr(value1,value2) ( value1 != value2 )
-#define DIFF_pathstring_t(value1,value2) (strcmp(value1,value2))
-#define DIFF_liststring_t(value1,value2) (strcmp(value1,value2))
+static int
+DIFF_bool(const void *ptr1, const void *ptr2)
+{
+    bool val1 = *(const bool*)(ptr1);
+    bool val2 = *(const bool*)(ptr2);
+    return val1 != val2;
+}
+static int
+DIFF_uint(const void *ptr1, const void *ptr2)
+{
+    uint val1 = *(const uint*)(ptr1);
+    uint val2 = *(const uint*)(ptr2);
+    return val1 != val2;
+}
+static int
+DIFF_uint_size(const void *ptr1, const void *ptr2)
+{
+    return DIFF_uint(ptr1, ptr2);
+}
+static int
+DIFF_uint_time(const void *ptr1, const void *ptr2)
+{
+    return DIFF_uint(ptr1, ptr2);
+}
+static int
+DIFF_uint_addr(const void *ptr1, const void *ptr2)
+{
+    return DIFF_uint(ptr1, ptr2);
+}
+static int
+DIFF_pathstring_t(const void *ptr1, const void *ptr2)
+{
+    const char *val1 = (const char*)ptr1;
+    const char *val2 = (const char*)ptr2;
+    return strcmp(val1, val2);
+}
+static int
+DIFF_liststring_t(const void *ptr1, const void *ptr2)
+{
+    const char *val1 = (const char*)ptr1;
+    const char *val2 = (const char*)ptr2;
+    return strcmp(val1, val2);
+}
 
-#define COPY_bool(value1,value2) ( value1 = value2 )
-#define COPY_uint(value1,value2) ( value1 = value2 )
-#define COPY_uint_size(value1,value2) ( value1 = value2 )
-#define COPY_uint_time(value1,value2) ( value1 = value2 )
-#define COPY_uint_addr(value1,value2) ( value1 = value2 )
-#define COPY_pathstring_t(value1,value2) (strncpy(value1,value2,sizeof(value1)))
-#define COPY_liststring_t(value1,value2) (strncpy(value1,value2,sizeof(value1)))
+static int
+diff_by_type(enum option_type_t type, const void *ptr1, const void *ptr2)
+{
+    switch (type) {
+    case OPTION_TYPE_bool:
+        return DIFF_bool(ptr1, ptr2);
+    case OPTION_TYPE_uint:
+        return DIFF_uint(ptr1, ptr2);
+    case OPTION_TYPE_uint_size:
+        return DIFF_uint_size(ptr1, ptr2);
+    case OPTION_TYPE_uint_time:
+        return DIFF_uint_time(ptr1, ptr2);
+    case OPTION_TYPE_uint_addr:
+        return DIFF_uint_addr(ptr1, ptr2);
+    case OPTION_TYPE_pathstring_t:
+        return DIFF_pathstring_t(ptr1, ptr2);
+    case OPTION_TYPE_liststring_t:
+        return DIFF_liststring_t(ptr1, ptr2);
+    }
+    return 0;
+}
+
+static void
+COPY_bool(void *ptr1, const void *ptr2)
+{
+    *(bool*)(ptr1) = *(const bool*)(ptr2);
+}
+static void
+COPY_uint(void *ptr1, const void *ptr2)
+{
+    *(uint*)(ptr1) = *(const uint*)(ptr2);
+}
+static void
+COPY_uint_size(void *ptr1, const void *ptr2)
+{
+  COPY_uint(ptr1, ptr2);
+}
+static void
+COPY_uint_time(void *ptr1, const void *ptr2)
+{
+  COPY_uint(ptr1, ptr2);
+}
+static void
+COPY_uint_addr(void *ptr1, const void *ptr2)
+{
+    *(ptr_uint_t*)(ptr1) = *(const ptr_uint_t*)(ptr2);
+}
+static void
+COPY_pathstring_t(void *ptr1, const void *ptr2)
+{
+    char *val1 = (char*)ptr1;
+    const char *val2 = (const char*)ptr2;
+    strncpy(val1, val2, sizeof(pathstring_t));
+}
+static void
+COPY_liststring_t(void *ptr1, const void *ptr2)
+{
+    char *val1 = (char*)ptr1;
+    const char *val2 = (const char*)ptr2;
+    strncpy(val1, val2, sizeof(liststring_t));
+}
+
+static void
+copy_by_type(enum option_type_t type, void *ptr1, const void *ptr2)
+{
+    switch (type) {
+    case OPTION_TYPE_bool:
+        COPY_bool(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint:
+        COPY_uint(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_size:
+        COPY_uint_size(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_time:
+        COPY_uint_time(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_uint_addr:
+        COPY_uint_addr(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_pathstring_t:
+        COPY_pathstring_t(ptr1, ptr2);
+        break;
+    case OPTION_TYPE_liststring_t:
+        COPY_liststring_t(ptr1, ptr2);
+        break;
+    }
+}
 
 /* Keep in synch with get_pcache_dynamo_options_string */
 void
@@ -669,21 +944,20 @@ get_dynamo_options_string(options_t *options, char *opstr, int len, bool minimal
     char optionbuff[MAX_OPTION_LENGTH];
     opstr[0] = 0;
 
-#define OPTION_COMMAND(type, name, default_value,                       \
-                       command_line_option, statement,                  \
-                       description, flag, pcache) {                     \
-        if (command_line_option[0] != ' ' && /* not synthethic */       \
-            (!minimal ||                                                \
-             DIFF_##type(options->name,default_options.name))) {        \
-            PRINT_STRING_##type(optionbuff, options->name,              \
-                                command_line_option);                   \
-            NULL_TERMINATE_BUFFER(optionbuff);                          \
-            strncat(opstr, optionbuff, len-strlen(opstr)-1);            \
-        }                                                               \
+    int i;
+    for (i = 0; i < num_options; ++i) {
+        if (option_traits[i].name[0] != ' ') { /* not synthetic */
+            const void *val1 = (char*)(options) + option_traits[i].offset;
+            const void *val2 =
+                (char*)(&default_options) + option_traits[i].offset;
+            if (!minimal || diff_by_type(option_traits[i].type, val1, val2)) {
+                print_option_type(option_traits[i].type, optionbuff, val1,
+                                  option_traits[i].name);
+                NULL_TERMINATE_BUFFER(optionbuff);
+                strncat(opstr, optionbuff, len-strlen(opstr)-1);
+            }
+        }
     }
-#include "optionsx.h"
-#undef OPTION_COMMAND
-
 
     opstr[len-1] = 0;
 }
@@ -700,20 +974,21 @@ get_pcache_dynamo_options_string(options_t *options, char *opstr, int len,
     char optionbuff[MAX_OPTION_LENGTH];
     opstr[0] = 0;
 
-#define OPTION_COMMAND(type, name, default_value,                       \
-                       command_line_option, statement,                  \
-                       description, flag, pcache) {                     \
-        if (command_line_option[0] != ' ' && /* not synthethic */       \
-            (op_pcache_t) OPTION_AFFECTS_PCACHE_##name >= pcache_effect && \
-            DIFF_##type(options->name,default_options.name)) {          \
-            PRINT_STRING_##type(optionbuff, options->name,              \
-                                command_line_option);                   \
-            NULL_TERMINATE_BUFFER(optionbuff);                          \
-            strncat(opstr, optionbuff, len-strlen(opstr)-1);            \
-        }                                                               \
+    int i;
+    for (i = 0; i < num_options; ++i) {
+        if (option_traits[i].affects_pcache >= pcache_effect &&
+            option_traits[i].name[0] != ' ') { /* not synthetic */
+            const void *val1 = (char*)(options) + option_traits[i].offset;
+            const void *val2 =
+                (char*)(&default_options) + option_traits[i].offset;
+            if (diff_by_type(option_traits[i].type, val1, val2)) {
+                print_option_type(option_traits[i].type, optionbuff, val1,
+                         option_traits[i].name);
+                NULL_TERMINATE_BUFFER(optionbuff);
+                strncat(opstr, optionbuff, len-strlen(opstr)-1);
+            }
+        }
     }
-#include "optionsx.h"
-#undef OPTION_COMMAND
 
     opstr[len-1] = 0;
 }
@@ -724,21 +999,19 @@ get_pcache_dynamo_options_string(options_t *options, char *opstr, int len,
 bool
 has_pcache_dynamo_options(options_t *options, op_pcache_t pcache_effect)
 {
-#define OPTION_COMMAND(type, name, default_value,                       \
-                       command_line_option, statement,                  \
-                       description, flag, pcache) {                     \
-        if (command_line_option[0] != ' ' && /* not synthethic */       \
-            (op_pcache_t) OPTION_AFFECTS_PCACHE_##name == pcache_effect && \
-            DIFF_##type(options->name,default_options.name)) {          \
-            return true;                                                \
-        }                                                               \
+    int i;
+    for (i = 0; i < num_options; ++i) {
+        if (option_traits[i].affects_pcache == pcache_effect) {
+            const void *val1 = (char*)(options) + option_traits[i].offset;
+            const void *val2 =
+                (char*)(&default_options) + option_traits[i].offset;
+            if (diff_by_type(option_traits[i].type, val1, val2)) {
+                return true;
+            }
+        }
     }
-#include "optionsx.h"
-#undef OPTION_COMMAND
     return false;
 }
-
-enum {OPTION_TYPE_STATIC, OPTION_TYPE_DYNAMIC};
 
 #if defined(DEBUG) && defined(INTERNAL)
 /* Used in update_dynamic_options() below. Usage is thread-safe as potential
@@ -757,38 +1030,36 @@ update_dynamic_options(options_t *options, options_t *new_options)
     ASSERT_OWN_OPTIONS_LOCK(options==&dynamo_options || options==&temp_options,
                             &options_lock);
     ASSERT(!OPTIONS_PROTECTED());
+    int i;
+    for (i = 0; i < num_options; ++i) {
+        void *val1 = (char*)(options) + option_traits[i].offset;
+        const void *val2 = (char*)(new_options) + option_traits[i].offset;
 
-#define OPTION_COMMAND(type, name, default_value,                       \
-                       command_line_option, statement,                  \
-                       description, flag, pcache) {                     \
-        if (OPTION_TYPE_DYNAMIC == OPTION_TYPE_##flag) {                \
-            if (DIFF_##type(options->name, new_options->name)) {        \
-                COPY_##type(options->name, new_options->name);          \
-                updated++;                                              \
-            }                                                           \
-        } else {                                                        \
-            DOLOG(2, LOG_TOP, {                                         \
-                if (DIFF_##type(options->name, new_options->name)) {    \
-                    PRINT_STRING_##type(optionbuff, options->name,      \
-                                        command_line_option);           \
-                    NULL_TERMINATE_BUFFER(optionbuff);                  \
-                    PRINT_STRING_##type(new_optionbuff, new_options->name,\
-                                        command_line_option);           \
-                    NULL_TERMINATE_BUFFER(new_optionbuff);              \
-                    LOG(GLOBAL, LOG_TOP, 2,                             \
-                        "Updating dynamic options : Ignoring static option change "\
-                        "(%.*s changed to %.*s)\n",                     \
-                        MAX_LOG_LENGTH/2-80, optionbuff,                \
-                        MAX_LOG_LENGTH/2-80, new_optionbuff);           \
-                }                                                       \
-            });                                                         \
-        }                                                               \
+        if (OPTION_MOD_DYNAMIC == option_traits[i].modifier) {
+            if (diff_by_type(option_traits[i].type, val1, val2)) {
+                copy_by_type(option_traits[i].type, val1, val2);
+                updated++;
+            }
+        } else {
+          DOLOG(2, LOG_TOP, {
+              if (diff_by_type(option_traits[i].type, val1, val2)) {
+                  print_option_type(option_traits[i].type, optionbuff, val1,
+                                    option_traits[i].name);
+                  NULL_TERMINATE_BUFFER(optionbuff);
+                  print_option_type(option_traits[i].type, new_optionbuff, val2,
+                                    option_traits[i].name);
+                  NULL_TERMINATE_BUFFER(new_optionbuff);
+                  LOG(GLOBAL, LOG_TOP, 2,
+                      "Updating dynamic options : Ignoring static option change "
+                      "(%.*s changed to %.*s)\n",
+                      MAX_LOG_LENGTH/2-80, optionbuff,
+                      MAX_LOG_LENGTH/2-80, new_optionbuff);
+              }
+          });
+        }
     }
 
-#include "optionsx.h"
-#undef OPTION_COMMAND
-
-     return updated;
+    return updated;
 }
 
 #ifdef CLIENT_INTERFACE
@@ -811,6 +1082,13 @@ options_enable_code_api_dependences(options_t *options)
      * tail end of a multi-64K-region stack.
      */
     options->stack_size = MAX(options->stack_size, 56*1024);
+# ifdef UNIX
+    /* We assume that clients avoid private library code, within reason, and
+     * don't need as much space when handling signals.  We still raise the
+     * limit a little while saving some per-thread space.
+     */
+    options->signal_stack_size = MAX(options->signal_stack_size, 32*1024);
+# endif
 
     /* For CI builds we'll disable elision by default since we
      * expect most CI users will prefer a view of the
@@ -1546,6 +1824,12 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #ifdef WINDOWS
+    if (DYNAMO_OPTION(stack_guard_pages)) {
+        /* XXX i#2595: this does not interact well with -vm_reserve. */
+        USAGE_ERROR("-stack_guard_pages is not supported on Windows");
+        dynamo_options.stack_guard_pages = false;
+        changed_options = true;
+    }
 # ifdef PROGRAM_SHEPHERDING
     if (DYNAMO_OPTION(IAT_convert) && !DYNAMO_OPTION(emulate_IAT_writes)) {
         /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
@@ -1713,6 +1997,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 # endif
 #endif /* CLIENT_INTERFACE */
+#ifdef UNIX
+    if (DYNAMO_OPTION(max_pending_signals) < 1) {
+        USAGE_ERROR("-max_pending_signals must be at least 1");
+        dynamo_options.max_pending_signals = 1;
+        changed_options = true;
+    }
+#endif
 #ifdef CALL_PROFILE
     if (DYNAMO_OPTION(prof_caller) >  MAX_CALL_PROFILE_DEPTH) {
         USAGE_ERROR("-prof_caller must be <= %d",  MAX_CALL_PROFILE_DEPTH);
@@ -2331,6 +2622,14 @@ get_process_options(HANDLE process_handle)
 # endif /* WINDOWS */
 
 # ifdef CLIENT_INTERFACE
+
+/* Function for identifying string type. */
+static bool
+is_string_type(enum option_type_t type)
+{
+    return type == OPTION_TYPE_pathstring_t || type == OPTION_TYPE_liststring_t;
+}
+
 /* i#771: Allow the client to query all DR runtime options. */
 DR_API
 bool
@@ -2339,15 +2638,19 @@ dr_get_string_option(const char *option_name, char *buf OUT, size_t len)
     bool found = false;
     CLIENT_ASSERT(buf != NULL, "invalid parameter");
     string_option_read_lock();
-#define OPTION_COMMAND(type, name, default_value, command_line_option,      \
-                       statement, description, flag, pcache)                \
-    if (IS_OPTION_STRING(name) && !found &&                                 \
-        strcmp(option_name, #name) == 0) {                                  \
-        strncpy(buf, (const char*)&dynamo_options.name, len);               \
-        found = true;                                                       \
+    int i;
+    CLIENT_ASSERT(num_options >= 0, "invalid number of options");
+    for (i = 0; i < num_options; ++i) {
+        if (is_string_type(option_traits[i].type) &&
+            strcmp(option_name, option_traits[i].name) == 0) {
+            const void *val =
+                (char*)(&dynamo_options) + option_traits[i].offset;
+            CLIENT_ASSERT(val != NULL, "invalid address");
+            strncpy(buf, val, len);
+            found = true;
+            break;
+        }
     }
-#include "optionsx.h"
-#undef OPTION_COMMAND
     string_option_read_unlock();
     if (len > 0)
         buf[len-1] = '\0';
@@ -2358,25 +2661,19 @@ DR_API
 bool
 dr_get_integer_option(const char *option_name, uint64 *val OUT)
 {
-    bool found = false;
     CLIENT_ASSERT(val != NULL, "invalid parameter");
     *val = 0;
-    /* gcc warns about casting strings to uint64 because uint64 isn't
-     * pointer-sized, so we cast to ptr_uint_t.  We don't have any uint64
-     * options in 32-bit, so this will never truncate.
-     * XXX: If we ever have signed integer options we'll need to sign extend
-     * here instead of zero extending.
-     */
-#define OPTION_COMMAND(type, name, default_value, command_line_option,      \
-                       statement, description, flag, pcache)                \
-    if (!IS_OPTION_STRING(name) && !found &&                                \
-        strcmp(option_name, #name) == 0) {                                  \
-        *val = (ptr_uint_t)dynamo_options.name;                             \
-        found = true;                                                       \
+    int i = 0;
+    for (i = 0; i < num_options; ++i) {
+        if (!is_string_type(option_traits[i].type) &&
+            strcmp(option_name, option_traits[i].name) == 0) {
+            const void *dopts_ptr =
+                (char*)(&dynamo_options) + option_traits[i].offset;
+            memcpy((void*)val, dopts_ptr, option_traits[i].size);
+            return true;
+        }
     }
-#include "optionsx.h"
-#undef OPTION_COMMAND
-    return found;
+    return false;
 }
 # endif /* CLIENT_INTERFACE */
 
@@ -2403,14 +2700,14 @@ show_dynamo_options(bool minimal)
 static void
 show_dynamo_option_descriptions()
 {
-#define OPTION_COMMAND(type, name, default_value,                       \
-                       command_line_option, statement,                  \
-                       description, flag, pcache)                       \
-    if (command_line_option[0] != ' ') { /* not synthethic */           \
-        print_file(STDERR, "-%-20s %s\n", command_line_option, description);        \
-    }
-#include "optionsx.h"
-#undef OPTION_COMMAND
+# define OPTION_COMMAND(type, name, default_value,                       \
+                        command_line_option, statement,                  \
+                        description, flag, pcache)                       \
+     if (command_line_option[0] != ' ') { /* not synthetic */           \
+         print_file(STDERR, "-%-20s %s\n", command_line_option, description);        \
+     }
+# include "optionsx.h"
+# undef OPTION_COMMAND
 }
 
 void

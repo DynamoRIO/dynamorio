@@ -108,8 +108,8 @@ static bool on_WSL;
 bool return_stolen_lib_tls_gdt;
 
 #ifdef DEBUG
-#  define GDT_32BIT  8 /*  6=NPTL, 7=wine */
-#  define GDT_64BIT 14 /* 12=NPTL, 13=wine */
+# define GDT_32BIT  8 /*  6=NPTL, 7=wine */
+# define GDT_64BIT 14 /* 12=NPTL, 13=wine */
 #endif
 
 static int
@@ -460,8 +460,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                     on_WSL = true;
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: running on WSL\n");
                     if (INTERNAL_OPTION(safe_read_tls_init)) {
-                        SYSLOG(SYSLOG_WARNING, WSL_UNSUPPORTED, 2,
-                               get_application_name(), get_application_pid());
+                        SYSLOG_INTERNAL_WARNING
+                            ("Support for the Windows Subsystem for Linux is still "
+                             "preliminary, due to missing kernel features.  "
+                             "Continuing, but please report any problems encountered.");
                     } else {
                         SYSLOG(SYSLOG_ERROR, WSL_UNSUPPORTED_FATAL, 2,
                                get_application_name(), get_application_pid());

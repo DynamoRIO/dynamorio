@@ -341,8 +341,8 @@ aslr_init(void)
             ASSERT_CURIOSITY(res == STATUS_PRIVILEGE_NOT_HELD);
             if (TEST(ASLR_SHARED_INITIALIZE_NONPERMANENT,
                      DYNAMO_OPTION(aslr_cache))) {
-                NTSTATUS res = nt_initialize_shared_directory(&initialize_directory,
-                                                              false /* temporary */);
+                res = nt_initialize_shared_directory(&initialize_directory,
+                                                     false /* temporary */);
                 ASSERT(NT_SUCCESS(res) && "unable to initialize");
                 /* must 'leak' initialize_directory to persist
                  * directory until process terminates,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -131,6 +131,9 @@ check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 #ifdef CLIENT_SIDELINE
 void
 client_thread_target(void *param);
+
+bool
+is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
 #endif
 
 bool os_delete_file_w(const wchar_t *file_name,
@@ -166,6 +169,12 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1709_x64_syscalls[];
+extern SYS_CONST int windows_10_1709_wow64_syscalls[];
+extern SYS_CONST int windows_10_1709_x86_syscalls[];
+extern SYS_CONST int windows_10_1703_x64_syscalls[];
+extern SYS_CONST int windows_10_1703_wow64_syscalls[];
+extern SYS_CONST int windows_10_1703_x86_syscalls[];
 extern SYS_CONST int windows_10_1607_x64_syscalls[];
 extern SYS_CONST int windows_10_1607_wow64_syscalls[];
 extern SYS_CONST int windows_10_1607_x86_syscalls[];
@@ -212,7 +221,8 @@ enum {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
-                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64) \
+                w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
+                w14x86, w14w64, w14x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL
@@ -275,7 +285,7 @@ static inline reg_t
 sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
     /* sys_param is also called from handle_system_call where dcontext->whereami
-     * is not set to WHERE_SYSCALL_HANDLER yet.
+     * is not set to DR_WHERE_SYSCALL_HANDLER yet.
      */
     ASSERT(!dcontext->post_syscall);
     return *sys_param_addr(dcontext, param_base, num);
@@ -284,7 +294,7 @@ sys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 static inline reg_t
 postsys_param(dcontext_t *dcontext, reg_t *param_base, int num)
 {
-    ASSERT(dcontext->whereami == WHERE_SYSCALL_HANDLER &&
+    ASSERT(dcontext->whereami == DR_WHERE_SYSCALL_HANDLER &&
            dcontext->post_syscall);
 #ifdef X64
     switch (num) {

@@ -630,7 +630,7 @@ instr_is_wow64_syscall(instr_t *instr)
          * (might be tricky b/c we'd have to decode 64-bit code), or changing
          * the return addr?
          */
-#ifdef DEBUG
+#  ifdef DEBUG
         /* We still pattern match in debug to provide a sanity check */
         static const byte WOW64_SYSSVC[] = {
             0x64,0x8b,0x15,0x30,0x00,0x00,0x00,  /* mov edx,dword ptr fs:[30h] */
@@ -641,7 +641,7 @@ instr_is_wow64_syscall(instr_t *instr)
             0xff, 0x25, /* + offs for "jmp dword ptr [ntdll!Wow64Transition]" */
         };
         byte tgt_code[sizeof(WOW64_SYSSVC)];
-#endif
+#  endif
         if (instr_get_opcode(instr) != OP_call_ind)
             return false;
         tgt = instr_get_target(instr);
@@ -721,6 +721,23 @@ instr_is_prefetch(instr_t *instr)
 }
 
 bool
+instr_is_string_op(instr_t *instr)
+{
+    uint opc = instr_get_opcode(instr);
+    return (opc == OP_ins || opc == OP_outs || opc == OP_movs ||
+            opc == OP_stos || opc == OP_lods || opc == OP_cmps || opc == OP_scas);
+}
+
+bool
+instr_is_rep_string_op(instr_t *instr)
+{
+    uint opc = instr_get_opcode(instr);
+    return (opc == OP_rep_ins || opc == OP_rep_outs || opc == OP_rep_movs ||
+            opc == OP_rep_stos || opc == OP_rep_lods || opc == OP_rep_cmps ||
+            opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
+}
+
+bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
     int opc = instr_get_opcode(instr);
@@ -735,8 +752,9 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_frstor:          case OP_fnsave:
     case OP_fnstsw:          case OP_xsave32:
     case OP_xrstor32:        case OP_xsaveopt32:
-    case OP_xsave64:
+    case OP_xsavec32:        case OP_xsave64:
     case OP_xrstor64:        case OP_xsaveopt64:
+    case OP_xsavec64:
     case OP_vldmxcsr:        case OP_vstmxcsr:
     case OP_fwait:
     {
@@ -980,6 +998,7 @@ instr_saves_float_pc(instr_t *instr)
     int op = instr_get_opcode(instr);
     return (op == OP_fnsave || op == OP_fnstenv ||
             op == OP_fxsave32 || op == OP_xsave32 || op == OP_xsaveopt32 ||
+            op == OP_xsavec32 || op == OP_xsavec64 ||
             op == OP_fxsave64 || op == OP_xsave64 || op == OP_xsaveopt64);
 }
 
