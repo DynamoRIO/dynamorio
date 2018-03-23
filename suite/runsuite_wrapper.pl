@@ -138,6 +138,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
             # FIXME i#2416: fix flaky AArch32 tests
             %ignore_failures_32 = ('code_api|tool.histogram.offline' => 1,
                                    'code_api|linux.eintr-noinline' => 1, # i#2894
+                                   'code_api|pthreads.ptsig' => 1,
                                    'code_api|linux.sigaction_nosignals' => 1,
                                    'code_api|linux.signal_race' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#2893
