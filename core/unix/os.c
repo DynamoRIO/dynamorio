@@ -9167,14 +9167,12 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
         /* Don't add if we're using one single vmheap entry. */
         if (iter->vm_start < our_heap_start ||
             iter->vm_end > our_heap_end) {
-#endif
             LOG(GLOBAL, LOG_VMAREAS, 4,
                 "os_walk_address_space: adding: "PFX"-"PFX" prot=%d\n",
                 iter->vm_start, iter->vm_end, iter->prot);
             memcache_update_locked(iter->vm_start, iter->vm_end, iter->prot,
                                    image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA,
                                    false/*!exists*/);
-#ifndef HAVE_MEMINFO_QUERY
         }
 #endif
 
