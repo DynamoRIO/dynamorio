@@ -426,29 +426,31 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef CLIENT_INTERFACE
     if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
         if (SCRATCH_ALWAYS_TLS()) {
-            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
-             * which specifies that the caller must save xax (and xcx and xdx)
-             */
-            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 # ifdef AARCHXX
+            /* DR_REG_LR is dead here */
+            insert_get_mcontext_base(dcontext, ilist, instr, DR_REG_LR);
             /* TLS_REG1_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
-                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
-                                   opnd_create_reg(SCRATCH_REG1)));
+                                   OPND_CREATE_MEMPTR(DR_REG_LR, 0),
+                                   opnd_create_reg(SCRATCH_REG0)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
-                                             opnd_create_reg(SCRATCH_REG1),
+                                             opnd_create_reg(SCRATCH_REG0),
                                              ilist, instr, NULL, NULL);
             PRE(ilist, instr,
-                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                instr_create_save_to_dc_via_reg(dcontext, DR_REG_LR, SCRATCH_REG0,
                                                 WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
-                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
+                                  OPND_CREATE_MEMPTR(DR_REG_LR, 0)));
 # else
+            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
+             * which specifies that the caller must save xax (and xcx and xdx).
+             */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg
                 (dcontext, SCRATCH_REG0, WHEREAMI_OFFSET,
