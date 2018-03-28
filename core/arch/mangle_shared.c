@@ -430,7 +430,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              * which specifies that the caller must save xax (and xcx and xdx)
              */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-# ifdef AARCH64
+# ifdef AARCHXX
             /* TLS_REG1_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
@@ -488,7 +488,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-# ifdef AARCH64
+# ifdef AARCHXX
             /* TLS_REG1_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
