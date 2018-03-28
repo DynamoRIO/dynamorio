@@ -429,7 +429,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 # ifdef AARCHXX
             /* DR_REG_LR is dead here */
             insert_get_mcontext_base(dcontext, ilist, instr, DR_REG_LR);
-            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+            /* TLS_REG0_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
