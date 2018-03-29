@@ -472,6 +472,11 @@ pcprofile_results(thread_pc_info_t *info)
                    (float)info->where[DR_WHERE_FCACHE]/(float)total * 100.0,
                    info->where[DR_WHERE_FCACHE]);
     }
+    if (info->where[DR_WHERE_CLEAN_CALLEE] > 0) {
+        print_file(info->file, "  %5.1f%% of time in CLEAN CALL (%d)\n",
+                   (float)info->where[DR_WHERE_CLEAN_CALLEE]/(float)total * 100.0,
+                   info->where[DR_WHERE_CLEAN_CALLEE]);
+    }
     if (info->where[DR_WHERE_UNKNOWN] > 0) {
         print_file(info->file, "  %5.1f%% of time in UNKNOWN (%d)\n",
                    (float)info->where[DR_WHERE_UNKNOWN]/(float)total * 100.0,
