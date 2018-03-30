@@ -982,7 +982,7 @@ function(template2expect outexpect template runops key)
   # we need a list: else passed as a single arg in quotes
   string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
+      ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
       ${CPP_KEEP_WHITESPACE} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err
@@ -995,7 +995,7 @@ function(template2expect outexpect template runops key)
     string(STRIP "${cpp_err}" cpp_err)
   endif (WIN32)
   if (cpp_result OR cpp_err)
-    message(FATAL_ERROR "*** ${CMAKE_CPP} failed: ***\n${cpp_err}")
+      message(FATAL_ERROR "*** '${CMAKE_CPP}' failed: ***\n${cpp_err}")
   endif (cpp_result OR cpp_err)
 
   # remove // comments since we use -traditional-cpp to preserve whitespace
@@ -1649,6 +1649,10 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
   tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
     # set small -max_bb_instrs to test bb_safe_to_stop()
     "-early_inject -max_bb_instrs 6" "")
+  if (CMAKE_COMPILER_IS_GNUCC)
+    set_target_properties(common.allasm_thumb PROPERTIES
+      COMPILE_OPTIONS "-Wa,-mno-warn-deprecated")
+  endif ()
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -static")
