@@ -1649,8 +1649,10 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
   tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
     # set small -max_bb_instrs to test bb_safe_to_stop()
     "-early_inject -max_bb_instrs 6" "")
-  set_target_properties(common.allasm_thumb PROPERTIES COMPILE_OPTIONS
-    "-Wa,-mno-warn-deprecated")
+  if (CMAKE_COMPILER_IS_GNUCC)
+    set_target_properties(common.allasm_thumb PROPERTIES
+      COMPILE_OPTIONS "-Wa,-mno-warn-deprecated")
+  endif ()
   set_target_properties(common.allasm_thumb PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(common.allasm_thumb
     "-nostartfiles -nodefaultlibs -static")
