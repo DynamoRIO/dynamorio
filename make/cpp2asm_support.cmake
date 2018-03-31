@@ -214,6 +214,7 @@ elseif (UNIX)
   elseif (ARM)
     # No 64-bit support yet.
     set(ASM_FLAGS "${ASM_FLAGS} -Wa,-mfpu=neon")
+    set(ASM_FLAGS "${ASM_FLAGS} -march=armv7-a")
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} -Wa,--noexecstack")
   if (DEBUG)
@@ -304,10 +305,12 @@ if (APPLE)
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
 elseif (UNIX)
-  if (AARCHXX)
-      set(CMAKE_ASM_COMPILE_OBJECT
-          "${CMAKE_C_COMPILER} -x assembler-with-cpp -c ${ASM_FLAGS} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>")
-    else ()
+  if (ARM)
+    set(CMAKE_ASM_COMPILE_OBJECT
+      "${CMAKE_C_COMPILER} -x assembler-with-cpp -E ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>.s"
+      "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
+      "${CMAKE_C_COMPILER} -c ${ASM_FLAGS} <FLAGS> <OBJECT>.s -o <OBJECT>")
+    else (ARM)
       # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
       # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
       # since our defines are mostly in configure.h where we can't as easily tweak them
