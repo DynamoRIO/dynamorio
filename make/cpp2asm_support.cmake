@@ -213,15 +213,12 @@ elseif (UNIX)
     endif (X64)
   elseif (ARM)
     # No 64-bit support yet.
-    set(ASM_FLAGS "${ASM_FLAGS} -Wa,-mfpu=neon")
-    set(ASM_FLAGS "${ASM_FLAGS} -march=armv7-a")
+    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
   endif ()
-  set(ASM_FLAGS "${ASM_FLAGS} -Wa,--noexecstack")
-  set(ASM_FLAGS "${ASM_FLAGS} -Wa,--noexecstack")
-  if (DEBUG AND NOT AARCHXX)
-    set(ASM_FLAGS "${ASM_FLAGS} -Wa,-g")
-  endif (DEBUG AND NOT AARCHXX)
-
+  set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
+  if (DEBUG)
+    set(ASM_FLAGS "${ASM_FLAGS} -g")
+  endif (DEBUG)
 else ()
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
@@ -253,18 +250,11 @@ if (APPLE)
 endif (APPLE)
 if (UNIX AND NOT APPLE)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
-  if (AARCHXX)
-    execute_process(COMMAND
-      ${CMAKE_C_COMPILER} -x assembler-with-cpp -Wa,-help /dev/null
-      ERROR_VARIABLE asm_error_
-      OUTPUT_VARIABLE asm_out)
-  else ()
-    execute_process(COMMAND
-      ${CMAKE_ASM_COMPILER} --help
-      RESULT_VARIABLE asm_result
-      ERROR_VARIABLE asm_error
-      OUTPUT_VARIABLE asm_out)
-  endif ()
+  execute_process(COMMAND
+    ${CMAKE_ASM_COMPILER} --help
+    RESULT_VARIABLE asm_result
+    ERROR_VARIABLE asm_error
+    OUTPUT_VARIABLE asm_out)
   if (asm_result OR asm_error)
     message(FATAL_ERROR "*** ${CMAKE_ASM_COMPILER} failed: ***\n${asm_error}")
   endif (asm_result OR asm_error)
@@ -272,8 +262,6 @@ if (UNIX AND NOT APPLE)
   string(REGEX REPLACE " " ";" flags_needed "${ASM_FLAGS}")
   # -mfpu= does not list the possibilities
   string(REGEX REPLACE "-mfpu=[a-z]*" "-mfpu" flags_needed "${flags_needed}")
-  string(REGEX REPLACE "-march=[a-z0-9-]*" "-march" flags_needed "${flags_needed}")
-  string(REPLACE "-Wa," "" flags_needed "${flags_needed}")
   # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
   string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
   set(flag_present 1)
@@ -281,11 +269,7 @@ if (UNIX AND NOT APPLE)
     if (flag_present)
       string(REGEX MATCH "${flag}" flag_present "${asm_out}")
       if (NOT flag_present)
-        if (AARCHXX)
-          message("${CMAKE_C_COMPILER} missing flag \"${flag}\"")
-        else ()
-          message("${CMAKE_ASM_COMPILER} missing flag \"${flag}\"")
-        endif ()
+        message("${CMAKE_ASM_COMPILER} missing flag \"${flag}\"")
       endif (NOT flag_present)
     endif (flag_present)
   endforeach (flag)
@@ -319,35 +303,28 @@ if (APPLE)
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
 elseif (UNIX)
-    if (AARCHXX)
-    set(CMAKE_ASM_COMPILE_OBJECT
-      "${CMAKE_C_COMPILER} -x assembler-with-cpp -E ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>.s"
-      "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-      "${CMAKE_C_COMPILER} -c ${ASM_FLAGS} <FLAGS> <OBJECT>.s -o <OBJECT>")
-    else (AARCHXX)
-      # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
-      # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
-      # since our defines are mostly in configure.h where we can't as easily tweak them
-      # (update: I do have top-level defines gathered up in ${defines}).
-      # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
-      # up the --defsym args.
-      set(CMAKE_ASM_COMPILE_OBJECT
-        "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
-        "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-        # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
-        # is passed in: we don't need the include dirs b/c of the cpp step.
-        # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
-        # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
-        #
-        # we also aren't passing any <DEFINES> since for one thing
-        # there's no way to transform to --defsym: luckily we don't need them
-        # since using cpp now (see above).
-        # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
-        # how to get =1 in there :should verify it's needed) but <DEFINES>
-        # comes up empty for me.
-        "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
-        )
-    endif ()
+  # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
+  # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
+  # since our defines are mostly in configure.h where we can't as easily tweak them
+  # (update: I do have top-level defines gathered up in ${defines}).
+  # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
+  # up the --defsym args.
+  set(CMAKE_ASM_COMPILE_OBJECT
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
+    # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
+    # is passed in: we don't need the include dirs b/c of the cpp step.
+    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
+    # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
+    #
+    # we also aren't passing any <DEFINES> since for one thing
+    # there's no way to transform to --defsym: luckily we don't need them
+    # since using cpp now (see above).
+    # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
+    # how to get =1 in there :should verify it's needed) but <DEFINES>
+    # comes up empty for me.
+    "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
+    )
 else ()
   # Even if we didn't preprocess we'd need our own rule since cmake doesn't
   # support ml.
