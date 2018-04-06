@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1113,6 +1113,9 @@ drmgr_current_bb_phase(void *drcontext)
     if (drmgr_init_count == 0)
         return DRMGR_PHASE_NONE;
     pt = (per_thread_t *) drmgr_get_tls_field(drcontext, our_tls_idx);
+    /* Support being called during process init (i#2910). */
+    if (pt == NULL)
+        return DRMGR_PHASE_NONE;
     return pt->cur_phase;
 }
 
