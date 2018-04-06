@@ -283,4 +283,14 @@ dr_init(client_id_t id)
                                                  event_app_instruction, NULL) ||
         !drmgr_register_bb_instru2instru_event(event_instru2instru, NULL))
         CHECK(false, "init failed");
+
+    /* i#2910: test use during process init. */
+    void *drcontext = dr_get_current_drcontext();
+    instrlist_t *ilist = instrlist_create(drcontext);
+    drreg_status_t res = drreg_reserve_aflags(drcontext, ilist, NULL);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    reg_id_t reg;
+    res = drreg_reserve_register(drcontext, ilist, NULL, NULL, &reg);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    instrlist_clear_and_destroy(drcontext, ilist);
 }
