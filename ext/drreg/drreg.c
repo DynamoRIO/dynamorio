@@ -160,6 +160,7 @@ drreg_report_error(drreg_status_t res, const char *msg)
     dr_abort();
 }
 
+#ifdef DEBUG
 static inline app_pc
 get_where_app_pc(instr_t *where)
 {
@@ -167,6 +168,7 @@ get_where_app_pc(instr_t *where)
         return NULL;
     return instr_get_app_pc(where);
 }
+#endif
 
 /***************************************************************************
  * SPILLING AND RESTORING
@@ -323,12 +325,12 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
             pt->bb_has_internal_flow = true;
             LOG(drcontext, DR_LOG_ALL, 2,
                 "%s @%d."PFX": disabling lazy restores due to intra-bb control flow\n",
-                __FUNCTION__, index, instr_get_app_pc(inst));
+                __FUNCTION__, index, get_where_app_pc(inst));
         }
 
         /* GPR liveness */
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX":", __FUNCTION__,
-            index, instr_get_app_pc(inst));
+            index, get_where_app_pc(inst));
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             void *value = REG_LIVE;
             /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
@@ -427,7 +429,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         /* Restore aflags to app value */
         LOG(drcontext, DR_LOG_ALL, 3,
             "%s @%d."PFX" aflags=0x%x use=%d: lazily restoring aflags\n",
-            __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), aflags,
+            __FUNCTION__, pt->live_idx, get_where_app_pc(inst), aflags,
             pt->aflags.in_use);
         res = drreg_restore_aflags(drcontext, bb, inst, pt, false/*keep slot*/);
         if (res != DRREG_SUCCESS)
@@ -463,7 +465,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 pt->reg[GPR_IDX(reg)].slot >= (int)ops.num_spill_slots) {
                 if (!pt->reg[GPR_IDX(reg)].in_use) {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX": lazily restoring %s\n",
-                        __FUNCTION__, pt->live_idx, instr_get_app_pc(inst),
+                        __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
                         get_register_name(reg));
                     res = drreg_restore_reg_now(drcontext, bb, inst, pt, reg);
                     if (res != DRREG_SUCCESS)
@@ -495,7 +497,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                      */
                     LOG(drcontext, DR_LOG_ALL, 3,
                         "%s @%d."PFX": restoring %s for app read\n", __FUNCTION__,
-                        pt->live_idx, instr_get_app_pc(inst), get_register_name(reg));
+                        pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                     restore_reg(drcontext, pt, reg,
                                 pt->reg[GPR_IDX(reg)].slot,
@@ -517,7 +519,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         if (pt->aflags.in_use) {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @%d."PFX": re-spilling aflags after app write\n",
-                __FUNCTION__, pt->live_idx, instr_get_app_pc(inst));
+                __FUNCTION__, pt->live_idx, get_where_app_pc(inst));
             res = drreg_spill_aflags(drcontext, bb, next/*after*/, pt);
             if (res != DRREG_SUCCESS) {
                 drreg_report_error(res, "failed to spill aflags after app write");
@@ -529,7 +531,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             /* give up slot */
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @%d."PFX": giving up aflags slot after app write\n",
-                __FUNCTION__, pt->live_idx, instr_get_app_pc(inst));
+                __FUNCTION__, pt->live_idx, get_where_app_pc(inst));
 #ifdef X86
             if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
                 pt->aflags.xchg == DR_REG_XAX)
@@ -569,7 +571,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                  */
                 LOG(drcontext, DR_LOG_ALL, 3,
                     "%s @%d."PFX": re-spilling %s after app write\n", __FUNCTION__,
-                    pt->live_idx, instr_get_app_pc(inst), get_register_name(reg));
+                    pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
                     tmp_slot = find_free_slot(pt);
                     if (tmp_slot == MAX_SPILLS) {
@@ -596,7 +598,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
              */
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @%d."PFX": dropping slot for unreserved reg %s after app write\n",
-                __FUNCTION__, pt->live_idx, instr_get_app_pc(inst),
+                __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
                 get_register_name(reg));
             if (pt->reg[GPR_IDX(reg)].ever_spilled)
                 pt->reg[GPR_IDX(reg)].ever_spilled = false; /* no need to restore */
@@ -1018,13 +1020,13 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
             return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
         }
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX": restoring %s\n",
-            __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), get_register_name(reg));
+            __FUNCTION__, pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
         restore_reg(drcontext, pt, reg,
                     pt->reg[GPR_IDX(reg)].slot, ilist, inst, true);
     } else {
         /* still need to release slot */
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX": %s never spilled\n",
-            __FUNCTION__, pt->live_idx, instr_get_app_pc(inst), get_register_name(reg));
+            __FUNCTION__, pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
         pt->slot_use[pt->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
     }
     pt->reg[GPR_IDX(reg)].native = true;
