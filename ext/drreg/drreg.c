@@ -1694,6 +1694,8 @@ drreg_init(drreg_options_t *ops_in)
          */
         ops.num_spill_slots = 1;
 #endif
+        /* Support use during init when there is no TLS (i#2910). */
+        tls_data_init(&init_pt);
     }
 
     if (ops_in->struct_size < offsetof(drreg_options_t, error_callback))
@@ -1741,9 +1743,6 @@ drreg_init(drreg_options_t *ops_in)
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
 
-    /* Support use during init when there is no TLS (i#2910). */
-    tls_data_init(&init_pt);
-
     return DRREG_SUCCESS;
 }
 
@@ -1778,4 +1777,3 @@ drreg_exit(void)
 
     return DRREG_SUCCESS;
 }
-
