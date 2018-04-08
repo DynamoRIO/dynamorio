@@ -87,6 +87,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_status_t res;
     drvector_t allowed;
     ptr_int_t subtest = (ptr_int_t) user_data;
+    drreg_reserve_info_t info = {sizeof(info),};
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
@@ -146,18 +147,37 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
         res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
         CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
-        {
-            opnd_t opnd = opnd_create_null();
-            res = drreg_reservation_info(drcontext, reg, &opnd, NULL, NULL);
-            CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(opnd),
-                  "slot info should succeed");
-        }
+        opnd_t opnd = opnd_create_null();
+        res = drreg_reservation_info(drcontext, reg, &opnd, NULL, NULL);
+        CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(opnd),
+              "slot info should succeed");
+        res = drreg_reservation_info_ex(drcontext, reg, &info);
+        CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(info.opnd) &&
+              info.reserved, "slot info_ex unexpected result");
+        /* test stateless restore when live */
+        drreg_statelessly_restore_app_value(drcontext, bb, reg, inst, inst, NULL, NULL);
+
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
 
+        /* test stateless restore when lazily unrestored */
+        drreg_statelessly_restore_app_value(drcontext, bb, reg, inst, inst, NULL, NULL);
+
         /* test aflags */
+        res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
+        CHECK(res == DRREG_SUCCESS && !info.reserved &&
+              ((info.holds_app_value && !info.app_value_retained &&
+                opnd_is_null(info.opnd)) ||
+               (!info.holds_app_value && info.app_value_retained &&
+                !opnd_is_null(info.opnd))),
+              "aflags un-reserve query failed");
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
+        CHECK(res == DRREG_SUCCESS && info.reserved &&
+              ((info.app_value_retained && !opnd_is_null(info.opnd)) ||
+               (info.holds_app_value && opnd_is_null(info.opnd))),
+              "aflags reserve query failed");
         res = drreg_restore_app_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
         res = drreg_unreserve_aflags(drcontext, bb, inst);
