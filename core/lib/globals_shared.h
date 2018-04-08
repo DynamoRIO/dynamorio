@@ -120,12 +120,12 @@
 # define X86_64
 #endif
 
+/* DR_API EXPORT VERBATIM */
 #include <limits.h>  /* for USHRT_MAX */
 #ifdef UNIX
 #  include <sys/types.h>        /* Fix for case 5341. */
 #  include <signal.h>
 #endif
-/* DR_API EXPORT VERBATIM */
 #ifdef WINDOWS
 /* allow nameless struct/union */
 #  pragma warning(disable: 4201)

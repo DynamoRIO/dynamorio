@@ -535,7 +535,7 @@ libc_sigismember(const sigset_t *set, int _sig)
     return TEST(1UL << sig, *set);
 #else
     uint bits_per = 8*sizeof(ulong);
-    return TEST(1UL << (sig % bits_per), set->__val[sig / bits_per]);
+    return TEST(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
 #endif
 }
 

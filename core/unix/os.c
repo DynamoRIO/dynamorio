@@ -6191,6 +6191,7 @@ handle_close_pre(dcontext_t *dcontext)
 
     /* Xref PR 258731 - duplicate STDOUT/STDERR when app closes them so we (or
      * a client) can continue to use them for logging. */
+#ifdef STDFILE_FILENO
     if (DYNAMO_OPTION(dup_stdout_on_close) && fd == STDOUT) {
         our_stdout = fd_priv_dup(fd);
         if (our_stdout < 0) /* no private fd available */
@@ -6239,6 +6240,7 @@ handle_close_pre(dcontext_t *dcontext)
             (*privmod_stdin)->STDFILE_FILENO = our_stdin;
         }
     }
+#endif
     return true;
 }
 
