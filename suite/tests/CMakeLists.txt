@@ -982,7 +982,7 @@ function(template2expect outexpect template runops key)
   # we need a list: else passed as a single arg in quotes
   string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
+    ${CMAKE_C_COMPILER} -x cpp-output ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
       ${CPP_KEEP_WHITESPACE} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err
