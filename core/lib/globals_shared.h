@@ -120,11 +120,13 @@
 # define X86_64
 #endif
 
-/* DR_API EXPORT VERBATIM */
 #include <limits.h>  /* for USHRT_MAX */
 #ifdef UNIX
-#  include <sys/types.h>        /* Fix for case 5341. */
 #  include <signal.h>
+#endif
+/* DR_API EXPORT VERBATIM */
+#ifdef UNIX
+#  include <sys/types.h>  /* Fix for case 5341. And for pid_t (non-glibc) */
 #endif
 #ifdef WINDOWS
 /* allow nameless struct/union */

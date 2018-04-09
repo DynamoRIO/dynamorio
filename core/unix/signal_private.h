@@ -534,6 +534,9 @@ libc_sigismember(const sigset_t *set, int _sig)
     /* sigset_t is just a uint32 */
     return TEST(1UL << sig, *set);
 #else
+    /* "set->__val" would be cleaner, but is glibc specific (e.g. musl libc
+     * uses __bits as the field name on sigset_t).
+     */
     uint bits_per = 8*sizeof(ulong);
     return TEST(1UL << (sig % bits_per), ((const ulong *)set)[sig / bits_per]);
 #endif

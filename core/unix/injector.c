@@ -153,6 +153,7 @@ typedef struct _dr_inject_info_t {
 static bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path);
 
+/* "enum __ptrace_request request" is used by glibc, but musl uses "int". */
 static long
 our_ptrace(int request, pid_t pid, void *addr, void *data);
 #endif
