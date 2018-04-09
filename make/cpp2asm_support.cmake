@@ -130,6 +130,20 @@ if (NOT EXISTS "${cpp2asm_newline_script_path}")
 endif ()
 
 ##################################################
+# Preprocessor location and flags
+
+set(CMAKE_CPP ${CMAKE_C_COMPILER})
+if (UNIX)
+  set(CPP_NO_LINENUM -P)
+  set(CPP_KEEP_WHITESPACE -traditional-cpp)
+  set(CMAKE_CPP_FLAGS "-xassembler-with-cpp")
+elseif (NOT UNIX)
+  set(CPP_NO_LINENUM /EP)
+  set(CPP_KEEP_WHITESPACE "")
+  set(CMAKE_CPP_FLAGS "/nologo")
+endif (UNIX)
+
+##################################################
 # Assembler location and flags
 
 if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -138,6 +152,8 @@ if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     if (CMAKE_COMPILER_IS_GNUCC)
       set(ASM_FLAG_PREFIX "-Wa,")
       set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
+      # If we use the compiler to drive assembly, we can pass through the flags.
+      set(ADDITIONAL_ASM_FLAGS "<FLAGS>")
     else ()
       set(CMAKE_ASM_COMPILER_INIT gas as)
     endif ()
@@ -286,7 +302,7 @@ elseif (UNIX)
     set(CMAKE_ASM_COMPILE_OBJECT
       "${CMAKE_C_COMPILER} -x assembler-with-cpp -E ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>.s"
       "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-      "${CMAKE_ASM_COMPILER} -c ${ASM_FLAGS} <FLAGS> <OBJECT>.s -o <OBJECT>")
+      "${CMAKE_ASM_COMPILER} -c ${ASM_FLAGS} ${ADDITIONAL_ASM_FLAGS} <OBJECT>.s -o <OBJECT>")
       # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
       # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
       # since our defines are mostly in configure.h where we can't as easily tweak them

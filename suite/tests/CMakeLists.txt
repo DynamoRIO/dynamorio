@@ -918,21 +918,6 @@ endfunction (use_DynamoRIO_test_annotations target target_srcs)
 set(PCACHE_DIR "${PROJECT_BINARY_DIR}/pcache")
 set(PCACHE_SHARED_DIR "${PROJECT_BINARY_DIR}/pcache/shared")
 
-##################################################
-# Preprocessor flags
-
-set(CMAKE_CPP ${CMAKE_C_COMPILER})
-if (UNIX)
-  set(CPP_NO_LINENUM -P)
-  set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "-xassembler-with-cpp")
-elseif (NOT UNIX)
-  set(CPP_NO_LINENUM /EP)
-  set(CPP_KEEP_WHITESPACE "")
-  set(CMAKE_CPP_FLAGS "/nologo")
-endif (UNIX)
-##################################################
-
 function(template2expect outexpect template runops key)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
