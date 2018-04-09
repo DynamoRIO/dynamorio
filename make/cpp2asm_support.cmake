@@ -132,12 +132,26 @@ endif ()
 ##################################################
 # Preprocessor location and flags
 
-set(CMAKE_CPP ${CMAKE_C_COMPILER})
 if (UNIX)
+  # "gcc -E" on a non-.c-extension file gives message:
+  #   "linker input file unused because linking not done"
+  # and doesn't produce any output, so we must use cpp for our .asm files.
+  # we assume it's in the same dir.
+  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
+  find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
+  if (NOT CMAKE_CPP)
+    message(FATAL_ERROR "cpp is required to build")
+  endif (NOT CMAKE_CPP)
+  mark_as_advanced(CMAKE_CPP)
+
+  set(CPP_KEEP_COMMENTS -C)
   set(CPP_NO_LINENUM -P)
   set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS -xassembler-with-cpp)
-elseif (NOT UNIX)
+  set(CMAKE_CPP_FLAGS "")
+else (UNIX)
+  set(CMAKE_CPP ${CMAKE_C_COMPILER})
+
+  set(CPP_KEEP_COMMENTS /C)
   set(CPP_NO_LINENUM /EP)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
@@ -148,17 +162,11 @@ endif (UNIX)
 
 if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   if (UNIX)
-    # Use GCC to drive assembler.
-    if (CMAKE_COMPILER_IS_GNUCC)
-      set(ASM_FLAG_PREFIX "-Wa,")
-      set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
-      # If we use the compiler to drive assembly, we can pass through the flags.
-      set(ADDITIONAL_ASM_FLAGS "<FLAGS>")
-    else ()
-      set(CMAKE_ASM_COMPILER_INIT gas as)
-    endif ()
-  endif ()
-
+    # i#646: cmake 2.8.5 requires ASM-ATT to find as: but we don't want to change
+    # all our vars to have -ATT suffix so we set the search list instead.
+    # This must be done prior to enable_language(ASM).
+    set(CMAKE_ASM_COMPILER_INIT gas as)
+  endif (UNIX)
   # CMake does not support assembly with VS generators
   # (http://public.kitware.com/Bug/view.php?id=11536)
   # so we have to add our own custom commands and targets
@@ -196,22 +204,26 @@ if (APPLE)
   endif (DEBUG)
 elseif (UNIX)
   if (X86)
-    set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}-mmnemonic=intel ${ASM_FLAG_PREFIX}-msyntax=intel ${ASM_FLAG_PREFIX}-mnaked-reg")
+    set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg")
     if (X64)
-        set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--64")
+      set(ASM_FLAGS "${ASM_FLAGS} --64")
     else (X64)
       # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
-      set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--32")
+      set(ASM_FLAGS "${ASM_FLAGS} --32")
     endif (X64)
   elseif (ARM)
     # No 64-bit support yet.
-    set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}-mfpu=neon")
-    set(ASM_FLAGS "${ASM_FLAGS} -march=armv7-a")
+    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
+    if (BUILD_TESTS)
+      # Some tests use deprecated instructions, disable warnings.
+      set(ASM_FLAGS "${ASM_FLAGS} -mwarn-no-deprecated")
+    endif ()
+
   endif ()
-  set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--noexecstack")
+  set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
-      set(ASM_FLAGS "${ASM_FLAGS} -g")
-  endif(DEBUG)
+    set(ASM_FLAGS "${ASM_FLAGS} -g")
+  endif (DEBUG)
 else ()
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
@@ -243,12 +255,11 @@ if (APPLE)
 endif (APPLE)
 if (UNIX AND NOT APPLE)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
-  file(WRITE ${PROJECT_BINARY_DIR}/asm_test.s "")
   execute_process(COMMAND
-    ${CMAKE_C_COMPILER} -x assembler-with-cpp ${ASM_FLAG_PREFIX}-help ${PROJECT_BINARY_DIR}/asm_test.s -c
+    ${CMAKE_ASM_COMPILER} --help
+    RESULT_VARIABLE asm_result
     ERROR_VARIABLE asm_error
     OUTPUT_VARIABLE asm_out)
-  file(REMOVE ${PROJECT_BINARY_DIR}/asm_test.s)
   if (asm_result OR asm_error)
     message(FATAL_ERROR "*** ${CMAKE_ASM_COMPILER} failed: ***\n${asm_error}")
   endif (asm_result OR asm_error)
@@ -256,8 +267,6 @@ if (UNIX AND NOT APPLE)
   string(REGEX REPLACE " " ";" flags_needed "${ASM_FLAGS}")
   # -mfpu= does not list the possibilities
   string(REGEX REPLACE "-mfpu=[a-z]*" "-mfpu" flags_needed "${flags_needed}")
-  string(REGEX REPLACE "-march=[a-z0-9-]*" "-march" flags_needed "${flags_needed}")
-  string(REPLACE "${ASM_FLAG_PREFIX}" "" flags_needed "${flags_needed}")
   # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
   string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
   set(flag_present 1)
@@ -294,32 +303,33 @@ set(rule_defs "<DEFINES> -DCPP2ASM")
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
   set(CMAKE_ASM_NASM_COMPILE_OBJECT
-      "${CMAKE_C_COMPILER} -x assembler-with-cpp ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
+     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
 elseif (UNIX)
-    set(CMAKE_ASM_COMPILE_OBJECT
-      "${CMAKE_C_COMPILER} -x assembler-with-cpp -E ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>.s"
-      "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-      "${CMAKE_ASM_COMPILER} -c ${ASM_FLAGS} ${ADDITIONAL_ASM_FLAGS} <OBJECT>.s -o <OBJECT>")
-      # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
-      # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
-      # since our defines are mostly in configure.h where we can't as easily tweak them
-      # (update: I do have top-level defines gathered up in ${defines}).
-      # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
-      # up the --defsym args.
-        # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
-        # is passed in: we don't need the include dirs b/c of the cpp step.
-        # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
-        # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
-        #
-        # we also aren't passing any <DEFINES> since for one thing
-        # there's no way to transform to --defsym: luckily we don't need them
-        # since using cpp now (see above).
-        # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
-        # how to get =1 in there :should verify it's needed) but <DEFINES>
-        # comes up empty for me.
+  # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
+  # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
+  # since our defines are mostly in configure.h where we can't as easily tweak them
+  # (update: I do have top-level defines gathered up in ${defines}).
+  # so, we don't bother transforming -DFOO into -DFOO=FOO, nor with setting
+  # up the --defsym args.
+  set(CMAKE_ASM_COMPILE_OBJECT
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> -o <OBJECT>.s"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
+    # not using ${rule_flags} b/c of cmake bug #8107 where -Ddynamorio_EXPORTS
+    # is passed in: we don't need the include dirs b/c of the cpp step.
+    # update: Brad fixed bug #8107: moved -Ddynamorio_EXPORTS from ${rule_flags} to <DEFINES>
+    # in CMake/Source/cmMakefileTargetGenerator.cxx:1.115 (will be in 2.6.4).
+    #
+    # we also aren't passing any <DEFINES> since for one thing
+    # there's no way to transform to --defsym: luckily we don't need them
+    # since using cpp now (see above).
+    # FIXME: I tried setting CMAKE_ASM_DEFINE_FLAG to "--defsym " (not clear
+    # how to get =1 in there :should verify it's needed) but <DEFINES>
+    # comes up empty for me.
+    "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
+    )
 else ()
   # Even if we didn't preprocess we'd need our own rule since cmake doesn't
   # support ml.
