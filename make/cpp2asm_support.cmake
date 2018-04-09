@@ -130,24 +130,19 @@ if (NOT EXISTS "${cpp2asm_newline_script_path}")
 endif ()
 
 ##################################################
-# Preprocessor flags
-
-if (UNIX)
-  set(CPP_NO_LINENUM -P)
-  set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "")
-elseif (NOT UNIX)
-  set(CMAKE_CPP ${CMAKE_C_COMPILER})
-
-  set(CPP_NO_LINENUM /EP)
-  set(CPP_KEEP_WHITESPACE "")
-  set(CMAKE_CPP_FLAGS "/nologo")
-endif (UNIX)
-
-##################################################
 # Assembler location and flags
 
 if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  if (UNIX)
+    # Use GCC to drive assembler.
+    if (CMAKE_COMPILER_IS_GNUCC)
+      set(ASM_FLAG_PREFIX "-Wa,")
+      set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
+    else ()
+      set(CMAKE_ASM_COMPILER_INIT gas as)
+    endif ()
+  endif ()
+
   # CMake does not support assembly with VS generators
   # (http://public.kitware.com/Bug/view.php?id=11536)
   # so we have to add our own custom commands and targets
@@ -185,19 +180,19 @@ if (APPLE)
   endif (DEBUG)
 elseif (UNIX)
   if (X86)
-    set(ASM_FLAGS "-Wa,-mmnemonic=intel -Wa,-msyntax=intel -Wa,-mnaked-reg")
+    set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}-mmnemonic=intel ${ASM_FLAG_PREFIX}-msyntax=intel ${ASM_FLAG_PREFIX}-mnaked-reg")
     if (X64)
-        set(ASM_FLAGS "${ASM_FLAGS} -Wa,--64")
+        set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--64")
     else (X64)
       # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
-      set(ASM_FLAGS "${ASM_FLAGS} -Wa,--32")
+      set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--32")
     endif (X64)
   elseif (ARM)
     # No 64-bit support yet.
-    set(ASM_FLAGS "${ASM_FLAGS} -Wa,-mfpu=neon")
+    set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}-mfpu=neon")
     set(ASM_FLAGS "${ASM_FLAGS} -march=armv7-a")
   endif ()
-  set(ASM_FLAGS "${ASM_FLAGS} -Wa,--noexecstack")
+  set(ASM_FLAGS "${ASM_FLAGS} ${ASM_FLAG_PREFIX}--noexecstack")
   if (DEBUG)
       set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif(DEBUG)
@@ -234,7 +229,7 @@ if (UNIX AND NOT APPLE)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
   file(WRITE ${PROJECT_BINARY_DIR}/asm_test.s "")
   execute_process(COMMAND
-    ${CMAKE_C_COMPILER} -x assembler-with-cpp -Wa,-help ${PROJECT_BINARY_DIR}/asm_test.s -c
+    ${CMAKE_C_COMPILER} -x assembler-with-cpp ${ASM_FLAG_PREFIX}-help ${PROJECT_BINARY_DIR}/asm_test.s -c
     ERROR_VARIABLE asm_error
     OUTPUT_VARIABLE asm_out)
   file(REMOVE ${PROJECT_BINARY_DIR}/asm_test.s)
@@ -246,7 +241,7 @@ if (UNIX AND NOT APPLE)
   # -mfpu= does not list the possibilities
   string(REGEX REPLACE "-mfpu=[a-z]*" "-mfpu" flags_needed "${flags_needed}")
   string(REGEX REPLACE "-march=[a-z0-9-]*" "-march" flags_needed "${flags_needed}")
-  string(REPLACE "-Wa," "" flags_needed "${flags_needed}")
+  string(REPLACE "${ASM_FLAG_PREFIX}" "" flags_needed "${flags_needed}")
   # we want "-mmnemonic=intel" to match "-mmnemonic=[att|intel]"
   string(REGEX REPLACE "=" ".*" flags_needed "${flags_needed}")
   set(flag_present 1)
@@ -254,7 +249,7 @@ if (UNIX AND NOT APPLE)
     if (flag_present)
       string(REGEX MATCH "${flag}" flag_present "${asm_out}")
       if (NOT flag_present)
-        message("${CMAKE_C_COMPILER} missing flag \"${flag}\"")
+        message("${CMAKE_ASM_COMPILER} missing flag \"${flag}\"")
       endif (NOT flag_present)
     endif (flag_present)
   endforeach (flag)
@@ -283,7 +278,7 @@ set(rule_defs "<DEFINES> -DCPP2ASM")
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
   set(CMAKE_ASM_NASM_COMPILE_OBJECT
-     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
+      "${CMAKE_C_COMPILER} -x assembler-with-cpp ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
@@ -291,7 +286,7 @@ elseif (UNIX)
     set(CMAKE_ASM_COMPILE_OBJECT
       "${CMAKE_C_COMPILER} -x assembler-with-cpp -E ${CMAKE_CPP_FLAGS} ${rule_flags} ${rule_defs} <SOURCE> -o <OBJECT>.s"
       "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
-      "${CMAKE_C_COMPILER} -c ${ASM_FLAGS} <FLAGS> <OBJECT>.s -o <OBJECT>")
+      "${CMAKE_ASM_COMPILER} -c ${ASM_FLAGS} <FLAGS> <OBJECT>.s -o <OBJECT>")
       # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
       # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
       # since our defines are mostly in configure.h where we can't as easily tweak them

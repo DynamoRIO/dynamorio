@@ -918,6 +918,21 @@ endfunction (use_DynamoRIO_test_annotations target target_srcs)
 set(PCACHE_DIR "${PROJECT_BINARY_DIR}/pcache")
 set(PCACHE_SHARED_DIR "${PROJECT_BINARY_DIR}/pcache/shared")
 
+##################################################
+# Preprocessor flags
+
+set(CMAKE_CPP ${CMAKE_C_COMPILER})
+if (UNIX)
+  set(CPP_NO_LINENUM -P)
+  set(CPP_KEEP_WHITESPACE -traditional-cpp)
+  set(CMAKE_CPP_FLAGS "-xassembler-with-cpp")
+elseif (NOT UNIX)
+  set(CPP_NO_LINENUM /EP)
+  set(CPP_KEEP_WHITESPACE "")
+  set(CMAKE_CPP_FLAGS "/nologo")
+endif (UNIX)
+##################################################
+
 function(template2expect outexpect template runops key)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
@@ -982,7 +997,7 @@ function(template2expect outexpect template runops key)
   # we need a list: else passed as a single arg in quotes
   string(REGEX REPLACE " " ";" deflist "${defines} ${rundefs}")
   execute_process(COMMAND
-    ${CMAKE_C_COMPILER} -x assembler-with-cpp ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
+      ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} ${deflist} -E ${CPP_NO_LINENUM}
       ${CPP_KEEP_WHITESPACE} ${template}
     RESULT_VARIABLE cpp_result
     ERROR_VARIABLE cpp_err
@@ -995,7 +1010,7 @@ function(template2expect outexpect template runops key)
     string(STRIP "${cpp_err}" cpp_err)
   endif (WIN32)
   if (cpp_result OR cpp_err)
-      message(FATAL_ERROR "*** '${CMAKE_C_COMPILER} -x cpp-output' failed: ***\n${cpp_err}")
+      message(FATAL_ERROR "*** '${CMAKE_CPP}' failed: ***\n${cpp_err}")
   endif (cpp_result OR cpp_err)
 
   # remove // comments since we use -traditional-cpp to preserve whitespace
