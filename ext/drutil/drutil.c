@@ -167,36 +167,52 @@ drutil_insert_get_mem_addr_x86(void *drcontext, instrlist_t *bb, instr_t *where,
          * We assume it's flat.
          */
         opnd_get_segment(memref) != DR_SEG_CS) {
-        /* get segment base into dst, then add to memref base and lea */
         instr_t *near_in_scratch = NULL;
-        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref), dst))
-            return false;
+        reg_id_t reg_segbase = dst;
+        /* If we need two steps, we get the near first as it may depend on dst. */
         if (opnd_uses_reg(memref, dst) ||
             (opnd_get_base(memref) != DR_REG_NULL &&
              opnd_get_index(memref) != DR_REG_NULL)) {
-            /* have to take two steps */
+            /* We need a scratch reg.  We document these conditions so it's user error
+             * if one wasn't provided.
+             */
             if (scratch == DR_REG_NULL)
                 return false;
-            opnd_set_size(&memref, OPSZ_lea);
-            if (scratch_used != NULL)
-                *scratch_used = true;
-            near_in_scratch =
+            if ((opnd_get_base(memref) == DR_REG_NULL ||
+                 opnd_get_index(memref) == DR_REG_NULL) &&
+                !opnd_uses_reg(memref, scratch)) {
+                /* We can do it one step if we swap regs. */
+                reg_id_t temp = reg_segbase;
+                reg_segbase = scratch;
+                scratch = temp;
+            } else {
+                /* We have to take two steps. */
+                opnd_set_size(&memref, OPSZ_lea);
+                if (scratch_used != NULL)
+                    *scratch_used = true;
+                near_in_scratch =
                 INSTR_CREATE_lea(drcontext, opnd_create_reg(scratch), memref);
-            PRE(bb, where, near_in_scratch);
+                PRE(bb, where, near_in_scratch);
+            }
         }
+        /* Now get segment base into dst, then add to near address. */
+        if (!dr_insert_get_seg_base(drcontext, bb, where, opnd_get_segment(memref),
+                                    reg_segbase))
+            return false;
         if (near_in_scratch != NULL) {
             PRE(bb, where,
                 INSTR_CREATE_lea(drcontext, opnd_create_reg(dst),
-                                 opnd_create_base_disp(dst, scratch, 1, 0, OPSZ_lea)));
+                                 opnd_create_base_disp(reg_segbase, scratch, 1, 0,
+                                                       OPSZ_lea)));
         } else {
             reg_id_t base = opnd_get_base(memref);
             reg_id_t index = opnd_get_index(memref);
             int scale = opnd_get_scale(memref);
             int disp = opnd_get_disp(memref);
             if (opnd_get_base(memref) == DR_REG_NULL) {
-                base = dst;
+                base = reg_segbase;
             } else if (opnd_get_index(memref) == DR_REG_NULL) {
-                index = dst;
+                index = reg_segbase;
                 scale = 1;
             } else {
                 ASSERT(false, "memaddr internal error");

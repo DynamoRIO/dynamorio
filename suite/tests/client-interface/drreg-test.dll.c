@@ -162,6 +162,26 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+#ifdef X86
+        /* test aflags conflicts with xax: failing to reserve xax due to lazy
+         * aflags still in xax from above; failing to reserve aflags if xax is
+         * taken; failing to get app aflags if xax is taken.
+         */
+        drvector_t only_xax;
+        drreg_init_and_fill_vector(&only_xax, false);
+        drreg_set_vector_entry(&only_xax, DR_REG_XAX, true);
+        res = drreg_reserve_register(drcontext, bb, inst, &only_xax, &reg);
+        CHECK(res == DRREG_SUCCESS, "reserve of xax should work");
+        res = drreg_reserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags w/ xax taken should work");
+        res = drreg_restore_app_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
+        res = drreg_unreserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "unreserve of xax should work");
+        drvector_delete(&only_xax);
+#endif
     } else if (subtest == DRREG_TEST_1_C ||
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
@@ -283,4 +303,14 @@ dr_init(client_id_t id)
                                                  event_app_instruction, NULL) ||
         !drmgr_register_bb_instru2instru_event(event_instru2instru, NULL))
         CHECK(false, "init failed");
+
+    /* i#2910: test use during process init. */
+    void *drcontext = dr_get_current_drcontext();
+    instrlist_t *ilist = instrlist_create(drcontext);
+    drreg_status_t res = drreg_reserve_aflags(drcontext, ilist, NULL);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    reg_id_t reg;
+    res = drreg_reserve_register(drcontext, ilist, NULL, NULL, &reg);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    instrlist_clear_and_destroy(drcontext, ilist);
 }
