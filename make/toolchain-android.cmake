@@ -70,14 +70,10 @@ SET(CMAKE_CXX_COMPILER ${toolchain_bin_path}${TARGET_ABI}-g++
   CACHE FILEPATH "cmake_cxx_compiler")
 SET(CMAKE_LINKER       ${toolchain_bin_path}${TARGET_ABI}-ld.bfd
   CACHE FILEPATH "cmake_linker")
-SET(CMAKE_ASM_COMPILER ${toolchain_bin_path}${TARGET_ABI}-as
-  CACHE FILEPATH "cmake_asm_compiler")
 SET(CMAKE_OBJCOPY      ${toolchain_bin_path}${TARGET_ABI}-objcopy
   CACHE FILEPATH "cmake_objcopy")
 SET(CMAKE_STRIP        ${toolchain_bin_path}${TARGET_ABI}-strip
   CACHE FILEPATH "cmake_strip")
-SET(CMAKE_CPP          ${toolchain_bin_path}${TARGET_ABI}-cpp
-  CACHE FILEPATH "cmake_cpp")
 
 # specify sysroot
 if (NOT DEFINED ANDROID_SYSROOT)

@@ -995,7 +995,7 @@ function(template2expect outexpect template runops key)
     string(STRIP "${cpp_err}" cpp_err)
   endif (WIN32)
   if (cpp_result OR cpp_err)
-    message(FATAL_ERROR "*** ${CMAKE_CPP} failed: ***\n${cpp_err}")
+      message(FATAL_ERROR "*** '${CMAKE_C_COMPILER} -x cpp-output' failed: ***\n${cpp_err}")
   endif (cpp_result OR cpp_err)
 
   # remove // comments since we use -traditional-cpp to preserve whitespace

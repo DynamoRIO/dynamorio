@@ -1241,7 +1241,7 @@ file(WRITE ${defines_tmpfile} "${configure_h_mod}")
 # in configure.h, except the -Ddynamorio_EXPORTS that cmake defines.
 # Note: cpp w/ no 2nd filename prints to stdout (explicit "-" => pause at end)
 execute_process(COMMAND
-  ${CMAKE_CPP} ${CMAKE_CPP_FLAGS} -E ${CPP_NO_LINENUM} ${defines_tmpfile}
+  ${CMAKE_C_COMPILER} ${CMAKE_CPP_FLAGS} -E ${CPP_NO_LINENUM} ${defines_tmpfile}
   RESULT_VARIABLE cpp_result
   ERROR_VARIABLE cpp_err
   OUTPUT_VARIABLE cpp_out
