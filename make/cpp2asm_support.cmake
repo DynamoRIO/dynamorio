@@ -216,7 +216,7 @@ elseif (UNIX)
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
     if (BUILD_TESTS)
       # Some tests use deprecated instructions, disable warnings.
-      set(ASM_FLAGS "${ASM_FLAGS} -mwarn-no-deprecated")
+      set(ASM_FLAGS "${ASM_FLAGS} -mno-warn-deprecated")
     endif ()
 
   endif ()
