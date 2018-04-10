@@ -61,4 +61,3 @@ if (WIN32)
 else (WIN32)
   set(EVENTS_SRCS "")
 endif (WIN32)
-
