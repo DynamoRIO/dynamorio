@@ -6169,18 +6169,19 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
 }
 
 static void
-set_stdfile_fileno(stdfile_t **stdfile, file_t file_no) {
+set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
+{
 #ifdef STDFILE_FILENO
-  (*stdfile)->STDFILE_FILENO = file_no;
+    (*stdfile)->STDFILE_FILENO = file_no;
 #else
-  /* this occurs on musl libc */
-  #warning stdfile_t is opaque; DynamoRIO will skip setting fds of libc FILEs.
-  /* only called by handle_close_pre(), so this warning is specific to that. */
-  SYSLOG_INTERNAL_WARNING_ONCE(
-    "DynamoRIO cannot set the file descriptors of private libc FILEs on this "
-    "platform. Client usage of stdio.h stdin, stdout, or stderr may no longer "
-    "work as expected, because the app is closing the UNIX fds backing these."
-  );
+    /* i#1973: musl libc support (and potentially other non-glibcs) */
+    # warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
+    /* only called by handle_close_pre(), so warning is specific to that. */
+    SYSLOG_INTERNAL_WARNING_ONCE(
+        "DynamoRIO cannot set the file descriptors of private libc FILEs on "
+        "this platform. Client usage of stdio.h stdin, stdout, or stderr may "
+        "no longer work as expected, because the app is closing the UNIX fds "
+        "backing these.");
 #endif
 }
 

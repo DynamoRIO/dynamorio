@@ -126,7 +126,7 @@
 #endif
 /* DR_API EXPORT VERBATIM */
 #ifdef UNIX
-#  include <sys/types.h>  /* Fix for case 5341. And for pid_t (non-glibc) */
+#  include <sys/types.h>  /* for pid_t (non-glibc, e.g. musl) */
 #endif
 #ifdef WINDOWS
 /* allow nameless struct/union */
