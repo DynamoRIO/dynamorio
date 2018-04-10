@@ -51,7 +51,7 @@ Index: libdwarf/_libdwarf.h
  
 +#ifdef _MSC_VER
 +# define __func__ __FUNCTION__
-+# define snprintf _snprintf
++//# define snprintf _snprintf
 +#endif
 +
  #include <sys/param.h>
@@ -316,7 +316,7 @@ Index: libelftc/_libelftc.h
  #include <stdbool.h>
  
 +#ifdef _MSC_VER
-+# define snprintf _snprintf
++//# define snprintf _snprintf
 +#endif
 +
  #include "_elftc.h"

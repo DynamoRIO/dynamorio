@@ -57,7 +57,7 @@
 
 # ifdef WINDOWS
 #  define inline __inline
-#  define snprintf _snprintf
+//#  define snprintf _snprintf
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h> /* no longer included in globals_shared.h */
 # endif

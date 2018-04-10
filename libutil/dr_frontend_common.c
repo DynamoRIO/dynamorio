@@ -44,7 +44,7 @@
 # include <direct.h>
 /* It looks better to consistently use the same separator */
 # define DIRSEP '\\'
-# define snprintf _snprintf
+//# define snprintf _snprintf
 #else
 # include <unistd.h>
 # define DIRSEP '/'

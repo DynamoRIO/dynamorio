@@ -53,7 +53,7 @@
 # pragma warning(disable : 4210) //nonstd extension: function given file scope
 # pragma warning( disable : 4204) //nonstd extension: non-constant aggregate initializer
 # define INVALID_FILE INVALID_HANDLE_VALUE
-# define snprintf   _snprintf
+//# define snprintf   _snprintf
 # include <stdio.h> /* _snprintf */
 # define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002L)
 #else

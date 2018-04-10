@@ -52,7 +52,7 @@
 # pragma warning(disable : 4210) //nonstd extension: function given file scope
 # pragma warning( disable : 4204) //nonstd extension: non-constant aggregate initializer
 # define INVALID_FILE INVALID_HANDLE_VALUE
-# define snprintf   _snprintf
+//# define snprintf   _snprintf
 # include <stdio.h> /* _snprintf */
 #else
 /* we include globals.h mainly for ASSERT, even though we're

@@ -259,7 +259,7 @@ if (WIN32)
   # i#1137: ignore 'specified multiple times' linker warnings
   append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
   get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
-  string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
+  string(REPLACE ".dll" ".lib" ntimp_flags "\"${ntimp_flags}\"")
   DR_export_target(ntdll_imports)
   # We need separate 32-bit and 64-bit versions so we put into lib dir
   install_exported_target(ntdll_imports ${INSTALL_LIB_BASE})
@@ -267,9 +267,9 @@ endif (WIN32)
 
 if (WIN32)
   if (DEBUG)
-    set(WIN32_C_LIB libcmtd)
+    set(WIN32_C_LIB libcmtd libucrtd libvcruntimed)
   else (DEBUG)
-    set(WIN32_C_LIB libcmt)
+    set(WIN32_C_LIB libcmt libucrt libvcruntime)
   endif (DEBUG)
 
   set(NOLIBC_DLL_ENTRY /entry:DllMain)
@@ -868,10 +868,12 @@ else (UNIX)
   set(pre_link_flags
     # preinjector requires no C library for its unload-self method
     # not bothering with map files
-    "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB ${NOLIBC_DLL_ENTRY}")
+    # /FORCE:MULTIPLE because we need libucrt for printf stuff, but
+    # there are conflicts with ntdll_imports
+    "${LD_FLAGS} /dll /incremental:no /base:0x14000000 /NODEFAULTLIB /FORCE:MULTIPLE ${NOLIBC_DLL_ENTRY}")
   set_target_properties(${PRELOAD_NAME} PROPERTIES LINK_FLAGS "${pre_link_flags}")
   # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt dynamorio)
+  target_link_libraries(${PRELOAD_NAME} ntdll_imports kernel32 msvcrt libucrt libvcruntime dynamorio)
 endif (UNIX)
 
 ###########################################################################
@@ -924,7 +926,7 @@ if (WIN32)
   # ok w/ libc syms so we re-order and take the static syms first.
   set_target_properties(drinjectlib PROPERTIES LINK_FLAGS "${drinjectlib_link_flags}")
   # I'm adding libcmt to attempt to make sure we have multithreaded C lib:
-  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB}.lib ntdll_imports
+  target_link_libraries(drinjectlib drdecode ${WIN32_C_LIB} ntdll_imports
     kernel32 advapi32 imagehlp)
   # drinject.exe needs a copy in the bin dir (i#1737 would eliminate this)
   add_custom_command(TARGET drinjectlib POST_BUILD COMMAND ${CMAKE_COMMAND}

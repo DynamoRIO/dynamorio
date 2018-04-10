@@ -153,8 +153,8 @@ EXPORTS
         LdrGetProcedureAddress
         LdrGetDllHandle
         CsrClientCallServer
-        _snprintf
-        _snwprintf
+        ;_snprintf
+        ;_snwprintf
         _stricmp
         _strnicmp
         _wcsicmp
@@ -168,7 +168,7 @@ EXPORTS
         memset
         qsort
         sqrt
-        sscanf
+        ;sscanf
         strchr
         strcmp
         strlen
@@ -209,7 +209,7 @@ EXPORTS
         _ui64toa
         _ultoa
         _ultow
-        _vsnprintf
+        ;_vsnprintf
         _wcslwr
         _wcsnicmp
         _wcsupr
@@ -243,7 +243,7 @@ EXPORTS
         memchr
         pow
         sin
-        sprintf
+        ;sprintf
         strcspn
         strpbrk
         strspn
