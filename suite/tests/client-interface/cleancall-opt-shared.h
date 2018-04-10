@@ -782,7 +782,7 @@ codegen_bbcount(void *dc)
     return ilist;
 }
 
-/* Clobber aflags.  Inliner must ensure they are restored.
+/* Clobber aflags.  Clean call optimizations must ensure they are restored.
 X86 - Zero the aflags
     aflags_clobber:
       push REG_XBP
