@@ -1113,6 +1113,18 @@ encode_opnd_float_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 }
 
 static inline bool
+decode_opnd_float_reg10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_float_reg(10, enc, opnd);
+}
+
+static inline bool
+encode_opnd_float_reg10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_float_reg(10, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_float_reg16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_float_reg(16, enc, opnd);
