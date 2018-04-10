@@ -48,6 +48,7 @@
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
         FUNCTION(bbcount) \
+        FUNCTION(aflags_clobber) \
         LAST_FUNCTION()
 
 static void compiler_inscount(ptr_uint_t count);
