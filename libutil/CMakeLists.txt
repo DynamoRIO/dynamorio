@@ -51,6 +51,7 @@ include_directories(BEFORE
   ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}
   ${PROJECT_BINARY_DIR} # for events.h
   )
+
 if (WIN32)
   include_directories(BEFORE ${PROJECT_SOURCE_DIR}/core/win32)
 else (WIN32)
@@ -196,8 +197,13 @@ else () #UNIX
     set(dr_frontend_srcs ${dr_frontend_srcs} ../core/unix/module_elf.c)
   endif (APPLE)
 endif ()
+
+
 set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
 add_library(drfrontendlib STATIC ${dr_frontend_srcs})
+if (AARCH64)
+  add_dependencies(drfrontendlib gen_aarch64_codec)
+endif()
 # XXX i#1409: we need dynamo_options and dynamorio_syscall for core/unix/*.
 # We'd like a small lib for that, but for now our best option is to use
 # drdecode.  Update: drhelper gives us dynamorio_syscall, so it's just

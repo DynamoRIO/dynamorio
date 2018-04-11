@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2009 VMware, Inc.    All rights reserved.
+# Copyright (c) 2018 Arm Limited    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,36 +28,28 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# From events.mc we create two different header files,
-# shared among core and libutil.
-# Custom commands and source file properties are per-subdir so we must
-# include this in each instead of just placing in top-level CMakeLists.txt.
+# Commands to automatically create the codec files from core/arch/aarch64/codec.txt.
+find_package(PythonInterp)
 
-# FIXME i#68: move the work of gen_event_strings.pl into this script
-set(SYSLOG_SRCS ${PROJECT_BINARY_DIR}/event_strings.h)
-set_source_files_properties(${SYSLOG_SRCS} PROPERTIES GENERATED true)
+if (NOT PYTHONINTERP_FOUND)
+  message(FATAL_ERROR "Python interpreter not found")
+endif ()
+
+set(AARCH64_CODEC_GEN_SRCS
+  ${PROJECT_BINARY_DIR}/opcode.h
+  ${PROJECT_BINARY_DIR}/decode_gen.h
+  ${PROJECT_BINARY_DIR}/encode_gen.h
+  ${PROJECT_BINARY_DIR}/opcode_names.h
+)
+set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
+# Auto-generate decoder files from codec.txt.
 add_custom_command(
-  OUTPUT ${SYSLOG_SRCS}
-  DEPENDS ${PROJECT_SOURCE_DIR}/core/win32/events.mc
-          ${PROJECT_SOURCE_DIR}/core/gen_event_strings.pl
-  COMMAND ${PERL_EXECUTABLE}
-  ARGS ${PROJECT_SOURCE_DIR}/core/gen_event_strings.pl
-       ${PROJECT_SOURCE_DIR}/core/win32/events.mc
-       ${SYSLOG_SRCS}
+  OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
+  DEPENDS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
+          ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+  COMMAND ${PYTHON_EXECUTABLE}
+  ARGS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
+       ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+       ${PROJECT_BINARY_DIR}
   VERBATIM # recommended: p260
-  )
-if (WIN32)
-  set(EVENTS_SRCS ${PROJECT_BINARY_DIR}/events.h)
-  set_source_files_properties(${EVENTS_SRCS} PROPERTIES GENERATED true)
-  add_custom_command(
-    OUTPUT ${EVENTS_SRCS}
-    DEPENDS ${PROJECT_SOURCE_DIR}/core/win32/events.mc
-    COMMAND ${CMAKE_MC_COMPILER}
-    ARGS -h ${PROJECT_BINARY_DIR}
-         -r ${PROJECT_BINARY_DIR}
-         ${PROJECT_SOURCE_DIR}/core/win32/events.mc
-    VERBATIM # recommended: p260
-  )
-else (WIN32)
-  set(EVENTS_SRCS "")
-endif (WIN32)
+)
