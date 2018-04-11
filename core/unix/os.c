@@ -6174,8 +6174,8 @@ set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
 #ifdef STDFILE_FILENO
     (*stdfile)->STDFILE_FILENO = file_no;
 #else
+# warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
     /* i#1973: musl libc support (and potentially other non-glibcs) */
-    # warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
     /* only called by handle_close_pre(), so warning is specific to that. */
     SYSLOG_INTERNAL_WARNING_ONCE(
         "DynamoRIO cannot set the file descriptors of private libc FILEs on "
