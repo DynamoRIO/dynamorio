@@ -2368,15 +2368,16 @@ if (CLIENT_INTERFACE)
           # test out-of-line clean call
           torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}
             common/${control_flags}.c "" "-opt_cleancall 0" "")
-          if (UNIX AND NOT ARM) # FIXME i#1551: fix bugs on ARM
+          if (UNIX)
             torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
               ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
-            if (NOT X64) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
+            if (NOT X64 AND NOT ARM) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
+                                     # FIXME i#1551: "-thread_private -prof_pcs" support on ARM
               torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
                 common.${control_flags} ${sample} common/${control_flags}.c ""
                 "-thread_private -prof_pcs -opt_cleancall 0" "")
-            endif (NOT X64)
-          endif (UNIX AND NOT ARM)
+            endif (NOT X64 AND NOT ARM)
+          endif (UNIX)
         elseif (sample STREQUAL "memval_simple")
           # i#2449: only witnessed crash on 32-bit linux
           if (X86 AND (NOT X64) AND UNIX)

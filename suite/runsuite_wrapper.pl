@@ -146,7 +146,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.drcachesim.delay-simple' => 1, # i#2892
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
-                                   'code_api|tool.histogram.gzip' => 1);
+                                   'code_api|tool.histogram.gzip' => 1,
+                                   'code_api|sample.inscount.prof-pcs.cleancall' => 1); # i#2907
             # FIXME i#2417: fix flaky AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|pthreads.pthreads_exit' => 1);
