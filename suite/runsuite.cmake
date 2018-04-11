@@ -138,7 +138,7 @@ else ()
     if (GIT)
       # Included committed, staged, and unstaged changes.
       # We assume "origin/master" contains the top-of-trunk.
-      execute_process(COMMAND ${GIT} diff origin/master
+      execute_process(COMMAND "${GIT} diff origin/master"
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
