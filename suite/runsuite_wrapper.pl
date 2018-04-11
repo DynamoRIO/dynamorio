@@ -141,6 +141,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|pthreads.ptsig' => 1,
                                    'code_api|linux.sigaction_nosignals' => 1,
                                    'code_api|linux.signal_race' => 1,
+                                   'code_api|linux.sigsuspend' => 1, # i#2898
                                    'code_api|client.drmgr-test' => 1, # i#2893
                                    'code_api|tool.drcachesim.delay-simple' => 1, # i#2892
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
