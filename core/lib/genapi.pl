@@ -3,6 +3,7 @@
 # **********************************************************
 # Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
+# Copyright (c) 2018 Arm Limited         All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -188,7 +189,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/module_shared.h",    # before instrument_api.h
      "$core/lib/instrument_api.h",
      "$core/arch/x86/opcode.h",
-     "$core/arch/aarch64/opcode.h",
      "$core/arch/arm/opcode.h",
      "$core/arch/opnd.h",
      "$core/arch/instr.h",
@@ -210,6 +210,12 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
 
 if (defined($defines{"ANNOTATIONS"})) {
     push(@headers, "$core/annotations.h");
+}
+
+# AArch64's opcode.h is auto-generated. We expect $dir point to a directory
+# one level deep in the build directory.
+if (defined($defines{"AARCH64"})) {
+    push(@headers, "$dir/../opcode.h");
 }
 
 # PR 214947: VMware retroactively holds the copyright.

@@ -60,6 +60,13 @@ function (add_gen_events_deps target)
   endif ()
 endfunction (add_gen_events_deps)
 
+if (AARCH64)
+  # Required for opcode.h and codec headers, which are auto-generated on AArch64.
+  include(../make/CMake_aarch64_gen_codec.cmake)
+  add_custom_target(gen_aarch64_codec DEPENDS "${AARCH64_CODEC_GEN_SRCS}")
+  include_directories(BEFORE ${PROJECT_BINARY_DIR})
+endif ()
+
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
@@ -435,6 +442,9 @@ function (configure_core_lib target)
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}"
     ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${DR_LIBRARY_OUTPUT_DIRECTORY}")
   add_gen_events_deps(${target})
+  if (AARCH64)
+    add_dependencies(${target} gen_aarch64_codec)
+  endif()
   if (WIN32)
     # Since we're forced to use link-line flags instead of target_link_libraries
     # for dynamorio, we have to add a real target dependence here for correct
@@ -828,6 +838,10 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}"
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 add_gen_events_deps(${PRELOAD_NAME})
+if (AARCH64)
+  add_dependencies(${PRELOAD_NAME} gen_aarch64_codec)
+endif()
+
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
@@ -888,7 +902,11 @@ set_target_properties(drdecode PROPERTIES
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
+
 add_gen_events_deps(drdecode)
+if (AARCH64)
+  add_dependencies(drdecode gen_aarch64_codec)
+endif()
 target_link_libraries(drdecode drhelper)
 
 ###########################################################################
