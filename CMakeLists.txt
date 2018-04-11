@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -1576,6 +1577,10 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
     DEPENDS ${EXTRA_HEADERS})
+  if (AARCH64)
+    add_dependencies(api_headers gen_aarch64_codec)
+  endif()
+
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
