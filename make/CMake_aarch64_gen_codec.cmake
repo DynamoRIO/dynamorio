@@ -28,11 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Commands to automatically create the codec files from core/arch/aarch64/codec.txt
+# Commands to automatically create the codec files from core/arch/aarch64/codec.txt.
 find_package(PythonInterp)
 
 if (NOT PYTHONINTERP_FOUND)
-message(FATAL_ERROR "Python interpreter not found")
+  message(FATAL_ERROR "Python interpreter not found")
 endif ()
 
 set(AARCH64_CODEC_GEN_SRCS
@@ -44,12 +44,12 @@ set(AARCH64_CODEC_GEN_SRCS
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
 # Auto-generate decoder files from codec.txt.
 add_custom_command(
-OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
-DEPENDS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-        ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
-COMMAND ${PYTHON_EXECUTABLE}
-ARGS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-     ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
-     ${PROJECT_BINARY_DIR}
-VERBATIM # recommended: p260
+  OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
+  DEPENDS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
+          ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+  COMMAND ${PYTHON_EXECUTABLE}
+  ARGS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
+       ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+       ${PROJECT_BINARY_DIR}
+  VERBATIM # recommended: p260
 )

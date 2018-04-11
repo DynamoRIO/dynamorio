@@ -212,7 +212,8 @@ if (defined($defines{"ANNOTATIONS"})) {
     push(@headers, "$core/annotations.h");
 }
 
-# AArch64's opcode.h is auto-generated.
+# AArch64's opcode.h is auto-generated. We expect $dir point to a directory
+# one level deep in the build directory.
 if (defined($defines{"AARCH64"})) {
     push(@headers, "$dir/../opcode.h");
 }
