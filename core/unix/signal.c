@@ -96,9 +96,11 @@
 # include <errno.h>
 #endif
 
-#ifdef MACOS
 /* Define the Linux names, which the code is already using */
+#ifndef SA_NOMASK
 #  define SA_NOMASK       SA_NODEFER
+#endif
+#ifndef SA_ONESHOT
 #  define SA_ONESHOT      SA_RESETHAND
 #endif
 

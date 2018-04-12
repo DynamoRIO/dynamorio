@@ -185,7 +185,9 @@ typedef FILE stdfile_t;
 # define STDFILE_FILENO _file
 #elif defined(LINUX)
 typedef struct _IO_FILE stdfile_t;
-# define STDFILE_FILENO _fileno
+# ifdef __GLIBC__
+#  define STDFILE_FILENO _fileno
+# endif
 #endif
 extern stdfile_t **privmod_stdout;
 extern stdfile_t **privmod_stderr;
