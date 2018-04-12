@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -156,6 +156,22 @@ instr_is_pop_reg(instr_t *instr, reg_id_t *reg)
     return true;
 }
 
+static inline reg_id_t
+find_nzcv_spill_reg(callee_info_t *ci)
+{
+    int i;
+    reg_id_t spill_reg = DR_REG_INVALID;
+    for (i = NUM_GP_REGS - DR_REG_START_GPR; i >= 0; i--) {
+        reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
+        ASSERT(reg != DR_REG_XSP && "hit SP starting at x30");
+        if (reg == ci->spill_reg || ci->reg_used[i])
+            continue;
+        spill_reg = reg;
+    }
+    ASSERT(spill_reg != DR_REG_INVALID);
+    return spill_reg;
+}
+
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
@@ -167,6 +183,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->num_simd_used = 0;
     memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    ci->write_flags = false;
+    ci->read_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
@@ -209,11 +227,27 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 ci->num_simd_used++;
             }
         }
+
+        /* NZCV register usage */
+        if (!ci->write_flags && TESTANY(EFLAGS_WRITE_ARITH,
+                instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
+            ci->write_flags = true;
+        }
+
+        if (!ci->read_flags && TESTANY(EFLAGS_READ_ARITH,
+                instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
+            LOG(THREAD, LOG_CLEANCALL, 2,
+                "CLEANCALL: callee "PFX" reads aflags from caller\n",
+                ci->start);
+            ci->read_flags = true;
+        }
     }
 
-    /* FIXME i#2796: the following checks are still missing:
-     *    - analysis of eflags (depends on i#2263)
-     */
+    if (ci->read_flags || ci->write_flags) {
+        callee_info_reserve_slot(ci, SLOT_FLAGS, 0);
+    }
 }
 
 /* We use stp/ldp/str/ldr [sp, #imm] pattern to detect callee saved registers,
@@ -467,7 +501,16 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR,
                                  true, (void*)ci);
 
-    /* FIXME i#2796: Save nzcv, fpcr, fpsr. */
+    /* Save nzcv */
+    if (!cci->skip_save_flags && ci->write_flags) {
+        reg_id_t nzcv_spill_reg = find_nzcv_spill_reg(ci);
+        PRE(ilist, where, XINST_CREATE_store
+            (dcontext, callee_info_slot_opnd(ci, SLOT_FLAGS, 0),
+             opnd_create_reg(nzcv_spill_reg)));
+        dr_save_arith_flags_to_reg(dcontext, ilist, where, nzcv_spill_reg);
+    }
+
+    /* FIXME i#2796: Save fpcr, fpsr. */
 }
 
 void
@@ -481,14 +524,24 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
         !ci->has_locals) {
         return;
     }
-    /* FIXME i#2796: Restore nzcv, fpcr, fpsr. */
+
+    /* Restore nzcv before regs */
+    if (!cci->skip_save_flags && ci->write_flags) {
+        reg_id_t nzcv_spill_reg = find_nzcv_spill_reg(ci);
+        dr_restore_arith_flags_from_reg(dcontext, ilist, where, nzcv_spill_reg);
+        PRE(ilist, where, XINST_CREATE_load
+            (dcontext, opnd_create_reg(nzcv_spill_reg),
+             callee_info_slot_opnd(ci, SLOT_FLAGS, 0)));
+    }
 
     insert_restore_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_X0,
-                             true, (void*)ci);
+                                    true, (void*)ci);
 
     /* Restore reg used for unprotected_context_t pointer. */
     PRE(ilist, where, instr_create_restore_from_tls
         (dcontext, ci->spill_reg, TLS_REG2_SLOT));
+
+    /* FIXME i#2796: Restore fpcr, fpsr. */
 }
 
 void

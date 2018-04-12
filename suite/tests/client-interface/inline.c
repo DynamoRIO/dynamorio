@@ -1,5 +1,6 @@
 /* *******************************************************************************
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
+ * Copyright (c) 2018 ARM Limited. All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -50,8 +51,8 @@
          FUNCTION(nonleaf) \
          FUNCTION(cond_br) \
          FUNCTION(tls_clobber) \
-         FUNCTION(aflags_clobber) \
          FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
          LAST_FUNCTION()
 #elif defined(AARCH64)
 # define FUNCTIONS() \
@@ -59,6 +60,7 @@
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
          FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
         LAST_FUNCTION()
 #endif
 

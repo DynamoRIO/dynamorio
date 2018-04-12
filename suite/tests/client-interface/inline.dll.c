@@ -54,8 +54,8 @@
          FUNCTION(nonleaf) \
          FUNCTION(cond_br) \
          FUNCTION(tls_clobber) \
-         FUNCTION(aflags_clobber) \
          FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
          FUNCTION(bbcount) \
          LAST_FUNCTION()
 #elif defined(AARCH64)
@@ -64,6 +64,8 @@
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
          FUNCTION(bbcount) \
+         FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
          LAST_FUNCTION()
 #endif
 

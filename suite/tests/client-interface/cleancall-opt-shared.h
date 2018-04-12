@@ -798,6 +798,13 @@ AArch64 - All ones the aflags
       sets the NZCV flags (bits 31, 30, 29, 28)
       orr     x1, xzr, #0xF0000000
       msr     NZCV, x1
+
+TODO: x86 does the following when testing aflags, do the same for aarch64.
+ * save aflags
+ * set aflags to expected value
+ * clean call to test function
+ * read aflags & check if they match the expected value
+ * restore original aflags
 */
 static instrlist_t *
 codegen_aflags_clobber(void *dc)
