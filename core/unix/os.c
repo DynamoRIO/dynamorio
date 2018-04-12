@@ -6168,6 +6168,23 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
                      HEAPACCT(ACCT_THREAD_MGT));
 }
 
+static void
+set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
+{
+#ifdef STDFILE_FILENO
+    (*stdfile)->STDFILE_FILENO = file_no;
+#else
+# warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
+    /* i#1973: musl libc support (and potentially other non-glibcs) */
+    /* only called by handle_close_pre(), so warning is specific to that. */
+    SYSLOG_INTERNAL_WARNING_ONCE(
+        "DynamoRIO cannot set the file descriptors of private libc FILEs on "
+        "this platform. Client usage of stdio.h stdin, stdout, or stderr may "
+        "no longer work as expected, because the app is closing the UNIX fds "
+        "backing these.");
+#endif
+}
+
 /* returns whether to execute syscall */
 static bool
 handle_close_pre(dcontext_t *dcontext)
@@ -6204,7 +6221,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdout != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdout)->STDFILE_FILENO = our_stdout;
+            set_stdfile_fileno(privmod_stdout, our_stdout);
         }
     }
     if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
@@ -6220,7 +6237,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stderr != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stderr _fileno. */
-            (*privmod_stderr)->STDFILE_FILENO = our_stderr;
+            set_stdfile_fileno(privmod_stderr, our_stderr);
         }
     }
     if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
@@ -6236,7 +6253,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdin != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdin)->STDFILE_FILENO = our_stdin;
+            set_stdfile_fileno(privmod_stdin, our_stdin);
         }
     }
     return true;

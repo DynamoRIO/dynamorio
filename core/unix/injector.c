@@ -153,8 +153,9 @@ typedef struct _dr_inject_info_t {
 static bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path);
 
+/* "enum __ptrace_request request" is used by glibc, but musl uses "int". */
 static long
-our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+our_ptrace(int request, pid_t pid, void *addr, void *data);
 #endif
 
 /*******************************************************************************
@@ -889,7 +890,7 @@ static const enum_name_pair_t pt_req_map[] = {
  * libc from the injector process should always work.
  */
 static long
-our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
+our_ptrace(int request, pid_t pid, void *addr, void *data)
 {
     long r = dynamorio_syscall(SYS_ptrace, 4, request, pid, addr, data);
     if (verbose &&
