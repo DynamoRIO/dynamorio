@@ -161,7 +161,7 @@ find_nzcv_spill_reg(callee_info_t *ci)
 {
     int i;
     reg_id_t spill_reg = DR_REG_INVALID;
-    for (i = NUM_GP_REGS - DR_REG_START_GPR; i >= 0; i--) {
+    for (i = NUM_GP_REGS - 2; i >= 0; i--) {
         reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
         ASSERT(reg != DR_REG_XSP && "hit SP starting at x30");
         if (reg == ci->spill_reg || ci->reg_used[i])
