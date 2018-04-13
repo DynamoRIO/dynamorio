@@ -6222,7 +6222,7 @@ DR_API
  * Returns false if stats are not enabled.
  */
 bool
-dr_get_stats(dr_stats_t* drstats);
+dr_get_stats(dr_stats_t *drstats);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
