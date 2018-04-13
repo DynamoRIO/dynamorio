@@ -113,8 +113,10 @@ main(int argc, const char *argv[])
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
 
+    assert(dr_stats_get_built_blocks_count() == 0);
     success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
     assert(success);
+    assert(dr_stats_get_built_blocks_count() > 0);
 
     print("pre-DR start\n");
     dr_app_start();
