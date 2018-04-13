@@ -7595,6 +7595,13 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
     return true;
 }
 
+DR_API
+uint64
+dr_stats_get_built_blocks_count() {
+  return GLOBAL_STAT(num_bbs);
+}
+
+
 /***************************************************************************
  * PERSISTENCE
  */

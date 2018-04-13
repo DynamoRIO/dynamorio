@@ -6201,6 +6201,13 @@ DR_API
 bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count);
 
+DR_API
+/**
+ * Get the number of blocks built so far, globally. The API is not thread-safe.
+ */
+uint64
+dr_stats_get_built_blocks_count();
+
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
 
