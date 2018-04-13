@@ -7599,7 +7599,8 @@ DR_API
 bool
 dr_get_stats(dr_stats_t* drstats)
 {
-    if (!GLOBAL_STATS_ON()) return false;
+    if (!GLOBAL_STATS_ON())
+        return false;
     ASSERT(drstats != NULL);
     /* We are at V1 of the structure, and we can't return less than the one
      * field. We need to remove this assert when we add more fields.
