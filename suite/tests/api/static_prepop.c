@@ -112,11 +112,13 @@ main(int argc, const char *argv[])
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
-
-    assert(dr_stats_get_built_blocks_count() == 0);
+    dr_stats_t stats = { sizeof(dr_stats_t) };
+    assert(dr_get_stats(&stats));
+    assert(stats.basic_block_count == 0);
     success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
     assert(success);
-    assert(dr_stats_get_built_blocks_count() > 0);
+    assert(dr_get_stats(&stats));
+    assert(stats.basic_block_count > 0);
 
     print("pre-DR start\n");
     dr_app_start();

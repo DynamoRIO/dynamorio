@@ -6201,12 +6201,28 @@ DR_API
 bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count);
 
+/* DR_API EXPORT BEGIN */
+/** Used with dr_get_stats().*/
+typedef struct _dr_stats_t {
+    /** The size of this structure. Set this to sizeof(dr_stats_t). */
+    size_t size;
+    /** The total number of basic blocks ever built so far, globally. This
+     *  includes duplicates and blocks that were deleted for consistency
+     *  or capacity reasons or thread-private caches.
+     */
+    uint64 basic_block_count;
+} dr_stats_t;
+/* DR_API EXPORT END */
+
 DR_API
 /**
  * Get the number of blocks built so far, globally. The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
+ * value, with the size field set (see dr_stats_t).
+ * Returns false if stats are not enabled.
  */
-uint64
-dr_stats_get_built_blocks_count();
+bool
+dr_get_stats(dr_stats_t* drstats);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
