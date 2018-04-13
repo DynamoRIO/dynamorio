@@ -184,7 +184,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     ci->num_simd_used = 0;
     memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
     ci->write_flags = false;
-    ci->read_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
@@ -235,17 +234,9 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
             ci->write_flags = true;
         }
-
-        if (!ci->read_flags && TESTANY(EFLAGS_READ_ARITH,
-                instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" reads aflags from caller\n",
-                ci->start);
-            ci->read_flags = true;
-        }
     }
 
-    if (ci->read_flags || ci->write_flags) {
+    if (ci->write_flags) {
         callee_info_reserve_slot(ci, SLOT_FLAGS, 0);
     }
 }
