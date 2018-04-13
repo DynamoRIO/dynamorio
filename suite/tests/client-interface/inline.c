@@ -45,13 +45,13 @@
          FUNCTION(empty) \
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
          FUNCTION(gcc47_inscount) \
          FUNCTION(callpic_pop) \
          FUNCTION(callpic_mov) \
          FUNCTION(nonleaf) \
          FUNCTION(cond_br) \
          FUNCTION(tls_clobber) \
-         FUNCTION(compiler_inscount) \
          FUNCTION(aflags_clobber) \
          LAST_FUNCTION()
 #elif defined(AARCH64)
