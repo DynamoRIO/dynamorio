@@ -1420,6 +1420,14 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
         LOG(THREAD, LOG_ASYNCH, 2,
             "prior handler is "PFX" vs master "PFX" with flags=0x%x for signal %d\n",
             oldact.handler, master_signal_handler, oldact.flags, sig);
+        if (info->app_sigaction[sig] != NULL) {
+            if (info->shared_app_sigaction)
+                mutex_lock(info->shared_lock);
+            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
+            info->app_sigaction[sig] = NULL;
+            if (info->shared_app_sigaction)
+                mutex_unlock(info->shared_lock);
+        }
     }
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }
@@ -6276,13 +6284,21 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
     ASSERT(info != NULL && info->itimer != NULL);
     ASSERT(which >= 0 && which < NUM_ITIMERS);
     if (enable) {
+        LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
+            ", value="INT64_FORMAT_STRING"\n", which,
+            (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
+        if (!dynamo_initialized) {
+            /* i#2907: we have no signal handlers until we start the app (i#2335)
+             * so we can't set up an itimer until then.  start_itimer() called
+             * from os_thread_under_dynamo() will enable it.
+             */
+            LOG(THREAD, LOG_ASYNCH, 2, "delaying itimer until attach\n");
+            return true;
+        }
         ASSERT(!info->shared_itimer ||
                self_owns_recursive_lock(info->shared_itimer_lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
         usec_to_timeval((*info->itimer)[which].actual.value, &val.it_value);
-        LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
-            ", value="INT64_FORMAT_STRING"\n", which,
-            (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2, "disabling itimer %d\n", which);
         memset(&val, 0, sizeof(val));

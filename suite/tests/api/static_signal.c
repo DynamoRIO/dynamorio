@@ -124,6 +124,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_bb_event(event_bb);
     dr_register_signal_event(event_signal);
     dr_register_exit_event(event_exit);
+    /* i#2907: Try to trigger signal itimer issues between init and attach by delaying
+     * attach.  We don't want to lengthen the test suite so we keep this smaller than
+     * ideal for manually reproducing every time: it will still catch races, just
+     * not every run.
+     */
+    for (int i = 0; i < 100000; ++i)
+        sched_yield();
 }
 
 static int
@@ -138,6 +145,16 @@ do_some_work(void)
     return (val > 0);
 }
 
+bool
+my_setenv(const char *var, const char *value)
+{
+#ifdef UNIX
+    return setenv(var, value, 1/*override*/) == 0;
+#else
+    return SetEnvironmentVariable(var, value) == TRUE;
+#endif
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -145,6 +162,11 @@ main(int argc, const char *argv[])
     struct itimerval timer;
     sigset_t mask;
     int rc;
+
+    /* Enable an itimer to test i#2907. */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-prof_pcs -stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
+
     intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
     intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
     thread_ready = create_cond_var();
