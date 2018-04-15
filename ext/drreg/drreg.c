@@ -138,7 +138,7 @@ drreg_restore_reg_now(void *drcontext, instrlist_t *ilist, instr_t *inst,
 
 static void
 drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
-                           instr_t *where, per_thread_t *pt);
+                           instr_t *where, per_thread_t *pt, bool stateful);
 
 static drreg_status_t
 drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -202,6 +202,8 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
            /* aflags can be saved and restored using different regs */
            slot == AFLAGS_SLOT,
            "internal tracking error");
+    if (slot == AFLAGS_SLOT)
+        pt->aflags.ever_spilled = true;
     pt->slot_use[slot] = reg;
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
@@ -474,7 +476,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     pt->pending_unreserved--;
                 } else if (pt->aflags.xchg == reg) {
                     /* Bail on keeping the flags in the reg. */
-                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
+                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt, true);
                 } else {
                     /* We need to move the tool's value somewhere else.
                      * We use a separate slot for that (and we document that
@@ -535,7 +537,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 #ifdef X86
             if (pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use &&
                 pt->aflags.xchg == DR_REG_XAX)
-                drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
+                drreg_move_aflags_from_reg(drcontext, bb, inst, pt, true);
 #endif
             pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
             pt->aflags.native = true;
@@ -554,7 +556,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 uint tmp_slot = MAX_SPILLS;
                 if (pt->aflags.xchg == reg) {
                     /* Bail on keeping the flags in the reg. */
-                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt);
+                    drreg_move_aflags_from_reg(drcontext, bb, inst, pt, true);
                     continue;
                 }
                 if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
@@ -819,7 +821,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                 LOG(drcontext, DR_LOG_ALL, 3,
                     "%s @%d."PFX": taking xax from unreserved aflags\n",
                     __FUNCTION__, pt->live_idx, get_where_app_pc(where));
-                drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
+                drreg_move_aflags_from_reg(drcontext, ilist, where, pt, true);
                 reg = DR_REG_XAX;
             } else
 #endif
@@ -903,8 +905,8 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 drreg_status_t
-drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t app_reg, reg_id_t dst_reg)
+drreg_restore_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t app_reg, reg_id_t dst_reg, bool stateful)
 {
     per_thread_t *pt = get_tls_data(drcontext);
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
@@ -963,17 +965,25 @@ drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX": getting app value for %s\n",
         __FUNCTION__, pt->live_idx, get_where_app_pc(where), get_register_name(app_reg));
+    /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here. */
     if (pt->aflags.xchg == app_reg) {
         /* Bail on keeping the flags in the reg. */
-        drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
+        drreg_move_aflags_from_reg(drcontext, ilist, where, pt, stateful);
     } else {
         restore_reg(drcontext, pt, app_reg, pt->reg[GPR_IDX(app_reg)].slot,
-                    ilist, where, !pt->reg[GPR_IDX(app_reg)].in_use);
-        if (!pt->reg[GPR_IDX(app_reg)].in_use)
+                    ilist, where, stateful && !pt->reg[GPR_IDX(app_reg)].in_use);
+        if (stateful && !pt->reg[GPR_IDX(app_reg)].in_use)
             pt->reg[GPR_IDX(app_reg)].native = true;
     }
     instrlist_set_auto_predicate(ilist, pred);
     return DRREG_SUCCESS;
+}
+
+drreg_status_t
+drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
+                    reg_id_t app_reg, reg_id_t dst_reg)
+{
+    return drreg_restore_app_value(drcontext, ilist, where, app_reg, dst_reg, true);
 }
 
 drreg_status_t
@@ -1024,6 +1034,43 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
     instrlist_set_auto_predicate(ilist, pred);
     return (no_app_value ? DRREG_ERROR_NO_APP_VALUE : DRREG_SUCCESS);
+}
+
+drreg_status_t
+drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
+                                    instr_t *where_restore, instr_t *where_respill,
+                                    bool *restore_needed OUT, bool *respill_needed OUT)
+{
+    per_thread_t *pt = get_tls_data(drcontext);
+    drreg_status_t res;
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d."PFX" %s\n", __FUNCTION__, pt->live_idx,
+        get_where_app_pc(where_restore), get_register_name(reg));
+    if (where_restore == NULL || where_respill == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+    if (reg == DR_REG_NULL) {
+        res = drreg_restore_aflags(drcontext, ilist, where_restore, pt, false);
+    } else {
+        if (!reg_is_pointer_sized(reg) || reg == dr_get_stolen_reg())
+            return DRREG_ERROR_INVALID_PARAMETER;
+        res = drreg_restore_app_value(drcontext, ilist, where_restore, reg, reg, false);
+    }
+    if (restore_needed != NULL)
+        *restore_needed = (res == DRREG_SUCCESS);
+    if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
+        return res;
+    /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here. */
+#ifdef X86
+    if (pt->aflags.xchg == reg) {
+        pt->slot_use[AFLAGS_SLOT] = DR_REG_XAX; /* appease assert */
+        restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where_respill, false);
+        pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
+        if (respill_needed != NULL)
+            *respill_needed = true;
+    } else
+#endif
+        if (respill_needed != NULL)
+            *respill_needed = false;
+    return res;
 }
 
 static drreg_status_t
@@ -1085,34 +1132,74 @@ drreg_status_t
 drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
                        bool *is_dr_slot OUT, uint *tls_offs OUT)
 {
+    drreg_reserve_info_t info = {sizeof(info),};
     per_thread_t *pt = get_tls_data(drcontext);
-    uint slot;
-    if (!pt->reg[GPR_IDX(reg)].in_use)
+    if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR || !pt->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
-    slot = pt->reg[GPR_IDX(reg)].slot;
-    ASSERT(pt->slot_use[slot] == reg, "internal tracking error");
+    drreg_status_t res = drreg_reservation_info_ex(drcontext, reg, &info);
+    if (res != DRREG_SUCCESS)
+        return res;
+    if (opnd != NULL)
+        *opnd = info.opnd;
+    if (is_dr_slot != NULL)
+        *is_dr_slot = info.is_dr_slot;
+    if (tls_offs != NULL)
+        *tls_offs = info.tls_offs;
+    return DRREG_SUCCESS;
+}
 
-    if (slot < ops.num_spill_slots) {
-        if (opnd != NULL)
-            *opnd = dr_raw_tls_opnd(drcontext, tls_seg, tls_slot_offs);
-        if (is_dr_slot != NULL)
-            *is_dr_slot = false;
-        if (tls_offs != NULL)
-            *tls_offs = tls_slot_offs + slot*sizeof(reg_t);
+drreg_status_t
+drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT)
+{
+    if (info == NULL || info->size != sizeof(drreg_reserve_info_t))
+        return DRREG_ERROR_INVALID_PARAMETER;
+    per_thread_t *pt = get_tls_data(drcontext);
+    reg_info_t *reg_info;
+    if (reg == DR_REG_NULL)
+        reg_info = &pt->aflags;
+    else {
+        if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR)
+            return DRREG_ERROR_INVALID_PARAMETER;
+        reg_info = &pt->reg[GPR_IDX(reg)];
+    }
+    info->reserved = reg_info->in_use;
+    info->holds_app_value = reg_info->native;
+    if (reg_info->native) {
+        info->app_value_retained = false;
+        info->opnd = opnd_create_null();
+        info->is_dr_slot = false;
+        info->tls_offs = -1;
+    } else if (reg_info->xchg != DR_REG_NULL) {
+        info->app_value_retained = true;
+        info->opnd = opnd_create_reg(reg_info->xchg);
+        info->is_dr_slot = false;
+        info->tls_offs = -1;
     } else {
-        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
-        if (opnd != NULL) {
-            if (DR_slot < dr_max_opnd_accessible_spill_slot())
-                *opnd = dr_reg_spill_slot_opnd(drcontext, DR_slot);
-            else {
-                /* Multi-step so no single opnd */
-                *opnd = opnd_create_null();
+        info->app_value_retained = reg_info->ever_spilled;
+        uint slot = reg_info->slot;
+        if ((reg == DR_REG_NULL && !reg_info->native &&
+             pt->slot_use[slot] != DR_REG_NULL) ||
+            (reg != DR_REG_NULL && pt->slot_use[slot] == reg)) {
+            if (slot < ops.num_spill_slots) {
+                info->opnd = dr_raw_tls_opnd(drcontext, tls_seg, tls_slot_offs);
+                info->is_dr_slot = false;
+                info->tls_offs = tls_slot_offs + slot*sizeof(reg_t);
+            } else {
+                dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
+                if (DR_slot < dr_max_opnd_accessible_spill_slot())
+                    info->opnd = dr_reg_spill_slot_opnd(drcontext, DR_slot);
+                else {
+                    /* Multi-step so no single opnd */
+                    info->opnd = opnd_create_null();
+                }
+                info->is_dr_slot = true;
+                info->tls_offs = DR_slot;
             }
+        } else {
+            info->opnd = opnd_create_null();
+            info->is_dr_slot = false;
+            info->tls_offs = -1;
         }
-        if (is_dr_slot != NULL)
-            *is_dr_slot = true;
-        if (tls_offs != NULL)
-            *tls_offs = DR_slot;
     }
     return DRREG_SUCCESS;
 }
@@ -1158,10 +1245,10 @@ drreg_set_bb_properties(void *drcontext, drreg_bb_properties_t flags)
  */
 static void
 drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
-                           instr_t *where, per_thread_t *pt)
+                           instr_t *where, per_thread_t *pt, bool stateful)
 {
 #ifdef X86
-    if (pt->aflags.in_use) {
+    if (pt->aflags.in_use || !stateful) {
         LOG(drcontext, DR_LOG_ALL, 3,
             "%s @%d."PFX": moving aflags from xax to slot\n", __FUNCTION__,
             pt->live_idx, get_where_app_pc(where));
@@ -1184,13 +1271,15 @@ drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist,
         drvector_get_entry(&pt->reg[DR_REG_XAX-DR_REG_START_GPR].live, pt->live_idx)
         == REG_LIVE) {
         restore_reg(drcontext, pt, DR_REG_XAX,
-                    pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot, ilist, where, true);
-    } else
+                    pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot, ilist, where, stateful);
+    } else if (stateful)
         pt->slot_use[pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot] = DR_REG_NULL;
-    pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = false;
-    pt->reg[DR_REG_XAX-DR_REG_START_GPR].native = true;
-    pt->reg[DR_REG_XAX-DR_REG_START_GPR].ever_spilled = false;
-    pt->aflags.xchg = DR_REG_NULL;
+    if (stateful) {
+        pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use = false;
+        pt->reg[DR_REG_XAX-DR_REG_START_GPR].native = true;
+        pt->reg[DR_REG_XAX-DR_REG_START_GPR].ever_spilled = false;
+        pt->aflags.xchg = DR_REG_NULL;
+    }
 #endif
 }
 
@@ -1292,6 +1381,8 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use,
         pt->reg[DR_REG_XAX-DR_REG_START_GPR].slot,
         get_register_name(pt->aflags.xchg));
+    if (pt->aflags.native)
+        return DRREG_SUCCESS;
     if (pt->aflags.xchg == DR_REG_XAX) {
         ASSERT(pt->reg[DR_REG_XAX-DR_REG_START_GPR].in_use, "eflags-in-xax error");
     } else {
@@ -1430,7 +1521,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
         /* XXX i#2585: drreg should predicate spills and restores as appropriate */
         instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
         if (pt->aflags.xchg != DR_REG_NULL)
-            drreg_move_aflags_from_reg(drcontext, ilist, where, pt);
+            drreg_move_aflags_from_reg(drcontext, ilist, where, pt, true);
         else if (!pt->aflags.native) {
             drreg_restore_aflags(drcontext, ilist, where, pt, true/*release*/);
             pt->aflags.native = true;
@@ -1667,9 +1758,9 @@ tls_data_init(per_thread_t *pt)
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         drvector_init(&pt->reg[GPR_IDX(reg)].live, 20,
                       false/*!synch*/, NULL);
-        pt->aflags.native = true;
         pt->reg[GPR_IDX(reg)].native = true;
     }
+    pt->aflags.native = true;
     drvector_init(&pt->aflags.live, 20, false/*!synch*/, NULL);
 }
 
