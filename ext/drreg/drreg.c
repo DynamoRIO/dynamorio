@@ -1059,14 +1059,17 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
     /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here. */
+#ifdef X86
     if (pt->aflags.xchg == reg) {
         pt->slot_use[AFLAGS_SLOT] = DR_REG_XAX; /* appease assert */
         restore_reg(drcontext, pt, DR_REG_XAX, AFLAGS_SLOT, ilist, where_respill, false);
         pt->slot_use[AFLAGS_SLOT] = DR_REG_NULL;
         if (respill_needed != NULL)
             *respill_needed = true;
-    } else if (respill_needed != NULL)
-        *respill_needed = false;
+    } else
+#endif
+        if (respill_needed != NULL)
+            *respill_needed = false;
     return res;
 }
 
