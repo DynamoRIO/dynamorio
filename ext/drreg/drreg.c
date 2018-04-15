@@ -1591,6 +1591,72 @@ drreg_restore_app_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
  */
 
 static bool
+is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
+                        reg_id_t *reg_spilled OUT, uint *slot_out OUT,
+                        uint *offs_out OUT)
+{
+    bool tls;
+    uint slot, offs;
+    reg_id_t reg;
+    if (!instr_is_reg_spill_or_restore(drcontext, instr, &tls, spill, &reg, &offs))
+        return false;
+    /* Is this from our raw TLS? */
+    if (tls && offs >= tls_slot_offs &&
+        offs < (tls_slot_offs + ops.num_spill_slots*sizeof(reg_t))) {
+        slot = (offs - tls_slot_offs) / sizeof(reg_t);
+    } else {
+        /* We assume a DR spill slot, in TLS or thread-private mcontext */
+        if (tls) {
+            /* We assume the DR slots are either low-to-high or high-to-low. */
+            uint DR_min_offs =
+                opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
+            uint DR_max_offs =
+                opnd_get_disp(dr_reg_spill_slot_opnd
+                              (drcontext, dr_max_opnd_accessible_spill_slot()));
+            if (DR_min_offs > DR_max_offs)
+                DR_min_offs = DR_max_offs;
+            slot = (offs - DR_min_offs) / sizeof(reg_t);
+            if (slot > dr_max_opnd_accessible_spill_slot()) {
+                /* This is not a drreg spill, but some TLS access by
+                 * tool instrumentation (i#2035).
+                 */
+                return false;
+            }
+        } else {
+            /* We assume mcontext spill offs is 0 */
+            slot = offs / sizeof(reg_t);
+        }
+        slot += ops.num_spill_slots;
+    }
+    if (reg_spilled != NULL)
+        *reg_spilled = reg;
+    if (slot_out != NULL)
+        *slot_out = slot;
+    if (offs_out != NULL)
+        *offs_out = offs;
+    return true;
+}
+
+drreg_status_t
+drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
+                                bool *restore OUT, reg_id_t *reg_spilled OUT)
+{
+    bool is_spill;
+    if (!is_our_spill_or_restore(drcontext, instr, &is_spill, reg_spilled, NULL, NULL)) {
+        if (spill != NULL)
+            *spill = false;
+        if (restore != NULL)
+            *restore = false;
+        return DRREG_SUCCESS;
+    }
+    if (spill != NULL)
+        *spill = is_spill;
+    if (restore != NULL)
+        *restore = !is_spill;
+    return DRREG_SUCCESS;
+}
+
+static bool
 drreg_event_restore_state(void *drcontext, bool restore_memory,
                           dr_restore_state_info_t *info)
 {
@@ -1608,11 +1674,12 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     instr_t inst;
     byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
     uint offs;
-    bool spill, tls;
+    bool spill;
 #ifdef X86
     bool prev_xax_spill = false;
     bool aflags_in_xax = false;
 #endif
+    uint slot;
     if (pc == NULL)
         return true; /* fault not in cache */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
@@ -1625,31 +1692,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         prev_pc = pc;
         pc = decode(drcontext, pc, &inst);
 
-        /* XXX i#511: if we add xchg to our arsenal we'll have to detect it here */
-        if (instr_is_reg_spill_or_restore(drcontext, &inst, &tls, &spill, &reg, &offs)) {
-            uint slot;
-            /* Is this from our raw TLS? */
-            if (tls && offs >= tls_slot_offs &&
-                offs < (tls_slot_offs + ops.num_spill_slots*sizeof(reg_t))) {
-                slot = (offs - tls_slot_offs) / sizeof(reg_t);
-            } else {
-                /* We assume a DR spill slot, in TLS or thread-private mcontext */
-                if (tls) {
-                    uint DR_min_offs =
-                        opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
-                    slot = (offs - DR_min_offs) / sizeof(reg_t);
-                    if (slot > SPILL_SLOT_MAX) {
-                        /* This is not a drreg spill, but some TLS access by
-                         * tool instrumentation (i#2035).
-                         */
-                        continue;
-                    }
-                } else {
-                    /* We assume mcontext spill offs is 0 */
-                    slot = offs / sizeof(reg_t);
-                }
-                slot += ops.num_spill_slots;
-            }
+        if (is_our_spill_or_restore(drcontext, &inst, &spill, &reg, &slot, &offs)) {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @"PFX" found %s to %s offs=0x%x => slot %d\n",
                 __FUNCTION__, prev_pc, spill ? "spill" : "restore",
