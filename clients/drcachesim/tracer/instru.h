@@ -62,6 +62,8 @@ public:
         instr_size(instruction_size) {}
     virtual ~instru_t() {}
 
+    instru_t &operator=(instru_t&) = delete;
+
     size_t sizeof_entry() const { return instr_size; }
 
     virtual trace_type_t get_entry_type(byte *buf_ptr) const = 0;
