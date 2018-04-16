@@ -1622,8 +1622,18 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                  */
                 return false;
             }
+            if (slot > 1) {
+                /* FIXME i#2933: We rule out the 3rd DR TLS slot b/c it's used by
+                 * DR for purposes where there's no restore paired with a spill.
+                 * Another tool component could also use the other slots that way,
+                 * though: we need a more foolproof solution.  For now we have a hole
+                 * and tools should allocate enough dedicated drreg TLS slots to
+                 * ensure robustness.
+                 */
+                return false;
+            }
         } else {
-            /* We assume mcontext spill offs is 0 */
+            /* We assume mcontext spill offs is 0-based. */
             slot = offs / sizeof(reg_t);
         }
         slot += ops.num_spill_slots;
