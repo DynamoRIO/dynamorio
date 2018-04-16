@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -389,7 +389,7 @@ DR_EXPORT
  * application instruction that reads \p app_reg, but sometimes
  * instrumentation needs to read the application value of a register
  * that has been reserved.  If \p app_reg is a dead register,
- * DRREG_ERROR_NO_APP_VALUE may be returned. Set \p conservative in \p
+ * #DRREG_ERROR_NO_APP_VALUE may be returned. Set \p conservative in \p
  * drreg_options_t to avoid this error.
  *
  * If called during drmgr's insertion phase, \p where must be the
@@ -436,6 +436,43 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
+ * This routine is meant for use with instrumentation that uses separate control flow
+ * paths, such as a fastpath and a slowpath, where the slowpath needs access to the
+ * full application state yet must retain scratch register parity with the fastpath.
+ * The application value for \p reg is restored into \p reg at \p where_restore, but
+ * internal drreg state is not updated to reflect this.  Furthermore, if doing so
+ * affects subsequent behavior, such as when \p reg is being used to hold the
+ * preserved application value for another register or flags, instructions are
+ * inserted at \p where_respill to restore the state, such that \p where_respill will
+ * operate correctly whether \p where_restore was executed or not.  The optional
+ * output parameters \p restore_needed and \p respill_needed are set to indicate
+ * whether instructions were inserted at \p where_restore and \p where_respill,
+ * respectively.
+ *
+ * The results from drreg_reservation_info_ex() can be used to predict the behavior
+ * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.
+ * and drreg_reserve_info_t.app_value_retained.  A respill is needed if a restore is
+ * needed and drreg_reserve_info_t.opnd is a register.
+ *
+ * If \p app_reg is a dead register, #DRREG_ERROR_NO_APP_VALUE may be returned. Set
+ * \p conservative in \p drreg_options_t to avoid this error.
+ *
+ * If called during drmgr's insertion phase, \p where must be the
+ * current application instruction.
+ *
+ * To restore the arithmetic flags, pass #DR_REG_NULL for \p reg.
+ *
+ * On ARM, passing \p reg equal to dr_get_stolen_reg() is not supported.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
+                                    instr_t *where_restore, instr_t *where_respill,
+                                    bool *restore_needed OUT, bool *respill_needed OUT);
+
+DR_EXPORT
+/**
  * Returns information about the TLS slot assigned to \p reg, which
  * must be a currently-reserved register.
  *
@@ -457,6 +494,57 @@ DR_EXPORT
 drreg_status_t
 drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
                        bool *is_dr_slot OUT, uint *tls_offs OUT);
+
+/**
+ * Contains information about a register's reservation and restoration status.
+ */
+typedef struct _drreg_reserve_info_t {
+    /** The size of this structure.  It must be set by the caller before querying. */
+    size_t size;
+    /** Whether the register is currently reserved. */
+    bool reserved;
+    /** Whether the register currently holds the application value. */
+    bool holds_app_value;
+    /**
+     * Whether the application's value is stored somewhere (it may not be if the
+     * register is dead and \p conservative is not set in \p drreg_options_t).
+     */
+    bool app_value_retained;
+    /**
+     * True if the register's TLS slot is a DR slot (and can thus be accessed by
+     * dr_read_saved_reg()) and false if either the slot is inside the
+     * dr_raw_tls_calloc() allocation used by drreg or the "slot" is another
+     * register.
+     */
+    bool is_dr_slot;
+    /**
+     * An operand that references the location storing the application value.  If
+     * too many slots are in use and the register is stored in a
+     * non-directly-addressable slot, this is set to a null #opnd_t.
+     * If the register is being kept in a different register, this will be a
+     * register operand holding that location.
+     * If \p app_value_retained is false, this is set to a null #opnd_t.
+     */
+    opnd_t opnd;
+    /**
+     * If the register's application value is not stored in a TLS slot, this is -1.
+     * If so, and the slot is a DR slot, this holds the DR slot index; if it is not a
+     * DR slot, this holds the offset from the TLS base of the slot assigned to the
+     * register.
+     */
+    int tls_offs;
+} drreg_reserve_info_t;
+
+DR_EXPORT
+/**
+ * Returns information about the reservation and restoration status of
+ * \p reg.  The \p size field of \p info must be set before calling.
+ * To query information about the arithmetic flags, pass #DR_REG_NULL for \p reg.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT);
 
 DR_EXPORT
 /**
