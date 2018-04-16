@@ -9219,7 +9219,10 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 
     /* now that we've walked memory print all modules */
     LOG(GLOBAL, LOG_VMAREAS, 2, "Module list after memory walk\n");
-    DOLOG(1, LOG_VMAREAS, { print_modules(GLOBAL, DUMP_NOT_XML); });
+    DOLOG(1, LOG_VMAREAS, {
+        if (add_modules)
+            print_modules(GLOBAL, DUMP_NOT_XML);
+    });
 
     return count;
 }
