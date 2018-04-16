@@ -46,7 +46,7 @@ online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                  bool memref_needs_info,
                                  drvector_t *reg_vector)
     : instru_t(insert_load_buf, memref_needs_info, reg_vector,
-               sizeof(offline_entry_t))
+               sizeof(trace_entry_t))
 {
 }
 

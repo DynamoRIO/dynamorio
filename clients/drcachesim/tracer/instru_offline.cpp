@@ -59,7 +59,7 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                                          size_t count),
                                    file_t module_file)
   : instru_t(insert_load_buf, memref_needs_info, reg_vector,
-             sizeof(trace_entry_t)),
+             sizeof(offline_entry_t)),
     write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
