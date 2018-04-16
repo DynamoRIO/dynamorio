@@ -62,7 +62,7 @@ public:
         instr_size(instruction_size) {}
     virtual ~instru_t() {}
 
-    size_t sizeof_entry() const { return instr_size; };
+    size_t sizeof_entry() const { return instr_size; }
 
     virtual trace_type_t get_entry_type(byte *buf_ptr) const = 0;
     virtual size_t get_entry_size(byte *buf_ptr) const = 0;
