@@ -58,7 +58,8 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                                          const void *data,
                                                          size_t count),
                                    file_t module_file)
-  : instru_t(insert_load_buf, memref_needs_info, reg_vector),
+  : instru_t(insert_load_buf, memref_needs_info, reg_vector,
+             sizeof(offline_entry_t)),
     write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
@@ -168,12 +169,6 @@ offline_instru_t::custom_module_data
     user_print = print_cb;
     user_free = free_cb;
     return true;
-}
-
-size_t
-offline_instru_t::sizeof_entry() const
-{
-    return sizeof(offline_entry_t);
 }
 
 trace_type_t
