@@ -5726,12 +5726,9 @@ dr_read_saved_reg(void *drcontext, dr_spill_slot_t slot)
                   "dr_read_saved_reg: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_read_saved_reg: invalid spill slot selection");
-
-    /* FIXME - should we allow clients to read other threads saved registers? It's not
-     * as dangerous as write, but I can't think of a usage scenario where you'd want to
-     * Seems more likely to be a bug.  */
-    CLIENT_ASSERT(dcontext == get_thread_private_dcontext(),
-                  "dr_read_saved_reg(): drcontext does not belong to current thread");
+    /* We do allow drcontext to not belong to the current thread, for state restoration
+     * during synchall and other scenarios.
+     */
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = SPILL_SLOT_TLS_OFFS[slot];
@@ -5754,12 +5751,9 @@ dr_write_saved_reg(void *drcontext, dr_spill_slot_t slot, reg_t value)
                   "dr_write_saved_reg: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_write_saved_reg: invalid spill slot selection");
-
-    /* FIXME - should we allow clients to write to other threads saved registers?
-     * I can't think of a usage scenario where that would be correct, seems much more
-     * likely to be a difficult to diagnose bug that crashes the app or dr.  */
-    CLIENT_ASSERT(dcontext == get_thread_private_dcontext(),
-                  "dr_write_saved_reg(): drcontext does not belong to current thread");
+    /* We do allow drcontext to not belong to the current thread, for state restoration
+     * during synchall and other scenarios.
+     */
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = SPILL_SLOT_TLS_OFFS[slot];
