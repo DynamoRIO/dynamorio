@@ -1134,9 +1134,10 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 {
     drreg_reserve_info_t info = {sizeof(info),};
     per_thread_t *pt = get_tls_data(drcontext);
+    drreg_status_t res;
     if (reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR || !pt->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
-    drreg_status_t res = drreg_reservation_info_ex(drcontext, reg, &info);
+    res = drreg_reservation_info_ex(drcontext, reg, &info);
     if (res != DRREG_SUCCESS)
         return res;
     if (opnd != NULL)
@@ -1151,10 +1152,11 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
 drreg_status_t
 drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT)
 {
+    per_thread_t *pt;
+    reg_info_t *reg_info;
     if (info == NULL || info->size != sizeof(drreg_reserve_info_t))
         return DRREG_ERROR_INVALID_PARAMETER;
-    per_thread_t *pt = get_tls_data(drcontext);
-    reg_info_t *reg_info;
+    pt = get_tls_data(drcontext);
     if (reg == DR_REG_NULL)
         reg_info = &pt->aflags;
     else {
@@ -1616,13 +1618,15 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
             if (DR_min_offs > DR_max_offs)
                 DR_min_offs = DR_max_offs;
             slot = (offs - DR_min_offs) / sizeof(reg_t);
-            if (slot > dr_max_opnd_accessible_spill_slot()) {
+            uint max_DR_slot = (uint) dr_max_opnd_accessible_spill_slot();
+            if (slot > max_DR_slot) {
                 /* This is not a drreg spill, but some TLS access by
                  * tool instrumentation (i#2035).
                  */
                 return false;
             }
-            if (slot > 1) {
+#ifdef X86
+            if (slot > max_DR_slot - 1) {
                 /* FIXME i#2933: We rule out the 3rd DR TLS slot b/c it's used by
                  * DR for purposes where there's no restore paired with a spill.
                  * Another tool component could also use the other slots that way,
@@ -1632,6 +1636,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                  */
                 return false;
             }
+#endif
         } else {
             /* We assume mcontext spill offs is 0-based. */
             slot = offs / sizeof(reg_t);
