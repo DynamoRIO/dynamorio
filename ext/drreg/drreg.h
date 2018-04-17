@@ -580,6 +580,22 @@ DR_EXPORT
 drreg_status_t
 drreg_set_bb_properties(void *drcontext, drreg_bb_properties_t flags);
 
+DR_EXPORT
+/**
+ * Analyzes \p instr and returns whether it is a drreg register spill
+ * in \p spill, a drreg register restore in \p restore, and which
+ * register is being spilled or restored in \p reg_spilled.  Each
+ * output parameter is optional and may be NULL.  If DR's spill slots
+ * are being used (see drreg_options_t.num_spill_slots), this routine
+ * may not be able to distinguish a drreg spill or restore from some
+ * other spill or restore.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
+                                bool *restore OUT, reg_id_t *reg_spilled OUT);
+
 
 /*@}*/ /* end doxygen group */
 
