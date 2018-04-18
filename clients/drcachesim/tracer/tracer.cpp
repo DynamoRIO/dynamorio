@@ -460,7 +460,7 @@ memtrace(void *drcontext, bool skip_size_cap)
             write_trace_data(drcontext, pipe_start, buf_ptr);
         }
         auto span = buf_ptr - (data->buf_base + header_size);
-        DR_ASSERT(0 == span % instru->sizeof_entry());
+        DR_ASSERT(span % instru->sizeof_entry() == 0);
         current_num_refs = span / instru->sizeof_entry();
         data->num_refs += current_num_refs;
     }
