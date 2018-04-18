@@ -228,6 +228,8 @@ Further non-compatibility-affecting changes include:
    of built basic blocks.
  - Added drreg_reservation_info_ex(), drreg_statelessly_restore_app_value(),
    and drreg_is_instr_spill_or_restore().
+ - Module tracking allocates an entry per segment for each loaded module.
+   File offsets for each segment are recorded in modules.log.
 
 **************************************************
 <hr>
