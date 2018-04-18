@@ -1811,6 +1811,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
             copy->segments[i].start = os_segments[i].start;
             copy->segments[i].end = os_segments[i].end;
             copy->segments[i].prot = os_segments[i].prot;
+            copy->segments[i].offset = os_segments[i].offset;
         }
     } else {
         ASSERT(segments != NULL);
