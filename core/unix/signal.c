@@ -6896,6 +6896,15 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
     if (ostd->suspend_count == 0 || ostd->suspended_sigcxt != NULL)
         return true; /* pass to app */
 
+    /* XXX: we're not setting DR_WHERE_SIGNAL_HANDLER in enough places.
+     * It's trickier than other whereamis b/c we want to resume the
+     * prior whereami when we return from the handler, but there are
+     * complex control paths that do not always return.
+     * We try to at least do it for the ksynch_wait here.
+     */
+    dr_where_am_i_t prior_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SIGNAL_HANDLER;
+
     sig_full_initialize(&sc_full, ucxt);
     ostd->suspended_sigcxt = &sc_full;
 
@@ -6945,6 +6954,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
     ksynch_set_value(&ostd->suspended, 0); /*reset prior to signalling os_thread_resume*/
     ksynch_set_value(&ostd->resumed, 1);
     ksynch_wake_all(&ostd->resumed);
+
+    dcontext->whereami = prior_whereami;
 
     if (ostd->retakeover) {
         ostd->retakeover = false;

@@ -1200,11 +1200,14 @@ fcache_refine_whereami(dcontext_t *dcontext, dr_where_am_i_t whereami, app_pc pc
              * It's all generated and post-process can't identify.
              * Assume code order is as follows:
              */
-            if (in_context_switch_code(dcontext, (cache_pc)pc)) {
-                whereami = DR_WHERE_CONTEXT_SWITCH;
-            } else if (in_indirect_branch_lookup_code(dcontext,
-                                                      (cache_pc)pc)) {
+            if (in_indirect_branch_lookup_code(dcontext, (cache_pc)pc)) {
                 whereami = DR_WHERE_IBL;
+            } else if (in_generated_routine(dcontext, (cache_pc)pc)) {
+                /* We consider any non-ibl generated code as "context switch":
+                 * not just private or shared fcache_{enter,return} but also
+                 * do_syscall and other common transition code.
+                 */
+                whereami = DR_WHERE_CONTEXT_SWITCH;
             } else {
                 whereami = DR_WHERE_UNKNOWN;
             }
