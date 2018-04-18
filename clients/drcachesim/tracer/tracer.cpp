@@ -368,7 +368,7 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
     size_t header_size = 0;
-    uint num_refs = 0;
+    uint current_num_refs = 0;
 
     buf_ptr = BUF_PTR(data->seg_base);
     // For online we already wrote the thread header but for offline it is in
@@ -394,10 +394,9 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
-             mem_ref += instru->sizeof_entry()) {
-            num_refs++;
-            if (have_phys && op_use_physical.get_value()) {
+        if (have_phys && op_use_physical.get_value()) {
+          for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
+               mem_ref += instru->sizeof_entry()) {
                 trace_type_t type = instru->get_entry_type(mem_ref);
                 if (type != TRACE_TYPE_THREAD &&
                     type != TRACE_TYPE_THREAD_EXIT &&
@@ -418,7 +417,10 @@ memtrace(void *drcontext, bool skip_size_cap)
                     }
                 }
             }
-            if (!op_offline.get_value()) {
+        }
+        if (!op_offline.get_value()) {
+            for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
+                 mem_ref += instru->sizeof_entry()) {
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
                 // We can only split before TRACE_TYPE_INSTR, assuming only a few data
                 // entries in between instr entries.
@@ -432,16 +434,12 @@ memtrace(void *drcontext, bool skip_size_cap)
                     // An alternative is to have the reader use per-thread state.
                     if ((mem_ref + (1+MAX_NUM_DELAY_ENTRIES)*instru->sizeof_entry()
                          - pipe_start) > ipc_pipe.get_atomic_write_size()) {
-                        DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
-                                                        (pipe_start+header_size)));
-                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
+                      DR_ASSERT(is_ok_to_split_before(instru->get_entry_type
+                                                      (pipe_start+header_size)));
+                      pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end);
                     }
                 }
             }
-        }
-        if (op_offline.get_value()) {
-            write_trace_data(drcontext, pipe_start, buf_ptr);
-        } else {
             // Write the rest to pipe
             // The last few entries (e.g., instr + refs) may exceed the atomic write size,
             // so we may need two writes.
@@ -458,8 +456,13 @@ memtrace(void *drcontext, bool skip_size_cap)
                                                 (pipe_start+header_size)));
                 atomic_pipe_write(drcontext, pipe_start, buf_ptr);
             }
+        } else {
+            write_trace_data(drcontext, pipe_start, buf_ptr);
         }
-        data->num_refs += num_refs;
+        auto span = buf_ptr - (data->buf_base + header_size);
+        DR_ASSERT(span % instru->sizeof_entry() == 0);
+        current_num_refs = (uint)(span / instru->sizeof_entry());
+        data->num_refs += current_num_refs;
     }
 
     if (do_write && file_ops_func.handoff_buf != NULL) {
@@ -477,7 +480,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
-    num_refs_racy += num_refs;
+    num_refs_racy += current_num_refs;
     if (op_exit_after_tracing.get_value() > 0 &&
         num_refs_racy > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);
