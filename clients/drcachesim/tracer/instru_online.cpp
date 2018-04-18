@@ -45,18 +45,13 @@ online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                          instr_t *, reg_id_t),
                                  bool memref_needs_info,
                                  drvector_t *reg_vector)
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector,
+               sizeof(trace_entry_t))
 {
 }
 
 online_instru_t::~online_instru_t()
 {
-}
-
-size_t
-online_instru_t::sizeof_entry() const
-{
-    return sizeof(trace_entry_t);
 }
 
 trace_type_t
