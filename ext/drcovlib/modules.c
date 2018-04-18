@@ -55,6 +55,10 @@ typedef struct _module_entry_t {
      */
     module_data_t *data;
     void *custom;
+#ifndef WINDOWS
+    /* The file offset of the segment */
+    uint64 offset;
+#endif
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -195,6 +199,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             entry->custom = module_load_cb(entry->data);
         drvector_append(&module_table.vector, entry);
 #ifndef WINDOWS
+        entry->offset = data->segments[0].offset;
         uint j;
         module_entry_t *sub_entry;
         ASSERT(entry->start == data->segments[0].start, "illegal segments");
@@ -212,6 +217,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             /* These fields are shared. */
             sub_entry->data = entry->data;
             sub_entry->custom = entry->custom;
+            sub_entry->offset = data->segments[j].offset;
             drvector_append(&module_table.vector, sub_entry);
             global_module_cache_add(module_table.cache, sub_entry);
         }
@@ -408,7 +414,8 @@ static int
 module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t size)
 {
     int len, total_len = 0;
-    len = dr_snprintf(buf, size, "%3u, %3u, " PFX ", " PFX ", " PFX ", " PFX ", ",
+    len = dr_snprintf(buf, size, "%3u, %3u, " PFX ", " PFX ", " PFX ", "
+                      ZHEX64_FORMAT_STRING ", ",
                       idx, entry->containing_id, entry->base,
                       entry->base+entry->size, entry->entry, entry->offset);
     if (len == -1)
@@ -462,9 +469,8 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
 #ifndef WINDOWS
-    // For unices we record the physical offset from the backing file. Each
-    // module entry only has a sigle segment so we grab index 0 of the array.
-    read_entry.offset = entry->data->segments[0].offset;
+    // For unices we record the physical offset from the backing file.
+    read_entry.offset = entry->offset;
 #endif
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
@@ -664,7 +670,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
             }
-            if (version == 3) {
+            else if (version == 3) {
                 if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", ",
                               &mod_id, &info->mod[i].containing_id,
                               &info->mod[i].base, &end, &info->mod[i].entry) != 5 ||
@@ -672,7 +678,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
             } else { // version == 4
-                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", "PIFX", ",
+                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", "HEX64_FORMAT_STRING", ",
                               &mod_id, &info->mod[i].containing_id,
                               &info->mod[i].base, &end, &info->mod[i].entry,
                               &info->mod[i].offset) != 6 ||
@@ -734,9 +740,10 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
     out->timestamp = info->mod[index].timestamp;
 #endif
     out->custom = info->mod[index].custom;
-    out->offset = info->mod[index].offset;
     if (out->struct_size > offsetof(drmodtrack_info_t, index))
         out->index = index;
+    if (out->struct_size > offsetof(drmodtrack_info_t, offset))
+        out->offset = info->mod[index].offset;
     return DRCOVLIB_SUCCESS;
 }
 
