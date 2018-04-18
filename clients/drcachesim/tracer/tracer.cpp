@@ -690,11 +690,9 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
      * proc to clean call gencode.
      */
     /* i#2147: -prof_pcs adds extra cleancall code that makes jecxz not reach.
-     * XXX: it would be nice to have a more robust solution than this explicit check
-     * for that DR option!
+     * XXX: it would be nice to have a more robust solution than this explicit check!
      */
-    uint64 prof_pcs;
-    if (dr_get_integer_option("profile_pcs", &prof_pcs) && prof_pcs)
+    if (dr_is_tracking_where_am_i())
         short_reaches = false;
 #elif defined(ARM)
     /* XXX: clean call is too long to use cbz to skip. */

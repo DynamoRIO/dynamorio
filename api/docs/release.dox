@@ -223,7 +223,8 @@ Further non-compatibility-affecting changes include:
    drmgr_unregister_pre_syscall_event_user_data() to enable passing of user data.
  - Added drmgr_register_post_syscall_event_user_data() and
    drmgr_unregister_post_syscall_event_user_data() to enable passing of user data.
- - Added dr_where_am_i() to better support client self-profiling via sampling.
+ - Added dr_where_am_i(), dr_track_where_am_i(), and dr_is_tracking_where_am_i()
+   better support client self-profiling via sampling.
  - Added dr_get_stats() to retrieve runtime stats. Currently limited to number
    of built basic blocks.
  - Added drreg_reservation_info_ex(), drreg_statelessly_restore_app_value(),

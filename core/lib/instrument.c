@@ -298,6 +298,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
 
 static vm_area_vector_t *client_aux_libs;
 
+static bool track_where_am_i;
+
 #ifdef WINDOWS
 DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
                       INIT_LOCK_FREE(client_aux_lib64_lock));
@@ -5062,6 +5064,26 @@ dr_get_itimer(int which)
     return get_itimer_frequency(dcontext, which);
 }
 # endif /* UNIX */
+
+DR_API
+void
+dr_track_where_am_i(void)
+{
+    track_where_am_i = true;
+}
+
+bool
+should_track_where_am_i(void)
+{
+    return track_where_am_i || DYNAMO_OPTION(profile_pcs);
+}
+
+DR_API
+bool
+dr_is_tracking_where_am_i(void)
+{
+    return should_track_where_am_i();
+}
 
 DR_API
 dr_where_am_i_t
