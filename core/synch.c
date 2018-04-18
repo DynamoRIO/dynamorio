@@ -623,6 +623,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
     }
     if (safe) {
         ASSERT(trec->dcontext->whereami == DR_WHERE_FCACHE ||
+               trec->dcontext->whereami == DR_WHERE_SIGNAL_HANDLER ||
                is_thread_currently_native(trec));
         LOG(THREAD_GET, LOG_SYNCH, 2,
             "thread "TIDFMT" suspended at safe spot pc="PFX"\n", trec->id, mc->pc);
