@@ -6287,14 +6287,10 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
         LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
             ", value="INT64_FORMAT_STRING"\n", which,
             (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
-        if (!dynamo_initialized) {
-            /* i#2907: we have no signal handlers until we start the app (i#2335)
-             * so we can't set up an itimer until then.  start_itimer() called
-             * from os_thread_under_dynamo() will enable it.
-             */
-            LOG(THREAD, LOG_ASYNCH, 2, "delaying itimer until attach\n");
-            return true;
-        }
+        /* i#2907: we have no signal handlers until we start the app (i#2335)
+         * so we can't set up an itimer until then.
+         */
+        ASSERT(dynamo_initialized);
         ASSERT(!info->shared_itimer ||
                self_owns_recursive_lock(info->shared_itimer_lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
@@ -6388,7 +6384,15 @@ set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
     (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
     (*info->itimer)[which].cb = func;
     (*info->itimer)[which].cb_api = func_api;
-    rc = itimer_new_settings(dcontext, which, false/*us*/);
+    if (!dynamo_initialized) {
+        /* i#2907: we have no signal handlers until we start the app (i#2335)
+         * so we can't set up an itimer until then.  start_itimer() called
+         * from os_thread_under_dynamo() will enable it.
+         */
+        LOG(THREAD, LOG_ASYNCH, 2, "delaying itimer until attach\n");
+        rc = true;
+    } else
+        rc = itimer_new_settings(dcontext, which, false/*us*/);
     if (info->shared_itimer)
         release_recursive_lock(info->shared_itimer_lock);
     return rc;
@@ -6543,11 +6547,8 @@ start_itimer(dcontext_t *dcontext)
         LOG(THREAD, LOG_ASYNCH, 2, "starting DR itimers from thread "TIDFMT"\n",
             get_thread_id());
         for (which = 0; which < NUM_ITIMERS; which++) {
-            /* May have already been started if there was no stop_itimer() since
-             * init time
-             */
-            if ((*info->itimer)[which].dr.value == 0 &&
-                (*info->itimer)[which].dr.interval > 0) {
+            /* May have already been set up with the start delayed (i#2907). */
+            if ((*info->itimer)[which].dr.interval > 0) {
                 (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
                 itimer_new_settings(dcontext, which, false/*!app*/);
             }
