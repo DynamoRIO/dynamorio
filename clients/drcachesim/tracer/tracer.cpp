@@ -368,6 +368,7 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
     size_t header_size = 0;
+    size_t current_num_refs = 0;
 
     buf_ptr = BUF_PTR(data->seg_base);
     // For online we already wrote the thread header but for offline it is in
@@ -393,9 +394,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         data->bytes_written += buf_ptr - pipe_start;
 
     if (do_write) {
-        const bool has_phys_and_use = have_phys && op_use_physical.get_value();
-        const bool offline = op_offline.get_value();
-        if (has_phys_and_use) {
+        if (have_phys && op_use_physical.get_value()) {
           for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                mem_ref += instru->sizeof_entry()) {
                 trace_type_t type = instru->get_entry_type(mem_ref);
@@ -419,7 +418,7 @@ memtrace(void *drcontext, bool skip_size_cap)
                 }
             }
         }
-        if (!offline) {
+        if (!op_offline.get_value()) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 // Split up the buffer into multiple writes to ensure atomic pipe writes.
@@ -460,9 +459,10 @@ memtrace(void *drcontext, bool skip_size_cap)
         } else {
             write_trace_data(drcontext, pipe_start, buf_ptr);
         }
-        auto span = buf_ptr - data->buf_base + header_size;
+        auto span = buf_ptr - (data->buf_base + header_size);
         DR_ASSERT(0 == span % instru->sizeof_entry());
-        data->num_refs += ((buf_ptr - data->buf_base + header_size) / instru->sizeof_entry());
+        current_num_refs = span / instru->sizeof_entry();
+        data->num_refs += current_num_refs;
     }
 
     if (do_write && file_ops_func.handoff_buf != NULL) {
@@ -480,7 +480,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
     }
     BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
-    num_refs_racy += num_refs;
+    num_refs_racy += current_num_refs;
     if (op_exit_after_tracing.get_value() > 0 &&
         num_refs_racy > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);
