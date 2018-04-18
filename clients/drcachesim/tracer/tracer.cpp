@@ -368,7 +368,6 @@ memtrace(void *drcontext, bool skip_size_cap)
     byte *pipe_start, *pipe_end, *redzone;
     bool do_write = true;
     size_t header_size = 0;
-    uint num_refs = 0;
 
     buf_ptr = BUF_PTR(data->seg_base);
     // For online we already wrote the thread header but for offline it is in
@@ -463,10 +462,7 @@ memtrace(void *drcontext, bool skip_size_cap)
         }
         auto span = buf_ptr - data->buf_base + header_size;
         DR_ASSERT(0 == span % instru->sizeof_entry());
-        num_refs +=
-            ((buf_ptr - data->buf_base + header_size) / instru->sizeof_entry());
-
-        data->num_refs += num_refs;
+        data->num_refs += ((buf_ptr - data->buf_base + header_size) / instru->sizeof_entry());
     }
 
     if (do_write && file_ops_func.handoff_buf != NULL) {
