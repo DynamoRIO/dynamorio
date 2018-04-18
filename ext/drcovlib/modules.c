@@ -461,8 +461,11 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 #endif
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
-    // There is only one segment in each module entry. 
+#ifndef WINDOWS
+    // For unices we record the physical offset from the backing file. Each
+    // module entry only has a sigle segment so we grab index 0 of the array.
     read_entry.offset = entry->data->segments[0].offset;
+#endif
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
 
