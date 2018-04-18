@@ -120,6 +120,8 @@ void dr_init(client_id_t id)
     dr_register_exit_event(exit_event);
     dr_register_post_syscall_event(post_syscall_event);
     dr_register_filter_syscall_event(filter_syscall_event);
+    dr_track_where_am_i();
+    DR_ASSERT(dr_is_tracking_where_am_i());
     if (!dr_set_itimer(ITIMER_REAL, 25, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
     /* Test pc sampling (i#140). */
