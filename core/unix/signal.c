@@ -277,6 +277,9 @@ static bool
 set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
                   bool enable);
 
+static bool
+alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal);
+
 #ifdef DEBUG
 static void
 dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
@@ -797,16 +800,23 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     act.handler = (handler_t) SIG_DFL;
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!other_thread) {
+        if (sig_is_alarm_signal(i) && doing_detach &&
+            alarm_signal_has_DR_only_itimer(dcontext, i)) {
+            /* We ignore alarms *during* detach in signal_remove_alarm_handlers(),
+             * but to avoid crashing on an alarm arriving post-detach we set to
+             * SIG_IGN if we have an itimer and the app does not (a slight
+             * transparency violation to gain robustness: i#2270).
+             */
+            set_ignore_signal_action(i);
+        } else if (!other_thread) {
             if (info->app_sigaction[i] != NULL) {
-                /* Restore to old handler, but not if exiting whole
-                 * process: else may get itimer during cleanup, so we
-                 * set to SIG_IGN.  We do this for detach in
-                 * signal_remove_alarm_handlers().
+                /* Restore to old handler, but not if exiting whole process:
+                 * else may get itimer during cleanup, so we set to SIG_IGN.  We
+                 * do this during detach in signal_remove_alarm_handlers() (and
+                 * post-detach above).
                  */
                 if (dynamo_exited && !doing_detach) {
                     info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
-                    sigaction_syscall(i, info->app_sigaction[i], NULL);
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
                     info->app_sigaction[i]->handler, i);
@@ -6416,6 +6426,37 @@ get_itimer_frequency(dcontext_t *dcontext, int which)
     return ms;
 }
 
+static int
+signal_to_itimer_type(int sig)
+{
+    if (sig == SIGALRM)
+        return ITIMER_REAL;
+    else if (sig == SIGVTALRM)
+        return ITIMER_VIRTUAL;
+    else if (sig == SIGPROF)
+        return ITIMER_PROF;
+    else
+        return -1;
+}
+
+static bool
+alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int which = signal_to_itimer_type(signal);
+    if (which == -1)
+        return false;
+    if (info->shared_itimer)
+        acquire_recursive_lock(info->shared_itimer_lock);
+    bool DR_only = ((*info->itimer)[which].dr.value > 0 ||
+                    (*info->itimer)[which].dr.interval > 0) &&
+        (*info->itimer)[which].app.value == 0 &&
+        (*info->itimer)[which].app.interval == 0;
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
+    return DR_only;
+}
+
 static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
 {
@@ -6429,14 +6470,8 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     if (dynamo_exited)
         return pass_to_app;
 
-    if (sig == SIGALRM)
-        which = ITIMER_REAL;
-    else if (sig == SIGVTALRM)
-        which = ITIMER_VIRTUAL;
-    else if (sig == SIGPROF)
-        which = ITIMER_PROF;
-    else
-        ASSERT_NOT_REACHED();
+    which = signal_to_itimer_type(sig);
+    ASSERT(which != -1);
     LOG(THREAD, LOG_ASYNCH, 2, "received alarm %d @"PFX"\n", which,
         SIGCXT_FROM_UCXT(ucxt)->SC_XIP);
 
