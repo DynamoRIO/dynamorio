@@ -678,7 +678,8 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
             } else { // version == 4
-                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", "HEX64_FORMAT_STRING", ",
+                if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "
+                              PIFX", "HEX64_FORMAT_STRING", ",
                               &mod_id, &info->mod[i].containing_id,
                               &info->mod[i].base, &end, &info->mod[i].entry,
                               &info->mod[i].offset) != 6 ||
