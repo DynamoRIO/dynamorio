@@ -134,11 +134,11 @@ event_exit(void)
               info.containing_index != i, "custom field doesn't match");
         CHECK(info.index == i, "index field doesn't match");
 #ifndef WINDOWS
-        if(info.struct_size > offsetof(drmodtrack_info_t, offset)) {
+        if (info.struct_size > offsetof(drmodtrack_info_t, offset)) {
             module_data_t * data = dr_lookup_module(info.start);
-            for(uint j = 0; j < data->num_segments; j++) {
+            for (uint j = 0; j < data->num_segments; j++) {
                 module_segment_data_t *seg = data->segments + j;
-                if(seg->start == info.start) {
+                if (seg->start == info.start) {
                     CHECK(seg->offset == info.offset,
                         "Module data offset and drmodtrack offset don't match");
                 }

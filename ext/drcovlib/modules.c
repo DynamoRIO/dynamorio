@@ -669,8 +669,8 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                     goto read_error;
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
-            }
-            else if (version == 3) {
+            } else
+            if (version == 3) {
                 if (dr_sscanf(buf, "%u, %u, "PIFX", "PIFX", "PIFX", ",
                               &mod_id, &info->mod[i].containing_id,
                               &info->mod[i].base, &end, &info->mod[i].entry) != 5 ||
