@@ -48,6 +48,7 @@
          FUNCTION(empty) \
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
          FUNCTION(gcc47_inscount) \
          FUNCTION(callpic_pop) \
          FUNCTION(callpic_mov) \
@@ -55,7 +56,6 @@
          FUNCTION(cond_br) \
          FUNCTION(tls_clobber) \
          FUNCTION(aflags_clobber) \
-         FUNCTION(compiler_inscount) \
          FUNCTION(bbcount) \
          LAST_FUNCTION()
 #elif defined(AARCH64)
@@ -63,6 +63,8 @@
          FUNCTION(empty) \
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
          FUNCTION(bbcount) \
          LAST_FUNCTION()
 #endif

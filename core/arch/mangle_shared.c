@@ -424,7 +424,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
 
 #ifdef CLIENT_INTERFACE
-    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         if (SCRATCH_ALWAYS_TLS()) {
 # ifdef AARCHXX
             /* DR_REG_LR is dead here */
@@ -479,7 +479,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
 #ifdef CLIENT_INTERFACE
-    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         uint whereami;
 
         if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))

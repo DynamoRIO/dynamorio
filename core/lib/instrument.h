@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -145,6 +145,7 @@ bool dr_thread_exit_hook_exists(void);
 bool dr_exit_hook_exists(void);
 bool dr_xl8_hook_exists(void);
 bool hide_tag_from_client(app_pc tag);
+bool should_track_where_am_i(void);
 
 uint instrument_persist_ro_size(dcontext_t *dcontext, void *perscxt, size_t file_offs);
 bool instrument_persist_ro(dcontext_t *dcontext, void *perscxt, file_t fd);

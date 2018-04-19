@@ -4782,10 +4782,30 @@ dr_get_itimer(int which);
 
 DR_API
 /**
+ * Should be called during process initialization.  Requests more accurate
+ * tracking of the #dr_where_am_i_t value for use with dr_where_am_i().  By
+ * default, if this routine is not called, DR avoids some updates to the value
+ * that incur extra overhead, such as identifying clean callees.
+ */
+void
+dr_track_where_am_i(void);
+
+DR_API
+/**
+ * Returns whether DR is using accurate tracking of the #dr_where_am_i value.
+ * Typically this is enabled by calling dr_track_where_am_i().
+ */
+bool
+dr_is_tracking_where_am_i(void);
+
+DR_API
+/**
  * Returns the #dr_where_am_i_t value indicating in which area of code \p pc
  * resides.  This is meant for use with dr_set_itimer() for PC sampling for
- * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside
- * a fragment in the code cache, the fragment's tag is returned in \p tag.
+ * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside a
+ * fragment in the code cache, the fragment's tag is returned in \p tag.  It is
+ * recommended that the user of this routine also call dr_track_where_am_i()
+ * during process initialization for more accurate results.
  */
 dr_where_am_i_t
 dr_where_am_i(void *drcontext, app_pc pc, OUT void**tag);

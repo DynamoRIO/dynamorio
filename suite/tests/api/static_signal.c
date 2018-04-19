@@ -56,6 +56,9 @@ static void *got_signal;
 
 SIGJMP_BUF mark;
 
+/* No synchronization is needed b/c only one itimer handler runs at a time. */
+static int buckets[DR_WHERE_LAST];
+
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -104,8 +107,32 @@ event_signal(void *drcontext, dr_siginfo_t *info)
 }
 
 static void
+event_sample(void *drcontext, dr_mcontext_t *mcontext)
+{
+    void *tag;
+    dr_where_am_i_t whereami = dr_where_am_i(drcontext, mcontext->pc, &tag);
+    buckets[whereami]++;
+    DR_ASSERT(mcontext->pc != NULL &&
+              /* Ensure DR wrote the value and it's not the uninit 0xab pattern. */
+              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab,0xabababab));
+#if VERBOSE
+    dr_fprintf(STDERR, "sample: %p %d %p\n", mcontext->pc, whereami, tag);
+#endif
+}
+
+static void
 event_exit(void)
 {
+    int total = 0;
+    int i;
+    for (i = 0; i < DR_WHERE_LAST; i++) {
+        total += buckets[i];
+#if VERBOSE
+        dr_fprintf(STDERR, "bucket %d: %d\n", i, buckets[i]);
+#endif
+    }
+    DR_ASSERT(total > 0);
+
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
     /* Unfortunately we have no synch to guarantee we see some alarm
      * signals.
@@ -124,18 +151,38 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_bb_event(event_bb);
     dr_register_signal_event(event_signal);
     dr_register_exit_event(event_exit);
+    /* Test pc sampling with detach */
+    if (!dr_set_itimer(ITIMER_VIRTUAL, 10, event_sample))
+        dr_fprintf(STDERR, "unable to set timer callback\n");
+    /* i#2907: Try to trigger signal itimer issues between init and attach by delaying
+     * attach.  We don't want to lengthen the test suite so we keep this smaller than
+     * ideal for manually reproducing every time: it will still catch races, just
+     * not every run.
+     */
+    for (int i = 0; i < 100000; ++i)
+        sched_yield();
 }
 
 static int
 do_some_work(void)
 {
-    static int iters = 8192;
+    static int iters = 81920;
     int i;
     double val = num_bbs;
     for (i = 0; i < iters; ++i) {
         val += sin(val);
     }
     return (val > 0);
+}
+
+bool
+my_setenv(const char *var, const char *value)
+{
+#ifdef UNIX
+    return setenv(var, value, 1/*override*/) == 0;
+#else
+    return SetEnvironmentVariable(var, value) == TRUE;
+#endif
 }
 
 int
@@ -145,6 +192,11 @@ main(int argc, const char *argv[])
     struct itimerval timer;
     sigset_t mask;
     int rc;
+
+    /* Enable an itimer to test i#2907. */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-prof_pcs -stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
+
     intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
     intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
     thread_ready = create_cond_var();
