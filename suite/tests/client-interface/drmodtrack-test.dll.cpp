@@ -133,6 +133,7 @@ event_exit(void)
         CHECK(((app_pc)info.custom) == info.start ||
               info.containing_index != i, "custom field doesn't match");
         CHECK(info.index == i, "index field doesn't match");
+#ifndef WINDOWS
         if(info.struct_size > offsetof(drmodtrack_info_t, offset)) {
             module_data_t * data = dr_lookup_module(info.start);
             for(uint j = 0; j < data->num_segments; j++) {
@@ -144,6 +145,7 @@ event_exit(void)
             }
             dr_free_module_data(data);
         }
+#endif
     }
 
     char *buf_offline;
