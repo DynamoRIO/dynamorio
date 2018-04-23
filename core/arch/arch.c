@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3050,10 +3050,18 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                            VSYSCALL_AFTER_SYSCALL_BOOTSTRAP_VALUE);
                 }
             });
-            /* For linux, we should have found "[vdso]" in the maps file */
-            IF_LINUX(ASSERT(vsyscall_page_start != NULL &&
-                            vsyscall_page_start ==
-                            (app_pc) PAGE_START(instr_get_raw_bits(instr))));
+            /* For linux, we should have found "[vdso]" in the maps file, but vsyscall
+             * is not always on the first vdso page (i#2945).
+             */
+            IF_LINUX({
+                if (vsyscall_page_start !=
+                    (app_pc) PAGE_START(instr_get_raw_bits(instr))) {
+                    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
+                        "Found vsyscall "PFX" not on 1st vdso page "PFX", shifting it\n",
+                        instr_get_raw_bits(instr), vsyscall_page_start);
+                    vsyscall_page_start = (app_pc) PAGE_START(instr_get_raw_bits(instr));
+                }
+            });
             LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
                 "Found vsyscall @ "PFX" => page "PFX", post "PFX"\n",
                 instr_get_raw_bits(instr), vsyscall_page_start,
