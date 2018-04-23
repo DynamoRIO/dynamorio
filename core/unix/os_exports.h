@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -280,9 +280,10 @@ bool disable_env(const char *name);
 # define VAR_IN_SECTION(name) __attribute__ ((section (name)))
 #endif
 
-/* Location of vsyscall "vdso" page.  Even when vdso is 2 pages we assume the
- * vsyscall is on the 1st page (i#1583).
- */
+/* Location of "vdso" page(s), or on systems pre-vdso, equals the vsyscall page. */
+extern app_pc vdso_page_start;
+extern size_t vdso_size;
+/* Location of vsyscall page (within vdso if vdso exists). */
 extern app_pc vsyscall_page_start;
 /* pc of the end of the syscall instr itself */
 extern app_pc vsyscall_syscall_end_pc;
