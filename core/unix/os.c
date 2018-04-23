@@ -396,6 +396,7 @@ static bool os_dir_iterator_next(dir_iterator_t *iter);
  * (kernel-provided fake shared library or Virt Dyn Shared Object).
  */
 /* i#1583: vdso is now 2 pages, yet we assume vsyscall is on 1st page. */
+/* i#2945: vdso is now 3 pages and vsyscall is not on the 1st page. */
 app_pc vsyscall_page_start = NULL;
 /* pc of the end of the syscall instr itself */
 app_pc vsyscall_syscall_end_pc = NULL;
@@ -413,6 +414,7 @@ app_pc vsyscall_sysenter_displaced_pc = NULL;
 #endif
 /* i#1908: vdso and vsyscall are now split */
 app_pc vdso_page_start = NULL;
+size_t vdso_size = 0;
 
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* The pthreads library keeps errno in its pthread_descr data structure,
@@ -8959,11 +8961,16 @@ found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
     /* On re-attach, the vdso can be split into two entries (from DR's hook),
      * so take just the first one as the start (xref i#2157).
      */
+    if (vdso_page_start == NULL) {
+        vdso_page_start = iter->vm_start;
+        vdso_size = iter->vm_end - iter->vm_start;
+    }
+    /* The vsyscall page can be on the 2nd page inside the vdso, but until we
+     * see a syscall we don't know and we point it at the vdso start.
+     */
     if (vsyscall_page_start == NULL)
         vsyscall_page_start = iter->vm_start;
-    if (vdso_page_start == NULL)
-        vdso_page_start = vsyscall_page_start; /* assume identical for now */
-    LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
+    LOG(GLOBAL, LOG_VMAREAS, 1, "found vdso/vsyscall pages @ "PFX" %s\n",
         vsyscall_page_start, iter->comment);
 #else
     /* i#172

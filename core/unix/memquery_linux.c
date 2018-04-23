@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -355,19 +355,11 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
              *   ffffe000-fffff000 ---p 00000000 00:00 0
              * We return "rx" as the permissions in that case.
              */
-            if (vsyscall_page_start != NULL &&
-                pc >= vsyscall_page_start && pc < vsyscall_page_start+PAGE_SIZE) {
-                /* i#1583: recent kernels have 2-page vdso, which can be split,
-                 * but we don't expect to come here b/c they won't have zero
-                 * permissions.
+            if (vdso_page_start != NULL &&
+                pc >= vdso_page_start && pc < vdso_page_start+vdso_size) {
+                /* i#1583: recent kernels have 2-page vdso, which can be split into
+                 * pieces by our vsyscall hook, so we don't check for a precise match.
                  */
-                ASSERT(iter.vm_start == vsyscall_page_start);
-                ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
-                       /* i386 Ubuntu 14.04:
-                        * 0xb77bc000-0xb77be000   0x2000    0x0 [vvar]
-                        * 0xb77be000-0xb77c0000   0x2000    0x0 [vdso]
-                        */
-                       iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
                 info->prot = (MEMPROT_READ|MEMPROT_EXEC|MEMPROT_VDSO);
             } else if (strcmp(iter.comment, "[vvar]") == 0) {
                 /* The VVAR pages were added in kernel 3.0 but not labeled until
