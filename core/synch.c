@@ -1941,7 +1941,7 @@ send_all_other_threads_native(void)
              * unbounded.  This means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
-             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
+             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup{_with_stats}().
              * This also means we have a race with unhook_vsyscall in
              * os_process_not_under_dynamorio(), which we solve by redirecting
              * threads at syscalls to our gencode.
@@ -1960,7 +1960,7 @@ send_all_other_threads_native(void)
 }
 
 void
-detach_on_permanent_stack(bool internal, bool do_cleanup)
+detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t* drstats)
 {
     dcontext_t *my_dcontext;
     thread_record_t **threads;
@@ -2247,6 +2247,8 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Entering final cleanup and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
+    if (drstats)
+      dr_get_stats(drstats);
     DEBUG_DECLARE(exit_res =)
         dynamo_shared_exit(my_tr _IF_WINDOWS(detach_stacked_callbacks));
     ASSERT(exit_res == SUCCESS);

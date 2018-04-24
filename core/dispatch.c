@@ -266,7 +266,8 @@ is_stopping_point(dcontext_t *dcontext, app_pc pc)
               */
              pc == (app_pc)dynamo_thread_exit ||
              pc == (app_pc)dr_app_stop ||
-             pc == (app_pc)dr_app_stop_and_cleanup))
+             pc == (app_pc)dr_app_stop_and_cleanup ||
+             pc == (app_pc)dr_app_stop_and_cleanup_with_stats))
 #endif
 #ifdef WINDOWS
         /* we go all the way to NtTerminateThread/NtTerminateProcess */
@@ -634,6 +635,8 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop\n");
     else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup)
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup\n");
+    else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup_with_stats)
+      LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup_with_stats\n");
 #  endif
 # endif
 
@@ -641,7 +644,8 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
 
 #ifdef DR_APP_EXPORTS
     /* not_under will be called by dynamo_shared_exit so skip it here. */
-    if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup)
+    if (dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup &&
+        dcontext->next_tag != (app_pc)dr_app_stop_and_cleanup_with_stats)
 #endif
         dynamo_thread_not_under_dynamo(dcontext);
     dcontext->go_native = false;
@@ -2327,4 +2331,3 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
                       false/*do not return on error*/);
     ASSERT_NOT_REACHED();
 }
-
