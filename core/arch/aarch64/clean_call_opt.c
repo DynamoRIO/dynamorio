@@ -167,6 +167,7 @@ find_nzcv_spill_reg(callee_info_t *ci)
         if (reg == ci->spill_reg || ci->reg_used[i])
             continue;
         spill_reg = reg;
+        break;
     }
     ASSERT(spill_reg != DR_REG_INVALID);
     return spill_reg;
