@@ -1941,7 +1941,7 @@ send_all_other_threads_native(void)
              * unbounded.  This means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
-             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup{_with_stats}().
+             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup[_with_stats]().
              * This also means we have a race with unhook_vsyscall in
              * os_process_not_under_dynamorio(), which we solve by redirecting
              * threads at syscalls to our gencode.
