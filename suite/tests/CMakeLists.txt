@@ -2623,7 +2623,8 @@ if (CLIENT_INTERFACE)
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
-      if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
+      # FIXME i#2949: gcc 7.3 fails to link certain configs
+      if (NOT AARCH64 AND NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
         torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
         set(tool.drcacheoff.burst_static_nodr ON)
 
