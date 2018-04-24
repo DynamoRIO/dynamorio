@@ -46,13 +46,6 @@
 #include "instr_create.h"
 #include "clean_call_opt.h"
 
-/* make code more readable by shortening long lines
- * we mark everything we add as a meta-instr to avoid hitting
- * client asserts on setting translation fields
- */
-#define POST instrlist_meta_postinsert
-#define PRE  instrlist_meta_preinsert
-
 /****************************************************************************
  * clean call callee info table for i#42 and i#43
  */
