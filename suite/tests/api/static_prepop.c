@@ -109,30 +109,43 @@ main(int argc, const char *argv[])
                      (app_pc)asm_label1,
                      (app_pc)asm_label2,
                      (app_pc)asm_label3};
-    print("pre-DR init\n");
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
-    dr_stats_t stats = { sizeof(dr_stats_t) };
-    assert(dr_get_stats(&stats));
-    assert(stats.basic_block_count == 0);
-    success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
-    assert(success);
-    assert(dr_get_stats(&stats));
-    assert(stats.basic_block_count > 0);
 
-    print("pre-DR start\n");
-    dr_app_start();
-    assert(dr_app_running_under_dynamorio());
+    // Attach and re-attach.
+    for (int i = 0; i < 2; ++i) {
+        print("pre-DR init\n");
+        dr_app_setup();
+        assert(!dr_app_running_under_dynamorio());
+        dr_stats_t stats = { sizeof(dr_stats_t) };
+        assert(dr_get_stats(&stats));
+        // TODO(#2964): remove this when the issue is addressed.
+        if (!i)
+            assert(stats.basic_block_count == 0);
+        success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
+        assert(success);
+        assert(dr_get_stats(&stats));
+        assert(stats.basic_block_count > 0);
 
-    if (do_some_work() < 0)
-        print("error in computation\n");
+        print("pre-DR start\n");
+        dr_app_start();
+        assert(dr_app_running_under_dynamorio());
 
-    print("pre-DR detach\n");
-    dr_app_stop_and_cleanup();
-    assert(!dr_app_running_under_dynamorio());
+        if (do_some_work() < 0)
+            print("error in computation\n");
 
-    if (do_some_work() < 0)
-        print("error in computation\n");
+        if (i) {
+            print("pre-DR detach with stats\n");
+            dr_stats_t end_stats = {sizeof(dr_stats_t)};
+            dr_app_stop_and_cleanup_with_stats(&end_stats);
+            assert(end_stats.basic_block_count > 0);
+        } else {
+            print("pre-DR detach\n");
+            dr_app_stop_and_cleanup();
+        }
+        assert(!dr_app_running_under_dynamorio());
+
+        if (do_some_work() < 0)
+            print("error in computation\n");
+    }
     print("all done\n");
     return 0;
 }

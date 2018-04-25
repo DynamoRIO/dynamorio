@@ -1960,7 +1960,7 @@ send_all_other_threads_native(void)
 }
 
 void
-detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t* drstats)
+detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 {
     dcontext_t *my_dcontext;
     thread_record_t **threads;
@@ -2248,7 +2248,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t* drstats)
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Entering final cleanup and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
     if (drstats)
-      dr_get_stats(drstats);
+        dr_get_stats(drstats);
     DEBUG_DECLARE(exit_res =)
         dynamo_shared_exit(my_tr _IF_WINDOWS(detach_stacked_callbacks));
     ASSERT(exit_res == SUCCESS);

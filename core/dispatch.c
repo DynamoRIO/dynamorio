@@ -636,7 +636,7 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
     else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup)
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup\n");
     else if (dcontext->next_tag == (app_pc)dr_app_stop_and_cleanup_with_stats)
-      LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup_with_stats\n");
+        LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop_and_cleanup_with_stats\n");
 #  endif
 # endif
 
