@@ -58,10 +58,7 @@
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
---------xx-----------------xxxxx  float_reg0 # H, S or D register including type for FP instruction
---------xx------------xxxxx-----  float_reg5 # H, S or D register including type for FP instruction
---------xx-------xxxxx----------  float_reg10 # H, S or D register including type for FP instruction
---------xx-xxxxx----------------  float_reg16 # H, S or D register including type for FP instruction
+
 ---------------------------xxxxx  s0         # S register
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
@@ -154,6 +151,14 @@ x----------------xxxxx----------  wx10       # W/X register (or WZR/XZR)
 x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 ---------xx---------------------  fsz        # element size of FP vector reg (single (0x1) and double (0x3) encoding)
 ---------xx---------------------  fsz16      # element size of FP vector reg (half (0x2) encoding)
+
+# Scalar floating point operands
+# H, S or D register including type (bits 22 and 23) for FP instruction. Half precision
+# operands are only support in Armv8.2+.
+--------xx-----------------xxxxx  float_reg0
+--------xx------------xxxxx-----  float_reg5
+--------xx-------xxxxx----------  float_reg10
+--------xx-xxxxx----------------  float_reg16
 ################################################################################
 
 # Instruction patterns

@@ -1036,6 +1036,7 @@ decode_float_reg(uint n, uint type, reg_id_t *reg)
 {
     switch (type) {
     case 3:
+        /* Half precision operands are only supported in Armv8.2+. */
         *reg = DR_REG_H0 + n;
         return true;
     case 0:
@@ -1072,6 +1073,7 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
 
     switch (size) {
     case OPSZ_2:
+        /* Half precision operands are only supported in Armv8.2+. */
         type = 3;
         break;
     case OPSZ_4:
