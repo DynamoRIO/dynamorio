@@ -116,13 +116,16 @@ main(int argc, const char *argv[])
         dr_app_setup();
         assert(!dr_app_running_under_dynamorio());
         dr_stats_t stats = { sizeof(dr_stats_t) };
-        assert(dr_get_stats(&stats));
-        // TODO(#2964): remove this when the issue is addressed.
-        if (!i)
+        bool got_stats = dr_get_stats(&stats);
+        assert(got_stats);
+        // TODO(#2964): remove the conditional below when the issue is addressed.
+        // At that point, the stats should have been reset at reattach.
+        if (i == 0)
             assert(stats.basic_block_count == 0);
         success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
         assert(success);
-        assert(dr_get_stats(&stats));
+        got_stats = dr_get_stats(&stats);
+        assert(got_stats);
         assert(stats.basic_block_count > 0);
 
         print("pre-DR start\n");
@@ -132,7 +135,7 @@ main(int argc, const char *argv[])
         if (do_some_work() < 0)
             print("error in computation\n");
 
-        if (i) {
+        if (i > 0) {
             print("pre-DR detach with stats\n");
             dr_stats_t end_stats = {sizeof(dr_stats_t)};
             dr_app_stop_and_cleanup_with_stats(&end_stats);
