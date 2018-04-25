@@ -1531,7 +1531,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-VersionAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
