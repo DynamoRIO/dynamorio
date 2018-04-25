@@ -78,6 +78,8 @@ endif
 INCLUDES := $(MSINCLUDE) /I$(BUILDDIR)
 
 WARN := /W4 /WX
+# FIXME: Fix these warnings /Wv:18
+WARN := $(WARN) /wd4456 /wd4457 /wd4459 /wd4473 /wd4474 /wd4477 /wd4091
 
 CFLAGS += $(WARN) $(DEFINES) $(INCLUDES)
 
