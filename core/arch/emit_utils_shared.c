@@ -3059,18 +3059,15 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                             MANGLE_XCX_SPILL_SLOT));
             } else
                 APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
-# ifdef AARCH64
-            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-# else
             APP(ilist, XINST_CREATE_jump_mem(dcontext,
                                              OPND_DC_FIELD(absolute,
                                                            dcontext,
                                                            OPSZ_PTR,
                                                            SCRATCH_REG2_OFFS)));
-# endif
+#elif defined(AARCH64)
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
 #elif defined(ARM)
-            /* FIXMED i#1551: NYI on ARM */
-            ASSERT_NOT_REACHED();
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI on ARM */
 #endif
         } else {
             APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, INDIRECT_STUB_SPILL_SLOT));
