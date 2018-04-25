@@ -628,7 +628,7 @@ extern const instr_info_t T32_16_it_ext_bits_6_4[][8];
 extern const instr_info_t T32_16_it_ext_imm_10_6[][2];
 
 /* table that translates opcode enums into pointers into decoding tables */
-extern const op_to_instr_info_t const op_instr[];
+extern const op_to_instr_info_t op_instr[];
 
 opnd_size_t
 resolve_size_upward(opnd_size_t size);
