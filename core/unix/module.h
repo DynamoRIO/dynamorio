@@ -48,7 +48,6 @@ typedef struct _module_segment_t {
     app_pc end;
     uint prot;
     bool shared; /* not unique to this module */
-    uint64 offset;
 } module_segment_t;
 
 typedef struct _os_module_data_t {
@@ -152,8 +151,7 @@ module_add_segment_data(OUT os_module_data_t *out_data,
                         size_t segment_size,
                         uint segment_prot,
                         size_t alignment,
-                        bool shared,
-                        uint64 offset);
+                        bool shared);
 
 /* Redirected functions for loaded module,
  * they are also used by __wrap_* functions in instrument.c
