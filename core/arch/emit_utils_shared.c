@@ -3064,7 +3064,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                                            dcontext,
                                                            OPSZ_PTR,
                                                            SCRATCH_REG2_OFFS)));
-#elif defiend(AARCH64)
+#elif defined(AARCH64)
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
 #elif defined(ARM)
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI on ARM */
