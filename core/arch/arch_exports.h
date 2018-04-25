@@ -510,7 +510,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
      ASSERT_CURIOSITY(!hot_patch);                                    \
      /* Aligned load/store instructions are atomic on AArch64. */     \
      ASSERT(ALIGNED(target, 4));                                      \
-     __asm__ __volatile__("str %0, [%1]"                              \
+     __asm__ __volatile__("str %w0, [%1]"                             \
                           : : "r"  (value), "r" (target) : "memory"); \
    } while (0)
 #  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {           \

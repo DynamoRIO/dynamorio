@@ -781,7 +781,7 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
         CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
         return false;
     }
-    if (extend < 0 || extend > 7) {
+    if (extend > 7) {
         CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
         return false;
     }

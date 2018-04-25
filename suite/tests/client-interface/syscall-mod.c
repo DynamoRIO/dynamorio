@@ -45,7 +45,7 @@
 
 int main()
 {
-    int pid;
+    int64_t pid;
     fprintf(stderr, "starting\n");
 #if defined(AARCH64)
     asm("movz x8, " STRINGIFY(SYS_getpid) ";"
@@ -63,7 +63,7 @@ int main()
         "int $0x80;"
         "mov %%eax, %0" : "=m"(pid));
 #endif
-    fprintf(stderr, "pid = %d\n", pid);
+    fprintf(stderr, "pid = %lld\n", (long long)pid);
 
     return 0;
 }
