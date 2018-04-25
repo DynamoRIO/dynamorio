@@ -249,10 +249,6 @@ typedef struct _drmodtrack_info_t {
      * passed to drmodtrack_offline_lookup().
      */
     uint index;
-    /**
-     * The offset of this segment from the beginning of this backing file.
-     */
-    uint64 offset;
 } drmodtrack_info_t;
 
 DR_EXPORT

@@ -288,8 +288,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                               * ignoring for now
                               */
                              PAGE_SIZE,
-                             shared,
-                             seg->fileoff);
+                             shared);
                     }
                 } else if (cmd->cmd == LC_SYMTAB) {
                     /* even if stripped, dynamic symbols are in this table */
