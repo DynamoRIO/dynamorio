@@ -2035,6 +2035,8 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
     /* clear flag from dr_syscall_invoke_another() */
     dcontext->client_data->invoke_another_syscall = false;
     if (pre_syscall_callbacks.num > 0) {
+        dr_where_am_i_t old_whereami = dcontext->whereami;
+        dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
         /* Skip syscall if any client wants to skip it, but don't short-circuit,
          * as skipping syscalls is usually done when the effect of the syscall
          * will be emulated in some other way.  The app is typically meant to
@@ -2043,6 +2045,7 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
          */
         call_all_ret(exec, =, && exec, pre_syscall_callbacks,
                      bool (*)(void *, int), (void *)dcontext, sysnum);
+        dcontext->whereami = old_whereami;
     }
     dcontext->client_data->in_pre_syscall = false;
     return exec;
@@ -2051,12 +2054,15 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 void
 instrument_post_syscall(dcontext_t *dcontext, int sysnum)
 {
+    dr_where_am_i_t old_whereami = dcontext->whereami;
     if (post_syscall_callbacks.num == 0)
         return;
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     dcontext->client_data->in_post_syscall = true;
     call_all(post_syscall_callbacks, int (*)(void *, int),
              (void *)dcontext, sysnum);
     dcontext->client_data->in_post_syscall = false;
+    dcontext->whereami = old_whereami;
 }
 
 bool
