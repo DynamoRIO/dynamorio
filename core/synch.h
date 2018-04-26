@@ -264,6 +264,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr,
 void
 send_all_other_threads_native(void);
 
+typedef struct _dr_stats_t dr_stats_t;
 void
 detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats);
 

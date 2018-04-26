@@ -49,6 +49,7 @@
 #define SUSPEND_THREAD_TIMEOUT 5000
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
+extern bool dr_get_stats(dr_stats_t *drstats); /* from instrument.c */
 
 static bool started_detach = false; /* set before synchall */
 bool doing_detach = false; /* set after synchall */
