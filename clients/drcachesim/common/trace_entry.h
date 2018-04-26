@@ -298,7 +298,7 @@ typedef enum {
 #define EXT_VALUE_A_BITS 48
 #define EXT_VALUE_B_BITS 8
 
-#define OFFLINE_FILE_VERSION 1
+#define OFFLINE_FILE_VERSION 2
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
@@ -312,8 +312,8 @@ struct _offline_entry_t {
         struct {
             // This describes the entire basic block.
             uint64_t modoffs:33;
-            uint64_t modidx:12;
-            uint64_t instr_count:16;
+            uint64_t modidx:16;
+            uint64_t instr_count:12;
             uint64_t type:3;
         } pc;
         struct {
