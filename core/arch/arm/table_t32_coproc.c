@@ -504,7 +504,7 @@ const instr_info_t T32_ext_opc4fpA[][3] = {
     {INVALID,     0xee200a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vnmul_f32,0xee200a40, "vnmul.f32", WBd, xx, WAd, WCd, xx, vfp, x, END_LIST},
   }, { /* 3 */
-    {OP_vadd_f32, 0xee300a00, "vadd.f32", WBd, xx, WAd, VCd, xx, vfp, x, END_LIST},
+    {OP_vadd_f32, 0xee300a00, "vadd.f32", WBd, xx, WAd, WCd, xx, vfp, x, END_LIST},
     {INVALID,     0xee300a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vsub_f32, 0xee300a40, "vsub.f32", WBd, xx, WAd, WCd, xx, vfp, x, END_LIST},
   }, { /* 4 */
@@ -520,7 +520,7 @@ const instr_info_t T32_ext_opc4fpA[][3] = {
     {INVALID,     0xee600a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vnmul_f32,0xee600a40, "vnmul.f32", WBd, xx, WAd, WCd, xx, vfp, x, DUP_ENTRY},
   }, { /* 7 */
-    {OP_vadd_f32, 0xee700a00, "vadd.f32", WBd, xx, WAd, VCd, xx, vfp, x, DUP_ENTRY},
+    {OP_vadd_f32, 0xee700a00, "vadd.f32", WBd, xx, WAd, WCd, xx, vfp, x, DUP_ENTRY},
     {INVALID,     0xee700a10, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vsub_f32, 0xee700a40, "vsub.f32", WBd, xx, WAd, WCd, xx, vfp, x, DUP_ENTRY},
   }, { /* 8 */
