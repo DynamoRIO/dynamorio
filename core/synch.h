@@ -38,6 +38,8 @@
 #ifndef SYNCH_H
 #define SYNCH_H
 
+#include "globals.h"
+
 /*for synch */
 /* Given permissions */
 /* The order is in increasing permissiveness and the values are chosen to
@@ -264,7 +266,6 @@ translate_from_synchall_to_dispatch(thread_record_t *tr,
 void
 send_all_other_threads_native(void);
 
-typedef struct _dr_stats_t dr_stats_t;
 void
 detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats);
 

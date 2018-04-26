@@ -137,7 +137,6 @@ dr_app_stop_and_cleanup(void);
  * stats are not collected, the API behaving identically to
  * dr_app_stop_and_cleanup().
  */
-typedef struct _dr_stats_t dr_stats_t;
 DR_APP_API void
 dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats);
 
