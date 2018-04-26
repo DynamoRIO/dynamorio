@@ -4643,9 +4643,8 @@ array_merge(dcontext_t *dcontext, bool intersect /* else union */,
     *dst_num = num;
 }
 
-DR_API
 bool
-dr_get_stats(dr_stats_t *drstats)
+stats_get_snapshot(dr_stats_t *drstats)
 {
     if (!GLOBAL_STATS_ON())
         return false;
@@ -4656,4 +4655,11 @@ dr_get_stats(dr_stats_t *drstats)
     CLIENT_ASSERT(drstats->size >= sizeof(dr_stats_t), "Invalid drstats->size value.");
     drstats->basic_block_count = GLOBAL_STAT(num_bbs);
     return true;
+}
+
+DR_API
+bool
+dr_get_stats(dr_stats_t *drstats)
+{
+    return stats_get_snapshot(drstats);
 }

@@ -2293,4 +2293,7 @@ array_merge(dcontext_t *dcontext, bool intersect /* else union */,
             /*OUT*/ void ***dst, /*OUT*/ uint *dst_num
             HEAPACCT(which_heap_t which));
 
+/* Implementation for dr_get_stats() */
+bool stats_get_snapshot(dr_stats_t *drstats);
+
 #endif /* _UTILS_H_ */
