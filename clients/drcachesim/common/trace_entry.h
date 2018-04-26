@@ -53,7 +53,7 @@
 
 typedef uintptr_t addr_t; /**< The type of a memory address. */
 
-#define TRACE_ENTRY_VERSION 1 /**< The version of the trace format. */
+#define TRACE_ENTRY_VERSION 2 /**< The version of the trace format. */
 
 /** The type of a trace entry in a #memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
@@ -312,8 +312,8 @@ struct _offline_entry_t {
         struct {
             // This describes the entire basic block.
             uint64_t modoffs:33;
-            uint64_t modidx:12;
-            uint64_t instr_count:16;
+            uint64_t modidx:16;
+            uint64_t instr_count:12;
             uint64_t type:3;
         } pc;
         struct {
