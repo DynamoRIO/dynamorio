@@ -342,9 +342,9 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     uint64_t modoffs = dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
     // Check that the values we want to assign to the bitfields in offline_entry_t do not
     // overflow. In i#2956 we observed an overflow for the modidx field.
-    DR_ASSERT(modoffs < uint64_t(1) << 34);
-    DR_ASSERT(modidx < uint64_t(1) << 17);
-    DR_ASSERT(instr_count < uint64_t(1) << 13);
+    DR_ASSERT(modoffs < uint64_t(1) << PC_MODOFFS_BITS);
+    DR_ASSERT(modidx < uint64_t(1) << PC_MODIDX_BITS);
+    DR_ASSERT(instr_count < uint64_t(1) << PC_INSTR_COUNT_BITS);
     entry.pc.modoffs = modoffs;
     entry.pc.modidx = modidx;
     entry.pc.instr_count = instr_count;
