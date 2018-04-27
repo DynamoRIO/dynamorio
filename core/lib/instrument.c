@@ -7617,6 +7617,14 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
     return true;
 }
 
+DR_API
+bool
+dr_get_stats(dr_stats_t *drstats)
+{
+    return stats_get_snapshot(drstats);
+}
+
+
 /***************************************************************************
  * PERSISTENCE
  */

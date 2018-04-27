@@ -4656,10 +4656,3 @@ stats_get_snapshot(dr_stats_t *drstats)
     drstats->basic_block_count = GLOBAL_STAT(num_bbs);
     return true;
 }
-
-DR_API
-bool
-dr_get_stats(dr_stats_t *drstats)
-{
-    return stats_get_snapshot(drstats);
-}
