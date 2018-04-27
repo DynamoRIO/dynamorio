@@ -316,7 +316,7 @@ struct _offline_entry_t {
         } addr;
         struct {
             // This describes the entire basic block.
-            uint64_t modoffs:PC_MODIDX_BITS;
+            uint64_t modoffs:PC_MODOFFS_BITS;
             uint64_t modidx:PC_MODIDX_BITS;
             uint64_t instr_count:PC_INSTR_COUNT_BITS;
             uint64_t type:PC_TYPE_BITS;
