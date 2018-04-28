@@ -2770,13 +2770,19 @@ dr_app_stop(void)
 DR_APP_API void
 dr_app_stop_and_cleanup(void)
 {
+    dr_app_stop_and_cleanup_with_stats(NULL);
+}
+
+DR_APP_API void
+dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
+{
     /* XXX i#95: today this is a full detach, while a separated dr_app_cleanup()
      * is not.  We should try and have dr_app_cleanup() take this detach path
      * here (and then we can simplify exit_synch_state()) but it's more complicated
      * and we need to resolve the unbounded dr_app_stop() time.
      */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
-        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/);
+        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/, drstats);
     }
     /* the application regains control in here */
 }
@@ -3459,4 +3465,3 @@ pre_second_thread(void)
         mutex_unlock(&bb_building_lock);
     }
 }
-
