@@ -38,6 +38,8 @@
 #ifndef SYNCH_H
 #define SYNCH_H
 
+#include "globals.h"
+
 /*for synch */
 /* Given permissions */
 /* The order is in increasing permissiveness and the values are chosen to
@@ -265,7 +267,7 @@ void
 send_all_other_threads_native(void);
 
 void
-detach_on_permanent_stack(bool internal, bool do_cleanup);
+detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats);
 
 /*** exported for detach only ***/
 
