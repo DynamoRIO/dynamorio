@@ -1785,10 +1785,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * instructions accessing memory once, which is fairly
      * pathological as by default that's 256 memrefs for one bb.  We double
      * it to ensure we cover skipping clean calls for sthg like strex.
+     * We also check here that the max_bb_instrs can fit in the instr_count
+     * bitfield in offline_entry_t.
      */
     uint64 max_bb_instrs;
     if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))
         max_bb_instrs = 256; /* current default */
+    DR_ASSERT(max_bb_instrs < uint64(1) << PC_INSTR_COUNT_BITS);
     redzone_size = instru->sizeof_entry() * (size_t)max_bb_instrs * 2;
 
     max_buf_size = ALIGN_FORWARD(trace_buf_size + redzone_size, dr_page_size());
