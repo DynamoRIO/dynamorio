@@ -2918,6 +2918,7 @@ typedef struct _module_segment_data_t {
     app_pc start; /**< Start address of the segment, page-aligned backward. */
     app_pc end;   /**< End address of the segment, page-aligned forward. */
     uint prot;    /**< Protection attributes of the segment */
+    uint64 offset; /**< Offset of the segment from the beginning of the backing file */
 } module_segment_data_t;
 #endif
 

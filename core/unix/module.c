@@ -470,7 +470,8 @@ module_add_segment_data(OUT os_module_data_t *out_data,
                         size_t segment_size,
                         uint segment_prot, /* MEMPROT_ */
                         size_t alignment,
-                        bool shared)
+                        bool shared,
+                        uint64 offset)
 {
     uint seg, i;
     if (out_data->alignment == 0) {
@@ -522,6 +523,7 @@ module_add_segment_data(OUT os_module_data_t *out_data,
         ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
     out_data->segments[seg].prot = segment_prot;
     out_data->segments[seg].shared = shared;
+    out_data->segments[seg].offset = offset;
     if (seg > 0) {
         ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
         if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
