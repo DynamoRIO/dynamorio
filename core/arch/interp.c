@@ -921,6 +921,7 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
     }
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
 #ifdef X86
 /* returns true to indicate "elide and continue" and false to indicate "end bb now"
  * should be used both for converted indirect jumps and
@@ -2326,6 +2327,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
     return false; /* stop bb */
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
 #ifdef X86
 /* if we make the IAT sections unreadable we will need to map to proper location */
 static inline app_pc
@@ -5713,6 +5715,7 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
     return size;
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
 #ifdef X86
 /* Combines instrlist_postinsert to ilist and the size calculation of the addition */
 static inline int
@@ -5829,7 +5832,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
 # endif
         ;
 #elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif

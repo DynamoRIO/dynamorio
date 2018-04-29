@@ -45,12 +45,12 @@
 
 int main()
 {
-    int64_t pid;
+    int pid;
     fprintf(stderr, "starting\n");
 #if defined(AARCH64)
     asm("movz x8, " STRINGIFY(SYS_getpid) ";"
         "svc 0;"
-        "mov %0, x0" : "=r"(pid));
+        "mov %w0, w0" : "=r"(pid));
 #elif defined(X64)
     /* we don't want vsyscall since we rely on mov immed, eax being in same bb.
      * plus, libc getpid might cache the pid value.
@@ -63,7 +63,7 @@ int main()
         "int $0x80;"
         "mov %%eax, %0" : "=m"(pid));
 #endif
-    fprintf(stderr, "pid = %lld\n", (long long)pid);
+    fprintf(stderr, "pid = %d\n", pid);
 
     return 0;
 }
