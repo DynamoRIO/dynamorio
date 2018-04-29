@@ -8212,7 +8212,7 @@ detach_helper(int detach_type)
             (RUNNING_WITHOUT_CODE_CACHE() && my_dcontext->whereami == DR_WHERE_APP)));
 
     detach_on_permanent_stack(internal_detach,
-                              detach_type != DETACH_BAD_STATE_NO_CLEANUP);
+                              detach_type != DETACH_BAD_STATE_NO_CLEANUP, NULL);
 
     if (detach_type == DETACH_BAD_STATE_NO_CLEANUP) {
         SYSLOG_INTERNAL_WARNING("finished detaching, skipping cleanup");

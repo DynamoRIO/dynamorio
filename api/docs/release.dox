@@ -229,6 +229,11 @@ Further non-compatibility-affecting changes include:
    of built basic blocks.
  - Added drreg_reservation_info_ex(), drreg_statelessly_restore_app_value(),
    and drreg_is_instr_spill_or_restore().
+ - Added dr_app_stop_and_cleanup_with_stats() to obtain stats values right before
+   cleanup.
+ - drmodtrack now allocates an entry per segment for each loaded module.
+   Added a file offset field to module_segment_data_t for UNIX platforms.
+   drcachesim saves file offset information in modules.log on UNIX platforms.
 
 **************************************************
 <hr>

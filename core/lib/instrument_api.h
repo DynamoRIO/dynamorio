@@ -2918,6 +2918,7 @@ typedef struct _module_segment_data_t {
     app_pc start; /**< Start address of the segment, page-aligned backward. */
     app_pc end;   /**< End address of the segment, page-aligned forward. */
     uint prot;    /**< Protection attributes of the segment */
+    uint64 offset; /**< Offset of the segment from the beginning of the backing file */
 } module_segment_data_t;
 #endif
 
@@ -6220,19 +6221,6 @@ DR_API
  */
 bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count);
-
-/* DR_API EXPORT BEGIN */
-/** Used with dr_get_stats().*/
-typedef struct _dr_stats_t {
-    /** The size of this structure. Set this to sizeof(dr_stats_t). */
-    size_t size;
-    /** The total number of basic blocks ever built so far, globally. This
-     *  includes duplicates and blocks that were deleted for consistency
-     *  or capacity reasons or thread-private caches.
-     */
-    uint64 basic_block_count;
-} dr_stats_t;
-/* DR_API EXPORT END */
 
 DR_API
 /**

@@ -1813,6 +1813,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
             copy->segments[i].start = os_segments[i].start;
             copy->segments[i].end = os_segments[i].end;
             copy->segments[i].prot = os_segments[i].prot;
+            copy->segments[i].offset = os_segments[i].offset;
         }
     } else {
         ASSERT(segments != NULL);
@@ -7621,15 +7622,7 @@ DR_API
 bool
 dr_get_stats(dr_stats_t *drstats)
 {
-    if (!GLOBAL_STATS_ON())
-        return false;
-    CLIENT_ASSERT(drstats != NULL, "Expected non-null value for parameter drstats.");
-    /* We are at V1 of the structure, and we can't return less than the one
-     * field. We need to remove this assert when we add more fields.
-     */
-    CLIENT_ASSERT(drstats->size >= sizeof(dr_stats_t), "Invalid drstats->size value.");
-    drstats->basic_block_count = GLOBAL_STAT(num_bbs);
-    return true;
+    return stats_get_snapshot(drstats);
 }
 
 
