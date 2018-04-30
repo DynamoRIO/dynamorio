@@ -921,6 +921,8 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
     }
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
+#ifdef X86
 /* returns true to indicate "elide and continue" and false to indicate "end bb now"
  * should be used both for converted indirect jumps and
  * FIXME: for direct jumps by bb_process_ubr
@@ -952,6 +954,7 @@ follow_direct_jump(dcontext_t *dcontext, build_bb_t *bb,
     }
     return false;               /* stop bb */
 }
+#endif /* X86 */
 
 /* returns true to indicate "elide and continue" and false to indicate "end bb now" */
 static inline bool
@@ -2324,6 +2327,8 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
     return false; /* stop bb */
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
+#ifdef X86
 /* if we make the IAT sections unreadable we will need to map to proper location */
 static inline app_pc
 read_from_IAT(app_pc iat_reference)
@@ -2334,7 +2339,6 @@ read_from_IAT(app_pc iat_reference)
     return *(app_pc*) iat_reference;
 }
 
-#ifdef X86
 /* returns whether target is an IAT of a module that we convert.  Note
  * users still have to check the referred to value to verify targeting
  * a native module.
@@ -5711,6 +5715,8 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
     return size;
 }
 
+/* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
+#ifdef X86
 /* Combines instrlist_postinsert to ilist and the size calculation of the addition */
 static inline int
 tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
@@ -5720,16 +5726,17 @@ tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
      * anyway, and we'll re-use any memory allocated here for an encoding
      */
     int size;
-#if defined(X86) && defined(X64)
+# ifdef X64
     if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_set_x86_mode(inst, true/*x86*/);
         instr_shrink_to_32_bits(inst);
     }
-#endif
+# endif
     size = instr_length(dcontext, inst);
     instrlist_postinsert(ilist, where, inst);
     return size;
 }
+#endif /* X86 */
 
 #ifdef HASHTABLE_STATISTICS
 /* increments a given counter - assuming XCX/R2 is dead */
@@ -5825,7 +5832,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
 # endif
         ;
 #elif defined(AARCHXX)
-    /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
+    /* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
 #endif
