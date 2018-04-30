@@ -491,12 +491,12 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         } else {
             pc = instr_get_raw_bits(instr) + instr_length(dcontext, instr);
         }
-        CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
-        // FIXME i#1729: make bundles via lazy accum until hit memref/end.
         DO_VERBOSE(3, {
             instr_set_translation(instr, orig_pc);
             dr_print_instr(dcontext, STDOUT, instr, "");
         });
+        CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
+        // FIXME i#1729: make bundles via lazy accum until hit memref/end.
         buf->type = instru_t::instr_to_instr_type(instr);
         if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
             // We want it to look like the original rep string, with just one instr

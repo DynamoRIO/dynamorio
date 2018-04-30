@@ -1494,6 +1494,11 @@ dynamo_process_exit(void)
             callback_interception_unintercept();
         }
 # endif
+# ifdef UNIX
+        /* i#2976: unhook prior to client exit if modules are being watched */
+        if (dr_modload_hook_exists())
+            unhook_vsyscall();
+# endif
         /* Must be after fragment_exit() so that the client gets all the
          * fragment_deleted() callbacks (xref PR 228156).  FIXME - might be issues
          * with the client trying to use api routines that depend on fragment state.
