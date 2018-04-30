@@ -535,6 +535,9 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
+  if (DEFINED ${test}_outname)
+    set_target_properties(${test} PROPERTIES OUTPUT_NAME "${${test}_outname}")
+  endif ()
   copy_target_to_device(${test})
 
   set_target_properties(${test} PROPERTIES
@@ -1539,9 +1542,9 @@ endfunction(optimize)
 # This step takes a while so we provide a status message:
 message(STATUS "Processing tests and generating expected output patterns")
 
-tobuild(common.broadfun common/broadfun.c)
 # Make sure we test running a path with spaces (to avoid regressions like i#2538).
-set_target_properties(common.broadfun PROPERTIES OUTPUT_NAME "common.broadfun spaces")
+set(common.broadfun_outname "common.broadfun spaces")
+tobuild(common.broadfun common/broadfun.c)
 if (DEBUG)
   torunonly(common.logstderr common.broadfun common/logstderr.c
     "-log_to_stderr -loglevel 1 -logmask 2" "")
