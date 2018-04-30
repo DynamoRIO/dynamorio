@@ -174,7 +174,7 @@ run_test(void *dc, const char *file, bool verbose)
     end = map_base + map_size;
     while (s < end) {
         byte *t = memchr(s, '\n', end - s);
-        do_line(dc, s, (t == NULL ? end : t) - s, verbose, &failed);
+        do_line(dc, (const char *) s, (t == NULL ? end : t) - s, verbose, &failed);
         s = (t == NULL ? end : t + 1);
     }
 
