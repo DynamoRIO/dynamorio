@@ -331,7 +331,7 @@ DR_API file_t our_stderr = STDERR_FILENO;
 DR_API file_t our_stdin = STDIN_FILENO;
 
 /* we steal fds from the app */
-static struct rlimit app_rlimit_nofile; /* cur rlimit set by app */
+static struct rlimit64 app_rlimit_nofile; /* cur rlimit set by app */
 static int min_dr_fd;
 
 /* we store all DR files so we can prevent the app from changing them,
@@ -7500,13 +7500,25 @@ pre_system_call(dcontext_t *dcontext)
 # else
             struct rlimit rlim;
 # endif
-            if (safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim) &&
-                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
+            if (!safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
+                set_failure_return_val(dcontext, EFAULT);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else if (rlim.rlim_cur > rlim.rlim_max) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL for prlimit64\n");
+                set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else if (rlim.rlim_max <= min_dr_fd &&
+                       /* Can't raise hard unless have CAP_SYS_RESOURCE capability.
+                        * XXX i#2980: should query for that capability.
+                        */
+                       rlim.rlim_max <= app_rlimit_nofile.rlim_max) {
                 /* if the new rlimit is lower, pretend succeed */
                 app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
                 app_rlimit_nofile.rlim_max = rlim.rlim_max;
                 set_success_return_val(dcontext, 0);
             } else {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EPERM to app for setrlimit\n");
                 /* don't let app raise limits as that would mess up our fd space */
                 set_failure_return_val(dcontext, EPERM);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7535,23 +7547,42 @@ pre_system_call(dcontext_t *dcontext)
              */
             (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id()) &&
             dcontext->sys_param1 == RLIMIT_NOFILE &&
-            dcontext->sys_param2 != (reg_t)NULL &&  DYNAMO_OPTION(steal_fds) > 0) {
-            struct rlimit rlim;
-            if (safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim) &&
-                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
-                /* if the new rlimit is lower, pretend succeed */
-                app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
-                app_rlimit_nofile.rlim_max = rlim.rlim_max;
-                set_success_return_val(dcontext, 0);
-                /* set old rlimit if necessary */
-                if (dcontext->sys_param3 != (reg_t)NULL) {
-                    safe_write_ex((void *)(dcontext->sys_param3), sizeof(rlim),
-                                  &app_rlimit_nofile, NULL);
-                }
-            } else {
-                /* don't let app raise limits as that would mess up our fd space */
-                set_failure_return_val(dcontext, EPERM);
+            dcontext->sys_param2 != (reg_t)NULL && DYNAMO_OPTION(steal_fds) > 0) {
+            struct rlimit64 rlim;
+            if (!safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
+                set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else {
+                LOG(THREAD, LOG_SYSCALLS, 2,
+                    "syscall: prlimit64 soft=" INT64_FORMAT_STRING " hard="
+                    INT64_FORMAT_STRING " vs DR %d\n",
+                    rlim.rlim_cur, rlim.rlim_max, min_dr_fd);
+                if (rlim.rlim_cur > rlim.rlim_max) {
+                    LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL for prlimit64\n");
+                    set_failure_return_val(dcontext, EINVAL);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                } else if (rlim.rlim_max <= min_dr_fd &&
+                           /* Can't raise hard unless have CAP_SYS_RESOURCE capability.
+                            * XXX i#2980: should query for that capability.
+                            */
+                           rlim.rlim_max <= app_rlimit_nofile.rlim_max) {
+                    /* if the new rlimit is lower, pretend succeed */
+                    app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
+                    app_rlimit_nofile.rlim_max = rlim.rlim_max;
+                    set_success_return_val(dcontext, 0);
+                    /* set old rlimit if necessary */
+                    if (dcontext->sys_param3 != (reg_t)NULL) {
+                        safe_write_ex((void *)(dcontext->sys_param3), sizeof(rlim),
+                                      &app_rlimit_nofile, NULL);
+                    }
+                } else {
+                    /* don't let app raise limits as that would mess up our fd space */
+                    LOG(THREAD, LOG_SYSCALLS, 2,
+                        "\treturning EPERM to app for prlimit64\n");
+                    set_failure_return_val(dcontext, EPERM);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                }
             }
             execute_syscall = false;
         }
@@ -8622,7 +8653,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_prlimit64: {
          int resource = dcontext->sys_param1;
-         struct rlimit *rlim = (struct rlimit *) dcontext->sys_param3;
+         struct rlimit64 *rlim = (struct rlimit64 *) dcontext->sys_param3;
          if (success && resource == RLIMIT_NOFILE && rlim != NULL &&
              /* XXX: xref pid discussion in pre_system_call SYS_prlimit64 */
              (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id())) {
