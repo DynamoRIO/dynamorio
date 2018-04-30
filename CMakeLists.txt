@@ -580,6 +580,18 @@ if (UNIX)
 
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
 
+  # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
+  # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
+  # For now we disable those builds.
+  if (UNIX AND NOT X64 AND NOT DEBUG AND NOT CLANG AND
+      "${CMAKE_C_COMPILER_VERSION}" VERSION_GREATER "7.3")
+    message(STATUS "gcc 7.3+ non-debug 32-bit detected: disabling static C++ client "
+      "tests to work around i#2949")
+    set(DISABLE_FOR_BUG_2949 ON)
+  else ()
+    set(DISABLE_FOR_BUG_2949 OFF)
+  endif ()
+
 else (UNIX)
 
   if (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")

@@ -373,7 +373,6 @@ endif ()
 # We build larger executables here.  All tests are added in suite/tests/ except unit tests.
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
-
 if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
   if (ZLIB_FOUND)
@@ -388,7 +387,8 @@ if (BUILD_TESTS)
            COMMAND tool.drcachesim.unit_tests)
   # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
-  if (NOT AARCH64 AND NOT APPLE)
+  # FIXME i#2949: gcc 7.3 fails to link certain configs
+  if (NOT AARCH64 AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
