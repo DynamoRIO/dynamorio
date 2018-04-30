@@ -10383,6 +10383,48 @@ __umoddi3(uint64 dividend, uint64 divisor)
     uint64_divmod(dividend, divisor, &remainder);
     return (uint64) remainder;
 }
+
+/* Same thing for signed. */
+static int64
+int64_divmod(int64 dividend, int64 divisor64, int *remainder)
+{
+    union {
+        int64 v64;
+        struct {
+            int lo;
+            int hi;
+        };
+    } res;
+    int upper;
+    int divisor = (int) divisor64;
+
+    /* Our uses don't use large divisors. */
+    ASSERT(divisor64 <= INT_MAX && divisor64 >= INT_MIN && "divisor too large for int");
+
+    /* Divide out the high bits first. */
+    res.v64 = dividend;
+    upper = res.hi;
+    res.hi = upper / divisor;
+    upper %= divisor;
+
+    /* Like above but with the signed div instruction, which does a signed divide
+     * on edx:eax by r/m32 => quotient in eax, remainder in edx.
+     */
+    asm ("idivl %2" : "=a" (res.lo), "=d" (*remainder) :
+         "rm" (divisor), "0" (res.lo), "1" (upper));
+    return res.v64;
+}
+
+/* Match libgcc's prototype. */
+int64
+__divdi3(int64 dividend, int64 divisor)
+{
+    int remainder;
+    return int64_divmod(dividend, divisor, &remainder);
+}
+
+/* __moddi3 is coming from third_party/libgcc for x86 as well as arm. */
+
 #elif defined (ARM)
 /* i#1566: for ARM, __aeabi versions are used instead of udivdi3 and umoddi3.
  * We link with __aeabi routines from libgcc via third_party/libgcc.
