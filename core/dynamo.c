@@ -2853,7 +2853,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 
 #define MAX_TAKE_OVER_ATTEMPTS 4
 
-/* Take over other threads in the current process.
+/* Mark this thread as under DR, and take over other threads in the current process.
  */
 void
 dynamorio_take_over_threads(dcontext_t *dcontext)
@@ -2865,6 +2865,10 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     uint attempts = 0;
 
     os_process_under_dynamorio_initiate(dcontext);
+    /* We can start this thread now that we've set up process-wide actions such
+     * as handling signals.
+     */
+    dynamo_thread_under_dynamo(dcontext);
     signal_event(dr_app_started);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.

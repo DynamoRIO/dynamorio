@@ -577,6 +577,7 @@ int dynamo_process_exit(void);
 #ifdef UNIX
 void dynamorio_fork_init(dcontext_t *dcontext);
 #endif
+/* This calls dynamo_thread_under_dynamo() for the current thread as well. */
 void dynamorio_take_over_threads(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 

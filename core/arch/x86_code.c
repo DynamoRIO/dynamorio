@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,10 +73,6 @@ thread_starting(dcontext_t *dcontext)
 {
     ASSERT(dcontext->initialized);
     dynamo_thread_under_dynamo(dcontext);
-#ifdef WINDOWS
-    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread "TIDFMT"\n",
-        get_thread_id());
-#endif
 }
 
 /* Initializes a dcontext with the supplied state and calls dispatch */
@@ -104,9 +100,10 @@ dynamo_start(priv_mcontext_t *mc)
         ASSERT(dcontext != NULL);
         os_thread_take_over_secondary(dcontext);
     }
-    thread_starting(dcontext);
 
-    /* Signal other threads for take over. */
+    /* Signal other threads for take over.
+     * This routine now calls dynamo_thread_under_dynamo() for this thread as well.
+     */
     dynamorio_take_over_threads(dcontext);
 
     /* Set return address */
@@ -186,12 +183,16 @@ auto_setup(ptr_uint_t appstack)
 
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext);
-    thread_starting(dcontext);
+#ifdef WINDOWS
+    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread "TIDFMT"\n",
+        get_thread_id());
+#endif
 
     /* Despite what *should* happen, there can be other threads if a statically
      * imported lib created one in its DllMain (Cygwin does this), or if a
      * thread was injected from the outside.  We go ahead and check for and
      * take over any other threads at this time.  Xref i#1304.
+     * This routine now calls dynamo_thread_under_dynamo() for this thread as well.
      * XXX i#1305: we should really suspend all these other threads for DR init.
      */
     dynamorio_take_over_threads(dcontext);
