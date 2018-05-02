@@ -457,6 +457,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
      * unless they're suspended, and the same goes for us.
      */
     ASSERT_CURIOSITY(trec->dcontext->whereami == DR_WHERE_FCACHE ||
+                     trec->dcontext->whereami == DR_WHERE_SIGNAL_HANDLER ||
                      native_translate ||
                      trec->id == get_thread_id());
     LOG(THREAD_GET, LOG_SYNCH, 2,
