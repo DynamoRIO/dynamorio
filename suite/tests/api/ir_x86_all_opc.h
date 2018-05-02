@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,6 +63,10 @@
     pc = buf;
     orig = instrlist_first(ilist);
 
+    /* XXX: It would be nice to ensure the disasm string matches the opcode but there
+     * are many exceptions, and the string is not returned as first-class data:
+     * we'd have to parse past prefixes.  Xref i#2985.
+     */
 #   define XOPCODE OPCODE
 #   define OPCODE(name, opc, icnm, flags, ...) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) { \
