@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5330,16 +5330,16 @@ const instr_info_t vex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[66][1]},
+    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 67 */
-    {OP_vpgatherqd,0x66389118,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[67][1]},
-    {OP_vpgatherqq,0x66389158,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 68 */
-    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[68][1]},
+    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 69 */
-    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[69][1]},
+    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 70 */
     {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
