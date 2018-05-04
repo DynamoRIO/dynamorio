@@ -1152,6 +1152,8 @@ DR_API
  * \p func whenever the application is about to invoke a system call,
  * if any client asked for that system call number to be intercepted
  * via the filter event (dr_register_filter_syscall_event()).
+ * Any client registering a pre- or post-syscall event should also
+ * register a filter event.
  *
  * The application parameters to the system call can be viewed with
  * dr_syscall_get_param() and set with dr_syscall_set_param().  The
@@ -1197,8 +1199,12 @@ DR_API
  * call, if any client asked for that system call number to be
  * intercepted via the filter event
  * (dr_register_filter_syscall_event()) or if DR itself needs to
- * intercept the system call.  The result of the system call can be
- * modified with dr_syscall_set_result() or dr_syscall_set_result_ex().
+ * intercept the system call.
+ * Any client registering a pre- or post-syscall event should also
+ * register a filter event.
+ *
+ * The result of the system call can be modified with
+ * dr_syscall_set_result() or dr_syscall_set_result_ex().
  *
  * System calls that change control flow or terminate the current
  * thread or process typically do not have a post-syscall event.

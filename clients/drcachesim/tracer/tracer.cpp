@@ -1171,6 +1171,12 @@ event_bb_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
 }
 
 static bool
+event_filter_syscall(void *drcontext, int sysnum)
+{
+    return true;
+}
+
+static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
@@ -1293,6 +1299,7 @@ enable_tracing_instrumentation()
                                                     event_bb_instru2instru,
                                                     NULL))
         DR_ASSERT(false);
+    dr_register_filter_syscall_event(event_filter_syscall);
     tracing_enabled = true;
 }
 
@@ -1566,6 +1573,7 @@ event_exit(void)
     drvector_delete(&scratch_reserve_vec);
 
     if (tracing_enabled) {
+        dr_unregister_filter_syscall_event(event_filter_syscall);
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
             !drmgr_unregister_bb_instrumentation_ex_event(event_bb_app2app,
