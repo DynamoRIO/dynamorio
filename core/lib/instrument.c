@@ -2031,6 +2031,11 @@ bool
 instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 {
     bool exec = true;
+    DODEBUG({
+        /* Avoid the common mistake of forgetting a filter event. */
+        CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
+                      "provided when using pre- and post-syscall events");
+    });
     dcontext->client_data->in_pre_syscall = true;
     /* clear flag from dr_syscall_invoke_another() */
     dcontext->client_data->invoke_another_syscall = false;
@@ -2057,6 +2062,11 @@ instrument_post_syscall(dcontext_t *dcontext, int sysnum)
     dr_where_am_i_t old_whereami = dcontext->whereami;
     if (post_syscall_callbacks.num == 0)
         return;
+    DODEBUG({
+        /* Avoid the common mistake of forgetting a filter event. */
+        CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
+                      "provided when using pre- and post-syscall events");
+    });
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     dcontext->client_data->in_post_syscall = true;
     call_all(post_syscall_callbacks, int (*)(void *, int),
