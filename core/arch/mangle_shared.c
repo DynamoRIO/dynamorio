@@ -1164,67 +1164,98 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *prev = instr_get_prev(instr);
     /* Allow either eax or rax for x86_64 */
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
+#ifdef CLIENT_INTERFACE
+    instr_t *walk, *tgt;
+#endif
 
-    if (prev != NULL) {
-        prev = instr_get_prev_expanded(dcontext, ilist, instr);
-        /* walk backwards looking for "mov imm->xax"
-         * may be other instrs placing operands into registers
-         * for the syscall in between
+    if (prev == NULL)
+        return -1;
+    prev = instr_get_prev_expanded(dcontext, ilist, instr);
+    /* walk backwards looking for "mov imm->xax"
+     * may be other instrs placing operands into registers
+     * for the syscall in between
+     */
+    while (prev != NULL &&
+           /* We skip meta instrs under the assumption that a meta write to
+            * sysreg is undone before the syscall.  If a tool wants to change the
+            * real sysreg they should use an app instr.
+            */
+           (!instr_is_app(prev) ||
+            (!instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
+             !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)))) {
+#ifdef CLIENT_INTERFACE
+        /* If client added cti in between that skips over the syscall, bail
+         * and assume non-ignorable.
          */
-        while (prev != NULL &&
-               !instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
-               !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)) {
-#ifdef CLIENT_INTERFACE
-            /* if client added cti in between, bail and assume non-ignorable */
-            if (instr_is_cti(prev) &&
-                !(cti_is_normal_elision(prev)
-                  IF_WINDOWS(|| instr_is_call_sysenter_pattern
-                             (prev, instr_get_next(prev), instr))))
+        if (instr_is_cti(prev) &&
+            (instr_is_app(prev) || opnd_is_instr(instr_get_target(prev))) &&
+            !(cti_is_normal_elision(prev)
+              IF_WINDOWS(|| instr_is_call_sysenter_pattern
+                         (prev, instr_get_next(prev), instr)))) {
+            for (tgt = opnd_get_instr(instr_get_target(prev));
+                 tgt != NULL;
+                 tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
+                if (tgt == instr)
+                    break;
+            }
+            if (tgt == NULL) {
+                LOG(THREAD, LOG_SYSCALLS, 3,
+                    "%s: cti skips syscall: bailing on syscall number\n",
+                    __FUNCTION__);
                 return -1;
-#endif
-            prev = instr_get_prev_expanded(dcontext, ilist, prev);
+            }
         }
-        if (prev != NULL && !instr_is_predicated(prev) &&
-            instr_is_mov_constant(prev, &value) &&
-            opnd_is_reg(instr_get_dst(prev, 0)) &&
-            reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {
-#ifdef CLIENT_INTERFACE
-            instr_t *walk, *tgt;
 #endif
-            IF_X64(ASSERT_TRUNCATE(int, int, value));
-            syscall = (int) value;
+        prev = instr_get_prev_expanded(dcontext, ilist, prev);
+    }
+    if (prev != NULL && !instr_is_predicated(prev) &&
+        instr_is_mov_constant(prev, &value) &&
+        opnd_is_reg(instr_get_dst(prev, 0)) &&
+        reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {
+        IF_X64(ASSERT_TRUNCATE(int, int, value));
+        syscall = (int) value;
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "%s: found syscall number write: %d\n", __FUNCTION__, syscall);
 #ifdef ARM
-            if (opnd_get_size(instr_get_dst(prev, 0)) != OPSZ_PTR) {
-                /* sub-reg write: special-case movw,movt, else bail */
-                if (instr_get_opcode(prev) == OP_movt) {
-                    ptr_int_t val2;
-                    prev = instr_get_prev_expanded(dcontext, ilist, prev);
-                    if (prev != NULL && instr_is_mov_constant(prev, &val2)) {
-                        syscall = (int) (value << 16) | (val2 & 0xffff);
-                    } else
-                        return -1;
+        if (opnd_get_size(instr_get_dst(prev, 0)) != OPSZ_PTR) {
+            /* sub-reg write: special-case movw,movt, else bail */
+            if (instr_get_opcode(prev) == OP_movt) {
+                ptr_int_t val2;
+                prev = instr_get_prev_expanded(dcontext, ilist, prev);
+                if (prev != NULL && instr_is_mov_constant(prev, &val2)) {
+                    syscall = (int) (value << 16) | (val2 & 0xffff);
                 } else
                     return -1;
-            }
+            } else
+                return -1;
+        }
 #endif
 #ifdef CLIENT_INTERFACE
-            /* if client added cti target in between, bail and assume non-ignorable */
-            for (walk = instrlist_first_expanded(dcontext, ilist);
-                 walk != NULL;
-                 walk = instr_get_next_expanded(dcontext, ilist, walk)) {
-                if (instr_is_cti(walk) && opnd_is_instr(instr_get_target(walk))) {
-                    for (tgt = opnd_get_instr(instr_get_target(walk));
-                         tgt != NULL;
-                         tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
-                        if (tgt == prev)
-                            break;
-                        if (tgt == instr)
-                            return -1;
+        /* If client added cti that skips over the write, bail and assume
+         * non-ignorable.
+         */
+        for (walk = instrlist_first_expanded(dcontext, ilist);
+             walk != NULL && walk != prev;
+             walk = instr_get_next_expanded(dcontext, ilist, walk)) {
+            if (instr_is_cti(walk) && opnd_is_instr(instr_get_target(walk))) {
+                for (tgt = opnd_get_instr(instr_get_target(walk));
+                     tgt != NULL;
+                     tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
+                    if (tgt == prev)
+                        break;
+                    if (tgt == instr) {
+                        LOG(THREAD, LOG_SYSCALLS, 3,
+                            "%s: cti skips write: invalidating syscall number\n",
+                            __FUNCTION__);
+                        return -1;
                     }
                 }
             }
-#endif
         }
+#endif
+    } else {
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "%s: never found write of syscall number\n", __FUNCTION__);
     }
     IF_X64(ASSERT_TRUNCATE(int, int, syscall));
     return (int) syscall;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -839,8 +839,9 @@ drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
 DR_EXPORT
 /**
  * Registers a callback function for the pre-syscall event, which
- * behaves just like DR's pre-syscall event
- * dr_register_pre_syscall_event().
+ * behaves just like DR's pre-syscall event dr_register_pre_syscall_event().
+ * In particular, a filter event is still needed to ensure that a pre- or post-syscall
+ * event is actually called: use dr_register_filter_syscall_event().
  * \return whether successful.
  */
 bool
@@ -853,6 +854,8 @@ DR_EXPORT
  * dr_register_pre_syscall_event(), except that it is ordered according
  * to \p priority.  A default priority of 0 is used for events registered
  * via drmgr_register_pre_syscall_event().
+ * A filter event is still needed to ensure that a pre- or post-syscall
+ * event is actually called: use dr_register_filter_syscall_event().
  * \return whether successful.
  */
 bool
