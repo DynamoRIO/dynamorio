@@ -2993,6 +2993,20 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #endif /* X86 && LINUX */
 }
 
+/* Only operates on rt frames, so call before converting to plain.
+ * Must be called *after* translating the sigcontext.
+ */
+static void
+fixup_siginfo(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+{
+    /* For some signals, si_addr is a PC which we must translate. */
+    if (sig != SIGILL && sig != SIGTRAP && sig != SIGFPE)
+        return; /* nothing to do */
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    frame->info.si_addr = (void*) sc->SC_XIP;
+    frame->info.si_addr_lsb = sc->SC_XIP & 0x1;
+}
+
 static void
 memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
 {
@@ -3042,6 +3056,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
+    fixup_siginfo(dcontext, sig, frame);
 
     /* We avoid querying memory as it incurs global contended locks. */
     flush_pc = is_executable_area_writable_overlap(sp, sp + size);
