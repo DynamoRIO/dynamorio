@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,9 +69,13 @@ static bool invalid_lock;
 
 #ifdef UNIX
 static void
-signal_handler(int sig)
+signal_handler(int sig, siginfo_t *info, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
+        if ((greg_t)info->si_addr != ucxt->uc_mcontext.gregs[REG_RIP]) {
+            print("ERROR: si_addr=%p does not match rip=%p\n", info->si_addr,
+                  ucxt->uc_mcontext.gregs[REG_RIP]);
+        }
         count++;
         if (invalid_lock) {
             print("Invalid lock sequence, instance %d\n", count);
