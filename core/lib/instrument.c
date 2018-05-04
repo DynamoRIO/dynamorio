@@ -2031,17 +2031,17 @@ bool
 instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 {
     bool exec = true;
-    DODEBUG({
-        /* Avoid the common mistake of forgetting a filter event. */
-        CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
-                      "provided when using pre- and post-syscall events");
-    });
     dcontext->client_data->in_pre_syscall = true;
     /* clear flag from dr_syscall_invoke_another() */
     dcontext->client_data->invoke_another_syscall = false;
     if (pre_syscall_callbacks.num > 0) {
         dr_where_am_i_t old_whereami = dcontext->whereami;
         dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
+        DODEBUG({
+            /* Avoid the common mistake of forgetting a filter event. */
+            CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
+                          "provided when using pre- and post-syscall events");
+        });
         /* Skip syscall if any client wants to skip it, but don't short-circuit,
          * as skipping syscalls is usually done when the effect of the syscall
          * will be emulated in some other way.  The app is typically meant to
