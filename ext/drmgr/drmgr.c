@@ -1012,7 +1012,10 @@ drmgr_bb_cb_remove(cb_list_t *list,
              instru2instru_ex_func == e->cb.instru2instru_ex_cb)) {
             res = true;
             e->pri.valid = false;
+            ASSERT(list->num_valid > 0, "invalid num_valid");
             list->num_valid--;
+            if (list->num_valid == 0 && list->lazy_unregister != NULL)
+                (*list->lazy_unregister)();
             if (i == list->num_def - 1)
                 list->num_def--;
             if (e->has_quartet)
