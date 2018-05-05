@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -830,6 +830,7 @@ typedef struct ibl_code_t {
 typedef struct _generated_code_t {
     byte *fcache_enter;
     byte *fcache_return;
+    byte *fcache_return_end;
 #ifdef WINDOWS_PC_SAMPLE
     byte *fcache_enter_return_end;
 #endif
@@ -908,6 +909,7 @@ typedef struct _generated_code_t {
      */
     /* FIXME: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
+    byte *fcache_return_coarse_end;
     byte *trace_head_return_coarse;
     /* special ibl xfer */
     byte *special_ibl_xfer[NUM_SPECIAL_IBL_XFERS];

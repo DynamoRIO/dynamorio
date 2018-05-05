@@ -3599,6 +3599,40 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
     return changed;
 }
 
+static void
+relink_interrupted_fragment(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    if (info->interrupted == NULL)
+        return;
+    /* i#2066: if we were building a trace, it may already be re-linked */
+    if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
+        LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
+            info->interrupted->id);
+        SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
+                                    change_linking_lock);
+        /* Double-check flags to ensure some other thread didn't link
+         * while we waited for the change_linking_lock.
+         */
+        if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
+            link_fragment_outgoing(dcontext, info->interrupted, false);
+        }
+        SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
+                                    change_linking_lock);
+    }
+    if (TEST(FRAG_HAS_SYSCALL, info->interrupted->flags)) {
+        /* restore syscall (they're a barrier to signals, so signal
+         * handler has cur frag exit before it does a syscall)
+         */
+        if (info->interrupted_pc != NULL) {
+            mangle_syscall_code(dcontext, info->interrupted,
+                                info->interrupted_pc, true/*skip exit cti*/);
+        }
+    }
+    info->interrupted = NULL;
+    info->interrupted_pc = NULL;
+    info->interrupted_gencode = false;
+}
+
 static bool
 interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
                             byte *pc/*interruption pc*/)
@@ -3896,16 +3930,21 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                      */
                 } else {
                     /* could get another signal but should be in same fragment */
-                    ASSERT(info->interrupted == NULL || info->interrupted == f);
-                    if (unlink_fragment_for_signal(dcontext, f, pc)) {
-                        info->interrupted = f;
-                        info->interrupted_pc = pc;
-                    } else {
-                        /* either was unlinked for trace creation, or we got another
-                         * signal before exiting cache to handle 1st
-                         */
-                        ASSERT(info->interrupted == NULL ||
-                               info->interrupted == f);
+                    ASSERT(info->interrupted == NULL || info->interrupted == f ||
+                           /* i#2328: if we interrupt gencode we have to guess */
+                           info->interrupted_gencode);
+                    if (info->interrupted != f) {
+                        /* Avoid leaving any prior unlinked */
+                        relink_interrupted_fragment(dcontext, info);
+                        if (unlink_fragment_for_signal(dcontext, f, pc)) {
+                            info->interrupted = f;
+                            info->interrupted_pc = pc;
+                        } else {
+                            /* either was unlinked for trace creation, or we got another
+                             * signal before exiting cache to handle 1st
+                             */
+                            ASSERT(info->interrupted == NULL || info->interrupted == f);
+                        }
                     }
                 }
             }
@@ -3977,6 +4016,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * XXX: better to get this code inside arch/ but we'd have to
              * convert to an mcontext which seems overkill.
              */
+            info->interrupted_gencode = true;
 #ifdef AARCHXX
             /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
             if (sc->SC_R2 != 0)
@@ -3990,8 +4030,14 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 #else
 # error Unsupported arch.
 #endif
-            /* If in fcache_enter, we stored the next_tag in asynch_target in dispatch. */
-            if (f == NULL && dcontext->asynch_target != NULL)
+            /* If in fcache_enter, we stored the next_tag in asynch_target in dispatch.
+             * But, we need to avoid using the asynch_target for the fragment we just
+             * exited if we're in fcache_return.  We could also have exited if we're in
+             * certain ibl spots: we set interrupted_gencode to avoid asserts and we
+             * eventually relink.
+             */
+            if (f == NULL && dcontext->asynch_target != NULL &&
+                !in_fcache_return(dcontext, pc))
                 f = fragment_lookup(dcontext, dcontext->asynch_target);
             if (f != NULL && !TEST(FRAG_COARSE_GRAIN, f->flags)) {
                 if (unlink_fragment_for_signal(dcontext, f, FCACHE_ENTRY_PC(f))) {
@@ -5664,31 +5710,7 @@ receive_pending_signal(dcontext_t *dcontext)
     int sig;
     LOG(THREAD, LOG_ASYNCH, 3, "receive_pending_signal\n");
     if (info->interrupted != NULL) {
-        /* i#2066: if we were building a trace, it may already be re-linked */
-        if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
-            LOG(THREAD, LOG_ASYNCH, 3, "\tre-linking outgoing for interrupted F%d\n",
-                info->interrupted->id);
-            SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, acquire,
-                                        change_linking_lock);
-            // Double-check flags to ensure some other thread didn't link
-            // while we waited for the change_linking_lock.
-            if (!TEST(FRAG_LINKED_OUTGOING, info->interrupted->flags)) {
-                link_fragment_outgoing(dcontext, info->interrupted, false);
-            }
-            SHARED_FLAGS_RECURSIVE_LOCK(info->interrupted->flags, release,
-                                        change_linking_lock);
-        }
-        if (TEST(FRAG_HAS_SYSCALL, info->interrupted->flags)) {
-            /* restore syscall (they're a barrier to signals, so signal
-             * handler has cur frag exit before it does a syscall)
-             */
-            if (info->interrupted_pc != NULL) {
-                mangle_syscall_code(dcontext, info->interrupted,
-                                    info->interrupted_pc, true/*skip exit cti*/);
-            }
-        }
-        info->interrupted = NULL;
-        info->interrupted_pc = NULL;
+        relink_interrupted_fragment(dcontext, info);
     }
     /* grab first pending signal
      * XXX: start with real-time ones?
