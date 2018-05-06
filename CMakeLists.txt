@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -578,6 +579,18 @@ if (UNIX)
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
 
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
+
+  # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
+  # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
+  # For now we disable those builds.
+  if (UNIX AND NOT X64 AND NOT DEBUG AND NOT CLANG AND
+      "${CMAKE_C_COMPILER_VERSION}" VERSION_GREATER "7.3")
+    message(STATUS "gcc 7.3+ non-debug 32-bit detected: disabling static C++ client "
+      "tests to work around i#2949")
+    set(DISABLE_FOR_BUG_2949 ON)
+  else ()
+    set(DISABLE_FOR_BUG_2949 OFF)
+  endif ()
 
 else (UNIX)
 
@@ -1576,6 +1589,10 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
     DEPENDS ${EXTRA_HEADERS})
+  if (AARCH64)
+    add_dependencies(api_headers gen_aarch64_codec)
+  endif()
+
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c

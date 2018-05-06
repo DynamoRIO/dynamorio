@@ -335,7 +335,7 @@ DR_API file_t our_stderr = STDERR_FILENO;
 DR_API file_t our_stdin = STDIN_FILENO;
 
 /* we steal fds from the app */
-static struct rlimit app_rlimit_nofile; /* cur rlimit set by app */
+static struct rlimit64 app_rlimit_nofile; /* cur rlimit set by app */
 static int min_dr_fd;
 
 /* we store all DR files so we can prevent the app from changing them,
@@ -400,6 +400,7 @@ static bool os_dir_iterator_next(dir_iterator_t *iter);
  * (kernel-provided fake shared library or Virt Dyn Shared Object).
  */
 /* i#1583: vdso is now 2 pages, yet we assume vsyscall is on 1st page. */
+/* i#2945: vdso is now 3 pages and vsyscall is not on the 1st page. */
 app_pc vsyscall_page_start = NULL;
 /* pc of the end of the syscall instr itself */
 app_pc vsyscall_syscall_end_pc = NULL;
@@ -417,6 +418,7 @@ app_pc vsyscall_sysenter_displaced_pc = NULL;
 #endif
 /* i#1908: vdso and vsyscall are now split */
 app_pc vdso_page_start = NULL;
+size_t vdso_size = 0;
 
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* The pthreads library keeps errno in its pthread_descr data structure,
@@ -6192,6 +6194,23 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
                      HEAPACCT(ACCT_THREAD_MGT));
 }
 
+static void
+set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
+{
+#ifdef STDFILE_FILENO
+    (*stdfile)->STDFILE_FILENO = file_no;
+#else
+# warning stdfile_t is opaque; DynamoRIO will not set fds of libc FILEs.
+    /* i#1973: musl libc support (and potentially other non-glibcs) */
+    /* only called by handle_close_pre(), so warning is specific to that. */
+    SYSLOG_INTERNAL_WARNING_ONCE(
+        "DynamoRIO cannot set the file descriptors of private libc FILEs on "
+        "this platform. Client usage of stdio.h stdin, stdout, or stderr may "
+        "no longer work as expected, because the app is closing the UNIX fds "
+        "backing these.");
+#endif
+}
+
 /* returns whether to execute syscall */
 static bool
 handle_close_pre(dcontext_t *dcontext)
@@ -6228,7 +6247,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdout != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdout)->STDFILE_FILENO = our_stdout;
+            set_stdfile_fileno(privmod_stdout, our_stdout);
         }
     }
     if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
@@ -6244,7 +6263,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stderr != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stderr _fileno. */
-            (*privmod_stderr)->STDFILE_FILENO = our_stderr;
+            set_stdfile_fileno(privmod_stderr, our_stderr);
         }
     }
     if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
@@ -6260,7 +6279,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdin != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdin)->STDFILE_FILENO = our_stdin;
+            set_stdfile_fileno(privmod_stdin, our_stdin);
         }
     }
     return true;
@@ -7505,13 +7524,25 @@ pre_system_call(dcontext_t *dcontext)
 # else
             struct rlimit rlim;
 # endif
-            if (safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim) &&
-                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
+            if (!safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
+                set_failure_return_val(dcontext, EFAULT);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else if (rlim.rlim_cur > rlim.rlim_max) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL for prlimit64\n");
+                set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else if (rlim.rlim_max <= min_dr_fd &&
+                       /* Can't raise hard unless have CAP_SYS_RESOURCE capability.
+                        * XXX i#2980: should query for that capability.
+                        */
+                       rlim.rlim_max <= app_rlimit_nofile.rlim_max) {
                 /* if the new rlimit is lower, pretend succeed */
                 app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
                 app_rlimit_nofile.rlim_max = rlim.rlim_max;
                 set_success_return_val(dcontext, 0);
             } else {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EPERM to app for setrlimit\n");
                 /* don't let app raise limits as that would mess up our fd space */
                 set_failure_return_val(dcontext, EPERM);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7540,23 +7571,42 @@ pre_system_call(dcontext_t *dcontext)
              */
             (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id()) &&
             dcontext->sys_param1 == RLIMIT_NOFILE &&
-            dcontext->sys_param2 != (reg_t)NULL &&  DYNAMO_OPTION(steal_fds) > 0) {
-            struct rlimit rlim;
-            if (safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim) &&
-                rlim.rlim_max <= min_dr_fd && rlim.rlim_cur <= rlim.rlim_max) {
-                /* if the new rlimit is lower, pretend succeed */
-                app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
-                app_rlimit_nofile.rlim_max = rlim.rlim_max;
-                set_success_return_val(dcontext, 0);
-                /* set old rlimit if necessary */
-                if (dcontext->sys_param3 != (reg_t)NULL) {
-                    safe_write_ex((void *)(dcontext->sys_param3), sizeof(rlim),
-                                  &app_rlimit_nofile, NULL);
-                }
-            } else {
-                /* don't let app raise limits as that would mess up our fd space */
-                set_failure_return_val(dcontext, EPERM);
+            dcontext->sys_param2 != (reg_t)NULL && DYNAMO_OPTION(steal_fds) > 0) {
+            struct rlimit64 rlim;
+            if (!safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
+                set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else {
+                LOG(THREAD, LOG_SYSCALLS, 2,
+                    "syscall: prlimit64 soft=" INT64_FORMAT_STRING " hard="
+                    INT64_FORMAT_STRING " vs DR %d\n",
+                    rlim.rlim_cur, rlim.rlim_max, min_dr_fd);
+                if (rlim.rlim_cur > rlim.rlim_max) {
+                    LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL for prlimit64\n");
+                    set_failure_return_val(dcontext, EINVAL);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                } else if (rlim.rlim_max <= min_dr_fd &&
+                           /* Can't raise hard unless have CAP_SYS_RESOURCE capability.
+                            * XXX i#2980: should query for that capability.
+                            */
+                           rlim.rlim_max <= app_rlimit_nofile.rlim_max) {
+                    /* if the new rlimit is lower, pretend succeed */
+                    app_rlimit_nofile.rlim_cur = rlim.rlim_cur;
+                    app_rlimit_nofile.rlim_max = rlim.rlim_max;
+                    set_success_return_val(dcontext, 0);
+                    /* set old rlimit if necessary */
+                    if (dcontext->sys_param3 != (reg_t)NULL) {
+                        safe_write_ex((void *)(dcontext->sys_param3), sizeof(rlim),
+                                      &app_rlimit_nofile, NULL);
+                    }
+                } else {
+                    /* don't let app raise limits as that would mess up our fd space */
+                    LOG(THREAD, LOG_SYSCALLS, 2,
+                        "\treturning EPERM to app for prlimit64\n");
+                    set_failure_return_val(dcontext, EPERM);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                }
             }
             execute_syscall = false;
         }
@@ -8627,7 +8677,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_prlimit64: {
          int resource = dcontext->sys_param1;
-         struct rlimit *rlim = (struct rlimit *) dcontext->sys_param3;
+         struct rlimit64 *rlim = (struct rlimit64 *) dcontext->sys_param3;
          if (success && resource == RLIMIT_NOFILE && rlim != NULL &&
              /* XXX: xref pid discussion in pre_system_call SYS_prlimit64 */
              (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id())) {
@@ -8947,9 +8997,61 @@ get_dynamorio_dll_preferred_base()
     return get_dynamorio_dll_start();
 }
 
-/* assumed to be called after find_dynamo_library_vm_areas() */
+static void
+found_vsyscall_page(memquery_iter_t *iter _IF_DEBUG(OUT const char **map_type))
+{
+#ifndef X64
+    /* We assume no vsyscall page for x64; thus, checking the
+     * hardcoded address shouldn't have any false positives.
+     */
+    ASSERT(iter->vm_end - iter->vm_start == PAGE_SIZE ||
+           /* i#1583: recent kernels have 2-page vdso */
+           iter->vm_end - iter->vm_start == 2*PAGE_SIZE);
+    ASSERT(!dynamo_initialized); /* .data should be +w */
+    /* we're not considering as "image" even if part of ld.so (xref i#89) and
+     * thus we aren't adjusting our code origins policies to remove the
+     * vsyscall page exemption.
+     */
+    DODEBUG({ *map_type = "VDSO"; });
+    /* On re-attach, the vdso can be split into two entries (from DR's hook),
+     * so take just the first one as the start (xref i#2157).
+     */
+    if (vdso_page_start == NULL) {
+        vdso_page_start = iter->vm_start;
+        vdso_size = iter->vm_end - iter->vm_start;
+    }
+    /* The vsyscall page can be on the 2nd page inside the vdso, but until we
+     * see a syscall we don't know and we point it at the vdso start.
+     */
+    if (vsyscall_page_start == NULL)
+        vsyscall_page_start = iter->vm_start;
+    LOG(GLOBAL, LOG_VMAREAS, 1, "found vdso/vsyscall pages @ "PFX" %s\n",
+        vsyscall_page_start, iter->comment);
+#else
+    /* i#172
+     * fix bugs for OS where vdso page is set unreadable as below
+     * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
+     * but it is readable indeed.
+     */
+    /* i#430
+     * fix bugs for OS where vdso page is set unreadable as below
+     * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vsyscall]
+     * but it is readable indeed.
+     */
+    if (!TESTALL((PROT_READ|PROT_EXEC), iter->prot))
+        iter->prot |= (PROT_READ|PROT_EXEC);
+    /* i#1908: vdso and vsyscall pages are now split */
+    if (strncmp(iter->comment, VSYSCALL_PAGE_MAPS_NAME,
+                strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
+        vdso_page_start = iter->vm_start;
+    else if (strncmp(iter->comment, VSYSCALL_REGION_MAPS_NAME,
+                     strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
+        vsyscall_page_start = iter->vm_start;
+#endif
+}
+
 int
-find_executable_vm_areas(void)
+os_walk_address_space(memquery_iter_t *iter, bool add_modules)
 {
     int count = 0;
 #ifdef MACOS
@@ -8984,16 +9086,14 @@ find_executable_vm_areas(void)
 #ifndef HAVE_MEMINFO
     count = find_vm_areas_via_probe();
 #else
-    memquery_iter_t iter;
-    memquery_iterator_start(&iter, NULL, true/*may alloc*/);
-    while (memquery_iterator_next(&iter)) {
+    while (memquery_iterator_next(iter)) {
         bool image = false;
-        size_t size = iter.vm_end - iter.vm_start;
+        size_t size = iter->vm_end - iter->vm_start;
         /* i#479, hide private module and match Windows's behavior */
-        bool skip = dynamo_vm_area_overlap(iter.vm_start, iter.vm_end) &&
-            !is_in_dynamo_dll(iter.vm_start) /* our own text section is ok */
+        bool skip = dynamo_vm_area_overlap(iter->vm_start, iter->vm_end) &&
+            !is_in_dynamo_dll(iter->vm_start) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&& !is_in_client_lib(iter.vm_start));
+            IF_CLIENT_INTERFACE(&& !is_in_client_lib(iter->vm_start));
         DEBUG_DECLARE(const char *map_type = "Private");
         /* we can't really tell what's a stack and what's not, but we rely on
          * our passing NULL preventing rwx regions from being added to executable
@@ -9002,7 +9102,7 @@ find_executable_vm_areas(void)
 
         LOG(GLOBAL, LOG_VMAREAS, 2,
             "start="PFX" end="PFX" prot=%x comment=%s\n",
-            iter.vm_start, iter.vm_end, iter.prot, iter.comment);
+            iter->vm_start, iter->vm_end, iter->prot, iter->comment);
         /* Issue 89: the vdso might be loaded inside ld.so as below,
          * which causes ASSERT_CURIOSITY in mmap_check_for_module_overlap fail.
          * b7fa3000-b7fbd000 r-xp 00000000 08:01 108679     /lib/ld-2.8.90.so
@@ -9018,82 +9118,45 @@ find_executable_vm_areas(void)
         if (skip) {
             /* i#479, hide private module and match Windows's behavior */
             LOG(GLOBAL, LOG_VMAREAS, 2, PFX"-"PFX" skipping: internal DR region\n",
-                iter.vm_start, iter.vm_end);
+                iter->vm_start, iter->vm_end);
 #ifdef MACOS
-        } else if (have_shared && iter.vm_start >= shared_start &&
-                   iter.vm_start < shared_end) {
+        } else if (have_shared && iter->vm_start >= shared_start &&
+                   iter->vm_start < shared_end) {
             /* Skip modules we happen to find inside the dyld shared cache,
              * as we'll fail to identify the library.  We add them
              * in module_walk_dyld_list instead.
              */
             image = true;
 #endif
-        } else if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
+        } else if (strncmp(iter->comment, VSYSCALL_PAGE_MAPS_NAME,
                            strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0 ||
-                   IF_X64_ELSE(strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
+                   IF_X64_ELSE(strncmp(iter->comment, VSYSCALL_REGION_MAPS_NAME,
                                        strlen(VSYSCALL_REGION_MAPS_NAME)) == 0,
-            /* Older kernels do not label it as "[vdso]", but it is hardcoded there */
-            /* 32-bit */
-                               iter.vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
-# ifndef X64
-            /* We assume no vsyscall page for x64; thus, checking the
-             * hardcoded address shouldn't have any false positives.
-             */
-            ASSERT(iter.vm_end - iter.vm_start == PAGE_SIZE ||
-                   /* i#1583: recent kernels have 2-page vdso */
-                   iter.vm_end - iter.vm_start == 2*PAGE_SIZE);
-            ASSERT(!dynamo_initialized); /* .data should be +w */
-            /* we're not considering as "image" even if part of ld.so (xref i#89) and
-             * thus we aren't adjusting our code origins policies to remove the
-             * vsyscall page exemption.
-             */
-            DODEBUG({ map_type = "VDSO"; });
-            /* On re-attach, the vdso can be split into two entries (from DR's hook),
-             * so take just the first one as the start (xref i#2157).
-             */
-            if (vsyscall_page_start == NULL)
-                vsyscall_page_start = iter.vm_start;
-            if (vdso_page_start == NULL)
-                vdso_page_start = vsyscall_page_start; /* assume identical for now */
-            LOG(GLOBAL, LOG_VMAREAS, 1, "found vsyscall page @ "PFX" %s\n",
-                vsyscall_page_start, iter.comment);
-# else
-            /* i#172
-             * fix bugs for OS where vdso page is set unreadable as below
-             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vdso]
-             * but it is readable indeed.
-             */
-            /* i#430
-             * fix bugs for OS where vdso page is set unreadable as below
-             * ffffffffff600000-ffffffffffe00000 ---p 00000000 00:00 0 [vsyscall]
-             * but it is readable indeed.
-             */
-            if (!TESTALL((PROT_READ|PROT_EXEC), iter.prot))
-                iter.prot |= (PROT_READ|PROT_EXEC);
-            /* i#1908: vdso and vsyscall pages are now split */
-            if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
-                        strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0)
-                vdso_page_start = iter.vm_start;
-            else if (strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
-                             strlen(VSYSCALL_REGION_MAPS_NAME)) == 0)
-                vsyscall_page_start = iter.vm_start;
-# endif
-            /* We'd like to add vsyscall to the module list too but when it's
-             * separate from vdso it has no ELF header which is too complex
-             * to force into the module list.
-             */
-            if (module_is_header(iter.vm_start, iter.vm_end - iter.vm_start)) {
-                module_list_add(iter.vm_start, iter.vm_end - iter.vm_start,
-                                false, iter.comment, iter.inode);
+                               /* Older kernels do not label it as "[vdso]", but it is
+                                * hardcoded there.
+                                */
+                               /* 32-bit */
+                               iter->vm_start == VSYSCALL_PAGE_START_HARDCODED)) {
+            if (add_modules) {
+                found_vsyscall_page(iter _IF_DEBUG(&map_type));
+                /* We'd like to add vsyscall to the module list too but when it's
+                 * separate from vdso it has no ELF header which is too complex
+                 * to force into the module list.
+                 */
+                if (module_is_header(iter->vm_start, iter->vm_end - iter->vm_start)) {
+                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start,
+                                    false, iter->comment, iter->inode);
+                }
             }
-        } else if (mmap_check_for_module_overlap(iter.vm_start, size,
-                                                 TEST(MEMPROT_READ, iter.prot),
-                                                 iter.inode, false)) {
+        } else if (add_modules &&
+                   mmap_check_for_module_overlap(iter->vm_start, size,
+                                                 TEST(MEMPROT_READ, iter->prot),
+                                                 iter->inode, false)) {
             /* we already added the whole image region when we hit the first map for it */
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
-        } else if (TEST(MEMPROT_READ, iter.prot) &&
-                   module_is_header(iter.vm_start, size)) {
+        } else if (TEST(MEMPROT_READ, iter->prot) &&
+                   module_is_header(iter->vm_start, size)) {
             size_t image_size = size;
             app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;
@@ -9103,17 +9166,17 @@ find_executable_vm_areas(void)
             LOG(GLOBAL, LOG_VMAREAS, 2,
                 "Found already mapped module first segment :\n"
                 "\t"PFX"-"PFX"%s inode="UINT64_FORMAT_STRING" name=%s\n",
-                iter.vm_start, iter.vm_end, TEST(MEMPROT_EXEC, iter.prot) ? " +x": "",
-                iter.inode, iter.comment);
+                iter->vm_start, iter->vm_end, TEST(MEMPROT_EXEC, iter->prot) ? " +x": "",
+                iter->inode, iter->comment);
 #ifdef LINUX
             /* Mapped images should have inodes, except for cases where an anon
              * map is placed on top (i#2566)
              */
-            ASSERT_CURIOSITY(iter.inode != 0 || iter.comment[0] == '\0');
+            ASSERT_CURIOSITY(iter->inode != 0 || iter->comment[0] == '\0');
 #endif
-            ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
+            ASSERT_CURIOSITY(iter->offset == 0); /* first map shouldn't have offset */
             /* Get size by walking the program headers.  This includes .bss. */
-            if (module_walk_program_headers(iter.vm_start, size, false,
+            if (module_walk_program_headers(iter->vm_start, size, false,
                                             true, /* i#1589: ld.so relocated .dynamic */
                                             &mod_base, &mod_first_end,
                                             &mod_max_end, NULL, NULL)) {
@@ -9124,77 +9187,86 @@ find_executable_vm_areas(void)
             LOG(GLOBAL, LOG_VMAREAS, 2,
                 "Found already mapped module total module :\n"
                 "\t"PFX"-"PFX" inode="UINT64_FORMAT_STRING" name=%s\n",
-                iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
+                iter->vm_start, iter->vm_start+image_size, iter->inode, iter->comment);
 
-            /* look for executable */
+            if (add_modules) {
+                /* look for executable */
 #ifdef LINUX
-            exec_match = get_application_name();
-            if (exec_match != NULL && exec_match[0] != '\0')
-                found_exec = (strcmp(iter.comment, exec_match) == 0);
-            /* Handle an anon region for the header (i#2566) */
-            if (!found_exec && executable_start != NULL &&
-                executable_start == iter.vm_start)
-                found_exec = true;
+                exec_match = get_application_name();
+                if (exec_match != NULL && exec_match[0] != '\0')
+                    found_exec = (strcmp(iter->comment, exec_match) == 0);
+                /* Handle an anon region for the header (i#2566) */
+                if (!found_exec && executable_start != NULL &&
+                    executable_start == iter->vm_start)
+                    found_exec = true;
 #else
-            /* We don't have a nice normalized name: it can have ./ or ../ inside
-             * it.  But, we can distinguish an exe from a lib here, even for PIE,
-             * so we go with that plus a basename comparison.
-             */
-            exec_match = (char *) get_application_short_name();
-            if (module_is_executable(iter.vm_start) &&
-                exec_match != NULL && exec_match[0] != '\0') {
-                const char *iter_basename = strrchr(iter.comment, '/');
-                if (iter_basename == NULL)
-                    iter_basename = iter.comment;
-                else
-                    iter_basename++;
-                found_exec = (strcmp(iter_basename, exec_match) == 0);
-            }
+                /* We don't have a nice normalized name: it can have ./ or ../ inside
+                 * it.  But, we can distinguish an exe from a lib here, even for PIE,
+                 * so we go with that plus a basename comparison.
+                 */
+                exec_match = (char *) get_application_short_name();
+                if (module_is_executable(iter->vm_start) &&
+                    exec_match != NULL && exec_match[0] != '\0') {
+                    const char *iter_basename = strrchr(iter->comment, '/');
+                    if (iter_basename == NULL)
+                        iter_basename = iter->comment;
+                    else
+                        iter_basename++;
+                    found_exec = (strcmp(iter_basename, exec_match) == 0);
+                }
 #endif
-            if (found_exec) {
-                if (executable_start == NULL)
-                    executable_start = iter.vm_start;
-                else
-                    ASSERT(iter.vm_start == executable_start);
-                LOG(GLOBAL, LOG_VMAREAS, 2,
-                    "Found executable %s @"PFX"-"PFX" %s\n", get_application_name(),
-                    iter.vm_start, iter.vm_start+image_size, iter.comment);
-            }
-            /* We don't yet know whether contiguous so we have to settle for the
-             * first segment's size.  We'll update it in module_list_add().
-             */
-            module_list_add(iter.vm_start, mod_first_end - mod_base,
-                            false, iter.comment, iter.inode);
+                if (found_exec) {
+                    if (executable_start == NULL)
+                        executable_start = iter->vm_start;
+                    else
+                        ASSERT(iter->vm_start == executable_start);
+                    LOG(GLOBAL, LOG_VMAREAS, 2,
+                        "Found executable %s @"PFX"-"PFX" %s\n",
+                        get_application_name(),
+                        iter->vm_start, iter->vm_start+image_size, iter->comment);
+                }
+                /* We don't yet know whether contiguous so we have to settle for the
+                 * first segment's size.  We'll update it in module_list_add().
+                 */
+                module_list_add(iter->vm_start, mod_first_end - mod_base,
+                                false, iter->comment, iter->inode);
 
 #ifdef MACOS
-            /* look for dyld */
-            if (strcmp(iter.comment, "/usr/lib/dyld") == 0)
-                module_walk_dyld_list(iter.vm_start);
+                /* look for dyld */
+                if (strcmp(iter->comment, "/usr/lib/dyld") == 0)
+                    module_walk_dyld_list(iter->vm_start);
 #endif
-        } else if (iter.inode != 0) {
+            }
+        } else if (iter->inode != 0) {
             DODEBUG({ map_type = "Mapped File"; });
         }
 
         /* add all regions (incl. dynamo_areas and stack) to all_memory_areas */
-        LOG(GLOBAL, LOG_VMAREAS, 4,
-            "find_executable_vm_areas: adding: "PFX"-"PFX" prot=%d\n",
-            iter.vm_start, iter.vm_end, iter.prot);
-        IF_NO_MEMQUERY(memcache_update_locked(iter.vm_start, iter.vm_end, iter.prot,
-                                              image ? DR_MEMTYPE_IMAGE :
-                                              DR_MEMTYPE_DATA, false/*!exists*/));
+#ifndef HAVE_MEMINFO_QUERY
+        /* Don't add if we're using one single vmheap entry. */
+        if (iter->vm_start < our_heap_start ||
+            iter->vm_end > our_heap_end) {
+            LOG(GLOBAL, LOG_VMAREAS, 4,
+                "os_walk_address_space: adding: "PFX"-"PFX" prot=%d\n",
+                iter->vm_start, iter->vm_end, iter->prot);
+            memcache_update_locked(iter->vm_start, iter->vm_end, iter->prot,
+                                   image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA,
+                                   false/*!exists*/);
+        }
+#endif
 
         /* FIXME: best if we could pass every region to vmareas, but
          * it has no way of determining if this is a stack b/c we don't have
          * a dcontext at this point -- so we just don't pass the stack
          */
         if (!skip /* i#479, hide private module and match Windows's behavior */ &&
-            app_memory_allocation(NULL, iter.vm_start, (iter.vm_end - iter.vm_start),
-                                  iter.prot, image _IF_DEBUG(map_type))) {
+            add_modules &&
+            app_memory_allocation(NULL, iter->vm_start, (iter->vm_end - iter->vm_start),
+                                  iter->prot, image _IF_DEBUG(map_type))) {
             count++;
         }
 
     }
-    memquery_iterator_stop(&iter);
 #endif /* !HAVE_MEMINFO */
 
 #ifndef HAVE_MEMINFO_QUERY
@@ -9209,7 +9281,23 @@ find_executable_vm_areas(void)
 
     /* now that we've walked memory print all modules */
     LOG(GLOBAL, LOG_VMAREAS, 2, "Module list after memory walk\n");
-    DOLOG(1, LOG_VMAREAS, { print_modules(GLOBAL, DUMP_NOT_XML); });
+    DOLOG(1, LOG_VMAREAS, {
+        if (add_modules)
+            print_modules(GLOBAL, DUMP_NOT_XML);
+    });
+
+    return count;
+}
+
+/* assumed to be called after find_dynamo_library_vm_areas() */
+int
+find_executable_vm_areas(void)
+{
+    int count;
+    memquery_iter_t iter;
+    memquery_iterator_start(&iter, NULL, true/*may alloc*/);
+    count = os_walk_address_space(&iter, true);
+    memquery_iterator_stop(&iter);
 
     STATS_ADD(num_app_code_modules, count);
 
@@ -10350,6 +10438,48 @@ __umoddi3(uint64 dividend, uint64 divisor)
     uint64_divmod(dividend, divisor, &remainder);
     return (uint64) remainder;
 }
+
+/* Same thing for signed. */
+static int64
+int64_divmod(int64 dividend, int64 divisor64, int *remainder)
+{
+    union {
+        int64 v64;
+        struct {
+            int lo;
+            int hi;
+        };
+    } res;
+    int upper;
+    int divisor = (int) divisor64;
+
+    /* Our uses don't use large divisors. */
+    ASSERT(divisor64 <= INT_MAX && divisor64 >= INT_MIN && "divisor too large for int");
+
+    /* Divide out the high bits first. */
+    res.v64 = dividend;
+    upper = res.hi;
+    res.hi = upper / divisor;
+    upper %= divisor;
+
+    /* Like above but with the signed div instruction, which does a signed divide
+     * on edx:eax by r/m32 => quotient in eax, remainder in edx.
+     */
+    asm ("idivl %2" : "=a" (res.lo), "=d" (*remainder) :
+         "rm" (divisor), "0" (res.lo), "1" (upper));
+    return res.v64;
+}
+
+/* Match libgcc's prototype. */
+int64
+__divdi3(int64 dividend, int64 divisor)
+{
+    int remainder;
+    return int64_divmod(dividend, divisor, &remainder);
+}
+
+/* __moddi3 is coming from third_party/libgcc for x86 as well as arm. */
+
 #elif defined (ARM)
 /* i#1566: for ARM, __aeabi versions are used instead of udivdi3 and umoddi3.
  * We link with __aeabi routines from libgcc via third_party/libgcc.

@@ -131,6 +131,16 @@ DR_APP_API void
 dr_app_stop_and_cleanup(void);
 
 /**
+ * Same as dr_app_stop_and_cleanup, additionally filling in the provided
+ * dr_stats_t object, after all threads have been detached and
+ * right before clearing stats. The parameter may be NULL, in which case
+ * stats are not collected, the API behaving identically to
+ * dr_app_stop_and_cleanup().
+ */
+DR_APP_API void
+dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats);
+
+/**
  * Indicates whether the current thread is running within the DynamoRIO code
  * cache. Returns \p true only if the current thread is running within the
  * DynamoRIO code cache and returns false othrewise.

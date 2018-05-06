@@ -281,6 +281,20 @@ typedef struct {
     uint second;       /**< The seconds past the minute. */
     uint milliseconds; /**< The milliseconds past the second. */
 } dr_time_t;
+
+/**
+ * Used by dr_get_stats() and dr_app_stop_and_cleanup_with_stats()
+ */
+typedef struct _dr_stats_t {
+    /** The size of this structure. Set this to sizeof(dr_stats_t). */
+    size_t size;
+    /** The total number of basic blocks ever built so far, globally. This
+     *  includes duplicates and blocks that were deleted for consistency
+     *  or capacity reasons or thread-private caches.
+     */
+    uint64 basic_block_count;
+} dr_stats_t;
+
 /* DR_API EXPORT END */
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
@@ -563,6 +577,7 @@ int dynamo_process_exit(void);
 #ifdef UNIX
 void dynamorio_fork_init(dcontext_t *dcontext);
 #endif
+/* This calls dynamo_thread_under_dynamo() for the current thread as well. */
 void dynamorio_take_over_threads(dcontext_t *dcontext);
 dr_statistics_t * get_dr_stats(void);
 

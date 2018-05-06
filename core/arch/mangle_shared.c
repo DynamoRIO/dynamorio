@@ -297,7 +297,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     ASSERT(cci->skip_save_flags    ||
            cci->num_simd_skip != 0 ||
            cci->num_regs_skip != 0 ||
-           dstack_offs == sizeof(priv_mcontext_t) + clean_call_beyond_mcontext());
+           (int) dstack_offs == (get_clean_call_switch_stack_size() +
+                                  clean_call_beyond_mcontext()));
     return dstack_offs;
 }
 
@@ -423,31 +424,33 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
 
 #ifdef CLIENT_INTERFACE
-    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         if (SCRATCH_ALWAYS_TLS()) {
-            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
-             * which specifies that the caller must save xax (and xcx and xdx)
-             */
-            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-# ifdef AARCH64
-            /* TLS_REG1_SLOT is not safe since it may be used by clients.
+# ifdef AARCHXX
+            /* DR_REG_LR is dead here */
+            insert_get_mcontext_base(dcontext, ilist, instr, DR_REG_LR);
+            /* TLS_REG0_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
-                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0),
-                                   opnd_create_reg(SCRATCH_REG1)));
+                                   OPND_CREATE_MEMPTR(DR_REG_LR, 0),
+                                   opnd_create_reg(SCRATCH_REG0)));
             instrlist_insert_mov_immed_ptrsz(dcontext, (ptr_int_t)DR_WHERE_CLEAN_CALLEE,
-                                             opnd_create_reg(SCRATCH_REG1),
+                                             opnd_create_reg(SCRATCH_REG0),
                                              ilist, instr, NULL, NULL);
             PRE(ilist, instr,
-                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
+                instr_create_save_to_dc_via_reg(dcontext, DR_REG_LR, SCRATCH_REG0,
                                                 WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
-                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
-                                  OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
+                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
+                                  OPND_CREATE_MEMPTR(DR_REG_LR, 0)));
 # else
+            /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
+             * which specifies that the caller must save xax (and xcx and xdx).
+             */
+            insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg
                 (dcontext, SCRATCH_REG0, WHEREAMI_OFFSET,
@@ -476,7 +479,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
 #ifdef CLIENT_INTERFACE
-    if (TEST(META_CALL_CLEAN, flags) && DYNAMO_OPTION(profile_pcs)) {
+    if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         uint whereami;
 
         if (TEST(META_CALL_RETURNS_TO_NATIVE, flags))
@@ -487,7 +490,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-# ifdef AARCH64
+# ifdef AARCHXX
             /* TLS_REG1_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
@@ -1161,67 +1164,98 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *prev = instr_get_prev(instr);
     /* Allow either eax or rax for x86_64 */
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
+#ifdef CLIENT_INTERFACE
+    instr_t *walk, *tgt;
+#endif
 
-    if (prev != NULL) {
-        prev = instr_get_prev_expanded(dcontext, ilist, instr);
-        /* walk backwards looking for "mov imm->xax"
-         * may be other instrs placing operands into registers
-         * for the syscall in between
+    if (prev == NULL)
+        return -1;
+    prev = instr_get_prev_expanded(dcontext, ilist, instr);
+    /* walk backwards looking for "mov imm->xax"
+     * may be other instrs placing operands into registers
+     * for the syscall in between
+     */
+    while (prev != NULL &&
+           /* We skip meta instrs under the assumption that a meta write to
+            * sysreg is undone before the syscall.  If a tool wants to change the
+            * real sysreg they should use an app instr.
+            */
+           (!instr_is_app(prev) ||
+            (!instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
+             !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)))) {
+#ifdef CLIENT_INTERFACE
+        /* If client added cti in between that skips over the syscall, bail
+         * and assume non-ignorable.
          */
-        while (prev != NULL &&
-               !instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
-               !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)) {
-#ifdef CLIENT_INTERFACE
-            /* if client added cti in between, bail and assume non-ignorable */
-            if (instr_is_cti(prev) &&
-                !(cti_is_normal_elision(prev)
-                  IF_WINDOWS(|| instr_is_call_sysenter_pattern
-                             (prev, instr_get_next(prev), instr))))
+        if (instr_is_cti(prev) &&
+            (instr_is_app(prev) || opnd_is_instr(instr_get_target(prev))) &&
+            !(cti_is_normal_elision(prev)
+              IF_WINDOWS(|| instr_is_call_sysenter_pattern
+                         (prev, instr_get_next(prev), instr)))) {
+            for (tgt = opnd_get_instr(instr_get_target(prev));
+                 tgt != NULL;
+                 tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
+                if (tgt == instr)
+                    break;
+            }
+            if (tgt == NULL) {
+                LOG(THREAD, LOG_SYSCALLS, 3,
+                    "%s: cti skips syscall: bailing on syscall number\n",
+                    __FUNCTION__);
                 return -1;
-#endif
-            prev = instr_get_prev_expanded(dcontext, ilist, prev);
+            }
         }
-        if (prev != NULL && !instr_is_predicated(prev) &&
-            instr_is_mov_constant(prev, &value) &&
-            opnd_is_reg(instr_get_dst(prev, 0)) &&
-            reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {
-#ifdef CLIENT_INTERFACE
-            instr_t *walk, *tgt;
 #endif
-            IF_X64(ASSERT_TRUNCATE(int, int, value));
-            syscall = (int) value;
+        prev = instr_get_prev_expanded(dcontext, ilist, prev);
+    }
+    if (prev != NULL && !instr_is_predicated(prev) &&
+        instr_is_mov_constant(prev, &value) &&
+        opnd_is_reg(instr_get_dst(prev, 0)) &&
+        reg_to_pointer_sized(opnd_get_reg(instr_get_dst(prev, 0))) == sysreg) {
+        IF_X64(ASSERT_TRUNCATE(int, int, value));
+        syscall = (int) value;
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "%s: found syscall number write: %d\n", __FUNCTION__, syscall);
 #ifdef ARM
-            if (opnd_get_size(instr_get_dst(prev, 0)) != OPSZ_PTR) {
-                /* sub-reg write: special-case movw,movt, else bail */
-                if (instr_get_opcode(prev) == OP_movt) {
-                    ptr_int_t val2;
-                    prev = instr_get_prev_expanded(dcontext, ilist, prev);
-                    if (prev != NULL && instr_is_mov_constant(prev, &val2)) {
-                        syscall = (int) (value << 16) | (val2 & 0xffff);
-                    } else
-                        return -1;
+        if (opnd_get_size(instr_get_dst(prev, 0)) != OPSZ_PTR) {
+            /* sub-reg write: special-case movw,movt, else bail */
+            if (instr_get_opcode(prev) == OP_movt) {
+                ptr_int_t val2;
+                prev = instr_get_prev_expanded(dcontext, ilist, prev);
+                if (prev != NULL && instr_is_mov_constant(prev, &val2)) {
+                    syscall = (int) (value << 16) | (val2 & 0xffff);
                 } else
                     return -1;
-            }
+            } else
+                return -1;
+        }
 #endif
 #ifdef CLIENT_INTERFACE
-            /* if client added cti target in between, bail and assume non-ignorable */
-            for (walk = instrlist_first_expanded(dcontext, ilist);
-                 walk != NULL;
-                 walk = instr_get_next_expanded(dcontext, ilist, walk)) {
-                if (instr_is_cti(walk) && opnd_is_instr(instr_get_target(walk))) {
-                    for (tgt = opnd_get_instr(instr_get_target(walk));
-                         tgt != NULL;
-                         tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
-                        if (tgt == prev)
-                            break;
-                        if (tgt == instr)
-                            return -1;
+        /* If client added cti that skips over the write, bail and assume
+         * non-ignorable.
+         */
+        for (walk = instrlist_first_expanded(dcontext, ilist);
+             walk != NULL && walk != prev;
+             walk = instr_get_next_expanded(dcontext, ilist, walk)) {
+            if (instr_is_cti(walk) && opnd_is_instr(instr_get_target(walk))) {
+                for (tgt = opnd_get_instr(instr_get_target(walk));
+                     tgt != NULL;
+                     tgt = instr_get_next_expanded(dcontext, ilist, tgt)) {
+                    if (tgt == prev)
+                        break;
+                    if (tgt == instr) {
+                        LOG(THREAD, LOG_SYSCALLS, 3,
+                            "%s: cti skips write: invalidating syscall number\n",
+                            __FUNCTION__);
+                        return -1;
                     }
                 }
             }
-#endif
         }
+#endif
+    } else {
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "%s: never found write of syscall number\n", __FUNCTION__);
     }
     IF_X64(ASSERT_TRUNCATE(int, int, syscall));
     return (int) syscall;

@@ -58,7 +58,8 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
                                                          const void *data,
                                                          size_t count),
                                    file_t module_file)
-  : instru_t(insert_load_buf, memref_needs_info, reg_vector),
+  : instru_t(insert_load_buf, memref_needs_info, reg_vector,
+             sizeof(offline_entry_t)),
     write_file_func(write_file), modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
@@ -168,12 +169,6 @@ offline_instru_t::custom_module_data
     user_print = print_cb;
     user_free = free_cb;
     return true;
-}
-
-size_t
-offline_instru_t::sizeof_entry() const
-{
-    return sizeof(offline_entry_t);
 }
 
 trace_type_t
@@ -344,8 +339,13 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
     offline_entry_t entry;
     entry.pc.type = OFFLINE_TYPE_PC;
     // We put the ARM vs Thumb mode into the modoffs to ensure proper decoding.
-    entry.pc.modoffs =
-        dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
+    uint64_t modoffs = dr_app_pc_as_jump_target(instr_get_isa_mode(where), pc) - modbase;
+    // Check that the values we want to assign to the bitfields in offline_entry_t do not
+    // overflow. In i#2956 we observed an overflow for the modidx field.
+    DR_ASSERT(modoffs < uint64_t(1) << PC_MODOFFS_BITS);
+    DR_ASSERT(modidx < uint64_t(1) << PC_MODIDX_BITS);
+    DR_ASSERT(instr_count < uint64_t(1) << PC_INSTR_COUNT_BITS);
+    entry.pc.modoffs = modoffs;
     entry.pc.modidx = modidx;
     entry.pc.instr_count = instr_count;
     return insert_save_entry(drcontext, ilist, where, reg_ptr, scratch, adjust, &entry);

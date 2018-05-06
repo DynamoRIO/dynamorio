@@ -46,6 +46,7 @@
         FUNCTION(inscount) \
         FUNCTION(compiler_inscount) \
         FUNCTION(bbcount) \
+        FUNCTION(aflags_clobber) \
         LAST_FUNCTION()
 
 /* Definitions for every function. */

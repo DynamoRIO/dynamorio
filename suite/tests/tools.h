@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,6 +41,7 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0600
 
+#define _GNU_SOURCE 1 /* for REG_RIP, etc. */
 #include "configure.h"
 #include "dr_helper.h"
 #include <stdarg.h>

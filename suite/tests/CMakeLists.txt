@@ -535,6 +535,9 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
+  if (DEFINED ${test}_outname)
+    set_target_properties(${test} PROPERTIES OUTPUT_NAME "${${test}_outname}")
+  endif ()
   copy_target_to_device(${test})
 
   set_target_properties(${test} PROPERTIES
@@ -1539,9 +1542,9 @@ endfunction(optimize)
 # This step takes a while so we provide a status message:
 message(STATUS "Processing tests and generating expected output patterns")
 
-tobuild(common.broadfun common/broadfun.c)
 # Make sure we test running a path with spaces (to avoid regressions like i#2538).
-set_target_properties(common.broadfun PROPERTIES OUTPUT_NAME "common.broadfun spaces")
+set(common.broadfun_outname "common.broadfun spaces")
+tobuild(common.broadfun common/broadfun.c)
 if (DEBUG)
   torunonly(common.logstderr common.broadfun common/logstderr.c
     "-log_to_stderr -loglevel 1 -logmask 2" "")
@@ -2373,15 +2376,16 @@ if (CLIENT_INTERFACE)
           # test out-of-line clean call
           torunonly_ci(sample.${sample}.cleancall common.${control_flags} ${sample}
             common/${control_flags}.c "" "-opt_cleancall 0" "")
-          if (UNIX AND NOT ARM) # FIXME i#1551: fix bugs on ARM
+          if (UNIX)
             torunonly_ci(sample.${sample}.prof-pcs.cleancall common.${control_flags}
               ${sample} common/${control_flags}.c "" "-prof_pcs -opt_cleancall 0" "")
-            if (NOT X64) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
+            if (NOT X64 AND NOT ARM) # FIXME i#2160: "-thread_private -prof_pcs" support on AArch64
+                                     # FIXME i#1551: "-thread_private -prof_pcs" support on ARM
               torunonly_ci(sample.${sample}.prof-pcs.thread-private.cleancall
                 common.${control_flags} ${sample} common/${control_flags}.c ""
                 "-thread_private -prof_pcs -opt_cleancall 0" "")
-            endif (NOT X64)
-          endif (UNIX AND NOT ARM)
+            endif (NOT X64 AND NOT ARM)
+          endif (UNIX)
         elseif (sample STREQUAL "memval_simple")
           # i#2449: only witnessed crash on 32-bit linux
           if (X86 AND (NOT X64) AND UNIX)
@@ -2627,7 +2631,8 @@ if (CLIENT_INTERFACE)
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
-      if (NOT AARCH64 AND NOT ARM AND NOT APPLE)
+      # FIXME i#2949: gcc 7.3 fails to link certain configs
+      if (NOT AARCH64 AND NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
         torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
         set(tool.drcacheoff.burst_static_nodr ON)
 

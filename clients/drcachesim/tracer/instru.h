@@ -54,13 +54,17 @@ public:
     instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                      instr_t *, reg_id_t),
              bool memref_needs_info,
-             drvector_t *reg_vector_in)
+             drvector_t *reg_vector_in,
+             size_t instruction_size)
         : insert_load_buf_ptr(insert_load_buf),
         memref_needs_full_info(memref_needs_info),
-        reg_vector(reg_vector_in) {}
+        reg_vector(reg_vector_in),
+        instr_size(instruction_size) {}
     virtual ~instru_t() {}
 
-    virtual size_t sizeof_entry() const = 0;
+    instru_t &operator=(instru_t&) = delete;
+
+    size_t sizeof_entry() const { return instr_size; }
 
     virtual trace_type_t get_entry_type(byte *buf_ptr) const = 0;
     virtual size_t get_entry_size(byte *buf_ptr) const = 0;
@@ -113,7 +117,9 @@ protected:
     drvector_t *reg_vector;
 
 private:
-    instru_t() {}
+    instru_t(): instr_size(0) {}
+
+    const size_t instr_size;
 };
 
 class online_instru_t : public instru_t
@@ -124,8 +130,6 @@ public:
                     bool memref_needs_info,
                     drvector_t *reg_vector);
     virtual ~online_instru_t();
-
-    virtual size_t sizeof_entry() const;
 
     virtual trace_type_t get_entry_type(byte *buf_ptr) const;
     virtual size_t get_entry_size(byte *buf_ptr) const;
@@ -177,8 +181,6 @@ public:
                                            size_t count),
                      file_t module_file);
     virtual ~offline_instru_t();
-
-    virtual size_t sizeof_entry() const;
 
     virtual trace_type_t get_entry_type(byte *buf_ptr) const;
     virtual size_t get_entry_size(byte *buf_ptr) const;

@@ -49,7 +49,7 @@ internal_error(const char *file, int line, const char *expr)
 void
 clear_icache(void *beg, void *end)
 {
-    static uint cache_info = 0;
+    static size_t cache_info = 0;
     size_t dcache_line_size;
     size_t icache_line_size;
     ptr_uint_t beg_uint = (ptr_uint_t)beg;

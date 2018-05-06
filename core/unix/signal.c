@@ -96,9 +96,11 @@
 # include <errno.h>
 #endif
 
-#ifdef MACOS
 /* Define the Linux names, which the code is already using */
+#ifndef SA_NOMASK
 #  define SA_NOMASK       SA_NODEFER
+#endif
+#ifndef SA_ONESHOT
 #  define SA_ONESHOT      SA_RESETHAND
 #endif
 
@@ -274,6 +276,9 @@ init_itimer(dcontext_t *dcontext, bool first);
 static bool
 set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
                   bool enable);
+
+static bool
+alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal);
 
 #ifdef DEBUG
 static void
@@ -795,16 +800,23 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     act.handler = (handler_t) SIG_DFL;
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (!other_thread) {
+        if (sig_is_alarm_signal(i) && doing_detach &&
+            alarm_signal_has_DR_only_itimer(dcontext, i)) {
+            /* We ignore alarms *during* detach in signal_remove_alarm_handlers(),
+             * but to avoid crashing on an alarm arriving post-detach we set to
+             * SIG_IGN if we have an itimer and the app does not (a slight
+             * transparency violation to gain robustness: i#2270).
+             */
+            set_ignore_signal_action(i);
+        } else if (!other_thread) {
             if (info->app_sigaction[i] != NULL) {
-                /* Restore to old handler, but not if exiting whole
-                 * process: else may get itimer during cleanup, so we
-                 * set to SIG_IGN.  We do this for detach in
-                 * signal_remove_alarm_handlers().
+                /* Restore to old handler, but not if exiting whole process:
+                 * else may get itimer during cleanup, so we set to SIG_IGN.  We
+                 * do this during detach in signal_remove_alarm_handlers() (and
+                 * post-detach above).
                  */
                 if (dynamo_exited && !doing_detach) {
                     info->app_sigaction[i]->handler = (handler_t) SIG_IGN;
-                    sigaction_syscall(i, info->app_sigaction[i], NULL);
                 }
                 LOG(THREAD, LOG_ASYNCH, 2, "\trestoring "PFX" as handler for %d\n",
                     info->app_sigaction[i]->handler, i);
@@ -1418,6 +1430,14 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
         LOG(THREAD, LOG_ASYNCH, 2,
             "prior handler is "PFX" vs master "PFX" with flags=0x%x for signal %d\n",
             oldact.handler, master_signal_handler, oldact.flags, sig);
+        if (info->app_sigaction[sig] != NULL) {
+            if (info->shared_app_sigaction)
+                mutex_lock(info->shared_lock);
+            handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
+            info->app_sigaction[sig] = NULL;
+            if (info->shared_app_sigaction)
+                mutex_unlock(info->shared_lock);
+        }
     }
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }
@@ -2973,6 +2993,20 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #endif /* X86 && LINUX */
 }
 
+/* Only operates on rt frames, so call before converting to plain.
+ * Must be called *after* translating the sigcontext.
+ */
+static void
+fixup_siginfo(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+{
+    /* For some signals, si_addr is a PC which we must translate. */
+    if (sig != SIGILL && sig != SIGTRAP && sig != SIGFPE)
+        return; /* nothing to do */
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+    frame->info.si_addr = (void*) sc->SC_XIP;
+    frame->info.si_addr_lsb = sc->SC_XIP & 0x1;
+}
+
 static void
 memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
 {
@@ -3022,6 +3056,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
+    fixup_siginfo(dcontext, sig, frame);
 
     /* We avoid querying memory as it incurs global contended locks. */
     flush_pc = is_executable_area_writable_overlap(sp, sp + size);
@@ -6274,13 +6309,17 @@ set_actual_itimer(dcontext_t *dcontext, int which, thread_sig_info_t *info,
     ASSERT(info != NULL && info->itimer != NULL);
     ASSERT(which >= 0 && which < NUM_ITIMERS);
     if (enable) {
+        LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
+            ", value="INT64_FORMAT_STRING"\n", which,
+            (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
+        /* i#2907: we have no signal handlers until we start the app (i#2335)
+         * so we can't set up an itimer until then.
+         */
+        ASSERT(dynamo_initialized);
         ASSERT(!info->shared_itimer ||
                self_owns_recursive_lock(info->shared_itimer_lock));
         usec_to_timeval((*info->itimer)[which].actual.interval, &val.it_interval);
         usec_to_timeval((*info->itimer)[which].actual.value, &val.it_value);
-        LOG(THREAD, LOG_ASYNCH, 2, "installing itimer %d interval="INT64_FORMAT_STRING
-            ", value="INT64_FORMAT_STRING"\n", which,
-            (*info->itimer)[which].actual.interval, (*info->itimer)[which].actual.value);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2, "disabling itimer %d\n", which);
         memset(&val, 0, sizeof(val));
@@ -6370,7 +6409,15 @@ set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
     (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
     (*info->itimer)[which].cb = func;
     (*info->itimer)[which].cb_api = func_api;
-    rc = itimer_new_settings(dcontext, which, false/*us*/);
+    if (!dynamo_initialized) {
+        /* i#2907: we have no signal handlers until we start the app (i#2335)
+         * so we can't set up an itimer until then.  start_itimer() called
+         * from os_thread_under_dynamo() will enable it.
+         */
+        LOG(THREAD, LOG_ASYNCH, 2, "delaying itimer until attach\n");
+        rc = true;
+    } else
+        rc = itimer_new_settings(dcontext, which, false/*us*/);
     if (info->shared_itimer)
         release_recursive_lock(info->shared_itimer_lock);
     return rc;
@@ -6394,6 +6441,37 @@ get_itimer_frequency(dcontext_t *dcontext, int which)
     return ms;
 }
 
+static int
+signal_to_itimer_type(int sig)
+{
+    if (sig == SIGALRM)
+        return ITIMER_REAL;
+    else if (sig == SIGVTALRM)
+        return ITIMER_VIRTUAL;
+    else if (sig == SIGPROF)
+        return ITIMER_PROF;
+    else
+        return -1;
+}
+
+static bool
+alarm_signal_has_DR_only_itimer(dcontext_t *dcontext, int signal)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int which = signal_to_itimer_type(signal);
+    if (which == -1)
+        return false;
+    if (info->shared_itimer)
+        acquire_recursive_lock(info->shared_itimer_lock);
+    bool DR_only = ((*info->itimer)[which].dr.value > 0 ||
+                    (*info->itimer)[which].dr.interval > 0) &&
+        (*info->itimer)[which].app.value == 0 &&
+        (*info->itimer)[which].app.interval == 0;
+    if (info->shared_itimer)
+        release_recursive_lock(info->shared_itimer_lock);
+    return DR_only;
+}
+
 static bool
 handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
 {
@@ -6407,14 +6485,8 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     if (dynamo_exited)
         return pass_to_app;
 
-    if (sig == SIGALRM)
-        which = ITIMER_REAL;
-    else if (sig == SIGVTALRM)
-        which = ITIMER_VIRTUAL;
-    else if (sig == SIGPROF)
-        which = ITIMER_PROF;
-    else
-        ASSERT_NOT_REACHED();
+    which = signal_to_itimer_type(sig);
+    ASSERT(which != -1);
     LOG(THREAD, LOG_ASYNCH, 2, "received alarm %d @"PFX"\n", which,
         SIGCXT_FROM_UCXT(ucxt)->SC_XIP);
 
@@ -6525,11 +6597,8 @@ start_itimer(dcontext_t *dcontext)
         LOG(THREAD, LOG_ASYNCH, 2, "starting DR itimers from thread "TIDFMT"\n",
             get_thread_id());
         for (which = 0; which < NUM_ITIMERS; which++) {
-            /* May have already been started if there was no stop_itimer() since
-             * init time
-             */
-            if ((*info->itimer)[which].dr.value == 0 &&
-                (*info->itimer)[which].dr.interval > 0) {
+            /* May have already been set up with the start delayed (i#2907). */
+            if ((*info->itimer)[which].dr.interval > 0) {
                 (*info->itimer)[which].dr.value = (*info->itimer)[which].dr.interval;
                 itimer_new_settings(dcontext, which, false/*!app*/);
             }
@@ -6877,6 +6946,15 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
     if (ostd->suspend_count == 0 || ostd->suspended_sigcxt != NULL)
         return true; /* pass to app */
 
+    /* XXX: we're not setting DR_WHERE_SIGNAL_HANDLER in enough places.
+     * It's trickier than other whereamis b/c we want to resume the
+     * prior whereami when we return from the handler, but there are
+     * complex control paths that do not always return.
+     * We try to at least do it for the ksynch_wait here.
+     */
+    dr_where_am_i_t prior_whereami = dcontext->whereami;
+    dcontext->whereami = DR_WHERE_SIGNAL_HANDLER;
+
     sig_full_initialize(&sc_full, ucxt);
     ostd->suspended_sigcxt = &sc_full;
 
@@ -6926,6 +7004,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
     ksynch_set_value(&ostd->suspended, 0); /*reset prior to signalling os_thread_resume*/
     ksynch_set_value(&ostd->resumed, 1);
     ksynch_wake_all(&ostd->resumed);
+
+    dcontext->whereami = prior_whereami;
 
     if (ostd->retakeover) {
         ostd->retakeover = false;

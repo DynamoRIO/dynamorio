@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,6 +38,7 @@
 # include <sys/resource.h>
 # include <stdio.h>
 # include <sys/syscall.h>
+# include <errno.h>
 struct compat_rlimit {
     unsigned int rlim_cur;
     unsigned int rlim_max;
@@ -48,8 +49,8 @@ struct compat_rlimit {
 
 #if defined(UNIX) && defined(SYS_prlimit64)
 int
-sys_prlimit(pid_t pid, int resource, const struct rlimit *new_limit,
-            struct rlimit *old_limit)
+sys_prlimit(pid_t pid, int resource, const struct rlimit64 *new_limit,
+            struct rlimit64 *old_limit)
 {
     return syscall(SYS_prlimit64, pid, resource, new_limit, old_limit);
 }
@@ -61,7 +62,7 @@ int main()
 #ifdef UNIX
     /* test i#357 by trying to close the client's file */
     int i;
-    for (i = 3; i < 2048; i++) {
+    for (i = 3; i < 5000; i++) {
         dup2(0, i);
         close(i);
     }
@@ -72,39 +73,61 @@ int main()
         perror("getrlimit failed");
         return 1;
     }
+
     /* DR should have taken -steal_fds == 96.  To avoid hardcoding the 4096
      * typical max we assume it's just a power of 2.
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
-        fprintf(stderr, "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 under DR\n",
+        fprintf(stderr, "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 "
+                "under DR\n",
                 /* The size of rlim_max depends on whether __USE_FILE_OFFSET64
                  * is defined. We simply cast it to 8-byte for printing.
                  */
                 (unsigned long long)rlimit.rlim_max);
-        return 1;
+        /* We continue to make it easier to run this app natively. */
     }
 
-    /* setrlimit with lower value */
-    new_rlimit.rlim_max = rlimit.rlim_max / 2;
+    /* setrlimit with lower soft value */
+    new_rlimit.rlim_max = rlimit.rlim_max;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr,
-                "Error: fail to set rlimit for RLIMIT_NOFILE with lower value\n");
+        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+                "lower soft value\n", errno);
         return 1;
     }
     /* setrlimit with the same value */
     new_rlimit = rlimit;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr,
-                "Error: fail to set rlimit for RLIMIT_NOFILE back to the same value\n");
+        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE "
+                "back to the same value\n", errno);
         return 1;
     }
     /* setrlimit with higher value */
     new_rlimit.rlim_cur++;
     new_rlimit.rlim_max++;
-    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0) {
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EPERM) {
         fprintf(stderr,
                 "Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
+        return 1;
+    }
+    /* ensure can't raise hard once lower it */
+    new_rlimit.rlim_max = rlimit.rlim_max - 1;
+    new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
+        fprintf(stderr, "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+                "lower soft + hard values\n", errno);
+        return 1;
+    }
+    new_rlimit.rlim_max = rlimit.rlim_max;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EPERM) {
+        fprintf(stderr, "Error: should fail to raise hard limit\n");
+        return 1;
+    }
+    /* test invalid values */
+    new_rlimit.rlim_max = rlimit.rlim_max;
+    new_rlimit.rlim_cur = rlimit.rlim_max + 1;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EINVAL) {
+        fprintf(stderr, "Error: should fail with EINVAL if max>cur\n");
         return 1;
     }
 
@@ -118,45 +141,48 @@ int main()
     if ((crlimit.rlim_max & (crlimit.rlim_max - 1)) == 0) {
         fprintf(stderr, "RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
                 crlimit.rlim_max);
-        return 1;
     }
 # endif
 
 # ifdef SYS_prlimit64
     /* test sys_prlimit */
+    struct rlimit64 rlim64, new_rlim64;
     /* get rlimit */
-    if (sys_prlimit(0, RLIMIT_NOFILE, NULL, &rlimit) != 0) {
-        fprintf(stderr, "Error: fail to get rlimit for RLIMIT_NOFILE\n");
+    if (sys_prlimit(0, RLIMIT_NOFILE, NULL, &rlim64) != 0) {
+        fprintf(stderr, "Error: fail(%d) to get prlimit for RLIMIT_NOFILE\n", errno);
         return 1;
     }
     /* set rlimit */
-    new_rlimit.rlim_max = rlimit.rlim_max / 2;
-    new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
-    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) != 0) {
+    new_rlim64.rlim_max = rlim64.rlim_max;
+    new_rlim64.rlim_cur = rlim64.rlim_cur / 2;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
         fprintf(stderr,
-                "Error: fail to set rlimit for RLIMIT_NOFILE with lower value\n");
+                "Error: fail(%d) to set prlimit for RLIMIT_NOFILE with "
+                "lower soft value\n", errno);
         return 1;
     }
-    new_rlimit = rlimit;
-    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) != 0) {
+    new_rlim64 = rlim64;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
         fprintf(stderr,
-                "Error: fail to set rlimit for RLIMIT_NOFILE back to the same value\n");
+                "Error: fail(%d) to set prlimit for RLIMIT_NOFILE back "
+                "to the same value\n", errno);
         return 1;
     }
-    new_rlimit.rlim_cur++;
-    new_rlimit.rlim_max++;
-    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, NULL) == 0) {
+    new_rlim64.rlim_cur++;
+    new_rlim64.rlim_max++;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) == 0) {
         fprintf(stderr,
-                "Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
+                "Error: should fail to set prlimit for RLIMIT_NOFILE with higher "
+                "value\n");
         return 1;
     }
-    new_rlimit = rlimit;
-    rlimit.rlim_cur = 0;
-    rlimit.rlim_max = 0;
-    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlimit, &rlimit) != 0 ||
-        new_rlimit.rlim_cur != rlimit.rlim_cur ||
-        new_rlimit.rlim_max != rlimit.rlim_max) {
-        fprintf(stderr, "Error: fail to set/get rlimit\n");
+    new_rlim64 = rlim64;
+    rlim64.rlim_cur = 0;
+    rlim64.rlim_max = 0;
+    if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, &rlim64) != 0 ||
+        new_rlim64.rlim_cur != rlim64.rlim_cur ||
+        new_rlim64.rlim_max != rlim64.rlim_max) {
+        fprintf(stderr, "Error: fail(%d) to set/get rlimit\n", errno);
     }
 # endif
 

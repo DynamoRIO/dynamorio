@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 # **********************************************************
-# Copyright (c) 2016 ARM Limited. All rights reserved.
+# Copyright (c) 2016 - 2018 ARM Limited. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -31,10 +31,11 @@
 # DAMAGE.
 
 # This script reads "codec.txt" and generates "decode_gen.h", "encode_gen.h",
-# "opcode.h" and "opcode_names.h". Run it manually, in this directory, when
-# "codec.txt" has been changed.
+# "opcode.h" and "opcode_names.h". It is automatically run by Cmake when codec.txt changes.
 
+import os
 import re
+import sys
 
 N = 32 # bits in an instruction word
 ONES = (1 << N) - 1
@@ -436,16 +437,20 @@ def opndset_naming(patterns, opndtab):
     return (new_patterns, opndsettab)
 
 def main():
-    (patterns, opndtab) = read_file('codec.txt')
+    if len(sys.argv) != 3:
+        print('Usage: codec.py path/to/codec.txt path/to/output_dir')
+        sys.exit(1)
+
+    (patterns, opndtab) = read_file(sys.argv[1])
     consistency_check(patterns, opndtab)
     (patterns, opndsettab) = opndset_naming(patterns, opndtab)
-    write_if_changed('decode_gen.h',
+    write_if_changed(os.path.join(sys.argv[2], 'decode_gen.h'),
                      header + generate_decoder(patterns, opndsettab, opndtab))
-    write_if_changed('encode_gen.h',
+    write_if_changed(os.path.join(sys.argv[2], 'encode_gen.h'),
                      header + generate_encoder(patterns, opndsettab, opndtab))
-    write_if_changed('opcode.h',
+    write_if_changed(os.path.join(sys.argv[2], 'opcode.h'),
                      header + generate_opcodes(patterns))
-    write_if_changed('opcode_names.h',
+    write_if_changed(os.path.join(sys.argv[2], 'opcode_names.h'),
                      header + generate_opcode_names(patterns))
 
 if __name__ == "__main__":

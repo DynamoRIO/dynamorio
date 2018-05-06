@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -144,9 +144,12 @@ static void
 event_exit(void)
 {
     show_results();
-    drmgr_unregister_cls_field(event_thread_context_init,
-                               event_thread_context_exit,
-                               tcls_idx);
+    if (!drmgr_unregister_cls_field(event_thread_context_init,
+                                    event_thread_context_exit,
+                                    tcls_idx) ||
+        !drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
+        !drmgr_unregister_post_syscall_event(event_post_syscall))
+        DR_ASSERT(false && "failed to unregister");
     drmgr_exit();
 }
 

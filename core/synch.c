@@ -457,6 +457,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
      * unless they're suspended, and the same goes for us.
      */
     ASSERT_CURIOSITY(trec->dcontext->whereami == DR_WHERE_FCACHE ||
+                     trec->dcontext->whereami == DR_WHERE_SIGNAL_HANDLER ||
                      native_translate ||
                      trec->id == get_thread_id());
     LOG(THREAD_GET, LOG_SYNCH, 2,
@@ -623,6 +624,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
     }
     if (safe) {
         ASSERT(trec->dcontext->whereami == DR_WHERE_FCACHE ||
+               trec->dcontext->whereami == DR_WHERE_SIGNAL_HANDLER ||
                is_thread_currently_native(trec));
         LOG(THREAD_GET, LOG_SYNCH, 2,
             "thread "TIDFMT" suspended at safe spot pc="PFX"\n", trec->id, mc->pc);
@@ -1940,7 +1942,7 @@ send_all_other_threads_native(void)
              * unbounded.  This means that dr_app_cleanup() needs to synch the
              * threads and force-xl8 these.  We should share code with detach.
              * Right now we rely on the app joining all its threads *before*
-             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup().
+             * calling dr_app_cleanup(), or using dr_app_stop_and_cleanup[_with_stats]().
              * This also means we have a race with unhook_vsyscall in
              * os_process_not_under_dynamorio(), which we solve by redirecting
              * threads at syscalls to our gencode.
@@ -1959,7 +1961,7 @@ send_all_other_threads_native(void)
 }
 
 void
-detach_on_permanent_stack(bool internal, bool do_cleanup)
+detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 {
     dcontext_t *my_dcontext;
     thread_record_t **threads;
@@ -2246,6 +2248,8 @@ detach_on_permanent_stack(bool internal, bool do_cleanup)
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: Entering final cleanup and unload\n");
     SYSLOG_INTERNAL_INFO("Detaching from process, entering final cleanup");
+    if (drstats != NULL)
+        stats_get_snapshot(drstats);
     DEBUG_DECLARE(exit_res =)
         dynamo_shared_exit(my_tr _IF_WINDOWS(detach_stacked_callbacks));
     ASSERT(exit_res == SUCCESS);

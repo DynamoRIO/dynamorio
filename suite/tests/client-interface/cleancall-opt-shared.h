@@ -781,3 +781,50 @@ codegen_bbcount(void *dc)
     codegen_epilogue(dc, ilist);
     return ilist;
 }
+
+/* Clobber aflags.  Clean call optimizations must ensure they are restored.
+X86 - Zero the aflags
+    aflags_clobber:
+      push REG_XBP
+      mov REG_XBP, REG_XSP
+      mov REG_XAX, 0
+      add al, HEX(7F)
+      sahf
+      leave
+      ret
+
+AArch64 - All ones the aflags
+    aflags_clobber:
+      sets the NZCV flags (bits 31, 30, 29, 28)
+      orr     x1, xzr, #0xF0000000
+      msr     NZCV, x1
+
+TODO: x86 does the following when testing aflags, do the same for aarch64.
+ * save aflags
+ * set aflags to expected value
+ * clean call to test function
+ * read aflags & check if they match the expected value
+ * restore original aflags
+*/
+static instrlist_t *
+codegen_aflags_clobber(void *dc)
+{
+    instrlist_t *ilist = instrlist_create(dc);
+    codegen_prologue(dc, ilist);
+#ifdef X86
+    APP(ilist, INSTR_CREATE_mov_imm
+        (dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INTPTR(0)));
+    APP(ilist, INSTR_CREATE_add
+        (dc, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7F)));
+    APP(ilist, INSTR_CREATE_sahf(dc));
+#elif defined(AARCH64)
+    opnd_t reg1 = opnd_create_reg(DR_REG_X0);
+    opnd_t opnd_zero_reg = opnd_create_reg(DR_REG_XZR);
+    opnd_t opnd_nzcv_reg = opnd_create_reg(DR_REG_NZCV);
+    APP(ilist, instr_create_1dst_2src(dc, OP_orr, reg1, opnd_zero_reg,
+                                      OPND_CREATE_INT32(0xF0000000)));
+    APP(ilist, instr_create_1dst_1src(dc, OP_msr, opnd_nzcv_reg, reg1));
+#endif
+    codegen_epilogue(dc, ilist);
+    return ilist;
+}

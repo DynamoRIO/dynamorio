@@ -1152,6 +1152,8 @@ DR_API
  * \p func whenever the application is about to invoke a system call,
  * if any client asked for that system call number to be intercepted
  * via the filter event (dr_register_filter_syscall_event()).
+ * Any client registering a pre- or post-syscall event should also
+ * register a filter event.
  *
  * The application parameters to the system call can be viewed with
  * dr_syscall_get_param() and set with dr_syscall_set_param().  The
@@ -1197,8 +1199,12 @@ DR_API
  * call, if any client asked for that system call number to be
  * intercepted via the filter event
  * (dr_register_filter_syscall_event()) or if DR itself needs to
- * intercept the system call.  The result of the system call can be
- * modified with dr_syscall_set_result() or dr_syscall_set_result_ex().
+ * intercept the system call.
+ * Any client registering a pre- or post-syscall event should also
+ * register a filter event.
+ *
+ * The result of the system call can be modified with
+ * dr_syscall_set_result() or dr_syscall_set_result_ex().
  *
  * System calls that change control flow or terminate the current
  * thread or process typically do not have a post-syscall event.
@@ -2929,6 +2935,7 @@ typedef struct _module_segment_data_t {
     app_pc start; /**< Start address of the segment, page-aligned backward. */
     app_pc end;   /**< End address of the segment, page-aligned forward. */
     uint prot;    /**< Protection attributes of the segment */
+    uint64 offset; /**< Offset of the segment from the beginning of the backing file */
 } module_segment_data_t;
 #endif
 
@@ -4792,10 +4799,30 @@ dr_get_itimer(int which);
 
 DR_API
 /**
+ * Should be called during process initialization.  Requests more accurate
+ * tracking of the #dr_where_am_i_t value for use with dr_where_am_i().  By
+ * default, if this routine is not called, DR avoids some updates to the value
+ * that incur extra overhead, such as identifying clean callees.
+ */
+void
+dr_track_where_am_i(void);
+
+DR_API
+/**
+ * Returns whether DR is using accurate tracking of the #dr_where_am_i value.
+ * Typically this is enabled by calling dr_track_where_am_i().
+ */
+bool
+dr_is_tracking_where_am_i(void);
+
+DR_API
+/**
  * Returns the #dr_where_am_i_t value indicating in which area of code \p pc
  * resides.  This is meant for use with dr_set_itimer() for PC sampling for
- * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside
- * a fragment in the code cache, the fragment's tag is returned in \p tag.
+ * profiling purposes.  If the optional \p tag is non-NULL and \p pc is inside a
+ * fragment in the code cache, the fragment's tag is returned in \p tag.  It is
+ * recommended that the user of this routine also call dr_track_where_am_i()
+ * during process initialization for more accurate results.
  */
 dr_where_am_i_t
 dr_where_am_i(void *drcontext, app_pc pc, OUT void**tag);
@@ -6211,6 +6238,16 @@ DR_API
  */
 bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count);
+
+DR_API
+/**
+ * Get the number of blocks built so far, globally. The API is not thread-safe.
+ * The caller is expected to pass a pointer to a valid, initialized dr_stats_t
+ * value, with the size field set (see dr_stats_t).
+ * Returns false if stats are not enabled.
+ */
+bool
+dr_get_stats(dr_stats_t *drstats);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */

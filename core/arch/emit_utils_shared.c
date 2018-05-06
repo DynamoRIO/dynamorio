@@ -3059,18 +3059,15 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
                                             MANGLE_XCX_SPILL_SLOT));
             } else
                 APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG2, SCRATCH_REG2_OFFS));
-# ifdef AARCH64
-            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-# else
             APP(ilist, XINST_CREATE_jump_mem(dcontext,
                                              OPND_DC_FIELD(absolute,
                                                            dcontext,
                                                            OPSZ_PTR,
                                                            SCRATCH_REG2_OFFS)));
-# endif
+#elif defined(AARCH64)
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
 #elif defined(ARM)
-            /* FIXMED i#1551: NYI on ARM */
-            ASSERT_NOT_REACHED();
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI on ARM */
 #endif
         } else {
             APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, INDIRECT_STUB_SPILL_SLOT));
@@ -5011,10 +5008,10 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                        SCRATCH_REG0 _IF_AARCH64(false));
 # ifndef AARCH64
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
-    ASSERT(offset == sizeof(priv_mcontext_t));
+    ASSERT(offset == get_clean_call_switch_stack_size());
     APP(&ilist, XINST_CREATE_add_2src
         (dcontext, opnd_create_reg(SCRATCH_REG0),
-         opnd_create_reg(REG_XSP), OPND_CREATE_INT32(sizeof(priv_mcontext_t))));
+         opnd_create_reg(REG_XSP), OPND_CREATE_INT32(offset)));
     APP(&ilist, XINST_CREATE_store
         (dcontext, OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xsp)),
          opnd_create_reg(SCRATCH_REG0)));

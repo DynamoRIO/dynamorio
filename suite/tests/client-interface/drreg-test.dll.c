@@ -87,6 +87,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_status_t res;
     drvector_t allowed;
     ptr_int_t subtest = (ptr_int_t) user_data;
+    drreg_reserve_info_t info = {sizeof(info),};
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
@@ -146,22 +147,82 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
         res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
         CHECK(res == DRREG_ERROR_REG_CONFLICT, "still reserved");
-        {
-            opnd_t opnd = opnd_create_null();
-            res = drreg_reservation_info(drcontext, reg, &opnd, NULL, NULL);
-            CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(opnd),
-                  "slot info should succeed");
-        }
+        opnd_t opnd = opnd_create_null();
+        res = drreg_reservation_info(drcontext, reg, &opnd, NULL, NULL);
+        CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(opnd),
+              "slot info should succeed");
+        res = drreg_reservation_info_ex(drcontext, reg, &info);
+        CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(info.opnd) &&
+              info.reserved, "slot info_ex unexpected result");
+        /* test stateless restore when live */
+        drreg_statelessly_restore_app_value(drcontext, bb, reg, inst, inst, NULL, NULL);
+
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "unreserve should work");
 
+        /* test stateless restore when lazily unrestored */
+        drreg_statelessly_restore_app_value(drcontext, bb, reg, inst, inst, NULL, NULL);
+
+        /* test spill-restore query */
+        bool is_dead;
+        res = drreg_is_register_dead(drcontext, reg, inst, &is_dead);
+        CHECK(res == DRREG_SUCCESS, "query should work");
+        instr_t *prev;
+        bool found_restore = false;
+        for (prev = instr_get_prev(inst); prev != NULL; prev = instr_get_prev(prev)) {
+            bool spill, restore;
+            reg_id_t which_reg;
+            res = drreg_is_instr_spill_or_restore(drcontext, prev, &spill, &restore,
+                                                  &which_reg);
+            CHECK(res == DRREG_SUCCESS, "spill query should work");
+            CHECK(!(spill && restore), "can't be both a spill and a restore");
+            if (restore) {
+                found_restore = true;
+                CHECK(which_reg == reg || is_dead, "expected restore of given reg");
+                break;
+            }
+        }
+        CHECK(found_restore || is_dead, "failed to find restore");
+
         /* test aflags */
+        res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
+        CHECK(res == DRREG_SUCCESS && !info.reserved &&
+              ((info.holds_app_value && !info.app_value_retained &&
+                opnd_is_null(info.opnd)) ||
+               (!info.holds_app_value && info.app_value_retained &&
+                !opnd_is_null(info.opnd))),
+              "aflags un-reserve query failed");
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
+        CHECK(res == DRREG_SUCCESS && info.reserved &&
+              ((info.app_value_retained && !opnd_is_null(info.opnd)) ||
+               (info.holds_app_value && opnd_is_null(info.opnd))),
+              "aflags reserve query failed");
         res = drreg_restore_app_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+#ifdef X86
+        /* test aflags conflicts with xax: failing to reserve xax due to lazy
+         * aflags still in xax from above; failing to reserve aflags if xax is
+         * taken; failing to get app aflags if xax is taken.
+         */
+        drvector_t only_xax;
+        drreg_init_and_fill_vector(&only_xax, false);
+        drreg_set_vector_entry(&only_xax, DR_REG_XAX, true);
+        res = drreg_reserve_register(drcontext, bb, inst, &only_xax, &reg);
+        CHECK(res == DRREG_SUCCESS, "reserve of xax should work");
+        res = drreg_reserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags w/ xax taken should work");
+        res = drreg_restore_app_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
+        res = drreg_unreserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+        res = drreg_unreserve_register(drcontext, bb, inst, reg);
+        CHECK(res == DRREG_SUCCESS, "unreserve of xax should work");
+        drvector_delete(&only_xax);
+#endif
     } else if (subtest == DRREG_TEST_1_C ||
                subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
@@ -283,4 +344,14 @@ dr_init(client_id_t id)
                                                  event_app_instruction, NULL) ||
         !drmgr_register_bb_instru2instru_event(event_instru2instru, NULL))
         CHECK(false, "init failed");
+
+    /* i#2910: test use during process init. */
+    void *drcontext = dr_get_current_drcontext();
+    instrlist_t *ilist = instrlist_create(drcontext);
+    drreg_status_t res = drreg_reserve_aflags(drcontext, ilist, NULL);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    reg_id_t reg;
+    res = drreg_reserve_register(drcontext, ilist, NULL, NULL, &reg);
+    CHECK(res == DRREG_SUCCESS, "process init test failed");
+    instrlist_clear_and_destroy(drcontext, ilist);
 }

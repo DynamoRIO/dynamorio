@@ -298,6 +298,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
 
 static vm_area_vector_t *client_aux_libs;
 
+static bool track_where_am_i;
+
 #ifdef WINDOWS
 DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
                       INIT_LOCK_FREE(client_aux_lib64_lock));
@@ -1811,6 +1813,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
             copy->segments[i].start = os_segments[i].start;
             copy->segments[i].end = os_segments[i].end;
             copy->segments[i].prot = os_segments[i].prot;
+            copy->segments[i].offset = os_segments[i].offset;
         }
     } else {
         ASSERT(segments != NULL);
@@ -2032,6 +2035,13 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
     /* clear flag from dr_syscall_invoke_another() */
     dcontext->client_data->invoke_another_syscall = false;
     if (pre_syscall_callbacks.num > 0) {
+        dr_where_am_i_t old_whereami = dcontext->whereami;
+        dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
+        DODEBUG({
+            /* Avoid the common mistake of forgetting a filter event. */
+            CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
+                          "provided when using pre- and post-syscall events");
+        });
         /* Skip syscall if any client wants to skip it, but don't short-circuit,
          * as skipping syscalls is usually done when the effect of the syscall
          * will be emulated in some other way.  The app is typically meant to
@@ -2040,6 +2050,7 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
          */
         call_all_ret(exec, =, && exec, pre_syscall_callbacks,
                      bool (*)(void *, int), (void *)dcontext, sysnum);
+        dcontext->whereami = old_whereami;
     }
     dcontext->client_data->in_pre_syscall = false;
     return exec;
@@ -2048,12 +2059,20 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
 void
 instrument_post_syscall(dcontext_t *dcontext, int sysnum)
 {
+    dr_where_am_i_t old_whereami = dcontext->whereami;
     if (post_syscall_callbacks.num == 0)
         return;
+    DODEBUG({
+        /* Avoid the common mistake of forgetting a filter event. */
+        CLIENT_ASSERT(filter_syscall_callbacks.num > 0, "A filter event must be "
+                      "provided when using pre- and post-syscall events");
+    });
+    dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
     dcontext->client_data->in_post_syscall = true;
     call_all(post_syscall_callbacks, int (*)(void *, int),
              (void *)dcontext, sysnum);
     dcontext->client_data->in_post_syscall = false;
+    dcontext->whereami = old_whereami;
 }
 
 bool
@@ -5074,6 +5093,26 @@ dr_get_itimer(int which)
 # endif /* UNIX */
 
 DR_API
+void
+dr_track_where_am_i(void)
+{
+    track_where_am_i = true;
+}
+
+bool
+should_track_where_am_i(void)
+{
+    return track_where_am_i || DYNAMO_OPTION(profile_pcs);
+}
+
+DR_API
+bool
+dr_is_tracking_where_am_i(void)
+{
+    return should_track_where_am_i();
+}
+
+DR_API
 dr_where_am_i_t
 dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag_out)
 {
@@ -5736,12 +5775,9 @@ dr_read_saved_reg(void *drcontext, dr_spill_slot_t slot)
                   "dr_read_saved_reg: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_read_saved_reg: invalid spill slot selection");
-
-    /* FIXME - should we allow clients to read other threads saved registers? It's not
-     * as dangerous as write, but I can't think of a usage scenario where you'd want to
-     * Seems more likely to be a bug.  */
-    CLIENT_ASSERT(dcontext == get_thread_private_dcontext(),
-                  "dr_read_saved_reg(): drcontext does not belong to current thread");
+    /* We do allow drcontext to not belong to the current thread, for state restoration
+     * during synchall and other scenarios.
+     */
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = SPILL_SLOT_TLS_OFFS[slot];
@@ -5764,12 +5800,9 @@ dr_write_saved_reg(void *drcontext, dr_spill_slot_t slot, reg_t value)
                   "dr_write_saved_reg: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_write_saved_reg: invalid spill slot selection");
-
-    /* FIXME - should we allow clients to write to other threads saved registers?
-     * I can't think of a usage scenario where that would be correct, seems much more
-     * likely to be a difficult to diagnose bug that crashes the app or dr.  */
-    CLIENT_ASSERT(dcontext == get_thread_private_dcontext(),
-                  "dr_write_saved_reg(): drcontext does not belong to current thread");
+    /* We do allow drcontext to not belong to the current thread, for state restoration
+     * during synchall and other scenarios.
+     */
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = SPILL_SLOT_TLS_OFFS[slot];
@@ -7604,6 +7637,14 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
     SHARED_BB_UNLOCK();
     return true;
 }
+
+DR_API
+bool
+dr_get_stats(dr_stats_t *drstats)
+{
+    return stats_get_snapshot(drstats);
+}
+
 
 /***************************************************************************
  * PERSISTENCE

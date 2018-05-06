@@ -1494,6 +1494,11 @@ dynamo_process_exit(void)
             callback_interception_unintercept();
         }
 # endif
+# ifdef UNIX
+        /* i#2976: unhook prior to client exit if modules are being watched */
+        if (dr_modload_hook_exists())
+            unhook_vsyscall();
+# endif
         /* Must be after fragment_exit() so that the client gets all the
          * fragment_deleted() callbacks (xref PR 228156).  FIXME - might be issues
          * with the client trying to use api routines that depend on fragment state.
@@ -2770,13 +2775,19 @@ dr_app_stop(void)
 DR_APP_API void
 dr_app_stop_and_cleanup(void)
 {
+    dr_app_stop_and_cleanup_with_stats(NULL);
+}
+
+DR_APP_API void
+dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
+{
     /* XXX i#95: today this is a full detach, while a separated dr_app_cleanup()
      * is not.  We should try and have dr_app_cleanup() take this detach path
      * here (and then we can simplify exit_synch_state()) but it's more complicated
      * and we need to resolve the unbounded dr_app_stop() time.
      */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
-        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/);
+        detach_on_permanent_stack(true/*internal*/, true/*do cleanup*/, drstats);
     }
     /* the application regains control in here */
 }
@@ -2842,7 +2853,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 
 #define MAX_TAKE_OVER_ATTEMPTS 4
 
-/* Take over other threads in the current process.
+/* Mark this thread as under DR, and take over other threads in the current process.
  */
 void
 dynamorio_take_over_threads(dcontext_t *dcontext)
@@ -2854,6 +2865,10 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     uint attempts = 0;
 
     os_process_under_dynamorio_initiate(dcontext);
+    /* We can start this thread now that we've set up process-wide actions such
+     * as handling signals.
+     */
+    dynamo_thread_under_dynamo(dcontext);
     signal_event(dr_app_started);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
@@ -3459,4 +3474,3 @@ pre_second_thread(void)
         mutex_unlock(&bb_building_lock);
     }
 }
-

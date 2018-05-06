@@ -48,6 +48,7 @@
          FUNCTION(empty) \
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
          FUNCTION(gcc47_inscount) \
          FUNCTION(callpic_pop) \
          FUNCTION(callpic_mov) \
@@ -55,7 +56,6 @@
          FUNCTION(cond_br) \
          FUNCTION(tls_clobber) \
          FUNCTION(aflags_clobber) \
-         FUNCTION(compiler_inscount) \
          FUNCTION(bbcount) \
          LAST_FUNCTION()
 #elif defined(AARCH64)
@@ -63,6 +63,8 @@
          FUNCTION(empty) \
          FUNCTION(empty_1arg) \
          FUNCTION(inscount) \
+         FUNCTION(compiler_inscount) \
+         FUNCTION(aflags_clobber) \
          FUNCTION(bbcount) \
          LAST_FUNCTION()
 #endif
@@ -515,30 +517,6 @@ codegen_tls_clobber(void *dc)
     APP(ilist, INSTR_CREATE_mov_imm(dc, xax, OPND_CREATE_INT32(0xDEAD)));
     APP(ilist, INSTR_CREATE_mov_imm(dc, xdx, OPND_CREATE_INT32(0xBEEF)));
     APP(ilist, INSTR_CREATE_mov_st(dc, OPND_CREATE_MEMPTR(DR_REG_XSP, 0), xax));
-    codegen_epilogue(dc, ilist);
-    return ilist;
-}
-
-/* Zero the aflags.  Inliner must ensure they are restored.
-aflags_clobber:
-    push REG_XBP
-    mov REG_XBP, REG_XSP
-    mov REG_XAX, 0
-    add al, HEX(7F)
-    sahf
-    leave
-    ret
-*/
-static instrlist_t *
-codegen_aflags_clobber(void *dc)
-{
-    instrlist_t *ilist = instrlist_create(dc);
-    codegen_prologue(dc, ilist);
-    APP(ilist, INSTR_CREATE_mov_imm
-        (dc, opnd_create_reg(DR_REG_XAX), OPND_CREATE_INTPTR(0)));
-    APP(ilist, INSTR_CREATE_add
-        (dc, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(0x7F)));
-    APP(ilist, INSTR_CREATE_sahf(dc));
     codegen_epilogue(dc, ilist);
     return ilist;
 }

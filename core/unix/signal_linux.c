@@ -475,7 +475,7 @@ notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
 #ifdef ANDROID
         towrite.ssi_tid = frame->info._sifields._timer._tid;
 #else
-        towrite.ssi_tid = frame->info._sifields._timer.si_tid;
+        towrite.ssi_tid = frame->info.si_timerid;
 #endif
         towrite.ssi_overrun = frame->info.si_overrun;
         towrite.ssi_status = frame->info.si_status;
