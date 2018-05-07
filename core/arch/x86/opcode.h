@@ -1263,9 +1263,9 @@ enum {
 /* 1103 */     OP_xsavec32,       /**< IA-32/AMD64 xsavec opcode. */
 /* 1104 */     OP_xsavec64,       /**< IA-32/AMD64 xsavec64 opcode. */
 
-	/* Intel ADX */
-/* 1105 */     OP_adox,			  /**< IA-32/AMD64 adox opcode. */
-/* 1106 */     OP_adcx,			  /**< IA-32/AMD64 adox opcode. */
+    /* Intel ADX */
+/* 1105 */     OP_adox,           /**< IA-32/AMD64 adox opcode. */
+/* 1106 */     OP_adcx,           /**< IA-32/AMD64 adox opcode. */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64

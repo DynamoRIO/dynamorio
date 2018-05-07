@@ -1266,9 +1266,9 @@ const instr_info_t * const op_instr[] =
     /* OP_xsavec32      */   &rex_w_extensions[5][0],
     /* OP_xsavec64      */   &rex_w_extensions[5][1],
 
-	/* Intel ADX */
-	/* OP_adox          */   &prefix_extensions[143][1],
-	/* OP_adcx          */   &prefix_extensions[143][2],
+    /* Intel ADX */
+    /* OP_adox          */   &prefix_extensions[143][1],
+    /* OP_adcx          */   &prefix_extensions[143][2],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -4287,8 +4287,8 @@ const instr_info_t prefix_extensions[][8] = {
   },
   { /* prefix extension 143 */
     {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_adox,      0xf338f618, "adox",    Gy, Ey, xx, xx, xx, mrm, fWO, END_LIST},
-    {OP_adcx,      0x6638f618, "adcx",    Gy, Ey, xx, xx, xx, mrm, fWC, END_LIST},
+    {OP_adox,      0xf338f618, "adox",    Gy, xx, Ey, xx, xx, mrm, (fWO|fRO), END_LIST},
+    {OP_adcx,      0x6638f618, "adcx",    Gy, xx, Ey, xx, xx, mrm, (fWC|fRC), END_LIST},
     {INVALID,      0xf238f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},

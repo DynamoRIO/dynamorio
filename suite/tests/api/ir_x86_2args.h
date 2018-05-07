@@ -439,3 +439,8 @@ OPCODE(blsr, blsr, blsr, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blsmsk, blsmsk, blsmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blsi, blsi, blsi, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(tzcnt, tzcnt, tzcnt, 0, REGARG(EDX), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* ADX */
+OPCODE(adox, adox, adox, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE(adcx, adcx, adcx, 0, REGARG(EAX), MEMARG(OPSZ_4))
