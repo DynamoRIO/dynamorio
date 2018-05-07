@@ -209,7 +209,7 @@ typedef struct _clone_record_t {
      * to store values
      */
     reg_t for_dynamorio_clone[4];
-} clone_record_t;
+} __attribute__((__aligned__(ABI_STACK_ALIGNMENT))) clone_record_t;
 
 /* i#350: set up signal handler for safe_read/faults during init */
 static thread_sig_info_t init_info;
@@ -611,6 +611,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
          * the clone record.
          */
         record = (clone_record_t *) (dstack - sizeof(clone_record_t));
+        ASSERT(ALIGNED(record, get_ABI_stack_alignment()));
         record->app_thread_xsp = *app_thread_xsp;
         /* asynch_target is set in dispatch() prior to calling pre_system_call(). */
         record->continuation_pc = dcontext->asynch_target;
@@ -4745,8 +4746,9 @@ master_signal_handler_C(byte *xsp)
     ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext) ||
            sig == SUSPEND_SIGNAL);
 
-    LOG(THREAD, LOG_ASYNCH, level, "\nmaster_signal_handler: sig=%d, retaddr="PFX"\n",
-        sig, *((byte **)xsp));
+    LOG(THREAD, LOG_ASYNCH, level,
+        "\nmaster_signal_handler: thread=%d, sig=%d, retaddr="PFX"\n",
+        get_sys_thread_id(), sig, *((byte **)xsp));
     LOG(THREAD, LOG_ASYNCH, level+1,
         "siginfo: sig = %d, pid = %d, status = %d, errno = %d, si_code = %d\n",
         siginfo->si_signo, siginfo->si_pid, siginfo->si_status, siginfo->si_errno,
