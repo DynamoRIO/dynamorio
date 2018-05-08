@@ -641,7 +641,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
       endif (NOT "${arg_exclude}" STREQUAL "")
       set(ctest_test_args ${ctest_test_args} ${extra_ctest_args})
-      eif (WIN32 AND TEST_LONG)
+      if (WIN32 AND TEST_LONG)
         # FIXME i#265: on Windows we can't run multiple instances of
         # the same app b/c of global reg key conflicts: should support
         # env vars and not require registry
