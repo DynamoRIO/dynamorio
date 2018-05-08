@@ -45,21 +45,7 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  string(REPLACE "Visual Studio " "" vsgen_ver "${CMAKE_GENERATOR}")
-else ()
-  set(vsgen_ver "0.0")
-endif ()
-
-if (${vsgen_ver} VERSION_GREATER 9)
-  # for i#801 workaround
-  cmake_minimum_required(VERSION 3.2)
-elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for output dir name control
-  cmake_minimum_required(VERSION 3.2)
-else ()
-  cmake_minimum_required(VERSION 3.2) # VERSION_LESS
-endif ()
+cmake_minimum_required(VERSION 3.2) # VERSION_LESS
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
