@@ -57,7 +57,7 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.2)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)
@@ -389,12 +389,6 @@ else ()
       set(arg_use_msbuild OFF)
     endif (MSBUILD_PROGRAM)
   endif (arg_use_msbuild)
-  if ("${cmake_ver_string}" STREQUAL "2.8.4")
-    # 2.8.4 uses msbuild by default.
-    # XXX: any way to tell other than matching version #?
-    # Request parallel build (sequential by default: i#800)
-    set(extra_build_args "/m")
-  endif ()
 endif ()
 
 function(get_default_config config builddir)
