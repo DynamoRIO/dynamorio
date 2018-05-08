@@ -43,7 +43,7 @@ branches:
   only:
   - master
 
-# We use Trusty to get cmake 2.8.12 instead of 2.8.7 from Precise:
+# We use Trusty to get cmake 3.5 via the cmake3 package.
 sudo: required
 dist: trusty
 
@@ -97,7 +97,10 @@ install:
   # ImageMagick is present but these are not:
   - >
       if [[ "`uname`" == "Linux" ]]; then
-      sudo apt-get -y install doxygen transfig vera++; fi
+        sudo apt-get -y install doxygen transfig vera++ cmake3
+        sudo update-alternatives --install /usr/bin/cmake cmake /usr/local/bin/cmake3
+        sudo update-alternatives --install /usr/bin/ctest3 ctest /usr/local/bin/ctest3
+      fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then

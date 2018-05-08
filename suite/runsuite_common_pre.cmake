@@ -638,21 +638,10 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
       #   INCLUDE broadfun
       if (NOT "${arg_exclude}" STREQUAL "")
-        if ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          # EXCLUDE arg to ctest_test() is not available so we edit the list of tests
-          file(READ "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" testlist)
-          string(REGEX REPLACE "ADD_TEST\\((${arg_exclude}) [^\\)]*\\)\n" ""
-            testlist "${testlist}")
-          file(WRITE "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" "${testlist}")
-        else ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
-        endif ("${cmake_ver_string}" VERSION_LESS "2.6.3")
+        set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
       endif (NOT "${arg_exclude}" STREQUAL "")
       set(ctest_test_args ${ctest_test_args} ${extra_ctest_args})
-      if ("${cmake_ver_string}" VERSION_LESS "2.8.")
-        # Parallel tests not supported
-        set(RUN_PARALLEL OFF)
-      elseif (WIN32 AND TEST_LONG)
+      eif (WIN32 AND TEST_LONG)
         # FIXME i#265: on Windows we can't run multiple instances of
         # the same app b/c of global reg key conflicts: should support
         # env vars and not require registry
