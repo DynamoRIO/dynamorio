@@ -98,8 +98,8 @@ install:
   - >
       if [[ "`uname`" == "Linux" ]]; then
         sudo apt-get -y install doxygen transfig vera++ cmake3
-        sudo update-alternatives --install /usr/bin/cmake cmake /usr/local/bin/cmake3 10
-        sudo update-alternatives --install /usr/bin/ctest3 ctest /usr/local/bin/ctest3 10
+        sudo update-alternatives --install /usr/bin/cmake cmake /usr/bin/cmake3 10
+        sudo update-alternatives --install /usr/bin/ctest3 ctest /usr/bin/ctest3 10
       fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
