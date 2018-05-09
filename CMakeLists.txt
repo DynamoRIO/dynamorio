@@ -45,7 +45,7 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-cmake_minimum_required(VERSION 3.2) # VERSION_LESS
+cmake_minimum_required(VERSION 3.2)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
