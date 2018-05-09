@@ -45,21 +45,7 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  string(REPLACE "Visual Studio " "" vsgen_ver "${CMAKE_GENERATOR}")
-else ()
-  set(vsgen_ver "0.0")
-endif ()
-
-if (${vsgen_ver} VERSION_GREATER 9)
-  # for i#801 workaround
-  cmake_minimum_required(VERSION 2.8.8)
-elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for output dir name control
-  cmake_minimum_required(VERSION 2.8.2)
-else ()
-  cmake_minimum_required(VERSION 2.6.4) # VERSION_LESS
-endif ()
+cmake_minimum_required(VERSION 3.2)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
@@ -83,19 +69,6 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(location_suffix "")
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-
-set(cmake_ver_string
-  "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
-if ("${cmake_ver_string}" VERSION_LESS "2.6.4")
-  # Workaround for cmake bug #8639 where CMAKE_ASM_SOURCE_FILE_EXTENSIONS
-  # is not set and our asm files are not built (should be fixed in 2.6.4).
-  # We can simply set the var ahead of time, luckily, since noone clears it:
-  # Alternative workarounds:
-  # - Use ASM-ATT instead of ASM: should work
-  # - I tried puting a patched CMakeASMInformation.cmake ahead of share/Modules
-  #   but enable_language() seems to not use the CMAKE_MODULE_PATH
-  set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
-endif ("${cmake_ver_string}" VERSION_LESS "2.6.4")
 
 # I want to override the default CMAKE_INSTALL_PREFIX, but allow it to
 # be set (as the same var name, so CPack and other standard tools

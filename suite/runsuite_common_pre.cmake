@@ -57,12 +57,12 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.2)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)
   # avoid warnings on include()
-  cmake_policy(VERSION 2.8)
+  cmake_policy(VERSION 3.2)
 endif()
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
@@ -389,12 +389,6 @@ else ()
       set(arg_use_msbuild OFF)
     endif (MSBUILD_PROGRAM)
   endif (arg_use_msbuild)
-  if ("${cmake_ver_string}" STREQUAL "2.8.4")
-    # 2.8.4 uses msbuild by default.
-    # XXX: any way to tell other than matching version #?
-    # Request parallel build (sequential by default: i#800)
-    set(extra_build_args "/m")
-  endif ()
 endif ()
 
 function(get_default_config config builddir)
@@ -638,21 +632,10 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       # to run a subset of tests add an INCLUDE regexp to ctest_test.  e.g.:
       #   INCLUDE broadfun
       if (NOT "${arg_exclude}" STREQUAL "")
-        if ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          # EXCLUDE arg to ctest_test() is not available so we edit the list of tests
-          file(READ "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" testlist)
-          string(REGEX REPLACE "ADD_TEST\\((${arg_exclude}) [^\\)]*\\)\n" ""
-            testlist "${testlist}")
-          file(WRITE "${CTEST_BINARY_DIRECTORY}/tests/CTestTestfile.cmake" "${testlist}")
-        else ("${cmake_ver_string}" VERSION_LESS "2.6.3")
-          set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
-        endif ("${cmake_ver_string}" VERSION_LESS "2.6.3")
+        set(ctest_test_args ${ctest_test_args} EXCLUDE ${arg_exclude})
       endif (NOT "${arg_exclude}" STREQUAL "")
       set(ctest_test_args ${ctest_test_args} ${extra_ctest_args})
-      if ("${cmake_ver_string}" VERSION_LESS "2.8.")
-        # Parallel tests not supported
-        set(RUN_PARALLEL OFF)
-      elseif (WIN32 AND TEST_LONG)
+      if (WIN32 AND TEST_LONG)
         # FIXME i#265: on Windows we can't run multiple instances of
         # the same app b/c of global reg key conflicts: should support
         # env vars and not require registry
