@@ -4014,14 +4014,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * XXX: better to get this code inside arch/ but we'd have to
              * convert to an mcontext which seems overkill.
              */
-            if (in_clean_call_helper(dcontext, pc)) {
+            if (in_clean_call_save(dcontext, pc) ||
+                in_clean_call_restore(dcontext, pc)) {
                 /* Get the retaddr.  We assume this is the adjustment used by
                 * insert_out_of_line_context_switch().
                 */
-                byte *ra_slot = dcontext->dstack -
-                    get_clean_call_switch_stack_size() -
-                    get_clean_call_temp_stack_size();
                 cache_pc retaddr = NULL;
+                byte *ra_slot = dcontext->dstack -
+                    get_clean_call_switch_stack_size() - sizeof(retaddr);
+                /* The extra x86 slot is only there for save. */
+                if (in_clean_call_save(dcontext, pc))
+                    ra_slot -= get_clean_call_temp_stack_size();
                 if (safe_read(ra_slot, sizeof(retaddr), &retaddr))
                     f = fragment_pclookup(dcontext, retaddr, &wrapper);
             }
@@ -4043,7 +4046,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * exited if we're in fcache_return.
              */
             if (f == NULL && dcontext->asynch_target != NULL &&
-                !in_fcache_return(dcontext, pc))
+                !in_fcache_return(dcontext, pc) &&
+                /* i#2042: we need to rule out the ibl until we handle it above */
+                !in_indirect_branch_lookup_code(dcontext, pc))
                 f = fragment_lookup(dcontext, dcontext->asynch_target);
             if (f != NULL && !TEST(FRAG_COARSE_GRAIN, f->flags)) {
                 if (unlink_fragment_for_signal(dcontext, f, FCACHE_ENTRY_PC(f))) {
