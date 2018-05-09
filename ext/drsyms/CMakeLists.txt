@@ -31,15 +31,12 @@
 
 # symbol access library
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.12")
-  # XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0022 OLD)
-endif ()
+# XXX i#1481: update to cmake 2.8.12's better handling of interface imports
+cmake_policy(SET CMP0022 OLD)
 
 if (X64)
   set(BITS "64")
