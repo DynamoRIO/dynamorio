@@ -70,7 +70,11 @@ get_clean_call_switch_stack_size(void)
 int
 get_clean_call_temp_stack_size(void)
 {
+#ifdef X86
     return XSP_SZ; /* for eflags clear code: push 0; popf */
+#else
+    return 0;
+#endif
 }
 
 /* utility routines for inserting clean calls to an instrumentation routine
