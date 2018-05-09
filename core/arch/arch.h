@@ -919,6 +919,7 @@ typedef struct _generated_code_t {
     /* i#171: out-of-line clean call context switch */
     byte *clean_call_save;
     byte *clean_call_restore;
+    byte *clean_call_restore_end;
 
     bool thread_shared;
     bool writable;
