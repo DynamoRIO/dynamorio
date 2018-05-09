@@ -476,6 +476,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
         pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->clean_call_restore = pc;
         pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
+        gencode->clean_call_restore_end = pc;
     }
 
     ASSERT(pc < gencode->commit_end_pc);
@@ -1328,7 +1329,8 @@ arch_thread_init(dcontext_t *dcontext)
         pc = check_size_and_cache_line(isa_mode, code, pc);
         code->clean_call_restore = pc;
         pc = emit_clean_call_restore(dcontext, pc, code);
-    }
+        code->clean_call_restore_end = pc;
+     }
 
     ASSERT(pc < code->commit_end_pc);
     code->gen_end_pc = pc;
@@ -1726,6 +1728,62 @@ in_fcache_return(dcontext_t *dcontext, cache_pc pc)
             return true;
         if (shared_code_x86_to_x64 != NULL &&
             in_fcache_return_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
+}
+
+static bool
+in_clean_call_save_for_gencode(generated_code_t *code, cache_pc pc)
+{
+    return pc != NULL &&
+        pc >= code->clean_call_save && pc < code->clean_call_restore;
+}
+
+static bool
+in_clean_call_restore_for_gencode(generated_code_t *code, cache_pc pc)
+{
+    return pc != NULL &&
+        pc >= code->clean_call_restore && pc < code->clean_call_restore_end;
+}
+
+bool
+in_clean_call_save(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_clean_call_save_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_clean_call_save_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL &&
+            in_clean_call_save_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_clean_call_save_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
+}
+
+bool
+in_clean_call_restore(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_clean_call_restore_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_clean_call_restore_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL &&
+            in_clean_call_restore_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_clean_call_restore_for_gencode(shared_code_x86_to_x64, pc))
             return true;
 #endif
     }
