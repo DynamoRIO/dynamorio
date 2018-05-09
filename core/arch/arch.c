@@ -1732,6 +1732,34 @@ in_fcache_return(dcontext_t *dcontext, cache_pc pc)
     return false;
 }
 
+static bool
+in_clean_call_helper_for_gencode(generated_code_t *code, cache_pc pc)
+{
+    return pc != NULL &&
+        pc >= code->clean_call_save && pc < code->clean_call_restore_end;
+}
+
+bool
+in_clean_call_helper(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_clean_call_helper_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_clean_call_helper_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL &&
+            in_clean_call_helper_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_clean_call_helper_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
+}
+
 bool
 in_indirect_branch_lookup_code(dcontext_t *dcontext, cache_pc pc)
 {

@@ -3631,7 +3631,6 @@ relink_interrupted_fragment(dcontext_t *dcontext, thread_sig_info_t *info)
     }
     info->interrupted = NULL;
     info->interrupted_pc = NULL;
-    info->interrupted_gencode = false;
 }
 
 static bool
@@ -3931,11 +3930,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                      */
                 } else {
                     /* could get another signal but should be in same fragment */
-                    ASSERT(info->interrupted == NULL || info->interrupted == f ||
-                           /* i#2328: if we interrupt gencode we have to guess */
-                           info->interrupted_gencode);
+                    ASSERT(info->interrupted == NULL || info->interrupted == f);
                     if (info->interrupted != f) {
-                        /* Avoid leaving any prior unlinked */
+                        /* Just in case there's a prior, avoid leaving it unlinked. */
                         relink_interrupted_fragment(dcontext, info);
                         if (unlink_fragment_for_signal(dcontext, f, pc)) {
                             info->interrupted = f;
@@ -4017,7 +4014,17 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * XXX: better to get this code inside arch/ but we'd have to
              * convert to an mcontext which seems overkill.
              */
-            info->interrupted_gencode = true;
+            if (in_clean_call_helper(dcontext, pc)) {
+                /* Get the retaddr.  We assume this is the adjustment used by
+                * insert_out_of_line_context_switch().
+                */
+                byte *ra_slot = dcontext->dstack -
+                    get_clean_call_switch_stack_size() -
+                    get_clean_call_temp_stack_size();
+                cache_pc retaddr = NULL;
+                if (safe_read(ra_slot, sizeof(retaddr), &retaddr))
+                    f = fragment_pclookup(dcontext, retaddr, &wrapper);
+            }
 #ifdef AARCHXX
             /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
             if (sc->SC_R2 != 0)
@@ -4033,9 +4040,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 #endif
             /* If in fcache_enter, we stored the next_tag in asynch_target in dispatch.
              * But, we need to avoid using the asynch_target for the fragment we just
-             * exited if we're in fcache_return.  We could also have exited if we're in
-             * certain ibl spots: we set interrupted_gencode to avoid asserts and we
-             * eventually relink.
+             * exited if we're in fcache_return.
              */
             if (f == NULL && dcontext->asynch_target != NULL &&
                 !in_fcache_return(dcontext, pc))
