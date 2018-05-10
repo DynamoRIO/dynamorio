@@ -1942,6 +1942,7 @@ if (CLIENT_INTERFACE)
       target_link_libraries(client.signal ${libpthread})
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
+    tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")

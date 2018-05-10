@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -288,6 +288,13 @@ instr_is_mbr_arch(instr_t *instr)
      * OP_blx_ind when conditional is still an mbr) is an mbr.
      */
     return instr_writes_to_reg(instr, DR_REG_PC, DR_QUERY_INCLUDE_COND_DSTS);
+}
+
+bool
+instr_is_jump_mem(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_ldr &&
+        opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_PC;
 }
 
 bool
