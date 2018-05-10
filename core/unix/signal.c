@@ -2697,9 +2697,6 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
           {0x68, 0x11, 0x80, 0x52, 0x01, 0x00, 0x00, 0xd4};
 # endif
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))]= {0};
-# ifdef AARCH64
-        ASSERT_NOT_TESTED(); /* See SIGRET_RT, above. */
-# endif
         if (safe_read(info->app_sigaction[sig]->restorer, sizeof(buf), buf) &&
             ((IS_RT_FOR_APP(info, sig) &&
               memcmp(buf, SIGRET_RT, sizeof(SIGRET_RT)) == 0) ||
@@ -3785,6 +3782,105 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     return true;
 }
 
+/* XXX: Better to get this code inside arch/ but we'd have to convert to an mcontext
+ * which seems overkill.
+ */
+static fragment_t *
+find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
+{
+    fragment_t *f = NULL;
+    fragment_t wrapper;
+    byte *pc = (byte *) sc->SC_XIP;
+    if (in_clean_call_save(dcontext, pc) || in_clean_call_restore(dcontext, pc)) {
+#ifdef AARCHXX
+        f = fragment_pclookup(dcontext, (cache_pc)sc->SC_LR, &wrapper);
+#elif defined(X86)
+        cache_pc retaddr = NULL;
+        /* Get the retaddr.  We assume this is the adjustment used by
+         * insert_out_of_line_context_switch().
+         */
+        byte *ra_slot = dcontext->dstack -
+            get_clean_call_switch_stack_size() - sizeof(retaddr);
+        /* The extra x86 slot is only there for save. */
+        if (in_clean_call_save(dcontext, pc))
+            ra_slot -= get_clean_call_temp_stack_size();
+        if (safe_read(ra_slot, sizeof(retaddr), &retaddr))
+            f = fragment_pclookup(dcontext, retaddr, &wrapper);
+#else
+# error Unsupported arch.
+#endif
+    } else if (in_indirect_branch_lookup_code(dcontext, pc)) {
+        /* Try to find the target if the signal arrived in the IBL.
+         * We could try to be a lot more precise by hardcoding the IBL
+         * sequence here but that would make the code less maintainable.
+         * Instead we try the registers that hold the target app address.
+         */
+        /* First check for the jmp* on the hit path: that is the only place
+         * in the ibl where the target tag is not sitting in a register.
+         */
+#if defined(X86) && defined(X64)
+        /* Optimization for the common case of targeting a prefix on x86_64:
+         *    ff 61 08             jmp    0x08(%rcx)[8byte]
+         * The tag is in 0x0(%rcx) so we avoid a decode and pclookup.
+         */
+        if (*pc == 0xff && *(pc+1) == 0x61 && *(pc+2) == 0x08) {
+            f = fragment_lookup(dcontext, *(app_pc*)sc->SC_XCX);
+        }
+#endif
+        if (f == NULL) {
+            instr_t instr;
+            instr_init(dcontext, &instr);
+            decode_cti(dcontext, pc, &instr);
+            if (instr_is_ibl_hit_jump(&instr)) {
+                priv_mcontext_t mc;
+                sig_full_cxt_t sc_full = { sc, NULL/*not provided*/ };
+                sigcontext_to_mcontext(&mc, &sc_full, DR_MC_INTEGER|DR_MC_CONTROL);
+                byte *target;
+                if (opnd_is_memory_reference(instr_get_target(&instr))) {
+                    target = instr_compute_address_priv(&instr, &mc);
+                    ASSERT(target != NULL);
+                    if (target != NULL)
+                        target = *(byte**)target;
+                } else {
+                    ASSERT(opnd_is_reg(instr_get_target(&instr)));
+                    target = (byte *) reg_get_value_priv
+                        (opnd_get_reg(instr_get_target(&instr)), &mc);
+                }
+                ASSERT(target != NULL);
+                if (target != NULL)
+                    f = fragment_pclookup(dcontext, target, &wrapper);
+                /* I tried to hit this case running client.cleancallsig in a loop
+                 * and while I could on x86 and x86_64 I never did on ARM or
+                 * AArch64.  We can remove this once someone hits it and it works.
+                 */
+                IF_AARCHXX(ASSERT_NOT_TESTED());
+            }
+            instr_free(dcontext, &instr);
+        }
+#ifdef AARCHXX
+        /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
+        if (f == NULL && sc->SC_R2 != 0)
+            f = fragment_lookup(dcontext, ENTRY_PC_TO_DECODE_PC(sc->SC_R2));
+#elif defined(X86)
+        /* The target is initially in xcx but is then copied to xbx. */
+        if (f == NULL && sc->SC_XBX != 0)
+            f = fragment_lookup(dcontext, (app_pc)sc->SC_XBX);
+        if (f == NULL && sc->SC_XCX != 0)
+            f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
+#else
+# error Unsupported arch.
+#endif
+    } else {
+        /* If in fcache_enter or do_syscall*, we stored the next_tag in asynch_target
+         * in dispatch.  But, we need to avoid using the asynch_target for the
+         * fragment we just exited if we're in fcache_return.
+         */
+        if (dcontext->asynch_target != NULL && !in_fcache_return(dcontext, pc))
+            f = fragment_lookup(dcontext, dcontext->asynch_target);
+    }
+    return f;
+}
+
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame, bool forged
@@ -4002,54 +4098,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * only need a single info->interrupted.
          */
         if (info->interrupted == NULL && !get_at_syscall(dcontext)) {
-            /* Try to find the target if the signal arrived in the IBL.
-             * We could try to be a lot more precise by hardcoding the IBL
-             * sequence here but that would make the code less maintainable.
-             * Instead we try the registers that hold the target app address.
-             *
-             * FIXME i#2042: we'll still fail if the signal arrives at the
-             * actual jmp* in the hit path b/c the reg holding the target is
-             * restored on the prior instr.
-             *
-             * XXX: better to get this code inside arch/ but we'd have to
-             * convert to an mcontext which seems overkill.
-             */
-            if (in_clean_call_save(dcontext, pc) ||
-                in_clean_call_restore(dcontext, pc)) {
-                /* Get the retaddr.  We assume this is the adjustment used by
-                * insert_out_of_line_context_switch().
-                */
-                cache_pc retaddr = NULL;
-                byte *ra_slot = dcontext->dstack -
-                    get_clean_call_switch_stack_size() - sizeof(retaddr);
-                /* The extra x86 slot is only there for save. */
-                if (in_clean_call_save(dcontext, pc))
-                    ra_slot -= get_clean_call_temp_stack_size();
-                if (safe_read(ra_slot, sizeof(retaddr), &retaddr))
-                    f = fragment_pclookup(dcontext, retaddr, &wrapper);
-            }
-#ifdef AARCHXX
-            /* The target is in r2 the whole time, w/ or w/o Thumb LSB. */
-            if (sc->SC_R2 != 0)
-                f = fragment_lookup(dcontext, ENTRY_PC_TO_DECODE_PC(sc->SC_R2));
-#elif defined(X86)
-            /* The target is initially in xcx but is then copied to xbx. */
-            if (sc->SC_XBX != 0)
-                f = fragment_lookup(dcontext, (app_pc)sc->SC_XBX);
-            if (f == NULL && sc->SC_XCX != 0)
-                f = fragment_lookup(dcontext, (app_pc)sc->SC_XCX);
-#else
-# error Unsupported arch.
-#endif
-            /* If in fcache_enter, we stored the next_tag in asynch_target in dispatch.
-             * But, we need to avoid using the asynch_target for the fragment we just
-             * exited if we're in fcache_return.
-             */
-            if (f == NULL && dcontext->asynch_target != NULL &&
-                !in_fcache_return(dcontext, pc) &&
-                /* i#2042: we need to rule out the ibl until we handle it above */
-                !in_indirect_branch_lookup_code(dcontext, pc))
-                f = fragment_lookup(dcontext, dcontext->asynch_target);
+            f = find_next_fragment_from_gencode(dcontext, sc);
             if (f != NULL && !TEST(FRAG_COARSE_GRAIN, f->flags)) {
                 if (unlink_fragment_for_signal(dcontext, f, FCACHE_ENTRY_PC(f))) {
                     info->interrupted = f;

@@ -1078,6 +1078,7 @@ byte * emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code,
                                    bool inline_ibl_head,
                                    ibl_code_t *ibl_code);
 void update_indirect_branch_lookup(dcontext_t *dcontext);
+bool instr_is_ibl_hit_jump(instr_t *instr);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
                    _IF_X86_64(far_ref_t *far_jmp_opnd));
