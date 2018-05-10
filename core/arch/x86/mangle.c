@@ -284,8 +284,8 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
          * so we can have call/return pair to take advantage of hardware
          * call return stack for better performance.
          * Xref emit_clean_call_save @ x86/emit_utils.c
-         * The precise adjustment amount is relied upon in record_pending_signal()'s
-         * handling of in_clean_call().
+         * The precise adjustment amount is relied upon in
+         * find_next_fragment_from_gencode()'s handling of in_clean_call_save().
          */
         PRE(ilist, instr,
             INSTR_CREATE_lea
