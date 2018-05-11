@@ -2162,10 +2162,6 @@ reg_get_size(reg_id_t reg)
     if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
         return OPSZ_10;
 #elif defined(AARCHXX)
-    if (reg == DR_REG_XZR)
-        return OPSZ_8;
-    if (reg == DR_REG_WZR)
-        return OPSZ_4;
     if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
         return OPSZ_16;
     if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
@@ -2180,6 +2176,11 @@ reg_get_size(reg_id_t reg)
     if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
         return OPSZ_PTR;
     if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
+        return OPSZ_4;
+# elif defined(AARCH64)
+    if (reg == DR_REG_XZR)
+        return OPSZ_8;
+    if (reg == DR_REG_WZR)
         return OPSZ_4;
 # endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)

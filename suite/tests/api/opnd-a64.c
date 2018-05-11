@@ -42,7 +42,8 @@
         abort(), 0) : 0))
 
 static void
-test_get_size() {
+test_get_size()
+{
     /* Check sizes of special registers. */
     ASSERT(reg_get_size(DR_REG_WZR) == OPSZ_4);
     ASSERT(reg_get_size(DR_REG_XZR) == OPSZ_8);
@@ -65,7 +66,8 @@ test_get_size() {
 }
 
 int
-main(int argc, char *argv[]) {
+main(int argc, char *argv[])
+{
     test_get_size();
 
     printf("all done\n");
