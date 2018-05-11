@@ -2177,12 +2177,14 @@ reg_get_size(reg_id_t reg)
         return OPSZ_PTR;
     if (reg >= DR_REG_CPSR && reg <= DR_REG_FPSCR)
         return OPSZ_4;
+# elif defined(AARCH64)
+    if (reg == DR_REG_XZR)
+        return OPSZ_8;
+    if (reg == DR_REG_WZR)
+        return OPSZ_4;
 # endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
-# ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-# endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
