@@ -2162,6 +2162,10 @@ reg_get_size(reg_id_t reg)
     if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
         return OPSZ_10;
 #elif defined(AARCHXX)
+    if (reg == DR_REG_XZR)
+        return OPSZ_8;
+    if (reg == DR_REG_WZR)
+        return OPSZ_4;
     if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
         return OPSZ_16;
     if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
@@ -2180,9 +2184,6 @@ reg_get_size(reg_id_t reg)
 # endif
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
-# ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-# endif
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
