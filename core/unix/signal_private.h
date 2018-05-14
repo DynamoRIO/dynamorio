@@ -327,6 +327,13 @@ typedef struct _itimer_info_t {
 } itimer_info_t;
 
 typedef struct _thread_itimer_info_t {
+    /* We use per-itimer-signal-type locks to avoid races with alarms arriving
+     * in separate threads simultaneously (we don't want to block on itimer
+     * locks to handle app-syscall-interruption cases).  Xref i#2993.
+     * We only need owner info -- xref i#219: we should add a known-owner
+     * lock for cases where a full-fledged recursive lock is not needed.
+     */
+    recursive_lock_t lock;
     itimer_info_t app;
     itimer_info_t app_saved;
     itimer_info_t dr;
@@ -384,15 +391,15 @@ typedef struct _thread_sig_info_t {
      * the CLONE_SIGHAND set of fields above.
      */
     bool shared_itimer;
-    /* We only need owner info.  xref i#219: we should add a known-owner
-     * lock for cases where a full-fledged recursive lock is not needed.
-     */
-    recursive_lock_t *shared_itimer_lock;
-    /* b/c a non-CLONE_THREAD thread can be created we can't just use dynamo_exited
-     * and need a refcount here
+    /* Because a non-CLONE_THREAD thread can be created we can't just use
+     * dynamo_exited and need a refcount here.  This is updated via
+     * atomic inc/dec without holding a lock (i#1993).
      */
     int *shared_itimer_refcount;
-    int *shared_itimer_underDR; /* indicates # of threads under DR control */
+    /* Indicates the # of threads under DR control.  This is updated via atomic
+     * inc/dec without holding a lock (i#1993).
+     */
+    int *shared_itimer_underDR;
     thread_itimer_info_t (*itimer)[NUM_ITIMERS];
 
     /* cache restorer validity.  not shared: inheriter will re-populate. */
