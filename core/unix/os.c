@@ -5504,8 +5504,8 @@ was_thread_create_syscall(dcontext_t *dcontext)
                                            dcontext->sys_param0);
 }
 
-static inline bool
-is_sigreturn_syscall_helper(int sysnum)
+bool
+is_sigreturn_syscall_number(int sysnum)
 {
 #ifdef MACOS
     return sysnum == SYS_sigreturn;
@@ -5518,13 +5518,13 @@ bool
 is_sigreturn_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_sigreturn_syscall_helper(MCXT_SYSNUM_REG(mc));
+    return is_sigreturn_syscall_number(MCXT_SYSNUM_REG(mc));
 }
 
 bool
 was_sigreturn_syscall(dcontext_t *dcontext)
 {
-    return is_sigreturn_syscall_helper(dcontext->sys_num);
+    return is_sigreturn_syscall_number(dcontext->sys_num);
 }
 
 /* process a signal this process/thread is sending to itself */

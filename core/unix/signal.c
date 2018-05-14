@@ -4057,9 +4057,14 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * we can get rid of this emulation and the auto-restart emulation.
              */
             /* The get_at_syscall() check above distinguishes from just having
-             * arrived at the syscall instr.
+             * arrived at the syscall instr, but with SA_RESTART we can't distinguish
+             * not-yet-executed-syscall from syscall-was-interrupted-in-the-kernel.
+             * This matters for sigreturn (i#2995), whose asynch_target points somewhere
+             * other than right after the syscall, so we exclude it (it can't be
+             * interrupted so we know we haven't executed it yet).
              */
-            if (is_after_syscall_address(dcontext, pc + syslen)) {
+            if (is_after_syscall_address(dcontext, pc + syslen) &&
+                !is_sigreturn_syscall_number(sc->SC_SYSNUM_REG)) {
                 LOG(THREAD, LOG_ASYNCH, 2,
                     "Adjusting interrupted auto-restart syscall from "PFX" to "PFX"\n",
                     pc, pc + syslen);
@@ -4092,7 +4097,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 }
             }
         }
-    } else if (get_at_syscall(dcontext) && pc == vsyscall_sysenter_return_pc - syslen) {
+    } else if (get_at_syscall(dcontext) && pc == vsyscall_sysenter_return_pc - syslen &&
+               /* See i#2995 comment above: rule out sigreturn */
+               !is_sigreturn_syscall_number(sc->SC_SYSNUM_REG)) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from restart-vsyscall "PFX"\n", sig, pc);
         /* While the kernel points at int 0x80 for a restart, we leverage our

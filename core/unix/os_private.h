@@ -242,6 +242,9 @@ uint permstr_to_memprot(const char * const perm);
 int
 os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 
+bool
+is_sigreturn_syscall_number(int sysnum);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;

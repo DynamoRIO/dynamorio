@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -124,6 +124,7 @@ typedef kernel_sigcontext_t sigcontext_t;
 # define SC_LR  SC_FIELD(regs[30])
 # define SC_XSP SC_FIELD(sp)
 # define SC_XFLAGS SC_FIELD(pstate)
+# define SC_SYSNUM_REG SC_FIELD(regs[8])
 #elif defined(ARM)
 # define SC_XIP SC_FIELD(arm_pc)
 # define SC_FP  SC_FIELD(arm_fp)
