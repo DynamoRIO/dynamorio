@@ -1565,6 +1565,11 @@
   instr_create_1dst_1src((dc), OP_vpbroadcastd, (d), (s))
 #define INSTR_CREATE_vpbroadcastq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpbroadcastq, (d), (s))
+/* ADX */
+#define INSTR_CREATE_adox(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_adox, (d), (s))
+#define INSTR_CREATE_adcx(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_adcx, (d), (s))
 
 /* @} */ /* end doxygen group */
 
