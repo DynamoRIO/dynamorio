@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2045,6 +2045,9 @@ DR_API
  */
 bool
 instr_is_mbr(instr_t *instr);
+
+bool
+instr_is_jump_mem(instr_t *instr);
 
 DR_API
 /**

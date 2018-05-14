@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2911,6 +2911,15 @@ instrlist_convert_to_x86(instrlist_t *ilist)
         instr_set_x86_mode(in, true/*x86*/);
         instr_shrink_to_32_bits(in);
     }
+}
+#endif
+
+#ifndef AARCH64
+bool
+instr_is_ibl_hit_jump(instr_t *instr)
+{
+    /* ARM and x86 use XINST_CREATE_jump_mem() */
+    return instr_is_jump_mem(instr);
 }
 #endif
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -983,7 +983,9 @@ void arch_mcontext_reset_stolen_reg(dcontext_t *dcontext, priv_mcontext_t *mc);
 
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);
-bool in_context_switch_code(dcontext_t *dcontext, cache_pc pc);
+bool in_fcache_return(dcontext_t *dcontext, cache_pc pc);
+bool in_clean_call_save(dcontext_t *dcontext, cache_pc pc);
+bool in_clean_call_restore(dcontext_t *dcontext, cache_pc pc);
 bool in_indirect_branch_lookup_code(dcontext_t *dcontext, cache_pc pc);
 cache_pc get_fcache_target(dcontext_t *dcontext);
 void set_fcache_target(dcontext_t *dcontext, cache_pc value);

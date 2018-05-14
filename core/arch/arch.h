@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -513,22 +513,24 @@ mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr _IF_X86_64(gencode_mode_t mode));
 
+#ifdef X86
+# if defined(X64) || defined(MACOS)
+#  define ABI_STACK_ALIGNMENT 16
+# else
+   /* See i#847 for discussing the stack alignment on X86. */
+#  define ABI_STACK_ALIGNMENT 4
+# endif
+#elif defined(AARCH64)
+# define ABI_STACK_ALIGNMENT 16
+#elif defined(ARM)
+# define ABI_STACK_ALIGNMENT 8
+#endif
+
 /* Returns the number of bytes the stack pointer has to be aligned to. */
 static inline uint
 get_ABI_stack_alignment()
 {
-#ifdef X86
-# if defined(X64) || defined(MACOS)
-    return 16;
-# else
-    /* See i#847 for discussing the stack alignment on X86. */
-    return 4;
-# endif
-#elif defined(AARCH64)
-    return 16;
-#elif defined(ARM)
-    return 8;
-#endif
+    return ABI_STACK_ALIGNMENT;
 }
 
 /* the stack size of a full context switch for clean call */
@@ -830,6 +832,7 @@ typedef struct ibl_code_t {
 typedef struct _generated_code_t {
     byte *fcache_enter;
     byte *fcache_return;
+    byte *fcache_return_end;
 #ifdef WINDOWS_PC_SAMPLE
     byte *fcache_enter_return_end;
 #endif
@@ -908,6 +911,7 @@ typedef struct _generated_code_t {
      */
     /* FIXME: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
+    byte *fcache_return_coarse_end;
     byte *trace_head_return_coarse;
     /* special ibl xfer */
     byte *special_ibl_xfer[NUM_SPECIAL_IBL_XFERS];
@@ -915,6 +919,7 @@ typedef struct _generated_code_t {
     /* i#171: out-of-line clean call context switch */
     byte *clean_call_save;
     byte *clean_call_restore;
+    byte *clean_call_restore_end;
 
     bool thread_shared;
     bool writable;
@@ -1073,6 +1078,7 @@ byte * emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code,
                                    bool inline_ibl_head,
                                    ibl_code_t *ibl_code);
 void update_indirect_branch_lookup(dcontext_t *dcontext);
+bool instr_is_ibl_hit_jump(instr_t *instr);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
                    _IF_X86_64(far_ref_t *far_jmp_opnd));

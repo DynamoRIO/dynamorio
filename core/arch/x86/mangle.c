@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -283,7 +283,9 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
         /* We adjust the stack so the return address will not be clobbered,
          * so we can have call/return pair to take advantage of hardware
          * call return stack for better performance.
-         * xref emit_clean_call_save @ x86/emit_utils.c
+         * Xref emit_clean_call_save @ x86/emit_utils.c
+         * The precise adjustment amount is relied upon in
+         * find_next_fragment_from_gencode()'s handling of in_clean_call_save().
          */
         PRE(ilist, instr,
             INSTR_CREATE_lea

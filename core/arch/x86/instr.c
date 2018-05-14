@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -412,6 +412,13 @@ instr_is_mbr_arch(instr_t *instr)      /* multi-way branch */
             opc == OP_call_far_ind ||
             opc == OP_ret_far ||
             opc == OP_iret);
+}
+
+bool
+instr_is_jump_mem(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_jmp_ind &&
+        opnd_is_memory_reference(instr_get_target(instr));
 }
 
 bool

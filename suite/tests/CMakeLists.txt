@@ -1942,6 +1942,7 @@ if (CLIENT_INTERFACE)
       target_link_libraries(client.signal ${libpthread})
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
+    tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -2238,6 +2239,7 @@ if (CLIENT_INTERFACE)
     torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
       "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF)
     add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
+    tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF)
   elseif (X86)
     tobuild_api(api.dis api/dis.c "-syntax_intel"
       "${CMAKE_CURRENT_SOURCE_DIR}/api/dis-udis86-randtest.raw" OFF OFF)

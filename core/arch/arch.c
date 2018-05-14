@@ -324,10 +324,12 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_return = pc;
     pc = emit_fcache_return_shared(GLOBAL_DCONTEXT, gencode, pc);
+    gencode->fcache_return_end = pc;
     if (DYNAMO_OPTION(coarse_units)) {
         pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->fcache_return_coarse = pc;
         pc = emit_fcache_return_coarse(GLOBAL_DCONTEXT, gencode, pc);
+        gencode->fcache_return_coarse_end = pc;
         pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->trace_head_return_coarse = pc;
         pc = emit_trace_head_return_coarse(GLOBAL_DCONTEXT, gencode, pc);
@@ -474,6 +476,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
         pc = check_size_and_cache_line(isa_mode, gencode, pc);
         gencode->clean_call_restore = pc;
         pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
+        gencode->clean_call_restore_end = pc;
     }
 
     ASSERT(pc < gencode->commit_end_pc);
@@ -1207,6 +1210,7 @@ arch_thread_init(dcontext_t *dcontext)
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_return = pc;
     pc = emit_fcache_return(dcontext, code, pc);;
+    code->fcache_return_end = pc;
 #ifdef WINDOWS_PC_SAMPLE
     code->fcache_enter_return_end = pc;
 #endif
@@ -1325,7 +1329,8 @@ arch_thread_init(dcontext_t *dcontext)
         pc = check_size_and_cache_line(isa_mode, code, pc);
         code->clean_call_restore = pc;
         pc = emit_clean_call_restore(dcontext, pc, code);
-    }
+        code->clean_call_restore_end = pc;
+     }
 
     ASSERT(pc < code->commit_end_pc);
     code->gen_end_pc = pc;
@@ -1701,14 +1706,88 @@ in_generated_routine(dcontext_t *dcontext, cache_pc pc)
     /* FIXME: what about inlined IBL stubs */
 }
 
-bool
-in_context_switch_code(dcontext_t *dcontext, cache_pc pc)
+static bool
+in_fcache_return_for_gencode(generated_code_t *code, cache_pc pc)
 {
-    return (pc >= (cache_pc)fcache_enter_routine(dcontext) &&
-            /* get last emitted routine */
-            pc <= get_ibl_routine(dcontext, IBL_LINKED, IBL_SOURCE_TYPE_END-1,
-                                  IBL_BRANCH_TYPE_START));
-    /* FIXME: too hacky, should have an extra field for PC profiling */
+    return pc != NULL &&
+        ((pc >= code->fcache_return && pc < code->fcache_return_end) ||
+         (pc >= code->fcache_return_coarse && pc < code->fcache_return_coarse_end));
+}
+
+bool
+in_fcache_return(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_fcache_return_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_fcache_return_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL && in_fcache_return_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_fcache_return_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
+}
+
+static bool
+in_clean_call_save_for_gencode(generated_code_t *code, cache_pc pc)
+{
+    return pc != NULL &&
+        pc >= code->clean_call_save && pc < code->clean_call_restore;
+}
+
+static bool
+in_clean_call_restore_for_gencode(generated_code_t *code, cache_pc pc)
+{
+    return pc != NULL &&
+        pc >= code->clean_call_restore && pc < code->clean_call_restore_end;
+}
+
+bool
+in_clean_call_save(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_clean_call_save_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_clean_call_save_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL &&
+            in_clean_call_save_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_clean_call_save_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
+}
+
+bool
+in_clean_call_restore(dcontext_t *dcontext, cache_pc pc)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    if (in_clean_call_restore_for_gencode(code, pc))
+        return true;
+    if (USE_SHARED_GENCODE()) {
+        if (in_clean_call_restore_for_gencode(shared_code, pc))
+            return true;
+#if defined(X86) && defined(X64)
+        if (shared_code_x86 != NULL &&
+            in_clean_call_restore_for_gencode(shared_code_x86, pc))
+            return true;
+        if (shared_code_x86_to_x64 != NULL &&
+            in_clean_call_restore_for_gencode(shared_code_x86_to_x64, pc))
+            return true;
+#endif
+    }
+    return false;
 }
 
 bool

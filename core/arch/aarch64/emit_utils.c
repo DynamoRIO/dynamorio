@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -632,6 +632,13 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
     return pc;
 }
 
+bool
+instr_is_ibl_hit_jump(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_br &&
+        opnd_get_reg(instr_get_target(instr)) == DR_REG_X0;
+}
+
 byte *
 emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                             byte *fcache_return_pc,
@@ -739,7 +746,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                                   opnd_create_reg(DR_REG_X2)));
     /* Recover app's original x2. */
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
-    /* br x0 */
+    /* br x0
+     * (keep in sync with instr_is_ibl_hit_jump())
+     */
     APP(&ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X0)));
 
     APP(&ilist, try_next);

@@ -402,6 +402,12 @@ post_syscall_event2(void *drcontext, int sysnum)
 }
 
 static bool
+filter_syscall_event3(void *drcontext, int sysnum)
+{
+    return false;
+}
+
+static bool
 filter_syscall_event1(void *drcontext, int sysnum)
 {
     inc_count_first(EVENT_FILTER_SYSCALL_1, EVENT_FILTER_SYSCALL_2);
@@ -416,6 +422,10 @@ filter_syscall_event2(void *drcontext, int sysnum)
     inc_count_second(EVENT_FILTER_SYSCALL_2);
     if (!dr_unregister_filter_syscall_event(filter_syscall_event2))
         dr_fprintf(STDERR, "unregister failed!\n");
+    /* We register another filter to avoid DR asserting that we have a
+     * syscall event and no filter.
+     */
+    dr_register_filter_syscall_event(filter_syscall_event3);
     return true;
 }
 
