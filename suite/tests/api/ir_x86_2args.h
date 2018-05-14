@@ -442,5 +442,7 @@ OPCODE(tzcnt, tzcnt, tzcnt, 0, REGARG(EDX), MEMARG(OPSZ_4))
 
 /****************************************************************************/
 /* ADX */
+OPCODE(adox_x64, adox, adox, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
 OPCODE(adox, adox, adox, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE(adcx_x64, adcx, adcx, X64_ONLY, REGARG(RAX), MEMARG(OPSZ_8))
 OPCODE(adcx, adcx, adcx, 0, REGARG(EAX), MEMARG(OPSZ_4))
