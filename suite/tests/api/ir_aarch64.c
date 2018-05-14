@@ -282,6 +282,29 @@ test_ldar(void *dc)
 }
 
 static void
+test_fmov_general(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_H10),
+                                      opnd_create_reg(DR_REG_W9));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_S14),
+                                      opnd_create_reg(DR_REG_W4));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_H23),
+                                      opnd_create_reg(DR_REG_X8));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_D6),
+                                      opnd_create_reg(DR_REG_X24));
+    test_instr_encoding(dc, OP_fmov, instr);
+}
+
+static void
 test_neon_fp_arithmetic(void *dc)
 {
     byte *pc;
@@ -1557,6 +1580,9 @@ main(int argc, char *argv[])
 
     test_ldar(dcontext);
     print("test_ldar complete\n");
+
+    test_fmov_general(dcontext);
+    print("test_fmov_general complete\n");
 
     test_neon_fp_arithmetic(dcontext);
     print("test_neon_fp_arithmetic complete\n");
