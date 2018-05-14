@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1574,7 +1574,9 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar,
     if (TEST(CALLSTACK_ADD_HEADER, flags)) {
         print_to_buffer(buf, bufsz, sofar,
                         TEST(CALLSTACK_USE_XML, flags) ?
-                        "\t<call-stack>\n" : "Call stack:\n");
+                        "\t<call-stack tid="TIDFMT">\n" : "Thread "TIDFMT" call stack:\n",
+                        /* We avoid TLS tid to work on crashes */
+                        IF_WINDOWS_ELSE(get_thread_id(),get_sys_thread_id()));
     }
 
     if (cur_pc != NULL) {
