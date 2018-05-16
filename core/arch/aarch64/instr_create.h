@@ -576,7 +576,7 @@
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
 
 /**
- * Creates a FMOV instruction to move between GPRs and floating point registers.
+ * Creates an FMOV instruction to move between GPRs and floating point registers.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  * \param Rd   The output register.
  * \param Rn   The first input register.
