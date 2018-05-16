@@ -596,6 +596,15 @@
   INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)
 
 /**
+ * Creates an FMOV instruction to move between GPRs and floating point registers.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd   The output register.
+ * \param Rn   The first input register.
+ */
+#define INSTR_CREATE_fmov_general(dc, Rd, Rn) \
+    instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
+
+/**
  * Creates a FABD vector instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.

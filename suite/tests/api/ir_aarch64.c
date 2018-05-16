@@ -302,7 +302,32 @@ test_instrs_with_logic_imm(void *dc)
     instr = INSTR_CREATE_ands(dc, opnd_create_reg(DR_REG_W3),
                               opnd_create_reg(DR_REG_W8), OPND_CREATE_INT(0xF));
     test_instr_encoding(dc, OP_ands, instr);
+}
 
+static void
+test_fmov_general(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_H10),
+                                      opnd_create_reg(DR_REG_W9));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_S14),
+                                      opnd_create_reg(DR_REG_W4));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_H23),
+                                      opnd_create_reg(DR_REG_X8));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_D6),
+                                      opnd_create_reg(DR_REG_X24));
+    test_instr_encoding(dc, OP_fmov, instr);
+
+    instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_Q9),
+                                      opnd_create_reg(DR_REG_X10));
+    test_instr_encoding(dc, OP_fmov, instr);
 }
 
 static void
@@ -1584,6 +1609,9 @@ main(int argc, char *argv[])
 
     test_instrs_with_logic_imm(dcontext);
     print("test_instrs_with_logic_imm complete\n");
+
+    test_fmov_general(dcontext);
+    print("test_fmov_general complete\n");
 
     test_neon_fp_arithmetic(dcontext);
     print("test_neon_fp_arithmetic complete\n");

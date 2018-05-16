@@ -46,6 +46,12 @@ and    %w5 $0x00000000000000ff -> %w5
 ands   %x19 $0x0000000000ffffff -> %x23
 ands   %w8 $0x0000000000ffffff -> %w3
 test_instrs_with_logic_imm complete
+fmov   %w9 -> %h10
+fmov   %w4 -> %s14
+fmov   %x8 -> %h23
+fmov   %x24 -> %d6
+fmov   %x10 -> %q9
+test_fmov_general complete
 fabd   %q27 %q30 $0x01 -> %q2
 fabd   %d27 %d30 $0x01 -> %d2
 fabd   %q13 %q29 $0x02 -> %q0
