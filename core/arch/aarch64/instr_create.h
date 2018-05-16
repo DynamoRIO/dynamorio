@@ -448,11 +448,11 @@
 /**
  * Creates an AND instruction with one output and two inputs.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
- * \param Rd   The output register.
- * \param Rn   The first input register.
- * \param Rm_or_Imm   The second input register or immediate.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param rm_or_imm   The second input register or immediate.
  */
-#define INSTR_CREATE_and(dc, Rd, Rn, Rm_or_Imm) \
+#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
   opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm)) :  \
                              INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
                                                     OPND_CREATE_INT(0))
@@ -464,9 +464,9 @@
 /**
  * Creates an ANDS instruction with one output and two inputs.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
- * \param Rd   The output register.
- * \param Rn   The first input register.
- * \param Rm_or_Imm   The second input register or immediate.
+ * \param rd   The output register.
+ * \param rn   The first input register.
+ * \param rm_or_imm   The second input register or immediate.
  */
 #define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
   opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm)) :  \
