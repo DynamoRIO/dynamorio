@@ -453,9 +453,9 @@
  * \param rm_or_imm   The second input register or immediate.
  */
 #define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
-  opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm)) :  \
+  (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm)) :  \
                              INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
-                                                    OPND_CREATE_INT(0))
+                                                    OPND_CREATE_INT(0)))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_and, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
@@ -469,9 +469,9 @@
  * \param rm_or_imm   The second input register or immediate.
  */
 #define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
-  opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm)) :  \
+  (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm)) :  \
                              INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
-                                                    OPND_CREATE_INT(0))
+                                                    OPND_CREATE_INT(0)))
 #define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_ands, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
