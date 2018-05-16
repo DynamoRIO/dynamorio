@@ -444,14 +444,34 @@
   (opnd_is_reg(rm_or_imm) ? \
     INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)) : \
     INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
-#define INSTR_CREATE_and(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+
+/**
+ * Creates an AND instruction with one output and two inputs.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd   The output register.
+ * \param Rn   The first input register.
+ * \param Rm_or_Imm   The second input register or immediate.
+ */
+#define INSTR_CREATE_and(dc, Rd, Rn, Rm_or_Imm) \
+  opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm)) :  \
+                             INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                                    OPND_CREATE_INT(0))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_and, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
     opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+
+/**
+ * Creates an ANDS instruction with one output and two inputs.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd   The output register.
+ * \param Rn   The first input register.
+ * \param Rm_or_Imm   The second input register or immediate.
+ */
 #define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm) \
-  INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+  opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm)) :  \
+                             INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), \
+                                                    OPND_CREATE_INT(0))
 #define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha) \
   instr_create_1dst_4src((dc), OP_ands, (rd), (rn), \
     opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \

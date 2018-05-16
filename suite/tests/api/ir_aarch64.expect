@@ -41,6 +41,11 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+and    %x9 $0x000000000000ffff -> %x10
+and    %w5 $0x00000000000000ff -> %w5
+ands   %x19 $0x0000000000ffffff -> %x23
+ands   %w8 $0x0000000000ffffff -> %w3
+test_instrs_with_logic_imm complete
 fabd   %q27 %q30 $0x01 -> %q2
 fabd   %d27 %d30 $0x01 -> %d2
 fabd   %q13 %q29 $0x02 -> %q0
