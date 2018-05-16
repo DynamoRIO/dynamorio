@@ -282,11 +282,33 @@ test_ldar(void *dc)
 }
 
 static void
-test_fmov_general(void *dc)
+test_instrs_with_logic_imm(void *dc)
 {
     byte *pc;
     instr_t *instr;
 
+    instr = INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X10),
+                             opnd_create_reg(DR_REG_X9), OPND_CREATE_INT(0xFFFF));
+    test_instr_encoding(dc, OP_and, instr);
+
+    instr = INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_W5),
+                             opnd_create_reg(DR_REG_W5), OPND_CREATE_INT(0xFF));
+    test_instr_encoding(dc, OP_and, instr);
+
+    instr = INSTR_CREATE_ands(dc, opnd_create_reg(DR_REG_X23),
+                              opnd_create_reg(DR_REG_X19), OPND_CREATE_INT(0xFFFFFF));
+    test_instr_encoding(dc, OP_ands, instr);
+
+    instr = INSTR_CREATE_ands(dc, opnd_create_reg(DR_REG_W3),
+                              opnd_create_reg(DR_REG_W8), OPND_CREATE_INT(0xF));
+    test_instr_encoding(dc, OP_ands, instr);
+}
+
+static void
+test_fmov_general(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
     instr = INSTR_CREATE_fmov_general(dc, opnd_create_reg(DR_REG_H10),
                                       opnd_create_reg(DR_REG_W9));
     test_instr_encoding(dc, OP_fmov, instr);
@@ -1584,6 +1606,9 @@ main(int argc, char *argv[])
 
     test_ldar(dcontext);
     print("test_ldar complete\n");
+
+    test_instrs_with_logic_imm(dcontext);
+    print("test_instrs_with_logic_imm complete\n");
 
     test_fmov_general(dcontext);
     print("test_fmov_general complete\n");
