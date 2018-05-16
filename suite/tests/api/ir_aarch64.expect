@@ -41,6 +41,12 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+fmov   %w9 -> %h10
+fmov   %w4 -> %s14
+fmov   %x8 -> %h23
+fmov   %x24 -> %d6
+fmov   %x10 -> %q9
+test_fmov_general complete
 fabd   %q27 %q30 $0x01 -> %q2
 fabd   %d27 %d30 $0x01 -> %d2
 fabd   %q13 %q29 $0x02 -> %q0
