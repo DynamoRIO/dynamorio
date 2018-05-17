@@ -1,13 +1,16 @@
 ---
 BasedOnStyle: WebKit
-IndentWidth: 4
-ColumnLimit: 100
-AlwaysBreakAfterDefinitionReturnType: All
-PointerAlignment: Right
-BreakBeforeBinaryOperators: None
-IndentPPDirectives: None  # AfterHash uses global IndentWidth....
 AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: All
+AlignAfterOpenBracket: Align
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: None
+ColumnLimit: 100
+IndentWidth: 4
+IndentPPDirectives: None  # AfterHash uses global IndentWidth....
+PointerAlignment: Right
 MaxEmptyLinesToKeep: 1
 ---

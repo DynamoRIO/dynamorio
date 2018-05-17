@@ -160,10 +160,10 @@
  */
 #define XINST_CREATE_store(dc, m, r)                                                               \
     (opnd_is_base_disp(m) && opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0          \
-            ? INSTR_CREATE_stur(                                                                   \
-                  dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))))   \
-            : INSTR_CREATE_str(                                                                    \
-                  dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
+         ? INSTR_CREATE_stur(                                                                      \
+               dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))))      \
+         : INSTR_CREATE_str(                                                                       \
+               dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))))
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -194,11 +194,11 @@
  */
 #define XINST_CREATE_move(dc, d, s)                                                                \
     ((opnd_get_reg(d) == DR_REG_XSP || opnd_get_reg(s) == DR_REG_XSP ||                            \
-         opnd_get_reg(d) == DR_REG_WSP || opnd_get_reg(s) == DR_REG_WSP)                           \
-            ? instr_create_1dst_4src(                                                              \
-                  dc, OP_add, d, s, OPND_CREATE_INT(0), OPND_CREATE_LSL(), OPND_CREATE_INT(0))     \
-            : instr_create_1dst_4src(                                                              \
-                  dc, OP_orr, d, OPND_CREATE_ZR(d), s, OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
+      opnd_get_reg(d) == DR_REG_WSP || opnd_get_reg(s) == DR_REG_WSP)                              \
+         ? instr_create_1dst_4src(dc, OP_add, d, s, OPND_CREATE_INT(0), OPND_CREATE_LSL(),         \
+                                  OPND_CREATE_INT(0))                                              \
+         : instr_create_1dst_4src(dc, OP_orr, d, OPND_CREATE_ZR(d), s, OPND_CREATE_LSL(),          \
+                                  OPND_CREATE_INT(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -235,9 +235,9 @@
  */
 #define XINST_CREATE_load_int(dc, r, i)                                                            \
     (opnd_get_immed_int(i) < 0                                                                     \
-            ? INSTR_CREATE_movn(                                                                   \
-                  (dc), (r), OPND_CREATE_INT32(~opnd_get_immed_int(i)), OPND_CREATE_INT(0))        \
-            : INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
+         ? INSTR_CREATE_movn((dc), (r), OPND_CREATE_INT32(~opnd_get_immed_int(i)),                 \
+                             OPND_CREATE_INT(0))                                                   \
+         : INSTR_CREATE_movz((dc), (r), (i), OPND_CREATE_INT(0)))
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
@@ -331,8 +331,8 @@
  * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
  */
 #define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount)                                  \
-    INSTR_CREATE_add_shift(                                                                        \
-        (dc), (d), (s1), (s2_toshift), OPND_CREATE_LSL(), OPND_CREATE_INT8(shift_amount))
+    INSTR_CREATE_add_shift((dc), (d), (s1), (s2_toshift), OPND_CREATE_LSL(),                       \
+                           OPND_CREATE_INT8(shift_amount))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -401,9 +401,10 @@
  */
 #define XINST_CREATE_slr_s(dc, d, rm_or_imm)                                                       \
     (opnd_is_reg(rm_or_imm)                                                                        \
-            ? instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm)                                 \
-            : instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm,                                 \
-                  reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31) : OPND_CREATE_INT(63)))
+         ? instr_create_1dst_2src(dc, OP_lsrv, d, d, rm_or_imm)                                    \
+         : instr_create_1dst_3src(dc, OP_ubfm, d, d, rm_or_imm,                                    \
+                                  reg_is_32bit(opnd_get_reg(d)) ? OPND_CREATE_INT(31)              \
+                                                                : OPND_CREATE_INT(63)))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
@@ -422,18 +423,18 @@
     INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                                          \
     instr_create_1dst_4src(dc, OP_add, rd, rn,                                                     \
-        opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),                                 \
-        opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),              \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
 #define INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, sht, sha)                                    \
     opnd_is_reg(rm_or_imm)                                                                         \
         ? instr_create_1dst_4src((dc), OP_add, (rd), (rn),                                         \
-              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),                     \
-              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                                      \
+                                 opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),  \
+                                 opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                   \
         : instr_create_1dst_4src((dc), OP_add, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_adds(dc, rd, rn, rm_or_imm)                                                   \
-    (opnd_is_reg(rm_or_imm) ? INSTR_CREATE_adds_shift(                                             \
-                                  dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))    \
-                            : INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
+    (opnd_is_reg(rm_or_imm)                                                                        \
+         ? INSTR_CREATE_adds_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))   \
+         : INSTR_CREATE_adds_imm(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(0)))
 
 /**
  * Creates an AND instruction with one output and two inputs.
@@ -443,13 +444,13 @@
  * \param rm_or_imm   The second input register or immediate.
  */
 #define INSTR_CREATE_and(dc, rd, rn, rm_or_imm)                                                    \
-    (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))      \
-                              : INSTR_CREATE_and_shift(                                            \
-                                    dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
+    (opnd_is_immed(rm_or_imm)                                                                      \
+         ? instr_create_1dst_2src((dc), OP_and, (rd), (rn), (rm_or_imm))                           \
+         : INSTR_CREATE_and_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
 #define INSTR_CREATE_and_shift(dc, rd, rn, rm, sht, sha)                                           \
     instr_create_1dst_4src((dc), OP_and, (rd), (rn),                                               \
-        opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED),                                  \
-        opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED),               \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 
 /**
  * Creates an ANDS instruction with one output and two inputs.
@@ -459,13 +460,13 @@
  * \param rm_or_imm   The second input register or immediate.
  */
 #define INSTR_CREATE_ands(dc, rd, rn, rm_or_imm)                                                   \
-    (opnd_is_immed(rm_or_imm) ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm))     \
-                              : INSTR_CREATE_ands_shift(                                           \
-                                    dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
+    (opnd_is_immed(rm_or_imm)                                                                      \
+         ? instr_create_1dst_2src((dc), OP_ands, (rd), (rn), (rm_or_imm))                          \
+         : INSTR_CREATE_ands_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0)))
 #define INSTR_CREATE_ands_shift(dc, rd, rn, rm, sht, sha)                                          \
     instr_create_1dst_4src((dc), OP_ands, (rd), (rn),                                              \
-        opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED),                                  \
-        opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED),               \
+                           opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))
 #define INSTR_CREATE_b(dc, pc) instr_create_0dst_1src((dc), OP_b, (pc))
 /**
  * This macro creates an instr_t for a conditional branch instruction. The condition
@@ -486,14 +487,14 @@
 #define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_adds_extend(dc, Rd, Rn, Rm, shift, imm3)                                      \
     instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn),                                              \
-        opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED),                                 \
-        opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
+                           opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_EXTENDED),              \
+                           opnd_add_flags((shift), DR_OPND_IS_EXTEND), (imm3))
 #define INSTR_CREATE_adds_imm(dc, Rd, Rn, imm12, shift_amt)                                        \
     instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn), (imm12), OPND_CREATE_LSL(), (shift_amt))
 #define INSTR_CREATE_adds_shift(dc, Rd, Rn, Rm, shift, imm6)                                       \
     instr_create_1dst_4src((dc), OP_adds, (Rd), (Rn),                                              \
-        opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),                                  \
-        opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
+                           opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),               \
+                           opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm6))
 #define INSTR_CREATE_br(dc, xn) instr_create_0dst_1src((dc), OP_br, (xn))
 #define INSTR_CREATE_blr(dc, xn)                                                                   \
     instr_create_1dst_1src((dc), OP_blr, opnd_create_reg(DR_REG_X30), (xn))
@@ -528,25 +529,25 @@
     INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa)                                          \
     instr_create_1dst_4src(dc, OP_sub, rd, rn,                                                     \
-        opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),                                 \
-        opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),              \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
 #define INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, sht, sha)                                    \
     opnd_is_reg(rm_or_imm)                                                                         \
         ? instr_create_1dst_4src((dc), OP_sub, (rd), (rn),                                         \
-              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),                     \
-              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                                      \
+                                 opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),  \
+                                 opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                   \
         : instr_create_1dst_4src((dc), OP_sub, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_subs(dc, rd, rn, rm_or_imm)                                                   \
     INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
 #define INSTR_CREATE_subs_extend(dc, rd, rn, rm, ext, exa)                                         \
     instr_create_1dst_4src(dc, OP_subs, rd, rn,                                                    \
-        opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),                                 \
-        opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED),              \
+                           opnd_add_flags(ext, DR_OPND_IS_EXTEND), exa)
 #define INSTR_CREATE_subs_shift(dc, rd, rn, rm_or_imm, sht, sha)                                   \
     opnd_is_reg(rm_or_imm)                                                                         \
         ? instr_create_1dst_4src((dc), OP_subs, (rd), (rn),                                        \
-              opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),                     \
-              opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                                      \
+                                 opnd_create_reg_ex(opnd_get_reg(rm_or_imm), 0, DR_OPND_SHIFTED),  \
+                                 opnd_add_flags((sht), DR_OPND_IS_SHIFT), (sha))                   \
         : instr_create_1dst_4src((dc), OP_subs, (rd), (rn), (rm_or_imm), (sht), (sha))
 #define INSTR_CREATE_svc(dc, imm) instr_create_0dst_1src((dc), OP_svc, (imm))
 #define INSTR_CREATE_adr(dc, rt, imm) instr_create_1dst_1src(dc, OP_adr, rt, imm)
