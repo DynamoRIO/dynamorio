@@ -32,17 +32,17 @@
 
 /* file "clean_call_opt.c" */
 
+#include "../clean_call_opt.h"
 #include "../globals.h"
 #include "arch.h"
+#include "disassemble.h"
 #include "instr_create.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
-#include "../clean_call_opt.h"
-#include "disassemble.h"
 
 #ifdef CLIENT_INTERFACE /* around whole file */
 
 /* Shorten code generation lines. */
-#define PRE   instrlist_meta_preinsert
+#define PRE instrlist_meta_preinsert
 #define OPREG opnd_create_reg
 
 /* For fast recognition we do not check the instructions operand by operand.
@@ -190,38 +190,30 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     for (i = 0; i < num_regparm; i++) {
         reg_id_t reg = regparms[i];
         if (!ci->reg_used[reg - DR_REG_START_GPR]) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n",
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " uses REG %s for arg passing\n",
                 ci->start, reg_names[reg]);
             ci->reg_used[reg - DR_REG_START_GPR] = true;
             callee_info_reserve_slot(ci, SLOT_REG, reg);
         }
     }
 
-    for (instr  = instrlist_first(ilist);
-         instr != NULL;
-         instr  = instr_get_next(instr)) {
+    for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
 
         /* General purpose registers */
         for (i = 0; i < NUM_GP_REGS; i++) {
             reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
-            if (!ci->reg_used[i] &&
-                instr_uses_reg(instr, reg)) {
-                LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n",
-                    ci->start, reg_names[reg],
-                    instr_get_app_pc(instr));
+            if (!ci->reg_used[i] && instr_uses_reg(instr, reg)) {
+                LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " uses REG %s at " PFX "\n",
+                    ci->start, reg_names[reg], instr_get_app_pc(instr));
                 ci->reg_used[i] = true;
                 callee_info_reserve_slot(ci, SLOT_REG, reg);
             }
         }
 
         /* SIMD register usage */
-        for (i=0; i<NUM_SIMD_REGS; i++) {
-            if (!ci->simd_used[i] &&
-                instr_uses_reg(instr, (DR_REG_Q0 + (reg_id_t)i))) {
-                LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: callee "PFX" uses VREG%d at "PFX"\n",
+        for (i = 0; i < NUM_SIMD_REGS; i++) {
+            if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_Q0 + (reg_id_t)i))) {
+                LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " uses VREG%d at " PFX "\n",
                     ci->start, i, instr_get_app_pc(instr));
                 ci->simd_used[i] = true;
                 ci->num_simd_used++;
@@ -229,10 +221,9 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
 
         /* NZCV register usage */
-        if (!ci->write_flags && TESTANY(EFLAGS_WRITE_ARITH,
-                instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
+        if (!ci->write_flags &&
+            TESTANY(EFLAGS_WRITE_ARITH, instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " updates aflags\n", ci->start);
             ci->write_flags = true;
         }
     }
@@ -282,12 +273,11 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
      * Pair (c) may have two forms, using stp/ldp for register pairs
      * or str/ldr for a single callee-saved register.
      */
-     /* Check for pair (a) */
+    /* Check for pair (a) */
     for (instr = top; instr != bot; instr = instr_get_next(instr)) {
         if (instr->bytes == NULL)
             continue;
-        if (instr_is_push_fp_and_lr(instr) ||
-            instr_is_sub_stk_ptr(instr)) {
+        if (instr_is_push_fp_and_lr(instr) || instr_is_sub_stk_ptr(instr)) {
             enter = instr;
             break;
         }
@@ -296,8 +286,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
         for (instr = bot; instr != enter; instr = instr_get_prev(instr)) {
             if (!instr->bytes)
                 continue;
-            if (instr_is_pop_fp_and_lr(instr) ||
-                instr_is_add_stk_ptr(instr)) {
+            if (instr_is_pop_fp_and_lr(instr) || instr_is_add_stk_ptr(instr)) {
                 leave = instr;
                 break;
             }
@@ -306,11 +295,9 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
     /* Check for (b) */
     ci->standard_fp = false;
     if (enter != NULL && leave != NULL &&
-        (ci->bwd_tgt == NULL || instr_get_app_pc(enter) <  ci->bwd_tgt) &&
+        (ci->bwd_tgt == NULL || instr_get_app_pc(enter) < ci->bwd_tgt) &&
         (ci->fwd_tgt == NULL || instr_get_app_pc(leave) >= ci->fwd_tgt)) {
-        for (instr = instr_get_next(enter);
-             instr != leave;
-             instr = instr_get_next(instr)) {
+        for (instr = instr_get_next(enter); instr != leave; instr = instr_get_next(instr)) {
             if (instr_is_move_frame_ptr(instr)) {
                 ci->standard_fp = true;
                 /* Remove this instruction. */
@@ -320,8 +307,8 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
         if (ci->standard_fp) {
-            LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" use X29 as frame pointer\n", ci->start);
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " use X29 as frame pointer\n",
+                ci->start);
         }
         /* remove pair (a) */
         instrlist_remove(ilist, enter);
@@ -335,17 +322,15 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
     while (top != NULL && bot != NULL) {
         /* if not in the first/last bb, break */
         if ((ci->bwd_tgt != NULL && instr_get_app_pc(top) >= ci->bwd_tgt) ||
-            (ci->fwd_tgt != NULL && instr_get_app_pc(bot) <  ci->fwd_tgt) ||
-            instr_is_cti(top) || instr_is_cti(bot))
+            (ci->fwd_tgt != NULL && instr_get_app_pc(bot) < ci->fwd_tgt) || instr_is_cti(top) ||
+            instr_is_cti(bot))
             break;
         if (instr_is_push_reg_pair(top, &reg1, &reg2)) {
             /* If a save reg pair is found and the register, check if the last
              * instruction is a corresponding load.
              */
             reg_id_t reg1_c, reg2_c;
-            if (instr_is_pop_reg_pair(bot, &reg1_c, &reg2_c) &&
-                reg1 == reg1_c &&
-                reg2 == reg2_c) {
+            if (instr_is_pop_reg_pair(bot, &reg1_c, &reg2_c) && reg1 == reg1_c && reg2 == reg2_c) {
                 /* found a save/restore pair */
                 ci->callee_save_regs[reg1] = true;
                 ci->callee_save_regs[reg2] = true;
@@ -365,8 +350,7 @@ analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
              * instruction is a corresponding restore.
              */
             reg_id_t reg1_c;
-            if (instr_is_pop_reg(bot, &reg1_c) &&
-                reg1 == reg1_c) {
+            if (instr_is_pop_reg(bot, &reg1_c) && reg1 == reg1_c) {
                 /* found a save/restore pair */
                 ci->callee_save_regs[reg1] = true;
                 ci->num_callee_save_regs += 1;
@@ -390,24 +374,20 @@ analyze_callee_tls(dcontext_t *dcontext, callee_info_t *ci)
 {
     instr_t *instr;
     ci->tls_used = false;
-    for (instr  = instrlist_first(ci->ilist);
-         instr != NULL;
-         instr  = instr_get_next(instr)) {
-        if (instr_reads_thread_register(instr) ||
-            instr_writes_thread_register(instr)) {
+    for (instr = instrlist_first(ci->ilist); instr != NULL; instr = instr_get_next(instr)) {
+        if (instr_reads_thread_register(instr) || instr_writes_thread_register(instr)) {
             ci->tls_used = true;
             break;
         }
     }
     if (ci->tls_used) {
-        LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: callee "PFX" accesses far memory\n", ci->start);
+        LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: callee " PFX " accesses far memory\n", ci->start);
     }
 }
 
 app_pc
-check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc,
-                          app_pc cur_pc, app_pc tgt_pc)
+check_callee_instr_level2(
+    dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc, app_pc cur_pc, app_pc tgt_pc)
 {
     /* FIXME i#2796: For opt level greater than 1, we abort. */
     return NULL;
@@ -423,27 +403,21 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
      * safe to inline.
      */
     ci->has_locals = false;
-    for (instr  = instrlist_first(ci->ilist);
-         instr != NULL;
-         instr  = next_instr) {
+    for (instr = instrlist_first(ci->ilist); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
-        DOLOG(3, LOG_CLEANCALL, {
-            disassemble_with_bytes(dcontext, instr_get_app_pc(instr), THREAD);
-        });
+        DOLOG(3, LOG_CLEANCALL,
+            { disassemble_with_bytes(dcontext, instr_get_app_pc(instr), THREAD); });
 
-        if (ci->standard_fp &&
-            instr_writes_to_reg(instr, DR_REG_X29, DR_QUERY_INCLUDE_ALL)) {
+        if (ci->standard_fp && instr_writes_to_reg(instr, DR_REG_X29, DR_QUERY_INCLUDE_ALL)) {
             /* X29 must not be changed if X29 is used for frame pointer. */
             LOG(THREAD, LOG_CLEANCALL, 1,
-                "CLEANCALL: callee "PFX" cannot be inlined: X29 is updated.\n",
-                ci->start);
+                "CLEANCALL: callee " PFX " cannot be inlined: X29 is updated.\n", ci->start);
             opt_inline = false;
             break;
         } else if (instr_writes_to_reg(instr, DR_REG_XSP, DR_QUERY_INCLUDE_ALL)) {
             /* SP must not be changed. */
             LOG(THREAD, LOG_CLEANCALL, 1,
-                "CLEANCALL: callee "PFX" cannot be inlined: XSP is updated.\n",
-                ci->start);
+                "CLEANCALL: callee " PFX " cannot be inlined: XSP is updated.\n", ci->start);
             opt_inline = false;
             break;
         }
@@ -453,11 +427,10 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
          * FIXME i#2796: Some access to SP or X29 can be re-written.
          */
         if ((instr_reg_in_src(instr, DR_REG_XSP) ||
-             (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
+                (instr_reg_in_src(instr, DR_REG_X29) && ci->standard_fp)) &&
             (instr_reads_memory(instr) || instr_writes_memory(instr))) {
-           LOG(THREAD, LOG_CLEANCALL, 1,
-               "CLEANCALL: callee "PFX" cannot be inlined: SP or X29 accessed.\n",
-               ci->start);
+            LOG(THREAD, LOG_CLEANCALL, 1,
+                "CLEANCALL: callee " PFX " cannot be inlined: SP or X29 accessed.\n", ci->start);
             opt_inline = false;
             break;
         }
@@ -467,8 +440,7 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 }
 
 void
-analyze_clean_call_aflags(dcontext_t *dcontext,
-                          clean_call_info_t *cci, instr_t *where)
+analyze_clean_call_aflags(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where)
 {
     /* FIXME i#2796: NYI on AArch64
      * Non-essential for cleancall_opt=1 optimizations.
@@ -476,29 +448,27 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
 }
 
 void
-insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *where, opnd_t *args)
+insert_inline_reg_save(
+    dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
     callee_info_t *ci = cci->callee_info;
     /* Don't spill anything if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
-        !ci->has_locals) {
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
         return;
     }
     /* Spill a register to TLS and point it at our unprotected_context_t.*/
-    PRE(ilist, where, instr_create_save_to_tls
-        (dcontext, ci->spill_reg, TLS_REG2_SLOT));
+    PRE(ilist, where, instr_create_save_to_tls(dcontext, ci->spill_reg, TLS_REG2_SLOT));
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
-    insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR,
-                                 true, (void*)ci);
+    insert_save_inline_registers(
+        dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR, true, (void *)ci);
 
     /* Save nzcv */
     if (!cci->skip_save_flags && ci->write_flags) {
         reg_id_t nzcv_spill_reg = find_nzcv_spill_reg(ci);
-        PRE(ilist, where, XINST_CREATE_store
-            (dcontext, callee_info_slot_opnd(ci, SLOT_FLAGS, 0),
-             opnd_create_reg(nzcv_spill_reg)));
+        PRE(ilist, where,
+            XINST_CREATE_store(dcontext, callee_info_slot_opnd(ci, SLOT_FLAGS, 0),
+                opnd_create_reg(nzcv_spill_reg)));
         dr_save_arith_flags_to_reg(dcontext, ilist, where, nzcv_spill_reg);
     }
 
@@ -506,14 +476,13 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
 }
 
 void
-insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
-                          instrlist_t *ilist, instr_t *where)
+insert_inline_reg_restore(
+    dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist, instr_t *where)
 {
     callee_info_t *ci = cci->callee_info;
 
     /* Don't restore regs if we don't have to. */
-    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags &&
-        !ci->has_locals) {
+    if (cci->num_regs_skip == NUM_GP_REGS && cci->skip_save_flags && !ci->has_locals) {
         return;
     }
 
@@ -521,24 +490,23 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     if (!cci->skip_save_flags && ci->write_flags) {
         reg_id_t nzcv_spill_reg = find_nzcv_spill_reg(ci);
         dr_restore_arith_flags_from_reg(dcontext, ilist, where, nzcv_spill_reg);
-        PRE(ilist, where, XINST_CREATE_load
-            (dcontext, opnd_create_reg(nzcv_spill_reg),
-             callee_info_slot_opnd(ci, SLOT_FLAGS, 0)));
+        PRE(ilist, where,
+            XINST_CREATE_load(dcontext, opnd_create_reg(nzcv_spill_reg),
+                callee_info_slot_opnd(ci, SLOT_FLAGS, 0)));
     }
 
-    insert_restore_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_X0,
-                                    true, (void*)ci);
+    insert_restore_inline_registers(
+        dcontext, ilist, where, cci->reg_skip, DR_REG_X0, true, (void *)ci);
 
     /* Restore reg used for unprotected_context_t pointer. */
-    PRE(ilist, where, instr_create_restore_from_tls
-        (dcontext, ci->spill_reg, TLS_REG2_SLOT));
+    PRE(ilist, where, instr_create_restore_from_tls(dcontext, ci->spill_reg, TLS_REG2_SLOT));
 
     /* FIXME i#2796: Restore fpcr, fpsr. */
 }
 
 void
-insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
-                        instrlist_t *ilist, instr_t *where, opnd_t *args)
+insert_inline_arg_setup(
+    dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist, instr_t *where, opnd_t *args)
 {
     callee_info_t *ci = cci->callee_info;
     reg_id_t regparm = regparms[0];
@@ -552,8 +520,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (!ci->reg_used[regparms[0] - DR_REG_START_GPR]) {
         LOG(THREAD, LOG_CLEANCALL, 2,
-            "CLEANCALL: callee "PFX" doesn't read arg, skipping arg setup.\n",
-            ci->start);
+            "CLEANCALL: callee " PFX " doesn't read arg, skipping arg setup.\n", ci->start);
         return;
     }
 
@@ -566,12 +533,11 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     LOG(THREAD, LOG_CLEANCALL, 2,
-        "CLEANCALL: inlining clean call "PFX", passing arg via reg %s.\n",
-        ci->start, reg_names[regparm]);
+        "CLEANCALL: inlining clean call " PFX ", passing arg via reg %s.\n", ci->start,
+        reg_names[regparm]);
     if (opnd_is_immed_int(arg)) {
-        insert_mov_immed_ptrsz(dcontext,
-                               opnd_get_immed_int(arg), opnd_create_reg(regparm),
-                               ilist, where, NULL, NULL);
+        insert_mov_immed_ptrsz(
+            dcontext, opnd_get_immed_int(arg), opnd_create_reg(regparm), ilist, where, NULL, NULL);
     } else {
         /* FIXME i#2796: Implement passing additional argument types. */
         ASSERT_NOT_IMPLEMENTED(false);

@@ -1,0 +1,13 @@
+---
+BasedOnStyle: WebKit
+IndentWidth: 4
+ColumnLimit: 100
+AlwaysBreakAfterDefinitionReturnType: All
+PointerAlignment: Right
+BreakBeforeBinaryOperators: None
+IndentPPDirectives: None  # AfterHash uses global IndentWidth....
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+MaxEmptyLinesToKeep: 1
+---
