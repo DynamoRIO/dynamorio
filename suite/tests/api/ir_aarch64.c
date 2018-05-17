@@ -1077,70 +1077,70 @@ test_neon_fp_arithmetic(void *dc)
 
     instr = INSTR_CREATE_fmla_vector(dc,
                                      opnd_create_reg(DR_REG_Q27),
+                                     opnd_create_reg(DR_REG_Q26),
                                      opnd_create_reg(DR_REG_Q24),
-                                     opnd_create_reg(DR_REG_Q12),
                                      OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmla, instr);
 
     instr = INSTR_CREATE_fmla_vector(dc,
                                      opnd_create_reg(DR_REG_D27),
+                                     opnd_create_reg(DR_REG_D26),
                                      opnd_create_reg(DR_REG_D24),
-                                     opnd_create_reg(DR_REG_D12),
                                      OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmla, instr);
 
     instr = INSTR_CREATE_fmla_vector(dc,
+                                     opnd_create_reg(DR_REG_Q12),
                                      opnd_create_reg(DR_REG_Q4),
-                                     opnd_create_reg(DR_REG_Q5),
-                                     opnd_create_reg(DR_REG_Q3),
+                                     opnd_create_reg(DR_REG_Q27),
                                      OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fmla, instr);
 
     instr = INSTR_CREATE_fmla_vector(dc,
+                                     opnd_create_reg(DR_REG_Q12),
                                      opnd_create_reg(DR_REG_Q4),
-                                     opnd_create_reg(DR_REG_Q5),
-                                     opnd_create_reg(DR_REG_Q3),
+                                     opnd_create_reg(DR_REG_Q27),
                                      OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_fmla, instr);
 
     instr = INSTR_CREATE_fmla_vector(dc,
+                                     opnd_create_reg(DR_REG_D12),
                                      opnd_create_reg(DR_REG_D4),
+                                     opnd_create_reg(DR_REG_D27),
+                                     OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fmla, instr);
+
+    instr = INSTR_CREATE_fmls_vector(dc,
+                                     opnd_create_reg(DR_REG_Q5),
+                                     opnd_create_reg(DR_REG_Q3),
+                                     opnd_create_reg(DR_REG_Q22),
+                                     OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_fmls, instr);
+
+    instr = INSTR_CREATE_fmls_vector(dc,
                                      opnd_create_reg(DR_REG_D5),
                                      opnd_create_reg(DR_REG_D3),
-                                     OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_fmla, instr);
+                                     opnd_create_reg(DR_REG_D22),
+                                     OPND_CREATE_HALF());
+    test_instr_encoding(dc, OP_fmls, instr);
 
     instr = INSTR_CREATE_fmls_vector(dc,
-                                     opnd_create_reg(DR_REG_Q22),
+                                     opnd_create_reg(DR_REG_Q16),
                                      opnd_create_reg(DR_REG_Q23),
                                      opnd_create_reg(DR_REG_Q29),
-                                     OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_fmls, instr);
-
-    instr = INSTR_CREATE_fmls_vector(dc,
-                                     opnd_create_reg(DR_REG_D22),
-                                     opnd_create_reg(DR_REG_D23),
-                                     opnd_create_reg(DR_REG_D29),
-                                     OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_fmls, instr);
-
-    instr = INSTR_CREATE_fmls_vector(dc,
-                                     opnd_create_reg(DR_REG_Q27),
-                                     opnd_create_reg(DR_REG_Q18),
-                                     opnd_create_reg(DR_REG_Q29),
                                      OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fmls, instr);
 
     instr = INSTR_CREATE_fmls_vector(dc,
-                                     opnd_create_reg(DR_REG_Q27),
-                                     opnd_create_reg(DR_REG_Q18),
+                                     opnd_create_reg(DR_REG_Q16),
+                                     opnd_create_reg(DR_REG_Q23),
                                      opnd_create_reg(DR_REG_Q29),
                                      OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_fmls, instr);
 
     instr = INSTR_CREATE_fmls_vector(dc,
-                                     opnd_create_reg(DR_REG_D27),
-                                     opnd_create_reg(DR_REG_D18),
+                                     opnd_create_reg(DR_REG_D16),
+                                     opnd_create_reg(DR_REG_D23),
                                      opnd_create_reg(DR_REG_D29),
                                      OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fmls, instr);
