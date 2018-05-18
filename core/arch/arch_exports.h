@@ -1922,11 +1922,13 @@ set_reached_image_entry(void);
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
-/** Returns true iff \p instr can be encoded as
+/**
+ * Returns true iff \p instr can be encoded as
  *    - a valid IA-32 instruction on X86
  *    - a valid Armv8-a instruction on AArch64 (Note: The AArch64 encoder/decoder is
  *      not complete yet, so DynamoRIO may fail to encode some valid Armv8-a
- *      instructions. See i#2626)
+ *      instructions)
+ *    - a valid Armv7 instruction on ARM
  */
 bool
 instr_is_encoding_possible(instr_t *instr);
