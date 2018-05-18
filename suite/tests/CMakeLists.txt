@@ -2218,6 +2218,10 @@ if (CLIENT_INTERFACE)
         ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h)
       append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
     endif ()
+
+    if (AARCH64)
+        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+    endif (AARCH64)
   endif ()
 
   if (ARM)

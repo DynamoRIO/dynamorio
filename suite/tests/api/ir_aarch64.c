@@ -107,6 +107,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     ASSERT(instr_get_opcode(instr) == opcode);
     instr_disassemble(dc, instr, STDOUT); print("\n");
 
+    ASSERT(instr_is_encoding_possible(instr));
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);
     decode(dc, buf, decin);
