@@ -5,12 +5,15 @@ AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: All
 AlignAfterOpenBracket: Align
+AlignEscapedNewlines: Left
 BinPackArguments: true
 BinPackParameters: true
 BreakBeforeBinaryOperators: None
-ColumnLimit: 100
+ColumnLimit: 90
 IndentWidth: 4
 IndentPPDirectives: None  # AfterHash uses global IndentWidth....
 PointerAlignment: Right
+CommentPragmas: '^ clang-format: '
+SortIncludes: false
 MaxEmptyLinesToKeep: 1
 ---

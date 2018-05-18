@@ -31,8 +31,8 @@
  * DAMAGE.
  */
 
-#include "instr.h"
 #include "../globals.h"
+#include "instr.h"
 #include "decode.h"
 
 #include "opcode_names.h"
@@ -145,7 +145,9 @@ bool
 instr_is_cbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    return (opc == OP_bcond || opc == OP_cbnz || opc == OP_cbz || opc == OP_tbnz || opc == OP_tbz);
+    return (opc == OP_bcond || /* clang-format: keep */
+            opc == OP_cbnz || opc == OP_cbz || /* clang-format: keep */
+            opc == OP_tbnz || opc == OP_tbz);
 }
 
 bool
