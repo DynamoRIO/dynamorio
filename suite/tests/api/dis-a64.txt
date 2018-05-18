@@ -1776,18 +1776,18 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 2eadf407 : fminp v7.2s, v0.2s, v13.2s : fminp  %d0 %d13 $0x02 -> %d7
 
 # FMLA (vector)
-4e580f5b : fmla v27.8h, v26.8h, v24.8h : fmla   %q26 %q24 $0x01 -> %q27
-0e580f5b : fmla v27.4h, v26.4h, v24.4h : fmla   %d26 %d24 $0x01 -> %d27
-4e3bcc8c : fmla v12.4s, v4.4s, v27.4s : fmla   %q4 %q27 $0x02 -> %q12
-4e7bcc8c : fmla v12.2d, v4.2d, v27.2d : fmla   %q4 %q27 $0x03 -> %q12
-0e3bcc8c : fmla v12.2s, v4.2s, v27.2s : fmla   %d4 %d27 $0x02 -> %d12
+4e580f5b : fmla v27.8h, v26.8h, v24.8h : fmla   %q27 %q26 %q24 $0x01 -> %q27
+0e580f5b : fmla v27.4h, v26.4h, v24.4h : fmla   %d27 %d26 %d24 $0x01 -> %d27
+4e3bcc8c : fmla v12.4s, v4.4s, v27.4s : fmla   %q12 %q4 %q27 $0x02 -> %q12
+4e7bcc8c : fmla v12.2d, v4.2d, v27.2d : fmla   %q12 %q4 %q27 $0x03 -> %q12
+0e3bcc8c : fmla v12.2s, v4.2s, v27.2s : fmla   %d12 %d4 %d27 $0x02 -> %d12
 
 # FMLS (vector)
-4ed60c65 : fmls v5.8h, v3.8h, v22.8h : fmls   %q3 %q22 $0x01 -> %q5
-0ed60c65 : fmls v5.4h, v3.4h, v22.4h : fmls   %d3 %d22 $0x01 -> %d5
-4ebdcef0 : fmls v16.4s, v23.4s, v29.4s : fmls   %q23 %q29 $0x02 -> %q16
-4efdcef0 : fmls v16.2d, v23.2d, v29.2d : fmls   %q23 %q29 $0x03 -> %q16
-0ebdcef0 : fmls v16.2s, v23.2s, v29.2s : fmls   %d23 %d29 $0x02 -> %d16
+4ed60c65 : fmls v5.8h, v3.8h, v22.8h : fmls   %q5 %q3 %q22 $0x01 -> %q5
+0ed60c65 : fmls v5.4h, v3.4h, v22.4h : fmls   %d5 %d3 %d22 $0x01 -> %d5
+4ebdcef0 : fmls v16.4s, v23.4s, v29.4s : fmls   %q16 %q23 %q29 $0x02 -> %q16
+4efdcef0 : fmls v16.2d, v23.2d, v29.2d : fmls   %q16 %q23 %q29 $0x03 -> %q16
+0ebdcef0 : fmls v16.2s, v23.2s, v29.2s : fmls   %d16 %d23 %d29 $0x02 -> %d16
 
 # FMOV (register)
 1e60419b : fmov d27, d12 : fmov   %d12 -> %d27
