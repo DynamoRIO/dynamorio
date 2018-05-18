@@ -891,26 +891,26 @@
 /**
  * Creates a FMLA vector instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
+ * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  * \param width   The vector element width. Use either OPND_CREATE_HALF(),
  *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fmla_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmla, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_fmla, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a FMLS vector instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
+ * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
  * \param width   The vector element width. Use either OPND_CREATE_HALF(),
  *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fmls_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_fmls, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_fmls, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a FMOV floating point instruction.
