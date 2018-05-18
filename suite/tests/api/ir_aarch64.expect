@@ -161,16 +161,16 @@ fminp  %d17 %d23 $0x01 -> %d13
 fminp  %q0 %q13 $0x02 -> %q7
 fminp  %q0 %q13 $0x03 -> %q7
 fminp  %d0 %d13 $0x02 -> %d7
-fmla   %q26 %q24 $0x01 -> %q27
-fmla   %d26 %d24 $0x01 -> %d27
-fmla   %q4 %q27 $0x02 -> %q12
-fmla   %q4 %q27 $0x03 -> %q12
-fmla   %d4 %d27 $0x02 -> %d12
-fmls   %q3 %q22 $0x01 -> %q5
-fmls   %d3 %d22 $0x01 -> %d5
-fmls   %q23 %q29 $0x02 -> %q16
-fmls   %q23 %q29 $0x03 -> %q16
-fmls   %d23 %d29 $0x02 -> %d16
+fmla   %q27 %q26 %q24 $0x01 -> %q27
+fmla   %d27 %d26 %d24 $0x01 -> %d27
+fmla   %q12 %q4 %q27 $0x02 -> %q12
+fmla   %q12 %q4 %q27 $0x03 -> %q12
+fmla   %d12 %d4 %d27 $0x02 -> %d12
+fmls   %q5 %q3 %q22 $0x01 -> %q5
+fmls   %d5 %d3 %d22 $0x01 -> %d5
+fmls   %q16 %q23 %q29 $0x02 -> %q16
+fmls   %q16 %q23 %q29 $0x03 -> %q16
+fmls   %d16 %d23 %d29 $0x02 -> %d16
 fmov   %d31 -> %d18
 fmov   %s31 -> %s18
 fmov   %h31 -> %h18
