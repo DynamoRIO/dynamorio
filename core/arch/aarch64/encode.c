@@ -132,7 +132,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
     uint enc;
 
-    byte tmp[4];
+    byte tmp[AARCH64_INSTR_SIZE];
     enc = encode_common(&tmp[0], in, di);
     return enc != ENCFAIL;
 }
