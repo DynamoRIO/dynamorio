@@ -940,6 +940,33 @@ encode_opnd_dq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 5, 30, opnd, enc_out);
 }
 
+/*
+ * dq16: D/Q register at bit position 16 with 4 bits only, for the FP16
+ *       by-element encoding; bit 30 selects Q reg */
+
+static inline bool
+decode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
+                            extract_uint(enc, 16, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool q;
+    if (!opnd_is_reg(opnd))
+        return false;
+    q = (uint)(opnd_get_reg(opnd) - DR_REG_Q0) < 16;
+    num = opnd_get_reg(opnd) - (q ? DR_REG_Q0 : DR_REG_D0);
+    if (num >= 16)
+        return false;
+    *enc_out = num << 16 | (uint)q << 30;
+    return true;
+}
+
 /* dq16: D/Q register at bit position 16; bit 30 selects Q reg */
 
 static inline bool
@@ -1737,6 +1764,89 @@ static inline bool
 encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem12_scale(3, true, opnd, enc_out);
+}
+
+/* vindex_H: Index for vector with half elements (0-7). */
+
+static inline bool
+decode_opnd_vindex_H(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = (enc >> 11 & 1) << 2 | (enc >> 21 & 1) << 1 | (enc >> 20 & 1) ;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd);
+    if (val < 0 || val >= 8)
+        return false;
+    *enc_out = (val >> 2 & 1) << 11 | (val >> 1 & 1) << 21 | (val & 1) << 20 ;
+    return true;
+}
+
+/* vindex_S: Index for vector with single elements (0-3). */
+
+static inline bool
+decode_opnd_vindex_S(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits;
+    ASSERT((enc >> 22 & 1) == 0 && "vindex_S should only be used for single width.");
+    bits = (enc >> 11 & 1) << 1 | (enc >> 21 & 1);
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_S(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd);
+    if (val < 0 || val >= 4)
+        return false;
+    /*
+     * Set index in bit 11 (H) and bit 21 (L), and set bit 22 (sz) to 1 to differentiate
+     * between vindex_D. */
+    *enc_out = (val & 1) << 21 | (val >> 1 & 1) << 11 | 0 << 22;
+    return true;
+}
+
+/* vindex_D: Index for vector with double elements (0-1). */
+
+static inline bool
+decode_opnd_vindex_D(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits;
+    ASSERT((enc >> 22 & 1) != 0 && "vindex_D should only be used for double width.");
+    if ((enc >> 21 & 1) != 0) {
+        return false;
+    }
+
+    bits = enc >> 11 & 1;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_D(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd);
+    if (val < 0 || val >= 2)
+        return false;
+    /*
+     * Set index in bit 11 (H) and set bit 22 (sz) to 1 to differentiate between
+     * vindex_S. */
+    *enc_out = (val & 1) << 11 | 1 << 22;
+    return true;
 }
 
 /* prf9: prefetch variant of mem9 */
