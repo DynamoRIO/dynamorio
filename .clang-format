@@ -4,6 +4,7 @@ AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: All
+AlwaysBreakAfterReturnType: All
 AlignAfterOpenBracket: Align
 AlignEscapedNewlines: Left
 BinPackArguments: true
