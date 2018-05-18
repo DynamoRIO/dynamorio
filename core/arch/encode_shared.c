@@ -68,6 +68,17 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
                   _IF_DEBUG(bool assert_reachable));
 
+#ifdef AARCH64
+/* exported
+ */
+bool
+instr_is_encoding_possible(instr_t *instr)
+{
+    decode_info_t di;
+
+    return encoding_possible(&di, instr, NULL);
+}
+#else
 /* exported, looks at all possible instr_info_t templates
  */
 bool
@@ -76,6 +87,7 @@ instr_is_encoding_possible(instr_t *instr)
     const instr_info_t * info = get_encoding_info(instr);
     return (info != NULL);
 }
+#endif
 
 /* looks at all possible instr_info_t templates, returns first match
  * returns NULL if no encoding is possible

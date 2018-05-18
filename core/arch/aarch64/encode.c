@@ -130,8 +130,11 @@ encode_debug_checks(void)
 bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    uint enc;
+
+    byte tmp[4];
+    enc = encode_common(&tmp[0], in, di);
+    return enc != ENCFAIL;
 }
 
 void
