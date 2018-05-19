@@ -92,13 +92,9 @@ dynamo_start(priv_mcontext_t *mc)
         /* If dr_app_start is called from a different thread than the one
          * that called dr_app_setup, we'll need to initialize this thread here.
          */
-        IF_DEBUG(int r =)
-            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
-        ASSERT(r == SUCCESS);
-        ASSERT(dr_api_entry);
-        dcontext = get_thread_private_dcontext();
+        dcontext = os_thread_take_over_secondary(mc);
         ASSERT(dcontext != NULL);
-        os_thread_take_over_secondary(dcontext);
+        ASSERT(dr_api_entry);
     }
 
     /* Signal other threads for take over.
@@ -274,7 +270,6 @@ void
 new_thread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
-    app_pc next_tag;
     void *crec;
     int rc;
     /* this is where a new thread first touches other than the dstack,
@@ -303,7 +298,7 @@ new_thread_setup(priv_mcontext_t *mc)
     set_thread_register_from_clone_record(crec);
 # endif
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec
                             _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
@@ -311,16 +306,10 @@ new_thread_setup(priv_mcontext_t *mc)
 # ifdef AARCHXX
     set_app_lib_tls_base_from_clone_record(dcontext, crec);
 # endif
-    /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
-     * but thread_starting() calls initialize_dynamo_context() so cache next_tag
-     */
-    next_tag = signal_thread_inherit(dcontext, (void *) crec);
-    ASSERT(next_tag != NULL);
 # ifdef ARM
     dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
 # endif
     thread_starting(dcontext);
-    dcontext->next_tag = next_tag;
 
     call_switch_stack(dcontext, dcontext->dstack, (void(*)(void*))dispatch,
                       NULL/*not on initstack*/, false/*shouldn't return*/);
@@ -337,7 +326,6 @@ void
 new_bsdthread_setup(priv_mcontext_t *mc)
 {
     dcontext_t *dcontext;
-    app_pc next_tag;
     void *crec, *func_arg;
     int rc;
     /* this is where a new thread first touches other than the dstack,
@@ -351,19 +339,13 @@ new_bsdthread_setup(priv_mcontext_t *mc)
         "new_thread_setup: thread "TIDFMT", dstack "PFX" clone record "PFX"\n",
         get_thread_id(), get_clone_record_dstack(crec), crec);
 
-    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc, crec
                             _IF_CLIENT_INTERFACE(false));
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-    /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
-     * but thread_starting() calls initialize_dynamo_context() so cache next_tag
-     */
-    next_tag = signal_thread_inherit(dcontext, (void *) crec);
     crec = NULL; /* now freed */
-    ASSERT(next_tag != NULL);
     thread_starting(dcontext);
-    dcontext->next_tag = next_tag;
 
     /* We assume that the only state that matters is the arg to the function. */
 #  ifdef X64
