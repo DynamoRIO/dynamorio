@@ -28,7 +28,12 @@ typedef siginfo_t kernel_siginfo_t;
  * all types here have kernel_ (or KERNEL_ for enums) prefixed, and all #defines are
  * first #undef-ed.
  */
-# include <bits/wordsize.h>
+# ifdef ANDROID
+#  define __WORDSIZE 32
+typedef clock_t __clock_t;
+# else
+#  include <bits/wordsize.h>
+# endif
 
 /* Type for data associated with a signal.  */
 typedef union kernel_sigval {
@@ -62,6 +67,7 @@ typedef __clock_t __kernel_sigchld_clock_t;
 
 # undef si_pid
 # undef si_uid
+# undef si_tid
 # undef si_timerid
 # undef si_overrun
 # undef si_status
