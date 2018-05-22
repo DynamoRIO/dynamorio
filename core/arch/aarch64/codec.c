@@ -2695,11 +2695,11 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 static inline bool
 decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (((enc >> 21) & 0x03) == 0x01) {
+    if (((enc >> 22) & 1) == 0) {
         *opnd = opnd_create_immed_int(FSZ_SINGLE, OPSZ_2b);
         return true;
     }
-    if (((enc >> 21) & 0x03) == 0x03) {
+    if (((enc >> 22) & 1) == 1) {
         *opnd = opnd_create_immed_int(FSZ_DOUBLE, OPSZ_2b);
         return true;
     }
@@ -2710,11 +2710,11 @@ static inline bool
 encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     if (opnd_get_immed_int(opnd) == FSZ_SINGLE) {
-        *enc_out = 0x01 << 21;
+        *enc_out = 0;
         return true;
     }
     if (opnd_get_immed_int(opnd) == FSZ_DOUBLE) {
-        *enc_out = 0x03 << 21;
+        *enc_out = 1 << 22;
         return true;
     }
     return false;
@@ -2727,20 +2727,15 @@ encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (((enc >> 21) & 0x03) == 0x02) {
-        *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
-        return true;
-    }
-    return false;
+    *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
+    return true;
 }
 
 static inline bool
 encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == FSZ_HALF) {
-        *enc_out = 0x02 << 21;
+    if (opnd_get_immed_int(opnd) == FSZ_HALF)
         return true;
-    }
     return false;
 }
 
