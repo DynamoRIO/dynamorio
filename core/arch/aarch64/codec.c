@@ -1789,63 +1789,40 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* vindex_S: Index for vector with single elements (0-3). */
+/* vindex_SD: Index for vector with single or double elements. */
 
 static inline bool
-decode_opnd_vindex_S(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_vindex_SD(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     uint bits;
-    ASSERT((enc >> 22 & 1) == 0 && "vindex_S should only be used for single width.");
-    bits = (enc >> 11 & 1) << 1 | (enc >> 21 & 1);
-    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
-    return true;
-}
-
-static inline bool
-encode_opnd_vindex_S(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    ptr_int_t val;
-    if (!opnd_is_immed_int(opnd))
-        return false;
-    val = opnd_get_immed_int(opnd);
-    if (val < 0 || val >= 4)
-        return false;
-    /*
-     * Set index in bit 11 (H) and bit 21 (L), and set bit 22 (sz) to 1 to differentiate
-     * between vindex_D. */
-    *enc_out = (val & 1) << 21 | (val >> 1 & 1) << 11 | 0 << 22;
-    return true;
-}
-
-/* vindex_D: Index for vector with double elements (0-1). */
-
-static inline bool
-decode_opnd_vindex_D(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint bits;
-    ASSERT((enc >> 22 & 1) != 0 && "vindex_D should only be used for double width.");
-    if ((enc >> 21 & 1) != 0) {
-        return false;
+    if ((enc >> 22 & 1) == 0) {
+        bits = (enc >> 11 & 1) << 1 | (enc >> 21 & 1);
+    } else {
+        if ((enc >> 21 & 1) != 0) {
+            return false;
+        }
+        bits = enc >> 11 & 1;
     }
-
-    bits = enc >> 11 & 1;
     *opnd = opnd_create_immed_int(bits, OPSZ_2b);
     return true;
 }
 
 static inline bool
-encode_opnd_vindex_D(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     ptr_int_t val;
     if (!opnd_is_immed_int(opnd))
         return false;
     val = opnd_get_immed_int(opnd);
-    if (val < 0 || val >= 2)
-        return false;
-    /*
-     * Set index in bit 11 (H) and set bit 22 (sz) to 1 to differentiate between
-     * vindex_S. */
-    *enc_out = (val & 1) << 11 | 1 << 22;
+    if ((enc >> 22 & 1) == 0) {
+        if (val < 0 || val >= 4)
+            return false;
+        *enc_out = (val & 1) << 21 | (val >> 1 & 1) << 11;
+    } else {
+        if (val < 0 || val >= 2)
+            return false;
+        *enc_out = (val & 1) << 11;
+    }
     return true;
 }
 
