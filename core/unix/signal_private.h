@@ -42,10 +42,11 @@
 /* We have an ordering issue so we split out LINUX from globals.h */
 #include "configure.h"
 
-#ifdef LINUX
 /* We want to build on older toolchains so we have our own copy of signal
- * data structures
+ * data structures.
  */
+#include "include/siginfo.h"
+#ifdef LINUX
 # include "include/sigcontext.h"
 # include "include/signalfd.h"
 # include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
@@ -61,10 +62,10 @@
  */
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, siginfo_t *, void *);
+typedef void (*handler_t)(int, kernel_siginfo_t *, void *);
 
 #ifdef MACOS
-typedef void (*tramp_t)(handler_t, int, int, siginfo_t *, void *);
+typedef void (*tramp_t)(handler_t, int, int, kernel_siginfo_t *, void *);
 #endif
 
 /* default actions */
@@ -232,17 +233,17 @@ typedef struct rt_sigframe {
     char *pretcode;
 #  ifdef X64
 #   ifdef VMX86_SERVER
-    siginfo_t info;
+    kernel_siginfo_t info;
     kernel_ucontext_t uc;
 #   else
     kernel_ucontext_t uc;
-    siginfo_t info;
+    kernel_siginfo_t info;
 #   endif
 #  else
     int sig;
-    siginfo_t *pinfo;
+    kernel_siginfo_t *pinfo;
     void *puc;
-    siginfo_t info;
+    kernel_siginfo_t info;
     kernel_ucontext_t uc;
     /* Prior to 2.6.28, "kernel_fpstate_t fpstate" was here.  Rather than
      * try to reproduce that exact layout and detect the underlying kernel
@@ -255,7 +256,7 @@ typedef struct rt_sigframe {
 #  endif
     /* In 2.6.28+, fpstate/xstate goes here */
 # elif defined(AARCHXX)
-    siginfo_t info;
+    kernel_siginfo_t info;
     kernel_ucontext_t uc;
     char retcode[RETCODE_SIZE];
 # endif
@@ -264,21 +265,21 @@ typedef struct rt_sigframe {
 # ifdef X64
     /* kernel places padding to align to 16, and then puts retaddr slot */
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
-    siginfo_t info; /* matches user-mode sys/signal.h struct */
+    kernel_siginfo_t info; /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
 # else
     app_pc retaddr;
     app_pc handler;
     int sigstyle; /* UC_TRAD = 1-arg, UC_FLAVOR = 3-arg handler */
     int sig;
-    siginfo_t *pinfo;
+    kernel_siginfo_t *pinfo;
     struct __darwin_ucontext *puc; /* "struct user_ucontext32 *" to kernel */
     /* The kernel places padding here to align to 16 and then subtract one slot
      * for retaddr post-call alignment, so don't access these subsequent fields
      * directly if given a frame from the kernel!
      */
     struct __darwin_mcontext_avx32 mc; /* sigcontext, "struct mcontext_avx32" to kernel */
-    siginfo_t info; /* matches user-mode sys/signal.h struct */
+    kernel_siginfo_t info; /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext uc; /* "struct user_ucontext32" to kernel */
 # endif
 #endif

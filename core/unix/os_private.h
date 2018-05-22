@@ -381,7 +381,7 @@ void init_android_version(void);
 
 /* in nudgesig.c */
 bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
 
 #ifdef X86
