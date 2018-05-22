@@ -44,6 +44,7 @@
 #include "disassemble.h"
 #include "instr.h"
 #include "instr_create.h"
+
 #include "codec.h"
 
 
@@ -2726,7 +2727,6 @@ encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-
     *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
     return true;
 }
@@ -2734,9 +2734,8 @@ decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == FSZ_HALF) {
+    if (opnd_get_immed_int(opnd) == FSZ_HALF)
         return true;
-    }
     return false;
 }
 

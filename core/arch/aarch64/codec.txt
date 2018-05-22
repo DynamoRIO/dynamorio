@@ -55,7 +55,8 @@
 
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
---------------------------------  fsz16      # element width of FP vector reg (half (0x2) encoding)
+--------------------------------  fsz16      # element width of FP vector reg, used to
+                                             # distinguish FP16 and float/double encs
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  b0         # B register
 ---------------------------xxxxx  h0         # H register
@@ -124,7 +125,8 @@
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
----------x----------------------  fsz        # element width of FP vector reg (single (0x1) and double (0x3) encoding)
+---------x----------------------  fsz        # element width of FP vector reg for single
+                                             # and double encoding
 ?--------xx---------------------  imm16sh    # shift for MOVK/... (immediate); checks 31
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
