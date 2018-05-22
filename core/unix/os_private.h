@@ -40,6 +40,7 @@
 #define _OS_PRIVATE_H_ 1
 
 #include <signal.h> /* for stack_t */
+#include "include/siginfo.h"
 #include "module.h" /* for os_module_data_t */
 #include "ksynch.h" /* for KSYNCH_TYPE */
 #include "instr.h" /* for reg_id_t */
