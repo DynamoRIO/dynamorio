@@ -44,20 +44,21 @@
 
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
-#ifdef LINUX
 /* We want to build on older toolchains so we have our own copy of signal
  * data structures
  */
-#  include "include/sigcontext.h"
-#  include "include/signalfd.h"
-#  include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+# include "include/siginfo.h"
+#ifdef LINUX
+# include "include/sigcontext.h"
+# include "include/signalfd.h"
+# include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
-#  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
-#  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+# include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+# include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
 #endif
 
 #ifdef LINUX
-#  include <linux/sched.h>
+# include <linux/sched.h>
 #endif
 
 #include <sys/time.h>
@@ -225,7 +226,7 @@ os_cxt_ptr_t osc_empty;
 
 /* in x86.asm */
 void
-master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
+master_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
 set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -268,7 +269,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame);
 
 static bool
-handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
+handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                    kernel_ucontext_t *ucxt);
 
 static void
 init_itimer(dcontext_t *dcontext, bool first);
@@ -286,7 +288,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 #endif
 
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info);
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info);
 
 int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
@@ -498,7 +500,7 @@ set_our_alt_stack(void *arg)
 #endif
 
 void
-signal_thread_init(dcontext_t *dcontext)
+signal_thread_init(dcontext_t *dcontext, void *os_data)
 {
     thread_sig_info_t *info = HEAP_TYPE_ALLOC(dcontext, thread_sig_info_t,
                                               ACCT_OTHER, PROTECTED);
@@ -557,9 +559,11 @@ signal_thread_init(dcontext_t *dcontext)
 
     ASSIGN_INIT_LOCK_FREE(info->child_lock, child_lock);
 
-    /* someone must call signal_thread_inherit() to finish initialization:
-     * for first thread, called from initial setup; else, from new_thread_setup
-     * or share_siginfo_after_take_over.
+    /* signal_thread_inherit() finishes per-thread init and is invoked
+     * by os_thread_init_finalize(): we need it after synch_thread_init() and
+     * other post-os_thread_init() setup b/c we can't yet record pending signals,
+     * but we need it before we give up thread_initexit_lock so we can handle
+     * our own suspend signals (i#2779).
      */
 }
 
@@ -840,21 +844,20 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     info->we_intercept = NULL;
 }
 
-/* Called once a new thread's dcontext is created.
+/* Called to finalize per-thread initialization.
  * Inherited and shared fields are set up here.
- * The clone_record contains the continuation pc, which is returned.
+ * The clone_record contains the continuation pc, which is stored in dcontext->next_tag.
  */
-app_pc
+void
 signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 {
-    app_pc res = NULL;
     clone_record_t *record = (clone_record_t *) clone_record;
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     if (record != NULL) {
-        app_pc continuation_pc = record->continuation_pc;
         LOG(THREAD, LOG_ASYNCH, 1,
-            "continuation pc is "PFX"\n", continuation_pc);
+            "continuation pc is "PFX"\n", record->continuation_pc);
+        dcontext->next_tag = record->continuation_pc;
         LOG(THREAD, LOG_ASYNCH, 1,
             "parent tid is "TIDFMT", parent sysnum is %d(%s), clone flags="PIFX"\n",
             record->caller_id, record->clone_sysnum,
@@ -952,7 +955,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * we asked for old sigstack.
          * FIXME: are current pending or blocked inherited?
          */
-        res = continuation_pc;
 #ifdef MACOS
         if (record->app_thread_xsp != 0) {
             HEAP_TYPE_FREE(GLOBAL_DCONTEXT, record, clone_record_t,
@@ -1029,8 +1031,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         /* should be 1st thread */
         if (get_num_threads() > 1)
             ASSERT_NOT_REACHED();
-        /* FIXME: any way to recover if not 1st thread? */
-        res = NULL;
     }
 
     /* only when SIGVTALRM handler is in place should we start itimer (PR 537743) */
@@ -1045,15 +1045,14 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 
     /* Assumed to be async safe. */
     info->fully_initialized = true;
-
-    return res;
 }
 
 /* When taking over existing app threads, we assume they're using pthreads and
  * expect to share signal handlers, memory, thread group id, etc.
+ * Invokes dynamo_thread_init() with the appropriate os_data.
  */
-void
-share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
+dcontext_t *
+init_thread_with_shared_siginfo(priv_mcontext_t *mc, dcontext_t *takeover_dc)
 {
     clone_record_t crec = {0,};
     thread_sig_info_t *parent_siginfo =
@@ -1074,7 +1073,10 @@ share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
     crec.parent_info = parent_siginfo;
     crec.info = *parent_siginfo;
     crec.pcprofile_info = takeover_dc->pcprofile_field;
-    signal_thread_inherit(dcontext, &crec);
+    IF_DEBUG(int r =)
+        dynamo_thread_init(NULL, mc, &crec _IF_CLIENT_INTERFACE(false));
+    ASSERT(r == SUCCESS);
+    return get_thread_private_dcontext();
 }
 
 static void
@@ -2988,7 +2990,9 @@ fixup_siginfo(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
         return; /* nothing to do */
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     frame->info.si_addr = (void*) sc->SC_XIP;
+#ifdef LINUX
     frame->info.si_addr_lsb = sc->SC_XIP & 0x1;
+#endif
 }
 
 static void
@@ -4351,7 +4355,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
  * used in handle_nudge_signal()).
  */
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info)
 {
 #ifndef VMX86_SERVER /* does not properly set si_code */
     /* i#133: use si_code to distinguish user-sent signals.
@@ -4375,7 +4379,7 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 
 static byte *
 compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                      kernel_ucontext_t *uc, siginfo_t *si, bool *write)
+                      kernel_ucontext_t *uc, kernel_siginfo_t *si, bool *write)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     byte *target = NULL;
@@ -4637,11 +4641,11 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 /* stub in x86.asm passes our xsp to us */
 # ifdef MACOS
 void
-master_signal_handler_C(handler_t handler, int style, int sig, siginfo_t *info,
+master_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *info,
                         kernel_ucontext_t *ucxt, byte *xsp)
 # else
 void
-master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
+master_signal_handler_C(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt,
                         byte *xsp)
 # endif
 #else
@@ -4656,7 +4660,7 @@ master_signal_handler_C(byte *xsp)
 #ifdef X86_32
     /* Read the normal arguments from the frame. */
     int sig = frame->sig;
-    siginfo_t *siginfo = frame->pinfo;
+    kernel_siginfo_t *siginfo = frame->pinfo;
     kernel_ucontext_t *ucxt = frame->puc;
 #endif /* !X64 */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -5189,7 +5193,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * there.  (If no special signal stack, this is a nop.)
      */
     sc->SC_XSP = (ptr_uint_t) xsp;
-    /* Set up args to handler: int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt */
+    /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
+     * kernel_ucontext_t *ucxt.
+     */
 #ifdef X86_64
     sc->SC_XDI = sig;
     sc->SC_XSI = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -5410,7 +5416,9 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * expect anything except the frame on the stack.  We do need to set xsp.
      */
     mcontext->xsp = (ptr_uint_t) xsp;
-    /* Set up args to handler: int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt */
+    /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
+     * kernel_ucontext_t *ucxt.
+     */
 #ifdef X86_64
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -6592,14 +6600,18 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
             /* What can we do?  We just go ahead and hope conflicting writes work out.
              * We don't re-acquire in case app was in middle of acquiring.
              */
-        } else if (try_recursive_lock(&(*info->itimer)[which].lock)) {
-            should_release_lock = true;
-        } else {
-            os_thread_yield();
-            if (try_recursive_lock(&(*info->itimer)[which].lock)) {
-                should_release_lock = true;
-            } else {
-                /* Heuristic: if fail twice then assume interrupted lock routine
+         } else {
+#define ALARM_LOCK_MAX_TRIES 4
+            int i;
+            for (i = 0; i < ALARM_LOCK_MAX_TRIES; ++i) {
+                if (try_recursive_lock(&(*info->itimer)[which].lock)) {
+                    should_release_lock = true;
+                    break;
+                }
+                os_thread_yield();
+            }
+            if (!should_release_lock) {
+                /* Heuristic: if fail N times then assume interrupted lock routine
                  * while processing an app syscall (see above: we ruled out other
                  * scenarios).  What can we do?  Just continue and hope conflicting
                  * writes work out.
@@ -7045,8 +7057,9 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
      * signals are blocked.  It's fine to have a race and reorder the app's
      * signal w/ DR's.
      */
-    if (ostd->suspend_count == 0 || ostd->suspended_sigcxt != NULL)
+    if (ostd->suspend_count == 0)
         return true; /* pass to app */
+    ASSERT(ostd->suspended_sigcxt == NULL);
 
     /* XXX: we're not setting DR_WHERE_SIGNAL_HANDLER in enough places.
      * It's trickier than other whereamis b/c we want to resume the
@@ -7059,16 +7072,6 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
 
     sig_full_initialize(&sc_full, ucxt);
     ostd->suspended_sigcxt = &sc_full;
-
-    /* We're sitting on our sigaltstack w/ all signals blocked.  We're
-     * going to stay here but unblock all signals so we don't lose any
-     * delivered while we're waiting.  We're at a safe enough point to
-     * re-enter master_signal_handler().  We use a mutex in
-     * thread_{suspend,resume} to prevent our own re-suspension signal
-     * from arriving before we've re-blocked on the resume.
-     */
-    sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
-                        sizeof(ucxt->uc_sigmask));
 
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: suspended now\n");
     /* We cannot use mutexes here as we have interrupted DR at an
@@ -7083,6 +7086,18 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
     ASSERT(ksynch_get_value(&ostd->suspended) == 0);
     ksynch_set_value(&ostd->suspended, 1);
     ksynch_wake_all(&ostd->suspended);
+
+    /* We're sitting on our sigaltstack w/ all signals blocked.  We're
+     * going to stay here but unblock all signals so we don't lose any
+     * delivered while we're waiting.  We're at a safe enough point (now
+     * that we've set ostd->suspended: i#5779) to re-enter
+     * master_signal_handler().  We use a mutex in thread_{suspend,resume} to
+     * prevent our own re-suspension signal from arriving before we've
+     * re-blocked on the resume.
+     */
+    sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
+                        sizeof(ucxt->uc_sigmask));
+
     /* i#96/PR 295561: use futex(2) if available */
     while (ksynch_get_value(&ostd->wakeup) == 0) {
         /* Waits only if the wakeup flag is not set as 1. Return value
@@ -7140,7 +7155,8 @@ dr_setjmp_sigmask(dr_jmp_buf_t *buf)
  * or is an app signal.  Returns whether to pass the signal on to the app.
  */
 static bool
-handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                    kernel_ucontext_t *ucxt)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     nudge_arg_t *arg = (nudge_arg_t *) siginfo;
@@ -7148,11 +7164,11 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
     char buf[MAX_INSTR_LENGTH];
 
     /* Distinguish a nudge from an app signal.  An app using libc sigqueue()
-     * will never have its signal mistaken as libc does not expose the siginfo_t
+     * will never have its signal mistaken as libc does not expose the kernel_siginfo_t
      * and always passes 0 for si_errno, so we're only worried beyond our
      * si_code check about an app using a raw syscall that is deliberately
      * trying to fool us.
-     * While there is a lot of padding space in siginfo_t, the kernel doesn't
+     * While there is a lot of padding space in kernel_siginfo_t, the kernel doesn't
      * copy it through on SYS_rt_sigqueueinfo so we don't have room for any
      * dedicated magic numbers.  The client id could function as a magic
      * number for client nudges, but I don't think we want to kill the app

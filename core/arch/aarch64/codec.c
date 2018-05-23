@@ -940,6 +940,33 @@ encode_opnd_dq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 5, 30, opnd, enc_out);
 }
 
+/* dq16_fsz16: D/Q register at bit position 16 with 4 bits only, for the FP16
+ *             by-element encoding; bit 30 selects Q reg
+ */
+
+static inline bool
+decode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
+                            extract_uint(enc, 16, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool q;
+    if (!opnd_is_reg(opnd))
+        return false;
+    q = (uint)(opnd_get_reg(opnd) - DR_REG_Q0) < 16;
+    num = opnd_get_reg(opnd) - (q ? DR_REG_Q0 : DR_REG_D0);
+    if (num >= 16)
+        return false;
+    *enc_out = num << 16 | (uint)q << 30;
+    return true;
+}
+
 /* dq16: D/Q register at bit position 16; bit 30 selects Q reg */
 
 static inline bool
@@ -1737,6 +1764,66 @@ static inline bool
 encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem12_scale(3, true, opnd, enc_out);
+}
+
+/* vindex_H: Index for vector with half elements (0-7). */
+
+static inline bool
+decode_opnd_vindex_H(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = (enc >> 11 & 1) << 2 | (enc >> 21 & 1) << 1 | (enc >> 20 & 1) ;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd);
+    if (val < 0 || val >= 8)
+        return false;
+    *enc_out = (val >> 2 & 1) << 11 | (val >> 1 & 1) << 21 | (val & 1) << 20 ;
+    return true;
+}
+
+/* vindex_SD: Index for vector with single or double elements. */
+
+static inline bool
+decode_opnd_vindex_SD(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits;
+    if ((enc >> 22 & 1) == 0) {
+        bits = (enc >> 11 & 1) << 1 | (enc >> 21 & 1);
+    } else {
+        if ((enc >> 21 & 1) != 0) {
+            return false;
+        }
+        bits = enc >> 11 & 1;
+    }
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd);
+    if ((enc >> 22 & 1) == 0) {
+        if (val < 0 || val >= 4)
+            return false;
+        *enc_out = (val & 1) << 21 | (val >> 1 & 1) << 11;
+    } else {
+        if (val < 0 || val >= 2)
+            return false;
+        *enc_out = (val & 1) << 11;
+    }
+    return true;
 }
 
 /* prf9: prefetch variant of mem9 */
@@ -2695,11 +2782,11 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 static inline bool
 decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (((enc >> 21) & 0x03) == 0x01) {
+    if (((enc >> 22) & 1) == 0) {
         *opnd = opnd_create_immed_int(FSZ_SINGLE, OPSZ_2b);
         return true;
     }
-    if (((enc >> 21) & 0x03) == 0x03) {
+    if (((enc >> 22) & 1) == 1) {
         *opnd = opnd_create_immed_int(FSZ_DOUBLE, OPSZ_2b);
         return true;
     }
@@ -2710,11 +2797,11 @@ static inline bool
 encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     if (opnd_get_immed_int(opnd) == FSZ_SINGLE) {
-        *enc_out = 0x01 << 21;
+        *enc_out = 0;
         return true;
     }
     if (opnd_get_immed_int(opnd) == FSZ_DOUBLE) {
-        *enc_out = 0x03 << 21;
+        *enc_out = 1 << 22;
         return true;
     }
     return false;
@@ -2727,20 +2814,15 @@ encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (((enc >> 21) & 0x03) == 0x02) {
-        *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
-        return true;
-    }
-    return false;
+    *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
+    return true;
 }
 
 static inline bool
 encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == FSZ_HALF) {
-        *enc_out = 0x02 << 21;
+    if (opnd_get_immed_int(opnd) == FSZ_HALF)
         return true;
-    }
     return false;
 }
 

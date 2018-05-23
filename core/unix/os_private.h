@@ -40,6 +40,7 @@
 #define _OS_PRIVATE_H_ 1
 
 #include <signal.h> /* for stack_t */
+#include "include/siginfo.h"
 #include "module.h" /* for os_module_data_t */
 #include "ksynch.h" /* for KSYNCH_TYPE */
 #include "instr.h" /* for reg_id_t */
@@ -260,7 +261,7 @@ typedef kernel_sigaction_t prev_sigaction_t;
 
 void signal_init(void);
 void signal_exit(void);
-void signal_thread_init(dcontext_t *dcontext);
+void signal_thread_init(dcontext_t *dcontext, void *os_data);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 bool is_thread_signal_info_initialized(dcontext_t *dcontext);
 void signal_swap_mask(dcontext_t *dcontext, bool to_app);
@@ -323,7 +324,10 @@ bool
 set_default_signal_action(int sig);
 
 void
-share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc);
+signal_thread_inherit(dcontext_t *dcontext, void *os_data);
+
+dcontext_t *
+init_thread_with_shared_siginfo(priv_mcontext_t *mc, dcontext_t *takeover_dc);
 
 void
 signal_set_mask(dcontext_t *dcontext, kernel_sigset_t *sigset);
@@ -381,7 +385,7 @@ void init_android_version(void);
 
 /* in nudgesig.c */
 bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
 
 #ifdef X86

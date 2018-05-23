@@ -1792,6 +1792,26 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 4e7bcc8c : fmla v12.2d, v4.2d, v27.2d : fmla   %q12 %q4 %q27 $0x03 -> %q12
 0e3bcc8c : fmla v12.2s, v4.2s, v27.2s : fmla   %d12 %d4 %d27 $0x02 -> %d12
 
+# FMLA (by element)
+4fcc116a : fmla  v10.2d, v11.2d, v12.d[0] : fmla   %q10 %q11 %q12 $0x00 $0x03 -> %q10
+4fcc196a : fmla  v10.2d, v11.2d, v12.d[1] : fmla   %q10 %q11 %q12 $0x01 $0x03 -> %q10
+4f8c116a : fmla  v10.4s, v11.4s, v12.s[0] : fmla   %q10 %q11 %q12 $0x00 $0x02 -> %q10
+4fac116a : fmla  v10.4s, v11.4s, v12.s[1] : fmla   %q10 %q11 %q12 $0x01 $0x02 -> %q10
+4f8c196a : fmla  v10.4s, v11.4s, v12.s[2] : fmla   %q10 %q11 %q12 $0x02 $0x02 -> %q10
+4fac196a : fmla  v10.4s, v11.4s, v12.s[3] : fmla   %q10 %q11 %q12 $0x03 $0x02 -> %q10
+0f0c116a : fmla  v10.4h, v11.4h, v12.h[0] : fmla   %d10 %d11 %d12 $0x00 $0x01 -> %d10
+0f1c116a : fmla  v10.4h, v11.4h, v12.h[1] : fmla   %d10 %d11 %d12 $0x01 $0x01 -> %d10
+0f2c116a : fmla  v10.4h, v11.4h, v12.h[2] : fmla   %d10 %d11 %d12 $0x02 $0x01 -> %d10
+0f3c116a : fmla  v10.4h, v11.4h, v12.h[3] : fmla   %d10 %d11 %d12 $0x03 $0x01 -> %d10
+4f0c116a : fmla    v10.8h, v11.8h, v12.h[0] : fmla   %q10 %q11 %q12 $0x00 $0x01 -> %q10
+4f1c116a : fmla    v10.8h, v11.8h, v12.h[1] : fmla   %q10 %q11 %q12 $0x01 $0x01 -> %q10
+4f2c116a : fmla    v10.8h, v11.8h, v12.h[2] : fmla   %q10 %q11 %q12 $0x02 $0x01 -> %q10
+4f3c116a : fmla    v10.8h, v11.8h, v12.h[3] : fmla   %q10 %q11 %q12 $0x03 $0x01 -> %q10
+4f0c196a : fmla    v10.8h, v11.8h, v12.h[4] : fmla   %q10 %q11 %q12 $0x04 $0x01 -> %q10
+4f1c196a : fmla    v10.8h, v11.8h, v12.h[5] : fmla   %q10 %q11 %q12 $0x05 $0x01 -> %q10
+4f2c196a : fmla    v10.8h, v11.8h, v12.h[6] : fmla   %q10 %q11 %q12 $0x06 $0x01 -> %q10
+4f3c196a : fmla    v10.8h, v11.8h, v12.h[7] : fmla   %q10 %q11 %q12 $0x07 $0x01 -> %q10
+
 # FMLS (vector)
 4ed60c65 : fmls v5.8h, v3.8h, v22.8h : fmls   %q5 %q3 %q22 $0x01 -> %q5
 0ed60c65 : fmls v5.4h, v3.4h, v22.4h : fmls   %d5 %d3 %d22 $0x01 -> %d5
