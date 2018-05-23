@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -521,7 +521,7 @@ signal_frame_extra_size(bool include_alignment)
  * state may not match later state.  Currently it seems to be all-or-nothing.
  */
 static void
-xstate_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+xstate_query_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 {
     ASSERT_CURIOSITY(sig == XSTATE_QUERY_SIG);
     if (sig == XSTATE_QUERY_SIG) {

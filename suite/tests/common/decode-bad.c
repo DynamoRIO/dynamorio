@@ -68,22 +68,17 @@ static int count = 0;
 static bool invalid_lock;
 
 #ifdef UNIX
-# ifdef X86
-#  ifdef X64
-#   define REG_XIP REG_RIP
-#  else
-#   define REG_XIP REG_EIP
-#  endif
-# else
+# ifndef X86
 #  error NYI /* FIXME i#1551, i#1569: port asm to ARM and AArch64 */
 # endif
 static void
 signal_handler(int sig, siginfo_t *info, ucontext_t *ucxt)
 {
     if (sig == SIGILL) {
-        if ((greg_t)info->si_addr != ucxt->uc_mcontext.gregs[REG_XIP]) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (info->si_addr != (void*)sc->SC_XIP) {
             print("ERROR: si_addr=%p does not match rip=%p\n", info->si_addr,
-                  ucxt->uc_mcontext.gregs[REG_XIP]);
+                  sc->SC_XIP);
         }
         count++;
         if (invalid_lock) {
