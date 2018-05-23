@@ -2486,6 +2486,18 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
 }
 
 static void
+os_new_thread_pre(void)
+{
+    /* We use a barrier on new threads to ensure we make progress when
+     * attaching to an app that is continually making threads.
+     * XXX i#1305: if we fully suspend all threads during attach we can
+     * get rid of this barrier.
+     */
+    wait_for_event(dr_attach_finished, 0);
+    ATOMIC_INC(int, uninit_thread_count);
+}
+
+static void
 os_clone_pre(dcontext_t *dcontext)
 {
     /* We switch the lib tls segment back to app's segment.
@@ -7065,7 +7077,7 @@ pre_system_call(dcontext_t *dcontext)
         if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
             os_clone_pre(dcontext);
-            ATOMIC_INC(int, uninit_thread_count);
+            os_new_thread_pre();
         } else  /* This is really a fork. */
             os_fork_pre(dcontext);
         break;
@@ -7088,7 +7100,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = (reg_t) func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t) new_bsdthread_intercept;
         *sys_param_addr(dcontext, 1) = (reg_t) clone_rec;
-        ATOMIC_INC(int, uninit_thread_count);
+        os_new_thread_pre();
         break;
     }
     case SYS_posix_spawn: {
@@ -7121,7 +7133,7 @@ pre_system_call(dcontext_t *dcontext)
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
 # endif
         os_clone_pre(dcontext);
-        ATOMIC_INC(int, uninit_thread_count);
+        os_new_thread_pre();
         break;
     }
 #endif
@@ -9678,7 +9690,10 @@ signal_event(event_t e)
 {
     mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 1);
-    ksynch_wake(&e->signaled);
+    if (e->broadcast)
+        ksynch_wake_all(&e->signaled);
+    else
+        ksynch_wake(&e->signaled);
     LOG(THREAD_GET, LOG_THREADS, 3,
         "thread "TIDFMT" signalling event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
