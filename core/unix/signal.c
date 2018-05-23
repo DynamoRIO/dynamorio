@@ -44,20 +44,21 @@
 
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
-#ifdef LINUX
 /* We want to build on older toolchains so we have our own copy of signal
  * data structures
  */
-#  include "include/sigcontext.h"
-#  include "include/signalfd.h"
-#  include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+# include "include/siginfo.h"
+#ifdef LINUX
+# include "include/sigcontext.h"
+# include "include/signalfd.h"
+# include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
-#  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
-#  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
+# include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+# include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
 #endif
 
 #ifdef LINUX
-#  include <linux/sched.h>
+# include <linux/sched.h>
 #endif
 
 #include <sys/time.h>
@@ -225,7 +226,7 @@ os_cxt_ptr_t osc_empty;
 
 /* in x86.asm */
 void
-master_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
+master_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt);
 
 static void
 set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -268,7 +269,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame);
 
 static bool
-handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt);
+handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                    kernel_ucontext_t *ucxt);
 
 static void
 init_itimer(dcontext_t *dcontext, bool first);
@@ -286,7 +288,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 #endif
 
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info);
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info);
 
 int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
@@ -2988,7 +2990,9 @@ fixup_siginfo(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
         return; /* nothing to do */
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     frame->info.si_addr = (void*) sc->SC_XIP;
+#ifdef LINUX
     frame->info.si_addr_lsb = sc->SC_XIP & 0x1;
+#endif
 }
 
 static void
@@ -4351,7 +4355,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
  * used in handle_nudge_signal()).
  */
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info)
 {
 #ifndef VMX86_SERVER /* does not properly set si_code */
     /* i#133: use si_code to distinguish user-sent signals.
@@ -4375,7 +4379,7 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 
 static byte *
 compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                      kernel_ucontext_t *uc, siginfo_t *si, bool *write)
+                      kernel_ucontext_t *uc, kernel_siginfo_t *si, bool *write)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     byte *target = NULL;
@@ -4637,11 +4641,11 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 /* stub in x86.asm passes our xsp to us */
 # ifdef MACOS
 void
-master_signal_handler_C(handler_t handler, int style, int sig, siginfo_t *info,
+master_signal_handler_C(handler_t handler, int style, int sig, kernel_siginfo_t *info,
                         kernel_ucontext_t *ucxt, byte *xsp)
 # else
 void
-master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
+master_signal_handler_C(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt,
                         byte *xsp)
 # endif
 #else
@@ -4656,7 +4660,7 @@ master_signal_handler_C(byte *xsp)
 #ifdef X86_32
     /* Read the normal arguments from the frame. */
     int sig = frame->sig;
-    siginfo_t *siginfo = frame->pinfo;
+    kernel_siginfo_t *siginfo = frame->pinfo;
     kernel_ucontext_t *ucxt = frame->puc;
 #endif /* !X64 */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -5189,7 +5193,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * there.  (If no special signal stack, this is a nop.)
      */
     sc->SC_XSP = (ptr_uint_t) xsp;
-    /* Set up args to handler: int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt */
+    /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
+     * kernel_ucontext_t *ucxt.
+     */
 #ifdef X86_64
     sc->SC_XDI = sig;
     sc->SC_XSI = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -5410,7 +5416,9 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * expect anything except the frame on the stack.  We do need to set xsp.
      */
     mcontext->xsp = (ptr_uint_t) xsp;
-    /* Set up args to handler: int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt */
+    /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
+     * kernel_ucontext_t *ucxt.
+     */
 #ifdef X86_64
     mcontext->xdi = sig;
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
@@ -7140,7 +7148,8 @@ dr_setjmp_sigmask(dr_jmp_buf_t *buf)
  * or is an app signal.  Returns whether to pass the signal on to the app.
  */
 static bool
-handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
+                    kernel_ucontext_t *ucxt)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     nudge_arg_t *arg = (nudge_arg_t *) siginfo;
@@ -7148,11 +7157,11 @@ handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t 
     char buf[MAX_INSTR_LENGTH];
 
     /* Distinguish a nudge from an app signal.  An app using libc sigqueue()
-     * will never have its signal mistaken as libc does not expose the siginfo_t
+     * will never have its signal mistaken as libc does not expose the kernel_siginfo_t
      * and always passes 0 for si_errno, so we're only worried beyond our
      * si_code check about an app using a raw syscall that is deliberately
      * trying to fool us.
-     * While there is a lot of padding space in siginfo_t, the kernel doesn't
+     * While there is a lot of padding space in kernel_siginfo_t, the kernel doesn't
      * copy it through on SYS_rt_sigqueueinfo so we don't have room for any
      * dedicated magic numbers.  The client id could function as a magic
      * number for client nudges, but I don't think we want to kill the app

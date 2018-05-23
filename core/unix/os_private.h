@@ -40,6 +40,7 @@
 #define _OS_PRIVATE_H_ 1
 
 #include <signal.h> /* for stack_t */
+#include "include/siginfo.h"
 #include "module.h" /* for os_module_data_t */
 #include "ksynch.h" /* for KSYNCH_TYPE */
 #include "instr.h" /* for reg_id_t */
@@ -381,7 +382,7 @@ void init_android_version(void);
 
 /* in nudgesig.c */
 bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
 
 #ifdef X86
