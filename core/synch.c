@@ -45,9 +45,6 @@
 #include "native_exec.h"
 #include <string.h> /* for memcpy */
 
-/* Give threads 5 seconds to suspend when given a non-blocking synch request */
-#define SUSPEND_THREAD_TIMEOUT 5000
-
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
 static bool started_detach = false; /* set before synchall */
@@ -936,7 +933,6 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     IF_UNIX(bool actually_suspended = true;)
     const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags) ?
         (SYNCH_MAXIMUM_LOOPS/10) : SYNCH_MAXIMUM_LOOPS;
-    int thread_suspend_timeout_ms = block ? 0 : SUSPEND_THREAD_TIMEOUT;
 
     ASSERT(id != my_id);
     /* Must set ABORT or IGNORE.  Only caller can RETRY as need a new
@@ -1009,7 +1005,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 adjust_wait_at_safe_spot(trec->dcontext, 1);
                 first_loop = false;
             }
-            if (!os_thread_suspend(trec, thread_suspend_timeout_ms)) {
+            if (!os_thread_suspend(trec)) {
                 /* FIXME : eventually should be a real assert once we figure out
                  * how to handle threads with low privilege handles */
                 /* For dr_api_exit, we may have missed a thread exit. */
@@ -1983,11 +1979,10 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
      */
     flags |= THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
 #elif defined(UNIX)
-    /*  For Unix, we don't have that sort of permissions troubles, just timing
-     *  races which may cause the SUSPEND_SIGNAL to be dropped (xref i#26). In
-     *  that case, we know we want to retry any failures.
+    /* For Unix, such privilege problems are rarer but we would still prefer to
+     * continue if we hit a problem.
      */
-    flags |= THREAD_SYNCH_SUSPEND_FAILURE_RETRY;
+    flags |= THREAD_SYNCH_SUSPEND_FAILURE_IGNORE;
 #endif
 
     /* i#297: we only synch client threads after process exit event. */
