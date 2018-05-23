@@ -188,6 +188,16 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
 #endif
 
 #ifdef LINUX
+# define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
+#elif defined(MACOS)
+/* Make sure to access through pinfo rather than info as on Mac the info
+ * location in our frame struct doesn't exactly match the kernel due to
+ * the mid padding.
+ */
+# define SIGINFO_FROM_RT_FRAME(frame) ((frame)->pinfo)
+#endif
+
+#ifdef LINUX
 /* we assume frames look like this, with rt_sigframe used if SA_SIGINFO is set
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
