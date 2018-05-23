@@ -1246,16 +1246,13 @@ dr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
 #ifdef UNIX
 /* DR_API EXPORT END */
 
-/* FIXME: for PR 304708 I originally included siginfo_t in
+/* XXX: for PR 304708 I originally included siginfo_t in
  * dr_siginfo_t.  But can we really trust siginfo_t to be identical on
  * all supported platforms?  Esp. once we start supporting VMKUW,
  * MacOS, etc.  I'm removing it for now.  None of my samples need it,
  * and in my experience its fields are unreliable in any case.
  * PR 371370 covers re-adding it if users request it.
- * Xref PR 371339: we will need to not include it through signal.h but
- * instead something like this:
- *   #  define __need_siginfo_t
- *   #  include <bits/siginfo.h>
+ * If we re-add it, we should use our kernel_siginfo_t version.
  */
 /* DR_API EXPORT BEGIN */
 /**

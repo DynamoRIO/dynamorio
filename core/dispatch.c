@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -740,9 +740,10 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      * for this thread!
      */
     dr_where_am_i_t wherewasi = dcontext->whereami;
-#ifdef UNIX
+#if defined(UNIX) && !defined(X64)
     if (!(wherewasi == DR_WHERE_FCACHE || wherewasi == DR_WHERE_TRAMPOLINE ||
-          wherewasi == DR_WHERE_APP)) {
+          wherewasi == DR_WHERE_APP) &&
+        get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         /* This is probably our own syscalls hitting our own sysenter
          * hook (PR 212570), since we're not completely user library
          * independent (PR 206369).
@@ -752,8 +753,6 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
          * We could put in a custom exit stub and return routine and recover,
          * but we need to get library independent anyway so it's not worth it.
          */
-        ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER);
-        IF_X64(ASSERT_NOT_REACHED()); /* no sysenter support on x64 */
         /* PR 356503: clients using libraries that make syscalls can end up here */
         IF_CLIENT_INTERFACE(found_client_sysenter());
         ASSERT_BUG_NUM(206369, false &&

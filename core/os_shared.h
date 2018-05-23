@@ -57,7 +57,12 @@ void os_tls_init(void);
  * thread; if other_thread then that may not be possible.
  */
 void os_tls_exit(struct _local_state_t *local_state, bool other_thread);
-void os_thread_init(dcontext_t *dcontext);
+/* os_data is passed through from dynamo_thread_init */
+void os_thread_init(dcontext_t *dcontext, void *os_data);
+/* Called right before giving up thread_initexit_lock, after other components
+ * like synch have initialized.
+ */
+void os_thread_init_finalize(dcontext_t *dcontext, void *os_data);
 void os_thread_exit(dcontext_t *dcontext, bool other_thread);
 
 /* must only be called for the executing thread */
@@ -151,11 +156,7 @@ thread_id_t get_thread_id(void);
 process_id_t get_process_id(void);
 void os_thread_yield(void);
 void os_thread_sleep(uint64 milliseconds);
-/* os_thread_suspend may return false in the case of a timeout. Note that the
- * timeout field is best effort and may be ignored by implementations (i.e.
- * Windows); setting timeout to 0 results in blocking forever.
- */
-bool os_thread_suspend(thread_record_t *tr, int timeout_ms);
+bool os_thread_suspend(thread_record_t *tr);
 bool os_thread_resume(thread_record_t *tr);
 bool os_thread_terminate(thread_record_t *tr);
 
@@ -176,8 +177,9 @@ void thread_set_self_mcontext(priv_mcontext_t *mc);
 bool
 os_thread_take_over_suspended_native(dcontext_t *dcontext);
 
-void
-os_thread_take_over_secondary(dcontext_t *dcontext);
+/* Initializes the executing thread by calling dynamo_thread_init(). */
+dcontext_t *
+os_thread_take_over_secondary(priv_mcontext_t *mc);
 
 /* Readies a known but currently-native thread for takeover.
  * Returns whether the thread is known.
