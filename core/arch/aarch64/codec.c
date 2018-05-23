@@ -940,9 +940,9 @@ encode_opnd_dq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 5, 30, opnd, enc_out);
 }
 
-/*
- * dq16_fsz16: D/Q register at bit position 16 with 4 bits only, for the FP16
- *             by-element encoding; bit 30 selects Q reg */
+/* dq16_fsz16: D/Q register at bit position 16 with 4 bits only, for the FP16
+ *             by-element encoding; bit 30 selects Q reg
+ */
 
 static inline bool
 decode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
