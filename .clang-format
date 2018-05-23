@@ -1,0 +1,20 @@
+---
+BasedOnStyle: WebKit
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: All
+AlwaysBreakAfterReturnType: All
+AlignAfterOpenBracket: Align
+AlignEscapedNewlines: Left
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBinaryOperators: None
+ColumnLimit: 90
+IndentWidth: 4
+IndentPPDirectives: None  # AfterHash uses global IndentWidth....
+PointerAlignment: Right
+CommentPragmas: '^ clang-format: '
+SortIncludes: false
+MaxEmptyLinesToKeep: 1
+---
