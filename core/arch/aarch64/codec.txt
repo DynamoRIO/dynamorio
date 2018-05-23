@@ -131,8 +131,8 @@
 ---------?x---------x-----------  vindex_SD  # Index for vector with single or double
                                              # elements, depending on bit 22 (sz)
 ?--------xx---------------------  imm16sh    # shift for MOVK/... (immediate); checks 31
---------xx----------------------  isz        # element size of a vector register
-                                             # (byte (0), half (1), single (2), double (3))
+--------xx----------------------  isz        # element size of a vector register (
+                                             # byte (0), half (1), single (2), double (3))
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
 ??---?--xxxxxxxxxxxxxxxxxxx-----  memlit     # load literal, gets size from 31:30 and 26

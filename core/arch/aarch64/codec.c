@@ -1966,6 +1966,25 @@ encode_opnd_s10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(10, 2, opnd, enc_out);
 }
 
+/* isz: Vector element width for SIMD instructions. */
+
+static inline bool
+decode_opnd_isz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = enc >> 22 & 3;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_isz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (opnd_get_immed_int(opnd) < ISZ_BYTE || opnd_get_immed_int(opnd) > ISZ_DOUBLE)
+        return false;
+    *enc_out = opnd_get_immed_int(opnd) << 22;
+    return true;
+}
+
 /* shift3: shift type for ADD/SUB: LSL, LSR or ASR */
 
 static inline bool
@@ -2824,25 +2843,6 @@ encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     if (opnd_get_immed_int(opnd) == FSZ_HALF)
         return true;
     return false;
-}
-
-/* isz: Vector element width for SIMD instructions. */
-static inline bool
-decode_opnd_isz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint bits = enc >> 22 & 3;
-    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
-    return true;
-}
-
-static inline bool
-encode_opnd_isz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    if (opnd_get_immed_int(opnd) < 0 || opnd_get_immed_int(opnd) > 3) {
-        return false;
-    }
-    *enc_out = opnd_get_immed_int(opnd) << 22;
-    return true;
 }
 
 /******************************************************************************/
