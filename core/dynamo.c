@@ -141,6 +141,7 @@ bool    post_execve = false;
 byte *  initstack;
 
 event_t dr_app_started;
+event_t dr_attach_finished;
 
 #ifdef WINDOWS
 /* PR203701: separate stack for error reporting when the dstack is exhausted */
@@ -649,6 +650,8 @@ dynamorio_app_init(void)
 #endif
         jitopt_init();
 
+        dr_attach_finished = create_broadcast_event();
+
         /* New client threads rely on dr_app_started being initialized, so do
          * that before initializing clients.
          */
@@ -1016,6 +1019,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     dynamo_exited_and_cleaned = true;
 
     destroy_event(dr_app_started);
+    destroy_event(dr_attach_finished);
 
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
@@ -2850,7 +2854,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 #endif
 }
 
-#define MAX_TAKE_OVER_ATTEMPTS 4
+#define MAX_TAKE_OVER_ATTEMPTS 8
 
 /* Mark this thread as under DR, and take over other threads in the current process.
  */
@@ -2879,6 +2883,8 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
             bb_lock_start = true;
     } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
     os_process_under_dynamorio_complete(dcontext);
+    /* End the barrier to new threads. */
+    signal_event(dr_attach_finished);
 
     if (found_threads) {
         REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_TAKE_OVER_THREADS,
