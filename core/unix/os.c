@@ -99,6 +99,11 @@ struct compat_rlimit {
     uint rlim_max;
 };
 #endif
+#ifdef MACOS
+typedef struct rlimit rlimit64_t;
+#else
+typedef struct rlimit64 rlimit64_t;
+#endif
 
 #ifdef LINUX
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
@@ -331,7 +336,7 @@ DR_API file_t our_stderr = STDERR_FILENO;
 DR_API file_t our_stdin = STDIN_FILENO;
 
 /* we steal fds from the app */
-static struct rlimit64 app_rlimit_nofile; /* cur rlimit set by app */
+static rlimit64_t app_rlimit_nofile; /* cur rlimit set by app */
 static int min_dr_fd;
 
 /* we store all DR files so we can prevent the app from changing them,
@@ -2181,8 +2186,9 @@ os_tls_cfree(uint offset, uint num_slots)
 }
 #endif
 
+/* os_data is a clone_record_t for signal_thread_inherit */
 void
-os_thread_init(dcontext_t *dcontext)
+os_thread_init(dcontext_t *dcontext, void *os_data)
 {
     os_local_state_t *os_tls = get_os_tls();
     os_thread_data_t *ostd = (os_thread_data_t *)
@@ -2208,7 +2214,7 @@ os_thread_init(dcontext_t *dcontext)
 
     ASSIGN_INIT_LOCK_FREE(ostd->suspend_lock, suspend_lock);
 
-    signal_thread_init(dcontext);
+    signal_thread_init(dcontext, os_data);
 
     /* i#107, initialize thread area information,
      * the value was first get in os_tls_init and stored in os_tls
@@ -2246,6 +2252,17 @@ os_thread_init(dcontext_t *dcontext)
     dcontext->thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
     LOG(THREAD, LOG_ALL, 1, "Mach thread port: %d\n", dcontext->thread_port);
 #endif
+}
+
+/* os_data is a clone_record_t for signal_thread_inherit */
+void
+os_thread_init_finalize(dcontext_t *dcontext, void *os_data)
+{
+    /* We do not want to record pending signals until at least synch_thread_init()
+     * is finished so we delay until here: but we need this inside the
+     * thread_initexit_lock (i#2779).
+     */
+    signal_thread_inherit(dcontext, os_data);
 }
 
 void
@@ -3449,7 +3466,7 @@ os_thread_sleep(uint64 milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr, int timeout_ms)
+os_thread_suspend(thread_record_t *tr)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
@@ -3483,16 +3500,17 @@ os_thread_suspend(thread_record_t *tr, int timeout_ms)
      */
     mutex_unlock(&ostd->suspend_lock);
     while (ksynch_get_value(&ostd->suspended) == 0) {
-        /* For Linux, waits only if the suspended flag is not set as 1. Other
-         * than a timeout value, the return value doesn't matter because the
-         * flag will be re-checked.
+        /* For Linux, waits only if the suspended flag is not set as 1. Return value
+         * doesn't matter because the flag will be re-checked.
          */
-        if (ksynch_wait(&ostd->suspended, 0, timeout_ms) == -ETIMEDOUT) {
-            mutex_lock(&ostd->suspend_lock);
-            ASSERT(ostd->suspend_count > 0);
-            ostd->suspend_count--;
-            mutex_unlock(&ostd->suspend_lock);
-            return false;
+        /* We time out and assert in debug build to provide better diagnostics than a
+         * silent hang.  We can't safely return false b/c the synch model here
+         * assumes there will not be a retry until the target reaches the suspend
+         * point.  Xref i#2779.
+         */
+#define SUSPEND_DEBUG_TIMEOUT_MS 5000
+        if (ksynch_wait(&ostd->suspended, 0, SUSPEND_DEBUG_TIMEOUT_MS) == -ETIMEDOUT) {
+            ASSERT_CURIOSITY(false && "failed to suspend thread in 5s");
         }
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
@@ -3684,14 +3702,14 @@ client_thread_run(void)
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
     IF_DEBUG(int rc = )
-        dynamo_thread_init(get_clone_record_dstack(crec), NULL, true);
+        dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n",
         get_thread_id());
     /* We stored the func and args in particular clone record fields */
-    func = (void (*)(void *param)) signal_thread_inherit(dcontext, crec);
+    func = (void (*)(void *param)) dcontext->next_tag;
     /* Reset any inherited mask (i#2337). */
     signal_swap_mask(dcontext, false/*to DR*/);
 
@@ -7548,7 +7566,7 @@ pre_system_call(dcontext_t *dcontext)
             (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id()) &&
             dcontext->sys_param1 == RLIMIT_NOFILE &&
             dcontext->sys_param2 != (reg_t)NULL && DYNAMO_OPTION(steal_fds) > 0) {
-            struct rlimit64 rlim;
+            rlimit64_t rlim;
             if (!safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim)) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
                 set_failure_return_val(dcontext, EFAULT);
@@ -8653,7 +8671,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_prlimit64: {
          int resource = dcontext->sys_param1;
-         struct rlimit64 *rlim = (struct rlimit64 *) dcontext->sys_param3;
+         rlimit64_t *rlim = (rlimit64_t *) dcontext->sys_param3;
          if (success && resource == RLIMIT_NOFILE && rlim != NULL &&
              /* XXX: xref pid discussion in pre_system_call SYS_prlimit64 */
              (dcontext->sys_param0 == 0 || dcontext->sys_param0 == get_process_id())) {
@@ -10092,12 +10110,8 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
             os_thread_signal_taken_over();
             return false;
         }
-        IF_DEBUG(int r =)
-            dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
-        ASSERT(r == SUCCESS);
-        dcontext = get_thread_private_dcontext();
+        dcontext = init_thread_with_shared_siginfo(mc, takeover_dcontext);
         ASSERT(dcontext != NULL);
-        share_siginfo_after_take_over(dcontext, takeover_dcontext);
     } else {
         /* Re-takeover a thread that we let go native */
         dcontext = get_thread_private_dcontext();
@@ -10148,12 +10162,13 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
 /* Called for os-specific takeover of a secondary thread from the one
  * that called dr_app_setup().
  */
-void
-os_thread_take_over_secondary(dcontext_t *dcontext)
+dcontext_t *
+os_thread_take_over_secondary(priv_mcontext_t *mc)
 {
     thread_record_t **list;
     int num_threads;
     int i;
+    dcontext_t *dcontext;
     /* We want to share with the thread that called dr_app_setup. */
     mutex_lock(&thread_initexit_lock);
     get_list_of_threads(&list, &num_threads);
@@ -10164,13 +10179,14 @@ os_thread_take_over_secondary(dcontext_t *dcontext)
             break;
     }
     ASSERT(i < num_threads);
-    ASSERT(list[i]->dcontext != dcontext);
+    ASSERT(list[i]->id != get_sys_thread_id());
     /* Assuming pthreads, prepare signal_field for sharing. */
     handle_clone(list[i]->dcontext, PTHREAD_CLONE_FLAGS);
-    share_siginfo_after_take_over(dcontext, list[i]->dcontext);
+    dcontext = init_thread_with_shared_siginfo(mc, list[i]->dcontext);
     mutex_unlock(&thread_initexit_lock);
     global_heap_free(list, num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
+    return dcontext;
 }
 
 /***************************************************************************/

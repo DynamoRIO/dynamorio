@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "include/syscall.h"
+#include "include/siginfo.h"
 
 #include "globals_shared.h"
 #ifndef NOT_DYNAMORIO_CORE
@@ -48,7 +49,7 @@
 
 /* shared with tools/nudgeunix.c */
 bool
-create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+create_nudge_signal_payload(kernel_siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg)
 {
     nudge_arg_t *arg;
@@ -77,7 +78,7 @@ bool
 send_nudge_signal(process_id_t pid, uint action_mask,
                   client_id_t client_id, uint64 client_arg)
 {
-    siginfo_t info;
+    kernel_siginfo_t info;
     int res;
     if (!create_nudge_signal_payload(&info, action_mask, client_id, client_arg))
         return false;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -140,7 +140,7 @@ signal_frame_extra_size(bool include_alignment)
 }
 
 static void
-vfp_query_signal_handler(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
+vfp_query_signal_handler(int sig, kernel_siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 {
     uint offset = sizeof(kernel_iwmmxt_sigframe_t);
     char *coproc = (char *)&ucxt->coproc;

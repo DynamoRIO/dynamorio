@@ -281,7 +281,7 @@ DllMainThreadAttach()
          */
         LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
             "DllMain: initializing new thread "TIDFMT"\n", get_thread_id());
-        dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false));
+        dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
     }
 }
 #endif
@@ -1603,8 +1603,9 @@ os_tls_cfree(uint offset, uint num_slots)
 }
 #endif
 
+/* os_data is unused */
 void
-os_thread_init(dcontext_t *dcontext)
+os_thread_init(dcontext_t *dcontext, void *os_data)
 {
     NTSTATUS res;
     DEBUG_DECLARE(bool ok;)
@@ -1628,6 +1629,13 @@ os_thread_init(dcontext_t *dcontext)
             dcontext->win32_start_addr);
     }
     aslr_thread_init(dcontext);
+}
+
+/* os_data is unused */
+void
+os_thread_init_finalize(dcontext_t *dcontext, void *os_data)
+{
+    /* Nothing. */
 }
 
 void
@@ -2519,10 +2527,13 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
 /* Called for os-specific takeover of a secondary thread from the one
  * that called dr_app_setup().
  */
-void
-os_thread_take_over_secondary(dcontext_t *dcontext)
+dcontext_t *
+os_thread_take_over_secondary(priv_mcontext_t *mc)
 {
-    /* Nothing yet. */
+    IF_DEBUG(int r =)
+        dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
+    ASSERT(r == SUCCESS);
+    return get_thread_private_dcontext();
 }
 
 bool
@@ -2662,7 +2673,7 @@ thread_attach_setup(priv_mcontext_t *mc)
      * already initialized.
      */
     if (!is_thread_initialized()) {
-        int rc = dynamo_thread_init(NULL, mc _IF_CLIENT_INTERFACE(false));
+        int rc = dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
         ASSERT(rc == SUCCESS);
     }
     dcontext = get_thread_private_dcontext();
@@ -4933,7 +4944,7 @@ os_timeout(int time_in_milliseconds)
 }
 
 bool
-os_thread_suspend(thread_record_t *tr, int timeout_ms)
+os_thread_suspend(thread_record_t *tr)
 {
     return nt_thread_suspend(tr->handle, NULL);
 }
@@ -7707,7 +7718,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
                         nt_get_handle_access_rights(tr->handle);
                     TEB *teb_addr = get_teb(tr->handle);
                     DEBUG_DECLARE(bool res = )
-                        os_thread_suspend(tr, 0);
+                        os_thread_suspend(tr);
                     /* we can't assert here (could infinite loop) */
                     DODEBUG({ suspend_failures = suspend_failures || !res; });
                     if (thread_get_context(tr, &cxt)) {
