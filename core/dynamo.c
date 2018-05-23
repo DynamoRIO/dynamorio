@@ -619,11 +619,7 @@ dynamorio_app_init(void)
         /* i#117/PR 395156: it'd be nice to have mc here but would
          * require changing start/stop API
          */
-        dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false));
-#ifdef UNIX
-        /* i#27: we need to special-case the 1st thread */
-        signal_thread_inherit(get_thread_private_dcontext(), NULL);
-#endif
+        dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
 #ifndef WINDOWS
         /* i#2751: we need TLS to be set up to relocate and call init funcs. */
         loader_init();
@@ -2185,7 +2181,7 @@ DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
  * increased uninit_thread_count.
  */
 int
-dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
+dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data
                    _IF_CLIENT_INTERFACE(bool client_thread))
 {
     dcontext_t *dcontext;
@@ -2337,7 +2333,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
 #ifdef KSTATS
     kstat_thread_init(dcontext);
 #endif
-    os_thread_init(dcontext);
+    os_thread_init(dcontext, os_data);
     arch_thread_init(dcontext);
     synch_thread_init(dcontext);
 
@@ -2348,6 +2344,9 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
     fcache_thread_init(dcontext);
     link_thread_init(dcontext);
     fragment_thread_init(dcontext);
+
+    /* OS thread init after synch_thread_init and other setup can handle signals, etc. */
+    os_thread_init_finalize(dcontext, os_data);
 
     /* This lock has served its purposes: A) a barrier to thread creation for those
      * iterating over threads, B) mutex for add_thread, and C) mutex for synch_field
@@ -3142,7 +3141,7 @@ dynamorio_unprotect(void)
                     for (tr = all_threads[i]; tr; tr = tr->next) {
                         if (tr->under_dynamo_control) {
                             DEBUG_DECLARE(bool ok =)
-                                os_thread_suspend(all_threads[i], 0);
+                                os_thread_suspend(all_threads[i]);
                             ASSERT(ok);
                             protect_info->num_threads_suspended++;
                         }
