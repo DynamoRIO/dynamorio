@@ -43,6 +43,30 @@
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
+ * 8 bit vector element width. See \ref sec_IR_AArch64.
+ */
+#define ISZ_BYTE 0
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * 16 bit vector element width. See \ref sec_IR_AArch64.
+ */
+#define ISZ_HALF 1
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * 32 bit vector element width. See \ref sec_IR_AArch64.
+ */
+#define ISZ_SINGLE 2
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
+ * 64 bit vector element width. See \ref sec_IR_AArch64.
+ */
+#define ISZ_DOUBLE 3
+
+/**
+ * Used in an additional immediate source operand to a vector operation, denotes
  * half-precision floating point vector elements. See \ref sec_IR_AArch64.
  */
 #define FSZ_HALF 1
