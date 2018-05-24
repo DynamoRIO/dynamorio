@@ -2989,9 +2989,12 @@ fixup_siginfo(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     if (sig != SIGILL && sig != SIGTRAP && sig != SIGFPE)
         return; /* nothing to do */
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-    frame->info.si_addr = (void*) sc->SC_XIP;
+    kernel_siginfo_t *siginfo = SIGINFO_FROM_RT_FRAME(frame);
+    LOG(THREAD, LOG_ASYNCH, 3, "%s: updating si_addr from "PFX" to "PFX"\n",
+        __FUNCTION__, siginfo->si_addr, sc->SC_XIP);
+    siginfo->si_addr = (void*) sc->SC_XIP;
 #ifdef LINUX
-    frame->info.si_addr_lsb = sc->SC_XIP & 0x1;
+    siginfo->si_addr_lsb = sc->SC_XIP & 0x1;
 #endif
 }
 
