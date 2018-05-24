@@ -1979,9 +1979,10 @@ decode_opnd_isz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_isz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) < ISZ_BYTE || opnd_get_immed_int(opnd) > ISZ_DOUBLE)
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if ( val < 0 || val > 3)
         return false;
-    *enc_out = opnd_get_immed_int(opnd) << 22;
+    *enc_out = val << 22;
     return true;
 }
 

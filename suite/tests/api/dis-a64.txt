@@ -1564,12 +1564,12 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 
 # ADD (vector)
 4e2c856a : add v10.16b, v11.16b, v12.16b : add    %q11 %q12 $0x00 -> %q10
-0e2584a5 : add v5.8b, v5.8b, v5.8b : add    %d5 %d5 $0x00 -> %d5
-4e7f87c3 : add v3.8h, v30.8h, v31.8h : add    %q30 %q31 $0x01 -> %q3
-0e7f87c3 : add v3.4h, v30.4h, v31.4h : add    %d30 %d31 $0x01 -> %d3
-4ebd8633 : add v19.4s, v17.4s, v29.4s : add    %q17 %q29 $0x02 -> %q19
-0ebd8633 : add v19.2s, v17.2s, v29.2s : add    %d17 %d29 $0x02 -> %d19
-4ee9852d : add v13.2d, v9.2d, v9.2d : add    %q9 %q9 $0x03 -> %q13
+0e2584a5 : add v5.8b, v5.8b, v5.8b       : add    %d5 %d5 $0x00 -> %d5
+4e7f87c3 : add v3.8h, v30.8h, v31.8h     : add    %q30 %q31 $0x01 -> %q3
+0e7f87c3 : add v3.4h, v30.4h, v31.4h     : add    %d30 %d31 $0x01 -> %d3
+4ebd8633 : add v19.4s, v17.4s, v29.4s    : add    %q17 %q29 $0x02 -> %q19
+0ebd8633 : add v19.2s, v17.2s, v29.2s    : add    %d17 %d29 $0x02 -> %d19
+4ee9852d : add v13.2d, v9.2d, v9.2d      : add    %q9 %q9 $0x03 -> %q13
 
 # FMOV (general) GPR to FP reg
 1ee70220 : fmov  h0, w17 : fmov   %w17 -> %h0
