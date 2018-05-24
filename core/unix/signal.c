@@ -4123,7 +4123,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * back to dispatch and don't need to receive it now (which complicates
          * post-syscall handling)
          */
-    } else if (thread_synch_check_state(dcontext, THREAD_SYNCH_NO_LOCKS)) {
+    } else if (thread_synch_check_state(dcontext, THREAD_SYNCH_NO_LOCKS) &&
+               /* Avoid grabbing locks for xl8 while in a suspended state (i#3026). */
+               ksynch_get_value(&ostd->suspended) == 0) {
         /* The signal interrupted DR or the client but it's at a safe spot so
          * deliver it now.
          */
