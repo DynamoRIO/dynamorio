@@ -32,6 +32,11 @@
 
 notifications:
   email:
+    # This overrides the default of sending to the committer and author.
+    # Temporarily sending to bruening too to help diagnose email problems.
+    recipients:
+      - dynamorio-devs@googlegroups.com
+      - bruening@google.com
     on_success: always
     on_failure: always
 
