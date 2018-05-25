@@ -32,10 +32,7 @@
 
 notifications:
   email:
-    # This overrides the default of sending to the committer and author.
-    recipients:
-      - dynamorio-devs@googlegroups.com
-    on_success: change
+    on_success: always
     on_failure: always
 
 # Don't run Travis on pushes to feature branches: pull requests cover those.
