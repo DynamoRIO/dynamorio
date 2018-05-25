@@ -94,9 +94,13 @@ def generate_decoder(patterns, opndsettab, opndtab):
 
     # Recursive function to generate nested conditionals in main decoder.
     def gen(c, pats, depth):
+        def reorder_key(t):
+            f, v, m, t = t
+            return (m, t, f, v)
+
         indent = "    " * depth
         if len(pats) < 4:
-            for (f, v, m, t) in sorted(pats, key = lambda (f, v, m, t): (m, t, f, v)):
+            for (f, v, m, t) in sorted(pats, key = reorder_key):
                 c.append('%sif ((enc & 0x%08x) == 0x%08x)' %
                          (indent, ((1 << N) - 1) & ~v, f))
                 c.append('%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
@@ -214,9 +218,14 @@ def generate_encoder(patterns, opndsettab, opndtab):
           '    uint enc;',
           '    (void)enc;',
           '    switch (instr->opcode) {']
+
+    def reorder_key(t):
+        b, m, mn, f = t
+        return (mn, f, b, m)
+
     for mn in sorted(case):
         c.append('    case OP_%s:' % mn)
-        pats = sorted(case[mn], key = lambda (b, m, mn, f): (mn, f, b, m))
+        pats = sorted(case[mn], key = reorder_key)
         pat1 = pats.pop()
         for p in pats:
             (b, m, mn, f) = p
@@ -353,7 +362,7 @@ def read_file(path):
         raise Exception('Cannot parse line: %s' % line)
     return (patterns, opndtab)
 
-def pattern_to_str((opcode_bits, opnd_bits, opcode, opndset)):
+def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
     p = ''
     for i in range(N - 1, -1, -1):
         p += 'x' if (opnd_bits >> i & 1) else '%d' % (opcode_bits >> i & 1)
@@ -373,7 +382,7 @@ def consistency_check(patterns, opndtab):
             for ot in dsts + srcs:
                 if not ot in opndtab:
                     raise Exception('Undefined opndtype %s in:\n%s' %
-                                    (ot, pattern_to_str(p)))
+                                    (ot, pattern_to_str(*p)))
                 bits &= ~opndtab[ot].gen
             if bits != 0:
                 raise Exception('Unhandled bits:\n%32s in:\n%s' %
