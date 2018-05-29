@@ -28,7 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -40,6 +40,17 @@ else ()
   set(os_name "unix")
   # Ditto.
   add_definitions(-DUNIX)
+endif ()
+
+# GCC 6+ has a warning for an ABI change due to a bug introduced in GCC 5:
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=77728. As we are building all of
+# drcachesim and not linking to other C++ code, we can just ignore it.
+if (ARM AND CMAKE_COMPILER_IS_GNUCC)
+  include(CheckCXXCompilerFlag)
+  CHECK_CXX_COMPILER_FLAG(-Wno-psabi GCC_HAS_NO_PSABI)
+  if (GCC_HAS_NO_PSABI)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-psabi")
+  endif (GCC_HAS_NO_PSABI)
 endif ()
 
 # i#2277: we use zlib if available to read compressed trace files.
