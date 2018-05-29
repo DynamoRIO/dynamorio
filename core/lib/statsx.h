@@ -280,7 +280,7 @@ under -rstats_to_stderr.
               num_shared_ibt_entries_examined)
     STATS_DEF("Flush queue marked nonempty: relink shared_sys",
               num_flushq_relink_syscall)
-    STATS_DEF("Flush queue marked nonempty: relink special ibl xfer",
+    STATS_DEF("Flush queue marked nonempty: relink ibl xfer",
               num_flushq_relink_special_ibl_xfer)
     STATS_DEF("Flush queue marked nonempty, yet empty", num_flushq_actually_empty)
     STATS_DEF("Fragments added to lazy deletion list", num_lazy_deletion_appends)
