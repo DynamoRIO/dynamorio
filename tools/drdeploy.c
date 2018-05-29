@@ -1676,9 +1676,10 @@ _tmain(int argc, TCHAR *targv[])
     }
 # ifdef UNIX
     /* i#1676: detect whether under gdb */
-    _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "/proc/%d/exe", getppid());
-    NULL_TERMINATE_BUFFER(buf);
-    i = readlink(buf, buf, BUFFER_SIZE_ELEMENTS(buf));
+    char path_buf[MAXIMUM_PATH];
+    _snprintf(path_buf, BUFFER_SIZE_ELEMENTS(path_buf), "/proc/%d/exe", getppid());
+    NULL_TERMINATE_BUFFER(path_buf);
+    i = readlink(path_buf, buf, BUFFER_SIZE_ELEMENTS(buf));
     if (i > 0) {
         if (i < BUFFER_SIZE_ELEMENTS(buf))
             buf[i] = '\0';
