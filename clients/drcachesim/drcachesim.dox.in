@@ -625,6 +625,24 @@ instruction information to go along with each load and store, while cache
 simulators can ignore these "no-fetch" entries and avoid incorrectly
 inflating instruction fetch statistics.
 
+Offline traces guarantee that a branch target instruction entry in a
+trace must immediately follow the branch instruction with no intervening
+thread switch.  This allows a core simulator to identify the target of a
+branch by looking at the subsequent trace entry.
+
+Traces include scheduling markers providing the timestamp and hardware
+thread identifier on each thread transition, allowing a simulator to more
+closely match the actual hardware if so desired.
+
+Traces also include markers indicating disruptions in user mode control
+flow such as signal handler entry and exit.
+
+A final feature that aids core simulators is the pair of interfaces
+raw2trace_t::do_module_parsing_and_mapping() and
+raw2trace_t::find_mapped_trace_address(), which facilitate reading the raw
+bytes for each instruction in order to obtain the opcode and full operand
+information.
+
 ****************************************************************************
 \section sec_drcachesim_extend Extending the Simulator
 
