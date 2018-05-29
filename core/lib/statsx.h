@@ -282,7 +282,7 @@ under -rstats_to_stderr.
               num_flushq_relink_syscall)
     STATS_DEF("Flush queue nonempty: relink special ibl xfer",
               num_flushq_relink_special_ibl_xfer)
-    STATS_DEF("Flush queue nonempty, yet empty", num_flushq_actually_empty)
+    STATS_DEF("Flush queue marked nonempty, yet empty", num_flushq_actually_empty)
     STATS_DEF("Fragments added to lazy deletion list", num_lazy_deletion_appends)
     STATS_DEF("Fragments freed from lazy deletion list at exit",
               num_lazy_deletion_frees_atexit)
