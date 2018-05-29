@@ -55,7 +55,8 @@ caching_device_t::~caching_device_t()
 bool
 caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
                        caching_device_t *parent_, caching_device_stats_t *stats_,
-                       prefetcher_t *prefetcher_)
+                       prefetcher_t *prefetcher_, bool inclusive_,
+                       const std::vector<caching_device_t*>& children_)
 {
     if (!IS_POWER_OF_2(associativity_) ||
         !IS_POWER_OF_2(block_size_) ||
@@ -85,6 +86,10 @@ caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
     init_blocks();
 
     last_tag = TAG_INVALID; // sentinel
+
+    inclusive = inclusive_;
+    children = children_;
+
     return true;
 }
 
@@ -147,6 +152,11 @@ caching_device_t::request(const memref_t &memref_in)
             // the block loaded count.
             if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
                 loaded_blocks++;
+            } else if (inclusive && !children.empty()) {
+                for (auto& child : children) {
+                    child->invalidate(
+                        get_caching_device_block(block_idx, way).tag);
+                }
             }
             get_caching_device_block(block_idx, way).tag = tag;
         }
@@ -199,4 +209,25 @@ caching_device_t::replace_which_way(int block_idx)
     // Clear the counter for LFU.
     get_caching_device_block(block_idx, min_way).counter = 0;
     return min_way;
+}
+
+void
+caching_device_t::invalidate(const addr_t tag)
+{
+    int block_idx = compute_block_idx(tag);
+
+    for (int way = 0; way < associativity; ++way) {
+        auto& cache_block = get_caching_device_block(block_idx, way);
+        if (cache_block.tag == tag) {
+            cache_block.tag = TAG_INVALID;
+            cache_block.counter = 0;
+            stats->invalidate();
+            if (inclusive && !children.empty()) {
+                for (auto& child : children) {
+                    child->invalidate(tag);
+                }
+            }
+            break;
+        }
+    }
 }

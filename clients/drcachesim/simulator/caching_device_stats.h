@@ -64,6 +64,9 @@ class caching_device_stats_t
 
     virtual bool operator!() { return !success; }
 
+    // Process invalidations due to cache inclusions.
+    virtual void invalidate();
+
  protected:
     bool success;
 
@@ -78,6 +81,8 @@ class caching_device_stats_t
     int_least64_t num_hits;
     int_least64_t num_misses;
     int_least64_t num_child_hits;
+
+    int_least64_t num_incl_invalidates;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.

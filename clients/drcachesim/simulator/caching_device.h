@@ -36,6 +36,8 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <vector>
+
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
@@ -55,9 +57,12 @@ class caching_device_t
     caching_device_t();
     virtual bool init(int associativity, int block_size, int num_blocks,
                       caching_device_t *parent, caching_device_stats_t *stats,
-                      prefetcher_t *prefetcher = nullptr);
+                      prefetcher_t *prefetcher = nullptr,
+                      bool inclusive = false,
+                      const std::vector<caching_device_t*>& children = {});
     virtual ~caching_device_t();
     virtual void request(const memref_t &memref);
+    virtual void invalidate(const addr_t tag);
 
     caching_device_stats_t *get_stats() const { return stats; }
     void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
@@ -86,7 +91,14 @@ class caching_device_t
     int num_blocks;
     // Current valid blocks in the cache
     int loaded_blocks;
+
+    // Pointers to the caching devices parent and children devices.
     caching_device_t *parent;
+    std::vector<caching_device_t*> children;
+
+    // If true, this device is inclusive of its children.
+    bool inclusive;
+
     // This should be an array of caching_device_block_t pointers, otherwise
     // an extended block class which has its own member variables cannot be indexed
     // correctly by base class pointers.

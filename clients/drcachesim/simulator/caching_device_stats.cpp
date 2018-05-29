@@ -126,6 +126,8 @@ caching_device_stats_t::print_counts(std::string prefix)
         std::setw(20) << std::right << num_hits << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" <<
         std::setw(20) << std::right << num_misses << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Invalidations:" <<
+        std::setw(20) << std::right << num_incl_invalidates << std::endl;
 }
 
 void
@@ -176,4 +178,9 @@ caching_device_stats_t::reset()
     num_hits = 0;
     num_misses = 0;
     num_child_hits = 0;
+    num_incl_invalidates = 0;
+}
+
+void caching_device_stats_t::invalidate() {
+    num_incl_invalidates++;
 }
