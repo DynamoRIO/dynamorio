@@ -92,7 +92,7 @@ class caching_device_t
     // Current valid blocks in the cache
     int loaded_blocks;
 
-    // Pointers to the caching devices parent and children devices.
+    // Pointers to the caching device's parent and children devices.
     caching_device_t *parent;
     std::vector<caching_device_t*> children;
 
