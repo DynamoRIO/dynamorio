@@ -82,7 +82,7 @@ class caching_device_stats_t
     int_least64_t num_misses;
     int_least64_t num_child_hits;
 
-    int_least64_t num_incl_invalidates;
+    int_least64_t num_inclusive_invalidates;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
