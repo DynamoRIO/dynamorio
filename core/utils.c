@@ -2718,7 +2718,7 @@ create_log_dir(int dir_type)
         if (dir_type == BASE_DIR) {
             int retval;
             ASSERT(sizeof(basedir) == sizeof(old_basedir));
-            strncpy(old_basedir, basedir, sizeof(basedir));
+            strncpy(old_basedir, basedir, sizeof(old_basedir));
             /* option takes precedence over config var */
             if (IS_STRING_OPTION_EMPTY(logdir)) {
                 retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir,
