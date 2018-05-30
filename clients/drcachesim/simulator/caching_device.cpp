@@ -153,7 +153,7 @@ caching_device_t::request(const memref_t &memref_in)
             if (get_caching_device_block(block_idx, way).tag == TAG_INVALID) {
                 loaded_blocks++;
             } else if (inclusive && !children.empty()) {
-                for (auto& child : children) {
+                for (auto &child : children) {
                     child->invalidate(
                         get_caching_device_block(block_idx, way).tag);
                 }
@@ -217,13 +217,13 @@ caching_device_t::invalidate(const addr_t tag)
     int block_idx = compute_block_idx(tag);
 
     for (int way = 0; way < associativity; ++way) {
-        auto& cache_block = get_caching_device_block(block_idx, way);
+        auto &cache_block = get_caching_device_block(block_idx, way);
         if (cache_block.tag == tag) {
             cache_block.tag = TAG_INVALID;
             cache_block.counter = 0;
             stats->invalidate();
             if (inclusive && !children.empty()) {
-                for (auto& child : children) {
+                for (auto &child : children) {
                     child->invalidate(tag);
                 }
             }
