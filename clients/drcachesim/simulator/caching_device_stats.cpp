@@ -181,6 +181,8 @@ caching_device_stats_t::reset()
     num_inclusive_invalidates = 0;
 }
 
-void caching_device_stats_t::invalidate() {
+void
+caching_device_stats_t::invalidate()
+{
     num_inclusive_invalidates++;
 }
