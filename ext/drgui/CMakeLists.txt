@@ -91,7 +91,14 @@ else () # Qt5 and CMake 3.2+
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-overflow")
   endif (WIN32)
   add_executable(drgui ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
-  qt5_use_modules(drgui Widgets)
+
+  # qt5_use_modules has been dropped from newer QT versions.
+  if (Qt5Widgets_VERSION VERSION_LESS 5.11)
+    qt5_use_modules(drgui Widgets)
+  else()
+    target_link_libraries(drgui Qt5::Widgets)
+  endif()
+
   if (WIN32)
     # For version info we need global_shared.h included in resources.rc.
     include_directories(${PROJECT_SOURCE_DIR}/core/lib)
