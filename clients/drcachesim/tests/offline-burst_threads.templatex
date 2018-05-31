@@ -15,12 +15,12 @@ Cache simulation results:
 Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I stats:
     Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*.*
-    Invalidations:              *0
+    Misses:                     *[0-9,\.]*
+    Invalidations:              *0.*
   L1D stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*.*
-    Invalidations:              *0
+    Invalidations:              *0.*
 Core #1 \([0-9] traced CPU\(s\).*
 Core #2 \([0-9] traced CPU\(s\).*
 Core #3 \([0-9] traced CPU\(s\).*
