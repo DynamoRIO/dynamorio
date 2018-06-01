@@ -47,7 +47,9 @@ class cache_t : public caching_device_t
     // to describe a CPU cache.
     virtual bool init(int associativity, int line_size, int total_size,
                       caching_device_t *parent, caching_device_stats_t *stats,
-                      prefetcher_t *prefetcher = nullptr);
+                      prefetcher_t *prefetcher = nullptr,
+                      bool inclusive = false,
+                      const std::vector<caching_device_t*>& children = {});
     virtual void request(const memref_t &memref);
     virtual void flush(const memref_t &memref);
  protected:
