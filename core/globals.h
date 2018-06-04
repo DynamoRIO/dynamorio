@@ -293,6 +293,10 @@ typedef struct _dr_stats_t {
      *  or capacity reasons or thread-private caches.
      */
     uint64 basic_block_count;
+    /** Peak number of simultaneous threads under DR control. */
+    uint64 peak_num_threads;
+    /** Accumulated total number of threads encountered by DR. */
+    uint64 num_threads_created;
 } dr_stats_t;
 
 /* DR_API EXPORT END */
