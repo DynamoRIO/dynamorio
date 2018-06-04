@@ -127,6 +127,8 @@ main(int argc, const char *argv[])
         got_stats = dr_get_stats(&stats);
         assert(got_stats);
         assert(stats.basic_block_count > 0);
+        assert(stats.peak_num_threads > 0);
+        assert(stats.num_threads_created > 0);
 
         print("pre-DR start\n");
         dr_app_start();
