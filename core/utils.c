@@ -74,6 +74,7 @@
 #endif
 
 #include <stdarg.h> /* for varargs */
+#include <stddef.h> /* for offsetof */
 
 try_except_t global_try_except;
 
@@ -4650,6 +4651,9 @@ stats_get_snapshot(dr_stats_t *drstats)
         return false;
     CLIENT_ASSERT(drstats != NULL, "Expected non-null value for parameter drstats.");
     drstats->basic_block_count = GLOBAL_STAT(num_bbs);
-    drstats->peak_num_threads = GLOBAL_STAT(peak_num_threads);
+    if (drstats->size > offsetof(dr_stats_t, peak_num_threads)) {
+        drstats->peak_num_threads = GLOBAL_STAT(peak_num_threads);
+        drstats->num_threads_created = GLOBAL_STAT(num_threads_created);
+    }
     return true;
 }
