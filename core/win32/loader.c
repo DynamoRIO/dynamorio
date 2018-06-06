@@ -1538,6 +1538,9 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Core-Appinit-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Com-L1-1"))
+        return "ole32.dll";
     else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
         /* We've seen many different GDI-* */
         return "gdi32full.dll";
