@@ -53,6 +53,12 @@ test_vector(void)
     CHECK(ok, "drvector_init failed");
     CHECK(vec.entries == 0, "should start empty");
 
+    ok = drvector_delete(&vec);
+    CHECK(ok, "drvector_delete failed for empty vec");
+
+    ok = drvector_init(&vec, 0, false/*!synch*/, NULL);
+    CHECK(ok, "drvector_init failed");
+
     drvector_append(&vec, (void *)&vec);
     CHECK(vec.entries == 1, "should add 1");
     CHECK(drvector_get_entry(&vec, 0) == (void *)&vec, "entries not equal");
