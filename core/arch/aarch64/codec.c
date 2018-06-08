@@ -940,12 +940,12 @@ encode_opnd_dq5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_dq_plus(0, 5, 30, opnd, enc_out);
 }
 
-/* dq16_fsz16: D/Q register at bit position 16 with 4 bits only, for the FP16
+/* dq16_h_sz: D/Q register at bit position 16 with 4 bits only, for the FP16
  *             by-element encoding; bit 30 selects Q reg
  */
 
 static inline bool
-decode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_reg((TEST(1U << 30, enc) ? DR_REG_Q0 : DR_REG_D0) +
                             extract_uint(enc, 16, 4));
@@ -953,7 +953,7 @@ decode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_dq16_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     uint num;
     bool q;
@@ -1966,18 +1966,18 @@ encode_opnd_s10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(10, 2, opnd, enc_out);
 }
 
-/* isz: Vector element width for SIMD instructions. */
+/* bhsd_sz: Vector element width for SIMD instructions. */
 
 static inline bool
-decode_opnd_isz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_bhsd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     uint bits = enc >> 22 & 3;
-    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+   *opnd = opnd_create_immed_int(bits, OPSZ_2b);
     return true;
 }
 
 static inline bool
-encode_opnd_isz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_bhsd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     ptr_int_t val = opnd_get_immed_int(opnd);
     if ( val < 0 || val > 3)
@@ -1985,6 +1985,74 @@ encode_opnd_isz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     *enc_out = val << 22;
     return true;
 }
+
+/* bhs_sz: Vector element width for SIMD instructions. */
+
+static inline bool
+decode_opnd_bhs_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = enc >> 22 & 3;
+    if (bits != 0 && bits != 1 && bits != 2)
+        return false;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_bhs_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if ( val < 0 || val > 2)
+        return false;
+    *enc_out = val << 22;
+    return true;
+}
+
+/* hs_sz: Vector element width for SIMD instructions. */
+
+static inline bool
+decode_opnd_hs_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = enc >> 22 & 3;
+    if (bits != 1 && bits != 2)
+        return false;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_hs_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if ( val < 1 || val > 2)
+        return false;
+    *enc_out = val << 22;
+    return true;
+}
+
+/* b_sz: Vector element width for SIMD instructions. */
+
+static inline bool
+decode_opnd_b_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint bits = enc >> 22 & 3;
+    if (bits != 0)
+        return false;
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_b_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t val = opnd_get_immed_int(opnd);
+    if (val != 0)
+        return false;
+    *enc_out = val << 22;
+    return true;
+}
+
+
 
 /* shift3: shift type for ADD/SUB: LSL, LSR or ASR */
 
@@ -2795,53 +2863,53 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 
 /* Element size for vector floating point instructions. */
 
-/* fsz: Operand size for single and double precision encoding of floating point
+/* sd_sz: Operand size for single and double precision encoding of floating point
  * vector instructions. We need to convert the generic size operand to the right
- * encoding bits. It only supports FSZ_SINGLE and FSZ_DOUBLE.
+ * encoding bits. It only supports ISZ_SINGLE and ISZ_DOUBLE.
  */
 static inline bool
-decode_opnd_fsz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_sd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     if (((enc >> 22) & 1) == 0) {
-        *opnd = opnd_create_immed_int(FSZ_SINGLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(ISZ_SINGLE, OPSZ_2b);
         return true;
     }
     if (((enc >> 22) & 1) == 1) {
-        *opnd = opnd_create_immed_int(FSZ_DOUBLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(ISZ_DOUBLE, OPSZ_2b);
         return true;
     }
     return false;
 }
 
 static inline bool
-encode_opnd_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == FSZ_SINGLE) {
+    if (opnd_get_immed_int(opnd) == ISZ_SINGLE) {
         *enc_out = 0;
         return true;
     }
-    if (opnd_get_immed_int(opnd) == FSZ_DOUBLE) {
+    if (opnd_get_immed_int(opnd) == ISZ_DOUBLE) {
         *enc_out = 1 << 22;
         return true;
     }
     return false;
 }
 
-/* fsz16: Operand size for half precision encoding of floating point vector
+/* h_sz: Operand size for half precision encoding of floating point vector
  * instructions. We need to convert the generic size operand to the right
- * encoding bits. It only supports FSZ_HALF.
+ * encoding bits. It only supports ISZ_HALF.
  */
 static inline bool
-decode_opnd_fsz16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_immed_int(FSZ_HALF, OPSZ_2b);
+    *opnd = opnd_create_immed_int(ISZ_HALF, OPSZ_2b);
     return true;
 }
 
 static inline bool
-encode_opnd_fsz16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == FSZ_HALF)
+    if (opnd_get_immed_int(opnd) == ISZ_HALF)
         return true;
     return false;
 }
