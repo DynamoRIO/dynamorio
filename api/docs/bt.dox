@@ -333,7 +333,7 @@ passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
 
 DynamoRIO's IR representation of AArch64 NEON instructions uses an additional
 immediate source operand to denote the width of the vector elements. The immediates
-take the values #FSZ_HALF, #FSZ_DOUBLE, and #FSZ_SINGLE for floating point instructions.
+take the values #ISZ_BYTE, #ISZ_HALF, #ISZ_DOUBLE, and #ISZ_SINGLE for floating point instructions.
 This is different from AArch64 assembly, where the element width is part of the
 vector register operand. For example, floating point vector addition of two vectors
 with 2 double elements is represented in assembly by
