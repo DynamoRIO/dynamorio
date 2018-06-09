@@ -63,6 +63,11 @@ test_get_size()
         ASSERT(reg_get_size((reg_id_t) DR_REG_D0 + i) == OPSZ_8);
         ASSERT(reg_get_size((reg_id_t) DR_REG_Q0 + i) == OPSZ_16);
     }
+
+    // Check sizes of SVE regs.
+    for (uint i = 0; i < 32; i++) {
+        ASSERT(reg_get_size((reg_id_t) DR_REG_Z0 + i) == OPSZ_SCALABLE);
+    }
 }
 
 int
