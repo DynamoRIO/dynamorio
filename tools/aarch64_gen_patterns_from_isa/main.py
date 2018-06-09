@@ -42,16 +42,17 @@
 #               integer vector arithmetic and reductions.
 
 import os
+import re
 import random
 import xml.etree.ElementTree as ET
 from collections import namedtuple, OrderedDict
 
 import click
+import attr
 
 from generate_tests import generate_test_strings
 from generate_macros import get_macro_string
-from generate_codec import generate_pattern
-
+from generate_codec import generate_pattern, build_decode_str_bin_x
 
 
 def should_print_box(box):
@@ -67,36 +68,6 @@ def should_print_box(box):
     return should_print
 
 
-def parse_and_sanity_check_xml(file):
-    parsed = ET.parse(file)
-    root = parsed.getroot()
-    if root.tag != 'instructionsection':
-        # not all xml files are interesting, some are just navigation pages
-        # etc that we do not care about
-        print(
-            "skipping {} with root tag {}".format(
-                file,
-                root.tag))
-        return None
-    return (file, root)
-
-
-def find_files(root, only):
-    paths = []
-    for dirpath, _, files in os.walk(root):
-        for name in files:
-            if not name.endswith(".xml") or (only and only not in name):
-                continue
-            paths.append(os.path.join(dirpath, name))
-    return paths
-
-
-def load_all_files(path, only):
-    files = find_files(path, only)
-    print("found {} xml files".format(len(files)))
-    return sorted(e for e in map(parse_and_sanity_check_xml, files) if e)
-
-
 # Subset of types we can handle.
 DATATYPE_TO_REG = {
     'advsimd+single-and-double': 'dq',
@@ -110,30 +81,6 @@ DATATYPE_TO_REG = {
 
 def get_type_key(class_info):
     return class_info['instr-class'] + '+' + class_info.get('datatype', '')
-
-
-def operand_to_reg_class(box, class_info):
-    name = box.attrib['name']
-    if name == 'sz':
-        if class_info['datatype'] == 'single-and-double':
-            return 'fsz'
-        assert False
-    if name == 'size':
-        # New FP SIMD instructions added in 8.3 have 1 encoding group for
-        # half, single and double, with size being 2 bit wide.
-        if class_info['datatype'] in ('half', 'single-and-double', 'complex'):
-            return 'fsz2'
-        assert False
-
-    bit_start = int(box.attrib['hibit']) - int(box.attrib.get('width', 1)) + 1
-    prefix = ''
-    if name == 'rot':
-        prefix = 'rot'
-    else:
-        assert name.startswith('R')
-        prefix = DATATYPE_TO_REG[get_type_key(class_info)]
-
-    return '{}{}'.format(prefix, bit_start)
 
 
 def op_sort_key(op):
@@ -155,55 +102,113 @@ def op_sort_key(op):
     return name[-1]
 
 
-def get_inputs_outputs(boxes, class_info):
-    relevant_ops = [box for box in boxes
-                    if should_print_box(box) and box.attrib['name'] != 'Q'
-                    and box.attrib['name'] != 'type']
-    relevant_ops = sorted(relevant_ops, key=op_sort_key, reverse=True)
-
-    inputs = [operand_to_reg_class(op, class_info)
-              for op in relevant_ops if op.attrib.get('name', '') != 'Rd']
-
-    outputs = [operand_to_reg_class(op, class_info)
-               for op in relevant_ops if op.attrib.get('name', '') == 'Rd']
-
-    if class_info['reads_dst']:
-        assert len(outputs) == 1
-        inputs = outputs + inputs
-
-    if get_type_key(class_info) == 'advsimd+half':
-        assert 'fsz' not in inputs
-        inputs.append('fsz16')
-
-    return inputs, outputs
+def only_bhs(mnemonic):
+    return mnemonic in (
+        'shadd', 'srhadd', 'shsub', 'smax', 'smin', 'sabd', 'saba', 'mla',
+        'mul', 'smaxp', 'sminp', 'uhadd', 'urhadd', 'uhsub', 'umax', 'umin',
+        'uabd', 'uaba', 'mls', 'umaxp', 'uminp')
 
 
-def is_supported_instr_category(s):
-    """ Subset of instruction categories we can handle. """
-    return (s.startswith('aarch64/instrs/vector/arithmetic/binary/uniform/') or
-            s.startswith('aarch64/instrs/float/arithmetic/'))
+def only_hs(mnemonic):
+    return mnemonic in ('sqdmulh', 'sqrdmulh')
 
 
-def is_supported_encoding(mnemonic, psname, class_info):
-    return (mnemonic.lower() not in ('fcadd', 'fcmla') and
-            is_supported_instr_category(psname) and
-            get_type_key(class_info) in DATATYPE_TO_REG and
-            class_info.get('advsimd-type', '') in ('simd', ''))
+def only_b(mnemonic):
+    return mnemonic in ('pmul', )
 
 
-EncodingBase = namedtuple(
-    'Encoding', [
-        'mnemonic', 'inputs', 'outputs', 'class_info', 'boxes', 'arch_variant'])
+def only_h(mnemonic):
+    return mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2')
 
 
-class Encoding(EncodingBase):
+@attr.s
+class Encoding(object):
+    mnemonic = attr.ib()
+    class_info = attr.ib()
+    boxes = attr.ib()
+    known_boxes = attr.ib()
+    arch_variant = attr.ib()
+    class_id = attr.ib()
+    enctags = attr.ib()  # The contents of the 'Instruction Details' column.
+
+    def __attrs_post_init__(self):
+        boxes = self.get_named_boxes()
+        relevant_ops = [box for box in boxes
+                        if should_print_box(box) and box.attrib['name'] != 'Q'
+                        and box.attrib['name'] != 'type' and box.attrib['name'] != 'size']
+        relevant_ops = sorted(relevant_ops, key=op_sort_key, reverse=True)
+
+        m = re.match(r'.*_([HSD][HSD])_.*', self.enctags)
+        if m:
+            ot, it = m.group(1)[0].lower(), m.group(1)[1].lower()
+            self.outputs = [ot + '0']
+            self.inputs = [it + '5']
+            return
+
+        self.inputs = [
+            self.operand_to_reg_class(op) for op in relevant_ops if op.attrib.get(
+                'name', '') != 'Rd']
+
+        self.outputs = [self.operand_to_reg_class(
+            op) for op in relevant_ops if op.attrib.get('name', '') == 'Rd']
+
+        if self.reads_dst():
+            assert len(self.outputs) == 1
+            self.inputs = self.outputs + self.inputs
+
+        sz = self._get_size_op()
+        if sz:
+            self.inputs.append(sz)
+
+    def _get_size_op(self):
+        if self.class_id in ('asimdsamefp16',):
+            return 'h_sz'
+
+        if 'size' not in self.known_boxes:
+            return None
+        if self.mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2'):
+            return None
+        sz = self.known_boxes['size']
+        if sz and 'x' not in sz:
+            return None
+
+        sz = self.get_selected_sizes()
+        return sz + '_sz'
+
+    def get_selected_sizes(self):
+        if self.class_id in ('asimdsamefp16',):
+            return 'h'
+
+        if 'size' not in self.known_boxes:
+            assert False
+
+        if only_b(self.mnemonic):
+            return 'b'
+        if only_h(self.mnemonic):
+            return 'h'
+        if only_b(self.mnemonic):
+            return 'b'
+        if only_hs(self.mnemonic):
+            return 'hs'
+        if only_bhs(self.mnemonic):
+            return 'bhs'
+
+        sz = self.known_boxes['size']
+        if not sz:
+            return 'bhsd'
+        elif 'x' in sz:
+            assert sz in ('0x', '1x')
+            return 'sd'
+        else:
+            return 'b'
+
     def inputs_no_dst(self):
-        if self.class_info['reads_dst']:
+        if self.reads_dst():
             return self.inputs[1:]
         return self.inputs
 
     def reads_dst(self):
-        return self.class_info['reads_dst']
+        return self.mnemonic in ('fmla', 'fmls',)
 
     def type_as_str(self):
         TYPE_TO_STR = {
@@ -212,90 +217,103 @@ class Encoding(EncodingBase):
         }
         return TYPE_TO_STR[self.class_info['instr-class']]
 
+    def get_named_boxes(self):
+        return [
+            box for box in self.boxes if 'name' in box.attrib and not self.known_boxes.get(
+                box.attrib['name'], None)]
 
-def parse_encodings(class_, reads_dst):
-    """
-    Creates a list of Encoding objects for class_
-    """
-    class_info = {
-        'reads_dst': reads_dst,
-    }
+    def _get_inputs_outputs(self):
+        return inputs, outputs
 
-    parsed_encodings = []
+    def operand_to_reg_class(self, box):
+        name = box.attrib['name']
 
-    # Some instructions have multiple encodings (e.g. ADD (vector) has two).
-    encodings = class_.findall("./encoding")
-    for encoding in encodings:
-        mnemonic = encoding.find(
-            "./docvars/docvar[@key='mnemonic']").attrib['value']
+        bit_start = int(box.attrib['hibit']) - \
+            int(box.attrib.get('width', 1)) + 1
+        prefix = ''
+        if name == 'rot':
+            prefix = 'rot'
+        else:
+            assert name.startswith('R')
+            prefix = DATATYPE_TO_REG[get_type_key(self.class_info)]
 
-        regdiagram = class_.find("./regdiagram")
-        psname = regdiagram.get('psname')
+        return '{}{}'.format(prefix, bit_start)
 
-        # Gather some useful information about the encoding class.
-        docvars = encoding.findall("./docvars/docvar")
-        for dv in docvars:
-            attrs = dv.attrib
-            if attrs['key'] not in ('datatype', 'instr-class', 'advsimd-type'):
-                continue
-            class_info[attrs['key']] = attrs['value']
-        if 'datatype' not in class_info:
-            class_info['datatype'] = psname.split('/')[-1]
 
-        if not is_supported_encoding(mnemonic, psname, class_info):
-            parsed_encodings.append('# Missing encoding: {}'.format(psname))
+def parse_encoding(enc_row):
+    name = enc_row.find(
+        "./td[@class='iformname']").text.split(' ')[0].replace(',', '').lower()
+    if 'label' in enc_row.attrib:
+        name = enc_row.attrib['label'].lower()
+    bitfields = [f.text for f in enc_row.findall("./td[@class='bitfield']")]
+    return (name, bitfields, enc_row.attrib['encname'])
+
+
+def should_ignore(mnemonic):
+    return mnemonic in ('unallocated',)
+
+
+CLASS_INFOS = {
+    'asimdsame': {
+        'instr-class': 'advsimd',
+        'datatype': 'single-and-double',
+    },
+    'asimdsamefp16': {
+        'instr-class': 'advsimd',
+        'datatype': 'half',
+    },
+    'floatdp1': {
+        'instr-class': 'float',
+        'datatype': 'single',
+    },
+    'floatdp2': {
+        'instr-class': 'float',
+        'datatype': 'single',
+    },
+    'floatdp3': {
+        'instr-class': 'float',
+        'datatype': 'single',
+    },
+}
+
+
+def parse_instr_class(iclass):
+    class_id = iclass.attrib['id']
+    class_info = CLASS_INFOS[class_id]
+    instr_table = iclass.find('./instructiontable')
+
+    headers = [h.text for h in instr_table.findall(
+        "./thead/tr[@id='heading2']/th")]
+    encs_xml = [parse_encoding(row) for row in instr_table.findall(
+        "./tbody/tr[@class='instructiontable']")]
+
+    boxes = iclass.findall("./regdiagram/box")
+
+    seen = set()
+    encs = []
+    for (mnemonic, known_vals, label) in encs_xml:
+        known = {k: v for (k, v) in zip(headers, known_vals)}
+        if should_ignore(mnemonic) or mnemonic + known['opcode'] in seen:
             continue
 
-        boxes = class_.findall("./regdiagram/box")
-        # we make the general assumption that named boxes are "interesting" (although in
-        # some cases they are still fully specified or are simply constraints
-        # on the encoding)
-        named_boxes = [box for box in boxes if 'name' in box.attrib]
-        inputs, outputs = get_inputs_outputs(named_boxes, class_info)
+        # floatdp2 lists all operand widths (h, s, d) explicitly. We want to
+        # have a single line with float_reg for them.
+        if class_id in (
+            'floatdp1',
+            'floatdp2',
+                'floatdp3') and xml[0] != 'fcvt':
+            seen.add(xml[0] + known['opcode'])
+            del known['type']
 
-        # Get the architecture variant of the encoding, e.g. ARM v8.2. We
-        # change ARM to Arm. For Arm v8.0, the arch variant is empty.
-        arch_variants = class_.find('arch_variants')
-        if arch_variants is not None and len(arch_variants) == 1:
-            arch_variant = ' # {}'.format(
-                arch_variants[0].get('name').replace(
-                    'ARM', 'Arm'))
-        else:
-            assert not arch_variants
-            arch_variant = ''
+        # Those instructions have 0x/1x as their size, but x == 1 is reserved.
+        if mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2'):
+            known['size'] = known['size'].replace('x', '0')
+        eo = Encoding(mnemonic=mnemonic, class_info=class_info,
+                      boxes=boxes, arch_variant='', known_boxes=known,
+                      class_id=class_id, enctags=label)
+        encs.append(eo)
 
-        parsed_encodings.append(
-            Encoding(mnemonic=mnemonic.lower(), inputs=inputs,
-                     outputs=outputs, class_info=class_info, boxes=boxes,
-                     arch_variant=arch_variant))
-    return parsed_encodings
-
-
-def reads_dst(root):
-    """
-    Checks if this instruction reads the destination register Vd.
-    """
-    execute_text = root.find("./ps_section/ps/pstext")
-    if execute_text is not None:
-        execute_text = ''.join(execute_text.itertext())
-    else:
-        execute_text = ''
-
-    return '= V[d]' in execute_text
-
-
-def deduplicate_and_sort(l):
-    return list(OrderedDict.fromkeys(l))
-
-
-def filter_unsupported(l):
-    """ Returns a new list containing only Encoding instances. """
-    return [e for e in l if isinstance(e, Encoding)]
-
-
-def filter_supported(l):
-    """ Returns a new list containing only unsupported encoding messages. """
-    return [e for e in l if isinstance(e, str)]
+    return iclass.attrib['title'], encs
 
 
 @click.command()
@@ -308,76 +326,42 @@ def filter_supported(l):
     default='codec',
     help='Generate strings for either codec.txt (codec), tests (tests), '
          'macros (macros) or everything (all)')
-@click.argument('isa_dir')
-def main(isa_dir, only, to_generate):
-    # load files from arguments on command line (these can be files or
-    # directories)
-    roots = load_all_files(isa_dir, only)
-
+@click.argument('encindex')
+def main(encindex, only, to_generate):
     # Deterministic seed, so we get reproduce-able results.
     random.seed(a=10)
-    test_strs = []
-    macro_strs = []
-    api_tests_strs = []
-    api_tests_expected_strs = []
-    codec_strs = []
-    missing = []
-    for (_, root) in roots:
-        classes = root.findall("./classes/iclass")
-        encodings = [
-            enc for class_ in classes for enc in parse_encodings(
-                class_, reads_dst(root))]
 
-        supported_encs = filter_unsupported(encodings)
-        patterns = deduplicate_and_sort(map(generate_pattern, supported_encs))
+    parsed = ET.parse(open(encindex))
+    root = parsed.getroot()
+    classes = root.findall("iclass_sect")
 
-        if to_generate == 'missing':
-            missing.extend(filter_supported(encodings))
-
-        if not patterns:
+    for c in classes:
+        if c.attrib['id'] != only:
             continue
-
+        name, encs = parse_instr_class(c)
         if to_generate in ('codec', 'all'):
-            header = "\n# {}".format(root.find('./heading').text)
-            codec_strs.append('{}\n{}'.format(header, '\n'.join(patterns)))
+            codec_strs = map(generate_pattern, encs)
+            print("\n# {}".format(name))
+            print('\n'.join(codec_strs))
 
         if to_generate in ('tests', 'all'):
-            asm_tests, api_tests, api_tests_expected = zip(
-                *map(generate_test_strings, supported_encs))
-            test_strs += deduplicate_and_sort(
-                [e for l in asm_tests for e in l])
-            api_tests_strs += deduplicate_and_sort(
-                [e for l in api_tests for e in l])
-            api_tests_expected_strs += deduplicate_and_sort(
-                [e for l in api_tests_expected for e in l])
+            dis_a64, api, expected = zip(*map(generate_test_strings, encs))
+            print("dis-a64.txt:")
+            print("\n# {}".format(name))
+            print("\n".join(line for sl in dis_a64 for line in sl))
+
+            print("\n\nir_aarch64.c:")
+            print("\n/* {} */".format(name))
+            print("\n".join(line for sl in api for line in sl))
+
+            print("\n\nir_aarch64.expect:")
+            print("\n".join(line for sl in expected for line in sl))
 
         if to_generate in ('macros', 'all'):
-            macro_strs += deduplicate_and_sort(
-                map(get_macro_string, supported_encs))
-
-    if codec_strs:
-        print('codec.txt:')
-        print('\n'.join(codec_strs))
-
-    if test_strs:
-        print("dis-a64.txt:")
-        print("\n".join(test_strs))
-
-    if api_tests_strs:
-        print("\n\nir_aarch64.c:")
-        print("\n".join(api_tests_strs))
-
-    if api_tests_expected_strs:
-        print("\n\nir_aarch64.expect:")
-        print("\n".join(api_tests_expected_strs))
-
-    if macro_strs:
-        print("\ninstr_create.h:")
-        print("\n".join(macro_strs))
-
-    if missing:
-        print('\nMissing encodings:')
-        print('\n'.join(missing))
+            macro_strs = map(get_macro_string, encs)
+            print("\ninstr_create.h:")
+            print("\n/* -------- {:-<60} */".format(name + ' '))
+            print("\n".join(macro_strs))
 
     return 0
 

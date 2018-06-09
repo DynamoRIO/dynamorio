@@ -28,6 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+import re
 import random
 import subprocess
 
@@ -37,7 +38,32 @@ TYPE_TO_STR2 = {
 }
 
 
-def generate_reg_strs(op, num_strs):
+def generate_size_strs(selected):
+    res = []
+    for s in selected:
+        if s == 'b':
+            res += ['$0x00', '$0x00']
+        elif s == 'h':
+            res += ['$0x01', '$0x01']
+        elif s == 's':
+            res += ['$0x02', '$0x02']
+        elif s == 'd':
+            res += ['$0x03']
+    return res
+
+
+def generate_vreg_strs(selected):
+    full_asm = [
+        'v{}.8b', 'v{}.16b', 'v{}.4h', 'v{}.8h', 'v{}.2s', 'v{}.4s','v{}.2d'
+    ]
+    full_ir = ['%d{}', '%q{}', '%d{}', '%q{}', '%d{}', '%q{}', '%q{}']
+    combined = zip(full_asm, full_ir)
+
+    filtered = [(asm, ir) for (asm, ir) in combined if asm[-1] in selected]
+    return zip(*filtered)
+
+
+def generate_reg_strs(op, enc):
     """
     Generates a set of test strings for op. For immediate that take special
     values, like fsz, we generate a list with possible values.
@@ -46,36 +72,17 @@ def generate_reg_strs(op, num_strs):
     combinations required, e.g. dq and 3  means a vector fp register with 3
     different element sizes.
     """
-    if op == 'fsz':
-        return [], ['$0x02', '$0x03', '$0x02']
-    if op == 'fsz16':
-        return [], ['$0x01', '$0x01']
-    if op == 'fsz2':
-        return [], ['$0x02', '$0x03', '$0x02', '$0x01', '$0x01']
-    if op == 'rot12':
-        assert num_strs == 5
-        return (['90', '270', '90', '270', '90'],
-                ['$0x00', '$0x01', '$0x00', '$0x01', '$0x00'])
-    if op == 'rot11':
-        assert num_strs == 5
-        return ['0', '90', '0', '90', '0'], [
-            '$0x00', '$0x01', '$0x00', '$0x01', '$0x00']
+    if op.endswith('_sz'):
+        return [], generate_size_strs(op.replace('_sz', ''))
 
-    assert op.startswith('dq') or op.startswith('float_reg')
+    if not op.startswith('dq') and not op.startswith('float_reg'):
+        num = random.randint(0, 31)
+        return ['{}{}'.format(op[0], num)], ['%{}{}'.format(op[0], num)]
+
     asm = []
     ir = []
     if op.startswith('dq'):
-        if num_strs == 3:
-            temp_asm = ['v{}.4s', 'v{}.2d', 'v{}.2s']
-            temp_ir = ['%q{}', '%q{}', '%d{}']
-        elif num_strs == 2:
-            temp_asm = ['v{}.8h', 'v{}.4h']
-            temp_ir = ['%q{}', '%d{}']
-        elif num_strs == 5:
-            temp_asm = ['v{}.4s', 'v{}.2d', 'v{}.2s', 'v{}.8h', 'v{}.4h']
-            temp_ir = ['%q{}', '%q{}', '%d{}', '%q{}', '%d{}']
-        else:
-            assert False
+        temp_asm, temp_ir = generate_vreg_strs(enc.get_selected_sizes())
     elif op.startswith('float_reg'):
         temp_asm = ['d{}', 's{}', 'h{}']
         temp_ir = ['%d{}', '%s{}', '%h{}']
@@ -88,19 +95,10 @@ def generate_reg_strs(op, num_strs):
 
 
 SIZE_TO_MACRO = {
+    '$0x00': 'OPND_CREATE_BYTE()',
     '$0x01': 'OPND_CREATE_HALF()',
     '$0x02': 'OPND_CREATE_SINGLE()',
     '$0x03': 'OPND_CREATE_DOUBLE()',
-}
-
-ROT11_TO_MACRO = {
-    '$0x00': 'OPND_CREATE_ROT0()',
-    '$0x01': 'OPND_CREATE_ROT90()',
-}
-
-ROT12_TO_MACRO = {
-    '$0x00': 'OPND_CREATE_ROT90()',
-    '$0x01': 'OPND_CREATE_ROT270',
 }
 
 
@@ -147,33 +145,30 @@ def generate_dis_test(mnemonic, asm_ops, ir_str):
         ["gcc", "-march=armv8.3-a", "-c", "-o", "/tmp/autogen.o", "/tmp/autogen.s", ])
     out = subprocess.check_output(["objdump", "-d", "/tmp/autogen.o"])
     enc_str = out.decode('utf-8').split('\n')[-2][6:14]
-    return '{} : {} : {}'.format(enc_str, asm_str, ir_str)
+    return '{} : {:<40} : {}'.format(enc_str, asm_str, ir_str)
 
 
 def num_combinations_to_test(enc):
     """
     Returns the number of test cases we need for this encoding.
     For example:
-      * We need 3 tests for an FP SIMD encoding with single and double,
+     * We need 3 tests for an FP SIMD encoding with single and double,
         because input registers have 3 different element sizes: .4S .2S, .2D
      * We need 3 tests for a scalar FP instruction, because we need to test
        different register widths: Hx, Sx, Dx
     """
 
+    m = re.match(r'.*_([HSD][HSD])_.*', enc.enctags)
+    if m:
+        return 1
+
     if enc.class_info['instr-class'] == 'float':
         return 3
-    else:
-        # FP SIMD single and double encoding
-        if 'fsz' in enc.inputs:
-            return 3
-        # FP SIMD half encoding
-        elif 'fsz16' in enc.inputs:
+    elif enc.class_info['instr-class'] == 'advsimd':
+        szs = [s for s in enc.inputs if s.endswith('sz')]
+        if len(szs) == 0:
             return 2
-        # FP SIMD half, single and float encoding
-        elif 'fsz2' in enc.inputs:
-            return 5
-        else:
-            assert False
+        return len(list(generate_vreg_strs(szs[0].replace('_sz', ''))))
 
 
 def generate_test_strings(enc):
@@ -189,21 +184,29 @@ def generate_test_strings(enc):
     api_tests_expected = []
     num_strs = num_combinations_to_test(enc)
 
-    for op in enc.outputs:
-        asm, ir = generate_reg_strs(op, num_strs)
-        asm_ops.append(asm)
-        output_ir.append(ir)
-        if enc.reads_dst():
-            input_ir.append(ir)
-
-    for op in enc.inputs:
-        asm, ir = generate_reg_strs(op, num_strs)
-        if op == 'dq0':
-            continue
-        if asm:
+    # Requires GCC8....
+    if enc.mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2'):
+        asm_ops.append(['v2.2s', 'v6.4s'])
+        output_ir.append(['%d2', '%q6'])
+        asm_ops += [['v10.2h', 'v16.4h'], ['v0.2h', 'v9.4h']]
+        input_ir += [['%d10', '%q16'], ['%d0', '%q9']]
+        return [], [], []
+    else:
+        for op in enc.outputs:
+            asm, ir = generate_reg_strs(op, enc)
             asm_ops.append(asm)
-        if ir:
-            input_ir.append(ir)
+            output_ir.append(ir)
+            if enc.reads_dst():
+                input_ir.append(ir)
+
+        for op in enc.inputs:
+            asm, ir = generate_reg_strs(op, enc)
+            if op == 'dq0':
+                continue
+            if asm:
+                asm_ops.append(asm)
+            if ir:
+                input_ir.append(ir)
 
     # Above we built tables like
     # input_asm = [ [ v1, v4],

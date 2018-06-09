@@ -37,8 +37,12 @@ ARG_TO_REG = {
     'float_reg5': ('Rm', 'The first input register.'),
     'float_reg16': ('Rn', 'The second input register.'),
     'float_reg10': ('Ra', 'The third input register.'),
-    'fsz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
-    'fsz16': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'sd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'hsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'bhsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'bhs_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE().'),
+    'hs_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE().'),
+    'b_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE().'),
 }
 
 TYPE_TO_STR2 = {

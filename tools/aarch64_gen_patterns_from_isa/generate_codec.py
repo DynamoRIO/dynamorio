@@ -29,7 +29,7 @@
 # DAMAGE.
 
 
-def build_decode_str_bin_x(boxes, x="x"):
+def build_decode_str_bin_x(boxes, known, x="x"):
     """"
     Returns a binary string e.g. 1110001101xxxxx00101, where x is
     unspecified e.g. where a register is encoded in the instruction.
@@ -37,35 +37,16 @@ def build_decode_str_bin_x(boxes, x="x"):
     str_ = ""
     for box in boxes:
         width = int(box.attrib['width']) if 'width' in box.attrib else 1
+        name = box.attrib['name'] if 'name' in box.attrib else ''
         if 'settings' not in box.attrib or 'constraint' in box.attrib:
-            str_ += x * width
+            if name in known and known[name]:
+                str_ += known[name]
+            else:
+                str_ += x * width
         else:
             str_ += ''.join(c.text.strip("()")
                             for c in box.findall("./c")).replace("x", x)
     return str_
-
-
-def build_decode_str_bin_mask(boxes):
-    """
-    Returns a binary string that can be used to mask out unspecified
-    parts of the instruction. e.g. for above returns 11111111110000011111
-    """
-
-    return build_decode_str_bin_x(boxes).replace("0", "1").replace("x", "0")
-
-
-def bin_to_hex(str_, padding=False):
-    if padding:
-        return "{0:#0{1}x}".format(int(str_, 2), 10)
-    return hex(int(str_, 2))
-
-
-def build_decode_str_hex_0(boxes):
-    return bin_to_hex(build_decode_str_bin_x(boxes, x="0"), padding=True)
-
-
-def build_decode_str_hex_mask(boxes):
-    return bin_to_hex(build_decode_str_bin_mask(boxes), padding=True)
 
 
 def generate_pattern(enc):
@@ -76,7 +57,7 @@ def generate_pattern(enc):
     """
     arg_string = ' : '.join([' '.join(enc.outputs), ' '.join(enc.inputs)])
 
-    return '{}     {} {}{}'.format(
-        build_decode_str_bin_x(enc.boxes),
+    return '{}     {:<9} {}{}'.format(
+        build_decode_str_bin_x(enc.boxes, enc.known_boxes),
         enc.mnemonic,
         arg_string, '')
