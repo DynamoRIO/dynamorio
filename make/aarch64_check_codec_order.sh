@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # **********************************************************
 # Copyright (c) 2018 Arm Limited    All rights reserved.
 # **********************************************************
@@ -28,40 +30,28 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Commands to automatically create the codec files from core/arch/aarch64/codec.txt.
-find_package(PythonInterp)
+# Usage: ./aarch64_codec_codec_order.sh <path to core/arch/aarch64/> <path to build dir>
 
-if (NOT PYTHONINTERP_FOUND)
-  message(FATAL_ERROR "Python interpreter not found")
-endif ()
+# Check if operand patterns are ordered by pattern.
+cat $1/codec.txt | \
+    perl -ne  '$x = 1 if /Instruction patterns/; print "$1\n" if !$x && /^([x\-?]+)  [a-z0-9_A-Z]+.*#/;' > $2/patterns.codec.txt
+LANG=C sort $2/patterns.codec.txt > $2/patterns.codec.txt.sorted
+diff $2/patterns.codec.txt $2/patterns.codec.txt.sorted
+if [[ $? != 0 ]]; then
+    echo "Patterns in codec.txt are not ordered as expected. See the diff " \
+         "between $2/patterns.codec.txt and $2/patterns.codec.txt.sorted."
+    exit 1
+fi
 
-
-set(AARCH64_CODEC_GEN_SRCS
-  ${PROJECT_BINARY_DIR}/opcode.h
-  ${PROJECT_BINARY_DIR}/decode_gen.h
-  ${PROJECT_BINARY_DIR}/encode_gen.h
-  ${PROJECT_BINARY_DIR}/opcode_names.h
-)
-set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
-
-set(CODEC_TXT "${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt")
-
-execute_process(COMMAND "${PROJECT_SOURCE_DIR}/make/aarch64_check_codec_order.sh" ${PROJECT_SOURCE_DIR}/core/arch/aarch64 ${PROJECT_BINARY_DIR}
-  RESULT_VARIABLE CHECK_RC
-  OUTPUT_VARIABLE CHECK_MSG)
-
-if (CHECK_RC)
-    message(FATAL_ERROR "Wrong order in codec.txt or codec.c: ${CHECK_MSG}")
-endif()
-
-# Auto-generate decoder files from codec.txt.
-add_custom_command(
-  OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
-  DEPENDS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-          ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
-  COMMAND ${PYTHON_EXECUTABLE}
-  ARGS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-       ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
-       ${PROJECT_BINARY_DIR}
-  VERBATIM # recommended: p260
-)
+# Check if operand patterns in codec.txt and decode_opnd_XXX order in codec.c
+# matches.
+cat $1/codec.txt | \
+    perl -ne  '$x = 1 if /Instruction patterns/; print "$1\n" if !$x && /^[x\-?]+  ([a-z0-9_A-Z]+).*#/;' > $2/names.codec.txt
+cat $1/codec.c | \
+    perl -ne '$x = 1 if /each type of operand/; print "$1\n" if $x && /^decode_opnd_([^(]+)/;' > $2/names.codec.c
+diff $2/names.codec.txt $2/names.codec.c
+if [[ $? != 0 ]]; then
+    echo "Operand order differs between codec.txt and codec.c. See the diff " \
+         "between $2/names.codec.txt and $2/names.codec.c."
+    exit 1
+fi
