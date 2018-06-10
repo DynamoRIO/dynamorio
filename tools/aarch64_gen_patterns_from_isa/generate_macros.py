@@ -29,6 +29,18 @@
 # DAMAGE.
 
 ARG_TO_REG = {
+    'h0': ('Rd', 'The output register.'),
+    'h5': ('Rm', 'The first input register.'),
+    'h16': ('Rn', 'The second input register.'),
+    'h10': ('Ra', 'The third input register.'),
+    's0': ('Rd', 'The output register.'),
+    's5': ('Rm', 'The first input register.'),
+    's16': ('Rn', 'The second input register.'),
+    's10': ('Ra', 'The third input register.'),
+    'd0': ('Rd', 'The output register.'),
+    'd5': ('Rm', 'The first input register.'),
+    'd16': ('Rn', 'The second input register.'),
+    'd10': ('Ra', 'The third input register.'),
     'dq0': ('Rd', 'The output register.'),
     'dq5': ('Rm', 'The first input register.'),
     'dq16': ('Rn', 'The second input register.'),
@@ -37,17 +49,17 @@ ARG_TO_REG = {
     'float_reg5': ('Rm', 'The first input register.'),
     'float_reg16': ('Rn', 'The second input register.'),
     'float_reg10': ('Ra', 'The third input register.'),
-    'sd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
-    'hsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
-    'bhsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
-    'bhs_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE().'),
-    'hs_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(), \n *                OPND_CREATE_SINGLE().'),
-    'b_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE().'),
-}
-
-TYPE_TO_STR2 = {
-    'advsimd': 'vector',
-    'float': 'scalar',
+    'z0': ('Zd', 'The output SVE vector register.'),
+    'z5': ('Zm', 'The first input SVE vector register.'),
+    'z16': ('Zn', 'The second input SVE vector register.'),
+    'z10': ('Za', 'The third input SVE vector register.'),
+    'p10_low': ('Pg', 'Predicate register for predicated instruction, P0-P7.'),
+    'sd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(),\n *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'hsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF(),\n *               OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'bhsd_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(),\n *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().'),
+    'bhs_sz': ('width', 'The vector element width. Use either OPND_CREATE_BYTE(),\n *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().'),
+    'hs_sz': ('width', 'The vector element width. Use either OPND_CREATE_HALF() or\n *                OPND_CREATE_SINGLE().'),
+    'b_sz': ('width', 'The vector element width. Use OPND_CREATE_BYTE().'),
 }
 
 
@@ -60,18 +72,18 @@ def get_doc_comments(enc):
     params = [' * \param {}'.format(get_param_comment(p)) for p in enc.outputs] + \
         [' * \param {}'.format(get_param_comment(p)) for p in enc.inputs_no_dst()]
 
-    if enc.reads_dst():
+    if enc.reads_dst:
         params[0] = params[0] + ' The instruction also reads this register.'
 
     comment = """
 /**
  * Creates a {} {} instruction.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
 {}
  */
 """
     return comment.format(
-        enc.mnemonic, enc.type_as_str(), '\n'.join(params))
+        enc.mnemonic.upper(), enc.type_as_str(), '\n'.join(params))
 
 
 def get_macro(enc):
@@ -81,8 +93,8 @@ def get_macro(enc):
 
     args_def = ', '.join(ARG_TO_REG[p][0]
                          for p in enc.outputs + enc.inputs_no_dst())
-    return '#define INSTR_CREATE_{}_{}(dc, {}) \\\n{}'.format(
-        enc.mnemonic, TYPE_TO_STR2[enc.class_info['instr-class']], args_def, call)
+    return '#define {}(dc, {}) \\\n{}'.format(
+        enc.get_macro_name() , args_def, call)
 
 
 def get_macro_string(enc):

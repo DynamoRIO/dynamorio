@@ -70,6 +70,7 @@ def should_print_box(box):
 
 # Subset of types we can handle.
 DATATYPE_TO_REG = {
+    'sve+': 'z',
     'advsimd+single-and-double': 'dq',
     'advsimd+half': 'dq',
     'advsimd+complex': 'dq',
@@ -120,6 +121,18 @@ def only_b(mnemonic):
 def only_h(mnemonic):
     return mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2')
 
+def get_name_suffix(enc):
+    TYPE_TO_STR2 = {
+        'advsimd': 'vector',
+        'float': 'scalar',
+        'sve': 'sve',
+    }
+
+
+    if enc.is_sve() and enc.is_predicated():
+        return 'sve_pred'
+    return TYPE_TO_STR2[enc.class_info['instr-class']]
+
 
 @attr.s
 class Encoding(object):
@@ -138,6 +151,13 @@ class Encoding(object):
                         and box.attrib['name'] != 'type' and box.attrib['name'] != 'size']
         relevant_ops = sorted(relevant_ops, key=op_sort_key, reverse=True)
 
+        if self.is_sve():
+            self.reads_dst = 'Zdn' in [op.attrib['name'] for op in relevant_ops]
+        else:
+            self.reads_dst = self.mnemonic in (
+                'fmla', 'fmlal', 'fmlal2', 'fmls', 'fmlsl', 'fmlsl2', 'mla',
+                'mls')
+
         m = re.match(r'.*_([HSD][HSD])_.*', self.enctags)
         if m:
             ot, it = m.group(1)[0].lower(), m.group(1)[1].lower()
@@ -145,20 +165,39 @@ class Encoding(object):
             self.inputs = [it + '5']
             return
 
-        self.inputs = [
-            self.operand_to_reg_class(op) for op in relevant_ops if op.attrib.get(
-                'name', '') != 'Rd']
+        self.inputs = [self.operand_to_reg_class(op)
+                  for op in relevant_ops if not self._is_result_reg(op.attrib.get('name', ''))]
 
-        self.outputs = [self.operand_to_reg_class(
-            op) for op in relevant_ops if op.attrib.get('name', '') == 'Rd']
+        self.outputs = [self.operand_to_reg_class(op)
+                   for op in relevant_ops if self._is_result_reg(op.attrib.get('name', ''))]
 
-        if self.reads_dst():
+        if self.reads_dst:
             assert len(self.outputs) == 1
             self.inputs = self.outputs + self.inputs
+
+        # Move the predicate register for predicated instructions as first
+        # input argument.
+        if 'p10' in self.inputs:
+            self.inputs.remove('p10')
+            self.inputs.insert(0, 'p10')
+        if 'p10_low' in self.inputs:
+            self.inputs.remove('p10_low')
+            self.inputs.insert(0, 'p10_low')
 
         sz = self._get_size_op()
         if sz:
             self.inputs.append(sz)
+
+    def is_sve(self):
+        return self.class_info['instr-class'] == 'sve'
+
+    def is_predicated(self):
+        return 'p10_low' in self.inputs
+
+    def _is_result_reg(self, name):
+        if self.is_sve():
+            return name in ('Zd', 'Zdn')
+        return name == 'Rd'
 
     def _get_size_op(self):
         if self.class_id in ('asimdsamefp16',):
@@ -203,17 +242,15 @@ class Encoding(object):
             return 'b'
 
     def inputs_no_dst(self):
-        if self.reads_dst():
+        if self.reads_dst and not self.is_sve():
             return self.inputs[1:]
         return self.inputs
-
-    def reads_dst(self):
-        return self.mnemonic in ('fmla', 'fmls',)
 
     def type_as_str(self):
         TYPE_TO_STR = {
             'advsimd': 'vector',
             'float': 'floating point',
+            'sve': 'scalable vector',
         }
         return TYPE_TO_STR[self.class_info['instr-class']]
 
@@ -233,18 +270,27 @@ class Encoding(object):
         prefix = ''
         if name == 'rot':
             prefix = 'rot'
-        else:
-            assert name.startswith('R')
-            prefix = DATATYPE_TO_REG[get_type_key(self.class_info)]
+
+        if name == 'Pg':
+            # Width 3 means P0-P7 only.
+            if int(box.attrib['width']) == 3:
+                return 'p{}_low'.format(bit_start)
+            assert int(box.attrib['width']) == 3
+            return 'p{}'.format(bit_start)
+
+        assert name.startswith('R') or name.startswith('Z')
+        prefix = DATATYPE_TO_REG[get_type_key(self.class_info)]
 
         return '{}{}'.format(prefix, bit_start)
 
+    def get_macro_name(self):
+        return 'INSTR_CREATE_{}_{}'.format(self.mnemonic, get_name_suffix(self))
 
 def parse_encoding(enc_row):
     name = enc_row.find(
         "./td[@class='iformname']").text.split(' ')[0].replace(',', '').lower()
-    if 'label' in enc_row.attrib:
-        name = enc_row.attrib['label'].lower()
+    if 'encname' in enc_row.attrib:
+        name = enc_row.attrib['encname'].split('_')[0].lower()
     bitfields = [f.text for f in enc_row.findall("./td[@class='bitfield']")]
     return (name, bitfields, enc_row.attrib['encname'])
 
@@ -274,7 +320,21 @@ CLASS_INFOS = {
         'instr-class': 'float',
         'datatype': 'single',
     },
+    'sve_int_bin_cons_arit_0':{
+        'instr-class': 'sve',
+        'datatype': '',
+    },
+    'sve_int_bin_pred_log': {
+        'instr-class': 'sve',
+        'datatype': '',
+    },
 }
+
+
+def get_opcode(known, ci):
+    if ci['instr-class'] == 'sve':
+        return known['opc']
+    return known.get('opcode', '')
 
 
 def parse_instr_class(iclass):
@@ -293,16 +353,21 @@ def parse_instr_class(iclass):
     encs = []
     for (mnemonic, known_vals, label) in encs_xml:
         known = {k: v for (k, v) in zip(headers, known_vals)}
-        if should_ignore(mnemonic) or mnemonic + known['opcode'] in seen:
+        # For SVE, there is no size entry in the details/info table per encoding
+        # group....
+        if class_info['instr-class'] == 'sve':
+            known['size'] = None
+
+        opcode = get_opcode(known, class_info)
+
+        if should_ignore(mnemonic) or mnemonic + opcode in seen:
             continue
 
         # floatdp2 lists all operand widths (h, s, d) explicitly. We want to
         # have a single line with float_reg for them.
-        if class_id in (
-            'floatdp1',
-            'floatdp2',
-                'floatdp3') and xml[0] != 'fcvt':
-            seen.add(xml[0] + known['opcode'])
+        if (class_id in ('floatdp1', 'floatdp2', 'floatdp3') and
+                mnemonic != 'fcvt'):
+            seen.add(mnemonic + opcode)
             del known['type']
 
         # Those instructions have 0x/1x as their size, but x == 1 is reserved.
@@ -351,8 +416,11 @@ def main(encindex, only, to_generate):
             print("\n".join(line for sl in dis_a64 for line in sl))
 
             print("\n\nir_aarch64.c:")
-            print("\n/* {} */".format(name))
+            print("static void\n{}(void *dc)\n{{\n    byte *pc; ".format(c.attrib['id']) +
+                  "\n    instr_t *instr;\n\n")
+            print("\n    /* {} */".format(name))
             print("\n".join(line for sl in api for line in sl))
+            print("}")
 
             print("\n\nir_aarch64.expect:")
             print("\n".join(line for sl in expected for line in sl))

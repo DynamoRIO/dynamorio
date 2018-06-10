@@ -34,12 +34,17 @@ import subprocess
 
 TYPE_TO_STR2 = {
     'advsimd': 'vector',
+    'sve': 'vector',
     'float': 'scalar',
 }
 
 
-def generate_size_strs(selected):
+def generate_size_strs(selected, enc):
     res = []
+    if enc.is_sve():
+        if selected == 'bhsd':
+            return ['$0x00', '$0x01', '$0x02', '$0x03']
+        assert False
     for s in selected:
         if s == 'b':
             res += ['$0x00', '$0x00']
@@ -62,6 +67,14 @@ def generate_vreg_strs(selected):
     filtered = [(asm, ir) for (asm, ir) in combined if asm[-1] in selected]
     return zip(*filtered)
 
+def generate_vreg_sve_strs(selected):
+    full_asm = ['z{}.b', 'z{}.h', 'z{}.s', 'z{}.d']
+    full_ir =  ['%z{}',  '%z{}',  '%z{}',  '%z{}']
+    combined = zip(full_asm, full_ir)
+
+    filtered = [ (asm, ir) for (asm, ir) in combined if asm[-1] in selected ]
+    return zip(*filtered)
+
 
 def generate_reg_strs(op, enc):
     """
@@ -73,21 +86,28 @@ def generate_reg_strs(op, enc):
     different element sizes.
     """
     if op.endswith('_sz'):
-        return [], generate_size_strs(op.replace('_sz', ''))
+        return [], generate_size_strs(op.replace('_sz', ''), enc)
 
-    if not op.startswith('dq') and not op.startswith('float_reg'):
+    if not op.startswith('dq') and not op.startswith('float_reg') and not op.startswith('z') and not op.startswith('p'):
         num = random.randint(0, 31)
         return ['{}{}'.format(op[0], num)], ['%{}{}'.format(op[0], num)]
 
     asm = []
     ir = []
+
+    num = random.randint(0, 31)
     if op.startswith('dq'):
         temp_asm, temp_ir = generate_vreg_strs(enc.get_selected_sizes())
     elif op.startswith('float_reg'):
         temp_asm = ['d{}', 's{}', 'h{}']
         temp_ir = ['%d{}', '%s{}', '%h{}']
+    elif op.startswith('z'):
+        temp_asm, temp_ir = generate_vreg_sve_strs(enc.get_selected_sizes())
+    elif op.startswith('p10_low'):
+        num = random.randint(0, 7)
+        temp_asm = ['p{}/m'] * 4
+        temp_ir = ['%p{}'] * 4
 
-    num = random.randint(0, 31)
     for (t_asm, t_ir) in zip(temp_asm, temp_ir):
         asm.append(t_asm.format(num))
         ir.append(t_ir.format(num))
@@ -106,25 +126,25 @@ def ir_arg_to_c(ir):
     """
     Returns a string to create ir in C.
     """
-    for (ir_prefix, c) in [('%d', 'D'), ('%q', 'Q'), ('%s', 'S'), ('%h', 'H')]:
+    for (ir_prefix, c) in [('%d', 'D'), ('%q', 'Q'), ('%s', 'S'), ('%h', 'H'), ('%z', 'Z'), ('%p', 'P')]:
         if not ir.startswith(ir_prefix):
             continue
         return "opnd_create_reg(DR_REG_" + c + ir.replace(ir_prefix, '') + ")"
     return SIZE_TO_MACRO[ir]
 
 
-def generate_api_test(opcode, ir_ops, str_type):
+def generate_api_test(enc, ir_ops):
     """
     Returns C statements to create an instruction with opcode and ir_ops as
     arguments, as well as a call to test_instr_encoding for the generated
     instruction.
     """
     c_args = [ir_arg_to_c(ir) for ir in ir_ops]
-    macro_start = '    instr = INSTR_CREATE_{}_{}(dc,'.format(opcode, str_type)
+    macro_start = '    instr = {}(dc,'.format(enc.get_macro_name())
     return '\n'.join(['',
                       '{}\n{});'.format(macro_start,
                                         ',\n'.join((len(macro_start) - 3) * ' ' + arg for arg in c_args)),
-                      '    test_instr_encoding(dc, OP_{}, instr);'.format(opcode)])
+                      '    test_instr_encoding(dc, OP_{}, instr);'.format(enc.mnemonic)])
 
 
 def generate_dis_test(mnemonic, asm_ops, ir_str):
@@ -142,7 +162,7 @@ def generate_dis_test(mnemonic, asm_ops, ir_str):
         f.write('\n')
 
     subprocess.check_call(
-        ["gcc", "-march=armv8.3-a", "-c", "-o", "/tmp/autogen.o", "/tmp/autogen.s", ])
+        ["gcc", "-march=armv8.3-a+sve", "-c", "-o", "/tmp/autogen.o", "/tmp/autogen.s", ])
     out = subprocess.check_output(["objdump", "-d", "/tmp/autogen.o"])
     enc_str = out.decode('utf-8').split('\n')[-2][6:14]
     return '{} : {:<40} : {}'.format(enc_str, asm_str, ir_str)
@@ -168,7 +188,9 @@ def num_combinations_to_test(enc):
         szs = [s for s in enc.inputs if s.endswith('sz')]
         if len(szs) == 0:
             return 2
-        return len(list(generate_vreg_strs(szs[0].replace('_sz', ''))))
+        return len(generate_size_strs(szs[0].replace('_sz', ''), enc))
+    elif enc.is_sve():
+        return 4
 
 
 def generate_test_strings(enc):
@@ -184,7 +206,7 @@ def generate_test_strings(enc):
     api_tests_expected = []
     num_strs = num_combinations_to_test(enc)
 
-    # Requires GCC8....
+    # Requires GCC8...., so manually add them for now.
     if enc.mnemonic in ('fmlal', 'fmlal2', 'fmlsl', 'fmlsl2'):
         asm_ops.append(['v2.2s', 'v6.4s'])
         output_ir.append(['%d2', '%q6'])
@@ -196,8 +218,9 @@ def generate_test_strings(enc):
             asm, ir = generate_reg_strs(op, enc)
             asm_ops.append(asm)
             output_ir.append(ir)
-            if enc.reads_dst():
+            if enc.reads_dst and not enc.is_sve():
                 input_ir.append(ir)
+
 
         for op in enc.inputs:
             asm, ir = generate_reg_strs(op, enc)
@@ -208,6 +231,13 @@ def generate_test_strings(enc):
             if ir:
                 input_ir.append(ir)
 
+
+        if enc.reads_dst and enc.is_sve():
+            if 'p10_low' in enc.inputs or 'p10' in enc.inputs:
+                asm_ops[2] = asm_ops[0]
+                input_ir[1] = output_ir[0]
+            else:
+                assert False
     # Above we built tables like
     # input_asm = [ [ v1, v4],
     #               [ v9, v7] ]
@@ -225,13 +255,12 @@ def generate_test_strings(enc):
 
         test_lines.append(generate_dis_test(enc.mnemonic, asm, ir_str))
 
-        if enc.reads_dst():
+        if enc.reads_dst and not enc.is_sve():
             api_in_ir = in_ir[1:]
         else:
             api_in_ir = in_ir
 
-        api_tests.append(generate_api_test(enc.mnemonic, out_ir +
-                                           api_in_ir, TYPE_TO_STR2[enc.class_info['instr-class']]))
+        api_tests.append(generate_api_test(enc, out_ir + api_in_ir))
         api_tests_expected.append(ir_str)
 
     return test_lines, api_tests, api_tests_expected
