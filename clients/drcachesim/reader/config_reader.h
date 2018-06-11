@@ -96,7 +96,7 @@ class config_reader_t
     std::ifstream fin;
 
     bool configure_cache(cache_params_t *cache);
-    bool check_cache_config(unsigned int num_cores,
+    bool check_cache_config(int num_cores,
                             std::map<string, cache_params_t*> &caches_map);
 };
 
