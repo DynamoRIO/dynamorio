@@ -50,14 +50,10 @@ config_reader_t::configure(const string &config_file,
                            cache_simulator_knobs_t &knobs,
                            std::map<string, cache_params_t*> &caches)
 {
-    // String used to construct meaningful error messages.
-    string error_msg;
-
     // Open the config file.
     fin.open(config_file);
     if (!fin.is_open()) {
-        error_msg = "Failed to open the config file '" + config_file + "'\n";
-        ERRMSG(error_msg.c_str());
+        ERRMSG("Failed to open the config file '%s'\n", config_file.c_str());
         return false;
     }
 
@@ -168,8 +164,7 @@ config_reader_t::configure_cache(cache_params_t *cache)
             fin >> cache->type;
             if (cache->type != "instruction" && cache->type != "data" &&
                 cache->type != "unified") {
-                error_msg = "Unknown cache type: " + cache->type + "\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Unknown cache type: %s\n", cache->type.c_str());
                 return false;
             }
         }
@@ -181,9 +176,8 @@ config_reader_t::configure_cache(cache_params_t *cache)
             // Cache size in bytes.
             fin >> cache->size;
             if (cache->size <= 0 || !IS_POWER_OF_2(cache->size)) {
-                error_msg = "Cache size (" + to_string(cache->size) +
-                            ") must be >0 and a power of 2\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Cache size (%d) must be >0 and a power of 2\n",
+                       cache->size);
                 return false;
             }
         }
@@ -191,9 +185,8 @@ config_reader_t::configure_cache(cache_params_t *cache)
             // Cache associativity. Must be a power of 2.
             fin >> cache->assoc;
             if (cache->assoc <= 0 || !IS_POWER_OF_2(cache->assoc)) {
-                error_msg = "Cache associativity (" + to_string(cache->assoc) +
-                            ") must be >0 and a power of 2\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Cache associativity (%d) must be >0 and a power of 2\n",
+                       cache->assoc);
                 return false;
             }
         }
@@ -214,9 +207,8 @@ config_reader_t::configure_cache(cache_params_t *cache)
             fin >> cache->rplc_policy;
             if (cache->rplc_policy != "LRU" && cache->rplc_policy != "LFU" &&
                 cache->rplc_policy != "FIFO") {
-                error_msg = "Unknown replacement policy: "
-                            + cache->rplc_policy + "\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Unknown replacement policy: %s\n",
+                       cache->rplc_policy.c_str());
                 return false;
             }
         }
@@ -224,9 +216,8 @@ config_reader_t::configure_cache(cache_params_t *cache)
             // Type of prefetcher: nextline or none.
             fin >> cache->prefetcher;
             if (cache->prefetcher != "none" && cache->prefetcher != "nextline") {
-                error_msg = "Unknown prefetcher type: "
-                            + cache->prefetcher + "\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Unknown prefetcher type: %s\n",
+                       cache->prefetcher.c_str());
                 return false;
             }
         }
@@ -235,8 +226,7 @@ config_reader_t::configure_cache(cache_params_t *cache)
             fin >> cache->miss_file;
         }
         else {
-            error_msg = "Unknown cache configuration setting '" + param + "'\n";
-            ERRMSG(error_msg.c_str());
+            ERRMSG("Unknown cache configuration setting '%s'\n", param.c_str());
             return false;
         }
         fin >> ws;
@@ -247,12 +237,9 @@ config_reader_t::configure_cache(cache_params_t *cache)
 }
 
 bool
-config_reader_t::check_cache_config(unsigned int num_cores,
+config_reader_t::check_cache_config(int num_cores,
                                     std::map<string, cache_params_t*> &caches_map)
 {
-    // String used to construct meaningful error messages.
-    string error_msg;
-
     int *core_inst_caches = new int[num_cores];
     int *core_data_caches = new int[num_cores];
     for (int i = 0; i < num_cores; i++) {
@@ -267,10 +254,8 @@ config_reader_t::check_cache_config(unsigned int num_cores,
         // Associate a cache to a core.
         if (cache->core >= 0) {
             if (cache->core >= num_cores) {
-                error_msg = "Cache " + cache_name + " is associated with core "
-                            + to_string(cache->core) +
-                            " which does not exist\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Cache %s is associated with core %d which does not exist\n",
+                       cache_name.c_str(), cache->core);
                 return false;
             }
             if (cache->type == "instruction" || cache->type == "unified") {
@@ -289,9 +274,8 @@ config_reader_t::check_cache_config(unsigned int num_cores,
                 // Check that the cache types are compatible.
                 if (parent->type != "unified" &&
                     cache->type != parent->type) {
-                    error_msg = "Cache " + cache_name +
-                                " and its parent have incompatible types\n";
-                    ERRMSG(error_msg.c_str());
+                    ERRMSG("Cache %s and its parent have incompatible types\n",
+                           cache_name.c_str());
                     return false;
                 }
 
@@ -299,9 +283,8 @@ config_reader_t::check_cache_config(unsigned int num_cores,
                 parent->children.push_back(cache_name);
             }
             else {
-                error_msg = "Cache " + cache_name + " has a listed parent "
-                            + cache->parent + " that does not exist\n";
-                ERRMSG(error_msg.c_str());
+                ERRMSG("Cache %s has a listed parent %s that does not exist\n",
+                       cache_name.c_str(), cache->parent.c_str());
                 return false;
             }
 
@@ -309,9 +292,8 @@ config_reader_t::check_cache_config(unsigned int num_cores,
             string parent = cache->parent;
             while (parent != "mem") {
                 if (parent == cache_name) {
-                    error_msg = "Cache " + cache_name + " and its parent " +
-                                cache->parent + " have a cyclic reference\n";
-                    ERRMSG(error_msg.c_str());
+                    ERRMSG("Cache %s and its parent %s have a cyclic reference\n",
+                           cache_name.c_str(), cache->parent.c_str());
                     return false;
                 }
                 parent = caches_map.find(parent)->second->parent;
@@ -323,17 +305,13 @@ config_reader_t::check_cache_config(unsigned int num_cores,
     // exactly one unified cache.
     for (int i = 0; i < num_cores; i++) {
         if (core_inst_caches[i] != 1) {
-            error_msg = "Core " + to_string(i) + " has " +
-                        to_string(core_inst_caches[i]) +
-                        " instruction caches. Must have exactly 1\n";
-            ERRMSG(error_msg.c_str());
+            ERRMSG("Core %d has %d instruction caches. Must have exactly 1\n",
+                   i, core_inst_caches[i]);
             return false;
         }
         if (core_data_caches[i] != 1) {
-            error_msg = "Core " + to_string(i) + " has " +
-                        to_string(core_data_caches[i]) +
-                        " data caches. Must have exactly 1\n";
-            ERRMSG(error_msg.c_str());
+            ERRMSG("Core %d has %d data caches. Must have exactly 1\n",
+                   i, core_data_caches[i]);
             return false;
         }
     }
