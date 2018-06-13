@@ -436,32 +436,32 @@ after the '// ' until the end of the line is considered a comment and ignored.
 - Parameters must be separated by white space. Including one parameter per line
 helps keep the configuration file more human-readable.
 - A cache's parameters must be enclosed inside braces and preceded by the
-cache's unique name.
+cache's user-chosen unique name.
 - Parameters can be listed in any order.
 - Parameters not included in the configuration file take their default values.
 - String values must not be enclosed in quotations.
 
 Supported common parameters and their value types (each of these parameters
 sets the corresponding option with the same name described in \ref sec_drcachesim_ops):
-- num_cores <unsigned int>
-- line_size <unsigned int>
-- skip_refs <unsigned int>
-- warmup_refs <unsigned int>
-- warmup_fraction <float in [0,1]>
-- sim_refs <unsigned int>
-- cpu_scheduling <bool>
-- verbose <unsigned int>
+- num_cores \<unsigned int\>
+- line_size \<unsigned int\>
+- skip_refs \<unsigned int\>
+- warmup_refs \<unsigned int\>
+- warmup_fraction \<float in [0,1]\>
+- sim_refs \<unsigned int\>
+- cpu_scheduling \<bool\>
+- verbose \<unsigned int\>
 
 Supported cache parameters and their value types:
-- type <string, one of "instruction", "data", or "unified">
-- core <unsigned int in [0, num_cores)>
-- size <unsigned int, power of 2>
-- assoc <unsigned int, power of 2>
-- inclusive <bool>
-- parent <string>
-- replace_policy <string, one of "LRU", "LFU", or "FIFO">
-- prefetcher <string, one of "nextline" or "none">
-- miss_file <string>
+- type \<string, one of "instruction", "data", or "unified"\>
+- core \<unsigned int in [0, num_cores)\>
+- size \<unsigned int, power of 2\>
+- assoc \<unsigned int, power of 2\>
+- inclusive \<bool\>
+- parent \<string\>
+- replace_policy \<string, one of "LRU", "LFU", or "FIFO"\>
+- prefetcher \<string, one of "nextline" or "none"\>
+- miss_file \<string\>
 
 Example:
 \code
