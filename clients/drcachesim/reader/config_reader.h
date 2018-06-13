@@ -41,6 +41,7 @@
 #include <map>
 #include <string>
 
+#include "../common/options.h"
 #include "../simulator/cache.h"
 #include "../simulator/cache_simulator_create.h"
 
@@ -49,35 +50,36 @@ using namespace std;
 // Cache configuration settings.
 struct cache_params_t {
     cache_params_t() :
-        type("unified"),
+        type(UNIFIED_CACHE),
         core(-1),
         size(0),
         assoc(0),
         inclusive(false),
-        parent("mem"),
-        rplc_policy("LRU"),
-        prefetcher("none"),
+        parent(MEMORY),
+        replace_policy(REPLACE_POLICY_LRU),
+        prefetcher(PREFETCH_POLICY_NONE),
         miss_file("") {}
     // Cache's name. Each cache must have a unique name.
     string name;
-    // Cache type: instruction, data, or unified (default).
+    // Cache type: INSTRUCTION_CACHE, DATA_CACHE, or UNIFIED_CACHE (default).
     string type;
     // CPU core this cache is associated with.
     // Must be specified for L1 caches only.
     int core;
     // Cache size in bytes.
-    int size;
+    uint64_t size;
     // Cache associativity. Must be a power of 2.
-    int assoc;
+    unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;
-    // Name of the cache's parent. LLC's parent is main memory (mem).
+    // Name of the cache's parent. LLC's parent is main memory (MEMORY).
     string parent;
     // Names of the cache's children. L1 caches don't have children.
     std::vector<string> children;
-    // Cache replacement policy: LRU (default), LFU or FIFO.
-    string rplc_policy;
-    // Type of prefetcher: nextline or none.
+    // Cache replacement policy: REPLACE_POLICY_LRU (default),
+    // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
+    string replace_policy;
+    // Type of prefetcher: PREFETCH_POLICY_NEXTLINE or PREFETCH_POLICY_NONE.
     string prefetcher;
     // Name of the file to use to dump cache misses info.
     string miss_file;
@@ -98,6 +100,13 @@ class config_reader_t
     bool configure_cache(cache_params_t *cache);
     bool check_cache_config(int num_cores,
                             std::map<string, cache_params_t*> &caches_map);
+    bool convert_string_to_size(const string &s, uint64_t &size);
+    bool is_true(string bool_val) {
+        if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {
+            return true;
+        }
+        return false;
+    }
 };
 
 #endif /* _CONFIG_READER_H_ */
