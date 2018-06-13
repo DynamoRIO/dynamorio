@@ -60,15 +60,25 @@ config_reader_t::configure(const string &config_file,
     // Walk through the configuration file.
     while (!fin.eof()) {
         string param;
-        fin >> ws >> param;
+
+        if (!(fin >> ws >> param)) {
+            ERRMSG("Unable to read from the configuration file\n");
+            return false;
+        }
 
         if (param == "//") {
             // A comment.
-            getline(fin, param);
+            if (!getline(fin, param)) {
+                ERRMSG("Comment expected but not found\n");
+                return false;
+            }
         }
         else if (param == "num_cores") {
             // Number of cache cores.
-            fin >> knobs.num_cores;
+            if (!(fin >> knobs.num_cores)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
             if (knobs.num_cores == 0) {
                 ERRMSG("Number of cores must be >0\n");
                 return false;
@@ -76,7 +86,10 @@ config_reader_t::configure(const string &config_file,
         }
         else if (param == "line_size") {
             // Cache line size in bytes.
-            fin >> knobs.line_size;
+            if (!(fin >> knobs.line_size)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
             if (knobs.line_size == 0) {
                 ERRMSG("Line size must be >0\n");
                 return false;
@@ -84,15 +97,24 @@ config_reader_t::configure(const string &config_file,
         }
         else if (param == "skip_refs") {
             // Number of references to skip.
-            fin >> knobs.skip_refs;
+            if (!(fin >> knobs.skip_refs)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else if (param == "warmup_refs") {
             // Number of references to use for caches warmup.
-            fin >> knobs.warmup_refs;
+            if (!(fin >> knobs.warmup_refs)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else if (param == "warmup_fraction") {
             // Fraction of cache lines that must be filled to end the warmup.
-            fin >> knobs.warmup_fraction;
+            if (!(fin >> knobs.warmup_fraction)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
             if (knobs.warmup_fraction < 0.0 || knobs.warmup_fraction > 1.0) {
                 ERRMSG("Warmup fraction should be in [0.0, 1.0]\n");
                 return false;
@@ -100,14 +122,19 @@ config_reader_t::configure(const string &config_file,
         }
         else if (param == "sim_refs") {
             // Number of references to simulate.
-            fin >> knobs.sim_refs;
+            if (!(fin >> knobs.sim_refs)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else if (param == "cpu_scheduling") {
             // Whether to simulate CPU scheduling or not.
             string bool_val;
-            fin >> bool_val;
-            if (bool_val == "true" || bool_val == "True" ||
-                bool_val == "TRUE") {
+            if (!(fin >> bool_val)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
                 knobs.cpu_scheduling = true;
             }
             else {
@@ -116,7 +143,10 @@ config_reader_t::configure(const string &config_file,
         }
         else if (param == "verbose") {
             // Verbose level.
-            fin >> knobs.verbose;
+            if (!(fin >> knobs.verbose)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else {
             // A cache unit.
@@ -128,7 +158,10 @@ config_reader_t::configure(const string &config_file,
             caches[cache->name] = cache;
         }
 
-        fin >> ws;
+        if (!(fin >> ws)) {
+            ERRMSG("Unable to read from the configuration file\n");
+            return false;
+        }
     }
 
     // Check cache configuration.
@@ -142,7 +175,10 @@ config_reader_t::configure_cache(cache_params_t *cache)
     string error_msg;
 
     char c;
-    fin >> ws >> c;
+    if (!(fin >> ws >> c)) {
+        ERRMSG("Unable to read from the configuration file\n");
+        return false;
+    }
     if (c != '{') {
         ERRMSG("Expected '{' before cache params\n");
         return false;
@@ -150,42 +186,66 @@ config_reader_t::configure_cache(cache_params_t *cache)
 
     while (!fin.eof()) {
         string param;
-        fin >> ws >> param;
+        if(!(fin >> ws >> param)) {
+            ERRMSG("Unable to read from the configuration file\n");
+            return false;
+        }
 
         if (param == "}") {
             return true;
         }
         else if (param == "//") {
             // A comment.
-            getline(fin, param);
+            if (!getline(fin, param)) {
+                ERRMSG("Comment expected but not found\n");
+                return false;
+            }
         }
         else if (param == "type") {
-            // Cache type: instruction, data, or unified (default).
-            fin >> cache->type;
-            if (cache->type != "instruction" && cache->type != "data" &&
-                cache->type != "unified") {
+            // Cache type: INSTRUCTION_CACHE, DATA_CACHE, or UNIFIED_CACHE.
+            if (!(fin >> cache->type)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (cache->type != INSTRUCTION_CACHE &&
+                cache->type != DATA_CACHE &&
+                cache->type != UNIFIED_CACHE) {
                 ERRMSG("Unknown cache type: %s\n", cache->type.c_str());
                 return false;
             }
         }
         else if (param == "core") {
             // CPU core this cache is associated with.
-            fin >> cache->core;
+            if (!(fin >> cache->core)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else if (param == "size") {
             // Cache size in bytes.
-            fin >> cache->size;
+            string size_str;
+            if (!(fin >> size_str)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (!convert_string_to_size(size_str, cache->size)) {
+                ERRMSG("Unusable cache size %s\n", size_str.c_str());
+                return false;
+            }
             if (cache->size <= 0 || !IS_POWER_OF_2(cache->size)) {
-                ERRMSG("Cache size (%d) must be >0 and a power of 2\n",
+                ERRMSG("Cache size (%lu) must be >0 and a power of 2\n",
                        cache->size);
                 return false;
             }
         }
         else if (param == "assoc") {
             // Cache associativity. Must be a power of 2.
-            fin >> cache->assoc;
+            if (!(fin >> cache->assoc)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
             if (cache->assoc <= 0 || !IS_POWER_OF_2(cache->assoc)) {
-                ERRMSG("Cache associativity (%d) must be >0 and a power of 2\n",
+                ERRMSG("Cache associativity (%u) must be >0 and a power of 2\n",
                        cache->assoc);
                 return false;
             }
@@ -193,29 +253,49 @@ config_reader_t::configure_cache(cache_params_t *cache)
         else if (param == "inclusive") {
             // Is the cache inclusive of its children.
             string bool_val;
-            fin >> bool_val;
-            if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {
+            if (!(fin >> bool_val)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
                 cache->inclusive = true;
+            }
+            else {
+                cache->inclusive = false;
             }
         }
         else if (param == "parent") {
-            // Name of the cache's parent. LLC's parent is main memory (mem).
-            fin >> cache->parent;
+            // Name of the cache's parent. LLC's parent is main memory (MEMORY).
+            if (!(fin >> cache->parent)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
-        else if (param == "rplc_policy") {
-            // Cache replacement policy: LRU (default), LFU or FIFO.
-            fin >> cache->rplc_policy;
-            if (cache->rplc_policy != "LRU" && cache->rplc_policy != "LFU" &&
-                cache->rplc_policy != "FIFO") {
+        else if (param == "replace_policy") {
+            // Cache replacement policy: REPLACE_POLICY_LRU (default),
+            // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
+            if (!(fin >> cache->replace_policy)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (cache->replace_policy != REPLACE_POLICY_NON_SPECIFIED &&
+                cache->replace_policy != REPLACE_POLICY_LRU &&
+                cache->replace_policy != REPLACE_POLICY_LFU &&
+                cache->replace_policy != REPLACE_POLICY_FIFO) {
                 ERRMSG("Unknown replacement policy: %s\n",
-                       cache->rplc_policy.c_str());
+                       cache->replace_policy.c_str());
                 return false;
             }
         }
         else if (param == "prefetcher") {
-            // Type of prefetcher: nextline or none.
-            fin >> cache->prefetcher;
-            if (cache->prefetcher != "none" && cache->prefetcher != "nextline") {
+            // Type of prefetcher: PREFETCH_POLICY_NEXTLINE
+            // or PREFETCH_POLICY_NONE.
+            if (!(fin >> cache->prefetcher)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
+            if (cache->prefetcher != PREFETCH_POLICY_NEXTLINE &&
+                cache->prefetcher != PREFETCH_POLICY_NONE) {
                 ERRMSG("Unknown prefetcher type: %s\n",
                        cache->prefetcher.c_str());
                 return false;
@@ -223,13 +303,20 @@ config_reader_t::configure_cache(cache_params_t *cache)
         }
         else if (param == "miss_file") {
             // Name of the file to use to dump cache misses info.
-            fin >> cache->miss_file;
+            if (!(fin >> cache->miss_file)) {
+                ERRMSG("Unable to read from the configuration file\n");
+                return false;
+            }
         }
         else {
             ERRMSG("Unknown cache configuration setting '%s'\n", param.c_str());
             return false;
         }
-        fin >> ws;
+
+        if (!(fin >> ws)) {
+            ERRMSG("Unable to read from the configuration file\n");
+            return false;
+        }
     }
 
     ERRMSG("Expected '}' at the end of cache params\n");
@@ -267,7 +354,7 @@ config_reader_t::check_cache_config(int num_cores,
         }
 
         // Associate a cache with its parent and children caches.
-        if (cache->parent != "mem") {
+        if (cache->parent != MEMORY) {
             auto parent_it = caches_map.find(cache->parent);
             if (parent_it != caches_map.end()) {
                 auto &parent = parent_it->second;
@@ -290,7 +377,7 @@ config_reader_t::check_cache_config(int num_cores,
 
             // Check for cycles between the cache and its parent.
             string parent = cache->parent;
-            while (parent != "mem") {
+            while (parent != MEMORY) {
                 if (parent == cache_name) {
                     ERRMSG("Cache %s and its parent %s have a cyclic reference\n",
                            cache_name.c_str(), cache->parent.c_str());
@@ -316,5 +403,35 @@ config_reader_t::check_cache_config(int num_cores,
         }
     }
 
+    return true;
+}
+
+bool
+config_reader_t::convert_string_to_size(const string &s, uint64_t &size) {
+    char suffix = *s.rbegin();  // s.back() only in C++11
+    int scale;
+    switch (suffix) {
+        case 'K':
+        case 'k': scale = 1024; break;
+        case 'M':
+        case 'm': scale = 1024*1024; break;
+        case 'G':
+        case 'g': scale = 1024*1024*1024; break;
+        default: scale = 1;
+    }
+
+    std::string toparse = s;
+    if (scale > 1)
+        toparse = s.substr(0, s.size()-1); // s.pop_back() only in C++11
+
+    // While the overall size is likely too large to be represented
+    // by a 32-bit integer, the prefix number is usually not.
+    int input = atoi(toparse.c_str());
+    if (input >= 0)
+        size = (uint64_t)(input * scale);
+    else {
+        size = 0;
+        return false;
+    }
     return true;
 }
