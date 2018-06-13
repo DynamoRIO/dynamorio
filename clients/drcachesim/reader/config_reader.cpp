@@ -204,14 +204,15 @@ config_reader_t::configure_cache(cache_params_t &cache)
             }
         }
         else if (param == "type") {
-            // Cache type: INSTRUCTION_CACHE, DATA_CACHE, or UNIFIED_CACHE.
+            // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
+            // or CACHE_TYPE_UNIFIED.
             if (!(fin >> cache.type)) {
                 ERRMSG("Unable to read from the configuration file\n");
                 return false;
             }
-            if (cache.type != INSTRUCTION_CACHE &&
-                cache.type != DATA_CACHE &&
-                cache.type != UNIFIED_CACHE) {
+            if (cache.type != CACHE_TYPE_INSTRUCTION &&
+                cache.type != CACHE_TYPE_DATA &&
+                cache.type != CACHE_TYPE_UNIFIED) {
                 ERRMSG("Unknown cache type: %s\n", cache.type.c_str());
                 return false;
             }
@@ -267,7 +268,8 @@ config_reader_t::configure_cache(cache_params_t &cache)
             }
         }
         else if (param == "parent") {
-            // Name of the cache's parent. LLC's parent is main memory (MEMORY).
+            // Name of the cache's parent. LLC's parent is main memory
+            // (CACHE_PARENT_MEMORY).
             if (!(fin >> cache.parent)) {
                 ERRMSG("Unable to read from the configuration file\n");
                 return false;
@@ -356,7 +358,7 @@ config_reader_t::check_cache_config(int num_cores,
         }
 
         // Associate a cache with its parent and children caches.
-        if (cache.parent != MEMORY) {
+        if (cache.parent != CACHE_PARENT_MEMORY) {
             auto parent_it = caches_map.find(cache.parent);
             if (parent_it != caches_map.end()) {
                 auto &parent = parent_it->second;
@@ -379,7 +381,7 @@ config_reader_t::check_cache_config(int num_cores,
 
             // Check for cycles between the cache and its parent.
             string parent = cache.parent;
-            while (parent != MEMORY) {
+            while (parent != CACHE_PARENT_MEMORY) {
                 if (parent == cache_name) {
                     ERRMSG("Cache %s and its parent %s have a cyclic reference\n",
                            cache_name.c_str(), cache.parent.c_str());
@@ -390,16 +392,16 @@ config_reader_t::check_cache_config(int num_cores,
         }
     }
 
-    // Check that each core has exactly one instruction and one data caches or
+    // Check that each core has exactly one instruction and one data cache or
     // exactly one unified cache.
     for (int i = 0; i < num_cores; i++) {
         if (core_inst_caches[i] != 1) {
-            ERRMSG("Core %d has %d instruction caches. Must have exactly 1\n",
+            ERRMSG("Core %d has %d instruction caches. Must have exactly 1.\n",
                    i, core_inst_caches[i]);
             return false;
         }
         if (core_data_caches[i] != 1) {
-            ERRMSG("Core %d has %d data caches. Must have exactly 1\n",
+            ERRMSG("Core %d has %d data caches. Must have exactly 1.\n",
                    i, core_data_caches[i]);
             return false;
         }
@@ -408,8 +410,11 @@ config_reader_t::check_cache_config(int num_cores,
     return true;
 }
 
+// XXX: This function is a duplicate of droption_t<bytesize_t>::convert_from_string
+// Consider sharing the function using a single copy.
 bool
-config_reader_t::convert_string_to_size(const string &s, uint64_t &size) {
+config_reader_t::convert_string_to_size(const string &s, uint64_t &size)
+{
     char suffix = *s.rbegin();  // s.back() only in C++11
     int scale;
     switch (suffix) {

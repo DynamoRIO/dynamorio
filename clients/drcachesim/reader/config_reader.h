@@ -61,7 +61,8 @@ struct cache_params_t {
         miss_file("") {}
     // Cache's name. Each cache must have a unique name.
     string name;
-    // Cache type: INSTRUCTION_CACHE, DATA_CACHE, or UNIFIED_CACHE (default).
+    // Cache type: CACHE_TYPE_INSTRUCTION, CACHE_TYPE_DATA,
+    // or CACHE_TYPE_UNIFIED (default).
     string type;
     // CPU core this cache is associated with.
     // Must be specified for L1 caches only.
@@ -72,7 +73,7 @@ struct cache_params_t {
     unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;
-    // Name of the cache's parent. LLC's parent is main memory (MEMORY).
+    // Name of the cache's parent. LLC's parent is main memory (CACHE_PARENT_MEMORY).
     string parent;
     // Names of the cache's children. L1 caches don't have children.
     std::vector<string> children;
