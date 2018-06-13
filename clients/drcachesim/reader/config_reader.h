@@ -50,12 +50,12 @@ using namespace std;
 // Cache configuration settings.
 struct cache_params_t {
     cache_params_t() :
-        type(UNIFIED_CACHE),
+        type(CACHE_TYPE_UNIFIED),
         core(-1),
         size(0),
         assoc(0),
         inclusive(false),
-        parent(MEMORY),
+        parent(CACHE_PARENT_MEMORY),
         replace_policy(REPLACE_POLICY_LRU),
         prefetcher(PREFETCH_POLICY_NONE),
         miss_file("") {}
