@@ -92,14 +92,14 @@ class config_reader_t
     ~config_reader_t();
     bool configure(const string &config_file,
                    cache_simulator_knobs_t &knobs,
-                   std::map<string, cache_params_t*> &caches);
+                   std::map<string, cache_params_t> &caches);
 
  private:
     std::ifstream fin;
 
-    bool configure_cache(cache_params_t *cache);
+    bool configure_cache(cache_params_t &cache);
     bool check_cache_config(int num_cores,
-                            const std::map<string, cache_params_t*> &caches_map);
+                            std::map<string, cache_params_t> &caches_map);
     bool convert_string_to_size(const string &s, uint64_t &size);
     bool is_true(string bool_val) {
         if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {

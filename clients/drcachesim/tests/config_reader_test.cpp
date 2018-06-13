@@ -37,7 +37,7 @@
 #include "../simulator/cache_simulator_create.h"
 
 static void
-check_cache(const std::map<string, cache_params_t*> &caches, string name,
+check_cache(const std::map<string, cache_params_t> &caches, string name,
             string type, int core, uint64_t size, unsigned int assoc,
             bool inclusive, string parent, string replace_policy,
             string prefetcher, string miss_file) {
@@ -50,17 +50,17 @@ check_cache(const std::map<string, cache_params_t*> &caches, string name,
 
     auto &cache = cache_it->second;
 
-    if (cache->type != type ||
-        cache->core != core ||
-        cache->size != size ||
-        cache->assoc != assoc ||
-        cache->inclusive != inclusive ||
-        cache->parent != parent ||
-        cache->replace_policy != replace_policy ||
-        cache->prefetcher != prefetcher ||
-        cache->miss_file != miss_file) {
+    if (cache.type != type ||
+        cache.core != core ||
+        cache.size != size ||
+        cache.assoc != assoc ||
+        cache.inclusive != inclusive ||
+        cache.parent != parent ||
+        cache.replace_policy != replace_policy ||
+        cache.prefetcher != prefetcher ||
+        cache.miss_file != miss_file) {
         std::cerr << "drcachesim config_reader_test failed (cache: "
-                  << cache->name << ")\n";
+                  << cache.name << ")\n";
         exit(1);
     }
 }
@@ -69,7 +69,7 @@ int
 main(int argc, const char *argv[])
 {
     cache_simulator_knobs_t knobs;
-    std::map<string, cache_params_t*> caches;
+    std::map<string, cache_params_t> caches;
     string file_name = "single_core.conf";
 
     config_reader_t config;
