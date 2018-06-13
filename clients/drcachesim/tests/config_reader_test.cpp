@@ -38,9 +38,9 @@
 
 void
 check_cache(std::map<string, cache_params_t*> caches,
-                 string name, string type, int core, int size, int assoc,
-                 bool inclusive, string parent, string rplc_policy,
-                 string prefetcher, string miss_file) {
+                 string name, string type, int core, uint64_t size,
+                 unsigned int assoc, bool inclusive, string parent,
+                 string replace_policy, string prefetcher, string miss_file) {
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
         std::cerr << "drcachesim config_reader_test failed (cache: "
@@ -56,7 +56,7 @@ check_cache(std::map<string, cache_params_t*> caches,
         cache->assoc != assoc ||
         cache->inclusive != inclusive ||
         cache->parent != parent ||
-        cache->rplc_policy != rplc_policy ||
+        cache->replace_policy != replace_policy ||
         cache->prefetcher != prefetcher ||
         cache->miss_file != miss_file) {
         std::cerr << "drcachesim config_reader_test failed (cache: "
@@ -73,7 +73,10 @@ main(int argc, const char *argv[])
     string file_name = "single_core.conf";
 
     config_reader_t config;
-    config.configure(file_name, knobs, caches);
+    if (!config.configure(file_name, knobs, caches)) {
+       std::cerr << "drcachesim config_reader_test failed (config error)\n";
+       exit(1);
+    }
 
     if (knobs.num_cores != 1 ||
         knobs.line_size != 64 ||
@@ -102,7 +105,7 @@ main(int argc, const char *argv[])
         }
         else if (cache_map.first == "LLC") {
             check_cache(caches, "LLC", "unified", -1, 1048576, 16, true,
-                        "mem", "LRU", "none", "misses.txt");
+                        "memory", "LRU", "none", "misses.txt");
         }
         else {
             std::cerr << "drcachesim config_reader_test failed (unknown cache)\n";
