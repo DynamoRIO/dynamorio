@@ -84,6 +84,8 @@ config_reader_t::configure(const string &config_file,
                 return false;
             }
         }
+        // XXX i#3047: Add support for page_size, which is needed to
+        // configure TLBs.
         else if (param == "line_size") {
             // Cache line size in bytes.
             if (!(fin >> knobs.line_size)) {
@@ -153,6 +155,7 @@ config_reader_t::configure(const string &config_file,
             cache_params_t *cache = new cache_params_t;
             cache->name = param;
             if (!configure_cache(cache)) {
+                delete cache;
                 return false;
             }
             caches[cache->name] = cache;
@@ -186,7 +189,7 @@ config_reader_t::configure_cache(cache_params_t *cache)
 
     while (!fin.eof()) {
         string param;
-        if(!(fin >> ws >> param)) {
+        if (!(fin >> ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -233,8 +236,8 @@ config_reader_t::configure_cache(cache_params_t *cache)
                 return false;
             }
             if (cache->size <= 0 || !IS_POWER_OF_2(cache->size)) {
-                ERRMSG("Cache size (%lu) must be >0 and a power of 2\n",
-                       cache->size);
+                ERRMSG("Cache size (%llu) must be >0 and a power of 2\n",
+                       (unsigned long long)cache->size);
                 return false;
             }
         }
@@ -325,7 +328,7 @@ config_reader_t::configure_cache(cache_params_t *cache)
 
 bool
 config_reader_t::check_cache_config(int num_cores,
-                                    std::map<string, cache_params_t*> &caches_map)
+                                    const std::map<string, cache_params_t*> &caches_map)
 {
     int *core_inst_caches = new int[num_cores];
     int *core_data_caches = new int[num_cores];

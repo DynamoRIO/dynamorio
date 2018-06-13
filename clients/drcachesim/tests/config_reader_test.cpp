@@ -36,11 +36,11 @@
 #include "../simulator/cache.h"
 #include "../simulator/cache_simulator_create.h"
 
-void
-check_cache(std::map<string, cache_params_t*> caches,
-                 string name, string type, int core, uint64_t size,
-                 unsigned int assoc, bool inclusive, string parent,
-                 string replace_policy, string prefetcher, string miss_file) {
+static void
+check_cache(const std::map<string, cache_params_t*> &caches, string name,
+            string type, int core, uint64_t size, unsigned int assoc,
+            bool inclusive, string parent, string replace_policy,
+            string prefetcher, string miss_file) {
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
         std::cerr << "drcachesim config_reader_test failed (cache: "
