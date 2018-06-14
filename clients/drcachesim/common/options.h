@@ -48,6 +48,10 @@
 #define REUSE_TIME                              "reuse_time"
 #define BASIC_COUNTS                            "basic_counts"
 #define OPCODE_MIX                              "opcode_mix"
+#define CACHE_TYPE_INSTRUCTION                  "instruction"
+#define CACHE_TYPE_DATA                         "data"
+#define CACHE_TYPE_UNIFIED                      "unified"
+#define CACHE_PARENT_MEMORY                     "memory"
 
 #include <string>
 #include "droption.h"
