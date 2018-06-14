@@ -113,6 +113,7 @@ set(drcachesim_srcs
   analyzer_multi.cpp
   ${client_and_sim_srcs}
   reader/reader.cpp
+  reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
   reader/ipc_reader.cpp
