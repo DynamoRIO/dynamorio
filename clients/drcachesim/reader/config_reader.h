@@ -77,10 +77,11 @@ struct cache_params_t {
     string parent;
     // Names of the cache's children. L1 caches don't have children.
     std::vector<string> children;
-    // Cache replacement policy: REPLACE_POLICY_LRU (default),
-    // REPLACE_POLICY_LFU or REPLACE_POLICY_FIFO.
+    // Cache replacement policy as described by the runtime option
+    // op_replace_policy (see ../common/options.cpp).
     string replace_policy;
-    // Type of prefetcher: PREFETCH_POLICY_NEXTLINE or PREFETCH_POLICY_NONE.
+    // Type of prefetcher as described by the runtime option
+    // op_data_prefetcher (see ../common/options.cpp).
     string prefetcher;
     // Name of the file to use to dump cache misses info.
     string miss_file;
@@ -102,7 +103,8 @@ class config_reader_t
     bool check_cache_config(int num_cores,
                             std::map<string, cache_params_t> &caches_map);
     bool convert_string_to_size(const string &s, uint64_t &size);
-    bool is_true(string bool_val) {
+    bool is_true(string bool_val)
+    {
         if (bool_val == "true" || bool_val == "True" || bool_val == "TRUE") {
             return true;
         }
