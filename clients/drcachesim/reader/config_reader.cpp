@@ -341,7 +341,8 @@ config_reader_t::configure_cache(cache_params_t &cache)
 
 bool
 config_reader_t::check_cache_config(int num_cores,
-                                    std::map<string, cache_params_t> &caches_map)
+                                    std::map<string, cache_params_t>
+                                        &caches_map)
 {
     int *core_inst_caches = new int[num_cores];
     int *core_data_caches = new int[num_cores];

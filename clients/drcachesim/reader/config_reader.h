@@ -73,7 +73,8 @@ struct cache_params_t {
     unsigned int assoc;
     // Is the cache inclusive of its children.
     bool inclusive;
-    // Name of the cache's parent. LLC's parent is main memory (CACHE_PARENT_MEMORY).
+    // Name of the cache's parent. LLC's parent is main memory
+    // (CACHE_PARENT_MEMORY).
     string parent;
     // Names of the cache's children. L1 caches don't have children.
     std::vector<string> children;
