@@ -46,6 +46,7 @@ online and offline.
  - \ref sec_drcachesim
  - \ref sec_drcachesim_run
  - \ref sec_drcachesim_tools
+ - \ref sec_drcachesim_config_file
  - \ref sec_drcachesim_offline
  - \ref sec_drcachesim_partial
  - \ref sec_drcachesim_sim
@@ -419,6 +420,92 @@ dcache top 10
     0x7ffcc35e7e80: 2194
     0x7facdb6625c0: 2016
     0x7ffcc35e7e40: 1997
+\endcode
+
+****************************************************************************
+\section sec_drcachesim_config_file Configuration File
+
+\p drcachesim supports reconfigurable cache hierarchies defined in
+a configuration file. The configuration file is a text file with the following
+formatting rules.
+
+- A comment starts with two slashes followed by one or more spaces. Anything
+after the '// ' until the end of the line is considered a comment and ignored.
+- A parameter's name and its value are listed consecutively with white space
+(spaces, tabs, or a new line) between them.
+- Parameters must be separated by white space. Including one parameter per line
+helps keep the configuration file more human-readable.
+- A cache's parameters must be enclosed inside braces and preceded by the
+cache's user-chosen unique name.
+- Parameters can be listed in any order.
+- Parameters not included in the configuration file take their default values.
+- String values must not be enclosed in quotations.
+
+Supported common parameters and their value types (each of these parameters
+sets the corresponding option with the same name described in \ref sec_drcachesim_ops):
+- num_cores \<unsigned int\>
+- line_size \<unsigned int\>
+- skip_refs \<unsigned int\>
+- warmup_refs \<unsigned int\>
+- warmup_fraction \<float in [0,1]\>
+- sim_refs \<unsigned int\>
+- cpu_scheduling \<bool\>
+- verbose \<unsigned int\>
+
+Supported cache parameters and their value types:
+- type \<string, one of "instruction", "data", or "unified"\>
+- core \<unsigned int in [0, num_cores)\>
+- size \<unsigned int, power of 2\>
+- assoc \<unsigned int, power of 2\>
+- inclusive \<bool\>
+- parent \<string\>
+- replace_policy \<string, one of "LRU", "LFU", or "FIFO"\>
+- prefetcher \<string, one of "nextline" or "none"\>
+- miss_file \<string\>
+
+Example:
+\code
+// Configuration for a single-core CPU.
+
+// Common params.
+num_cores       1
+line_size       64
+cpu_scheduling  true
+sim_refs        8888888
+warmup_fraction 0.8
+
+// Cache params.
+P0L1I {                        // P0 L1 instruction cache
+  type            instruction
+  core            0
+  size            65536        // 64K
+  assoc           8
+  parent          P0L2
+  replace_policy  LRU
+}
+P0L1D {                        // P0 L1 data cache
+  type            data
+  core            0
+  size            65536        // 64K
+  assoc           8
+  parent          P0L2
+  replace_policy  LRU
+}
+P0L2 {                         // P0 L2 unified cache
+  size            512K
+  assoc           16
+  inclusive       true
+  parent          LLC
+  replace_policy  LRU
+}
+LLC {                          // LLC
+  size            1M
+  assoc           16
+  inclusive       true
+  parent          mem
+  replace_policy  LRU
+  miss_file       misses.txt
+}
 \endcode
 
 ****************************************************************************
