@@ -974,12 +974,16 @@ drwrap_exit(void)
     if (count != 0)
         return;
 
-    drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app);
-    drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis);
-    drmgr_unregister_module_unload_event(drwrap_event_module_unload);
-    dr_unregister_delete_event(drwrap_fragment_delete);
-
-    drmgr_unregister_tls_field(tls_idx);
+    ASSERT(drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app),
+           "failed to unregister bb_app2app_event");
+    ASSERT(drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis),
+           "failed to unregister bb_instrumentation_event");
+    ASSERT(drmgr_unregister_module_unload_event(drwrap_event_module_unload),
+           "failed to unregister odule_unload_event");
+    ASSERT(dr_unregister_delete_event(drwrap_fragment_delete),
+           "failed to unregister delete_event");
+    ASSERT(drmgr_unregister_tls_field(tls_idx),
+           "failed to unregister tls_field");
 
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
