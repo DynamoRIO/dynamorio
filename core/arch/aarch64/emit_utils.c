@@ -43,6 +43,8 @@
 #define PRE    instrlist_meta_preinsert
 #define OPREG  opnd_create_reg
 
+#define NOP_INST 0xd503201f
+
 /***************************************************************************/
 /*                               EXIT STUB                                 */
 /***************************************************************************/
@@ -80,16 +82,32 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-/* Generate move (immediate) of a 64-bit value using 4 instructions. */
+/*
+ * Generate move (immediate) of a 64-bit value using 4 instructions. Instead of using #0
+ * with movk, we insert NOPs.
+ */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
     uint rt = dst - DR_REG_X0;
     ASSERT(rt < 31);
     *pc++ = 0xd2800000 | rt | (val       & 0xffff) << 5; /* mov  x(rt), #x */
-    *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
-    *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
-    *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
+
+    if ((val >> 16 & 0xffff) != 0)
+        *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
+    else
+        *pc++ = NOP_INST;
+
+    if ((val >> 32 & 0xffff) != 0)
+        *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
+    else
+        *pc++ = NOP_INST;
+
+    if ((val >> 48 & 0xffff) != 0)
+        *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
+    else
+        *pc++ = NOP_INST;
+
     return pc;
 }
 
@@ -133,7 +151,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     }
-    ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
+     ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
            DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)stub_pc);
 }
@@ -870,6 +888,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = 0xd503201f; /* nop */
+        *(uint *)pc = NOP_INSTR; /* nop */
     return true;
 }
