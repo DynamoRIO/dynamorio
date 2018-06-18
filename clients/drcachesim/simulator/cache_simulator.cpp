@@ -39,6 +39,7 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+#include "../reader/config_reader.h"
 #include "../reader/file_reader.h"
 #include "../reader/ipc_reader.h"
 #include "cache_stats.h"
@@ -59,14 +60,17 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
                 knobs_.warmup_fraction, knobs_.sim_refs,
                 knobs_.cpu_scheduling, knobs_.verbose),
     knobs(knobs_),
-    icaches(NULL),
-    dcaches(NULL),
-    is_warmed_up(false)
+    l1_icaches(NULL),
+    l1_dcaches(NULL),
+    is_warmed_up(false),
+    is_two_level(true)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
-    llcache = create_cache(knobs.replace_policy);
-    if (llcache == NULL) {
+    // This configuration allows for one shared LLC only.
+    cache_t *llc = new cache_t;
+    llc = create_cache(knobs.replace_policy);
+    if (llc == NULL) {
         success = false;
         return;
     }
@@ -80,7 +84,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
 
     bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
-    if (!llcache->init(knobs.LL_assoc, (int)knobs.line_size,
+    if (!llc->init(knobs.LL_assoc, (int)knobs.line_size,
                        (int)knobs.LL_size, NULL,
                        new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
@@ -90,25 +94,29 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
         return;
     }
 
-    icaches = new cache_t* [knobs.num_cores];
-    dcaches = new cache_t* [knobs.num_cores];
+    string cache_name = "LLC";
+    all_caches[cache_name] = llc;
+    llcaches.push_back(llc);
+
+    l1_icaches = new cache_t* [knobs.num_cores];
+    l1_dcaches = new cache_t* [knobs.num_cores];
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        icaches[i] = create_cache(knobs.replace_policy);
-        if (icaches[i] == NULL) {
+        l1_icaches[i] = create_cache(knobs.replace_policy);
+        if (l1_icaches[i] == NULL) {
             success = false;
             return;
         }
-        dcaches[i] = create_cache(knobs.replace_policy);
-        if (dcaches[i] == NULL) {
+        l1_dcaches[i] = create_cache(knobs.replace_policy);
+        if (l1_dcaches[i] == NULL) {
             success = false;
             return;
         }
 
-        if (!icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
-                              (int)knobs.L1I_size, llcache,
+        if (!l1_icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
+                              (int)knobs.L1I_size, llc,
                               new cache_stats_t("", warmup_enabled)) ||
-            !dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
-                              (int)knobs.L1D_size, llcache,
+            !l1_dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
+                              (int)knobs.L1D_size, llc,
                               new cache_stats_t("", warmup_enabled),
                               knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
                               new prefetcher_t((int)knobs.line_size) : nullptr)) {
@@ -118,33 +126,156 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
             success = false;
             return;
         }
+
+        cache_name = "L1_I_Cache_%u" + i;
+        all_caches[cache_name] = l1_icaches[i];
+        cache_name = "L1_D_Cache_%u" + i;
+        all_caches[cache_name] = l1_dcaches[i];
+    }
+}
+
+cache_simulator_t::cache_simulator_t(const string &config_file) :
+    simulator_t(),
+    l1_icaches(NULL),
+    l1_dcaches(NULL),
+    is_warmed_up(false),
+    is_two_level(false)
+{
+    llcaches.clear();
+
+    std::map<string, cache_params_t> cache_params;
+    config_reader_t config_reader;
+    if (!config_reader.configure(config_file, knobs, cache_params)) {
+        ERRMSG("Usage error: Failed to read/parse configuration file %s.\n",
+               config_file);
+        success = false;
+        return;
+    }
+
+    init_knobs(knobs.num_cores, knobs.skip_refs,
+               knobs.warmup_refs, knobs.warmup_fraction,
+               knobs.sim_refs, knobs.cpu_scheduling,
+               knobs.verbose);
+
+    if (knobs.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
+        knobs.data_prefetcher != PREFETCH_POLICY_NONE) {
+        // Unknown prefetcher type.
+        success = false;
+        return;
+    }
+
+    bool warmup_enabled = ((knobs.warmup_refs > 0) ||
+                           (knobs.warmup_fraction > 0.0));
+
+    l1_icaches = new cache_t* [knobs.num_cores];
+    l1_dcaches = new cache_t* [knobs.num_cores];
+
+    // Create all the caches in the hierarchy.
+    for (auto &cache_params_it : cache_params) {
+        string cache_name = cache_params_it.first;
+        auto &cache_config = cache_params_it.second;
+
+        cache_t *cache = create_cache(cache_config.replace_policy);
+        if (cache == NULL) {
+            success = false;
+            return;
+        }
+
+        all_caches[cache_name] = cache;
+    }
+
+    // Initialize all the caches in the hierarchy and identify both
+    // the L1 caches and LLC(s).
+    for (auto &cache_it : all_caches) {
+        string cache_name = cache_it.first;
+        cache_t *cache = cache_it.second;
+
+        // Locate the cache's configuration.
+        const auto &cache_config_it = cache_params.find(cache_name);
+        if (cache_config_it == cache_params.end()) {
+            ERRMSG("Error configuring the cache: %s\n", cache_name);
+            success = false;
+            return;
+        }
+        auto &cache_config = cache_config_it->second;
+
+        // Locate the cache's parent.
+        cache_t *parent = NULL;
+        if (cache_config.parent != CACHE_PARENT_MEMORY) {
+            const auto &parent_it = all_caches.find(cache_config.parent);
+            if (parent_it == all_caches.end()) {
+                ERRMSG("Error locating the configuration of the cache: %s\n",
+                       cache_config.parent);
+                success = false;
+                return;
+            }
+            parent = parent_it->second;
+        }
+
+        // Locate the cache's children.
+        std::vector<caching_device_t*> children;
+        children.clear();
+        if (cache_config.inclusive) {
+            for (string &child_name : cache_config.children) {
+                const auto &child_it = all_caches.find(child_name);
+                if (child_it == all_caches.end()) {
+                    ERRMSG("Error locating the configuration of the cache: %s\n",
+                           child_name);
+                    success = false;
+                    return;
+                }
+                children.push_back(child_it->second);
+            }
+        }
+
+        if (!cache->init((int)cache_config.assoc, (int)knobs.line_size,
+                         (int)cache_config.size, parent,
+                         new cache_stats_t("", warmup_enabled),
+                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE ?
+                             new prefetcher_t((int)knobs.line_size) : nullptr,
+                         cache_config.inclusive, children)) {
+            ERRMSG("Usage error: failed to initialize the cache %s\n",
+                   cache_name);
+            success = false;
+            return;
+        }
+
+        // Assign the pointers to the L1 instruction and data caches.
+        if (cache_config.core >= 0 && cache_config.core < knobs.num_cores) {
+            if (cache_config.type == CACHE_TYPE_INSTRUCTION ||
+                cache_config.type == CACHE_TYPE_UNIFIED) {
+                l1_icaches[cache_config.core] = cache;
+            }
+            if (cache_config.type == CACHE_TYPE_DATA ||
+                cache_config.type == CACHE_TYPE_UNIFIED) {
+                l1_dcaches[cache_config.core] = cache;
+            }
+        }
+
+        // Assign the pointer(s) to the LLC(s).
+        if (cache_config.parent == CACHE_PARENT_MEMORY) {
+            llcaches.push_back(cache);
+        }
     }
 }
 
 cache_simulator_t::~cache_simulator_t()
 {
-    if (llcache == NULL)
-        return;
-    delete llcache->get_stats();
-    delete llcache->get_prefetcher();
-    delete llcache;
-    if (icaches == NULL)
-        return;
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        // Try to handle failure during construction.
-        if (icaches[i] == NULL)
-            return;
-        delete icaches[i]->get_stats();
-        delete icaches[i]->get_prefetcher();
-        delete icaches[i];
-        if (dcaches[i] == NULL)
-            return;
-        delete dcaches[i]->get_stats();
-        delete dcaches[i]->get_prefetcher();
-        delete dcaches[i];
+    for (auto &caches_it : all_caches) {
+        cache_t *cache = caches_it.second;
+        delete cache->get_stats();
+        delete cache->get_prefetcher();
+        delete cache;
     }
-    delete [] icaches;
-    delete [] dcaches;
+
+    if (l1_icaches != NULL) {
+        delete [] l1_icaches;
+    }
+    if (l1_dcaches != NULL) {
+        delete [] l1_dcaches;
+    }
+    llcaches.clear();
+    all_caches.clear();
 }
 
 bool
@@ -193,7 +324,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                 " @" << (void *)memref.instr.addr << " instr x" <<
                 memref.instr.size << "\n";
         }
-        icaches[core]->request(memref);
+        l1_icaches[core]->request(memref);
     } else if (memref.data.type == TRACE_TYPE_READ ||
                memref.data.type == TRACE_TYPE_WRITE ||
                // We may potentially handle prefetches differently.
@@ -205,21 +336,21 @@ cache_simulator_t::process_memref(const memref_t &memref)
                 " " << trace_type_names[memref.data.type] << " " <<
                 (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
-        dcaches[core]->request(memref);
+        l1_dcaches[core]->request(memref);
     } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
         if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc << " iflush " <<
                 (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
-        icaches[core]->flush(memref);
+        l1_icaches[core]->flush(memref);
     } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
         if (knobs.verbose >= 3) {
             std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
                 " @" << (void *)memref.data.pc << " dflush " <<
                 (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
-        dcaches[core]->flush(memref);
+        l1_dcaches[core]->flush(memref);
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         handle_thread_exit(memref.exit.tid);
         last_thread = 0;
@@ -237,22 +368,22 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     // reset cache stats when warming up is completed
     if (!is_warmed_up && check_warmed_up()) {
-        for (unsigned int i = 0; i < knobs.num_cores; i++) {
-            icaches[i]->get_stats()->reset();
-            dcaches[i]->get_stats()->reset();
+        for (auto &cache_it : all_caches) {
+            cache_t *cache = cache_it.second;
+            cache->get_stats()->reset();
         }
-        llcache->get_stats()->reset();
         if (knobs.verbose >= 1) {
             std::cerr << "Cache simulation warmed up\n";
         }
     } else {
         knobs.sim_refs--;
     }
+
     return true;
 }
 
 // Return true if the number of warmup references have been executed or if
-// specified fraction of the llcache has been loaded. Also return true if the
+// specified fraction of the llcaches has been loaded. Also return true if the
 // cache has already been warmed up.
 bool
 cache_simulator_t::check_warmed_up()
@@ -263,10 +394,16 @@ cache_simulator_t::check_warmed_up()
 
     // If the warmup_fraction option is set then check if the last level has
     // loaded enough data to be warmed up.
-    if (knobs.warmup_fraction > 0.0 &&
-        llcache->get_loaded_fraction() > knobs.warmup_fraction) {
+    if (knobs.warmup_fraction > 0.0) {
         is_warmed_up = true;
-        return true;
+        for (cache_t *cache : llcaches) {
+            if (cache->get_loaded_fraction() < knobs.warmup_fraction) {
+                is_warmed_up = false;
+                break;
+            }
+        }
+
+        if (is_warmed_up) return true;
     }
 
     // If warmup_refs is set then decrement and indicate warmup done when
@@ -286,19 +423,32 @@ cache_simulator_t::check_warmed_up()
 bool
 cache_simulator_t::print_results()
 {
-    std::cerr << "Cache simulation results:\n";
-    for (unsigned int i = 0; i < knobs.num_cores; i++) {
-        print_core(i);
-        if (thread_ever_counts[i] > 0) {
-            std::cerr << "  L1I stats:" << std::endl;
-            icaches[i]->get_stats()->print_stats("    ");
-            std::cerr << "  L1D stats:" << std::endl;
-            dcaches[i]->get_stats()->print_stats("    ");
+    if (is_two_level) {
+        std::cerr << "Cache simulation results:\n";
+        for (unsigned int i = 0; i < knobs.num_cores; i++) {
+            print_core(i);
+            if (thread_ever_counts[i] > 0) {
+                std::cerr << "  L1I stats:" << std::endl;
+                l1_icaches[i]->get_stats()->print_stats("    ");
+                std::cerr << "  L1D stats:" << std::endl;
+                l1_dcaches[i]->get_stats()->print_stats("    ");
+            }
+        }
+        std::cerr << "LL stats:" << std::endl;
+        llcaches[0]->get_stats()->print_stats("    ");
+        return true;
+    }
+    else {
+        std::cerr << "Cache simulation results:\n";
+        for (unsigned int i = 0; i < knobs.num_cores; i++) {
+            print_core(i);
+        }
+        for (auto &caches_it : all_caches) {
+            std::cerr << caches_it.first << " stats:" << std::endl;
+            caches_it.second->get_stats()->print_stats("    ");
+            return true;
         }
     }
-    std::cerr << "LL stats:" << std::endl;
-    llcache->get_stats()->print_stats("    ");
-    return true;
 }
 
 cache_t*
