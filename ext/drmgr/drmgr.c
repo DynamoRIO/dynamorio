@@ -431,6 +431,11 @@ drmgr_exit(void)
 
     if (bb_event_count > 0)
         dr_unregister_bb_event(drmgr_bb_event);
+
+    bb_event_count = 0;
+    pair_count = 0;
+    quartet_count = 0;
+
     if (registered_fault) {
         dr_unregister_restore_state_ex_event(drmgr_restore_state_event);
         registered_fault = false;
