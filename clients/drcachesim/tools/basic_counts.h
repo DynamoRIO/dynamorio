@@ -55,6 +55,7 @@ class basic_counts_t : public analysis_tool_t
     int_least64_t total_stores;
     int_least64_t total_sched_markers;
     int_least64_t total_xfer_markers;
+    int_least64_t total_func_markers;
     int_least64_t total_other_markers;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs_nofetch;
@@ -63,6 +64,7 @@ class basic_counts_t : public analysis_tool_t
     std::unordered_map<memref_tid_t, int_least64_t> thread_stores;
     std::unordered_map<memref_tid_t, int_least64_t> thread_sched_markers;
     std::unordered_map<memref_tid_t, int_least64_t> thread_xfer_markers;
+    std::unordered_map<memref_tid_t, int_least64_t> thread_func_markers;
     std::unordered_map<memref_tid_t, int_least64_t> thread_other_markers;
 
     unsigned int knob_verbose;

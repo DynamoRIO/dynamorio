@@ -21,4 +21,5 @@ Total counts:
            4 total threads
     *[0-9]* total scheduling markers
     *[0-9]* total transfer markers
+           0 total function markers
            0 total other markers

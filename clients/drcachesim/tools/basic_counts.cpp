@@ -49,7 +49,7 @@ basic_counts_tool_create(unsigned int verbose)
 basic_counts_t::basic_counts_t(unsigned int verbose) :
     total_threads(0), total_instrs(0), total_instrs_nofetch(0), total_prefetches(0),
     total_loads(0), total_stores(0), total_sched_markers(0), total_xfer_markers(0),
-    total_other_markers(0), knob_verbose(verbose)
+    total_func_markers(0), total_other_markers(0), knob_verbose(verbose)
 {
     // Empty.
 }
@@ -57,6 +57,13 @@ basic_counts_t::basic_counts_t(unsigned int verbose) :
 basic_counts_t::~basic_counts_t()
 {
     // Empty.
+}
+
+static bool is_func_marker(trace_marker_type_t marker_type)
+{
+  return marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR ||
+         marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_ARG ||
+         marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL;
 }
 
 bool
@@ -86,6 +93,9 @@ basic_counts_t::process_memref(const memref_t &memref)
                  memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
           ++thread_xfer_markers[memref.data.tid];
           ++total_xfer_markers;
+      } else if (is_func_marker(memref.marker.marker_type)) {
+          ++thread_func_markers[memref.data.tid];
+          ++total_func_markers;
       } else {
           ++thread_other_markers[memref.data.tid];
           ++total_other_markers;
@@ -116,6 +126,7 @@ basic_counts_t::print_results() {
     std::cerr << std::setw(12) << total_threads << " total threads\n";
     std::cerr << std::setw(12) << total_sched_markers << " total scheduling markers\n";
     std::cerr << std::setw(12) << total_xfer_markers << " total transfer markers\n";
+    std::cerr << std::setw(12) << total_func_markers << " total function markers\n";
     std::cerr << std::setw(12) << total_other_markers << " total other markers\n";
 
     // Print the threads sorted by instrs.
@@ -134,6 +145,7 @@ basic_counts_t::print_results() {
         std::cerr << std::setw(12) << thread_sched_markers[tid] <<
             " scheduling markers\n";
         std::cerr << std::setw(12) << thread_xfer_markers[tid] << " transfer markers\n";
+        std::cerr << std::setw(12) << thread_func_markers[tid] << " function markers\n";
         std::cerr << std::setw(12) << thread_other_markers[tid] << " other markers\n";
     }
     return true;

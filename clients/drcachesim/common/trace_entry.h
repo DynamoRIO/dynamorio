@@ -191,6 +191,24 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CPU_ID,
 
+    /**
+     * The marker value contains identifier for the return address of
+     * malloc-on-heap-like function
+     */
+    TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR,
+
+    /**
+     * The marker value contains identifier for the argument of
+     * malloc-on-heap-like function
+     */
+    TRACE_MARKER_TYPE_FUNC_MALLOC_ARG,
+
+    /**
+     * The marker value contains identifier for the return value of
+     * malloc-on-heap-like function
+     */
+    TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

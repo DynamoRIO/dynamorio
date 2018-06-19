@@ -31,6 +31,7 @@ Total counts:
 #else
           13 total transfer markers
 #endif
+     .* total function markers
            0 total other markers
 Thread .* counts:
      .* \(fetched\) instructions
@@ -44,4 +45,5 @@ Thread .* counts:
 #else
           13 transfer markers
 #endif
+     .* function markers
            0 other markers

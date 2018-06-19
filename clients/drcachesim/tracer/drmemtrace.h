@@ -56,6 +56,13 @@ typedef enum {
     DRMEMTRACE_ERROR_NOT_IMPLEMENTED,    /**< Operation failed: not implemented. */
 } drmemtrace_status_t;
 
+
+/**
+ * Name of drmgr instrumentation pass priorities for app2app, insert, and
+ * exception on Windows.
+ */
+#define DRMGR_PRIORITY_NAME_MEMTRACE "memtrace"
+
 DR_EXPORT
 /**
  * To support statically linking multiple clients on UNIX, dr_client_main() inside

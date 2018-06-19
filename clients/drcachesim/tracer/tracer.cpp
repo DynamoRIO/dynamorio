@@ -44,6 +44,8 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drsyms.h"
+#include "drwrap.h"
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drutil.h"
@@ -151,6 +153,14 @@ static volatile bool exited_process;
 /* virtual to physical translation */
 static bool have_phys;
 static physaddr_t physaddr;
+
+/* priority of registering callbacks for events
+ * using priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 to make sure the drwrap
+ * registration for function pre/post callbacks happens before memtrace's
+ * meta instruction
+*/
+static drmgr_priority_t memtrace_pri = {sizeof(drmgr_priority_t),
+    DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP + 1};
 
 /* Allocated TLS slot offsets */
 enum {
@@ -1006,6 +1016,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
+
         ud->delay_instrs[ud->num_delay_instrs++] = instr;
         return DR_EMIT_DEFAULT;
     }
@@ -1266,7 +1277,7 @@ enable_delay_instrumentation()
      * to tracing instrumentation.
      */
     if (!drmgr_register_bb_instrumentation_event(event_delay_bb_analysis,
-                                                 event_delay_app_instruction, NULL))
+                                                 event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
     enable_tracing_lock = dr_mutex_create();
 }
@@ -1297,7 +1308,7 @@ enable_tracing_instrumentation()
                                                     event_bb_analysis,
                                                     event_app_instruction,
                                                     event_bb_instru2instru,
-                                                    NULL))
+                                                    &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
     tracing_enabled = true;
@@ -1396,6 +1407,100 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                          OPND_CREATE_INT32(num_instrs));
 #endif
     return DR_EMIT_DEFAULT;
+}
+
+
+typedef struct _func_metadata {
+    const trace_marker_type_t marker_retaddr;
+    const trace_marker_type_t marker_arg;
+    const trace_marker_type_t marker_retval;
+    const char *name;
+    const int num_args;
+} func_metadata;
+
+#define MALLOC_RETADDR TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR
+#define MALLOC_ARG     TRACE_MARKER_TYPE_FUNC_MALLOC_ARG
+#define MALLOC_RETVAL  TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL
+
+static const func_metadata instru_funcs[] = {
+    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "malloc", 1},
+    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "(anonymous namespace)::do_malloc", 1},
+
+#ifdef WINDOWS
+    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "malloc_impl", 1 },
+#endif // WINDOWS
+
+#ifdef UNIX
+    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "tc_malloc", 1 },
+    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "__libc_malloc", 1},
+#endif // UNIX
+};
+
+static void
+func_pre_hook(void *wrapcxt, INOUT void **user_data)
+{
+    void *drcontext = drwrap_get_drcontext(wrapcxt);
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (BUF_PTR(data->seg_base) == NULL)
+        return; /* This thread was filtered out. */
+
+    func_metadata *e = (func_metadata *) *user_data;
+    app_pc retaddr = drwrap_get_retaddr(wrapcxt);
+
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), e->marker_retaddr,
+                              (uintptr_t)retaddr);
+
+    for (int i = 0; i < e->num_args; i++) {
+        void * arg_i = drwrap_get_arg(wrapcxt, i);
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), e->marker_arg,
+                                  (uintptr_t)arg_i);
+    }
+}
+
+static void
+func_post_hook(void *wrapcxt, void *user_data)
+{
+    void *drcontext = drwrap_get_drcontext(wrapcxt);
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (BUF_PTR(data->seg_base) == NULL)
+        return; /* This thread was filtered out. */
+
+    func_metadata *e = (func_metadata *)user_data;
+    void * retval = drwrap_get_retval(wrapcxt);
+
+    BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), e->marker_retval,
+                                  (uintptr_t)retval);
+}
+
+static void
+instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
+{
+    size_t offset;
+    drsym_error_t result;
+    app_pc func_pc;
+
+    if (drcontext == NULL || mod == NULL)
+        return;
+    dr_log(NULL, DR_LOG_ALL, 1,
+           "instru_funcs_module_load start=%p, mod->full_path=%s\n",
+           mod->start, mod->full_path);
+
+    for (size_t i = 0; i < sizeof(instru_funcs) / sizeof(func_metadata); i++) {
+        result = drsym_lookup_symbol(
+            mod->full_path, instru_funcs[i].name, &offset, DRSYM_DEMANGLE);
+        dr_log(NULL, DR_LOG_ALL, 1, "func_name=%s, result=%d, offset=%d\n",
+               instru_funcs[i].name, result, offset);
+
+        if (result == DRSYM_SUCCESS) {
+            func_pc = mod->start + offset;
+            bool wrap = drwrap_wrap_ex(func_pc, func_pre_hook, func_post_hook,
+                                       (void *)&instru_funcs[i], 0);
+            dr_log(NULL, DR_LOG_ALL, 1, "result of drwrap=%d\n", wrap);
+        }
+    }
 }
 
 /***************************************************************************
@@ -1555,6 +1660,11 @@ event_exit(void)
            num_refs);
     NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " UINT64_FORMAT_STRING
            " references.\n", dr_get_process_id(), num_refs);
+
+    drmgr_unregister_module_load_event(instru_funcs_module_load);
+    drwrap_exit();
+    drsym_exit();
+
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -1710,6 +1820,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
           op_L0D_size.get_value() != 0))) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
+
+    if (!(drsym_init(0) == DRSYM_SUCCESS) ||
+        !drwrap_init()) // drwrap_init() contains drmgr_init()
+        DR_ASSERT(false);
+    drmgr_register_module_load_event(instru_funcs_module_load);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
