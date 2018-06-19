@@ -2865,17 +2865,17 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 
 /* sd_sz: Operand size for single and double precision encoding of floating point
  * vector instructions. We need to convert the generic size operand to the right
- * encoding bits. It only supports ISZ_SINGLE and ISZ_DOUBLE.
+ * encoding bits. It only supports SINGLE_SZ and DOUBLE_SZ.
  */
 static inline bool
 decode_opnd_sd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     if (((enc >> 22) & 1) == 0) {
-        *opnd = opnd_create_immed_int(ISZ_SINGLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(SINGLE_SZ, OPSZ_2b);
         return true;
     }
     if (((enc >> 22) & 1) == 1) {
-        *opnd = opnd_create_immed_int(ISZ_DOUBLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(DOUBLE_SZ, OPSZ_2b);
         return true;
     }
     return false;
@@ -2884,11 +2884,11 @@ decode_opnd_sd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == ISZ_SINGLE) {
+    if (opnd_get_immed_int(opnd) == SINGLE_SZ) {
         *enc_out = 0;
         return true;
     }
-    if (opnd_get_immed_int(opnd) == ISZ_DOUBLE) {
+    if (opnd_get_immed_int(opnd) == DOUBLE_SZ) {
         *enc_out = 1 << 22;
         return true;
     }
@@ -2897,19 +2897,19 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 
 /* h_sz: Operand size for half precision encoding of floating point vector
  * instructions. We need to convert the generic size operand to the right
- * encoding bits. It only supports ISZ_HALF.
+ * encoding bits. It only supports HALF_SZ.
  */
 static inline bool
 decode_opnd_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_immed_int(ISZ_HALF, OPSZ_2b);
+    *opnd = opnd_create_immed_int(HALF_SZ, OPSZ_2b);
     return true;
 }
 
 static inline bool
 encode_opnd_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (opnd_get_immed_int(opnd) == ISZ_HALF)
+    if (opnd_get_immed_int(opnd) == HALF_SZ)
         return true;
     return false;
 }

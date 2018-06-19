@@ -45,50 +45,50 @@
  * Used in an additional immediate source operand to a vector operation, denotes
  * 8 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_BYTE 0
+#define BYTE_SZ 0
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 16 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_HALF 1
+#define HALF_SZ 1
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 32 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_SINGLE 2
+#define SINGLE_SZ 2
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 64 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_DOUBLE 3
+#define DOUBLE_SZ 3
 
 /**
- * Operand indicating half-precision floating point vector elements for the
- * other operands of the containing instruction.
+ * Operand denoting 8 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_BYTE() OPND_CREATE_INT8(ISZ_BYTE)
+#define OPND_CREATE_BYTE() OPND_CREATE_INT8(BYTE_SZ)
 
 
 /**
- * Operand indicating half-precision floating point vector elements for the
- * other operands of the containing instruction.
+ * Operand denoting 16 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_HALF() OPND_CREATE_INT8(ISZ_HALF)
+#define OPND_CREATE_HALF() OPND_CREATE_INT8(HALF_SZ)
 
 /**
- * Operand indicating single-precision floating point vector elements for the
- * other operands of the containing instruction.
+ * Operand denoting 32 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(ISZ_SINGLE)
+#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(SINGLE_SZ)
 
 /**
- * Operand indicating 64 bit wide vector elements for the other operands of the
- * containing instruction.
+ * Operand denoting 64 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(ISZ_DOUBLE)
+#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(DOUBLE_SZ)
 
 
 /**
