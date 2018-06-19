@@ -333,3 +333,9 @@ droption_t<bool> op_reuse_verify_skip
  "Verifies every skip list-calculated reuse distance with a full list walk. "
  "This incurs significant additional overhead.  This option is only available "
  "in debug builds.");
+
+droption_t<bool> op_enable_func_trace
+(DROPTION_SCOPE_FRONTEND, "enable_func_trace", true,
+ "enable traces for function invocations",
+ "The function trace would contain information of arguments, return address, and "
+ "return value for invocations of the pre-defined functions");

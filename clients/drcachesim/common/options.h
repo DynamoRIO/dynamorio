@@ -110,4 +110,5 @@ extern droption_t<unsigned int> op_reuse_distance_threshold;
 extern droption_t<bool> op_reuse_distance_histogram;
 extern droption_t<unsigned int> op_reuse_skip_dist;
 extern droption_t<bool> op_reuse_verify_skip;
+extern droption_t<bool> op_enable_func_trace;
 #endif /* _OPTIONS_H_ */

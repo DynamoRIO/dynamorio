@@ -1661,10 +1661,6 @@ event_exit(void)
     NOTIFY(1, "drmemtrace exiting process " PIDFMT"; traced " UINT64_FORMAT_STRING
            " references.\n", dr_get_process_id(), num_refs);
 
-    drmgr_unregister_module_load_event(instru_funcs_module_load);
-    drwrap_exit();
-    drsym_exit();
-
     /* we use placement new for better isolation */
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
@@ -1714,6 +1710,13 @@ event_exit(void)
     if (op_trace_after_instrs.get_value() > 0)
         exit_delay_instrumentation();
     drmgr_exit();
+
+    if (op_enable_func_trace.get_value()) {
+        if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
+            !(drsym_exit()== DRSYM_SUCCESS))
+            DR_ASSERT(false);
+        drwrap_exit();
+    }
 }
 
 static bool
@@ -1821,10 +1824,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (!(drsym_init(0) == DRSYM_SUCCESS) ||
-        !drwrap_init()) // drwrap_init() contains drmgr_init()
-        DR_ASSERT(false);
-    drmgr_register_module_load_event(instru_funcs_module_load);
+    if (op_enable_func_trace.get_value()) {
+        if (!(drsym_init(0) == DRSYM_SUCCESS) ||
+            !drwrap_init())
+            DR_ASSERT(false);
+        drmgr_register_module_load_event(instru_funcs_module_load);
+    }
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
