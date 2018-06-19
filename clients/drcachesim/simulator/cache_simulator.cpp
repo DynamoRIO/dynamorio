@@ -62,8 +62,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     knobs(knobs_),
     l1_icaches(NULL),
     l1_dcaches(NULL),
-    is_warmed_up(false),
-    is_two_level(true)
+    is_warmed_up(false)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
@@ -85,8 +84,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
     if (!llc->init(knobs.LL_assoc, (int)knobs.line_size,
-                       (int)knobs.LL_size, NULL,
-                       new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
+                   (int)knobs.LL_size, NULL,
+                   new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
         ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
                "associativity are powers of 2, that the total size is a multiple "
                "of the line size, and that any miss file path is writable.\n");
@@ -96,7 +95,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
 
     string cache_name = "LLC";
     all_caches[cache_name] = llc;
-    llcaches.push_back(llc);
+    llcaches[cache_name] = llc;
 
     l1_icaches = new cache_t* [knobs.num_cores];
     l1_dcaches = new cache_t* [knobs.num_cores];
@@ -132,14 +131,15 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
         cache_name = "L1_D_Cache_%u" + i;
         all_caches[cache_name] = l1_dcaches[i];
     }
+
+    other_caches.clear();
 }
 
 cache_simulator_t::cache_simulator_t(const string &config_file) :
     simulator_t(),
     l1_icaches(NULL),
     l1_dcaches(NULL),
-    is_warmed_up(false),
-    is_two_level(false)
+    is_warmed_up(false)
 {
     llcaches.clear();
 
@@ -193,7 +193,8 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         // Locate the cache's configuration.
         const auto &cache_config_it = cache_params.find(cache_name);
         if (cache_config_it == cache_params.end()) {
-            ERRMSG("Error configuring the cache: %s\n", cache_name.c_str());
+            ERRMSG("Error locating the configuration of the cache: %s\n",
+                cache_name.c_str());
             success = false;
             return;
         }
@@ -204,7 +205,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         if (cache_config.parent != CACHE_PARENT_MEMORY) {
             const auto &parent_it = all_caches.find(cache_config.parent);
             if (parent_it == all_caches.end()) {
-                ERRMSG("Error locating the configuration of the cache: %s\n",
+                ERRMSG("Error locating the configuration of the parent cache: %s\n",
                        cache_config.parent.c_str());
                 success = false;
                 return;
@@ -240,9 +241,12 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
             return;
         }
 
+        bool is_l1_or_llc = false;
+
         // Assign the pointers to the L1 instruction and data caches.
         if (cache_config.core >= 0 &&
             cache_config.core < (int)knobs.num_cores) {
+            is_l1_or_llc = true;
             if (cache_config.type == CACHE_TYPE_INSTRUCTION ||
                 cache_config.type == CACHE_TYPE_UNIFIED) {
                 l1_icaches[cache_config.core] = cache;
@@ -255,7 +259,13 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
 
         // Assign the pointer(s) to the LLC(s).
         if (cache_config.parent == CACHE_PARENT_MEMORY) {
-            llcaches.push_back(cache);
+            is_l1_or_llc = true;
+            llcaches[cache_name] = cache;
+        }
+
+        // Keep track of non-L1 and non-LLC caches.
+        if (!is_l1_or_llc) {
+            other_caches[cache_name] = cache;
         }
     }
 }
@@ -397,8 +407,8 @@ cache_simulator_t::check_warmed_up()
     // loaded enough data to be warmed up.
     if (knobs.warmup_fraction > 0.0) {
         is_warmed_up = true;
-        for (cache_t *cache : llcaches) {
-            if (cache->get_loaded_fraction() < knobs.warmup_fraction) {
+        for (auto &cache : llcaches) {
+            if (cache.second->get_loaded_fraction() < knobs.warmup_fraction) {
                 is_warmed_up = false;
                 break;
             }
@@ -424,30 +434,36 @@ cache_simulator_t::check_warmed_up()
 bool
 cache_simulator_t::print_results()
 {
-    if (is_two_level) {
-        std::cerr << "Cache simulation results:\n";
-        for (unsigned int i = 0; i < knobs.num_cores; i++) {
-            print_core(i);
-            if (thread_ever_counts[i] > 0) {
+    std::cerr << "Cache simulation results:\n";
+    // Print core and associated L1 cache stats first.
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
+        print_core(i);
+        if (thread_ever_counts[i] > 0) {
+            if (l1_icaches[i] != l1_dcaches[i]) {
                 std::cerr << "  L1I stats:" << std::endl;
                 l1_icaches[i]->get_stats()->print_stats("    ");
                 std::cerr << "  L1D stats:" << std::endl;
                 l1_dcaches[i]->get_stats()->print_stats("    ");
             }
-        }
-        std::cerr << "LL stats:" << std::endl;
-        llcaches[0]->get_stats()->print_stats("    ");
-    }
-    else {
-        std::cerr << "Cache simulation results:\n";
-        for (unsigned int i = 0; i < knobs.num_cores; i++) {
-            print_core(i);
-        }
-        for (auto &caches_it : all_caches) {
-            std::cerr << caches_it.first << " stats:" << std::endl;
-            caches_it.second->get_stats()->print_stats("    ");
+            else {
+                std::cerr << "  unified L1 stats:" << std::endl;
+                l1_icaches[i]->get_stats()->print_stats("    ");
+            }
         }
     }
+
+    // Print non-L1, non-LLC cache stats.
+    for (auto &caches_it : other_caches) {
+        std::cerr << caches_it.first << " stats:" << std::endl;
+        caches_it.second->get_stats()->print_stats("    ");
+    }
+
+    // Print LLC stats.
+    for (auto &caches_it : llcaches) {
+        std::cerr << caches_it.first << " stats:" << std::endl;
+        caches_it.second->get_stats()->print_stats("    ");
+    }
+
     return true;
 }
 

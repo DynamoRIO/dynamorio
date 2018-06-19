@@ -58,6 +58,8 @@ class simulator_t : public analysis_tool_t
     virtual bool process_memref(const memref_t &memref);
 
  protected:
+    // Initialize knobs. Success or failure is indicated by setting/resetting
+    // the success variable.
     void init_knobs(unsigned int num_cores,
                     uint64_t skip_refs,
                     uint64_t warmup_refs,

@@ -41,6 +41,7 @@
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "../reader/config_reader.h"
 
 class cache_simulator_t : public simulator_t
 {
@@ -52,7 +53,7 @@ class cache_simulator_t : public simulator_t
 
     // This constructor is used when the arbitrary cache hierarchy is
     // defined in a configuration file.
-    cache_simulator_t(const string &config_file);
+    cache_simulator_t(const std::string &config_file);
 
     virtual ~cache_simulator_t();
     virtual bool process_memref(const memref_t &memref);
@@ -71,16 +72,13 @@ class cache_simulator_t : public simulator_t
     cache_t **l1_icaches;
     cache_t **l1_dcaches;
 
-    // Vector of LLCs.
-    std::vector<cache_t*> llcaches;
-
-    // Hash map mapping a cache's name to a pointer to it.
-    // All caches in the hierarchy are included in the map.
-    std::map<string, cache_t*> all_caches;
+    // The following unordered maps map a cache's name to a pointer to it.
+    std::unordered_map<std::string, cache_t*> llcaches;  // LLC(s)
+    std::unordered_map<std::string, cache_t*> other_caches;  // Non-L1, non-LLC caches
+    std::unordered_map<std::string, cache_t*> all_caches;  // All caches.
 
  private:
     bool is_warmed_up;
-    bool is_two_level;
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */
