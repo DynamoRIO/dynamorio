@@ -234,6 +234,8 @@ Further non-compatibility-affecting changes include:
  - drmodtrack now allocates an entry per segment for each loaded module.
    Added a file offset field to module_segment_data_t for UNIX platforms.
    drcachesim saves file offset information in modules.log on UNIX platforms.
+ - Added dr_prepopulate_cache() and dr_prepopulate_indirect_targets() for
+   setting up the code cache prior to execution.
 
 **************************************************
 <hr>

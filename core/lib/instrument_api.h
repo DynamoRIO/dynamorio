@@ -6225,6 +6225,36 @@ DR_API
 bool
 dr_prepopulate_cache(app_pc *tags, size_t tags_count);
 
+/* DR_API EXPORT BEGIN */
+/**
+ * Specifies the type of indirect branch for use with dr_prepopulate_indirect_targets().
+ */
+typedef enum {
+    DR_INDIRECT_RETURN, /**< Return instruction type. */
+    DR_INDIRECT_CALL,   /**< Indirect call instruction type. */
+    DR_INDIRECT_JUMP,   /**< Indirect jump instruction type. */
+} dr_indirect_branch_type_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Intended to augment dr_prepopulate_cache() by populating DR's indirect branch
+ * tables, avoiding trips back to dispatch during initial execution.  This is only
+ * effective when one of the the runtime options -shared_trace_ibt_tables and
+ * -shared_bb_ibt_tables (depending on whether traces are enabled) is turned on, as
+ * this routine does not try to populate tables belonging to threads other than the
+ * calling thread.
+ *
+ * This is meant to be called between dr_app_setup() and dr_app_start(), immediately
+ * after calling dr_prepopulate_cache().  It adds entries for each target address in
+ * the \p tags array to the indirect branch table for the branch type \p branch_type.
+ *
+ * Returns whether successful.
+ */
+bool
+dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type,
+                                app_pc *tags, size_t tags_count);
+
 DR_API
 /**
  * Get the number of blocks built so far, globally. The API is not thread-safe.
