@@ -46,7 +46,7 @@
 class simulator_t : public analysis_tool_t
 {
  public:
-    simulator_t();
+    simulator_t() {}
     simulator_t(unsigned int num_cores,
                 uint64_t skip_refs,
                 uint64_t warmup_refs,

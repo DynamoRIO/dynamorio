@@ -147,7 +147,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
         ERRMSG("Usage error: Failed to read/parse configuration file %s.\n",
-               config_file);
+               config_file.c_str());
         success = false;
         return;
     }
@@ -193,7 +193,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         // Locate the cache's configuration.
         const auto &cache_config_it = cache_params.find(cache_name);
         if (cache_config_it == cache_params.end()) {
-            ERRMSG("Error configuring the cache: %s\n", cache_name);
+            ERRMSG("Error configuring the cache: %s\n", cache_name.c_str());
             success = false;
             return;
         }
@@ -205,7 +205,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
             const auto &parent_it = all_caches.find(cache_config.parent);
             if (parent_it == all_caches.end()) {
                 ERRMSG("Error locating the configuration of the cache: %s\n",
-                       cache_config.parent);
+                       cache_config.parent.c_str());
                 success = false;
                 return;
             }
@@ -220,7 +220,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
                 const auto &child_it = all_caches.find(child_name);
                 if (child_it == all_caches.end()) {
                     ERRMSG("Error locating the configuration of the cache: %s\n",
-                           child_name);
+                           child_name.c_str());
                     success = false;
                     return;
                 }
@@ -235,13 +235,14 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
                              new prefetcher_t((int)knobs.line_size) : nullptr,
                          cache_config.inclusive, children)) {
             ERRMSG("Usage error: failed to initialize the cache %s\n",
-                   cache_name);
+                   cache_name.c_str());
             success = false;
             return;
         }
 
         // Assign the pointers to the L1 instruction and data caches.
-        if (cache_config.core >= 0 && cache_config.core < knobs.num_cores) {
+        if (cache_config.core >= 0 &&
+            cache_config.core < (int)knobs.num_cores) {
             if (cache_config.type == CACHE_TYPE_INSTRUCTION ||
                 cache_config.type == CACHE_TYPE_UNIFIED) {
                 l1_icaches[cache_config.core] = cache;
@@ -436,7 +437,6 @@ cache_simulator_t::print_results()
         }
         std::cerr << "LL stats:" << std::endl;
         llcaches[0]->get_stats()->print_stats("    ");
-        return true;
     }
     else {
         std::cerr << "Cache simulation results:\n";
@@ -446,9 +446,9 @@ cache_simulator_t::print_results()
         for (auto &caches_it : all_caches) {
             std::cerr << caches_it.first << " stats:" << std::endl;
             caches_it.second->get_stats()->print_stats("    ");
-            return true;
         }
     }
+    return true;
 }
 
 cache_t*

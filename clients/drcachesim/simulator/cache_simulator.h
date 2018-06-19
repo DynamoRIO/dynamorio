@@ -78,9 +78,9 @@ class cache_simulator_t : public simulator_t
     // All caches in the hierarchy are included in the map.
     std::map<string, cache_t*> all_caches;
 
-    bool is_two_level;
  private:
     bool is_warmed_up;
+    bool is_two_level;
 };
 
 #endif /* _CACHE_SIMULATOR_H_ */
