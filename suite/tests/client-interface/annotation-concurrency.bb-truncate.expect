@@ -6,7 +6,7 @@
      Client version 2.2.8
     ...................................................................
 
-     Matrix Size :  1024
+     Matrix Size :  512
      Threads     :  4
 
       <Test many args (handler #2): a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
@@ -20,7 +20,7 @@
       <Initialize context 4 'thread-handling' in mode 0>
 
      Started iteration 1 of the computation...
-      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (handler #2): a=512, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
@@ -41,7 +41,7 @@
      Mode changed to 0.
 
      Started iteration 3 of the computation...
-      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (handler #2): a=512, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
@@ -66,7 +66,7 @@
      Mode changed to 0.
 
      Started iteration 5 of the computation...
-      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (handler #2): a=512, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
@@ -87,7 +87,7 @@
      Mode changed to 0.
 
      Started iteration 7 of the computation...
-      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (handler #2): a=512, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
@@ -108,7 +108,7 @@
      Mode changed to 0.
 
      Started iteration 9 of the computation...
-      <Test many args (handler #2): a=1024, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
+      <Test many args (handler #2): a=512, b=102, c=103, d=104, e=105, f=106, g=107, h=108>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>
       <Test many args (concurrent handler): a=0, b=102, c=103, d=104, e=105, f=106, g=107, h=108, i=109>

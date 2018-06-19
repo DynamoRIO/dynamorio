@@ -175,16 +175,6 @@ do_some_work(void)
     return (val > 0);
 }
 
-bool
-my_setenv(const char *var, const char *value)
-{
-#ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
-#else
-    return SetEnvironmentVariable(var, value) == TRUE;
-#endif
-}
-
 int
 main(int argc, const char *argv[])
 {
