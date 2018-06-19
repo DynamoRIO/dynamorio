@@ -45,61 +45,50 @@
  * Used in an additional immediate source operand to a vector operation, denotes
  * 8 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_BYTE 0
+#define VECTOR_ELEM_WIDTH_BYTE 0
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 16 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_HALF 1
+#define VECTOR_ELEM_WIDTH_HALF 1
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 32 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_SINGLE 2
+#define VECTOR_ELEM_WIDTH_SINGLE 2
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 64 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define ISZ_DOUBLE 3
+#define VECTOR_ELEM_WIDTH_DOUBLE 3
 
 /**
- * Used in an additional immediate source operand to a vector operation, denotes
- * half-precision floating point vector elements. See \ref sec_IR_AArch64.
+ * Operand denoting 8 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define FSZ_HALF 1
+#define OPND_CREATE_BYTE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_BYTE)
+
 
 /**
- * Operand indicating half-precision floating point vector elements for the
- * other operands of the containing instruction.
+ * Operand denoting 16 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_HALF() OPND_CREATE_INT8(FSZ_HALF)
+#define OPND_CREATE_HALF() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_HALF)
 
 /**
- * Used in an additional immediate source operand to a vector operation, denotes
- * single-precision floating point vector elements. See \ref sec_IR_AArch64.
+ * Operand denoting 32 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define FSZ_SINGLE 2
+#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_SINGLE)
 
 /**
- * Operand indicating single-precision floating point vector elements for the
- * other operands of the containing instruction.
+ * Operand denoting 64 bit vector element width for the other operands of
+ * the containing instruction.
  */
-#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(FSZ_SINGLE)
-
-/**
- * Used in an additional immediate source operand to a vector operation, denotes
- * double-precision floating point vector elements. See \ref sec_IR_AArch64.
- */
-#define FSZ_DOUBLE 3
-
-/**
- * Operand indicating double-precision floating point vector elements for the
- * other operands of the containing instruction.
- */
-#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(FSZ_DOUBLE)
+#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_DOUBLE)
 
 
 /**
