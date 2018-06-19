@@ -45,50 +45,50 @@
  * Used in an additional immediate source operand to a vector operation, denotes
  * 8 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define BYTE_SZ 0
+#define VECTOR_ELEM_WIDTH_BYTE 0
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 16 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define HALF_SZ 1
+#define VECTOR_ELEM_WIDTH_HALF 1
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 32 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define SINGLE_SZ 2
+#define VECTOR_ELEM_WIDTH_SINGLE 2
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
  * 64 bit vector element width. See \ref sec_IR_AArch64.
  */
-#define DOUBLE_SZ 3
+#define VECTOR_ELEM_WIDTH_DOUBLE 3
 
 /**
  * Operand denoting 8 bit vector element width for the other operands of
  * the containing instruction.
  */
-#define OPND_CREATE_BYTE() OPND_CREATE_INT8(BYTE_SZ)
+#define OPND_CREATE_BYTE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_BYTE)
 
 
 /**
  * Operand denoting 16 bit vector element width for the other operands of
  * the containing instruction.
  */
-#define OPND_CREATE_HALF() OPND_CREATE_INT8(HALF_SZ)
+#define OPND_CREATE_HALF() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_HALF)
 
 /**
  * Operand denoting 32 bit vector element width for the other operands of
  * the containing instruction.
  */
-#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(SINGLE_SZ)
+#define OPND_CREATE_SINGLE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_SINGLE)
 
 /**
  * Operand denoting 64 bit vector element width for the other operands of
  * the containing instruction.
  */
-#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(DOUBLE_SZ)
+#define OPND_CREATE_DOUBLE() OPND_CREATE_INT8(VECTOR_ELEM_WIDTH_DOUBLE)
 
 
 /**
