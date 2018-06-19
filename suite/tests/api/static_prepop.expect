@@ -4,6 +4,7 @@ bb asm_func
 bb asm_label1
 bb asm_label2
 bb asm_label3
+bb asm_return
 pre-DR start
 pre-DR detach
 Exit event
@@ -13,6 +14,7 @@ bb asm_func
 bb asm_label1
 bb asm_label2
 bb asm_label3
+bb asm_return
 pre-DR start
 pre-DR detach with stats
 Exit event

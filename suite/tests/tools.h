@@ -753,4 +753,14 @@ __asm {             \
 }
 #endif
 
+static inline bool
+my_setenv(const char *var, const char *value)
+{
+#ifdef UNIX
+    return setenv(var, value, 1/*override*/) == 0;
+#else
+    return SetEnvironmentVariable(var, value) == TRUE;
+#endif
+}
+
 #endif /* TOOLS_H */
