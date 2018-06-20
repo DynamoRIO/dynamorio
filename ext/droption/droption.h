@@ -46,6 +46,8 @@
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
+#define DEFAULT_VALUE_SEP " "
+
 // XXX: some clients want further distinctions, such as options passed to
 // post-processing components, internal (i.e., undocumented) options, etc.
 /**
@@ -328,7 +330,7 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(unsigned int scope_, std::string name_, T defval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), has_range(false) {}
+        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
@@ -337,7 +339,18 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
                T defval_, std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
-        value(defval_), defval(defval_), has_range(false) {}
+        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(false) {}
+
+    /**
+     * Declares a new option of type T with the given scope, behavior flags,
+     * accumulated value separator, default value, and description in short and long
+     * forms.
+     */
+    droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
+               std::string valsep_, T defval_, std::string desc_short_,
+               std::string desc_long_)
+        : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
+        value(defval_), defval(defval_), valsep(valsep_), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, default value,
@@ -347,7 +360,7 @@ template <typename T> class droption_t : public droption_parser_t
                T minval_, T maxval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), has_range(true),
+        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(true),
         minval(minval_), maxval(maxval_) {}
 
     /** Returns the value of this option. */
@@ -380,6 +393,7 @@ template <typename T> class droption_t : public droption_parser_t
 
     T value;
     T defval;
+    std::string valsep;
     bool has_range;
     T minval;
     T maxval;
@@ -427,9 +441,7 @@ template<> inline bool
 droption_t<std::string>::convert_from_string(const std::string s)
 {
     if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
-        // We hardcode a space separator for string accumulations.
-        // The user can use a vector of strings for other uses.
-        value += " " + s;
+        value += valsep + s;
     } else
         value = s;
     return true;
@@ -510,7 +522,7 @@ droption_t<std::string>::convert_from_string(const std::string s1, const std::st
 {
     // This is for the sweeper
     if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
-        value += " " + s1 + " " + s2;
+        value += valsep + s1 + valsep + s2;
         return true;
     } else
         return false;
@@ -519,9 +531,8 @@ template<> inline bool
 droption_t<twostring_t>::convert_from_string(const std::string s1, const std::string s2)
 {
     if (TESTANY(DROPTION_FLAG_ACCUMULATE, flags) && is_specified) {
-        // Just like for single strings, we hardcode a space separator.
-        value.first += " " + s1;
-        value.second += " " + s2;
+        value.first += valsep + s1;
+        value.second += valsep + s2;
     } else {
         value.first = s1;
         value.second = s2;
