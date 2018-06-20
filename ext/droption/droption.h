@@ -369,6 +369,9 @@ template <typename T> class droption_t : public droption_parser_t
     /** Returns the value of this option. */
     T get_value() const { return value; }
 
+    /** Returns the separator of the value of this option. */
+    std::string get_valsep() const { return valsep; }
+
     /** Sets the value of this option, overriding the command line. */
     void set_value(T new_value) { value = new_value; }
 
