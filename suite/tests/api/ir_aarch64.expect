@@ -481,4 +481,44 @@ bit    %q21 %q12 -> %q12
 bif    %d3 %d3 -> %d20
 bif    %q3 %q3 -> %q20
 test_asimdsame complete
+fmov   %d27 -> %d2
+fmov   %s27 -> %s2
+fmov   %h27 -> %h2
+fabs   %d0 -> %d30
+fabs   %s0 -> %s30
+fabs   %h0 -> %h30
+fneg   %d29 -> %d13
+fneg   %s29 -> %s13
+fneg   %h29 -> %h13
+fsqrt  %d17 -> %d31
+fsqrt  %s17 -> %s31
+fsqrt  %h17 -> %h31
+fcvt   %s2 -> %d10
+fcvt   %s20 -> %h31
+frintn %d15 -> %d4
+frintn %s15 -> %s4
+frintn %h15 -> %h4
+frintp %d2 -> %d23
+frintp %s2 -> %s23
+frintp %h2 -> %h23
+frintm %d8 -> %d26
+frintm %s8 -> %s26
+frintm %h8 -> %h26
+frintz %d24 -> %d22
+frintz %s24 -> %s22
+frintz %h24 -> %h22
+frinta %d18 -> %d26
+frinta %s18 -> %s26
+frinta %h18 -> %h26
+frintx %d29 -> %d16
+frintx %s29 -> %s16
+frintx %h29 -> %h16
+frinti %d19 -> %d11
+frinti %s19 -> %s11
+frinti %h19 -> %h11
+fcvt   %d8 -> %s23
+fcvt   %d15 -> %h29
+fcvt   %h24 -> %s28
+fcvt   %h0 -> %d2
+test_floatdp1 complete
 All tests complete
