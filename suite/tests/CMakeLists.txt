@@ -2659,6 +2659,10 @@ if (CLIENT_INTERFACE)
             "" "@-cpu_scheduling" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
 
+          torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
+            "" "@-simulator_type@basic_counts" "")
+          set(tool.drcacheoff.burst_malloc_nodr ON)
+
           torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
             "" "@-simulator_type@basic_counts" "")
           set(tool.drcacheoff.burst_threadfilter_nodr ON)

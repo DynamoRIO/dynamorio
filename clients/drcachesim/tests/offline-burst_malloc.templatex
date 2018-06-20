@@ -1,0 +1,9 @@
+pre-DR init
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+.*
+.* 5000 function markers.*

@@ -58,8 +58,8 @@ typedef enum {
 
 
 /**
- * Name of drmgr instrumentation pass priorities for app2app, insert, and
- * exception on Windows.
+ * Name of drmgr instrumentation pass priorities for app2app, analysis, insert,
+ * and instru2instru.
  */
 #define DRMGR_PRIORITY_NAME_MEMTRACE "memtrace"
 

@@ -59,11 +59,13 @@ basic_counts_t::~basic_counts_t()
     // Empty.
 }
 
-static bool is_func_marker(trace_marker_type_t marker_type)
+static bool
+is_func_marker(trace_marker_type_t marker_type)
 {
-  return marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR ||
-         marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_ARG ||
-         marker_type == TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL;
+  return marker_type == TRACE_MARKER_TYPE_FUNC_ID ||
+         marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR ||
+         marker_type == TRACE_MARKER_TYPE_FUNC_ARG ||
+         marker_type == TRACE_MARKER_TYPE_FUNC_RETVAL;
 }
 
 bool

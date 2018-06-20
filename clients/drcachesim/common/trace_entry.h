@@ -192,22 +192,30 @@ typedef enum {
     TRACE_MARKER_TYPE_CPU_ID,
 
     /**
-     * The marker value contains identifier for the return address of
-     * malloc-on-heap-like function
+     * The marker value contains the function id defined by user in droption
      */
-    TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR,
+    TRACE_MARKER_TYPE_FUNC_ID,
 
     /**
-     * The marker value contains identifier for the argument of
-     * malloc-on-heap-like function
+     * The marker value contains the return address of the function call,
+     * whose id is specified by the closest previous FUNC_ID marker entry
+     * XXX: replace return address with callstack information in the future
      */
-    TRACE_MARKER_TYPE_FUNC_MALLOC_ARG,
+    TRACE_MARKER_TYPE_FUNC_RETADDR,
 
     /**
-     * The marker value contains identifier for the return value of
-     * malloc-on-heap-like function
+     * The marker value contains one argument value of the function call,
+     * whose id is specified by the closest previous FUNC_ID marker entry.
+     * The number of such entries for one function invocation is expected to
+     * equal to the number of function arguments.
      */
-    TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL,
+    TRACE_MARKER_TYPE_FUNC_ARG,
+
+    /**
+     * The marker value contains return value of the function call,
+     * whose id is specified by the closest previous FUNC_ID marker entry
+     */
+    TRACE_MARKER_TYPE_FUNC_RETVAL,
 
     // ...
     // These values are reserved for future built-in marker types.

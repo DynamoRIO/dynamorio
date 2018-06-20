@@ -44,7 +44,6 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drsyms.h"
 #include "drwrap.h"
 #include "drmemtrace.h"
 #include "drreg.h"
@@ -54,6 +53,7 @@
 #include "instru.h"
 #include "raw2trace.h"
 #include "physaddr.h"
+#include "func_trace.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 #include "../common/options.h"
@@ -154,10 +154,12 @@ static volatile bool exited_process;
 static bool have_phys;
 static physaddr_t physaddr;
 
-/* priority of registering callbacks for events
- * using priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 to make sure the drwrap
- * registration for function pre/post callbacks happens before memtrace's
- * meta instruction
+/**
+ * The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
+ * function pre/post callbacks of drwrap API happens before memtrace's
+ * meta instruction, so that function trace entries will not be appended to the middle
+ * of a BB's PC and Memory Access trace entries. (Assumption made here is that,
+ * the function pre/post callback always happended at the first instruction of a BB)
 */
 static drmgr_priority_t memtrace_pri = {sizeof(drmgr_priority_t),
     DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP + 1};
@@ -519,6 +521,16 @@ clean_call(void)
 /***************************************************************************
  * Tracing instrumentation.
  */
+
+static void
+append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t value)
+{
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->seg_base == NULL)
+        return;  /* This thread was filtered out. */
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker, value);
+}
 
 static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -1016,7 +1028,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb,
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
-
         ud->delay_instrs[ud->num_delay_instrs++] = instr;
         return DR_EMIT_DEFAULT;
     }
@@ -1277,7 +1288,8 @@ enable_delay_instrumentation()
      * to tracing instrumentation.
      */
     if (!drmgr_register_bb_instrumentation_event(event_delay_bb_analysis,
-                                                 event_delay_app_instruction, &memtrace_pri))
+                                                 event_delay_app_instruction,
+                                                 &memtrace_pri))
         DR_ASSERT(false);
     enable_tracing_lock = dr_mutex_create();
 }
@@ -1407,100 +1419,6 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                          OPND_CREATE_INT32(num_instrs));
 #endif
     return DR_EMIT_DEFAULT;
-}
-
-
-typedef struct _func_metadata {
-    const trace_marker_type_t marker_retaddr;
-    const trace_marker_type_t marker_arg;
-    const trace_marker_type_t marker_retval;
-    const char *name;
-    const int num_args;
-} func_metadata;
-
-#define MALLOC_RETADDR TRACE_MARKER_TYPE_FUNC_MALLOC_RETADDR
-#define MALLOC_ARG     TRACE_MARKER_TYPE_FUNC_MALLOC_ARG
-#define MALLOC_RETVAL  TRACE_MARKER_TYPE_FUNC_MALLOC_RETVAL
-
-static const func_metadata instru_funcs[] = {
-    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "malloc", 1},
-    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "(anonymous namespace)::do_malloc", 1},
-
-#ifdef WINDOWS
-    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "malloc_impl", 1 },
-#endif // WINDOWS
-
-#ifdef UNIX
-    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "tc_malloc", 1 },
-    {MALLOC_RETADDR, MALLOC_ARG, MALLOC_RETVAL, "__libc_malloc", 1},
-#endif // UNIX
-};
-
-static void
-func_pre_hook(void *wrapcxt, INOUT void **user_data)
-{
-    void *drcontext = drwrap_get_drcontext(wrapcxt);
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    if (BUF_PTR(data->seg_base) == NULL)
-        return; /* This thread was filtered out. */
-
-    func_metadata *e = (func_metadata *) *user_data;
-    app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), e->marker_retaddr,
-                              (uintptr_t)retaddr);
-
-    for (int i = 0; i < e->num_args; i++) {
-        void * arg_i = drwrap_get_arg(wrapcxt, i);
-        BUF_PTR(data->seg_base) +=
-            instru->append_marker(BUF_PTR(data->seg_base), e->marker_arg,
-                                  (uintptr_t)arg_i);
-    }
-}
-
-static void
-func_post_hook(void *wrapcxt, void *user_data)
-{
-    void *drcontext = drwrap_get_drcontext(wrapcxt);
-    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    if (BUF_PTR(data->seg_base) == NULL)
-        return; /* This thread was filtered out. */
-
-    func_metadata *e = (func_metadata *)user_data;
-    void * retval = drwrap_get_retval(wrapcxt);
-
-    BUF_PTR(data->seg_base) +=
-            instru->append_marker(BUF_PTR(data->seg_base), e->marker_retval,
-                                  (uintptr_t)retval);
-}
-
-static void
-instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
-{
-    size_t offset;
-    drsym_error_t result;
-    app_pc func_pc;
-
-    if (drcontext == NULL || mod == NULL)
-        return;
-    dr_log(NULL, DR_LOG_ALL, 1,
-           "instru_funcs_module_load start=%p, mod->full_path=%s\n",
-           mod->start, mod->full_path);
-
-    for (size_t i = 0; i < sizeof(instru_funcs) / sizeof(func_metadata); i++) {
-        result = drsym_lookup_symbol(
-            mod->full_path, instru_funcs[i].name, &offset, DRSYM_DEMANGLE);
-        dr_log(NULL, DR_LOG_ALL, 1, "func_name=%s, result=%d, offset=%d\n",
-               instru_funcs[i].name, result, offset);
-
-        if (result == DRSYM_SUCCESS) {
-            func_pc = mod->start + offset;
-            bool wrap = drwrap_wrap_ex(func_pc, func_pre_hook, func_post_hook,
-                                       (void *)&instru_funcs[i], 0);
-            dr_log(NULL, DR_LOG_ALL, 1, "result of drwrap=%d\n", wrap);
-        }
-    }
 }
 
 /***************************************************************************
@@ -1709,13 +1627,7 @@ event_exit(void)
     if (op_trace_after_instrs.get_value() > 0)
         exit_delay_instrumentation();
     drmgr_exit();
-
-    if (op_enable_func_trace.get_value()) {
-        if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
-            !(drsym_exit()== DRSYM_SUCCESS))
-            DR_ASSERT(false);
-        drwrap_exit();
-    }
+    func_trace_exit();
 }
 
 static bool
@@ -1823,12 +1735,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (op_enable_func_trace.get_value()) {
-        if (!(drsym_init(0) == DRSYM_SUCCESS) ||
-            !drwrap_init() ||
-            !drmgr_register_module_load_event(instru_funcs_module_load))
-            DR_ASSERT(false);
-    }
+    if (!func_trace_init(append_marker_seg_base))
+        DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86

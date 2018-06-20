@@ -205,6 +205,7 @@ macro(add_drmemtrace name type)
     tracer/instru_offline.cpp
     tracer/instru_online.cpp
     tracer/physaddr.cpp
+    tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
   configure_DynamoRIO_client(${name})
@@ -431,6 +432,11 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
+
+    add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_malloc)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
