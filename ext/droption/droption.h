@@ -46,7 +46,7 @@
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
-#define DEFAULT_VALUE_SEP " "
+#define DROPTION_DEFAULT_VALUE_SEP " "
 
 // XXX: some clients want further distinctions, such as options passed to
 // post-processing components, internal (i.e., undocumented) options, etc.
@@ -330,7 +330,7 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(unsigned int scope_, std::string name_, T defval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(false) {}
+        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
@@ -339,7 +339,7 @@ template <typename T> class droption_t : public droption_parser_t
     droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
                T defval_, std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, flags_),
-        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(false) {}
+        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP), has_range(false) {}
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
@@ -360,7 +360,7 @@ template <typename T> class droption_t : public droption_parser_t
                T minval_, T maxval_,
                std::string desc_short_, std::string desc_long_)
         : droption_parser_t(scope_, name_, desc_short_, desc_long_, 0),
-        value(defval_), defval(defval_), valsep(DEFAULT_VALUE_SEP), has_range(true),
+        value(defval_), defval(defval_), valsep(DROPTION_DEFAULT_VALUE_SEP), has_range(true),
         minval(minval_), maxval(maxval_) {}
 
     /** Returns the value of this option. */
