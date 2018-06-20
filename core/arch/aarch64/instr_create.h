@@ -617,7 +617,7 @@
 #define INSTR_CREATE_fmov_general(dc, Rd, Rn) \
     instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
 
-/* -------- Advanced SIMD three same ----------------------------------- */
+/* -------- Advanced SIMD three same including fp16 versions ---------------- */
 
 /**
  * Creates a SHADD vector instruction.
@@ -625,8 +625,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_shadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_shadd, Rd, Rm, Rn, width)
@@ -637,8 +637,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sqadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sqadd, Rd, Rm, Rn, width)
@@ -649,8 +649,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_srhadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_srhadd, Rd, Rm, Rn, width)
@@ -661,8 +661,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_shsub_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_shsub, Rd, Rm, Rn, width)
@@ -673,8 +673,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sqsub_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sqsub, Rd, Rm, Rn, width)
@@ -685,8 +685,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmgt_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmgt, Rd, Rm, Rn, width)
@@ -697,8 +697,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmge_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmge, Rd, Rm, Rn, width)
@@ -709,8 +709,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sshl, Rd, Rm, Rn, width)
@@ -721,8 +721,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sqshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sqshl, Rd, Rm, Rn, width)
@@ -733,8 +733,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_srshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_srshl, Rd, Rm, Rn, width)
@@ -745,8 +745,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sqrshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sqrshl, Rd, Rm, Rn, width)
@@ -757,8 +757,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_smax_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_smax, Rd, Rm, Rn, width)
@@ -769,8 +769,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_smin_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_smin, Rd, Rm, Rn, width)
@@ -781,8 +781,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_sabd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sabd, Rd, Rm, Rn, width)
@@ -793,8 +793,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_saba_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_saba, Rd, Rm, Rn, width)
@@ -805,8 +805,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_add_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_add, Rd, Rm, Rn, width)
@@ -817,8 +817,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmtst_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmtst, Rd, Rm, Rn, width)
@@ -829,8 +829,8 @@
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_mla_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_4src(dc, OP_mla, Rd, Rd, Rm, Rn, width)
@@ -841,8 +841,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_mul_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_mul, Rd, Rm, Rn, width)
@@ -853,8 +853,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_smaxp_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_smaxp, Rd, Rm, Rn, width)
@@ -865,8 +865,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_sminp_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sminp, Rd, Rm, Rn, width)
@@ -877,7 +877,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
+ * \param width   The vector element width. Use either OPND_CREATE_HALF() or
  *                OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_sqdmulh_vector(dc, Rd, Rm, Rn, width) \
@@ -889,8 +889,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_addp_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_addp, Rd, Rm, Rn, width)
@@ -1105,8 +1105,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_uhadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uhadd, Rd, Rm, Rn, width)
@@ -1117,8 +1117,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_uqadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uqadd, Rd, Rm, Rn, width)
@@ -1129,8 +1129,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_urhadd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_urhadd, Rd, Rm, Rn, width)
@@ -1141,8 +1141,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_uhsub_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uhsub, Rd, Rm, Rn, width)
@@ -1153,8 +1153,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_uqsub_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uqsub, Rd, Rm, Rn, width)
@@ -1165,8 +1165,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmhi_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmhi, Rd, Rm, Rn, width)
@@ -1177,8 +1177,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmhs_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmhs, Rd, Rm, Rn, width)
@@ -1189,8 +1189,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_ushl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_ushl, Rd, Rm, Rn, width)
@@ -1201,8 +1201,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_uqshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uqshl, Rd, Rm, Rn, width)
@@ -1213,8 +1213,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_urshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_urshl, Rd, Rm, Rn, width)
@@ -1225,8 +1225,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_uqrshl_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uqrshl, Rd, Rm, Rn, width)
@@ -1237,8 +1237,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umax_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umax, Rd, Rm, Rn, width)
@@ -1249,8 +1249,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umin_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umin, Rd, Rm, Rn, width)
@@ -1261,8 +1261,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_uabd_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uabd, Rd, Rm, Rn, width)
@@ -1273,8 +1273,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_uaba_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uaba, Rd, Rm, Rn, width)
@@ -1285,8 +1285,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_sub_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_sub, Rd, Rm, Rn, width)
@@ -1297,8 +1297,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_cmeq_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_cmeq, Rd, Rm, Rn, width)
@@ -1309,8 +1309,8 @@
  * \param Rd      The output register. The instruction also reads this register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_mls_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_4src(dc, OP_mls, Rd, Rd, Rm, Rn, width)
@@ -1321,7 +1321,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE().
+ * \param width   The vector element width. Use OPND_CREATE_BYTE().
  */
 #define INSTR_CREATE_pmul_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_pmul, Rd, Rm, Rn, width)
@@ -1332,8 +1332,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umaxp_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umaxp, Rd, Rm, Rn, width)
@@ -1344,8 +1344,8 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(), OPND_CREATE_HALF(),
- *                OPND_CREATE_SINGLE().
+ * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_uminp_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_uminp, Rd, Rm, Rn, width)
@@ -1356,7 +1356,7 @@
  * \param Rd      The output register.
  * \param Rm      The first input register.
  * \param Rn      The second input register.
- * \param width   The vector element width. Use either OPND_CREATE_HALF(),
+ * \param width   The vector element width. Use either OPND_CREATE_HALF() or
  *                OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_sqrdmulh_vector(dc, Rd, Rm, Rn, width) \
