@@ -521,4 +521,32 @@ fcvt   %d15 -> %h29
 fcvt   %h24 -> %s28
 fcvt   %h0 -> %d2
 test_floatdp1 complete
+fmul   %d27 %d30 -> %d2
+fmul   %s27 %s30 -> %s2
+fmul   %h27 %h30 -> %h2
+fdiv   %d13 %d29 -> %d0
+fdiv   %s13 %s29 -> %s0
+fdiv   %h13 %h29 -> %h0
+fadd   %d17 %d10 -> %d31
+fadd   %s17 %s10 -> %s31
+fadd   %h17 %h10 -> %h31
+fsub   %d31 %d20 -> %d2
+fsub   %s31 %s20 -> %s2
+fsub   %h31 %h20 -> %h2
+fmax   %d15 %d23 -> %d4
+fmax   %s15 %s23 -> %s4
+fmax   %h15 %h23 -> %h4
+fmin   %d26 %d8 -> %d2
+fmin   %s26 %s8 -> %s2
+fmin   %h26 %h8 -> %h2
+fmaxnm %d24 %d26 -> %d22
+fmaxnm %s24 %s26 -> %s22
+fmaxnm %h24 %h26 -> %h22
+fminnm %d16 %d29 -> %d18
+fminnm %s16 %s29 -> %s18
+fminnm %h16 %h29 -> %h18
+fnmul  %d19 %d23 -> %d11
+fnmul  %s19 %s23 -> %s11
+fnmul  %h19 %h23 -> %h11
+test_floatdp2 complete
 All tests complete
