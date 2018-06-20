@@ -70,11 +70,19 @@ static droption_t<twostring_t> op_takes2
 (DROPTION_SCOPE_CLIENT, "takes2", DROPTION_FLAG_ACCUMULATE,
  twostring_t("",""), "Param that takes 2",
  "Longer desc of param that takes 2.");
+static droption_t<std::string> op_val_sep
+(DROPTION_SCOPE_CLIENT, "val_sep", DROPTION_FLAG_ACCUMULATE, "+",
+ std::string(""), "Param that uses cutomized seperator \";\"",
+ "Longer desc of that uses cutomized seperator \";\"");
+static droption_t<twostring_t> op_val_sep2
+(DROPTION_SCOPE_CLIENT, "val_sep2", DROPTION_FLAG_ACCUMULATE, "+",
+ twostring_t("",""), "Param that takes 2 and uses cutomized seperator \";\"",
+ "Longer desc of param that takes 2 and uses cutomized seperator \";\"");
 
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 22);
+    ASSERT(argc == 32);
     ASSERT(strcmp(argv[1], "-x") == 0);
     ASSERT(strcmp(argv[2], "4") == 0);
     ASSERT(strcmp(argv[3], "-y") == 0);
@@ -96,6 +104,16 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[19], "-takes2") == 0);
     ASSERT(strcmp(argv[20], "3_of_4") == 0);
     ASSERT(strcmp(argv[21], "4_of_4") == 0);
+    ASSERT(strcmp(argv[22], "-val_sep") == 0);
+    ASSERT(strcmp(argv[23], "v1.1 v1.2") == 0);
+    ASSERT(strcmp(argv[24], "-val_sep") == 0);
+    ASSERT(strcmp(argv[25], "v2.1 v2.2") == 0);
+    ASSERT(strcmp(argv[26], "-val_sep2") == 0);
+    ASSERT(strcmp(argv[27], "v1") == 0);
+    ASSERT(strcmp(argv[28], "v2") == 0);
+    ASSERT(strcmp(argv[29], "-val_sep2") == 0);
+    ASSERT(strcmp(argv[30], "v3") == 0);
+    ASSERT(strcmp(argv[31], "v4") == 0);
 }
 
 DR_EXPORT void
@@ -125,6 +143,9 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param sweep = |%s|\n", op_sweep.get_value().c_str());
     dr_fprintf(STDERR, "param takes2 = |%s|,|%s|\n",
                op_takes2.get_value().first.c_str(), op_takes2.get_value().second.c_str());
+    dr_fprintf(STDERR, "param val_sep = |%s|\n", op_val_sep.get_value().c_str());
+    dr_fprintf(STDERR, "param val_sep2 = |%s|,|%s|\n",
+               op_val_sep2.get_value().first.c_str(), op_val_sep2.get_value().second.c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 
@@ -137,4 +158,8 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     // not really supported by droption.
     ok = dr_parse_options(client_id, NULL, NULL);
     ASSERT(ok);
+
+    // Test get_valsep()
+    ASSERT(op_val_sep.get_valsep() == std::string("+"));
+    ASSERT(op_val_sep2.get_valsep() == std::string("+"));
 }
