@@ -72,12 +72,12 @@ static droption_t<twostring_t> op_takes2
  "Longer desc of param that takes 2.");
 static droption_t<std::string> op_val_sep
 (DROPTION_SCOPE_CLIENT, "val_sep", DROPTION_FLAG_ACCUMULATE, "+",
- std::string(""), "Param that uses cutomized seperator \";\"",
- "Longer desc of that uses cutomized seperator \";\"");
+ std::string(""), "Param that uses customized separator \"+\"",
+ "Longer desc of that uses customized separator \"+\"");
 static droption_t<twostring_t> op_val_sep2
 (DROPTION_SCOPE_CLIENT, "val_sep2", DROPTION_FLAG_ACCUMULATE, "+",
- twostring_t("",""), "Param that takes 2 and uses cutomized seperator \";\"",
- "Longer desc of param that takes 2 and uses cutomized seperator \";\"");
+ twostring_t("",""), "Param that takes 2 and uses customized separator \"+\"",
+ "Longer desc of param that takes 2 and uses customize  d separator \"+\"");
 
 static void
 test_argv(int argc, const char *argv[])
@@ -159,7 +159,8 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     ok = dr_parse_options(client_id, NULL, NULL);
     ASSERT(ok);
 
-    // Test get_valsep()
-    ASSERT(op_val_sep.get_valsep() == std::string("+"));
-    ASSERT(op_val_sep2.get_valsep() == std::string("+"));
+    // Test get_value_separator()
+    ASSERT(op_y.get_value_separator() == std::string(" "));
+    ASSERT(op_val_sep.get_value_separator() == std::string("+"));
+    ASSERT(op_val_sep2.get_value_separator() == std::string("+"));
 }
