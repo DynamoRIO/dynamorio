@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,20 @@ do_some_work(int seed)
 int
 main(int argc, const char *argv[])
 {
+    /* We test using DR IR routines when statically linked.  We can't use
+     * drdecode when statically linked with DR as drdecode relies on symbol
+     * replacement, so instead we initialize DR and then "detach" to do a full
+     * cleanup (even without an attach) before starting our regular
+     * attach+detach testing.
+     * XXX: When there's a client, this requires a flag to skip the client init
+     * in this first dr_app_setup().
+     */
+    dr_app_setup();
+    instr_t *instr = XINST_CREATE_return(GLOBAL_DCONTEXT);
+    assert(instr_is_return(instr));
+    instr_destroy(GLOBAL_DCONTEXT, instr);
+    dr_app_stop_and_cleanup();
+
     print("pre-DR init\n");
     dr_app_setup();
     assert(!dr_app_running_under_dynamorio());
