@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,7 +71,8 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") != NULL)
+            if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
+                NULL)
                 return WINDOWS_VERSION_10_1803;
             else if (GetProcAddress((HMODULE)ntdll_handle, "NtCallEnclave") != NULL)
                 return WINDOWS_VERSION_10_1709;
@@ -169,10 +170,26 @@ char *
 allocate_mem(int size, int prot)
 {
 #    ifdef UNIX
-    return (char *)mmap((void *)0, size, get_os_prot_word(prot), MAP_PRIVATE | MAP_ANON,
-                        0, 0);
+    char *res = (char *)mmap((void *)0, size, get_os_prot_word(prot),
+                             MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (res == MAP_FAILED)
+        return NULL;
 #    else
     return (char *)VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
+#    endif
+}
+
+void
+free_mem(char *addr, int size)
+{
+#    ifdef UNIX
+    int res = munmap(addr, size);
+    if (res != 0)
+        print("Error on munmap: %d\n", errno);
+#    else
+    BOOL res = VirtualFree(addr, size, MEM_DECOMMIT);
+    if (!res)
+        print("Error on VirtualFree\n");
 #    endif
 }
 

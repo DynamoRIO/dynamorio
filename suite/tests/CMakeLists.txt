@@ -2289,6 +2289,18 @@ if (CLIENT_INTERFACE)
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
   endif ()
 
+  if (X86) # Generated code is x86-specific.
+    tobuild_api(api.ibl-stress api/ibl-stress.c
+      # This tests indirect branches between blocks.
+      # We use -checklevel 0 to disable the DOCHECK in check_thread_vm_area
+      # which makes building 150K bbs very slow.
+      "-disable_traces -shared_bb_ibt_tables -checklevel 0" "" OFF OFF)
+    if (UNIX)
+      target_link_libraries(api.ibl-stress ${libpthread})
+    endif ()
+    use_DynamoRIO_extension(api.ibl-stress drcontainers)
+  endif ()
+
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
   if (WIN32)

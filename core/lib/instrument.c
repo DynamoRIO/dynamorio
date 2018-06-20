@@ -7594,9 +7594,6 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
     uint i;
     if (dcontext == NULL)
         return false;
-#    ifdef UNIX
-    os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
-#    endif
     /* Initially I took in an opcode and used extract_branchtype(instr_branch_type())
      * but every use case had to make a fake instr to get the opcode and had no
      * good cross-platform method so I switched to an enum.  We're unlikely to
@@ -7610,6 +7607,9 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
     }
     SYSLOG_INTERNAL_INFO("pre-populating ibt[%d] table for %d tags", ibl_type,
                          tags_count);
+#    ifdef UNIX
+    os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
+#    endif
     for (i = 0; i < tags_count; i++) {
         fragment_add_ibl_target(dcontext, tags[i], ibl_type);
     }

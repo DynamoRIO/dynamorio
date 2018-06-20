@@ -508,6 +508,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                              : "=r"(result), "=m"(var) \
                              : "0"(newval), "m"(var))
 
+#        define MEMORY_STORE_BARRIER() /* not needed on x86 */
 #        define SPINLOCK_PAUSE() __asm__ __volatile__("pause")
 #        ifdef X64
 #            define RDTSC_LL(llval)                                        \
@@ -657,6 +658,7 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
     return ret;
 }
 
+#        define MEMORY_STORE_BARRIER() __asm__ __volatile__("dmb st")
 #        define SPINLOCK_PAUSE()             \
             do {                             \
                 __asm__ __volatile__("wfi"); \
@@ -793,6 +795,7 @@ atomic_dec_becomes_zero(volatile int *var)
                                  : "r"(newval)                  \
                                  : "cc", "memory", "r2", "r3");
 
+#        define MEMORY_STORE_BARRIER() __asm__ __volatile__("dmb st")
 #        define SPINLOCK_PAUSE() __asm__ __volatile__("wfi") /* wait for interrupt */
 uint64
 proc_get_timestamp(void);

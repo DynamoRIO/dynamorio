@@ -3855,7 +3855,11 @@ is_on_stack(dcontext_t *dcontext, app_pc pc, vm_area_t *area)
     }
     if (query_esp) {
         ok = get_memory_info(esp, &esp_base, &size, NULL);
-        ASSERT(ok);
+        if (!ok) {
+          /* This can happen with dr_prepopulate_cache(). */
+          ASSERT(!dynamo_started);
+          return false;
+        }
         LOG(THREAD, LOG_VMAREAS, 3,
             "stack vs " PFX ": region " PFX ".." PFX ", esp " PFX "\n", pc, esp_base,
             esp_base + size, esp);

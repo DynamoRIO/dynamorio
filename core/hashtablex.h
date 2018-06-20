@@ -68,6 +68,8 @@
  *     HASHTABLE_LOCKLESS_ACCESS tables
  *   bool ENTRIES_ARE_EQUAL(table, entry1, entry2)
  *     if using pointers, pointer equality is fine
+ *   void ENTRY_SET_TO_ENTRY(table_entry, new_entry)
+ *     This is optional; if omitted, "table_entry = new_entry" is used.
  *   ENTRY_TYPE ENTRY_EMPTY
  *   ENTRY_TYPE ENTRY_SENTINEL
  *     FIXME: to support structs we'll need lhs like AUX_ENTRY_SET_TO_SENTINEL
@@ -888,7 +890,11 @@ static inline bool HTNAME(hashtable_, NAME_KEY,
 #    endif
     if (ENTRY_IS_INVALID(table->table[hindex]))
         table->unlinked_entries--;
+#    ifdef ENTRY_SET_TO_ENTRY
+    ENTRY_SET_TO_ENTRY(table->table[hindex], e);
+#    else
     table->table[hindex] = e;
+#    endif
     ASSERT(!ENTRY_IS_INVALID(table->table[hindex]));
     LOG(THREAD_GET, LOG_HTABLE, 4,
         "hashtable_" KEY_STRING "_add: added " PFX " to %s at table[%u]\n", ENTRY_TAG(e),
@@ -2208,6 +2214,7 @@ HTNAME(, NAME_KEY, _table_t) *
 #undef ENTRY_IS_SENTINEL
 #undef ENTRY_IS_INVALID
 #undef ENTRIES_ARE_EQUAL
+#undef ENTRY_SET_TO_ENTRY
 #undef ENTRY_EMPTY
 #undef ENTRY_SENTINEL
 #undef TAGS_ARE_EQUAL

@@ -619,6 +619,9 @@ char *
 allocate_mem(int size, int prot);
 
 void
+free_mem(char *addr, int size);
+
+void
 protect_mem(void *start, size_t len, int prot);
 
 void
