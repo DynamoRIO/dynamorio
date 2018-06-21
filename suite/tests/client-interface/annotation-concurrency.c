@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -214,7 +214,7 @@ int main(int argc, char **argv)
     if (lib_path[0] == '/') {
         strcpy(buffer, lib_path);
     } else {
-        if (getcwd(buffer, 1024) == NULL) {
+        if (getcwd(buffer, BUFFER_SIZE_ELEMENTS(buffer)) == NULL) {
             print("Failed to locate the test module!\n");
             exit(1);
         }
@@ -250,7 +250,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     if ((class_id >= 0) && (class_id <= 2))
-        matrix_size = 1024 * (1 << class_id);
+        matrix_size = 512 * (1 << class_id);
     else {
         print("Unknown class id\n");
         print_usage();
