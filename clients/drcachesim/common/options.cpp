@@ -304,6 +304,10 @@ droption_t<bytesize_t> op_sim_refs
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
 
+droption_t<std::string> op_config_file
+(DROPTION_SCOPE_FRONTEND, "config_file", "", "Cache hierarchy configuration file",
+ "The full path to the cache hierarchy configuration file.");
+
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int> op_report_top
 (DROPTION_SCOPE_FRONTEND, "report_top", 10,

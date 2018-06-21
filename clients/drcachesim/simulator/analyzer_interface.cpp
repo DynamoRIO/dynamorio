@@ -52,25 +52,31 @@ analysis_tool_t *
 drmemtrace_analysis_tool_create()
 {
     if (op_simulator_type.get_value() == CPU_CACHE) {
-        cache_simulator_knobs_t knobs;
-        knobs.num_cores = op_num_cores.get_value();
-        knobs.line_size = op_line_size.get_value();
-        knobs.L1I_size = op_L1I_size.get_value();
-        knobs.L1D_size = op_L1D_size.get_value();
-        knobs.L1I_assoc = op_L1I_assoc.get_value();
-        knobs.L1D_assoc = op_L1D_assoc.get_value();
-        knobs.LL_size = op_LL_size.get_value();
-        knobs.LL_assoc = op_LL_assoc.get_value();
-        knobs.LL_miss_file = op_LL_miss_file.get_value();
-        knobs.replace_policy = op_replace_policy.get_value();
-        knobs.data_prefetcher = op_data_prefetcher.get_value();
-        knobs.skip_refs = op_skip_refs.get_value();
-        knobs.warmup_refs = op_warmup_refs.get_value();
-        knobs.warmup_fraction = op_warmup_fraction.get_value();
-        knobs.sim_refs = op_sim_refs.get_value();
-        knobs.verbose = op_verbose.get_value();
-        knobs.cpu_scheduling = op_cpu_scheduling.get_value();
-        return cache_simulator_create(knobs);
+        const std::string &config_file = op_config_file.get_value();
+        if (config_file != "") {
+            return cache_simulator_create(config_file);
+        }
+        else {
+            cache_simulator_knobs_t knobs;
+            knobs.num_cores = op_num_cores.get_value();
+            knobs.line_size = op_line_size.get_value();
+            knobs.L1I_size = op_L1I_size.get_value();
+            knobs.L1D_size = op_L1D_size.get_value();
+            knobs.L1I_assoc = op_L1I_assoc.get_value();
+            knobs.L1D_assoc = op_L1D_assoc.get_value();
+            knobs.LL_size = op_LL_size.get_value();
+            knobs.LL_assoc = op_LL_assoc.get_value();
+            knobs.LL_miss_file = op_LL_miss_file.get_value();
+            knobs.replace_policy = op_replace_policy.get_value();
+            knobs.data_prefetcher = op_data_prefetcher.get_value();
+            knobs.skip_refs = op_skip_refs.get_value();
+            knobs.warmup_refs = op_warmup_refs.get_value();
+            knobs.warmup_fraction = op_warmup_fraction.get_value();
+            knobs.sim_refs = op_sim_refs.get_value();
+            knobs.verbose = op_verbose.get_value();
+            knobs.cpu_scheduling = op_cpu_scheduling.get_value();
+            return cache_simulator_create(knobs);
+        }
     } else if (op_simulator_type.get_value() == TLB) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();

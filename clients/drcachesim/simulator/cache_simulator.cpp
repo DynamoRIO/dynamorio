@@ -55,6 +55,12 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
     return new cache_simulator_t(knobs);
 }
 
+analysis_tool_t *
+cache_simulator_create(const string &config_file)
+{
+    return new cache_simulator_t(config_file);
+}
+
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
                 knobs_.warmup_fraction, knobs_.sim_refs,
@@ -125,9 +131,9 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
             return;
         }
 
-        cache_name = "L1_I_Cache_%u" + i;
+        cache_name = "L1_I_Cache_" + std::to_string(i);
         all_caches[cache_name] = l1_icaches[i];
-        cache_name = "L1_D_Cache_%u" + i;
+        cache_name = "L1_D_Cache_" + std::to_string(i);
         all_caches[cache_name] = l1_dcaches[i];
     }
 
@@ -414,7 +420,9 @@ cache_simulator_t::check_warmed_up()
             }
         }
 
-        if (is_warmed_up) return true;
+        if (is_warmed_up) {
+            return true;
+        }
     }
 
     // If warmup_refs is set then decrement and indicate warmup done when
