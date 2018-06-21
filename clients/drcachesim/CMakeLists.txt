@@ -391,10 +391,10 @@ if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
   if (ZLIB_FOUND)
     target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static ${ZLIB_LIBRARIES})
+      drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
   else ()
     target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static)
+      drmemtrace_static drmemtrace_analyzer)
   endif ()
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
