@@ -974,6 +974,13 @@ drwrap_exit(void)
     if (count != 0)
         return;
 
+    if (!drmgr_unregister_bb_app2app_event(drwrap_event_bb_app2app) ||
+        !drmgr_unregister_bb_instrumentation_event(drwrap_event_bb_analysis) ||
+        !drmgr_unregister_module_unload_event(drwrap_event_module_unload) ||
+        !drmgr_unregister_tls_field(tls_idx) ||
+        !dr_unregister_delete_event(drwrap_fragment_delete))
+        ASSERT(false, "failed to unregister in drwrap_exit");
+
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
     hashtable_delete(&wrap_table);

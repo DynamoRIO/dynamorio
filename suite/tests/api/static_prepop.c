@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,10 +42,12 @@ void asm_func(void);
 void asm_label1(void);
 void asm_label2(void);
 void asm_label3(void);
+void asm_return(void);
 static bool bb_seen_func;
 static bool bb_seen_label1;
 static bool bb_seen_label2;
 static bool bb_seen_label3;
+static bool bb_seen_return;
 
 static void
 clean_callee(void)
@@ -65,6 +67,8 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_fprintf(STDERR, "bb asm_label2\n");
     else if (tag == asm_label3)
         dr_fprintf(STDERR, "bb asm_label3\n");
+    else if (tag == asm_return)
+        dr_fprintf(STDERR, "bb asm_return\n");
 
     /* Test instrumentation. */
     dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
@@ -108,7 +112,15 @@ main(int argc, const char *argv[])
     app_pc tags[] = {(app_pc)asm_func,
                      (app_pc)asm_label1,
                      (app_pc)asm_label2,
-                     (app_pc)asm_label3};
+                     (app_pc)asm_label3,
+                     (app_pc)asm_return};
+    app_pc return_tags[] = {(app_pc)asm_return};
+
+    // For testing ibt prepop, we want bb's to be indirect branch targets.
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-disable_traces -shared_bb_ibt_tables "
+                   // Standard test options.
+                   "-stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
 
     // Attach and re-attach.
     for (int i = 0; i < 2; ++i) {
@@ -123,6 +135,19 @@ main(int argc, const char *argv[])
         if (i == 0)
             assert(stats.basic_block_count == 0);
         success = dr_prepopulate_cache(tags, sizeof(tags)/sizeof(tags[0]));
+        assert(success);
+        success = dr_prepopulate_indirect_targets
+            (DR_INDIRECT_RETURN, return_tags,
+             sizeof(return_tags)/sizeof(return_tags[0]));
+        // There's no simple way to verify DR did not have to lazily add asm_return
+        // to any ibt table: we could export the num_exits_ind_bad_miss stat, but it's
+        // going to make a flaky test as it depends on the compiler precisely how
+        // many we see in the base case.  Maybe we could run twice, once with and once
+        // without indirect prepop, and compare those.  The stats export is problematic
+        // though as it's a debug-only stat and we want to limit dr_stats_t to
+        // stats available in release build too.  For now, I did a manual test and
+        // saw 8 "ind target in cache but not table" exits w/o prepop of the table
+        // and 7 with and confirmed there's no lazy filling for asm_return.
         assert(success);
         got_stats = dr_get_stats(&stats);
         assert(got_stats);
@@ -162,16 +187,19 @@ START_FILE
 DECLARE_GLOBAL(asm_label1)
 DECLARE_GLOBAL(asm_label2)
 DECLARE_GLOBAL(asm_label3)
+DECLARE_GLOBAL(asm_return)
 
 #define FUNCNAME asm_func
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         INC(ARG1)
-        JUMP     asm_label1
+        CALLC0(asm_label1)
+ADDRTAKEN_LABEL(asm_return:)
+        JUMP     asm_label2
 
 ADDRTAKEN_LABEL(asm_label1:)
         INC(ARG2)
-        JUMP     asm_label2
+        RETURN
 
 ADDRTAKEN_LABEL(asm_label2:)
         INC(ARG3)
