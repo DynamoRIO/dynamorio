@@ -77,7 +77,7 @@ static droption_t<std::string> op_val_sep
 static droption_t<twostring_t> op_val_sep2
 (DROPTION_SCOPE_CLIENT, "val_sep2", DROPTION_FLAG_ACCUMULATE, "+",
  twostring_t("",""), "Param that takes 2 and uses customized separator \"+\"",
- "Longer desc of param that takes 2 and uses customize  d separator \"+\"");
+ "Longer desc of param that takes 2 and uses customized separator \"+\"");
 
 static void
 test_argv(int argc, const char *argv[])
@@ -143,9 +143,11 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param sweep = |%s|\n", op_sweep.get_value().c_str());
     dr_fprintf(STDERR, "param takes2 = |%s|,|%s|\n",
                op_takes2.get_value().first.c_str(), op_takes2.get_value().second.c_str());
-    dr_fprintf(STDERR, "param val_sep = |%s|\n", op_val_sep.get_value().c_str());
+    dr_fprintf(STDERR, "param val_sep = |%s|\n",
+               op_val_sep.get_value().c_str());
     dr_fprintf(STDERR, "param val_sep2 = |%s|,|%s|\n",
-               op_val_sep2.get_value().first.c_str(), op_val_sep2.get_value().second.c_str());
+               op_val_sep2.get_value().first.c_str(),
+               op_val_sep2.get_value().second.c_str());
     ASSERT(!op_foo.specified());
     ASSERT(!op_bar.specified());
 

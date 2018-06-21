@@ -69,9 +69,10 @@ typedef enum {
      * By default, if an option is specified multiple times on the
      * command line, only the last value is honored.  If this flag is
      * set, repeated options accumulate, appending to the prior value
-     * (separating each appended value with a space by default or with a user-specified
-     * accumulated value separator if it was supplied to the droption_t constructor).
-     * This is supported for options of type std::string only.
+     * (separating each appended value with a space by default or with a
+     * user-specified accumulated value separator if it was supplied to the
+     * droption_t constructor). This is supported for options of type
+     * std::string only.
      */
     // XXX: to support other types of accumulation, we should add explicit
     // support for dr_option_t<std::vector<std::string> >.
@@ -346,8 +347,8 @@ template <typename T> class droption_t : public droption_parser_t
 
     /**
      * Declares a new option of type T with the given scope, behavior flags,
-     * accumulated value separator (see #DROPTION_FLAG_ACCUMULATE), default value,
-     * and description in short and long forms.
+     * accumulated value separator (see #DROPTION_FLAG_ACCUMULATE), default
+     * value, and description in short and long forms.
      */
     droption_t(unsigned int scope_, std::string name_, unsigned int flags_,
                std::string valsep_, T defval_, std::string desc_short_,
@@ -369,7 +370,9 @@ template <typename T> class droption_t : public droption_parser_t
     /** Returns the value of this option. */
     T get_value() const { return value; }
 
-    /** Returns the separator of the option value (see #DROPTION_FLAG_ACCUMULATE). */
+    /** Returns the separator of the option value
+     * (see #DROPTION_FLAG_ACCUMULATE).
+     */
     std::string get_value_separator() const { return valsep; }
 
     /** Sets the value of this option, overriding the command line. */
