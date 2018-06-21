@@ -970,7 +970,7 @@ void
 drwrap_exit(void)
 {
     /* handle multiple sets of init/exit calls */
-    int count = dr_atomic_add32_return_sum(&drwrap_init_count, -1);
+    int i, count = dr_atomic_add32_return_sum(&drwrap_init_count, -1);
     if (count != 0)
         return;
 
