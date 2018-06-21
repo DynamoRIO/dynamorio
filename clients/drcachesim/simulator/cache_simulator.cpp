@@ -67,8 +67,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     // XXX i#1703: get defaults from hardware being run on.
 
     // This configuration allows for one shared LLC only.
-    cache_t *llc = new cache_t;
-    llc = create_cache(knobs.replace_policy);
+    cache_t *llc = create_cache(knobs.replace_policy);
     if (llc == NULL) {
         success = false;
         return;
@@ -286,6 +285,7 @@ cache_simulator_t::~cache_simulator_t()
         delete [] l1_dcaches;
     }
     llcaches.clear();
+    other_caches.clear();
     all_caches.clear();
 }
 
