@@ -52,4 +52,433 @@ fmov   %x8 -> %h23
 fmov   %x24 -> %d6
 fmov   %x10 -> %q9
 test_fmov_general complete
+fmaxnm %d27 %d30 $0x01 -> %d2
+fmaxnm %q27 %q30 $0x01 -> %q2
+fmla   %d0 %d29 %d31 $0x01 -> %d0
+fmla   %q0 %q29 %q31 $0x01 -> %q0
+fadd   %d10 %d2 $0x01 -> %d17
+fadd   %q10 %q2 $0x01 -> %q17
+fmulx  %d20 %d4 $0x01 -> %d31
+fmulx  %q20 %q4 $0x01 -> %q31
+fcmeq  %d23 %d2 $0x01 -> %d15
+fcmeq  %q23 %q2 $0x01 -> %q15
+fmax   %d8 %d22 $0x01 -> %d26
+fmax   %q8 %q22 $0x01 -> %q26
+frecps %d26 %d18 $0x01 -> %d24
+frecps %q26 %q18 $0x01 -> %q24
+fminnm %d29 %d11 $0x01 -> %d16
+fminnm %q29 %q11 $0x01 -> %q16
+fmls   %d19 %d8 %d29 $0x01 -> %d19
+fmls   %q19 %q8 %q29 $0x01 -> %q19
+fsub   %d28 %d24 $0x01 -> %d15
+fsub   %q28 %q24 $0x01 -> %q15
+fmin   %d0 %d15 $0x01 -> %d2
+fmin   %q0 %q15 $0x01 -> %q2
+frsqrts %d12 %d19 $0x01 -> %d8
+frsqrts %q12 %q19 $0x01 -> %q8
+fmaxnmp %d15 %d20 $0x01 -> %d23
+fmaxnmp %q15 %q20 $0x01 -> %q23
+faddp  %d27 %d30 $0x01 -> %d28
+faddp  %q27 %q30 $0x01 -> %q28
+fmul   %d20 %d10 $0x01 -> %d4
+fmul   %q20 %q10 $0x01 -> %q4
+fcmge  %d26 %d15 $0x01 -> %d14
+fcmge  %q26 %q15 $0x01 -> %q14
+facge  %d2 %d31 $0x01 -> %d2
+facge  %q2 %q31 $0x01 -> %q2
+fmaxp  %d4 %d5 $0x01 -> %d19
+fmaxp  %q4 %q5 $0x01 -> %q19
+fdiv   %d24 %d23 $0x01 -> %d9
+fdiv   %q24 %q23 $0x01 -> %q9
+fminnmp %d7 %d6 $0x01 -> %d9
+fminnmp %q7 %q6 $0x01 -> %q9
+fabd   %d10 %d12 $0x01 -> %d28
+fabd   %q10 %q12 $0x01 -> %q28
+fcmgt  %d27 %d26 $0x01 -> %d22
+fcmgt  %q27 %q26 $0x01 -> %q22
+facgt  %d15 %d17 $0x01 -> %d28
+facgt  %q15 %q17 $0x01 -> %q28
+fminp  %d11 %d7 $0x01 -> %d9
+fminp  %q11 %q7 $0x01 -> %q9
+test_asimdsamefp16 complete
+shadd  %d27 %d30 $0x00 -> %d2
+shadd  %q27 %q30 $0x00 -> %q2
+shadd  %d27 %d30 $0x01 -> %d2
+shadd  %q27 %q30 $0x01 -> %q2
+shadd  %d27 %d30 $0x02 -> %d2
+shadd  %q27 %q30 $0x02 -> %q2
+sqadd  %d13 %d29 $0x00 -> %d0
+sqadd  %q13 %q29 $0x00 -> %q0
+sqadd  %d13 %d29 $0x01 -> %d0
+sqadd  %q13 %q29 $0x01 -> %q0
+sqadd  %d13 %d29 $0x02 -> %d0
+sqadd  %q13 %q29 $0x02 -> %q0
+sqadd  %q13 %q29 $0x03 -> %q0
+srhadd %d17 %d10 $0x00 -> %d31
+srhadd %q17 %q10 $0x00 -> %q31
+srhadd %d17 %d10 $0x01 -> %d31
+srhadd %q17 %q10 $0x01 -> %q31
+srhadd %d17 %d10 $0x02 -> %d31
+srhadd %q17 %q10 $0x02 -> %q31
+shsub  %d31 %d20 $0x00 -> %d2
+shsub  %q31 %q20 $0x00 -> %q2
+shsub  %d31 %d20 $0x01 -> %d2
+shsub  %q31 %q20 $0x01 -> %q2
+shsub  %d31 %d20 $0x02 -> %d2
+shsub  %q31 %q20 $0x02 -> %q2
+sqsub  %d15 %d23 $0x00 -> %d4
+sqsub  %q15 %q23 $0x00 -> %q4
+sqsub  %d15 %d23 $0x01 -> %d4
+sqsub  %q15 %q23 $0x01 -> %q4
+sqsub  %d15 %d23 $0x02 -> %d4
+sqsub  %q15 %q23 $0x02 -> %q4
+sqsub  %q15 %q23 $0x03 -> %q4
+cmgt   %d26 %d8 $0x00 -> %d2
+cmgt   %q26 %q8 $0x00 -> %q2
+cmgt   %d26 %d8 $0x01 -> %d2
+cmgt   %q26 %q8 $0x01 -> %q2
+cmgt   %d26 %d8 $0x02 -> %d2
+cmgt   %q26 %q8 $0x02 -> %q2
+cmgt   %q26 %q8 $0x03 -> %q2
+cmge   %d24 %d26 $0x00 -> %d22
+cmge   %q24 %q26 $0x00 -> %q22
+cmge   %d24 %d26 $0x01 -> %d22
+cmge   %q24 %q26 $0x01 -> %q22
+cmge   %d24 %d26 $0x02 -> %d22
+cmge   %q24 %q26 $0x02 -> %q22
+cmge   %q24 %q26 $0x03 -> %q22
+sshl   %d16 %d29 $0x00 -> %d18
+sshl   %q16 %q29 $0x00 -> %q18
+sshl   %d16 %d29 $0x01 -> %d18
+sshl   %q16 %q29 $0x01 -> %q18
+sshl   %d16 %d29 $0x02 -> %d18
+sshl   %q16 %q29 $0x02 -> %q18
+sshl   %q16 %q29 $0x03 -> %q18
+sqshl  %d19 %d23 $0x00 -> %d11
+sqshl  %q19 %q23 $0x00 -> %q11
+sqshl  %d19 %d23 $0x01 -> %d11
+sqshl  %q19 %q23 $0x01 -> %q11
+sqshl  %d19 %d23 $0x02 -> %d11
+sqshl  %q19 %q23 $0x02 -> %q11
+sqshl  %q19 %q23 $0x03 -> %q11
+srshl  %d29 %d15 $0x00 -> %d8
+srshl  %q29 %q15 $0x00 -> %q8
+srshl  %d29 %d15 $0x01 -> %d8
+srshl  %q29 %q15 $0x01 -> %q8
+srshl  %d29 %d15 $0x02 -> %d8
+srshl  %q29 %q15 $0x02 -> %q8
+srshl  %q29 %q15 $0x03 -> %q8
+sqrshl %d24 %d2 $0x00 -> %d28
+sqrshl %q24 %q2 $0x00 -> %q28
+sqrshl %d24 %d2 $0x01 -> %d28
+sqrshl %q24 %q2 $0x01 -> %q28
+sqrshl %d24 %d2 $0x02 -> %d28
+sqrshl %q24 %q2 $0x02 -> %q28
+sqrshl %q24 %q2 $0x03 -> %q28
+smax   %d15 %d8 $0x00 -> %d0
+smax   %q15 %q8 $0x00 -> %q0
+smax   %d15 %d8 $0x01 -> %d0
+smax   %q15 %q8 $0x01 -> %q0
+smax   %d15 %d8 $0x02 -> %d0
+smax   %q15 %q8 $0x02 -> %q0
+smin   %d19 %d23 $0x00 -> %d12
+smin   %q19 %q23 $0x00 -> %q12
+smin   %d19 %d23 $0x01 -> %d12
+smin   %q19 %q23 $0x01 -> %q12
+smin   %d19 %d23 $0x02 -> %d12
+smin   %q19 %q23 $0x02 -> %q12
+sabd   %d20 %d28 $0x00 -> %d15
+sabd   %q20 %q28 $0x00 -> %q15
+sabd   %d20 %d28 $0x01 -> %d15
+sabd   %q20 %q28 $0x01 -> %q15
+sabd   %d20 %d28 $0x02 -> %d15
+sabd   %q20 %q28 $0x02 -> %q15
+saba   %d30 %d4 $0x00 -> %d27
+saba   %q30 %q4 $0x00 -> %q27
+saba   %d30 %d4 $0x01 -> %d27
+saba   %q30 %q4 $0x01 -> %q27
+saba   %d30 %d4 $0x02 -> %d27
+saba   %q30 %q4 $0x02 -> %q27
+add    %d10 %d14 $0x00 -> %d20
+add    %q10 %q14 $0x00 -> %q20
+add    %d10 %d14 $0x01 -> %d20
+add    %q10 %q14 $0x01 -> %q20
+add    %d10 %d14 $0x02 -> %d20
+add    %q10 %q14 $0x02 -> %q20
+add    %q10 %q14 $0x03 -> %q20
+cmtst  %d15 %d2 $0x00 -> %d26
+cmtst  %q15 %q2 $0x00 -> %q26
+cmtst  %d15 %d2 $0x01 -> %d26
+cmtst  %q15 %q2 $0x01 -> %q26
+cmtst  %d15 %d2 $0x02 -> %d26
+cmtst  %q15 %q2 $0x02 -> %q26
+cmtst  %q15 %q2 $0x03 -> %q26
+mla    %d2 %d19 %d4 $0x00 -> %d2
+mla    %q2 %q19 %q4 $0x00 -> %q2
+mla    %d2 %d19 %d4 $0x01 -> %d2
+mla    %q2 %q19 %q4 $0x01 -> %q2
+mla    %d2 %d19 %d4 $0x02 -> %d2
+mla    %q2 %q19 %q4 $0x02 -> %q2
+mul    %d9 %d24 $0x00 -> %d5
+mul    %q9 %q24 $0x00 -> %q5
+mul    %d9 %d24 $0x01 -> %d5
+mul    %q9 %q24 $0x01 -> %q5
+mul    %d9 %d24 $0x02 -> %d5
+mul    %q9 %q24 $0x02 -> %q5
+smaxp  %d9 %d7 $0x00 -> %d23
+smaxp  %q9 %q7 $0x00 -> %q23
+smaxp  %d9 %d7 $0x01 -> %d23
+smaxp  %q9 %q7 $0x01 -> %q23
+smaxp  %d9 %d7 $0x02 -> %d23
+smaxp  %q9 %q7 $0x02 -> %q23
+sminp  %d28 %d10 $0x00 -> %d6
+sminp  %q28 %q10 $0x00 -> %q6
+sminp  %d28 %d10 $0x01 -> %d6
+sminp  %q28 %q10 $0x01 -> %q6
+sminp  %d28 %d10 $0x02 -> %d6
+sminp  %q28 %q10 $0x02 -> %q6
+sqdmulh %d22 %d27 $0x01 -> %d12
+sqdmulh %q22 %q27 $0x01 -> %q12
+sqdmulh %d22 %d27 $0x02 -> %d12
+sqdmulh %q22 %q27 $0x02 -> %q12
+addp   %d28 %d15 $0x00 -> %d26
+addp   %q28 %q15 $0x00 -> %q26
+addp   %d28 %d15 $0x01 -> %d26
+addp   %q28 %q15 $0x01 -> %q26
+addp   %d28 %d15 $0x02 -> %d26
+addp   %q28 %q15 $0x02 -> %q26
+addp   %q28 %q15 $0x03 -> %q26
+fmaxnm %d9 %d11 $0x02 -> %d17
+fmaxnm %q9 %q11 $0x02 -> %q17
+fmaxnm %q9 %q11 $0x03 -> %q17
+fmla   %d7 %d29 %d19 $0x02 -> %d7
+fmla   %q7 %q29 %q19 $0x02 -> %q7
+fmla   %q7 %q29 %q19 $0x03 -> %q7
+fadd   %d11 %d11 $0x02 -> %d10
+fadd   %q11 %q11 $0x02 -> %q10
+fadd   %q11 %q11 $0x03 -> %q10
+fmulx  %d22 %d20 $0x02 -> %d30
+fmulx  %q22 %q20 $0x02 -> %q30
+fmulx  %q22 %q20 $0x03 -> %q30
+fcmeq  %d14 %d0 $0x02 -> %d27
+fcmeq  %q14 %q0 $0x02 -> %q27
+fcmeq  %q14 %q0 $0x03 -> %q27
+fmlal  %d0 %d29 %d31 -> %d0
+fmlal  %q0 %q29 %q31 -> %q0
+fmax   %d21 %d20 $0x02 -> %d2
+fmax   %q21 %q20 $0x02 -> %q2
+fmax   %q21 %q20 $0x03 -> %q2
+frecps %d5 %d16 $0x02 -> %d15
+frecps %q5 %q16 $0x02 -> %q15
+frecps %q5 %q16 $0x03 -> %q15
+and    %d25 %d10 -> %d28
+and    %q25 %q10 -> %q28
+bic    %d31 %d15 -> %d24
+bic    %q31 %q15 -> %q24
+fminnm %d30 %d31 $0x02 -> %d17
+fminnm %q30 %q31 $0x02 -> %q17
+fminnm %q30 %q31 $0x03 -> %q17
+fmls   %d4 %d31 %d29 $0x02 -> %d4
+fmls   %q4 %q31 %q29 $0x02 -> %q4
+fmls   %q4 %q31 %q29 $0x03 -> %q4
+fsub   %d8 %d26 $0x02 -> %d25
+fsub   %q8 %q26 $0x02 -> %q25
+fsub   %q8 %q26 $0x03 -> %q25
+fmlsl  %d0 %d29 %d31 -> %d0
+fmlsl  %q0 %q29 %q31 -> %q0
+fmin   %d24 %d31 $0x02 -> %d22
+fmin   %q24 %q31 $0x02 -> %q22
+fmin   %q24 %q31 $0x03 -> %q22
+frsqrts %d28 %d6 $0x02 -> %d10
+frsqrts %q28 %q6 $0x02 -> %q10
+frsqrts %q28 %q6 $0x03 -> %q10
+orr    %d2 %d0 -> %d26
+orr    %q2 %q0 -> %q26
+orn    %d4 %d3 -> %d28
+orn    %q4 %q3 -> %q28
+uhadd  %d5 %d9 $0x00 -> %d22
+uhadd  %q5 %q9 $0x00 -> %q22
+uhadd  %d5 %d9 $0x01 -> %d22
+uhadd  %q5 %q9 $0x01 -> %q22
+uhadd  %d5 %d9 $0x02 -> %d22
+uhadd  %q5 %q9 $0x02 -> %q22
+uqadd  %d29 %d31 $0x00 -> %d6
+uqadd  %q29 %q31 $0x00 -> %q6
+uqadd  %d29 %d31 $0x01 -> %d6
+uqadd  %q29 %q31 $0x01 -> %q6
+uqadd  %d29 %d31 $0x02 -> %d6
+uqadd  %q29 %q31 $0x02 -> %q6
+uqadd  %q29 %q31 $0x03 -> %q6
+urhadd %d29 %d27 $0x00 -> %d8
+urhadd %q29 %q27 $0x00 -> %q8
+urhadd %d29 %d27 $0x01 -> %d8
+urhadd %q29 %q27 $0x01 -> %q8
+urhadd %d29 %d27 $0x02 -> %d8
+urhadd %q29 %q27 $0x02 -> %q8
+uhsub  %d21 %d16 $0x00 -> %d28
+uhsub  %q21 %q16 $0x00 -> %q28
+uhsub  %d21 %d16 $0x01 -> %d28
+uhsub  %q21 %q16 $0x01 -> %q28
+uhsub  %d21 %d16 $0x02 -> %d28
+uhsub  %q21 %q16 $0x02 -> %q28
+uqsub  %d27 %d21 $0x00 -> %d29
+uqsub  %q27 %q21 $0x00 -> %q29
+uqsub  %d27 %d21 $0x01 -> %d29
+uqsub  %q27 %q21 $0x01 -> %q29
+uqsub  %d27 %d21 $0x02 -> %d29
+uqsub  %q27 %q21 $0x02 -> %q29
+uqsub  %q27 %q21 $0x03 -> %q29
+cmhi   %d15 %d20 $0x00 -> %d9
+cmhi   %q15 %q20 $0x00 -> %q9
+cmhi   %d15 %d20 $0x01 -> %d9
+cmhi   %q15 %q20 $0x01 -> %q9
+cmhi   %d15 %d20 $0x02 -> %d9
+cmhi   %q15 %q20 $0x02 -> %q9
+cmhi   %q15 %q20 $0x03 -> %q9
+cmhs   %d12 %d30 $0x00 -> %d2
+cmhs   %q12 %q30 $0x00 -> %q2
+cmhs   %d12 %d30 $0x01 -> %d2
+cmhs   %q12 %q30 $0x01 -> %q2
+cmhs   %d12 %d30 $0x02 -> %d2
+cmhs   %q12 %q30 $0x02 -> %q2
+cmhs   %q12 %q30 $0x03 -> %q2
+ushl   %d7 %d18 $0x00 -> %d1
+ushl   %q7 %q18 $0x00 -> %q1
+ushl   %d7 %d18 $0x01 -> %d1
+ushl   %q7 %q18 $0x01 -> %q1
+ushl   %d7 %d18 $0x02 -> %d1
+ushl   %q7 %q18 $0x02 -> %q1
+ushl   %q7 %q18 $0x03 -> %q1
+uqshl  %d15 %d18 $0x00 -> %d27
+uqshl  %q15 %q18 $0x00 -> %q27
+uqshl  %d15 %d18 $0x01 -> %d27
+uqshl  %q15 %q18 $0x01 -> %q27
+uqshl  %d15 %d18 $0x02 -> %d27
+uqshl  %q15 %q18 $0x02 -> %q27
+uqshl  %q15 %q18 $0x03 -> %q27
+urshl  %d2 %d6 $0x00 -> %d5
+urshl  %q2 %q6 $0x00 -> %q5
+urshl  %d2 %d6 $0x01 -> %d5
+urshl  %q2 %q6 $0x01 -> %q5
+urshl  %d2 %d6 $0x02 -> %d5
+urshl  %q2 %q6 $0x02 -> %q5
+urshl  %q2 %q6 $0x03 -> %q5
+uqrshl %d10 %d30 $0x00 -> %d18
+uqrshl %q10 %q30 $0x00 -> %q18
+uqrshl %d10 %d30 $0x01 -> %d18
+uqrshl %q10 %q30 $0x01 -> %q18
+uqrshl %d10 %d30 $0x02 -> %d18
+uqrshl %q10 %q30 $0x02 -> %q18
+uqrshl %q10 %q30 $0x03 -> %q18
+umax   %d23 %d25 $0x00 -> %d9
+umax   %q23 %q25 $0x00 -> %q9
+umax   %d23 %d25 $0x01 -> %d9
+umax   %q23 %q25 $0x01 -> %q9
+umax   %d23 %d25 $0x02 -> %d9
+umax   %q23 %q25 $0x02 -> %q9
+umin   %d22 %d11 $0x00 -> %d12
+umin   %q22 %q11 $0x00 -> %q12
+umin   %d22 %d11 $0x01 -> %d12
+umin   %q22 %q11 $0x01 -> %q12
+umin   %d22 %d11 $0x02 -> %d12
+umin   %q22 %q11 $0x02 -> %q12
+uabd   %d12 %d27 $0x00 -> %d5
+uabd   %q12 %q27 $0x00 -> %q5
+uabd   %d12 %d27 $0x01 -> %d5
+uabd   %q12 %q27 $0x01 -> %q5
+uabd   %d12 %d27 $0x02 -> %d5
+uabd   %q12 %q27 $0x02 -> %q5
+uaba   %d6 %d19 $0x00 -> %d13
+uaba   %q6 %q19 $0x00 -> %q13
+uaba   %d6 %d19 $0x01 -> %d13
+uaba   %q6 %q19 $0x01 -> %q13
+uaba   %d6 %d19 $0x02 -> %d13
+uaba   %q6 %q19 $0x02 -> %q13
+sub    %d27 %d28 $0x00 -> %d29
+sub    %q27 %q28 $0x00 -> %q29
+sub    %d27 %d28 $0x01 -> %d29
+sub    %q27 %q28 $0x01 -> %q29
+sub    %d27 %d28 $0x02 -> %d29
+sub    %q27 %q28 $0x02 -> %q29
+sub    %q27 %q28 $0x03 -> %q29
+cmeq   %d17 %d23 $0x00 -> %d13
+cmeq   %q17 %q23 $0x00 -> %q13
+cmeq   %d17 %d23 $0x01 -> %d13
+cmeq   %q17 %q23 $0x01 -> %q13
+cmeq   %d17 %d23 $0x02 -> %d13
+cmeq   %q17 %q23 $0x02 -> %q13
+cmeq   %q17 %q23 $0x03 -> %q13
+mls    %d7 %d13 %d27 $0x00 -> %d7
+mls    %q7 %q13 %q27 $0x00 -> %q7
+mls    %d7 %d13 %d27 $0x01 -> %d7
+mls    %q7 %q13 %q27 $0x01 -> %q7
+mls    %d7 %d13 %d27 $0x02 -> %d7
+mls    %q7 %q13 %q27 $0x02 -> %q7
+pmul   %d24 %d12 $0x00 -> %d26
+pmul   %q24 %q12 $0x00 -> %q26
+umaxp  %d27 %d5 $0x00 -> %d4
+umaxp  %q27 %q5 $0x00 -> %q4
+umaxp  %d27 %d5 $0x01 -> %d4
+umaxp  %q27 %q5 $0x01 -> %q4
+umaxp  %d27 %d5 $0x02 -> %d4
+umaxp  %q27 %q5 $0x02 -> %q4
+uminp  %d22 %d16 $0x00 -> %d3
+uminp  %q22 %q16 $0x00 -> %q3
+uminp  %d22 %d16 $0x01 -> %d3
+uminp  %q22 %q16 $0x01 -> %q3
+uminp  %d22 %d16 $0x02 -> %d3
+uminp  %q22 %q16 $0x02 -> %q3
+sqrdmulh %d29 %d27 $0x01 -> %d23
+sqrdmulh %q29 %q27 $0x01 -> %q23
+sqrdmulh %d29 %d27 $0x02 -> %d23
+sqrdmulh %q29 %q27 $0x02 -> %q23
+fmaxnmp %d18 %d29 $0x02 -> %d12
+fmaxnmp %q18 %q29 $0x02 -> %q12
+fmaxnmp %q18 %q29 $0x03 -> %q12
+fmlal2 %d0 %d29 %d31 -> %d0
+fmlal2 %q0 %q29 %q31 -> %q0
+faddp  %d31 %d16 $0x02 -> %d18
+faddp  %q31 %q16 $0x02 -> %q18
+faddp  %q31 %q16 $0x03 -> %q18
+fmul   %d28 %d21 $0x02 -> %d25
+fmul   %q28 %q21 $0x02 -> %q25
+fmul   %q28 %q21 $0x03 -> %q25
+fcmge  %d17 %d30 $0x02 -> %d22
+fcmge  %q17 %q30 $0x02 -> %q22
+fcmge  %q17 %q30 $0x03 -> %q22
+facge  %d30 %d30 $0x02 -> %d28
+facge  %q30 %q30 $0x02 -> %q28
+facge  %q30 %q30 $0x03 -> %q28
+fmaxp  %d23 %d25 $0x02 -> %d5
+fmaxp  %q23 %q25 $0x02 -> %q5
+fmaxp  %q23 %q25 $0x03 -> %q5
+fdiv   %d26 %d4 $0x02 -> %d10
+fdiv   %q26 %q4 $0x02 -> %q10
+fdiv   %q26 %q4 $0x03 -> %q10
+eor    %d1 %d20 -> %d19
+eor    %q1 %q20 -> %q19
+bsl    %d4 %d25 -> %d20
+bsl    %q4 %q25 -> %q20
+fminnmp %d18 %d11 $0x02 -> %d23
+fminnmp %q18 %q11 $0x02 -> %q23
+fminnmp %q18 %q11 $0x03 -> %q23
+fmlsl2 %d0 %d29 %d31 -> %d0
+fmlsl2 %q0 %q29 %q31 -> %q0
+fabd   %d10 %d19 $0x02 -> %d15
+fabd   %q10 %q19 $0x02 -> %q15
+fabd   %q10 %q19 $0x03 -> %q15
+fcmgt  %d3 %d14 $0x02 -> %d6
+fcmgt  %q3 %q14 $0x02 -> %q6
+fcmgt  %q3 %q14 $0x03 -> %q6
+facgt  %d26 %d12 $0x02 -> %d4
+facgt  %q26 %q12 $0x02 -> %q4
+facgt  %q26 %q12 $0x03 -> %q4
+fminp  %d1 %d25 $0x02 -> %d28
+fminp  %q1 %q25 $0x02 -> %q28
+fminp  %q1 %q25 $0x03 -> %q28
+bit    %d21 %d12 -> %d12
+bit    %q21 %q12 -> %q12
+bif    %d3 %d3 -> %d20
+bif    %q3 %q3 -> %q20
+test_asimdsame complete
 All tests complete
