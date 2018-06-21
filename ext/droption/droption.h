@@ -30,7 +30,12 @@
  * DAMAGE.
  */
 
-/* droption: option parsing support */
+/**
+ * @file droption.h
+ * @brief Options parsing support
+ */
+// We need to specify the @file command to make doxygen include global
+// functions, variables, typedefs, and enums in this file.
 
 #ifndef _DROPTION_H_
 #define _DROPTION_H_ 1
