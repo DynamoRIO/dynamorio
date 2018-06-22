@@ -981,6 +981,11 @@ drwrap_exit(void)
         !dr_unregister_delete_event(drwrap_fragment_delete))
         ASSERT(false, "failed to unregister in drwrap_exit");
 
+    for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+        postcall_cache[i] = NULL;
+    }
+    postcall_cache_idx = 0;
+
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
     hashtable_delete(&wrap_table);
