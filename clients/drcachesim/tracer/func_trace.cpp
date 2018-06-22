@@ -182,7 +182,9 @@ get_funcs_str_and_sep(std::string &func_str, std::string &sep)
     sep = op_record_function.get_value_separator();
     if (op_record_heap.get_value()) {
         DR_ASSERT(sep == op_record_heap_value.get_value_separator());
-        func_str += op_record_heap_value.get_value();
+        func_str += func_str.empty() ?
+            op_record_heap_value.get_value() :
+            sep + op_record_heap_value.get_value();
     }
 }
 
