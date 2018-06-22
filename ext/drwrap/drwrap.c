@@ -970,7 +970,7 @@ void
 drwrap_exit(void)
 {
     /* handle multiple sets of init/exit calls */
-    int i, count = dr_atomic_add32_return_sum(&drwrap_init_count, -1);
+    int count = dr_atomic_add32_return_sum(&drwrap_init_count, -1);
     if (count != 0)
         return;
 
@@ -981,7 +981,7 @@ drwrap_exit(void)
         !dr_unregister_delete_event(drwrap_fragment_delete))
         ASSERT(false, "failed to unregister in drwrap_exit");
 
-    for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+    for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
         postcall_cache[i] = NULL;
     }
     postcall_cache_idx = 0;
