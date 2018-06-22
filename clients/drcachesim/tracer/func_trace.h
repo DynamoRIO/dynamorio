@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* func_trace: add function trace */
+// func_trace.h: Header of module for recording function traces
 
 #ifndef _FUNC_TRACE_
 #define _FUNC_TRACE_ 1
@@ -39,21 +39,18 @@
 
 typedef void (*func_trace_append_entry_t)
     (void *drcontext, trace_marker_type_t marker, uintptr_t value);
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif  // __cplusplus
+typedef void (*process_fatal_t) (const char *format, ...);
 
 DR_EXPORT
 /**
- * Initializes the func_trace module. Each call must be paired with a corresponding
- * call to func_trace_exit().
+ * Initializes the func_trace module. Each call must be paired with a
+ * corresponding call to func_trace_exit().
  *
  * \return whether successful.
  */
 bool
-func_trace_init(func_trace_append_entry_t append_entry_);
+func_trace_init(func_trace_append_entry_t append_entry_,
+                process_fatal_t process_fatal_);
 
 DR_EXPORT
 /**
@@ -61,9 +58,5 @@ DR_EXPORT
  */
 void
 func_trace_exit();
-
-#ifdef __cplusplus
-}
-#endif  // __cplusplus
 
 #endif /* _FUNC_TRACE_ */

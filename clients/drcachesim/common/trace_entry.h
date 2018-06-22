@@ -192,28 +192,31 @@ typedef enum {
     TRACE_MARKER_TYPE_CPU_ID,
 
     /**
-     * The marker value contains the function id defined by user in droption
+     * The marker value contains function id defined by the user in droption.
      */
     TRACE_MARKER_TYPE_FUNC_ID,
 
+    // XXX i#3048: replace return address with callstack information.
     /**
      * The marker value contains the return address of the function call,
-     * whose id is specified by the closest previous FUNC_ID marker entry
-     * XXX: replace return address with callstack information in the future
+     * whose id is specified by the closest previous
+     * marker entry.
      */
     TRACE_MARKER_TYPE_FUNC_RETADDR,
 
     /**
      * The marker value contains one argument value of the function call,
-     * whose id is specified by the closest previous FUNC_ID marker entry.
-     * The number of such entries for one function invocation is expected to
-     * equal to the number of function arguments.
+     * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
+     * marker entry. The number of such entries for one function invocation is
+     * expected to be equal to the specified arugment in -record_function or
+     * pre-defined functions in -record_heap (if enabled).
      */
     TRACE_MARKER_TYPE_FUNC_ARG,
 
     /**
      * The marker value contains return value of the function call,
-     * whose id is specified by the closest previous FUNC_ID marker entry
+     * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
+     * marker entry
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 

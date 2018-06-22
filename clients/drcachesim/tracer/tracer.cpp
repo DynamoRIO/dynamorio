@@ -154,13 +154,12 @@ static volatile bool exited_process;
 static bool have_phys;
 static physaddr_t physaddr;
 
-/**
- * The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
- * function pre/post callbacks of drwrap API happens before memtrace's
- * meta instruction, so that function trace entries will not be appended to the middle
- * of a BB's PC and Memory Access trace entries. (Assumption made here is that,
- * the function pre/post callback always happended at the first instruction of a BB)
-*/
+// The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
+// function pre/post callbacks of drwrap API happens before memtrace's
+// meta instruction, so that function trace entries will not be appended to the
+// middle of a BB's PC and Memory Access trace entries. Assumption made here is
+// that, each function pre/post callback always happens at the first
+// instruction of a BB.
 static drmgr_priority_t memtrace_pri = {sizeof(drmgr_priority_t),
     DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP + 1};
 
@@ -530,6 +529,15 @@ append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t va
         return;  /* This thread was filtered out. */
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker, value);
+}
+
+static void
+process_fatal(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    FATAL(format, args);
+    va_end(args);
 }
 
 static void
@@ -1735,7 +1743,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (!func_trace_init(append_marker_seg_base))
+    if (!func_trace_init(append_marker_seg_base, process_fatal))
         DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);

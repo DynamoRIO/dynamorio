@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* func_trace.cpp: code for recording function traces */
+// func_trace.cpp: brief Module for recording function traces
 
 #include <string>
 #include <vector>
@@ -51,6 +51,7 @@
 static int func_trace_init_count;
 
 static func_trace_append_entry_t append_entry;
+static process_fatal_t process_fatal;
 static drvector_t funcs;
 
 typedef struct {
@@ -59,12 +60,20 @@ typedef struct {
     int arg_num;
 } func_metadata_t;
 
+static inline size_t
+get_safe_size(size_t dst_size, size_t src_size)
+{
+    return src_size < dst_size ? src_size : dst_size - 1;
+}
+
 static func_metadata_t *
 create_func_metadata(std::string name, int id, int arg_num)
 {
     func_metadata_t *f =
         (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
-    strcpy(f->name, name.c_str());
+    size_t safe_size = get_safe_size(sizeof(f->name), name.size());
+    strncpy(f->name, name.c_str(), safe_size);
+    f->name[safe_size] = '\0';
     f->id = id;
     f->arg_num = arg_num;
     return f;
@@ -121,10 +130,6 @@ func_post_hook(void *wrapcxt, void *user_data)
 static void
 instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 {
-    size_t offset;
-    drsym_error_t result;
-    app_pc func_pc;
-
     if (drcontext == NULL || mod == NULL)
         return;
     dr_log(NULL, DR_LOG_ALL, 1,
@@ -133,15 +138,14 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 
     for (size_t i = 0; i < funcs.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, i);
-        result = drsym_lookup_symbol(mod->full_path, f->name, &offset,
-                                     DRSYM_DEMANGLE);
-        dr_log(NULL, DR_LOG_ALL, 1,
-               "func_name=%s, id=%d, arg_num=%d, result=%d, offset=%d\n",
-               f->name, f->id, f->arg_num, result, offset);
-
-        if (result == DRSYM_SUCCESS) {
-            func_pc = mod->start + offset;
-            drwrap_wrap_ex(func_pc, func_pre_hook, func_post_hook, (void *)i, 0);
+        size_t offset;
+        if (drsym_lookup_symbol(mod->full_path, f->name, &offset,
+                                DRSYM_DEMANGLE) == DRSYM_SUCCESS) {
+            dr_log(NULL, DR_LOG_ALL, 1,
+                   "Found and trace func name=%s, id=%d, arg_num=%d\n",
+                   f->name, f->id, f->arg_num);
+            app_pc f_pc = mod->start + offset;
+            drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)i, 0);
         }
     }
 }
@@ -171,15 +175,30 @@ id_existed(int id)
     return false;
 }
 
+static void
+get_funcs_str_and_sep(std::string &func_str, std::string &sep)
+{
+    func_str = op_record_function.get_value();
+    sep = op_record_function.get_value_separator();
+    if (op_record_heap.get_value()) {
+        DR_ASSERT(sep == op_record_heap_value.get_value_separator());
+        func_str += op_record_heap_value.get_value();
+    }
+}
+
 DR_EXPORT
 bool
-func_trace_init(func_trace_append_entry_t append_entry_)
+func_trace_init(func_trace_append_entry_t append_entry_,
+                process_fatal_t process_fatal_)
 {
-    std::string value, sep;
-
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
-    if (op_record_function.get_value().empty())
+
+    std::string funcs_str, sep;
+    get_funcs_str_and_sep(funcs_str, sep);
+    // If there is no function specified to trace,
+    // then the whole func_trace module doesn't have to do anything.
+    if (funcs_str.empty())
         return true;
 
     if (!drvector_init(&funcs, 32, false, free_func_entry)) {
@@ -188,27 +207,35 @@ func_trace_init(func_trace_append_entry_t append_entry_)
     }
 
     append_entry = append_entry_;
-    value = op_record_function.get_value();
-    sep = op_record_function.get_value_separator();
-    for (auto &single_op_value : split_by(value, sep)) {
+    process_fatal = process_fatal_;
+
+    for (auto &single_op_value : split_by(funcs_str, sep)) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
         if (items.size() != 3) {
-            DR_ASSERT(false);
-            goto failed;
+            process_fatal("Usage error: -record_function or -record_heap_value"
+                          "was not passed a triplet");
         }
         std::string name = items[0];
         int id = atoi(items[1].c_str());
         int arg_num = atoi(items[2].c_str());
         if (id_existed(id)) {
-            DR_ASSERT(false);
-            goto failed;
+            process_fatal("Usage error: duplicated function id in"
+                          "-record_function or -record_heap_value");
         }
+        dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
+               name.c_str(), id, arg_num);
         drvector_append(&funcs, create_func_metadata(name, id, arg_num));
     }
 
-    if (!(drsym_init(0) == DRSYM_SUCCESS) ||
-        !drwrap_init() ||
-        !drmgr_register_module_load_event(instru_funcs_module_load)) {
+    if (!(drsym_init(0) == DRSYM_SUCCESS)) {
+        DR_ASSERT(false);
+        goto failed;
+    }
+    if (!drwrap_init()) {
+        DR_ASSERT(false);
+        goto failed;
+    }
+    if (!drmgr_register_module_load_event(instru_funcs_module_load)) {
         DR_ASSERT(false);
         goto failed;
     }
@@ -225,14 +252,15 @@ func_trace_exit()
 {
     if (dr_atomic_add32_return_sum(&func_trace_init_count, -1) != 0)
         return;
-    if (op_record_function.get_value().empty())
-        return;
 
+    std::string funcs_str, sep;
+    get_funcs_str_and_sep(funcs_str, sep);
+    if (funcs_str.empty())
+        return;
     if (!drvector_delete(&funcs))
         DR_ASSERT(false);
-
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
-        !(drsym_exit()== DRSYM_SUCCESS))
+        !(drsym_exit() == DRSYM_SUCCESS))
         DR_ASSERT(false);
     drwrap_exit();
 }

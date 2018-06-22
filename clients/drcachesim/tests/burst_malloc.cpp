@@ -31,7 +31,8 @@
  */
 
 /* This application links in drmemtrace_static and acquires a trace during
- * a "burst" of execution in the middle of the application.  It then detaches.
+ * a "burst" of execution and memory allocations (malloc() and free())
+ * in the middle of the application. It then detaches.
  */
 
 /* Like burst_static we deliberately do not include configure.h here */
@@ -78,12 +79,10 @@ main(int argc, const char *argv[])
 {
     /* We also test -rstats_to_stderr */
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
-                   "-client_lib ';;-offline'"))
+                   "-client_lib ';;-offline -record_heap'"))
         std::cerr << "failed to set env var!\n";
 
-    // XXX: loop 3 times instead of 1 when the PR for cleaning postcall_cache
-    // of drwrap comes in
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 3; i++) {
         std::cerr << "pre-DR init\n";
         dr_app_setup();
         assert(!dr_app_running_under_dynamorio());
