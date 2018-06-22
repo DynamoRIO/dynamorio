@@ -43,12 +43,7 @@ typedef void (*func_trace_append_entry_t)
 
 #ifdef __cplusplus
 extern "C" {
-DR_EXPORT bool
-func_trace_init(func_trace_append_entry_t append_entry_);
-DR_EXPORT void
-func_trace_exit();
-}
-#endif
+#endif  // __cplusplus
 
 DR_EXPORT
 /**
@@ -66,5 +61,9 @@ DR_EXPORT
  */
 void
 func_trace_exit();
+
+#ifdef __cplusplus
+}
+#endif  // __cplusplus
 
 #endif /* _FUNC_TRACE_ */

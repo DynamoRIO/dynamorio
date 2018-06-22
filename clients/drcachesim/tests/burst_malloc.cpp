@@ -81,39 +81,35 @@ main(int argc, const char *argv[])
                    "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
-    /* We use an outer loop to test re-attaching (i#2157). */
-    std::cerr << "pre-DR init\n";
-    dr_app_setup();
-    assert(!dr_app_running_under_dynamorio());
+    // XXX: loop 3 times instead of 1 when the PR for cleaning postcall_cache
+    // of drwrap comes in
+    for (int i = 0; i < 1; i++) {
+        std::cerr << "pre-DR init\n";
+        dr_app_setup();
+        assert(!dr_app_running_under_dynamorio());
 
-    std::cerr << "pre-DR start\n";
-    if (do_some_work(1) < 0)
-        std::cerr << "error in computation\n";
+        std::cerr << "pre-DR start\n";
+        if (do_some_work(i * 1) < 0)
+            std::cerr << "error in computation\n";
 
-    dr_app_start();
-    if (do_some_work(2) < 0)
-        std::cerr << "error in computation\n";
-    std::cerr << "pre-DR detach\n";
-    dr_app_stop_and_cleanup();
+        dr_app_start();
+        if (do_some_work(i * 2) < 0)
+            std::cerr << "error in computation\n";
+        std::cerr << "pre-DR detach\n";
+        dr_app_stop_and_cleanup();
 
-    if (do_some_work(3) < 0)
-        std::cerr << "error in computation\n";
-    std::cerr << "all done\n";
+        if (do_some_work(i * 3) < 0)
+            std::cerr << "error in computation\n";
+        std::cerr << "all done\n";
+    }
+
     return 0;
 }
 
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
 # ifdef __cplusplus
 extern "C" {
 # endif
-
-/* Test if the drmemtrace_client_main() in drmemtrace will be called. */
-DR_EXPORT WEAK void
-drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "wrong drmemtrace_client_main\n";
-}
 
 /* This dr_client_main should be called instead of the one in tracer.cpp */
 DR_EXPORT void

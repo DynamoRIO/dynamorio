@@ -32,32 +32,58 @@
 
 /* func_trace.cpp: code for recording function traces */
 
-#include <vector>
 #include <string>
+#include <vector>
 #include "dr_api.h"
 #include "drsyms.h"
 #include "drwrap.h"
 #include "drmgr.h"
+#include "drvector.h"
 #include "trace_entry.h"
 #include "../common/options.h"
 #include "func_trace.h"
 
-typedef struct {
-    std::string name;
-    int id;
-    int arg_num;
-} func_metadata_t;
-
-/* expected pattern "<function_name>:<function_id>:<arguments_num>" */
-#define PATTERN_SEPARATOR ":"
-
+// The expected pattern for a single_op_value is:
+//     function_name|function_id|arguments_num
+// where function_name can contain spaces (for instance, C++ namespace prefix)
+#define PATTERN_SEPARATOR "|"
 
 static int func_trace_init_count;
 
 static func_trace_append_entry_t append_entry;
-static std::vector<func_metadata_t> funcs;
+static drvector_t funcs;
 
+typedef struct {
+    char name[2048];  // probably the maximum length of C/C++ symbol
+    int id;
+    int arg_num;
+} func_metadata_t;
 
+static func_metadata_t *
+create_func_metadata(std::string name, int id, int arg_num)
+{
+    func_metadata_t *f =
+        (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
+    strcpy(f->name, name.c_str());
+    f->id = id;
+    f->arg_num = arg_num;
+    return f;
+}
+
+static void
+delete_func_metadata(func_metadata_t *f)
+{
+    dr_global_free((void *)f, sizeof(func_metadata_t));
+}
+
+static void
+free_func_entry(void *entry)
+{
+    delete_func_metadata((func_metadata_t *)entry);
+}
+
+// NOTE: try to avoid invoking any code that could be traced by func_pre_hook
+//       (e.g., stl, libc, etc.)
 static void
 func_pre_hook(void *wrapcxt, INOUT void **user_data)
 {
@@ -65,16 +91,19 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     if (drcontext == NULL)
         return;
 
-    func_metadata_t &f = funcs[(size_t)*user_data];
+    size_t idx = (size_t)*user_data;
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f.id);
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
-    for (int i = 0; i < f.arg_num; i++) {
+    for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
         append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
 }
 
+// NOTE: try to avoid invoking any code that could be traced by func_post_hook
+//       (e.g., stl, libc, etc.)
 static void
 func_post_hook(void *wrapcxt, void *user_data)
 {
@@ -82,9 +111,10 @@ func_post_hook(void *wrapcxt, void *user_data)
     if (drcontext == NULL)
         return;
 
-    func_metadata_t &f = funcs[(size_t)user_data];
+    size_t idx = (size_t)user_data;
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f.id);
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
 }
 
@@ -97,16 +127,17 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 
     if (drcontext == NULL || mod == NULL)
         return;
-    dr_log(NULL, DR_LOG_ALL, 1, "instru_funcs_module_load start=%p, mod->full_path=%s\n",
+    dr_log(NULL, DR_LOG_ALL, 1,
+           "instru_funcs_module_load start=%p, mod->full_path=%s\n",
            mod->start, mod->full_path);
 
-    for (size_t i = 0; i < funcs.size(); i++) {
-        auto &f = funcs[i];
-        result = drsym_lookup_symbol(mod->full_path, f.name.c_str(), &offset,
+    for (size_t i = 0; i < funcs.entries; i++) {
+        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, i);
+        result = drsym_lookup_symbol(mod->full_path, f->name, &offset,
                                      DRSYM_DEMANGLE);
         dr_log(NULL, DR_LOG_ALL, 1,
-               "func_name=%s, func_id=%d, func_arg_num=%d, result=%d, offset=%d\n",
-               f.name.c_str(), f.id, f.arg_num, result, offset);
+               "func_name=%s, id=%d, arg_num=%d, result=%d, offset=%d\n",
+               f->name, f->id, f->arg_num, result, offset);
 
         if (result == DRSYM_SUCCESS) {
             func_pc = mod->start + offset;
@@ -115,7 +146,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     }
 }
 
-static std::vector<std::string> split_by(std::string s, std::string sep)
+static std::vector<std::string>
+split_by(std::string s, std::string sep)
 {
     size_t pos;
     std::vector<std::string> vec;
@@ -128,32 +160,63 @@ static std::vector<std::string> split_by(std::string s, std::string sep)
     return vec;
 }
 
+static bool
+id_existed(int id)
+{
+    for (uint i = 0; i < funcs.entries; i++) {
+        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, i);
+        if (id == f->id)
+            return true;
+    }
+    return false;
+}
+
 DR_EXPORT
 bool
 func_trace_init(func_trace_append_entry_t append_entry_)
 {
-    if (op_record_function.get_value().empty())
-        return false;
+    std::string value, sep;
+
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
+    if (op_record_function.get_value().empty())
+        return true;
+
+    if (!drvector_init(&funcs, 32, false, free_func_entry)) {
+        DR_ASSERT(false);
+        goto failed;
+    }
 
     append_entry = append_entry_;
-    funcs.clear();
-
-    std::string value = op_record_function.get_value();
-    std::string sep = " ";  // XXX: use separator in droption when the PR comes in
+    value = op_record_function.get_value();
+    sep = op_record_function.get_value_separator();
     for (auto &single_op_value : split_by(value, sep)) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
-        DR_ASSERT(items.size() == 3);
-        funcs.push_back({items[0], atoi(items[1].c_str()), atoi(items[2].c_str())});
+        if (items.size() != 3) {
+            DR_ASSERT(false);
+            goto failed;
+        }
+        std::string name = items[0];
+        int id = atoi(items[1].c_str());
+        int arg_num = atoi(items[2].c_str());
+        if (id_existed(id)) {
+            DR_ASSERT(false);
+            goto failed;
+        }
+        drvector_append(&funcs, create_func_metadata(name, id, arg_num));
     }
 
     if (!(drsym_init(0) == DRSYM_SUCCESS) ||
         !drwrap_init() ||
-        !drmgr_register_module_load_event(instru_funcs_module_load))
+        !drmgr_register_module_load_event(instru_funcs_module_load)) {
         DR_ASSERT(false);
+        goto failed;
+    }
 
     return true;
+failed:
+    func_trace_exit();
+    return false;
 }
 
 DR_EXPORT
@@ -162,8 +225,11 @@ func_trace_exit()
 {
     if (dr_atomic_add32_return_sum(&func_trace_init_count, -1) != 0)
         return;
+    if (op_record_function.get_value().empty())
+        return;
 
-    funcs.clear();
+    if (!drvector_delete(&funcs))
+        DR_ASSERT(false);
 
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
         !(drsym_exit()== DRSYM_SUCCESS))

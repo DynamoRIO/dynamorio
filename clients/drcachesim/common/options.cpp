@@ -335,15 +335,13 @@ droption_t<bool> op_reuse_verify_skip
  "in debug builds.");
 
 // XXX: replace function return address with function callstack
-// XXX: default value should use the customized seperator when the relevant PR comes in
-#define DEFAULT_SEPARATOR " "
 droption_t<std::string> op_record_function
-(DROPTION_SCOPE_FRONTEND, "record_function", DROPTION_FLAG_ACCUMULATE,
- std::string("malloc:0:1") + DEFAULT_SEPARATOR +
- std::string("tc_malloc:1:1") + DEFAULT_SEPARATOR +
- std::string("__libc_malloc:2:1"),
+(DROPTION_SCOPE_FRONTEND, "record_function", DROPTION_FLAG_ACCUMULATE, ";",
+ std::string("malloc|0|1") + ";" + std::string("tc_malloc|1|1") + ";" +
+ std::string("__libc_malloc|2|1"),
  "Record invocation traces for the specified functions",
- "Option value should fit this format <function_name>:<function_id>:<function_args_num>"
- " The trace would contain information for function return address,"
- " function argument values, and function return value. We only record pointer-sized"
- " arguments and return value.");
+ "Option value should fit this format"
+ "function_name|function_id|function_args_num (example:"
+ " -record_function \"tc_malloc|2|1\"). The trace would contain information for"
+ " function return address, function argument value(s), and function return"
+ " value. We only record pointer-sized arguments and return value.");
