@@ -334,10 +334,12 @@ droption_t<bool> op_reuse_verify_skip
  "This incurs significant additional overhead.  This option is only available "
  "in debug builds.");
 
+#define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
 // XXX i#3048: add a section to drcachesim.dox.in on function tracing
 droption_t<std::string> op_record_function
-(DROPTION_SCOPE_FRONTEND, "record_function", DROPTION_FLAG_ACCUMULATE, ";", "",
+(DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
+ OP_RECORD_FUNC_ITEM_SEP, "",
  "Record invocations trace for the specified function(s).",
  "Record invocations trace for the specified function(s) in the option"
  " value. Default value is empty. The value should fit this format:"
@@ -350,19 +352,19 @@ droption_t<std::string> op_record_function
  " Note that the provided function id should be unique, and not collide with"
  " existing heap functions (see -record_heap_value ) if record_heap"
  " option is enabled.");
-
 droption_t<bool> op_record_heap
-(DROPTION_SCOPE_FRONTEND, "record_heap", false,
+(DROPTION_SCOPE_ALL, "record_heap", false,
  "Enable recording trace for the defined heap functions.",
  "It is a convenient option to enable recording trace for the the defined heap"
  " function in -record_heap_value. Specify this option is equivalent to"
  " -record_function [heap_functions], where [heap_functions] is defined in"
  " as the value in -record_heap_value.");
-
 droption_t<std::string> op_record_heap_value
-(DROPTION_SCOPE_FRONTEND, "record_heap_value", DROPTION_FLAG_ACCUMULATE, ";",
- "malloc|0|1;free|1|1;tc_malloc|2|1;tc_free|3|1;"
- "__libc_malloc|4|1;__libc_free|5|1",
+(DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
+ OP_RECORD_FUNC_ITEM_SEP,
+ "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
+ "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
+ "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
  " The actual value of the defined heap functions.",
  " The actual value of the defined heap functions. Value should also fit the"
  " format required -record_function. These functions will not"

@@ -39,7 +39,7 @@
 
 typedef void (*func_trace_append_entry_t)
     (void *drcontext, trace_marker_type_t marker, uintptr_t value);
-typedef void (*process_fatal_t) (const char *format, ...);
+typedef void (*process_fatal_t) (const char *msg);
 
 DR_EXPORT
 /**

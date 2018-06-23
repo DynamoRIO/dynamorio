@@ -176,13 +176,13 @@ id_existed(int id)
 }
 
 static void
-get_funcs_str_and_sep(std::string &func_str, std::string &sep)
+get_funcs_str_and_sep(std::string &funcs_str, std::string &sep)
 {
-    func_str = op_record_function.get_value();
+    funcs_str = op_record_function.get_value();
     sep = op_record_function.get_value_separator();
     if (op_record_heap.get_value()) {
         DR_ASSERT(sep == op_record_heap_value.get_value_separator());
-        func_str += func_str.empty() ?
+        funcs_str += funcs_str.empty() ?
             op_record_heap_value.get_value() :
             sep + op_record_heap_value.get_value();
     }
@@ -215,14 +215,14 @@ func_trace_init(func_trace_append_entry_t append_entry_,
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
         if (items.size() != 3) {
             process_fatal("Usage error: -record_function or -record_heap_value"
-                          "was not passed a triplet");
+                          "was not passed a triplet\n");
         }
         std::string name = items[0];
         int id = atoi(items[1].c_str());
         int arg_num = atoi(items[2].c_str());
         if (id_existed(id)) {
             process_fatal("Usage error: duplicated function id in"
-                          "-record_function or -record_heap_value");
+                          " -record_function or -record_heap_value\n");
         }
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
                name.c_str(), id, arg_num);

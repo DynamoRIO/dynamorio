@@ -532,12 +532,9 @@ append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t va
 }
 
 static void
-process_fatal(const char *format, ...)
+process_fatal(const char *msg)
 {
-    va_list args;
-    va_start(args, format);
-    FATAL(format, args);
-    va_end(args);
+    FATAL(msg);
 }
 
 static void
