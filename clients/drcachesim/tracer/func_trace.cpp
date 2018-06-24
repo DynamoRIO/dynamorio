@@ -34,6 +34,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include "dr_api.h"
 #include "drsyms.h"
 #include "drwrap.h"
@@ -48,10 +49,14 @@
 // where function_name can contain spaces (for instance, C++ namespace prefix)
 #define PATTERN_SEPARATOR "|"
 
+#define NOTIFY(level, ...) do {            \
+    if (op_verbose.get_value() >= (level)) \
+        dr_fprintf(STDERR, __VA_ARGS__);   \
+} while (0)
+
 static int func_trace_init_count;
 
 static func_trace_append_entry_t append_entry;
-static process_fatal_t process_fatal;
 static drvector_t funcs;
 
 typedef struct {
@@ -164,34 +169,22 @@ split_by(std::string s, std::string sep)
     return vec;
 }
 
-static bool
-id_existed(int id)
-{
-    for (uint i = 0; i < funcs.entries; i++) {
-        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, i);
-        if (id == f->id)
-            return true;
-    }
-    return false;
-}
-
 static void
 get_funcs_str_and_sep(std::string &funcs_str, std::string &sep)
 {
-    funcs_str = op_record_function.get_value();
+    if (op_record_heap.get_value())
+        funcs_str = op_record_heap_value.get_value();
     sep = op_record_function.get_value_separator();
-    if (op_record_heap.get_value()) {
-        DR_ASSERT(sep == op_record_heap_value.get_value_separator());
-        funcs_str += funcs_str.empty() ?
-            op_record_heap_value.get_value() :
-            sep + op_record_heap_value.get_value();
-    }
+    DR_ASSERT(sep == op_record_heap_value.get_value_separator());
+    std::string op_value = op_record_function.get_value();
+    if (!funcs_str.empty() && !op_value.empty())
+        funcs_str += sep;
+    funcs_str += op_value;
 }
 
 DR_EXPORT
 bool
-func_trace_init(func_trace_append_entry_t append_entry_,
-                process_fatal_t process_fatal_)
+func_trace_init(func_trace_append_entry_t append_entry_)
 {
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
@@ -203,29 +196,32 @@ func_trace_init(func_trace_append_entry_t append_entry_,
     if (funcs_str.empty())
         return true;
 
-    if (!drvector_init(&funcs, 32, false, free_func_entry)) {
+    auto op_values = split_by(funcs_str, sep);
+    std::set<int> existing_ids;
+    if (!drvector_init(&funcs, op_values.size(), false, free_func_entry)) {
         DR_ASSERT(false);
         goto failed;
     }
-
     append_entry = append_entry_;
-    process_fatal = process_fatal_;
 
-    for (auto &single_op_value : split_by(funcs_str, sep)) {
+    for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
         if (items.size() != 3) {
-            process_fatal("Usage error: -record_function or -record_heap_value"
-                          "was not passed a triplet\n");
+            NOTIFY(0, "Warning: -record_function or -record_heap_value was not"
+                      " passed a triplet, funcs_str=%s\n", funcs_str.c_str());
+            continue;
         }
         std::string name = items[0];
         int id = atoi(items[1].c_str());
         int arg_num = atoi(items[2].c_str());
-        if (id_existed(id)) {
-            process_fatal("Usage error: duplicated function id in"
-                          " -record_function or -record_heap_value\n");
+        if (existing_ids.find(id) != existing_ids.end()) {
+            NOTIFY(0, "Warning: duplicated function id in -record_function or"
+                      " -record_heap_value, funcs_str=%s\n", funcs_str.c_str());
+            continue;
         }
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
                name.c_str(), id, arg_num);
+        existing_ids.insert(id);
         drvector_append(&funcs, create_func_metadata(name, id, arg_num));
     }
 

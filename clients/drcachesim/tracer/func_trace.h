@@ -39,7 +39,6 @@
 
 typedef void (*func_trace_append_entry_t)
     (void *drcontext, trace_marker_type_t marker, uintptr_t value);
-typedef void (*process_fatal_t) (const char *msg);
 
 DR_EXPORT
 /**
@@ -49,8 +48,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-func_trace_init(func_trace_append_entry_t append_entry_,
-                process_fatal_t process_fatal_);
+func_trace_init(func_trace_append_entry_t append_entry_);
 
 DR_EXPORT
 /**

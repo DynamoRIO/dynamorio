@@ -532,12 +532,6 @@ append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t va
 }
 
 static void
-process_fatal(const char *msg)
-{
-    FATAL(msg);
-}
-
-static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
                     reg_id_t reg_ptr)
 {
@@ -1740,7 +1734,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (!func_trace_init(append_marker_seg_base, process_fatal))
+    if (!func_trace_init(append_marker_seg_base))
         DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);

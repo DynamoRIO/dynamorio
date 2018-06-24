@@ -1,4 +1,6 @@
 pre-DR init
+Warning: duplicated function id .*
+.*
 pre-DR start
 pre-DR detach
 DynamoRIO statistics:

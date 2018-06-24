@@ -78,8 +78,9 @@ int
 main(int argc, const char *argv[])
 {
     /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr "
-                   "-client_lib ';;-offline -record_heap'"))
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr"
+                   " -client_lib ';;-offline -record_heap"
+                   " -record_function \"malloc|0|1\"'"))
         std::cerr << "failed to set env var!\n";
 
     for (int i = 0; i < 3; i++) {
