@@ -472,6 +472,24 @@ hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *pay
     }
 }
 
+void
+hashtable_apply_to_all_payloads_ex(hashtable_t *table, void (*apply_func)(void *payload,
+		                                                                  void *user_data),
+				                   void *user_data)
+{
+    DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
+    uint i;
+    for (i = 0; i < HASHTABLE_SIZE(table->table_bits); i++) {
+        hash_entry_t *e = table->table[i];
+        while (e != NULL) {
+            hash_entry_t *nexte = e->next;
+            apply_func(e->payload, user_data);
+            e = nexte;
+        }
+    }
+}
+
+
 static void
 hashtable_clear_internal(hashtable_t *table)
 {
