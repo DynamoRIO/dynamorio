@@ -355,10 +355,10 @@ droption_t<std::string> op_record_function
 droption_t<bool> op_record_heap
 (DROPTION_SCOPE_ALL, "record_heap", false,
  "Enable recording trace for the defined heap functions.",
- "It is a convenient option to enable recording trace for the the defined heap"
- " function in -record_heap_value. Specify this option is equivalent to"
- " -record_function [heap_functions], where [heap_functions] is defined in"
- " as the value in -record_heap_value.");
+ "It is a convenient option to enable recording trace for the defined heap"
+ " functions in -record_heap_value. Specify this option is equivalent to"
+ " -record_function [heap_functions], where [heap_functions] is"
+ " the value in -record_heap_value.");
 droption_t<std::string> op_record_heap_value
 (DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
  OP_RECORD_FUNC_ITEM_SEP,
@@ -366,6 +366,6 @@ droption_t<std::string> op_record_heap_value
  "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
  "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
  " The actual value of the defined heap functions.",
- " The actual value of the defined heap functions. Value should also fit the"
- " format required -record_function. These functions will not"
+ " The actual value of the defined heap functions. Value should fit the same"
+ " format required by -record_function. These functions will not"
  " be traced unless -record_heap is specified.");

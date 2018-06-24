@@ -32,7 +32,8 @@
 
 /* This application links in drmemtrace_static and acquires a trace during
  * a "burst" of execution and memory allocations (malloc() and free())
- * in the middle of the application. It then detaches.
+ * in the middle of the application. It then detaches. Later it re-attaches
+ * and detaches again for several times.
  */
 
 /* Like burst_static we deliberately do not include configure.h here */

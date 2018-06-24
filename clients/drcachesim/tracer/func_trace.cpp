@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-// func_trace.cpp: brief Module for recording function traces
+// func_trace.cpp: module for recording function traces
 
 #include <string>
 #include <vector>
