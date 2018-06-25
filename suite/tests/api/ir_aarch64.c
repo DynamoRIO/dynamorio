@@ -3362,7 +3362,6 @@ test_floatdp1(void *dc)
                                      opnd_create_reg(DR_REG_S29));
     test_instr_encoding(dc, OP_fneg, instr);
 
-
     instr = INSTR_CREATE_fneg_scalar(dc,
                                      opnd_create_reg(DR_REG_H13),
                                      opnd_create_reg(DR_REG_H29));
