@@ -65,20 +65,12 @@ typedef struct {
     int arg_num;
 } func_metadata_t;
 
-static inline size_t
-get_safe_size(size_t dst_size, size_t src_size)
-{
-    return src_size < dst_size ? src_size : dst_size - 1;
-}
-
 static func_metadata_t *
 create_func_metadata(std::string name, int id, int arg_num)
 {
     func_metadata_t *f =
         (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
-    size_t safe_size = get_safe_size(sizeof(f->name), name.size());
-    strncpy(f->name, name.c_str(), safe_size);
-    f->name[safe_size] = '\0';
+    strncpy(f->name, name.c_str(), BUFFER_SIZE_ELEMENTS(f->name));
     f->id = id;
     f->arg_num = arg_num;
     return f;
