@@ -90,7 +90,7 @@ free_func_entry(void *entry)
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
-//       (e.g., stl, libc, etc.)
+//       (e.g., STL, libc, etc.)
 static void
 func_pre_hook(void *wrapcxt, INOUT void **user_data)
 {
@@ -110,7 +110,7 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
-//       (e.g., stl, libc, etc.)
+//       (e.g., STL, libc, etc.)
 static void
 func_post_hook(void *wrapcxt, void *user_data)
 {

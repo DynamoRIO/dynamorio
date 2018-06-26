@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-// func_trace.h: Header of module for recording function traces
+// func_trace.h: header of module for recording function traces
 
 #ifndef _FUNC_TRACE_
 #define _FUNC_TRACE_ 1

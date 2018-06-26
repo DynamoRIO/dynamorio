@@ -158,7 +158,7 @@ static physaddr_t physaddr;
 // function pre/post callbacks of drwrap API happens before memtrace's
 // meta instruction, so that function trace entries will not be appended to the
 // middle of a BB's PC and Memory Access trace entries. Assumption made here is
-// that, each function pre/post callback always happens at the first
+// that, every function pre/post callback always happens at the first
 // instruction of a BB.
 static drmgr_priority_t memtrace_pri = {sizeof(drmgr_priority_t),
     DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP + 1};

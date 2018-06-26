@@ -344,7 +344,7 @@ droption_t<std::string> op_record_function
  "Record invocations trace for the specified function(s) in the option"
  " value. Default value is empty. The value should fit this format:"
  " function_name|function_id|func_args_num"
- " (example: -record_function \"memset|10|3\"). The trace would contain"
+ " (e.g., -record_function \"memset|10|3\"). The trace would contain"
  " information for function return address, function argument value(s),"
  " and function return value. We only record pointer-sized arguments and"
  " return value. The trace is labeled with the function_id via an ID entry"
