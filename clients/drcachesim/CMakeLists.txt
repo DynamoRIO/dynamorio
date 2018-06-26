@@ -131,7 +131,7 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_raw2trace drmemtrace_analyzer)
+  drmemtrace_opcode_mix drmemtrace_raw2trace)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -159,7 +159,6 @@ add_exported_library(drmemtrace_analyzer STATIC
 install_client_nonDR_header(drmemtrace common/utils.h)
 install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
-install_client_nonDR_header(drmemtrace reader/config_reader.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
 install_client_nonDR_header(drmemtrace analyzer.h)

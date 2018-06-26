@@ -136,8 +136,6 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
         cache_name = "L1_D_Cache_" + std::to_string(i);
         all_caches[cache_name] = l1_dcaches[i];
     }
-
-    other_caches.clear();
 }
 
 cache_simulator_t::cache_simulator_t(const string &config_file) :
@@ -146,8 +144,6 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
     l1_dcaches(NULL),
     is_warmed_up(false)
 {
-    llcaches.clear();
-
     std::map<string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
@@ -199,7 +195,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         const auto &cache_config_it = cache_params.find(cache_name);
         if (cache_config_it == cache_params.end()) {
             ERRMSG("Error locating the configuration of the cache: %s\n",
-                cache_name.c_str());
+                   cache_name.c_str());
             success = false;
             return;
         }
@@ -290,9 +286,6 @@ cache_simulator_t::~cache_simulator_t()
     if (l1_dcaches != NULL) {
         delete [] l1_dcaches;
     }
-    llcaches.clear();
-    other_caches.clear();
-    all_caches.clear();
 }
 
 bool

@@ -53,7 +53,7 @@ drmemtrace_analysis_tool_create()
 {
     if (op_simulator_type.get_value() == CPU_CACHE) {
         const std::string &config_file = op_config_file.get_value();
-        if (config_file != "") {
+        if (!config_file.empty()) {
             return cache_simulator_create(config_file);
         }
         else {
