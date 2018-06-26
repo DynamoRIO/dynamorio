@@ -192,7 +192,7 @@ typedef enum {
     TRACE_MARKER_TYPE_CPU_ID,
 
     /**
-     * The marker value contains function id defined by the user in the
+     * The marker value contains the function id defined by the user in the
      * -record_function (and -record_heap_value if -record_heap is specified)
      * option.
      */
@@ -217,7 +217,7 @@ typedef enum {
     TRACE_MARKER_TYPE_FUNC_ARG,
 
     /**
-     * The marker value contains return value of the just-entered function,
+     * The marker value contains the return value of the just-entered function,
      * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
      * marker entry
      */

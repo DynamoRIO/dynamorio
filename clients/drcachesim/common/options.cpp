@@ -355,7 +355,7 @@ droption_t<std::string> op_record_function
  " specifying multiple -record_function options (e.g., -record_function"
  " \"memset|10|3\" -record_function \"memcpy|11|3\")."
  " Note that the provided function id should be unique, and not collide with"
- " existing heap functions (see -record_heap_value ) if -record_heap"
+ " existing heap functions (see -record_heap_value) if -record_heap"
  " option is enabled.");
 droption_t<bool> op_record_heap
 (DROPTION_SCOPE_ALL, "record_heap", false,
