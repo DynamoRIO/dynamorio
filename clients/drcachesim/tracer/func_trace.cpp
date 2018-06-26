@@ -58,6 +58,7 @@ static int func_trace_init_count;
 
 static func_trace_append_entry_t append_entry;
 static drvector_t funcs;
+static std::string funcs_str, funcs_str_sep;
 
 typedef struct {
     char name[2048];  // probably the maximum length of C/C++ symbol
@@ -162,15 +163,17 @@ split_by(std::string s, std::string sep)
 }
 
 static void
-get_funcs_str_and_sep(std::string &funcs_str, std::string &sep)
+init_funcs_str_and_sep()
 {
     if (op_record_heap.get_value())
         funcs_str = op_record_heap_value.get_value();
-    sep = op_record_function.get_value_separator();
-    DR_ASSERT(sep == op_record_heap_value.get_value_separator());
+    else
+        funcs_str = "";
+    funcs_str_sep = op_record_function.get_value_separator();
+    DR_ASSERT(funcs_str_sep == op_record_heap_value.get_value_separator());
     std::string op_value = op_record_function.get_value();
     if (!funcs_str.empty() && !op_value.empty())
-        funcs_str += sep;
+        funcs_str += funcs_str_sep;
     funcs_str += op_value;
 }
 
@@ -181,14 +184,13 @@ func_trace_init(func_trace_append_entry_t append_entry_)
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
 
-    std::string funcs_str, sep;
-    get_funcs_str_and_sep(funcs_str, sep);
+    init_funcs_str_and_sep();
     // If there is no function specified to trace,
     // then the whole func_trace module doesn't have to do anything.
     if (funcs_str.empty())
         return true;
 
-    auto op_values = split_by(funcs_str, sep);
+    auto op_values = split_by(funcs_str, funcs_str_sep);
     std::set<int> existing_ids;
     if (!drvector_init(&funcs, op_values.size(), false, free_func_entry)) {
         DR_ASSERT(false);
@@ -200,7 +202,7 @@ func_trace_init(func_trace_append_entry_t append_entry_)
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
         if (items.size() != 3) {
             NOTIFY(0, "Warning: -record_function or -record_heap_value was not"
-                      " passed a triplet, funcs_str=%s\n", funcs_str.c_str());
+                      " passed a triplet, input=%s\n", funcs_str.c_str());
             continue;
         }
         std::string name = items[0];
@@ -208,7 +210,7 @@ func_trace_init(func_trace_append_entry_t append_entry_)
         int arg_num = atoi(items[2].c_str());
         if (existing_ids.find(id) != existing_ids.end()) {
             NOTIFY(0, "Warning: duplicated function id in -record_function or"
-                      " -record_heap_value, funcs_str=%s\n", funcs_str.c_str());
+                      " -record_heap_value, input=%s\n", funcs_str.c_str());
             continue;
         }
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
@@ -243,8 +245,6 @@ func_trace_exit()
     if (dr_atomic_add32_return_sum(&func_trace_init_count, -1) != 0)
         return;
 
-    std::string funcs_str, sep;
-    get_funcs_str_and_sep(funcs_str, sep);
     if (funcs_str.empty())
         return;
     if (!drvector_delete(&funcs))

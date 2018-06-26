@@ -40,20 +40,12 @@
 typedef void (*func_trace_append_entry_t)
     (void *drcontext, trace_marker_type_t marker, uintptr_t value);
 
-DR_EXPORT
-/**
- * Initializes the func_trace module. Each call must be paired with a
- * corresponding call to func_trace_exit().
- *
- * \return whether successful.
- */
+// Initializes the func_trace module. Each call must be paired with a
+// corresponding call to func_trace_exit().
 bool
 func_trace_init(func_trace_append_entry_t append_entry_);
 
-DR_EXPORT
-/**
- * Cleans up the func_trace module
- */
+// Cleans up the func_trace module
 void
 func_trace_exit();
 

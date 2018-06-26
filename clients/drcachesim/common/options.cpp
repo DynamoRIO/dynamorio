@@ -349,14 +349,19 @@ droption_t<std::string> op_record_function
  " and function return value. We only record pointer-sized arguments and"
  " return value. The trace is labeled with the function_id via an ID entry"
  " prior to each set of value entries."
+ " Recording multiple functions can be achieved by using the separator"
+ " \"" OP_RECORD_FUNC_ITEM_SEP "\" (e.g., -record_function \"memset|10|3"
+ OP_RECORD_FUNC_ITEM_SEP "memcpy|11|3\"), or"
+ " specifying multiple -record_function options (e.g., -record_function"
+ " \"memset|10|3\" -record_function \"memcpy|11|3\")."
  " Note that the provided function id should be unique, and not collide with"
- " existing heap functions (see -record_heap_value ) if record_heap"
+ " existing heap functions (see -record_heap_value ) if -record_heap"
  " option is enabled.");
 droption_t<bool> op_record_heap
 (DROPTION_SCOPE_ALL, "record_heap", false,
- "Enable recording trace for the defined heap functions.",
- "It is a convenient option to enable recording trace for the defined heap"
- " functions in -record_heap_value. Specify this option is equivalent to"
+ "Enable recording a trace for the defined heap functions.",
+ "It is a convenience option to enable recording a trace for the defined heap"
+ " functions in -record_heap_value. Specifying this option is equivalent to"
  " -record_function [heap_functions], where [heap_functions] is"
  " the value in -record_heap_value.");
 droption_t<std::string> op_record_heap_value
@@ -365,7 +370,7 @@ droption_t<std::string> op_record_heap_value
  "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
  "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
  "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
- " The actual value of the defined heap functions.",
- " The actual value of the defined heap functions. Value should fit the same"
+ "Functions recorded by -record_heap",
+ "Functions recorded by -record_heap. The option value should fit the same"
  " format required by -record_function. These functions will not"
  " be traced unless -record_heap is specified.");
