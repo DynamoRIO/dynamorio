@@ -2304,6 +2304,47 @@ encode_opnd_w5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(false, false, 5, opnd, enc_out);
 }
 
+/* h5: H register at bit position 5 */
+
+static inline bool
+decode_opnd_h5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(5, 1, enc, opnd);
+}
+
+static inline bool
+encode_opnd_h5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(5, 1, opnd, enc_out);
+}
+
+/* s5: S register at bit position 5 */
+
+static inline bool
+decode_opnd_s5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(5, 2, enc, opnd);
+}
+
+static inline bool
+encode_opnd_s5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(5, 2, opnd, enc_out);
+}
+
+/* d5: D register at bit position 5 */
+
+static inline bool
+decode_opnd_d5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_vector_reg(5, 3, enc, opnd);
+}
+
+static inline bool
+encode_opnd_d5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_vector_reg(5, 3, opnd, enc_out);
+}
 /* wx0: W/X register or WZR/XZR at bit position 0; bit 31 selects X reg */
 
 static inline bool

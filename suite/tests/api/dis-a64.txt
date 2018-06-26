@@ -1991,3 +1991,87 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 6eac1eac : bit v12.16b, v21.16b, v12.16b            : bit    %q21 %q12 -> %q12
 2ee31c74 : bif v20.8b, v3.8b, v3.8b                 : bif    %d3 %d3 -> %d20
 6ee31c74 : bif v20.16b, v3.16b, v3.16b              : bif    %q3 %q3 -> %q20
+
+# Floating-point data-processing (1 source)
+1e604362 : fmov d2, d27                             : fmov   %d27 -> %d2
+1e204362 : fmov s2, s27                             : fmov   %s27 -> %s2
+1ee04362 : fmov h2, h27                             : fmov   %h27 -> %h2
+1e60c01e : fabs d30, d0                             : fabs   %d0 -> %d30
+1e20c01e : fabs s30, s0                             : fabs   %s0 -> %s30
+1ee0c01e : fabs h30, h0                             : fabs   %h0 -> %h30
+1e6143ad : fneg d13, d29                            : fneg   %d29 -> %d13
+1e2143ad : fneg s13, s29                            : fneg   %s29 -> %s13
+1ee143ad : fneg h13, h29                            : fneg   %h29 -> %h13
+1e61c23f : fsqrt d31, d17                           : fsqrt  %d17 -> %d31
+1e21c23f : fsqrt s31, s17                           : fsqrt  %s17 -> %s31
+1ee1c23f : fsqrt h31, h17                           : fsqrt  %h17 -> %h31
+1e22c04a : fcvt d10, s2                             : fcvt   %s2 -> %d10
+1e23c29f : fcvt h31, s20                            : fcvt   %s20 -> %h31
+1e6441e4 : frintn d4, d15                           : frintn %d15 -> %d4
+1e2441e4 : frintn s4, s15                           : frintn %s15 -> %s4
+1ee441e4 : frintn h4, h15                           : frintn %h15 -> %h4
+1e64c057 : frintp d23, d2                           : frintp %d2 -> %d23
+1e24c057 : frintp s23, s2                           : frintp %s2 -> %s23
+1ee4c057 : frintp h23, h2                           : frintp %h2 -> %h23
+1e65411a : frintm d26, d8                           : frintm %d8 -> %d26
+1e25411a : frintm s26, s8                           : frintm %s8 -> %s26
+1ee5411a : frintm h26, h8                           : frintm %h8 -> %h26
+1e65c316 : frintz d22, d24                          : frintz %d24 -> %d22
+1e25c316 : frintz s22, s24                          : frintz %s24 -> %s22
+1ee5c316 : frintz h22, h24                          : frintz %h24 -> %h22
+1e66425a : frinta d26, d18                          : frinta %d18 -> %d26
+1e26425a : frinta s26, s18                          : frinta %s18 -> %s26
+1ee6425a : frinta h26, h18                          : frinta %h18 -> %h26
+1e6743b0 : frintx d16, d29                          : frintx %d29 -> %d16
+1e2743b0 : frintx s16, s29                          : frintx %s29 -> %s16
+1ee743b0 : frintx h16, h29                          : frintx %h29 -> %h16
+1e67c26b : frinti d11, d19                          : frinti %d19 -> %d11
+1e27c26b : frinti s11, s19                          : frinti %s19 -> %s11
+1ee7c26b : frinti h11, h19                          : frinti %h19 -> %h11
+1e624117 : fcvt s23, d8                             : fcvt   %d8 -> %s23
+1e63c1fd : fcvt h29, d15                            : fcvt   %d15 -> %h29
+1ee2431c : fcvt s28, h24                            : fcvt   %h24 -> %s28
+1ee2c002 : fcvt d2, h0                              : fcvt   %h0 -> %d2
+
+# Floating-point data-processing (2 source)
+1e7e0b62 : fmul d2, d27, d30                        : fmul   %d27 %d30 -> %d2
+1e3e0b62 : fmul s2, s27, s30                        : fmul   %s27 %s30 -> %s2
+1efe0b62 : fmul h2, h27, h30                        : fmul   %h27 %h30 -> %h2
+1e7d19a0 : fdiv d0, d13, d29                        : fdiv   %d13 %d29 -> %d0
+1e3d19a0 : fdiv s0, s13, s29                        : fdiv   %s13 %s29 -> %s0
+1efd19a0 : fdiv h0, h13, h29                        : fdiv   %h13 %h29 -> %h0
+1e6a2a3f : fadd d31, d17, d10                       : fadd   %d17 %d10 -> %d31
+1e2a2a3f : fadd s31, s17, s10                       : fadd   %s17 %s10 -> %s31
+1eea2a3f : fadd h31, h17, h10                       : fadd   %h17 %h10 -> %h31
+1e743be2 : fsub d2, d31, d20                        : fsub   %d31 %d20 -> %d2
+1e343be2 : fsub s2, s31, s20                        : fsub   %s31 %s20 -> %s2
+1ef43be2 : fsub h2, h31, h20                        : fsub   %h31 %h20 -> %h2
+1e7749e4 : fmax d4, d15, d23                        : fmax   %d15 %d23 -> %d4
+1e3749e4 : fmax s4, s15, s23                        : fmax   %s15 %s23 -> %s4
+1ef749e4 : fmax h4, h15, h23                        : fmax   %h15 %h23 -> %h4
+1e685b42 : fmin d2, d26, d8                         : fmin   %d26 %d8 -> %d2
+1e285b42 : fmin s2, s26, s8                         : fmin   %s26 %s8 -> %s2
+1ee85b42 : fmin h2, h26, h8                         : fmin   %h26 %h8 -> %h2
+1e7a6b16 : fmaxnm d22, d24, d26                     : fmaxnm %d24 %d26 -> %d22
+1e3a6b16 : fmaxnm s22, s24, s26                     : fmaxnm %s24 %s26 -> %s22
+1efa6b16 : fmaxnm h22, h24, h26                     : fmaxnm %h24 %h26 -> %h22
+1e7d7a12 : fminnm d18, d16, d29                     : fminnm %d16 %d29 -> %d18
+1e3d7a12 : fminnm s18, s16, s29                     : fminnm %s16 %s29 -> %s18
+1efd7a12 : fminnm h18, h16, h29                     : fminnm %h16 %h29 -> %h18
+1e778a6b : fnmul d11, d19, d23                      : fnmul  %d19 %d23 -> %d11
+1e378a6b : fnmul s11, s19, s23                      : fnmul  %s19 %s23 -> %s11
+1ef78a6b : fnmul h11, h19, h23                      : fnmul  %h19 %h23 -> %h11
+
+# Floating-point data-processing (3 source)
+1f5e0362 : fmadd d2, d27, d30, d0                   : fmadd  %d27 %d30 %d0 -> %d2
+1f1e0362 : fmadd s2, s27, s30, s0                   : fmadd  %s27 %s30 %s0 -> %s2
+1fde0362 : fmadd h2, h27, h30, h0                   : fmadd  %h27 %h30 %h0 -> %h2
+1f5fc7ad : fmsub d13, d29, d31, d17                 : fmsub  %d29 %d31 %d17 -> %d13
+1f1fc7ad : fmsub s13, s29, s31, s17                 : fmsub  %s29 %s31 %s17 -> %s13
+1fdfc7ad : fmsub h13, h29, h31, h17                 : fmsub  %h29 %h31 %h17 -> %h13
+1f7f504a : fnmadd d10, d2, d31, d20                 : fnmadd %d2 %d31 %d20 -> %d10
+1f3f504a : fnmadd s10, s2, s31, s20                 : fnmadd %s2 %s31 %s20 -> %s10
+1fff504a : fnmadd h10, h2, h31, h20                 : fnmadd %h2 %h31 %h20 -> %h10
+1f7789e4 : fnmsub d4, d15, d23, d2                  : fnmsub %d15 %d23 %d2 -> %d4
+1f3789e4 : fnmsub s4, s15, s23, s2                  : fnmsub %s15 %s23 %s2 -> %s4
+1ff789e4 : fnmsub h4, h15, h23, h2                  : fnmsub %h15 %h23 %h2 -> %h4
