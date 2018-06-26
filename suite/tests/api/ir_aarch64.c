@@ -3515,7 +3515,7 @@ test_floatdp1(void *dc)
     instr = INSTR_CREATE_fcvt_scalar(dc,
                                      opnd_create_reg(DR_REG_D2),
                                      opnd_create_reg(DR_REG_H0));
-    test_instr_encoding(dc, OP_fcvt, instr);  
+    test_instr_encoding(dc, OP_fcvt, instr);
 }
 
 static void
