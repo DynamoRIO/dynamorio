@@ -177,7 +177,6 @@ init_funcs_str_and_sep()
     funcs_str += op_value;
 }
 
-DR_EXPORT
 bool
 func_trace_init(func_trace_append_entry_t append_entry_)
 {
@@ -238,7 +237,6 @@ failed:
     return false;
 }
 
-DR_EXPORT
 void
 func_trace_exit()
 {
