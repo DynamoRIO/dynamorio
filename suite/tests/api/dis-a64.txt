@@ -2061,3 +2061,17 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1e778a6b : fnmul d11, d19, d23                      : fnmul  %d19 %d23 -> %d11
 1e378a6b : fnmul s11, s19, s23                      : fnmul  %s19 %s23 -> %s11
 1ef78a6b : fnmul h11, h19, h23                      : fnmul  %h19 %h23 -> %h11
+
+# Floating-point data-processing (3 source)
+1f5e0362 : fmadd d2, d27, d30, d0                   : fmadd  %d27 %d30 %d0 -> %d2
+1f1e0362 : fmadd s2, s27, s30, s0                   : fmadd  %s27 %s30 %s0 -> %s2
+1fde0362 : fmadd h2, h27, h30, h0                   : fmadd  %h27 %h30 %h0 -> %h2
+1f5fc7ad : fmsub d13, d29, d31, d17                 : fmsub  %d29 %d31 %d17 -> %d13
+1f1fc7ad : fmsub s13, s29, s31, s17                 : fmsub  %s29 %s31 %s17 -> %s13
+1fdfc7ad : fmsub h13, h29, h31, h17                 : fmsub  %h29 %h31 %h17 -> %h13
+1f7f504a : fnmadd d10, d2, d31, d20                 : fnmadd %d2 %d31 %d20 -> %d10
+1f3f504a : fnmadd s10, s2, s31, s20                 : fnmadd %s2 %s31 %s20 -> %s10
+1fff504a : fnmadd h10, h2, h31, h20                 : fnmadd %h2 %h31 %h20 -> %h10
+1f7789e4 : fnmsub d4, d15, d23, d2                  : fnmsub %d15 %d23 %d2 -> %d4
+1f3789e4 : fnmsub s4, s15, s23, s2                  : fnmsub %s15 %s23 %s2 -> %s4
+1ff789e4 : fnmsub h4, h15, h23, h2                  : fnmsub %h15 %h23 %h2 -> %h4

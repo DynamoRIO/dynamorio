@@ -549,4 +549,17 @@ fnmul  %d19 %d23 -> %d11
 fnmul  %s19 %s23 -> %s11
 fnmul  %h19 %h23 -> %h11
 test_floatdp2 complete
+fmadd  %d27 %d30 %d0 -> %d2
+fmadd  %s27 %s30 %s0 -> %s2
+fmadd  %h27 %h30 %h0 -> %h2
+fmsub  %d29 %d31 %d17 -> %d13
+fmsub  %s29 %s31 %s17 -> %s13
+fmsub  %h29 %h31 %h17 -> %h13
+fnmadd %d2 %d31 %d20 -> %d10
+fnmadd %s2 %s31 %s20 -> %s10
+fnmadd %h2 %h31 %h20 -> %h10
+fnmsub %d15 %d23 %d2 -> %d4
+fnmsub %s15 %s23 %s2 -> %s4
+fnmsub %h15 %h23 %h2 -> %h4
+test_floatdp3 complete
 All tests complete
