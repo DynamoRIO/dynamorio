@@ -1768,5 +1768,51 @@
 #define INSTR_CREATE_fnmul_scalar(dc, Rd, Rm, Rn) \
     instr_create_1dst_2src(dc, OP_fnmul, Rd, Rm, Rn)
 
+/* -------- Floating-point data-processing (3 source) ------------------ */
+
+/**
+ * Creates a FMADD floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param Ra      The third input register.
+ */
+#define INSTR_CREATE_fmadd_scalar(dc, Rd, Rm, Rn, Ra) \
+    instr_create_1dst_3src(dc, OP_fmadd, Rd, Rm, Rn, Ra)
+
+/**
+ * Creates a FMSUB floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param Ra      The third input register.
+ */
+#define INSTR_CREATE_fmsub_scalar(dc, Rd, Rm, Rn, Ra) \
+    instr_create_1dst_3src(dc, OP_fmsub, Rd, Rm, Rn, Ra)
+
+/**
+ * Creates a FNMADD floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param Ra      The third input register.
+ */
+#define INSTR_CREATE_fnmadd_scalar(dc, Rd, Rm, Rn, Ra) \
+    instr_create_1dst_3src(dc, OP_fnmadd, Rd, Rm, Rn, Ra)
+
+/**
+ * Creates a FNMSUB floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param Rn      The second input register.
+ * \param Ra      The third input register.
+ */
+#define INSTR_CREATE_fnmsub_scalar(dc, Rd, Rm, Rn, Ra) \
+    instr_create_1dst_3src(dc, OP_fnmsub, Rd, Rm, Rn, Ra)
+
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
