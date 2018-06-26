@@ -2032,3 +2032,32 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1e63c1fd : fcvt h29, d15                            : fcvt   %d15 -> %h29
 1ee2431c : fcvt s28, h24                            : fcvt   %h24 -> %s28
 1ee2c002 : fcvt d2, h0                              : fcvt   %h0 -> %d2
+
+# Floating-point data-processing (2 source)
+1e7e0b62 : fmul d2, d27, d30                        : fmul   %d27 %d30 -> %d2
+1e3e0b62 : fmul s2, s27, s30                        : fmul   %s27 %s30 -> %s2
+1efe0b62 : fmul h2, h27, h30                        : fmul   %h27 %h30 -> %h2
+1e7d19a0 : fdiv d0, d13, d29                        : fdiv   %d13 %d29 -> %d0
+1e3d19a0 : fdiv s0, s13, s29                        : fdiv   %s13 %s29 -> %s0
+1efd19a0 : fdiv h0, h13, h29                        : fdiv   %h13 %h29 -> %h0
+1e6a2a3f : fadd d31, d17, d10                       : fadd   %d17 %d10 -> %d31
+1e2a2a3f : fadd s31, s17, s10                       : fadd   %s17 %s10 -> %s31
+1eea2a3f : fadd h31, h17, h10                       : fadd   %h17 %h10 -> %h31
+1e743be2 : fsub d2, d31, d20                        : fsub   %d31 %d20 -> %d2
+1e343be2 : fsub s2, s31, s20                        : fsub   %s31 %s20 -> %s2
+1ef43be2 : fsub h2, h31, h20                        : fsub   %h31 %h20 -> %h2
+1e7749e4 : fmax d4, d15, d23                        : fmax   %d15 %d23 -> %d4
+1e3749e4 : fmax s4, s15, s23                        : fmax   %s15 %s23 -> %s4
+1ef749e4 : fmax h4, h15, h23                        : fmax   %h15 %h23 -> %h4
+1e685b42 : fmin d2, d26, d8                         : fmin   %d26 %d8 -> %d2
+1e285b42 : fmin s2, s26, s8                         : fmin   %s26 %s8 -> %s2
+1ee85b42 : fmin h2, h26, h8                         : fmin   %h26 %h8 -> %h2
+1e7a6b16 : fmaxnm d22, d24, d26                     : fmaxnm %d24 %d26 -> %d22
+1e3a6b16 : fmaxnm s22, s24, s26                     : fmaxnm %s24 %s26 -> %s22
+1efa6b16 : fmaxnm h22, h24, h26                     : fmaxnm %h24 %h26 -> %h22
+1e7d7a12 : fminnm d18, d16, d29                     : fminnm %d16 %d29 -> %d18
+1e3d7a12 : fminnm s18, s16, s29                     : fminnm %s16 %s29 -> %s18
+1efd7a12 : fminnm h18, h16, h29                     : fminnm %h16 %h29 -> %h18
+1e778a6b : fnmul d11, d19, d23                      : fnmul  %d19 %d23 -> %d11
+1e378a6b : fnmul s11, s19, s23                      : fnmul  %s19 %s23 -> %s11
+1ef78a6b : fnmul h11, h19, h23                      : fnmul  %h19 %h23 -> %h11
