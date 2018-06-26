@@ -99,7 +99,8 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
         return;
 
     size_t idx = (size_t)*user_data;
-    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, idx);
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
+                                                               (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
@@ -119,7 +120,8 @@ func_post_hook(void *wrapcxt, void *user_data)
         return;
 
     size_t idx = (size_t)user_data;
-    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, idx);
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
+                                                               (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
@@ -135,7 +137,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
            mod->start, mod->full_path);
 
     for (size_t i = 0; i < funcs.entries; i++) {
-        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, i);
+        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
+                                                                   (uint)i);
         size_t offset;
         if (drsym_lookup_symbol(mod->full_path, f->name, &offset,
                                 DRSYM_DEMANGLE) == DRSYM_SUCCESS) {
@@ -191,7 +194,8 @@ func_trace_init(func_trace_append_entry_t append_entry_)
 
     auto op_values = split_by(funcs_str, funcs_str_sep);
     std::set<int> existing_ids;
-    if (!drvector_init(&funcs, op_values.size(), false, free_func_entry)) {
+    if (!drvector_init(&funcs, (uint)op_values.size(), false,
+                       free_func_entry)) {
         DR_ASSERT(false);
         goto failed;
     }
