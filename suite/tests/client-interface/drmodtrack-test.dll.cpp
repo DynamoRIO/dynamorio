@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /* Tests the drmodtrack extension. */
 
 #include "dr_api.h"
@@ -41,16 +40,17 @@
 #include "stddef.h"
 
 #ifdef WINDOWS
-# pragma warning( disable : 4100) /* unreferenced formal parameter */
-# pragma warning( disable : 4127) /* conditional expression is constant */
+#    pragma warning(disable : 4100) /* unreferenced formal parameter */
+#    pragma warning(disable : 4127) /* conditional expression is constant */
 #endif
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 static client_id_t client_id;
 
@@ -63,14 +63,14 @@ load_cb(module_data_t *module)
 static int
 print_cb(void *data, char *dst, size_t max_len)
 {
-    return dr_snprintf(dst, max_len, PFX",", data);
+    return dr_snprintf(dst, max_len, PFX ",", data);
 }
 
 static const char *
 parse_cb(const char *src, OUT void **data)
 {
     const char *res;
-    if (dr_sscanf(src, PIFX",", data) != 1)
+    if (dr_sscanf(src, PIFX ",", data) != 1)
         return NULL;
     res = strchr(src, ',');
     return (res == NULL) ? NULL : res + 1;
@@ -97,8 +97,8 @@ event_exit(void)
     dr_snprintf(cwd, BUFFER_SIZE_ELEMENTS(cwd), "%.*s", dir - cpath, cpath);
     NULL_TERMINATE_BUFFER(cwd);
 #endif
-    file_t f = drx_open_unique_file(cwd, "drmodtrack-test", "log", 0,
-                                    fname, BUFFER_SIZE_ELEMENTS(fname));
+    file_t f = drx_open_unique_file(cwd, "drmodtrack-test", "log", 0, fname,
+                                    BUFFER_SIZE_ELEMENTS(fname));
     CHECK(f != INVALID_FILE, "drx_open_unique_file failed");
 
     drcovlib_status_t res = drmodtrack_dump(f);
@@ -117,7 +117,7 @@ event_exit(void)
         size_online *= 2;
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "module dump to buf failed");
-    CHECK(wrote == strlen(buf_online) + 1/*null*/, "returned size off");
+    CHECK(wrote == strlen(buf_online) + 1 /*null*/, "returned size off");
 
     /* Now test offline features. */
     void *modhandle;
@@ -127,20 +127,22 @@ event_exit(void)
     CHECK(res == DRCOVLIB_SUCCESS, "read failed");
 
     for (uint i = 0; i < num_mods; ++i) {
-        drmodtrack_info_t info = {sizeof(info),};
+        drmodtrack_info_t info = {
+            sizeof(info),
+        };
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)info.custom) == info.start ||
-              info.containing_index != i, "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start || info.containing_index != i,
+              "custom field doesn't match");
         CHECK(info.index == i, "index field doesn't match");
 #ifndef WINDOWS
         if (info.struct_size > offsetof(drmodtrack_info_t, offset)) {
-            module_data_t * data = dr_lookup_module(info.start);
+            module_data_t *data = dr_lookup_module(info.start);
             for (uint j = 0; j < data->num_segments; j++) {
                 module_segment_data_t *seg = data->segments + j;
                 if (seg->start == info.start) {
                     CHECK(seg->offset == info.offset,
-                        "Module data offset and drmodtrack offset don't match");
+                          "Module data offset and drmodtrack offset don't match");
                 }
             }
             dr_free_module_data(data);
@@ -160,7 +162,7 @@ event_exit(void)
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     CHECK(res == DRCOVLIB_SUCCESS, "offline write failed");
     CHECK(size_online == size_offline, "sizes do not match");
-    CHECK(wrote == strlen(buf_offline) + 1/*null*/, "returned size off");
+    CHECK(wrote == strlen(buf_offline) + 1 /*null*/, "returned size off");
     CHECK(strcmp(buf_online, buf_offline) == 0, "buffers do not match");
 
     dr_close_file(f);

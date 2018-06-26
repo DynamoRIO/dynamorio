@@ -53,9 +53,9 @@
  * which complicates things.  For now we just go with live tests.
  */
 int
-memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
-                                    app_pc *end/*OUT*/,
-                                    char *fullpath/*OPTIONAL OUT*/, size_t path_size)
+memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
+                                    app_pc *end /*OUT*/, char *fullpath /*OPTIONAL OUT*/,
+                                    size_t path_size)
 {
     int count = 0;
     bool found_library = false;
@@ -85,7 +85,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                             dynamo_heap_initialized);
     libname[0] = '\0';
     while (memquery_iterator_next(&iter)) {
-        LOG(GLOBAL, LOG_VMAREAS, 5, "start="PFX" end="PFX" prot=%x comment=%s\n",
+        LOG(GLOBAL, LOG_VMAREAS, 5, "start=" PFX " end=" PFX " prot=%x comment=%s\n",
             iter.vm_start, iter.vm_end, iter.prot, iter.comment);
 
         /* Record the base of each differently-named set of entries up until
@@ -101,7 +101,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
              * mapping is not a header.  This happens for some page mapping
              * schemes (i#2566).
              */
-            if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ|MEMPROT_EXEC) &&
+            if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ | MEMPROT_EXEC) &&
                 module_is_header(prev_base, prev_end - prev_base) &&
                 !module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
@@ -132,8 +132,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
             } else if (!found_library) {
                 char *dst = (fullpath != NULL) ? fullpath : libname;
                 const char *src = (iter.comment[0] == '\0') ? libname : iter.comment;
-                size_t dstsz = (fullpath != NULL) ? path_size :
-                    BUFFER_SIZE_ELEMENTS(libname);
+                size_t dstsz =
+                    (fullpath != NULL) ? path_size : BUFFER_SIZE_ELEMENTS(libname);
                 size_t mod_readable_sz;
                 if (src != dst) {
                     if (dst == fullpath) {
@@ -167,14 +167,12 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
                 }
                 if (module_is_header(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
-                    if (module_walk_program_headers(mod_start, mod_readable_sz,
-                                                    false,
+                    if (module_walk_program_headers(mod_start, mod_readable_sz, false,
                                                     /*i#1589: ld.so relocated .dynamic*/
-                                                    true,
-                                                    &mod_base, NULL, &mod_end, NULL,
+                                                    true, &mod_base, NULL, &mod_end, NULL,
                                                     NULL)) {
                         image_size = mod_end - mod_base;
-                        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: image size is "PIFX"\n",
+                        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: image size is " PIFX "\n",
                             __FUNCTION__, image_size);
                         ASSERT_CURIOSITY(image_size != 0);
                     } else {

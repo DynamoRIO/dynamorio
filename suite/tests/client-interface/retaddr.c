@@ -30,10 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-#include <assert.h>
+#    include <assert.h>
 
 void
 callee(void)
@@ -42,11 +42,15 @@ callee(void)
 }
 
 /* asm routines */
-void *test_ret();
-void *test_iret();
-void *test_far_ret();
+void *
+test_ret();
+void *
+test_iret();
+void *
+test_far_ret();
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     void *addr = test_ret();
     print("retaddr 0x%x\n", addr);
@@ -58,9 +62,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
@@ -169,4 +173,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

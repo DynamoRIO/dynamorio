@@ -45,6 +45,7 @@
  * Returning NULL, or returning an analysis_tool_t for which the ! operator
  * returns false, indicates failure.
  */
-analysis_tool_t *drmemtrace_analysis_tool_create();
+analysis_tool_t *
+drmemtrace_analysis_tool_create();
 
 #endif /* _ANALYSIS_TOOL_INTERFACE_H_ */

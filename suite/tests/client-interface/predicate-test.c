@@ -31,10 +31,11 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
+#    include "tools.h"
 
 /* asm routines */
-void test_asm();
+void
+test_asm();
 
 int
 main(int argc, const char *argv[])
@@ -46,7 +47,8 @@ main(int argc, const char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_asm
@@ -65,4 +67,5 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 #endif

@@ -54,9 +54,8 @@
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
  */
-class analyzer_t
-{
- public:
+class analyzer_t {
+public:
     /**
      * Usage: errors encountered during a constructor will set a flag that should
      * be queried via operator!().  If operator!() returns true, get_error_string()
@@ -67,7 +66,8 @@ class analyzer_t
     /** Returns whether the analyzer was created successfully. */
     virtual bool operator!();
     /** Returns further information on an error in initializing the analyzer. */
-    virtual std::string get_error_string();
+    virtual std::string
+    get_error_string();
 
     /**
      * We have two usage models: one where there are multiple tools and the
@@ -79,12 +79,13 @@ class analyzer_t
      * it does not make a copy.
      * The user must free them afterward.
      */
-    analyzer_t(const std::string &trace_file, analysis_tool_t **tools,
-               int num_tools);
+    analyzer_t(const std::string &trace_file, analysis_tool_t **tools, int num_tools);
     /** Launches the analysis process. */
-    virtual bool run();
+    virtual bool
+    run();
     /** Presents the results of the analysis. */
-    virtual bool print_stats();
+    virtual bool
+    print_stats();
 
     /** The alternate usage model exposes the iterator to a single tool. */
     analyzer_t(const std::string &trace_file);
@@ -95,15 +96,19 @@ class analyzer_t
      * This usage model supports only a single user of the iterator: the
      * multi-tool model above should be used if multiple tools are involved.
      */
-    virtual reader_t & begin();
-    virtual reader_t & end(); /** End iterator for the external-iterator usage model. */
+    virtual reader_t &
+    begin();
+    virtual reader_t &
+    end(); /** End iterator for the external-iterator usage model. */
 
- protected:
-    bool init_file_reader(const std::string &trace_file);
+protected:
+    bool
+    init_file_reader(const std::string &trace_file);
 
     // This finalizes the trace_iter setup.  It can block and is meant to be
     // called at the top of run() or begin().
-    bool start_reading();
+    bool
+    start_reading();
 
     bool success;
     std::string error_string;

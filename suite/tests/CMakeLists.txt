@@ -386,7 +386,7 @@ include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib) # dr_helper.h
 remove_definitions(-DX64 -DLINUX -DWINDOWS -DMACOS -DCLANG -DANDROID)
 # If people want perf stress tests they'll have to manually build to avoid
 # the NIGHTLY_REGRESSION define
-set(test_defs "-DNIGHTLY_REGRESSION")
+set(test_defs "-DNIGHTLY_REGRESSION -DNOT_DYNAMORIO_CORE")
 set(platform_defs "${test_defs}")
 if (X64)
   set(platform_defs "${platform_defs} -DX64")

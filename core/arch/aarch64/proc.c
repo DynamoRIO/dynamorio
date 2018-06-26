@@ -79,15 +79,13 @@ proc_restore_fpstate(byte *buf)
 }
 
 void
-dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       opnd_t buf)
+dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
 
 void
-dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          opnd_t buf)
+dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }

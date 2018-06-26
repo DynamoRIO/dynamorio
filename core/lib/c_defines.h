@@ -1,6 +1,6 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,29 +31,50 @@
  * DAMAGE.
  */
 
-#include "tools.h"
+/* Copyright (c) 2003-2007 Determina Corp. */
 
-#ifdef WINDOWS
-/* test client thread transparency wrt DllMain (PR 210591) */
+/*
+ * c_defines.h: non-C++ defines separated out from globals_shared.h to work around
+ * clang-format bugs with defines of C++ keywords "inline", "true", "false", "__try".
+ */
+/* clang-format off */ /* (work around clang-format bugs) */
 
-int __declspec(dllexport) import_me(int x)
-{
-    print("in import %d\n", x);
-    return 2 * x;
-}
+#ifndef _C_DEFINES_H_
+#define _C_DEFINES_H_ 1
 
-BOOL APIENTRY
-DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
-{
-    switch (reason_for_call) {
-    case DLL_PROCESS_ATTACH: print("thread.appdll.dll process attach\n"); break;
-    case DLL_PROCESS_DETACH: print("thread.appdll.dll process detach\n"); break;
-    case DLL_THREAD_ATTACH: print("thread.appdll.dll thread attach\n"); break;
-    case DLL_THREAD_DETACH: print("thread.appdll.dll thread detach\n"); break;
-    }
-    return TRUE;
-}
+/* DR_API EXPORT TOFILE dr_defines.h */
+/* DR_API EXPORT BEGIN */
+#ifndef __cplusplus
+#    ifdef WINDOWS
+#        define inline __inline
+#    else
+#        define inline __inline__
+#    endif
+#endif
+/* DR_API EXPORT END */
+/* DR_API EXPORT VERBATIM */
+#ifndef __cplusplus
+#    ifndef DR_DO_NOT_DEFINE_bool
+#        ifdef DR__Bool_EXISTS
+/* prefer _Bool as it avoids truncation casting non-zero to zero */
+typedef _Bool bool;
+#        else
+/* char-sized for compatibility with C++ */
+typedef char bool;
+#        endif
+#    endif
+#    ifndef true
+#        define true (1)
+#    endif
+#    ifndef false
+#        define false (0)
+#    endif
+#endif
+/* DR_API EXPORT END */
 
-#else
-/* just empty: could add complexity to CMakeLists.txt to not build */
-#endif /* WINDOWS */
+#if !defined(__cplusplus) && !defined(NOT_DYNAMORIO_CORE_PROPER) && \
+    !defined(NOT_DYNAMORIO_CORE)
+#    define __try __try_forbidden_construct /* see case 4461 */
+#endif
+
+#endif /* _C_DEFINES_H_ */

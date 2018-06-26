@@ -35,31 +35,28 @@
 /* Tests preservation of eflags across indirect branches
  */
 
-#include "tools.h"
+#    include "tools.h"
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
 /* asm routine */
-void test_nzcv_pos(uint pos);
+void
+test_nzcv_pos(uint pos);
 
-const char *flags[] = {
-    "N", "Z", "C", "V"
-};
+const char *flags[] = { "N", "Z", "C", "V" };
 
-const uint nzcv_pos[] = {
-    31, 30, 29, 28
-};
+const uint nzcv_pos[] = { 31, 30, 29, 28 };
 
-#define NUM_FLAGS (sizeof(nzcv_pos) / sizeof(nzcv_pos[0]))
+#    define NUM_FLAGS (sizeof(nzcv_pos) / sizeof(nzcv_pos[0]))
 
 void
 test_flag(uint nzcv, uint pos, bool set)
 {
     const char *flag = "*";
     int i;
-#if VERBOSE
-    print("NZCV where %c should be %d: "PFX"\n", flag, set, nzcv);
-#endif
+#    if VERBOSE
+    print("NZCV where %c should be %d: " PFX "\n", flag, set, nzcv);
+#    endif
     bool value = TEST(nzcv, 1U << pos);
 
     for (i = 0; i < NUM_FLAGS; i++) {
@@ -85,7 +82,8 @@ main()
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
@@ -141,4 +139,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif

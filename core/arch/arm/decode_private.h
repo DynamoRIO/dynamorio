@@ -35,7 +35,6 @@
 #ifndef DECODE_PRIVATE_H
 #define DECODE_PRIVATE_H
 
-
 /* instr_info_t.type special codes: */
 enum {
     /* not a valid opcode */
@@ -83,37 +82,37 @@ enum {
     EXT_VLDD,    /* Indexed by bits (7:4)*3+X where X based on value of 3:0 */
     EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
     /* T32 32-bit only */
-    EXT_A10_6_4, /* Indexed by bits A10,6:4 */
-    EXT_A9_7_eq1,/* Indexed by whether bits A9:7 == 0xf */
-    EXT_B10_8,   /* Indexed by bits B10:8 */
-    EXT_B2_0,    /* Indexed by bits B2:0 */
-    EXT_B5_4,    /* Indexed by bits B5:4 */
-    EXT_B6_4,    /* Indexed by bits B6:4 */
-    EXT_B7_4,    /* Indexed by bits B7:4 */
-    EXT_B7_4_eq1,/* Indexed by whether bits B7:4 == 0xf */
-    EXT_B4,      /* Indexed by bit  B4 */
-    EXT_B5,      /* Indexed by bit  B5 */
-    EXT_B7,      /* Indexed by bit  B7 */
-    EXT_B11,     /* Indexed by bit  B11 */
-    EXT_B13,     /* Indexed by bit  B13 */
-    EXT_FOPC8,   /* Indexed by bits A11:4 but stop at 0xfb */
-    EXT_IMM126,  /* Indexed by whether imm5 in B12:12,7:6 is 0 or not */
-    EXT_OPCBX,   /* Indexed by bits B11:8 but minus x1-x7 */
-    EXT_RCPC,    /* Indexed by whether RC != PC */
+    EXT_A10_6_4,  /* Indexed by bits A10,6:4 */
+    EXT_A9_7_eq1, /* Indexed by whether bits A9:7 == 0xf */
+    EXT_B10_8,    /* Indexed by bits B10:8 */
+    EXT_B2_0,     /* Indexed by bits B2:0 */
+    EXT_B5_4,     /* Indexed by bits B5:4 */
+    EXT_B6_4,     /* Indexed by bits B6:4 */
+    EXT_B7_4,     /* Indexed by bits B7:4 */
+    EXT_B7_4_eq1, /* Indexed by whether bits B7:4 == 0xf */
+    EXT_B4,       /* Indexed by bit  B4 */
+    EXT_B5,       /* Indexed by bit  B5 */
+    EXT_B7,       /* Indexed by bit  B7 */
+    EXT_B11,      /* Indexed by bit  B11 */
+    EXT_B13,      /* Indexed by bit  B13 */
+    EXT_FOPC8,    /* Indexed by bits A11:4 but stop at 0xfb */
+    EXT_IMM126,   /* Indexed by whether imm5 in B12:12,7:6 is 0 or not */
+    EXT_OPCBX,    /* Indexed by bits B11:8 but minus x1-x7 */
+    EXT_RCPC,     /* Indexed by whether RC != PC */
     /* T32 16-bit only */
-    EXT_11,      /* Indexed by bit  11 */
-    EXT_11_10,   /* Indexed by bits 11:10 */
-    EXT_11_9,    /* Indexed by bits 11:9 */
-    EXT_11_8,    /* Indexed by bits 11:8 */
-    EXT_10_9,    /* Indexed by bits 10:9 */
-    EXT_10_8,    /* Indexed by whether Rn(10:8) is also in the reglist(7:0) */
-    EXT_10_6,    /* Indexed by whether imm 10:6 is zero or not */
-    EXT_9_6,     /* Indexed by bits 9:6 */
-    EXT_7_6,     /* Indexed by bits 7:6 */
-    EXT_7,       /* Indexed by bit  7 */
-    EXT_5_4,     /* Indexed by bits 5:4 */
-    EXT_6_4,     /* Indexed by bits 6:4 */
-    EXT_3_0,     /* Indexed by whether imm 3:0 is zero or not */
+    EXT_11,    /* Indexed by bit  11 */
+    EXT_11_10, /* Indexed by bits 11:10 */
+    EXT_11_9,  /* Indexed by bits 11:9 */
+    EXT_11_8,  /* Indexed by bits 11:8 */
+    EXT_10_9,  /* Indexed by bits 10:9 */
+    EXT_10_8,  /* Indexed by whether Rn(10:8) is also in the reglist(7:0) */
+    EXT_10_6,  /* Indexed by whether imm 10:6 is zero or not */
+    EXT_9_6,   /* Indexed by bits 9:6 */
+    EXT_7_6,   /* Indexed by bits 7:6 */
+    EXT_7,     /* Indexed by bit  7 */
+    EXT_5_4,   /* Indexed by bits 5:4 */
+    EXT_6_4,   /* Indexed by bits 6:4 */
+    EXT_3_0,   /* Indexed by whether imm 3:0 is zero or not */
     /* else, from OP_ enum */
 };
 
@@ -131,25 +130,24 @@ enum {
 
 /* instr_info_t.flags values: */
 enum {
-    DECODE_EXTRA_OPERANDS     = 0x0001, /* additional opnds in entry at code field */
-    DECODE_EXTRA_SHIFT        = 0x0002, /* has 2 additional srcs @exop[0] */
-    DECODE_EXTRA_WRITEBACK    = 0x0004, /* has 1 additional src @exop[1] */
-    DECODE_EXTRA_WRITEBACK2   = 0x0008, /* has 2 additional src @exop[2] */
-    DECODE_4_SRCS             = 0x0010, /* dst2==src1, src1==src2, etc. */
-    DECODE_3_DSTS             = 0x0020, /* src1==dst3, src2==src1, etc. */
-    DECODE_PREDICATE_28       = 0x0040, /* has predicate in bits 31:28 */
-    DECODE_PREDICATE_28_AL    = 0x0080, /* accepts only AL predicate in 31:28 */
-    DECODE_PREDICATE_22       = 0x0100, /* has predicate (not AL or OP) in bits 25:22 */
-    DECODE_PREDICATE_8        = 0x0200, /* has predicate (not AL or OP) in bits 11:8 */
-    DECODE_UNPREDICTABLE      = 0x0400, /* unpredictable according to ISA spec */
+    DECODE_EXTRA_OPERANDS = 0x0001,   /* additional opnds in entry at code field */
+    DECODE_EXTRA_SHIFT = 0x0002,      /* has 2 additional srcs @exop[0] */
+    DECODE_EXTRA_WRITEBACK = 0x0004,  /* has 1 additional src @exop[1] */
+    DECODE_EXTRA_WRITEBACK2 = 0x0008, /* has 2 additional src @exop[2] */
+    DECODE_4_SRCS = 0x0010,           /* dst2==src1, src1==src2, etc. */
+    DECODE_3_DSTS = 0x0020,           /* src1==dst3, src2==src1, etc. */
+    DECODE_PREDICATE_28 = 0x0040,     /* has predicate in bits 31:28 */
+    DECODE_PREDICATE_28_AL = 0x0080,  /* accepts only AL predicate in 31:28 */
+    DECODE_PREDICATE_22 = 0x0100,     /* has predicate (not AL or OP) in bits 25:22 */
+    DECODE_PREDICATE_8 = 0x0200,      /* has predicate (not AL or OP) in bits 11:8 */
+    DECODE_UNPREDICTABLE = 0x0400,    /* unpredictable according to ISA spec */
     /* ARM versions we care about */
-    DECODE_ARM_V8             = 0x0800, /* added in v8: not present in v7 */
-    DECODE_ARM_VFP            = 0x1000, /* VFP instruction */
+    DECODE_ARM_V8 = 0x0800,  /* added in v8: not present in v7 */
+    DECODE_ARM_VFP = 0x1000, /* VFP instruction */
     /* XXX: running out of space here.  We could take the top of the eflags
      * bits as we're only using through 0x00000800 now.
      */
 };
-
 
 /* Because instructions in an IT block are correlated with the IT instruction,
  * we need a way to keep track of IT block state and avoid using stale state
@@ -199,7 +197,7 @@ struct _decode_info_t {
     uint instr_word;
     ushort halfwordA; /* T32 only */
     ushort halfwordB; /* T32.32 only */
-    bool T32_16; /* whether T32.16 as opposed to T32.32 or A32 */
+    bool T32_16;      /* whether T32.16 as opposed to T32.32 or A32 */
 
     uint opcode;
     uint predicate;
@@ -260,16 +258,16 @@ struct _decode_info_t {
     opnd_size_t check_wb_disp_sz;
     int check_wb_disp;
     bool check_wb_shift;
-    uint check_wb_shift_type; /* raw encoded value */
+    uint check_wb_shift_type;   /* raw encoded value */
     uint check_wb_shift_amount; /* raw encoded value */
     /* For modified immed values */
     uint mod_imm_enc;
 };
 
 typedef struct _op_to_instr_info_t {
-    const instr_info_t * const A32;
-    const instr_info_t * const T32;
-    const instr_info_t * const T32_it;
+    const instr_info_t *const A32;
+    const instr_info_t *const T32;
+    const instr_info_t *const T32_it;
 } op_to_instr_info_t;
 
 /* N.B.: if you change the type enum, change the string names for
@@ -283,7 +281,7 @@ typedef struct _op_to_instr_info_t {
  */
 enum {
     /* operand types */
-    TYPE_NONE,  /* must be 0 for invalid_instr */
+    TYPE_NONE, /* must be 0 for invalid_instr */
 
     /* We name the registers according to their encoded position: A, B, C, D.
      * XXX: Rd is T32-11:8; T32.16-2:0; A64-4:0 so not always "C"
@@ -291,19 +289,19 @@ enum {
      * XXX: record which registers are "unpredictable" if PC (or SP, or LR) is
      * passed?  Many are, for many different opcodes.
      */
-    TYPE_R_A,   /* A/T32-19:16 = Rn: source register, often memory base */
-    TYPE_R_B,   /* A/T32-15:12 = Rd (A32 dest reg) or Rt (src reg) */
-    TYPE_R_C,   /* A/T32-11:8  = Rd (T32 dest reg) or Rs (A32, often shift value) */
-    TYPE_R_D,   /* A/T32-3:0   = Rm: source register, often used as offset */
+    TYPE_R_A, /* A/T32-19:16 = Rn: source register, often memory base */
+    TYPE_R_B, /* A/T32-15:12 = Rd (A32 dest reg) or Rt (src reg) */
+    TYPE_R_C, /* A/T32-11:8  = Rd (T32 dest reg) or Rs (A32, often shift value) */
+    TYPE_R_D, /* A/T32-3:0   = Rm: source register, often used as offset */
 
     /* T32.16: 4-bit */
-    TYPE_R_U,   /* T32.16-6:3   = Rm: src reg */
-    TYPE_R_V,   /* T32.16-7,2:0 = DN:Rdn or DM:Rdm: src and dst reg */
+    TYPE_R_U, /* T32.16-6:3   = Rm: src reg */
+    TYPE_R_V, /* T32.16-7,2:0 = DN:Rdn or DM:Rdm: src and dst reg */
     /* T32.16: 3-bit */
-    TYPE_R_W,   /* T32.16-10:8  = Rd: dst reg, Rn: src reg, Rt */
-    TYPE_R_X,   /* T32.16-8:6   = Rm: src reg */
-    TYPE_R_Y,   /* T32.16-5:3   = Rm or Rn: src reg */
-    TYPE_R_Z,   /* T32.16-2:0   = Rd: dst reg, Rn or Rm: src reg, Rt */
+    TYPE_R_W,     /* T32.16-10:8  = Rd: dst reg, Rn: src reg, Rt */
+    TYPE_R_X,     /* T32.16-8:6   = Rm: src reg */
+    TYPE_R_Y,     /* T32.16-5:3   = Rm or Rn: src reg */
+    TYPE_R_Z,     /* T32.16-2:0   = Rd: dst reg, Rn or Rm: src reg, Rt */
     TYPE_R_V_DUP, /* T32.16-7,2:0 = DN:Rdn or DM:Rdm, destructive TYPE_R_V */
     TYPE_R_W_DUP, /* T32.16-10:8  = Rdn, destructive TYPE_R_W */
     TYPE_R_Z_DUP, /* T32.16-2:0   = Rdn, destructive TYPE_R_Z */
@@ -315,35 +313,35 @@ enum {
 
     TYPE_R_D_NEGATED, /* register's value is negated */
 
-    TYPE_R_B_EVEN, /* Must be an even-numbered reg */
+    TYPE_R_B_EVEN,  /* Must be an even-numbered reg */
     TYPE_R_B_PLUS1, /* Subsequent reg after prior TYPE_R_B_EVEN opnd */
-    TYPE_R_D_EVEN, /* Must be an even-numbered reg */
+    TYPE_R_D_EVEN,  /* Must be an even-numbered reg */
     TYPE_R_D_PLUS1, /* Subsequent reg after prior TYPE_R_D_EVEN opnd */
 
     /* An opnd with this type must come immediately after a TYPE_R_D opnd */
-    TYPE_R_A_EQ_D,  /* T32-19:16 = must be identical to Rm in 3:0 (OP_clz) */
+    TYPE_R_A_EQ_D, /* T32-19:16 = must be identical to Rm in 3:0 (OP_clz) */
 
     TYPE_CR_A, /* Coprocessor register in A slot */
     TYPE_CR_B, /* Coprocessor register in B slot */
     TYPE_CR_C, /* Coprocessor register in C slot */
     TYPE_CR_D, /* Coprocessor register in D slot */
 
-    TYPE_V_A,   /* A32/T32 = 7,19:16, but for Q regs 7,19:17   = Vn src reg */
-    TYPE_V_B,   /* A32/T32 = 22,15:12, but for Q regs 22,15:13 = Vd dst reg */
-    TYPE_V_C,   /* A32/T32 = 5,3:0, but for Q regs 5,3:1       = Vm src reg */
-    TYPE_V_C_3b,/* A32-2:0      = Vm<2:0>: some (bottom) part of 128-bit src reg */
-    TYPE_V_C_4b,/* A32-3:0      = Vm<3:0>: some (bottom) part of 128-bit src reg */
-    TYPE_W_A,   /* A32-19:16,7  = Vn VFP non-double: part of 128-bit src reg */
-    TYPE_W_B,   /* A32-15:12,22 = Vd VFP non-double: part of 128-bit dst reg */
-    TYPE_W_C,   /* A32-3:0,5    = Vm VFP non-double: part of 128-bit src reg */
+    TYPE_V_A,       /* A32/T32 = 7,19:16, but for Q regs 7,19:17   = Vn src reg */
+    TYPE_V_B,       /* A32/T32 = 22,15:12, but for Q regs 22,15:13 = Vd dst reg */
+    TYPE_V_C,       /* A32/T32 = 5,3:0, but for Q regs 5,3:1       = Vm src reg */
+    TYPE_V_C_3b,    /* A32-2:0      = Vm<2:0>: some (bottom) part of 128-bit src reg */
+    TYPE_V_C_4b,    /* A32-3:0      = Vm<3:0>: some (bottom) part of 128-bit src reg */
+    TYPE_W_A,       /* A32-19:16,7  = Vn VFP non-double: part of 128-bit src reg */
+    TYPE_W_B,       /* A32-15:12,22 = Vd VFP non-double: part of 128-bit dst reg */
+    TYPE_W_C,       /* A32-3:0,5    = Vm VFP non-double: part of 128-bit src reg */
     TYPE_W_C_PLUS1, /* Subsequent reg after TYPE_W_C */
 
-    TYPE_SPSR, /* Saved Program Status Register */
-    TYPE_CPSR, /* Current Program Status Register */
+    TYPE_SPSR,  /* Saved Program Status Register */
+    TYPE_CPSR,  /* Current Program Status Register */
     TYPE_FPSCR, /* Floating Point Status and Control Register */
-    TYPE_LR, /* Link register */
-    TYPE_SP, /* Stack pointer */
-    TYPE_PC, /* PC register */
+    TYPE_LR,    /* Link register */
+    TYPE_SP,    /* Stack pointer */
+    TYPE_PC,    /* PC register */
 
     /* FIXME i#1551: some immediates have built-in shifting or scaling: we
      * need to add handling for that.
@@ -358,7 +356,7 @@ enum {
     TYPE_I_b0,
     TYPE_I_x4_b0,
     TYPE_I_SHIFTED_b0,
-    TYPE_NI_b0, /* negated immed */
+    TYPE_NI_b0,    /* negated immed */
     TYPE_NI_x4_b0, /* negated immed */
     TYPE_I_b3,
     TYPE_I_b4,
@@ -381,50 +379,50 @@ enum {
     TYPE_I_b8_b0,
     TYPE_NI_b8_b0, /* negated immed */
     TYPE_I_b8_b16,
-    TYPE_I_b8_b24_b16_b0, /* A32 OP_vbic, etc.: 11:8,24,18:16,3:0 AdvSIMDExpandImm */
-    TYPE_I_b8_b28_b16_b0, /* T32 OP_vbic, etc.: 11:8,28,18:16,3:0 AdvSIMDExpandImm */
-    TYPE_I_b12_b6, /* T32-14:12,7:6 */
-    TYPE_I_b16_b0, /* If 1 byte, then OP_vmov_f{32,64}: VFPExpandImm */
+    TYPE_I_b8_b24_b16_b0,  /* A32 OP_vbic, etc.: 11:8,24,18:16,3:0 AdvSIMDExpandImm */
+    TYPE_I_b8_b28_b16_b0,  /* T32 OP_vbic, etc.: 11:8,28,18:16,3:0 AdvSIMDExpandImm */
+    TYPE_I_b12_b6,         /* T32-14:12,7:6 */
+    TYPE_I_b16_b0,         /* If 1 byte, then OP_vmov_f{32,64}: VFPExpandImm */
     TYPE_I_b16_b26_b12_b0, /* OP_movw T32-19:16,26,14:12,7:0 */
-    TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
-    TYPE_I_b21_b6, /* OP_vmov: 21,6 */
-    TYPE_I_b26_b12_b0, /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
-    TYPE_I_b26_b12_b0_z, /* T32-26,14:12,7:0 + zero extend immed encoding */
+    TYPE_I_b21_b5,         /* OP_vmov: 21,6:5 */
+    TYPE_I_b21_b6,         /* OP_vmov: 21,6 */
+    TYPE_I_b26_b12_b0,     /* T32-26,14:12,7:0 + complex T32 "modified immed" encoding */
+    TYPE_I_b26_b12_b0_z,   /* T32-26,14:12,7:0 + zero extend immed encoding */
 
     /* PC-relative jump targets.  All are x2 unless specified. */
-    TYPE_J_b0,     /* T16-OP_b: signed immed is stored as value/2 */
-    TYPE_J_x4_b0,  /* OP_b, OP_bl: signed immed is stored as value/4 */
-    TYPE_J_b0_b24, /* OP_blx imm24:H:0 */
-    TYPE_J_b9_b3,  /* OP_cb{n}z: ZeroExtend(i:imm5:0) [9,7:3]:0 */
+    TYPE_J_b0,                 /* T16-OP_b: signed immed is stored as value/2 */
+    TYPE_J_x4_b0,              /* OP_b, OP_bl: signed immed is stored as value/4 */
+    TYPE_J_b0_b24,             /* OP_blx imm24:H:0 */
+    TYPE_J_b9_b3,              /* OP_cb{n}z: ZeroExtend(i:imm5:0) [9,7:3]:0 */
     TYPE_J_b26_b11_b13_b16_b0, /* OP_b T32-26,11,13,21:16,10:0 x2 */
     /* OP_b T32-26,13,11,25:16,10:0 x2, but bits 13 and 11 are flipped if bit 26 is 0 */
     TYPE_J_b26_b13_b11_b16_b0,
 
-    TYPE_SHIFT_b4,    /* T32-5:4 */
-    TYPE_SHIFT_b5,    /* A32-6:5 */
-    TYPE_SHIFT_b6,    /* value is :0 */
-    TYPE_SHIFT_b21,   /* value is :0 */
-    TYPE_SHIFT_LSL,   /* shift logical left */
-    TYPE_SHIFT_ASR,   /* shift arithmetic right */
+    TYPE_SHIFT_b4,  /* T32-5:4 */
+    TYPE_SHIFT_b5,  /* A32-6:5 */
+    TYPE_SHIFT_b6,  /* value is :0 */
+    TYPE_SHIFT_b21, /* value is :0 */
+    TYPE_SHIFT_LSL, /* shift logical left */
+    TYPE_SHIFT_ASR, /* shift arithmetic right */
 
-    TYPE_L_8b,    /* 8-bit register list */
-    TYPE_L_9b_LR, /* T32.16-push 9-bit register list 0:M:000000:reg_list */
-    TYPE_L_9b_PC, /* T32.16-pop  9-bit register list P:0000000:reg_list  */
-    TYPE_L_16b, /* 16-bit register list */
-    TYPE_L_16b_NO_SP, /* 16-bit register list but no SP */
+    TYPE_L_8b,           /* 8-bit register list */
+    TYPE_L_9b_LR,        /* T32.16-push 9-bit register list 0:M:000000:reg_list */
+    TYPE_L_9b_PC,        /* T32.16-pop  9-bit register list P:0000000:reg_list  */
+    TYPE_L_16b,          /* 16-bit register list */
+    TYPE_L_16b_NO_SP,    /* 16-bit register list but no SP */
     TYPE_L_16b_NO_SP_PC, /* 16-bit register list but no SP or PC */
-    TYPE_L_CONSEC, /* Consecutive multimedia regs starting at prior opnd, w/ dword
-                    * count in immed 7:0
-                    */
-    TYPE_L_VBx2,  /* 2 consecutive multimedia regs starting at TYPE_V_B */
-    TYPE_L_VBx3,  /* 3 consecutive multimedia regs starting at TYPE_V_B */
-    TYPE_L_VBx4,  /* 4 consecutive multimedia regs starting at TYPE_V_B */
-    TYPE_L_VBx2D, /* 2 doubly-spaced multimedia regs starting at TYPE_V_B */
-    TYPE_L_VBx3D, /* 3 doubly-spaced multimedia regs starting at TYPE_V_B */
-    TYPE_L_VBx4D, /* 4 doubly-spaced multimedia regs starting at TYPE_V_B */
-    TYPE_L_VAx2,  /* 2 consecutive multimedia regs starting at TYPE_V_A */
-    TYPE_L_VAx3,  /* 3 consecutive multimedia regs starting at TYPE_V_A */
-    TYPE_L_VAx4,  /* 4 consecutive multimedia regs starting at TYPE_V_A */
+    TYPE_L_CONSEC,       /* Consecutive multimedia regs starting at prior opnd, w/ dword
+                          * count in immed 7:0
+                          */
+    TYPE_L_VBx2,         /* 2 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx3,         /* 3 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx4,         /* 4 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx2D,        /* 2 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx3D,        /* 3 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx4D,        /* 4 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VAx2,         /* 2 consecutive multimedia regs starting at TYPE_V_A */
+    TYPE_L_VAx3,         /* 3 consecutive multimedia regs starting at TYPE_V_A */
+    TYPE_L_VAx4,         /* 4 consecutive multimedia regs starting at TYPE_V_A */
 
     /* All memory addressing modes use fixed base and index registers in A32 and T32.32:
      * A32: base  = RA 19:16 ("Rn" in manual)
@@ -475,30 +473,29 @@ enum {
     TYPE_M_POS_I5x2,    /* mem offs + 2 * 5-bit immed @ 10:6 */
     TYPE_M_POS_I5x4,    /* mem offs + 4 * 5-bit immed @ 10:6 */
 
-    TYPE_M_PCREL_POS_I8x4,/* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
-    TYPE_M_PCREL_POS_I12, /* mem offs pc-relative + 12-bit immed @ 11:0 */
-    TYPE_M_PCREL_NEG_I12, /* mem offs pc-relative - 12-bit immed @ 11:0 */
-    TYPE_M_PCREL_S9,  /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */
-    TYPE_M_PCREL_U9,  /* mem offs pc-relative w/ unsigned 9-bit immed 23:5 scaled */
+    TYPE_M_PCREL_POS_I8x4, /* mem offs pc-relative + 4 * 8-bit immed @  7:0 */
+    TYPE_M_PCREL_POS_I12,  /* mem offs pc-relative + 12-bit immed @ 11:0 */
+    TYPE_M_PCREL_NEG_I12,  /* mem offs pc-relative - 12-bit immed @ 11:0 */
+    TYPE_M_PCREL_S9,       /* mem offs pc-relative w/ signed 9-bit immed 23:5 scaled */
+    TYPE_M_PCREL_U9,       /* mem offs pc-relative w/ unsigned 9-bit immed 23:5 scaled */
 
-    TYPE_M_UP_OFFS,   /* mem w/ base plus ptr-sized disp */
-    TYPE_M_DOWN,      /* mem w/ base pointing at start of last ptr-sized slot */
-    TYPE_M_DOWN_OFFS, /* mem w/ base minus ptr-sized disp pointing at last slot */
+    TYPE_M_UP_OFFS,      /* mem w/ base plus ptr-sized disp */
+    TYPE_M_DOWN,         /* mem w/ base pointing at start of last ptr-sized slot */
+    TYPE_M_DOWN_OFFS,    /* mem w/ base minus ptr-sized disp pointing at last slot */
     TYPE_M_SP_DOWN_OFFS, /* mem w/ base minus ptr-sized (SP) disp pointing at last slot */
 
-    TYPE_K,    /* integer constant, size ignored, value stored in size */
+    TYPE_K, /* integer constant, size ignored, value stored in size */
 
     /* when adding new types, update type_names[] in encode.c */
     TYPE_BEYOND_LAST_ENUM,
 
-
     /* Non-incremental-enum valus */
-    DECODE_INDEX_SHIFT_TYPE_BITPOS_A32    = 5,
-    DECODE_INDEX_SHIFT_TYPE_SIZE          = OPSZ_2b,
-    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32  = 7,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32    = OPSZ_5b,
-    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_T32  = 4,
-    DECODE_INDEX_SHIFT_AMOUNT_SIZE_T32    = OPSZ_2b,
+    DECODE_INDEX_SHIFT_TYPE_BITPOS_A32 = 5,
+    DECODE_INDEX_SHIFT_TYPE_SIZE = OPSZ_2b,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_A32 = 7,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE_A32 = OPSZ_5b,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS_T32 = 4,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE_T32 = OPSZ_2b,
 
     SHIFT_ENCODING_DECODE = -1,
     SHIFT_ENCODING_LSL = 0,
@@ -673,9 +670,9 @@ it_block_info_advance(it_block_info_t *info)
 static inline dr_pred_type_t
 it_block_instr_predicate(it_block_info_t info, uint index)
 {
-    return (DR_PRED_EQ +
-            (TEST(BITMAP_MASK(index), info.preds) ?
-             info.firstcond : (info.firstcond ^ 0x1)));
+    return (
+        DR_PRED_EQ +
+        (TEST(BITMAP_MASK(index), info.preds) ? info.firstcond : (info.firstcond ^ 0x1)));
 }
 
 #endif /* DECODE_PRIVATE_H */

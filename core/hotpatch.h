@@ -39,7 +39,7 @@
 #ifndef _HOTPATCH_H_
 #define _HOTPATCH_H_ 1
 
-#ifdef HOT_PATCHING_INTERFACE  /* Around the whole file */
+#ifdef HOT_PATCHING_INTERFACE /* Around the whole file */
 
 /*----------------------------------------------------------------------------*/
 /* Exported data types */
@@ -54,8 +54,8 @@ typedef struct {
 
     /* Array index of the matching set in hotp_vul_table[vul_index]. */
     int set_index;
-    int module_index;  /* Matching module index in the matching set. */
-    int ppoint_index;  /* Matching patch point index in the matching module. */
+    int module_index; /* Matching module index in the matching set. */
+    int ppoint_index; /* Matching patch point index in the matching module. */
 } hotp_offset_match_t;
 
 /*----------------------------------------------------------------------------*/
@@ -71,17 +71,19 @@ typedef enum {
 } cxt_type_t;
 
 /* Leak to handle case 9593.  This should go if we find a cleaner solution. */
-# ifdef HEAP_ACCOUNTING
+#    ifdef HEAP_ACCOUNTING
 DEBUG_DECLARE(extern int hotp_only_tramp_bytes_leaked;)
-# endif
-# ifdef DEBUG_MEMORY
+#    endif
+#    ifdef DEBUG_MEMORY
 DEBUG_DECLARE(bool hotp_only_contains_leaked_trampoline(byte *pc, size_t size);)
-# endif
+#    endif
 /*----------------------------------------------------------------------------*/
 /* Exported function prototypes */
-bool hotp_does_region_need_patch(const app_pc start, const app_pc end,
-                                 bool own_hot_patch_lock);
-bool hotp_inject(dcontext_t *dcontext, instrlist_t *ilist);
+bool
+hotp_does_region_need_patch(const app_pc start, const app_pc end,
+                            bool own_hot_patch_lock);
+bool
+hotp_inject(dcontext_t *dcontext, instrlist_t *ilist);
 
 /* hotp_process_image() can be called in two different ways, one to process
  * the image and the other one to just check it (bool just_check).  just_check
@@ -89,14 +91,14 @@ bool hotp_inject(dcontext_t *dcontext, instrlist_t *ilist);
  * patching.
  * FIXME: have another wrapper for just_check case; keeps it clean.
  */
-void hotp_process_image(const app_pc base, const bool loaded,
-                        const bool own_hot_patch_lock, const bool just_check,
-                        bool *needs_processing, const thread_record_t **all_threads,
-                        const int num_threads);
+void
+hotp_process_image(const app_pc base, const bool loaded, const bool own_hot_patch_lock,
+                   const bool just_check, bool *needs_processing,
+                   const thread_record_t **all_threads, const int num_threads);
 
 bool
-hotp_ppoint_on_list(app_rva_t ppoint,
-                    app_rva_t *hotp_ppoint_vec, uint hotp_ppoint_vec_num);
+hotp_ppoint_on_list(app_rva_t ppoint, app_rva_t *hotp_ppoint_vec,
+                    uint hotp_ppoint_vec_num);
 
 /* Returns the number of patch points for the matched vuls in [start,end).
  * For now this routine assumes that [start,end) is contained in a single module.
@@ -111,8 +113,8 @@ hotp_num_matched_patch_points(const app_pc start, const app_pc end);
  * The caller must own the hotp_vul_table_lock (as a read lock).
  */
 int
-hotp_get_matched_patch_points(const app_pc start, const app_pc end,
-                              app_rva_t *vec, uint vec_num);
+hotp_get_matched_patch_points(const app_pc start, const app_pc end, app_rva_t *vec,
+                              uint vec_num);
 
 /* Checks whether any matched patch point in [start, end) is not listed on
  * hotp_ppoint_vec.  If hotp_ppoint_vec is NULL just checks whether any patch
@@ -123,28 +125,36 @@ bool
 hotp_point_not_on_list(const app_pc start, const app_pc end, bool own_hot_patch_lock,
                        app_rva_t *hotp_ppoint_vec, uint hotp_ppoint_vec_num);
 
-void hotp_nudge_handler(uint nudge_action_mask);
-void hotp_init(void);
-void hotp_exit(void);
-void hotp_reset_init(void);
-void hotp_reset_free(void);
-read_write_lock_t *hotp_get_lock(void);
-void hotp_print_diagnostics(file_t diagnostics_file);
-bool hotp_only_in_tramp(const app_pc eip);
-void hotp_only_detach_helper(void);
-void hotp_only_mem_prot_change(const app_pc start, const size_t size,
-                               const bool remove, const bool inject);
-void hotp_spill_before_notify(dcontext_t *dcontext,
-                              fragment_t **frag_spill /* OUT */,
-                              fragment_t *new_frag, const app_pc new_frag_tag,
-                              app_pc *new_tag_spill /* OUT */,
-                              const app_pc new_tag,
-                              priv_mcontext_t *cxt_spill /* OUT */,
-                              const void *new_cxt, cxt_type_t cxt_type);
-void hotp_restore_after_notify(dcontext_t *dcontext,
-                               const fragment_t *old_frag,
-                               const app_pc old_next_tag,
-                               const priv_mcontext_t *old_cxt);
+void
+hotp_nudge_handler(uint nudge_action_mask);
+void
+hotp_init(void);
+void
+hotp_exit(void);
+void
+hotp_reset_init(void);
+void
+hotp_reset_free(void);
+read_write_lock_t *
+hotp_get_lock(void);
+void
+hotp_print_diagnostics(file_t diagnostics_file);
+bool
+hotp_only_in_tramp(const app_pc eip);
+void
+hotp_only_detach_helper(void);
+void
+hotp_only_mem_prot_change(const app_pc start, const size_t size, const bool remove,
+                          const bool inject);
+void
+hotp_spill_before_notify(dcontext_t *dcontext, fragment_t **frag_spill /* OUT */,
+                         fragment_t *new_frag, const app_pc new_frag_tag,
+                         app_pc *new_tag_spill /* OUT */, const app_pc new_tag,
+                         priv_mcontext_t *cxt_spill /* OUT */, const void *new_cxt,
+                         cxt_type_t cxt_type);
+void
+hotp_restore_after_notify(dcontext_t *dcontext, const fragment_t *old_frag,
+                          const app_pc old_next_tag, const priv_mcontext_t *old_cxt);
 
 #endif /* HOT_PATCHING_INTERFACE  Around the whole file */
 #endif /* _HOTPATCH_H_ 1 */

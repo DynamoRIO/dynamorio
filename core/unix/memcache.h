@@ -31,7 +31,7 @@
  */
 
 #ifndef _MEMCACHE_H_
-#define _MEMCACHE_ 1
+#    define _MEMCACHE_ 1
 
 void
 memcache_init(void);
@@ -62,21 +62,21 @@ memcache_remove(app_pc start, app_pc end);
 bool
 memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
 
-#if defined(DEBUG) && defined(INTERNAL)
+#    if defined(DEBUG) && defined(INTERNAL)
 void
 memcache_print(file_t outf, const char *prefix);
-#endif
+#    endif
 
 void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
-                     uint prot, bool image);
+memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
+                     bool image);
 
 void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size,
-                       byte *old_base, size_t old_size, uint old_prot, uint old_type);
+memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
+                       size_t old_size, uint old_prot, uint old_type);
 
 void
-memcache_handle_app_brk(byte *lowest_brk/*if known*/, byte *old_brk, byte *new_brk);
+memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
 
 void
 memcache_update_all_from_os(void);

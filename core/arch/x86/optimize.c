@@ -40,23 +40,23 @@
  * (old offline optimization stuff is in mangle.c)
  */
 
-#include "../globals.h"   /* just to disable warning C4206 about an empty file */
+#include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #ifdef INTERNAL /* around whole file */
 
-#include "../globals.h"
-#include "arch.h"
-#include "instr.h"
-#include "instr_create.h"
-#include "instrlist.h"
-#include "decode.h"
-#include "decode_fast.h"
+#    include "../globals.h"
+#    include "arch.h"
+#    include "instr.h"
+#    include "instr_create.h"
+#    include "instrlist.h"
+#    include "decode.h"
+#    include "decode_fast.h"
 /* XXX i#1551: eliminate PREFIX_{DATA,ADDR} refs and then remove this include */
-#include "x86/decode_private.h"
-#include "../fragment.h"
-#include "disassemble.h"
-#include "proc.h"
-#include <string.h> /* for memset */
+#    include "x86/decode_private.h"
+#    include "../fragment.h"
+#    include "disassemble.h"
+#    include "proc.h"
+#    include <string.h> /* for memset */
 
 /* IMPORTANT INSTRUCTIONS FOR WRITING OPTIMIZATIONS:
  *
@@ -72,60 +72,80 @@
 /* if these are useful elsewhere, un-static them */
 
 /* optimizations */
-static void instr_counts(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool pre);
-static void constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-static void call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-static void remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag,
-                                       instrlist_t *trace);
-static void stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+instr_counts(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool pre);
+static void
+constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
 
-static void prefetch_optimize_trace(dcontext_t *dcontext,
-                                    app_pc tag, instrlist_t *trace);
-void remove_redundant_loads(dcontext_t *dcontext, app_pc tag,
-                            instrlist_t *trace);
+static void
+prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+void
+remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
 
-static void peephole_optimize(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+peephole_optimize(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
 
-static void identify_for_loop(dcontext_t *dcontext,
-                              app_pc tag, instrlist_t *trace);
-static void unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-#ifdef IA32_ON_IA64
-static void test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
-#endif
+static void
+identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+static void
+unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+#    ifdef IA32_ON_IA64
+static void
+test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace);
+#    endif
 
 /* utility routines */
-bool is_store_to_ecxoff(dcontext_t *dcontext, instr_t *inst);
-bool is_load_from_ecxoff(dcontext_t *dcontext, instr_t *inst);
-bool opnd_is_constant_address(opnd_t address);
-static bool is_zeroing_instr(instr_t *inst);
-static bool replace_inc_with_add(dcontext_t *dcontext, instr_t *inst,
-                                 instrlist_t *trace);
-static bool safe_write(instr_t *mem_writer);
-static bool instruction_affects_mem_access(instr_t *instr,opnd_t mem_access);
-static bool is_dead_register(reg_id_t reg,instr_t *where);
-static reg_id_t find_dead_register_across_instrs(instr_t *start,instr_t *end);
-static bool is_nop(instr_t *inst);
-void remove_inst(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst);
+bool
+is_store_to_ecxoff(dcontext_t *dcontext, instr_t *inst);
+bool
+is_load_from_ecxoff(dcontext_t *dcontext, instr_t *inst);
+bool
+opnd_is_constant_address(opnd_t address);
+static bool
+is_zeroing_instr(instr_t *inst);
+static bool
+replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace);
+static bool
+safe_write(instr_t *mem_writer);
+static bool
+instruction_affects_mem_access(instr_t *instr, opnd_t mem_access);
+static bool
+is_dead_register(reg_id_t reg, instr_t *where);
+static reg_id_t
+find_dead_register_across_instrs(instr_t *start, instr_t *end);
+static bool
+is_nop(instr_t *inst);
+void
+remove_inst(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst);
 
 /* for using a 24 entry bool array to represent some property about
  * about normal registers and sub register (eax -> dl) */
 /* propagates the value into all sub registers, doesn't propagate up
  * into enclosing registers, index value is checked for bounds */
-static void propagate_down(bool *reg_rep, int index, bool value);
+static void
+propagate_down(bool *reg_rep, int index, bool value);
 /* checks the 24 entry array and returns true if it and all sub
  * registers of the index are true and 0 <= index < 24 */
-static bool check_down(bool *reg_rep, int index);
+static bool
+check_down(bool *reg_rep, int index);
 
 /* given a cbr, finds the previous instr that writes the flag the cbr reads */
-static instr_t *get_decision_instr(instr_t *jmp);
+static instr_t *
+get_decision_instr(instr_t *jmp);
 
 /* exported utility routines */
-void loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
-void logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
-void logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string);
-
-
-
+void
+loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
+void
+logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
+void
+logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string);
 
 /****************************************************************************/
 /* master routine */
@@ -146,14 +166,14 @@ optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
      */
     instrlist_decode_cti(dcontext, trace);
 
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\noptimize_trace ******************\n");
     LOG(THREAD, LOG_OPTS, 3, "\nbefore optimization:\n");
 
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 
-#endif
+#    endif
 
     if (dynamo_options.instr_counts) {
         instr_counts(dcontext, tag, trace, true);
@@ -199,24 +219,24 @@ optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         peephole_optimize(dcontext, tag, trace);
     }
 
-#ifdef IA32_ON_IA64
+#    ifdef IA32_ON_IA64
     if (dynamo_options.test_i64) {
         test_i64(dcontext, tag, trace);
     }
-#endif
+#    endif
 
     if (dynamo_options.instr_counts) {
         instr_counts(dcontext, tag, trace, false);
     }
 
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\nafter optimization:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
-#ifdef DEBUG
+#    ifdef DEBUG
 static struct {
     /* rlr */
     uint loads_removed_from_loads;
@@ -261,10 +281,10 @@ static struct {
     /* call return matching */
     int num_returns_removed;
     int num_return_instrs_removed;
-#ifdef IA32_ON_IA64
+#        ifdef IA32_ON_IA64
     bool i64_test;
     int ia64_num_entries;
-#endif
+#        endif
 } opt_stats_t;
 
 /*this function is called when dynamo exits. prints stats for any optimization
@@ -275,27 +295,26 @@ print_optimization_stats()
 {
     if (dynamo_options.rlr) {
         uint top, bottom;
-        LOG(GLOBAL, LOG_OPTS, 1,
-            "%u loads examined for rlr\n", opt_stats_t.loads_examined);
+        LOG(GLOBAL, LOG_OPTS, 1, "%u loads examined for rlr\n",
+            opt_stats_t.loads_examined);
         divide_uint64_print(opt_stats_t.loads_removed_from_stores +
-                            opt_stats_t.loads_removed_from_loads,
-                            opt_stats_t.loads_examined,
-                            true, 2, &top, &bottom);
-        LOG(GLOBAL, LOG_OPTS,1,"%u.%.2u%% of examined loads removed\n",
-            top, bottom);
+                                opt_stats_t.loads_removed_from_loads,
+                            opt_stats_t.loads_examined, true, 2, &top, &bottom);
+        LOG(GLOBAL, LOG_OPTS, 1, "%u.%.2u%% of examined loads removed\n", top, bottom);
         divide_uint64_print(opt_stats_t.ctis_in_load_removal,
                             opt_stats_t.loads_removed_from_loads +
-                            opt_stats_t.loads_removed_from_stores,
+                                opt_stats_t.loads_removed_from_stores,
                             false, 4, &top, &bottom);
-        LOG(GLOBAL, LOG_OPTS, 1,"%u loads removed from loads\n"
+        LOG(GLOBAL, LOG_OPTS, 1,
+            "%u loads removed from loads\n"
             "%u loads removed from stores\n"
             "%u ctis traversed.  %u.%.4u ctis / load\n",
-            opt_stats_t.loads_removed_from_loads,
-            opt_stats_t.loads_removed_from_stores,
+            opt_stats_t.loads_removed_from_loads, opt_stats_t.loads_removed_from_stores,
             opt_stats_t.ctis_in_load_removal, top, bottom);
-        LOG(GLOBAL, LOG_OPTS, 1,"%d rlr's had problems because a reg. was overwritten\n",
+        LOG(GLOBAL, LOG_OPTS, 1, "%d rlr's had problems because a reg. was overwritten\n",
             opt_stats_t.reg_overwritten);
-        LOG(GLOBAL, LOG_OPTS, 1,"%d rlr's were saved by using a dead register to save value\n",
+        LOG(GLOBAL, LOG_OPTS, 1,
+            "%d rlr's were saved by using a dead register to save value\n",
             opt_stats_t.val_saved_in_dead_reg);
     }
     if (dynamo_options.peephole && proc_get_family() == FAMILY_PENTIUM_4) {
@@ -308,63 +327,79 @@ print_optimization_stats()
 
     if (dynamo_options.call_return_matching) {
         LOG(GLOBAL, LOG_OPTS, 1, "Call Return Matching - stats\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d returns removed\n", opt_stats_t.num_returns_removed);
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d return instrs removed\n", opt_stats_t.num_return_instrs_removed);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d returns removed\n",
+            opt_stats_t.num_returns_removed);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d return instrs removed\n",
+            opt_stats_t.num_return_instrs_removed);
     }
 
     if (dynamo_options.constant_prop) {
         LOG(GLOBAL, LOG_OPTS, 1, "Constant Prop - stats\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d operands simplified\n", opt_stats_t.num_opnds_simplified);
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d constant loads from immutable memory discoverd (included in operands simplified)\n", opt_stats_t.num_const_add_const_mem);
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d instructions simplified\n", opt_stats_t.num_instrs_simplified);
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d instructions failed simplification\n", opt_stats_t.num_fail_simplified);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d operands simplified\n",
+            opt_stats_t.num_opnds_simplified);
+        LOG(GLOBAL, LOG_OPTS, 1,
+            "   %d constant loads from immutable memory discoverd (included in operands "
+            "simplified)\n",
+            opt_stats_t.num_const_add_const_mem);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d instructions simplified\n",
+            opt_stats_t.num_instrs_simplified);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d instructions failed simplification\n",
+            opt_stats_t.num_fail_simplified);
         LOG(GLOBAL, LOG_OPTS, 1, "   %d jmps removed\n", opt_stats_t.num_jmps_simplified);
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d jecxz related instrs removed, (6 per jecxz instr)\n", opt_stats_t.num_jecxz_instrs_removed);
+        LOG(GLOBAL, LOG_OPTS, 1,
+            "   %d jecxz related instrs removed, (6 per jecxz instr)\n",
+            opt_stats_t.num_jecxz_instrs_removed);
     }
 
     if (dynamo_options.remove_unnecessary_zeroing) {
-        LOG(GLOBAL, LOG_OPTS, 1, "%d unnecessary zeroing instances removed\n", opt_stats_t.xors_removed);
-
+        LOG(GLOBAL, LOG_OPTS, 1, "%d unnecessary zeroing instances removed\n",
+            opt_stats_t.xors_removed);
     }
 
     if (dynamo_options.stack_adjust) {
         LOG(GLOBAL, LOG_OPTS, 1, "Stack Adjustment Combiner - stats\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d stack adjustments removed\n", opt_stats_t.num_stack_adjust_removed);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d stack adjustments removed\n",
+            opt_stats_t.num_stack_adjust_removed);
     }
 
     if (dynamo_options.remove_dead_code) {
         LOG(GLOBAL, LOG_OPTS, 1, "Dead Code Elimination - stats\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "   %d dead instructions removed\n", opt_stats_t.dead_loads_removed);
+        LOG(GLOBAL, LOG_OPTS, 1, "   %d dead instructions removed\n",
+            opt_stats_t.dead_loads_removed);
     }
 
     if (dynamo_options.instr_counts) {
         LOG(GLOBAL, LOG_OPTS, 1, "Prior to optimizations\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "     %d instrs in traces\n", opt_stats_t.pre_num_instrs_seen);
-        LOG(GLOBAL, LOG_OPTS, 1, "     %d jmps (cbr) in traces\n", opt_stats_t.pre_num_jmps_seen);
+        LOG(GLOBAL, LOG_OPTS, 1, "     %d instrs in traces\n",
+            opt_stats_t.pre_num_instrs_seen);
+        LOG(GLOBAL, LOG_OPTS, 1, "     %d jmps (cbr) in traces\n",
+            opt_stats_t.pre_num_jmps_seen);
         LOG(GLOBAL, LOG_OPTS, 1, "After optimizations\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "     %d instrs in traces\n", opt_stats_t.post_num_instrs_seen);
-        LOG(GLOBAL, LOG_OPTS, 1, "     %d jmps (cbr) in traces\n", opt_stats_t.post_num_jmps_seen);
+        LOG(GLOBAL, LOG_OPTS, 1, "     %d instrs in traces\n",
+            opt_stats_t.post_num_instrs_seen);
+        LOG(GLOBAL, LOG_OPTS, 1, "     %d jmps (cbr) in traces\n",
+            opt_stats_t.post_num_jmps_seen);
     }
 
-#ifdef IA32_ON_IA64
+#        ifdef IA32_ON_IA64
     if (dynamo_options.test_i64) {
         if (opt_stats_t.i64_test)
             LOG(GLOBAL, LOG_OPTS, 1, "IA64 test succeeded!\n");
         else
             LOG(GLOBAL, LOG_OPTS, 1, "IA64 test failed!\n");
-        LOG(GLOBAL, LOG_OPTS, 1, "%d entries into Itanium code\n", opt_stats_t.ia64_num_entries);
+        LOG(GLOBAL, LOG_OPTS, 1, "%d entries into Itanium code\n",
+            opt_stats_t.ia64_num_entries);
     }
-#endif
-
+#        endif
 }
-#endif
+#    endif
 
 /****************************************************************************/
 
 /* op1 and op2 are both memory references */
 static bool
-generate_antialias_check(dcontext_t *dcontext, instrlist_t *pre_loop,
-                         opnd_t op1, opnd_t op2)
+generate_antialias_check(dcontext_t *dcontext, instrlist_t *pre_loop, opnd_t op1,
+                         opnd_t op2)
 {
     /* basic idea: "lea op1 !overlap lea op2" */
     opnd_t lea1, lea2;
@@ -381,16 +416,19 @@ generate_antialias_check(dcontext_t *dcontext, instrlist_t *pre_loop,
     opnd_set_size(&lea1, OPSZ_lea);
     lea2 = op2;
     opnd_set_size(&lea2, OPSZ_lea);
-    instrlist_append(pre_loop, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_EBX), lea1));
-    instrlist_append(pre_loop, INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ECX), lea2));
-    instrlist_append(pre_loop, INSTR_CREATE_cmp(dcontext,  opnd_create_reg(REG_EBX),
-                                                opnd_create_reg(REG_ECX)));
+    instrlist_append(pre_loop,
+                     INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_EBX), lea1));
+    instrlist_append(pre_loop,
+                     INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ECX), lea2));
+    instrlist_append(
+        pre_loop,
+        INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_EBX), opnd_create_reg(REG_ECX)));
     return true;
 }
 
-#define MAX_INDUCTION_VARS 8
-#define MAX_LCDS 32
-#define MAX_INVARIANTS 32
+#    define MAX_INDUCTION_VARS 8
+#    define MAX_LCDS 32
+#    define MAX_INVARIANTS 32
 
 static void
 identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
@@ -411,7 +449,8 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
     /* FIXME: for now, we only look for single-basic-block traces */
 
-    LOG(THREAD, LOG_OPTS, 3, "identify_for_loop: examining trace with tag "PFX"\n", tag);
+    LOG(THREAD, LOG_OPTS, 3, "identify_for_loop: examining trace with tag " PFX "\n",
+        tag);
     /* first, make sure we end with a conditional branch (followed by uncond.
      * for fall-through)
      */
@@ -425,11 +464,12 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (opnd_get_pc(instr_get_target(branch)) != tag)
         return;
 
-#ifdef DEBUG
-    LOG(THREAD, LOG_OPTS, 1, "\nidentify_for_loop: found whole-trace self-loop: tag "PFX"\n", tag);
+#    ifdef DEBUG
+    LOG(THREAD, LOG_OPTS, 1,
+        "\nidentify_for_loop: found whole-trace self-loop: tag " PFX "\n", tag);
     if ((stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 
     /* FIXME: for each pair of read/write and write/write: insert pre-loop check to
      * ensure no aliases
@@ -453,24 +493,23 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
          * through instrlist whenever need info?
          */
         loginst(dcontext, 1, inst, "considering");
-        for (i=0; i<instr_num_srcs(inst); i++) {
+        for (i = 0; i < instr_num_srcs(inst); i++) {
             opnd = instr_get_src(inst, i);
             /* ignore immeds and memory references */
             if (opnd_is_immed(opnd) || opnd_is_memory_reference(opnd))
                 continue;
             for (check = instrlist_first(trace); check != inst;
                  check = instr_get_next(check)) {
-                for (j=0; j<instr_num_dsts(check); j++) {
+                for (j = 0; j < instr_num_dsts(check); j++) {
                     if (opnd_defines_use(instr_get_dst(check, j), opnd)) {
                         /* write prior to read: no lcd */
-                        loginst(dcontext, 1, check,
-                                "\twrite prior to read -> no lcd");
+                        loginst(dcontext, 1, check, "\twrite prior to read -> no lcd");
                         goto no_lcd;
                     }
                 }
             }
             for (check = inst; check != branch; check = instr_get_next(check)) {
-                for (j=0; j<instr_num_dsts(check); j++) {
+                for (j = 0; j < instr_num_dsts(check); j++) {
                     if (opnd_defines_use(instr_get_dst(check, j), opnd)) {
                         /* write following read: lcd */
                         goto has_lcd;
@@ -525,41 +564,39 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     /* it's ok for an lcd to read a value kept in an induction var
      * or a loop invariant
      */
-    for (i=0; i<num_lcds; i++) {
+    for (i = 0; i < num_lcds; i++) {
         if (opnd_is_reg(lcd[i])) {
-            for (j=0; j<num_induction_vars; j++) {
+            for (j = 0; j < num_induction_vars; j++) {
                 if (opnd_same(lcd[i], instr_get_dst(induction_var[j], 0)))
                     goto next_lcd;
             }
-            for (j=0; j<num_invariants; j++) {
+            for (j = 0; j < num_invariants; j++) {
                 if (opnd_same(lcd[i], invariant[j]))
                     goto next_lcd;
             }
         } else if (opnd_is_memory_reference(lcd[i])) {
-            for (j=0; j<opnd_num_regs_used(lcd[i]); j++) {
+            for (j = 0; j < opnd_num_regs_used(lcd[i]); j++) {
                 opnd = opnd_create_reg(opnd_get_reg_used(lcd[i], j));
-                for (k=0; k<num_induction_vars; k++) {
+                for (k = 0; k < num_induction_vars; k++) {
                     if (opnd_same(opnd, instr_get_dst(induction_var[k], 0)))
                         break;
                 }
-                if (k==num_induction_vars) {
-                    for (k=0; k<num_invariants; k++) {
+                if (k == num_induction_vars) {
+                    for (k = 0; k < num_invariants; k++) {
                         if (opnd_same(opnd, invariant[k]))
                             break;
                     }
-                    if (k==num_invariants)
+                    if (k == num_invariants)
                         goto lcd_bad;
                 }
             }
         } else
             ASSERT_NOT_REACHED();
     next_lcd:
-        logopnd(dcontext, 1, lcd[i],
-                "\tlcd read is induction var value, so it's ok");
+        logopnd(dcontext, 1, lcd[i], "\tlcd read is induction var value, so it's ok");
         continue;
     lcd_bad:
-        logopnd(dcontext, 1, lcd[i],
-                "\tlcd read is not induction var value, giving up");
+        logopnd(dcontext, 1, lcd[i], "\tlcd read is not induction var value, giving up");
         return;
     }
 
@@ -567,14 +604,14 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     inst = get_decision_instr(branch);
     loginst(dcontext, 1, inst, "looking at decision instr");
     /* test must involve only induction vars and constants */
-    for (i=0; i<instr_num_srcs(inst); i++) {
+    for (i = 0; i < instr_num_srcs(inst); i++) {
         opnd = instr_get_src(inst, i);
         if (!opnd_is_immed(opnd)) {
-            for (j=0; j<num_induction_vars; j++) {
+            for (j = 0; j < num_induction_vars; j++) {
                 if (opnd_same(opnd, instr_get_dst(induction_var[j], 0)))
                     break;
             }
-            if (j==num_induction_vars) {
+            if (j == num_induction_vars) {
                 loginst(dcontext, 1, inst,
                         "\tloop termination test not just consts & inductions!");
                 return;
@@ -588,14 +625,14 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
          * any other store or read
          */
         loginst(dcontext, 1, inst, "considering");
-        for (i=0; i<instr_num_dsts(inst); i++) {
+        for (i = 0; i < instr_num_dsts(inst); i++) {
             opnd = instr_get_dst(inst, i);
             if (!opnd_is_memory_reference(opnd))
                 continue;
             for (check = instrlist_first(trace); check != branch;
                  check = instr_get_next(check)) {
-                for (j=0; j<instr_num_dsts(check); j++) {
-                    if (check==inst && j==i)
+                for (j = 0; j < instr_num_dsts(check); j++) {
+                    if (check == inst && j == i)
                         continue;
                     if (opnd_is_memory_reference(instr_get_dst(check, j))) {
                         /* disambiguate these writes */
@@ -603,8 +640,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                                 "\tgenerating checks");
                         if (!generate_antialias_check(dcontext, &pre_loop, opnd,
                                                       instr_get_dst(check, j))) {
-                            loginst(dcontext, 1, inst,
-                                    "unavoidable alias, giving up");
+                            loginst(dcontext, 1, inst, "unavoidable alias, giving up");
                             return;
                         }
                     }
@@ -621,19 +657,18 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                           instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
         instrlist_prepend(&pre_loop,
                           instr_create_save_to_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        instrlist_append(&pre_loop,
-                         instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        instrlist_append(&pre_loop,
-                         instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+        instrlist_append(
+            &pre_loop, instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
+        instrlist_append(
+            &pre_loop, instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
     }
 
-
     LOG(THREAD, LOG_OPTS, 1, "loop has passed all tests so far!\n");
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 1, "pre-loop checks are:\n");
-    if (stats->loglevel >= 1  && (stats->logmask & LOG_OPTS) != 0)
+    if (stats->loglevel >= 1 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, &pre_loop, THREAD);
-#endif
+#    endif
 
     /* now look for "load, arithop, store" pattern
      * THIS IS A HACK -- just want to identify loop in mmx.c
@@ -654,13 +689,12 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         return;
     }
     LOG(THREAD, LOG_OPTS, 1, "found 'load, arithop, store' pattern!\n");
-    for (check = instr_get_next(inst); check != branch;
-         check = instr_get_next(check)) {
-        for (j=0; j<num_induction_vars; j++) {
+    for (check = instr_get_next(inst); check != branch; check = instr_get_next(check)) {
+        for (j = 0; j < num_induction_vars; j++) {
             if (induction_var[j] == check)
                 break;
         }
-        if (j==num_induction_vars) {
+        if (j == num_induction_vars) {
             loginst(dcontext, 1, check, "non-induction var is present");
             return;
         }
@@ -668,7 +702,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     LOG(THREAD, LOG_OPTS, 1, "vectorizing\n");
 
     /* prior to unrolling, replace inc with add */
-    for (i=0; i<num_induction_vars; i++) {
+    for (i = 0; i < num_induction_vars; i++) {
         int opcode = instr_get_opcode(induction_var[i]);
         if (opcode == OP_inc || opcode == OP_dec) {
             inst = instr_get_prev(induction_var[i]);
@@ -688,7 +722,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     }
 
     /********** unroll loop **********/
-#if 0
+#    if 0
     do {
         body using i;
         i += inc;
@@ -715,8 +749,8 @@ now do not have a pre-loop and do unaligned simd
         body using i;
         i += inc;
     }
-#endif
-#if 0
+#    endif
+#    if 0
     /* First do pre-alignment loop
      * to do mod: idiv divides edx:eax by r/m32, puts quotient
      *     in eax, remainder in edx
@@ -763,7 +797,7 @@ now do not have a pre-loop and do unaligned simd
                         instr_create_restore_from_dcontext(dcontext, REG_EDX, XDX_OFFSET));
     instrlist_preinsert(trace, inst,
                         instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-#endif
+#    endif
 
     /* HACK: focus on mmx.c sample loop */
     inst = instrlist_first(trace);
@@ -794,7 +828,7 @@ now do not have a pre-loop and do unaligned simd
     replace_inst(dcontext, trace, inst, check);
 
     /* now make induction vars do X unroll duty */
-    for (i=0; i<num_induction_vars; i++) {
+    for (i = 0; i < num_induction_vars; i++) {
         if (instr_get_opcode(induction_var[i]) == OP_inc ||
             instr_get_opcode(induction_var[i]) == OP_dec) {
             /* couldn't convert to add/sub, so duplicate */
@@ -803,16 +837,17 @@ now do not have a pre-loop and do unaligned simd
         } else {
             opnd = instr_get_src(induction_var[i], 0);
             ASSERT(opnd_is_immed_int(opnd));
-            opnd = opnd_create_immed_int(opnd_get_immed_int(opnd)*2, opnd_get_size(opnd));
+            opnd =
+                opnd_create_immed_int(opnd_get_immed_int(opnd) * 2, opnd_get_size(opnd));
             instr_set_src(induction_var[i], 0, opnd);
         }
     }
 
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 1, "\nfinal version of trace:\n");
     if ((stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
 /****************************************************************************/
@@ -835,7 +870,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
     /* FIXME: what about loops with cbr at top and ubr at bottom? */
 
-    LOG(THREAD, LOG_OPTS, 3, "unroll loop: examining trace with tag "PFX"\n", tag);
+    LOG(THREAD, LOG_OPTS, 3, "unroll loop: examining trace with tag " PFX "\n", tag);
     /* first, make sure we end with a conditional branch (followed by uncond.
      * for fall-through)
      */
@@ -849,22 +884,21 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (opnd_get_pc(instr_get_target(branch)) != tag)
         return;
 
-    /* eflags: for simplicity require that eflags be written before read
-     * only need to look at arith flags
-     */
-#ifdef DEBUG
+        /* eflags: for simplicity require that eflags be written before read
+         * only need to look at arith flags
+         */
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\nunroll loop -- checking eflags on:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
     for (inst = instrlist_first(trace); inst != branch; inst = instr_get_next(inst)) {
         uint eflags = instr_get_arith_flags(inst, DR_QUERY_DEFAULT);
         if (eflags != 0) {
             if ((eflags & EFLAGS_READ_6) != 0) {
                 if ((eflags_6 | (eflags & EFLAGS_READ_6)) != eflags_6) {
                     /* we're reading a flag that has not been written yet */
-                    loginst(dcontext, 3, inst,
-                            "reads flag before writing it, giving up");
+                    loginst(dcontext, 3, inst, "reads flag before writing it, giving up");
                     return;
                 }
             } else if ((eflags & EFLAGS_WRITE_6) != 0) {
@@ -883,11 +917,12 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
      * FIXME: I'm not certain of this
      */
 
-#ifdef DEBUG
-    LOG(THREAD, LOG_OPTS, 3, "\nunroll loop: found whole-trace self-loop: tag "PFX"\n", tag);
+#    ifdef DEBUG
+    LOG(THREAD, LOG_OPTS, 3, "\nunroll loop: found whole-trace self-loop: tag " PFX "\n",
+        tag);
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 
     /********** unroll loop **********/
     /*
@@ -928,19 +963,17 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (instr_get_opcode(decision) == OP_cmp) {
         int opcode = instr_get_opcode(branch);
         switch (opcode) {
-        case OP_jb:   counting_up = true; break;
-        case OP_jnb:  counting_up = false; break;
-        case OP_jbe:  counting_up = true; break;
+        case OP_jb: counting_up = true; break;
+        case OP_jnb: counting_up = false; break;
+        case OP_jbe: counting_up = true; break;
         case OP_jnbe: counting_up = false; break;
-        case OP_jl:   counting_up = true; break;
-        case OP_jnl:  counting_up = false; break;
-        case OP_jle:  counting_up = true; break;
+        case OP_jl: counting_up = true; break;
+        case OP_jnl: counting_up = false; break;
+        case OP_jle: counting_up = true; break;
         case OP_jnle: counting_up = false; break;
-        case OP_js:   counting_up = true; break;
-        case OP_jns:  counting_up = false; break;
-        default:
-            loginst(dcontext, 3, branch, "cannot handle decision branch");
-            return;
+        case OP_js: counting_up = true; break;
+        case OP_jns: counting_up = false; break;
+        default: loginst(dcontext, 3, branch, "cannot handle decision branch"); return;
         }
     } else if (instr_get_opcode(decision) == OP_inc ||
                instr_get_opcode(decision) == OP_add ||
@@ -957,7 +990,8 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         cmp = decision;
     } else {
         /* common loop type: ends with "dec var, jns" */
-        if (instr_get_opcode(decision) == OP_inc || instr_get_opcode(decision) == OP_dec) {
+        if (instr_get_opcode(decision) == OP_inc ||
+            instr_get_opcode(decision) == OP_dec) {
             /* FIXME: shadowing cmp_const */
             opnd_t cmp_var, cmp_const;
             int opcode;
@@ -1009,8 +1043,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instr_invert_cbr(temp);
     instr_set_target(temp, instr_get_target(final_jmp));
     instrlist_preinsert(trace, final_jmp, temp);
-    for (inst = instrlist_first(trace); inst != cmp;
-         inst = instr_get_next(inst)) {
+    for (inst = instrlist_first(trace); inst != cmp; inst = instr_get_next(inst)) {
         instrlist_preinsert(trace, final_jmp, instr_clone(dcontext, inst));
     }
     /* now change final jmp to loop to recovery loop check */
@@ -1020,9 +1053,8 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
      * duplicate every instruction up to cmp at end
      */
     temp = instr_get_prev(cmp);
-    for (i=1; i<unroll_factor; i++) {
-        for (inst = instrlist_first(trace); inst != cmp;
-             inst = instr_get_next(inst)) {
+    for (i = 1; i < unroll_factor; i++) {
+        for (inst = instrlist_first(trace); inst != cmp; inst = instr_get_next(inst)) {
             instrlist_preinsert(trace, cmp, instr_clone(dcontext, inst));
             if (inst == temp) /* avoid infinite loop */
                 break;
@@ -1038,7 +1070,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instrlist_prepend(trace, temp);
 
     /* now stick cmp in front of it */
-    cmp_vs = (int) opnd_get_immed_int(instr_get_src(cmp, 1));
+    cmp_vs = (int)opnd_get_immed_int(instr_get_src(cmp, 1));
     if (counting_up)
         cmp_vs -= (unroll_factor - 1);
     else
@@ -1062,15 +1094,15 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
      * FIXME: NOT DONE YET
      */
 
-#ifdef DEBUG
+#    ifdef DEBUG
     opt_stats_t.loops_unrolled++;
     LOG(THREAD, LOG_OPTS, 3, "\nfinal version of unrolled trace:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
-#ifdef IA32_ON_IA64
+#    ifdef IA32_ON_IA64
 /***************************************************************************/
 /* from Tim */
 /* tests the jmpe and jmpe extensions to IA32 for IA64 environments */
@@ -1083,23 +1115,23 @@ static int test3;
 static void
 test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    uint * i64_code;
-    uint * i64_code_start;
+    uint *i64_code;
+    uint *i64_code_start;
     int check = 0;
-    instr_t * inst;
+    instr_t *inst;
     if (!have_done) {
-#ifdef DEBUG
+#        ifdef DEBUG
         opt_stats_t.i64_test = false;
         LOG(THREAD, LOG_OPTS, 1, "\nadding ia64 test\n");
         if (stats->loglevel >= 1 && (stats->logmask & LOG_OPTS) != 0)
             instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#        endif
         have_done = true;
         test1 = 0;
         test2 = 0;
         test3 = 0;
         /* get the mem, get extra for alignment considerations */
-        i64_code = (uint *)heap_alloc(dcontext, 16*sizeof(uint) HEAPACCT(ACCT_OTHER));
+        i64_code = (uint *)heap_alloc(dcontext, 16 * sizeof(uint) HEAPACCT(ACCT_OTHER));
         /* ensure proper aligment, 16 byte */
         while ((((ptr_uint_t)i64_code) & 0xf) != 0) {
             i64_code++;
@@ -1145,7 +1177,6 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         i64_code++;
         *i64_code = 0x00800010;
 
-
         /* add testing prefix to trace */
         inst = instrlist_first(trace);
 
@@ -1154,63 +1185,89 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                             instr_create_save_to_dcontext(dcontext, REG_ECX, XCX_OFFSET));
         instrlist_preinsert(trace, inst,
                             instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
-#ifdef DEBUG
+#        ifdef DEBUG
         instrlist_preinsert(trace, inst,
                             instr_create_save_to_dcontext(dcontext, REG_EAX, XAX_OFFSET));
+        instrlist_preinsert(trace, inst, INSTR_CREATE_lahf(dcontext));
+        instrlist_preinsert(
+            trace, inst,
+            INSTR_CREATE_inc(dcontext,
+                             opnd_create_base_disp(REG_NULL, REG_NULL, 1,
+                                                   (int)&(opt_stats_t.ia64_num_entries),
+                                                   OPSZ_4_short2)));
+#        endif
         instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_lahf(dcontext));
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_inc(dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&(opt_stats_t.ia64_num_entries), OPSZ_4_short2)));
-#endif
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX), OPND_CREATE_INT32(1)));
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_st(dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test1, OPSZ_4_short2), opnd_create_reg(REG_ECX)));
+                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX),
+                                                 OPND_CREATE_INT32(1)));
+        instrlist_preinsert(
+            trace, inst,
+            INSTR_CREATE_mov_st(
+                dcontext,
+                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test1, OPSZ_4_short2),
+                opnd_create_reg(REG_ECX)));
 
         /* test jmpe */
         instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX), OPND_CREATE_INT32((int)i64_code_start)));
+                            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
+                                                 OPND_CREATE_INT32((int)i64_code_start)));
         instrlist_preinsert(trace, inst,
                             INSTR_CREATE_jmpe(dcontext, opnd_create_reg(REG_EBX)));
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_st(dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test2, OPSZ_4_short2), opnd_create_reg(REG_ECX)));
+        instrlist_preinsert(
+            trace, inst,
+            INSTR_CREATE_mov_st(
+                dcontext,
+                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test2, OPSZ_4_short2),
+                opnd_create_reg(REG_ECX)));
 
         /* test jmpe_abs */
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_jmpe_abs(dcontext, opnd_create_pc((app_pc)i64_code_start)));
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_mov_st(dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test3, OPSZ_4_short2), opnd_create_reg(REG_ECX)));
+        instrlist_preinsert(
+            trace, inst,
+            INSTR_CREATE_jmpe_abs(dcontext, opnd_create_pc((app_pc)i64_code_start)));
+        instrlist_preinsert(
+            trace, inst,
+            INSTR_CREATE_mov_st(
+                dcontext,
+                opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test3, OPSZ_4_short2),
+                opnd_create_reg(REG_ECX)));
 
         /* cleanup */
-#ifdef DEBUG
-        instrlist_preinsert(trace, inst,
-                            INSTR_CREATE_sahf(dcontext));
-        instrlist_preinsert(trace, inst,
-                            instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-#endif
-        instrlist_preinsert(trace, inst,
-                            instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        instrlist_preinsert(trace, inst,
-                            instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
-#ifdef DEBUG
+#        ifdef DEBUG
+        instrlist_preinsert(trace, inst, INSTR_CREATE_sahf(dcontext));
+        instrlist_preinsert(
+            trace, inst,
+            instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
+#        endif
+        instrlist_preinsert(
+            trace, inst,
+            instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
+        instrlist_preinsert(
+            trace, inst,
+            instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+#        ifdef DEBUG
         LOG(THREAD, LOG_OPTS, 1, "\ndone adding ia64 test\n");
         if (stats->loglevel >= 1 && (stats->logmask & LOG_OPTS) != 0)
             instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
-        LOG(THREAD, LOG_OPTS, 1, "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2, test3);
+#        endif
+        LOG(THREAD, LOG_OPTS, 1,
+            "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
+            test3);
     } else {
         if (!(test1 == 1 && test2 == 2 && test3 == 3)) {
-            LOG(THREAD, LOG_OPTS, 1, "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2, test3);
+            LOG(THREAD, LOG_OPTS, 1,
+                "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
+                test3);
         } else if (!checked) {
-            LOG(THREAD, LOG_OPTS, 1, "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2, test3);
-#ifdef DEBUG
+            LOG(THREAD, LOG_OPTS, 1,
+                "i64_test cur vals test1 : %d    test2 : %d   test3 : %d\n", test1, test2,
+                test3);
+#        ifdef DEBUG
             opt_stats_t.i64_test = true;
             checked = true;
         }
-#endif
+#        endif
     }
 }
-#endif
+#    endif
 
 /***************************************************************************/
 /* from Tim */
@@ -1221,7 +1278,7 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 static void
 instr_counts(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool pre)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     instr_t *inst;
     int jmps = 0;
     int instrs = 0;
@@ -1231,31 +1288,34 @@ instr_counts(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool pre)
             jmps++;
     }
     if (pre) {
-        LOG(THREAD, LOG_OPTS, 2, "Prior to optimization\n     %d instrs in trace\n     %d jmps exiting trace\n", instrs, jmps);
+        LOG(THREAD, LOG_OPTS, 2,
+            "Prior to optimization\n     %d instrs in trace\n     %d jmps exiting "
+            "trace\n",
+            instrs, jmps);
         opt_stats_t.pre_num_instrs_seen += instrs;
         opt_stats_t.pre_num_jmps_seen += jmps;
     } else {
-        LOG(THREAD, LOG_OPTS, 2, "After optimization\n     %d instrs in trace\n     %d jmps exiting trace\n", instrs, jmps);
+        LOG(THREAD, LOG_OPTS, 2,
+            "After optimization\n     %d instrs in trace\n     %d jmps exiting trace\n",
+            instrs, jmps);
         opt_stats_t.post_num_instrs_seen += instrs;
         opt_stats_t.post_num_jmps_seen += jmps;
     }
-#endif
+#    endif
 }
-
 
 /***************************************************************************/
 /* from Tim */
 /* Constant Propagation */
 
 /* utility structures */
-#define PS_VALID_VAL       0x01
-#define PS_LVALID_VAL      0x02 /* high and low parts, only used for regs */
-#define PS_HVALID_VAL      0x04
-#define PS_KEEP            0x80
+#    define PS_VALID_VAL 0x01
+#    define PS_LVALID_VAL 0x02 /* high and low parts, only used for regs */
+#    define PS_HVALID_VAL 0x04
+#    define PS_KEEP 0x80
 
-#define NUM_CONSTANT_ADDRESS  24
-#define NUM_STACK_SLOTS   24
-
+#    define NUM_CONSTANT_ADDRESS 24
+#    define NUM_STACK_SLOTS 24
 
 static int cp_global_aggr;
 static int cp_local_aggr;
@@ -1284,13 +1344,12 @@ typedef struct _prop_state_t {
     bool lost_scope_count;
 } prop_state_t;
 
-
 static void
 set_stack_val(prop_state_t *state, int disp, int val, byte flags)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     bool cont = true;
     int i;
     for (i = 0; (i < NUM_STACK_SLOTS) && cont; i++) {
@@ -1305,22 +1364,24 @@ set_stack_val(prop_state_t *state, int disp, int val, byte flags)
     if (cont) {
         LOG(THREAD, LOG_OPTS, 3, "stack cache overflow\n");
         i = disp % NUM_STACK_SLOTS;
-        ASSERT(i>0 && i<NUM_STACK_SLOTS);
+        ASSERT(i > 0 && i < NUM_STACK_SLOTS);
         state->stack_offsets_ebp[i] = disp;
         state->stack_vals[i] = val;
         state->stack_scope[i] = state->cur_scope;
         state->stack_address_state[i] = flags;
     }
 
-    LOG(THREAD, LOG_OPTS, 3, " stack cache add: "PFX"  val "PFX"  scope depth %d flags 0x%02x\n", disp, val, state->cur_scope, flags);
+    LOG(THREAD, LOG_OPTS, 3,
+        " stack cache add: " PFX "  val " PFX "  scope depth %d flags 0x%02x\n", disp,
+        val, state->cur_scope, flags);
 }
 
 static void
 update_stack_val(prop_state_t *state, int disp, int val)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     bool cont = true;
     int i;
     for (i = 0; i < NUM_STACK_SLOTS && cont; i++) {
@@ -1329,7 +1390,9 @@ update_stack_val(prop_state_t *state, int disp, int val)
             state->stack_vals[i] = val;
             state->stack_address_state[i] |= PS_VALID_VAL;
             cont = false;
-            LOG(THREAD, LOG_OPTS, 3, " stack cache update disp "PFX" to value "PFX" at stack depth %d\n", disp, val, state->cur_scope);
+            LOG(THREAD, LOG_OPTS, 3,
+                " stack cache update disp " PFX " to value " PFX " at stack depth %d\n",
+                disp, val, state->cur_scope);
         }
     }
     if (cp_local_aggr > 2) {
@@ -1338,7 +1401,7 @@ update_stack_val(prop_state_t *state, int disp, int val)
     }
 }
 
-#if 0 /* not used */
+#    if 0 /* not used */
 static bool
 check_stack_val(prop_state_t *state, int disp, int val, bool valid)
 {
@@ -1356,22 +1419,24 @@ check_stack_val(prop_state_t *state, int disp, int val, bool valid)
     }
     return true;
 }
-#endif
+#    endif
 
 static void
 clear_stack_val(prop_state_t *state, int address)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     int i;
-    bool cont=true;
+    bool cont = true;
     for (i = 0; i < NUM_STACK_SLOTS && cont; i++) {
         if (state->stack_offsets_ebp[i] == address &&
             state->stack_scope[i] == state->cur_scope) {
             state->stack_address_state[i] &= PS_KEEP;
-            cont=false;
-            LOG(THREAD, LOG_OPTS, 3, " load constant cache cleared: disp "PFX" stack depth %d \n", address, state->cur_scope);
+            cont = false;
+            LOG(THREAD, LOG_OPTS, 3,
+                " load constant cache cleared: disp " PFX " stack depth %d \n", address,
+                state->cur_scope);
         }
     }
 }
@@ -1380,9 +1445,9 @@ clear_stack_val(prop_state_t *state, int address)
 static void
 set_address_val(prop_state_t *state, int address, int val, byte flags)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     bool cont = true;
     int i;
     for (i = 0; (i < NUM_CONSTANT_ADDRESS) && cont; i++) {
@@ -1396,12 +1461,14 @@ set_address_val(prop_state_t *state, int address, int val, byte flags)
     if (cont) {
         LOG(THREAD, LOG_OPTS, 3, "constant address cache overflow\n");
         i = address % NUM_CONSTANT_ADDRESS;
-        ASSERT(i>0 && i<NUM_CONSTANT_ADDRESS);
+        ASSERT(i > 0 && i < NUM_CONSTANT_ADDRESS);
         state->addresses[i] = address;
         state->address_vals[i] = val;
         state->address_state[i] = flags;
     }
-    LOG(THREAD, LOG_OPTS, 3, " load const cache add: "PFX"  val "PFX"  flags 0x%02x\n", address, val, flags);
+    LOG(THREAD, LOG_OPTS, 3,
+        " load const cache add: " PFX "  val " PFX "  flags 0x%02x\n", address, val,
+        flags);
 }
 
 /* updates and address value pair in the constant address cache if the address is
@@ -1409,9 +1476,9 @@ set_address_val(prop_state_t *state, int address, int val, byte flags)
 static void
 update_address_val(prop_state_t *state, int address, int val)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     bool cont = true;
     int i;
     for (i = 0; i < NUM_CONSTANT_ADDRESS; i++) {
@@ -1419,7 +1486,8 @@ update_address_val(prop_state_t *state, int address, int val)
             state->address_vals[i] = val;
             state->address_state[i] |= PS_VALID_VAL;
             cont = false;
-            LOG(THREAD, LOG_OPTS, 3, " load const cache update: "PFX"  val "PFX"\n", address, val);
+            LOG(THREAD, LOG_OPTS, 3, " load const cache update: " PFX "  val " PFX "\n",
+                address, val);
         }
     }
     if (cp_global_aggr > 2) {
@@ -1432,14 +1500,14 @@ update_address_val(prop_state_t *state, int address, int val)
 static void
 clear_address_val(prop_state_t *state, int address)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
     int i;
     for (i = 0; i < NUM_CONSTANT_ADDRESS; i++) {
         if (state->addresses[i] == address) {
             state->address_state[i] &= PS_KEEP;
-            LOG(THREAD, LOG_OPTS, 3, " load constant cache cleared: "PFX"\n", address);
+            LOG(THREAD, LOG_OPTS, 3, " load constant cache cleared: " PFX "\n", address);
         }
     }
 }
@@ -1454,53 +1522,48 @@ get_immutable_value(opnd_t address, prop_state_t *state, int size)
 {
     int result;
 
-    switch(size) {
-    case OPSZ_1:
-        {
-            char *ptr_byte = ((char*)(ptr_int_t)opnd_get_disp(address));
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            result = *ptr_byte;
-            break;
-        }
-    case OPSZ_2:
-        {
-            short *ptr_byte = ((short*)(ptr_int_t)opnd_get_disp(address));
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            result = *ptr_byte;
-            break;
-        }
-    case OPSZ_4:
-        {
-            int *ptr_byte = ((int*)(ptr_int_t)opnd_get_disp(address));
-            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-            result = *ptr_byte;
-            break;
-        }
-    default :
-        {
-            /* can't handle size, log is usually quadwords for floats */
-#ifdef DEBUG
-            dcontext_t *dcontext = state->dcontext;
-            logopnd(state->dcontext, 3, address, "Couldn't handle size in get_immutable_value");
-            LOG(THREAD, LOG_OPTS, 3, "Address size was %d\n", size);
-#endif
-            /* should never get here, since const_address_const_mem should fail */
-            result = 0;
-            ASSERT_NOT_REACHED();
-        }
+    switch (size) {
+    case OPSZ_1: {
+        char *ptr_byte = ((char *)(ptr_int_t)opnd_get_disp(address));
+        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        result = *ptr_byte;
+        break;
+    }
+    case OPSZ_2: {
+        short *ptr_byte = ((short *)(ptr_int_t)opnd_get_disp(address));
+        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        result = *ptr_byte;
+        break;
+    }
+    case OPSZ_4: {
+        int *ptr_byte = ((int *)(ptr_int_t)opnd_get_disp(address));
+        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+        result = *ptr_byte;
+        break;
+    }
+    default: {
+        /* can't handle size, log is usually quadwords for floats */
+#    ifdef DEBUG
+        dcontext_t *dcontext = state->dcontext;
+        logopnd(state->dcontext, 3, address,
+                "Couldn't handle size in get_immutable_value");
+        LOG(THREAD, LOG_OPTS, 3, "Address size was %d\n", size);
+#    endif
+        /* should never get here, since const_address_const_mem should fail */
+        result = 0;
+        ASSERT_NOT_REACHED();
+    }
     }
 
     return result;
 }
-
 
 /* returns true if the opnd is a stack  address (ebp)
  * i.e. is memory access with ebp as reg base and null as index reg */
 static bool
 opnd_is_stack_address(opnd_t address)
 {
-    return (opnd_is_near_base_disp(address) &&
-            (opnd_get_base(address) == REG_EBP) &&
+    return (opnd_is_near_base_disp(address) && (opnd_get_base(address) == REG_EBP) &&
             (opnd_get_index(address) == REG_NULL));
 }
 
@@ -1520,11 +1583,12 @@ const_address_const_mem(opnd_t address, prop_state_t *state, bool prefix_data)
     }
     if (size != OPSZ_1 && size != OPSZ_2 && size != OPSZ_4) {
         /* can't handle size, is usually quadwords for floats */
-#ifdef DEBUG
+#    ifdef DEBUG
         dcontext_t *dcontext = state->dcontext;
-        logopnd(state->dcontext, 3, address, "Couldn't handle size in const_address_const_mem");
+        logopnd(state->dcontext, 3, address,
+                "Couldn't handle size in const_address_const_mem");
         LOG(THREAD, LOG_OPTS, 3, "Address size was %d\n", size);
-#endif
+#    endif
         return false;
     }
 
@@ -1611,10 +1675,10 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
 
     reg_id_t reg;
     int immed, disp, i;
-    opnd_size_t size=OPSZ_NA;
-#ifdef DEBUG
+    opnd_size_t size = OPSZ_NA;
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
+#    endif
 
     if (opnd_is_reg(old)) {
         reg = opnd_get_reg(old) - REG_START_32;
@@ -1699,17 +1763,18 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
 
     if (opnd_is_constant_address(old) && cp_global_aggr > 0) {
         if (const_address_const_mem(old, state, prefix_data)) {
-#ifdef DEBUG
+#    ifdef DEBUG
             logopnd(state->dcontext, 2, old, " found const address const mem\n");
             opt_stats_t.num_const_add_const_mem++;
-#endif
+#    endif
             immed = get_immutable_value(old, state, size);
             return opnd_create_immed_int(immed, size);
         } else {
             // check for constant address
             disp = opnd_get_disp(old);
             for (i = 0; i < NUM_CONSTANT_ADDRESS; i++) {
-                if (state->addresses[i] == disp && (state->address_state[i] & PS_VALID_VAL) != 0) {
+                if (state->addresses[i] == disp &&
+                    (state->address_state[i] & PS_VALID_VAL) != 0) {
                     logopnd(state->dcontext, 3, old, " found cached constant address\n");
                     immed = state->address_vals[i];
                     return opnd_create_immed_int(immed, size);
@@ -1739,12 +1804,9 @@ check_flag_val(uint flag, int val, uint eflags, uint eflags_valid)
 static bool
 compare_flag_vals(uint flag1, uint flag2, bool same, uint eflags, uint eflags_valid)
 {
-    if (((eflags_valid & flag1) != 0) &&
-        ((eflags_valid & flag2) != 0)) {
-        if ((same && (((flag1 & eflags) != 0) ==
-                      ((flag2 & eflags) != 0))) ||
-            ((!same) && (((flag1 & eflags) != 0) !=
-                         ((flag2 & eflags) != 0)))) {
+    if (((eflags_valid & flag1) != 0) && ((eflags_valid & flag2) != 0)) {
+        if ((same && (((flag1 & eflags) != 0) == ((flag2 & eflags) != 0))) ||
+            ((!same) && (((flag1 & eflags) != 0) != ((flag2 & eflags) != 0)))) {
             return true;
         }
     }
@@ -1757,75 +1819,79 @@ static bool
 removable_jmp(instr_t *inst, uint eflags, uint eflags_valid)
 {
     int opcode = instr_get_opcode(inst);
-    switch(opcode) {
-    case OP_jno_short: case OP_jno:
-        {
-            return check_flag_val(EFLAGS_READ_OF, 1, eflags, eflags_valid);
-        }
-    case OP_jo_short: case OP_jo:
-        {
-            return check_flag_val(EFLAGS_READ_OF, 0, eflags, eflags_valid);
-        }
-    case OP_jnb_short: case OP_jnb:
-        {
-            return check_flag_val(EFLAGS_READ_CF, 1, eflags, eflags_valid);
-        }
-    case OP_jb_short: case OP_jb:
-        {
-            return check_flag_val(EFLAGS_READ_CF, 0, eflags, eflags_valid);
-        }
-    case OP_jnz_short: case OP_jnz:
-        {
-            return check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid);
-        }
-    case OP_jz_short: case OP_jz:
-        {
-            return check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid);
-        }
-    case OP_jnbe_short: case OP_jnbe:
-        {
-            return (check_flag_val(EFLAGS_READ_CF, 1, eflags, eflags_valid) ||
-                    check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid));
-        }
-    case OP_jbe_short: case OP_jbe:
-        {
-            return (check_flag_val(EFLAGS_READ_CF, 0, eflags, eflags_valid) &&
-                    check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid));
-        }
-    case OP_jns_short: case OP_jns:
-        {
-            return check_flag_val(EFLAGS_READ_SF, 1, eflags, eflags_valid);
-        }
-    case OP_js_short: case OP_js:
-        {
-            return check_flag_val(EFLAGS_READ_SF, 0, eflags, eflags_valid);
-        }
-    case OP_jnp_short: case OP_jnp:
-        {
-            return check_flag_val(EFLAGS_READ_PF, 1, eflags, eflags_valid);
-        }
-    case OP_jp_short: case OP_jp:
-        {
-            return check_flag_val(EFLAGS_READ_PF, 0, eflags, eflags_valid);
-        }
-    case OP_jnl_short: case OP_jnl:
-        {
-            return compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, false, eflags, eflags_valid);
-        }
-    case OP_jl_short: case OP_jl:
-        {
-            return compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, true, eflags, eflags_valid);
-        }
-    case OP_jnle_short: case OP_jnle:
-        {
-            return (check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid) ||
-                    compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, false, eflags, eflags_valid));
-        }
-    case OP_jle_short: case OP_jle:
-        {
-            return (check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid) &&
-                    compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, true, eflags, eflags_valid));
-        }
+    switch (opcode) {
+    case OP_jno_short:
+    case OP_jno: {
+        return check_flag_val(EFLAGS_READ_OF, 1, eflags, eflags_valid);
+    }
+    case OP_jo_short:
+    case OP_jo: {
+        return check_flag_val(EFLAGS_READ_OF, 0, eflags, eflags_valid);
+    }
+    case OP_jnb_short:
+    case OP_jnb: {
+        return check_flag_val(EFLAGS_READ_CF, 1, eflags, eflags_valid);
+    }
+    case OP_jb_short:
+    case OP_jb: {
+        return check_flag_val(EFLAGS_READ_CF, 0, eflags, eflags_valid);
+    }
+    case OP_jnz_short:
+    case OP_jnz: {
+        return check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid);
+    }
+    case OP_jz_short:
+    case OP_jz: {
+        return check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid);
+    }
+    case OP_jnbe_short:
+    case OP_jnbe: {
+        return (check_flag_val(EFLAGS_READ_CF, 1, eflags, eflags_valid) ||
+                check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid));
+    }
+    case OP_jbe_short:
+    case OP_jbe: {
+        return (check_flag_val(EFLAGS_READ_CF, 0, eflags, eflags_valid) &&
+                check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid));
+    }
+    case OP_jns_short:
+    case OP_jns: {
+        return check_flag_val(EFLAGS_READ_SF, 1, eflags, eflags_valid);
+    }
+    case OP_js_short:
+    case OP_js: {
+        return check_flag_val(EFLAGS_READ_SF, 0, eflags, eflags_valid);
+    }
+    case OP_jnp_short:
+    case OP_jnp: {
+        return check_flag_val(EFLAGS_READ_PF, 1, eflags, eflags_valid);
+    }
+    case OP_jp_short:
+    case OP_jp: {
+        return check_flag_val(EFLAGS_READ_PF, 0, eflags, eflags_valid);
+    }
+    case OP_jnl_short:
+    case OP_jnl: {
+        return compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, false, eflags,
+                                 eflags_valid);
+    }
+    case OP_jl_short:
+    case OP_jl: {
+        return compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, true, eflags,
+                                 eflags_valid);
+    }
+    case OP_jnle_short:
+    case OP_jnle: {
+        return (check_flag_val(EFLAGS_READ_ZF, 1, eflags, eflags_valid) ||
+                compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, false, eflags,
+                                  eflags_valid));
+    }
+    case OP_jle_short:
+    case OP_jle: {
+        return (check_flag_val(EFLAGS_READ_ZF, 0, eflags, eflags_valid) &&
+                compare_flag_vals(EFLAGS_READ_SF, EFLAGS_READ_OF, true, eflags,
+                                  eflags_valid));
+    }
     }
     return false;
 }
@@ -1833,30 +1899,35 @@ removable_jmp(instr_t *inst, uint eflags, uint eflags_valid)
 /* takes in an eflags, eflags_valid and eflags_invalid and propagates the information
  * forward simplifying instructions and eliminating jumps where possible, returns false
  * if it reaches a non simplifiable instruction depends on the any of the eflags_valid
- * or eflags_invalid before all flags in valid and invalid are overwritten by instructions */
+ * or eflags_invalid before all flags in valid and invalid are overwritten by instructions
+ */
 static bool
-do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint eflags_invalid, prop_state_t *state)
+do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid,
+                        uint eflags_invalid, prop_state_t *state)
 {
-#ifdef DEBUG
+#    ifdef DEBUG
     dcontext_t *dcontext = state->dcontext;
-#endif
-    instr_t *next_inst, *temp=NULL;
+#    endif
+    instr_t *next_inst, *temp = NULL;
     uint eflags_check;
     int opcode;
     uint temp_ef;
-    bool replace = false;;
+    bool replace = false;
+    ;
     if ((eflags_valid == 0) && (eflags_invalid == 0))
         return true;
     for (inst = instr_get_next(inst); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         loginst(state->dcontext, 3, inst, " flag checking ");
         while ((inst != NULL) && instr_is_cti(inst)) {
-            LOG(THREAD, LOG_OPTS, 3, "attempting to remove, eflags = "PFX" eflags valid = "PFX"\n", eflags, eflags_valid);
+            LOG(THREAD, LOG_OPTS, 3,
+                "attempting to remove, eflags = " PFX " eflags valid = " PFX "\n", eflags,
+                eflags_valid);
             if (removable_jmp(inst, eflags, eflags_valid)) {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_jmps_simplified++;
                 loginst(state->dcontext, 3, inst, " removing this jmp ");
-#endif
+#    endif
                 remove_inst(state->dcontext, state->trace, inst);
                 inst = next_inst;
                 next_inst = instr_get_next(inst);
@@ -1880,44 +1951,57 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
          * be setting it right
          */
         opcode = instr_get_opcode(inst);
-        if (((opcode == OP_seto) || (opcode == OP_setno)) && ((eflags_valid & EFLAGS_READ_OF) != 0)) {
+        if (((opcode == OP_seto) || (opcode == OP_setno)) &&
+            ((eflags_valid & EFLAGS_READ_OF) != 0)) {
             if (((eflags & EFLAGS_READ_OF) != 0 && opcode == OP_seto) ||
                 ((eflags & EFLAGS_READ_OF) == 0 && opcode == OP_setno)) {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(1));
             } else {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(0));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(0));
             }
             replace = true;
         }
-        if (((opcode == OP_setz) || (opcode == OP_setnz)) && ((eflags_valid & EFLAGS_READ_ZF) != 0)) {
+        if (((opcode == OP_setz) || (opcode == OP_setnz)) &&
+            ((eflags_valid & EFLAGS_READ_ZF) != 0)) {
             if (((eflags & EFLAGS_READ_ZF) != 0 && opcode == OP_setz) ||
                 ((eflags & EFLAGS_READ_ZF) == 0 && opcode == OP_setnz)) {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(1));
             } else {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(0));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(0));
             }
             replace = true;
         }
-        if (((opcode == OP_setb) || (opcode == OP_setnb)) && ((eflags_valid & EFLAGS_READ_CF) != 0)) {
+        if (((opcode == OP_setb) || (opcode == OP_setnb)) &&
+            ((eflags_valid & EFLAGS_READ_CF) != 0)) {
             if (((eflags & EFLAGS_READ_CF) != 0 && opcode == OP_setb) ||
                 ((eflags & EFLAGS_READ_CF) == 0 && opcode == OP_setnb)) {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(1));
             } else {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(0));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(0));
             }
             replace = true;
         }
-        if (((opcode == OP_sets) || (opcode == OP_setns)) && ((eflags_valid & EFLAGS_READ_SF) != 0)) {
+        if (((opcode == OP_sets) || (opcode == OP_setns)) &&
+            ((eflags_valid & EFLAGS_READ_SF) != 0)) {
             if (((eflags & EFLAGS_READ_SF) != 0 && opcode == OP_sets) ||
                 ((eflags & EFLAGS_READ_SF) == 0 && opcode == OP_setns)) {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(1));
             } else {
-                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(0));
+                temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                                           OPND_CREATE_INT8(0));
             }
             replace = true;
         }
 
-        temp_ef = EFLAGS_READ_SF | EFLAGS_READ_ZF | EFLAGS_READ_AF | EFLAGS_READ_PF | EFLAGS_READ_CF;
+        temp_ef = EFLAGS_READ_SF | EFLAGS_READ_ZF | EFLAGS_READ_AF | EFLAGS_READ_PF |
+            EFLAGS_READ_CF;
         if ((opcode == OP_lahf) && ((eflags_valid & temp_ef) == temp_ef)) {
             temp_ef = 0x02;
             if ((eflags & EFLAGS_READ_CF) != 0)
@@ -1931,30 +2015,36 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
             // have to sign extend so the create immed int turns out right
             if ((eflags & EFLAGS_READ_SF) != 0)
                 temp_ef = temp_ef | 0xffffff80;
-            LOG(THREAD, LOG_OPTS, 3, "lahf val  %d  "PFX"\n", temp_ef, temp_ef);
-            temp = INSTR_CREATE_mov_imm(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(temp_ef));
+            LOG(THREAD, LOG_OPTS, 3, "lahf val  %d  " PFX "\n", temp_ef, temp_ef);
+            temp = INSTR_CREATE_mov_imm(state->dcontext, instr_get_dst(inst, 0),
+                                        OPND_CREATE_INT8(temp_ef));
             replace = true;
         }
 
         if (replace) {
-#ifdef DEBUG
+#    ifdef DEBUG
             opt_stats_t.num_instrs_simplified++;
             loginst(state->dcontext, 3, inst, " old instruction");
             loginst(state->dcontext, 3, temp, " simplified to  ");
-#endif
+#    endif
             replace_inst(state->dcontext, state->trace, inst, temp);
             inst = temp;
             replace = false;
         }
 
         eflags_check = instr_get_eflags(inst, DR_QUERY_DEFAULT);
-        if (((eflags_invalid & eflags_check) != 0) || ((eflags_valid & eflags_check) != 0)) {
+        if (((eflags_invalid & eflags_check) != 0) ||
+            ((eflags_valid & eflags_check) != 0)) {
             loginst(state->dcontext, 3, inst, " uses eflags!");
-            LOG(THREAD, LOG_OPTS, 3, "forward eflags check failed(3)  "PFX"   "PFX"  "PFX"\n", eflags_valid, eflags_invalid, eflags_check);
+            LOG(THREAD, LOG_OPTS, 3,
+                "forward eflags check failed(3)  " PFX "   " PFX "  " PFX "\n",
+                eflags_valid, eflags_invalid, eflags_check);
             return false;
         }
-        eflags_invalid = eflags_invalid & (~ (EFLAGS_WRITE_TO_READ(eflags_check & EFLAGS_WRITE_ALL)));
-        eflags_valid = eflags_valid & (~ (EFLAGS_WRITE_TO_READ(eflags_check & EFLAGS_WRITE_ALL)));
+        eflags_invalid =
+            eflags_invalid & (~(EFLAGS_WRITE_TO_READ(eflags_check & EFLAGS_WRITE_ALL)));
+        eflags_valid =
+            eflags_valid & (~(EFLAGS_WRITE_TO_READ(eflags_check & EFLAGS_WRITE_ALL)));
         if ((eflags_valid == 0) && (eflags_invalid == 0))
             return true;
     }
@@ -1969,16 +2059,17 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
 static bool
 forward_check_eflags(instr_t *inst, prop_state_t *state)
 {
-    return do_forward_check_eflags(inst, 0, 0,
-                                   EFLAGS_WRITE_TO_READ
-                                   (instr_get_eflags(inst, DR_QUERY_DEFAULT) &
-                                    EFLAGS_WRITE_ALL), state);
+    return do_forward_check_eflags(
+        inst, 0, 0,
+        EFLAGS_WRITE_TO_READ(instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_WRITE_ALL),
+        state);
 }
 
 static instr_t *
 make_imm_store(prop_state_t *state, instr_t *inst, int value)
 {
-    return INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),  OPND_CREATE_INT32(value));
+    return INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0),
+                               OPND_CREATE_INT32(value));
 }
 
 /* replaces inst with a mov imm of value to the same dst */
@@ -1993,36 +2084,44 @@ make_to_imm_store(instr_t *inst, int value, prop_state_t *state)
         replacement = INSTR_CREATE_xor(dcontext, dst, dst);
         if (instr_get_prefix_flag(inst, PREFIX_DATA)) {
             instr_set_prefix_flag(replacement, PREFIX_DATA);
-            LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst));
+            LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n",
+                instr_get_prefixes(inst));
         }
-        if (do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(replacement, DR_QUERY_DEFAULT)), state)) {
+        if (do_forward_check_eflags(
+                inst, 0, 0,
+                EFLAGS_WRITE_TO_READ(instr_get_eflags(replacement, DR_QUERY_DEFAULT)),
+                state)) {
             /* check size prefixes, ignore lock and addr prefix */
             replace_inst(dcontext, state->trace, inst, replacement);
             return replacement;
         } else {
-            loginst(dcontext, 3, inst, " unable to simplify move zero to xor, e-flags check failed ");
+            loginst(dcontext, 3, inst,
+                    " unable to simplify move zero to xor, e-flags check failed ");
             instr_destroy(dcontext, replacement);
         }
     }
 
     /* is always creating the right sized imm? */
-    replacement = INSTR_CREATE_mov_st(state->dcontext, dst,  opnd_create_immed_int(value, opnd_get_size(dst)));
+    replacement = INSTR_CREATE_mov_st(state->dcontext, dst,
+                                      opnd_create_immed_int(value, opnd_get_size(dst)));
     /* handle prefixes, imm->reg (data) imm->mem (data & addr) */
     if (instr_get_prefix_flag(inst, PREFIX_DATA)) {
         instr_set_prefix_flag(replacement, PREFIX_DATA);
-        LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst));
+        LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n",
+            instr_get_prefixes(inst));
     }
     if (instr_get_prefix_flag(inst, PREFIX_ADDR) && opnd_is_memory_reference(dst)) {
         instr_set_prefix_flag(replacement, PREFIX_ADDR);
-        LOG(THREAD, LOG_OPTS, 3, "carrying addr prefix over %d\n", instr_get_prefixes(inst));
+        LOG(THREAD, LOG_OPTS, 3, "carrying addr prefix over %d\n",
+            instr_get_prefixes(inst));
     }
     replace_inst(dcontext, state->trace, inst, replacement);
     return replacement;
 }
 
 static instr_t *
-make_to_nop(prop_state_t *state, instr_t *inst, const char *pre,
-            const char *post, const char *fail)
+make_to_nop(prop_state_t *state, instr_t *inst, const char *pre, const char *post,
+            const char *fail)
 {
     instr_t *backup;
     if (forward_check_eflags(inst, state)) {
@@ -2066,7 +2165,7 @@ static instr_t *
 prop_simplify(instr_t *inst, prop_state_t *state)
 {
     instr_t *replacement;
-    int opcode, num_src, num_dst, immed1, immed2, immed3=0, i;
+    int opcode, num_src, num_dst, immed1, immed2, immed3 = 0, i;
     opnd_t temp_opnd;
     uint eflags, eflags_valid, eflags_invalid;
     dcontext_t *dcontext = state->dcontext;
@@ -2084,87 +2183,81 @@ prop_simplify(instr_t *inst, prop_state_t *state)
     }
 
     if ((num_src == 1) && (num_dst == 1) && opnd_is_immed_int(instr_get_src(inst, 0))) {
-        immed1 = (int) opnd_get_immed_int(instr_get_src(inst, 0));
-        switch(opcode) {
+        immed1 = (int)opnd_get_immed_int(instr_get_src(inst, 0));
+        switch (opcode) {
             // movsx bsf bsr
         case OP_mov_st:
-        case OP_mov_ld:
-            {
-                inst = make_to_imm_store(inst, immed1, state);
-                break;
+        case OP_mov_ld: {
+            inst = make_to_imm_store(inst, immed1, state);
+            break;
+        }
+        case OP_movzx: {
+            if (opnd_get_size(instr_get_src(inst, 0)) == OPSZ_1) {
+                immed3 = immed1 & 0x000000ff;
+            } else {
+                immed3 = immed1 & 0x0000ffff;
             }
-        case OP_movzx:
-            {
-                if (opnd_get_size(instr_get_src(inst, 0)) == OPSZ_1) {
-                    immed3 = immed1 & 0x000000ff;
-                } else {
-                    immed3 = immed1 & 0x0000ffff;
-                }
+            inst = make_to_imm_store(inst, immed3, state);
+            break;
+        }
+        case OP_movsx: {
+            /* already sign extended */
+            immed3 = immed1;
+            inst = make_to_imm_store(inst, immed3, state);
+            break;
+        }
+        case OP_bswap: {
+            immed3 = (((immed1 << 24) & 0xff000000) | ((immed1 << 8) & 0x00ff0000) |
+                      ((immed1 >> 8) & 0x0000ff00) | ((immed1 >> 24) & 0x000000ff));
+            inst = make_to_imm_store(inst, immed3, state);
+            break;
+        }
+        case OP_not: {
+            immed3 = ~immed1;
+            inst = make_to_imm_store(inst, immed3, state);
+            break;
+        }
+        case OP_neg: {
+            immed3 = -immed1;
+            inst = make_to_imm_store(inst, immed3, state);
+            break;
+        }
+        case OP_inc: {
+            immed3 = immed1 + 1;
+            eflags = calculate_zf_pf_sf(immed3);
+            eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
+            eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL &
+                (~eflags_valid);
+            if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid,
+                                        state))
                 inst = make_to_imm_store(inst, immed3, state);
-                break;
-            }
-        case OP_movsx:
-            {
-                /* already sign extended */
-                immed3 = immed1;
+            else
+                state->hint = make_imm_store(state, inst, immed3);
+            break;
+        }
+        case OP_dec: {
+            immed3 = immed1 - 1;
+            eflags = calculate_zf_pf_sf(immed3);
+            eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
+            eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL &
+                (~eflags_valid);
+            if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid,
+                                        state))
                 inst = make_to_imm_store(inst, immed3, state);
-                break;
-            }
-        case OP_bswap:
-            {
-                immed3 = (((immed1 << 24) & 0xff000000) |
-                          ((immed1 << 8) & 0x00ff0000) |
-                          ((immed1 >> 8) & 0x0000ff00) |
-                          ((immed1 >> 24) & 0x000000ff));
-                inst = make_to_imm_store(inst, immed3, state);
-                break;
-            }
-        case OP_not:
-            {
-                immed3 = ~immed1;
-                inst = make_to_imm_store(inst, immed3, state);
-                break;
-            }
-        case OP_neg:
-            {
-                immed3 = -immed1;
-                inst = make_to_imm_store(inst, immed3, state);
-                break;
-            }
-        case OP_inc:
-            {
-                immed3 = immed1 + 1;
-                eflags = calculate_zf_pf_sf(immed3);
-                eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
-                eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL & (~eflags_valid);
-                if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid, state))
-                    inst = make_to_imm_store(inst, immed3, state);
-                else
-                    state->hint = make_imm_store(state, inst, immed3);
-                break;
-            }
-        case OP_dec:
-            {
-                immed3 = immed1 - 1;
-                eflags = calculate_zf_pf_sf(immed3);
-                eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
-                eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL & (~eflags_valid);
-                if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid, state))
-                    inst = make_to_imm_store(inst, immed3, state);
-                else
-                    state->hint = make_imm_store(state, inst, immed3);
-                break;
-            }
-        default:
-            {
-                // unable to simplify instruction
-            }
+            else
+                state->hint = make_imm_store(state, inst, immed3);
+            break;
+        }
+        default: {
+            // unable to simplify instruction
+        }
         }
         return inst;
     }
 
-    if ((num_src == 2) && opnd_is_immed_int(instr_get_src(inst, 1)) && !opnd_is_immed_int(instr_get_src(inst, 0))) {
-        immed1 = (int) opnd_get_immed_int(instr_get_src(inst, 1));
+    if ((num_src == 2) && opnd_is_immed_int(instr_get_src(inst, 1)) &&
+        !opnd_is_immed_int(instr_get_src(inst, 0))) {
+        immed1 = (int)opnd_get_immed_int(instr_get_src(inst, 1));
         if (opcode == OP_cmp || opcode == OP_test) {
             temp_opnd = instr_get_src(inst, 1);
             if ((immed1 <= 127) && (immed1 >= -128)) {
@@ -2177,7 +2270,9 @@ prop_simplify(instr_t *inst, prop_state_t *state)
             if (immed1 == 0) {
                 /* NOTE : this hardcodes indirect branch stuff */
                 instr_t *inst2, *inst3;
-                LOG(THREAD, LOG_OPTS, 3, "Found removable jeczx inst noping it and removing 2 prev, and next three instructions\n");
+                LOG(THREAD, LOG_OPTS, 3,
+                    "Found removable jeczx inst noping it and removing 2 prev, and next "
+                    "three instructions\n");
                 replacement = INSTR_CREATE_nop(state->dcontext);
                 replace_inst(state->dcontext, state->trace, inst, replacement);
                 inst = replacement;
@@ -2185,7 +2280,8 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 /* remove control flow after jecxz */
                 inst2 = instr_get_next(inst);
                 loginst(dcontext, 3, inst2, "removing ");
-                ASSERT(instr_get_opcode(inst2) == OP_lea && opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX);
+                ASSERT(instr_get_opcode(inst2) == OP_lea &&
+                       opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX);
                 instrlist_remove(state->trace, inst2);
                 inst2 = instr_get_next(inst);
                 loginst(dcontext, 3, inst2, "removing ");
@@ -2197,13 +2293,14 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 inst3 = instr_get_prev(inst2);
                 if (instr_get_opcode(inst2) == OP_nop ||
                     ((instr_get_opcode(inst2) == OP_mov_imm ||
-                      instr_get_opcode(inst2) == OP_mov_st ||
-                      is_zeroing_instr(inst2)) &&
+                      instr_get_opcode(inst2) == OP_mov_st || is_zeroing_instr(inst2)) &&
                      opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX)) {
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
                 } else {
-                    loginst(dcontext, 1, inst2, "ERROR : unexpected instruction in constant prop indirect branch removal (1) aborting");
+                    loginst(dcontext, 1, inst2,
+                            "ERROR : unexpected instruction in constant prop indirect "
+                            "branch removal (1) aborting");
                     return inst;
                 }
                 inst2 = inst3;
@@ -2215,8 +2312,11 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 /* is mov imm->reg, save to ecxoff */
                 /* !save to ecxoff might be noped, as might any of the other */
                 /* prev. by constant prop, asserts are fragile, remove them? */
-                if (instr_get_opcode(inst2) == OP_pop || instr_get_opcode(inst2) == OP_lea) {
-                    loginst(dcontext, 3, inst2, "ERROR : found what looks like a call return in jecxz removal, but we can't find those yet!! aborting");
+                if (instr_get_opcode(inst2) == OP_pop ||
+                    instr_get_opcode(inst2) == OP_lea) {
+                    loginst(dcontext, 3, inst2,
+                            "ERROR : found what looks like a call return in jecxz "
+                            "removal, but we can't find those yet!! aborting");
                     return inst;
                 }
                 if (instr_get_opcode(inst2) == OP_push_imm) {
@@ -2226,21 +2326,25 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 inst3 = instr_get_prev(inst2);
                 if (instr_get_opcode(inst2) == OP_nop ||
                     ((instr_get_opcode(inst2) == OP_mov_imm ||
-                      instr_get_opcode(inst2) == OP_mov_st ||
-                      is_zeroing_instr(inst2)) &&
+                      instr_get_opcode(inst2) == OP_mov_st || is_zeroing_instr(inst2)) &&
                      opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX)) {
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
                 } else {
-                    loginst(dcontext, 1, inst2, "ERROR : unexpected instruction in constant prop indirect branch removal (2) aborting");
+                    loginst(dcontext, 1, inst2,
+                            "ERROR : unexpected instruction in constant prop indirect "
+                            "branch removal (2) aborting");
                     return inst;
                 }
                 inst2 = inst3;
-                if (instr_get_opcode(inst2) == OP_nop || is_store_to_ecxoff(dcontext, inst2)) {
+                if (instr_get_opcode(inst2) == OP_nop ||
+                    is_store_to_ecxoff(dcontext, inst2)) {
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
                 } else {
-                    loginst(dcontext, 1, inst2, "ERROR : unexpected instruction in constant prop indirect branch removal (3) aborting");
+                    loginst(dcontext, 1, inst2,
+                            "ERROR : unexpected instruction in constant prop indirect "
+                            "branch removal (3) aborting");
                     return inst;
                 }
 
@@ -2251,216 +2355,202 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
                 } else {
-                    loginst(dcontext, 1, inst2, "ERROR : unexpected instruction in constant prop indirect branch removal (a), This could be very bad");
+                    loginst(dcontext, 1, inst2,
+                            "ERROR : unexpected instruction in constant prop indirect "
+                            "branch removal (a), This could be very bad");
                 }
 
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_jmps_simplified++;
                 opt_stats_t.num_instrs_simplified++;
                 opt_stats_t.num_jecxz_instrs_removed += 6;
-#endif
+#    endif
             } else {
-                loginst(dcontext, 1, inst, "ERROR : Constant prop predicts indirect branch exit from trace always taken! If this is part of a reconstruct for exception state then the pc calculated is going to be wrong, if it isn't then something is broken regarding constant prop");
+                loginst(dcontext, 1, inst,
+                        "ERROR : Constant prop predicts indirect branch exit from trace "
+                        "always taken! If this is part of a reconstruct for exception "
+                        "state then the pc calculated is going to be wrong, if it isn't "
+                        "then something is broken regarding constant prop");
             }
         }
         return inst;
     }
 
     if ((num_src == 2) && opnd_is_immed_int(instr_get_src(inst, 0))) {
-        immed1 = (int) opnd_get_immed_int(instr_get_src(inst, 0));
+        immed1 = (int)opnd_get_immed_int(instr_get_src(inst, 0));
 
         if (!opnd_is_immed_int(instr_get_src(inst, 1))) {
-            switch(opcode) {
+            switch (opcode) {
             case OP_sub:
             case OP_add:
             case OP_or:
             case OP_and:
-            case OP_xor:
-                {
-                    temp_opnd = instr_get_src(inst, 0);
-                    if ((immed1 <= 127) && (immed1 >= -128)) {
-                        opnd_set_size(&temp_opnd, OPSZ_1);
-                        instr_set_src(inst, 0, temp_opnd);
-                    }
-                    break;
+            case OP_xor: {
+                temp_opnd = instr_get_src(inst, 0);
+                if ((immed1 <= 127) && (immed1 >= -128)) {
+                    opnd_set_size(&temp_opnd, OPSZ_1);
+                    instr_set_src(inst, 0, temp_opnd);
                 }
-            case OP_test:
-                {
-                    temp_opnd = instr_get_src(inst, 0);
-                    if ((immed1 <= 127) && (immed1 >= -128))
-                        opnd_set_size(&temp_opnd, OPSZ_1);
-                    instr_set_src(inst, 0, instr_get_src(inst, 1));
-                    instr_set_src(inst, 1, temp_opnd);
-                    break;
-                }
-            case OP_push:
-                {
-                    instr_set_opcode(inst, OP_push_imm);
-                    break;
-                }
+                break;
+            }
+            case OP_test: {
+                temp_opnd = instr_get_src(inst, 0);
+                if ((immed1 <= 127) && (immed1 >= -128))
+                    opnd_set_size(&temp_opnd, OPSZ_1);
+                instr_set_src(inst, 0, instr_get_src(inst, 1));
+                instr_set_src(inst, 1, temp_opnd);
+                break;
+            }
+            case OP_push: {
+                instr_set_opcode(inst, OP_push_imm);
+                break;
+            }
             }
             return inst;
         } else {
-            immed2 = (int) opnd_get_immed_int(instr_get_src(inst, 1));
-            switch(num_dst) {
-            case 0:
-                {
-                    switch(opcode) {
-                    case OP_test:
-                        {
-                            immed3 = immed1 & immed2;
-                            eflags_valid = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_AF;
-                            // technically AF is undefined, but since no one
-                            // should be relying on it we can set it to zero
-                            eflags = calculate_zf_pf_sf(immed3);
-                            if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
-                                replacement = INSTR_CREATE_nop(state->dcontext);
-                                replace_inst(dcontext, state->trace, inst, replacement);
-                                inst = replacement;
-                            }
-                            break;
-                        }
-                    case OP_cmp:
-                        {
-                            //FIXME of and sf and af correct? FIXME!!
-                            immed3 = immed1 - immed2;
-                            eflags = calculate_zf_pf_sf(immed3);
-                            if (((uint)immed1) < ((uint)immed2)) {
-                                eflags = eflags | EFLAGS_READ_CF;
-                            }
-                            if (((immed1 >= immed2) && ((eflags & EFLAGS_READ_CF) != 0)) ||
-                                ((immed1 < immed2) && ((eflags & EFLAGS_READ_CF) == 0))) {
-                                eflags = eflags | EFLAGS_READ_OF;
-                            }
-                            if ((immed1 & 0x7) < (immed2 & 0x7))
-                                eflags = eflags | EFLAGS_READ_AF;
-                            eflags_valid = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_AF;
-                            if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
-                                replacement = INSTR_CREATE_nop(state->dcontext);
-                                replace_inst(state->dcontext, state->trace, inst, replacement);
-                                inst = replacement;
-                            }
-                            break;
-                        }
-                    default:
-                        {
-                            // couldn't handle
-                        }
+            immed2 = (int)opnd_get_immed_int(instr_get_src(inst, 1));
+            switch (num_dst) {
+            case 0: {
+                switch (opcode) {
+                case OP_test: {
+                    immed3 = immed1 & immed2;
+                    eflags_valid = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF |
+                        EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_AF;
+                    // technically AF is undefined, but since no one
+                    // should be relying on it we can set it to zero
+                    eflags = calculate_zf_pf_sf(immed3);
+                    if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
+                        replacement = INSTR_CREATE_nop(state->dcontext);
+                        replace_inst(dcontext, state->trace, inst, replacement);
+                        inst = replacement;
                     }
                     break;
                 }
-            case 1:
-                {
-                    /* TODO: maby explicitly find some flags? */
-                    bool replace = true;
-                    int size;
-                    switch(opcode) {
-                    case OP_add:
-                        immed3 = immed2 + immed1;
-                        break;
-                    case OP_sub:
-                        immed3 = immed2 - immed1;
-                        break;
-                    case OP_or:
-                        immed3 = immed2 | immed1;
-                        break;
-                    case OP_and:
-                        immed3 = immed2 & immed1;
-                        break;
-                    case OP_xor:
-                        immed3 = immed2 ^ immed1;
-                        break;
-                    case OP_shl:
-                        /* same as OP_sal */
-                        size = opnd_get_size(instr_get_src(inst, 1));
-                        immed3 = immed2 << (immed1 & 0x1F);
-                        /* adjust for size */
-                        if (size == OPSZ_1) {
-                            if ((immed3 & 0x00000080) != 0)
-                                immed3 |= 0xffffff00;
-                            else
-                                immed3 &= 0x000000ff;
-                        } else if (size == OPSZ_2) {
-                            if ((immed3 & 0x00008000) != 0)
-                                immed3 |= 0xffff0000;
-                            else
-                                immed3 &= 0x0000ffff;
-                        } else if (size != OPSZ_4)
-                            replace = false;
-                        break;
-                    case OP_sar:
-                        {
-                            bool neg = immed2 < 0;
-                            size = opnd_get_size(instr_get_src(inst, 1));
-                            if (size == OPSZ_1) {
-                                immed3 = immed2 >> (immed1 & 0x1f);
-                                if (neg)
-                                    immed3 |= 0xffffff00;
-                                else
-                                    immed3 &= 0x000000ff;
-                            } else if (size == OPSZ_2) {
-                                immed3 = immed2 >> (immed1 & 0x1f);
-                                if (neg)
-                                    immed3 |= 0xffff0000;
-                                else
-                                    immed3 &= 0x0000ffff;
-                            } else if (size == OPSZ_4) {
-                                immed3 = immed2;
-                                if (neg) {
-                                    for (i = 0; i < (immed1 & 0x1F); i++)
-                                        immed3 = (immed3 >> 1) | 0x80000000;
-                                } else {
-                                    immed3 = immed3 >> (immed1 & 0x1f);
-                                }
-                            } else
-                                replace = false;
-                            break;
-                        }
-                    case OP_shr:
-                        size = opnd_get_size(instr_get_src(inst, 1));
-                        if (immed1 == 0 || immed2 == 0)
-                            immed3 = immed2;
-                        else {
-                            if (size == OPSZ_1) {
-                                immed3 = (immed2 & 0x000000ff) >> (immed1 & 0x1f);
-                            } else if (size == OPSZ_2) {
-                                immed3 = (immed2 & 0x0000ffff) >> (immed1 & 0x1f);
-                            } else if (size == OPSZ_4) {
-                                if (immed2 > 0) {
-                                    immed3 = immed2 >> (immed1 & 0x1f);
-                                }
-                                else {
-                                    immed3 = immed2;
-                                    for (i = 0; i < (immed1 & 0x1F); i++)
-                                        immed3 = (immed3 >> 1) & 0x7fffffff;
-                                }
-                            } else
-                                replace = false;
-                        }
-                        break;
-                        /* TODO : rotates, keep size issues in mind */
-                    case OP_ror:
-                    case OP_rol:
-                    default:
+                case OP_cmp: {
+                    // FIXME of and sf and af correct? FIXME!!
+                    immed3 = immed1 - immed2;
+                    eflags = calculate_zf_pf_sf(immed3);
+                    if (((uint)immed1) < ((uint)immed2)) {
+                        eflags = eflags | EFLAGS_READ_CF;
+                    }
+                    if (((immed1 >= immed2) && ((eflags & EFLAGS_READ_CF) != 0)) ||
+                        ((immed1 < immed2) && ((eflags & EFLAGS_READ_CF) == 0))) {
+                        eflags = eflags | EFLAGS_READ_OF;
+                    }
+                    if ((immed1 & 0x7) < (immed2 & 0x7))
+                        eflags = eflags | EFLAGS_READ_AF;
+                    eflags_valid = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF |
+                        EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_AF;
+                    if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
+                        replacement = INSTR_CREATE_nop(state->dcontext);
+                        replace_inst(state->dcontext, state->trace, inst, replacement);
+                        inst = replacement;
+                    }
+                    break;
+                }
+                default: {
+                    // couldn't handle
+                }
+                }
+                break;
+            }
+            case 1: {
+                /* TODO: maby explicitly find some flags? */
+                bool replace = true;
+                int size;
+                switch (opcode) {
+                case OP_add: immed3 = immed2 + immed1; break;
+                case OP_sub: immed3 = immed2 - immed1; break;
+                case OP_or: immed3 = immed2 | immed1; break;
+                case OP_and: immed3 = immed2 & immed1; break;
+                case OP_xor: immed3 = immed2 ^ immed1; break;
+                case OP_shl:
+                    /* same as OP_sal */
+                    size = opnd_get_size(instr_get_src(inst, 1));
+                    immed3 = immed2 << (immed1 & 0x1F);
+                    /* adjust for size */
+                    if (size == OPSZ_1) {
+                        if ((immed3 & 0x00000080) != 0)
+                            immed3 |= 0xffffff00;
+                        else
+                            immed3 &= 0x000000ff;
+                    } else if (size == OPSZ_2) {
+                        if ((immed3 & 0x00008000) != 0)
+                            immed3 |= 0xffff0000;
+                        else
+                            immed3 &= 0x0000ffff;
+                    } else if (size != OPSZ_4)
                         replace = false;
-                        /* can't handle this instruction */
-                    }
-                    if (!replace)
-                        break;
-                    if (forward_check_eflags(inst, state))
-                        inst = make_to_imm_store(inst, immed3, state);
-                    else
-                        state->hint = make_imm_store(state, inst, immed3);
+                    break;
+                case OP_sar: {
+                    bool neg = immed2 < 0;
+                    size = opnd_get_size(instr_get_src(inst, 1));
+                    if (size == OPSZ_1) {
+                        immed3 = immed2 >> (immed1 & 0x1f);
+                        if (neg)
+                            immed3 |= 0xffffff00;
+                        else
+                            immed3 &= 0x000000ff;
+                    } else if (size == OPSZ_2) {
+                        immed3 = immed2 >> (immed1 & 0x1f);
+                        if (neg)
+                            immed3 |= 0xffff0000;
+                        else
+                            immed3 &= 0x0000ffff;
+                    } else if (size == OPSZ_4) {
+                        immed3 = immed2;
+                        if (neg) {
+                            for (i = 0; i < (immed1 & 0x1F); i++)
+                                immed3 = (immed3 >> 1) | 0x80000000;
+                        } else {
+                            immed3 = immed3 >> (immed1 & 0x1f);
+                        }
+                    } else
+                        replace = false;
                     break;
                 }
-            case 2:
-                {
-                    // mul divide xchg xadd
+                case OP_shr:
+                    size = opnd_get_size(instr_get_src(inst, 1));
+                    if (immed1 == 0 || immed2 == 0)
+                        immed3 = immed2;
+                    else {
+                        if (size == OPSZ_1) {
+                            immed3 = (immed2 & 0x000000ff) >> (immed1 & 0x1f);
+                        } else if (size == OPSZ_2) {
+                            immed3 = (immed2 & 0x0000ffff) >> (immed1 & 0x1f);
+                        } else if (size == OPSZ_4) {
+                            if (immed2 > 0) {
+                                immed3 = immed2 >> (immed1 & 0x1f);
+                            } else {
+                                immed3 = immed2;
+                                for (i = 0; i < (immed1 & 0x1F); i++)
+                                    immed3 = (immed3 >> 1) & 0x7fffffff;
+                            }
+                        } else
+                            replace = false;
+                    }
+                    break;
+                    /* TODO : rotates, keep size issues in mind */
+                case OP_ror:
+                case OP_rol:
+                default:
+                    replace = false;
+                    /* can't handle this instruction */
                 }
-            default:
-                {
-                    // unable to simlify this instruction
-                }
+                if (!replace)
+                    break;
+                if (forward_check_eflags(inst, state))
+                    inst = make_to_imm_store(inst, immed3, state);
+                else
+                    state->hint = make_imm_store(state, inst, immed3);
+                break;
+            }
+            case 2: {
+                // mul divide xchg xadd
+            }
+            default: {
+                // unable to simlify this instruction
+            }
             }
         }
         return inst;
@@ -2480,8 +2570,12 @@ get_trace_constant(prop_state_t *state)
     /* probably only use exc so just put it in, and maby eax to since is fav */
     /* when need to store flags/pass arg, can always add more location later */
     /* probably cleaner way of getting addresses but who cares for now */
-    set_address_val(state, opnd_get_disp(opnd_create_dcontext_field(state->dcontext, XCX_OFFSET)), 0, PS_KEEP);
-    set_address_val(state, opnd_get_disp(opnd_create_dcontext_field(state->dcontext, XAX_OFFSET)), 0, PS_KEEP);
+    set_address_val(
+        state, opnd_get_disp(opnd_create_dcontext_field(state->dcontext, XCX_OFFSET)), 0,
+        PS_KEEP);
+    set_address_val(
+        state, opnd_get_disp(opnd_create_dcontext_field(state->dcontext, XAX_OFFSET)), 0,
+        PS_KEEP);
 }
 
 /* updates the prop state as appropriate */
@@ -2496,19 +2590,24 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
     opnd_t opnd;
     int val, i;
     reg_id_t reg;
-    if (is_zeroing || ((opcode == OP_mov_imm || opcode == OP_mov_st) &&
-                       opnd_is_immed_int(instr_get_src(inst, 0)))) {
+    if (is_zeroing ||
+        ((opcode == OP_mov_imm || opcode == OP_mov_st) &&
+         opnd_is_immed_int(instr_get_src(inst, 0)))) {
         if (is_zeroing)
             val = 0;
         else
-            val = (int) opnd_get_immed_int(instr_get_src(inst, 0));
+            val = (int)opnd_get_immed_int(instr_get_src(inst, 0));
         opnd = instr_get_dst(inst, 0);
         if (opnd_is_reg(opnd)) {
             reg = opnd_get_reg(opnd) - REG_START_32;
             if (reg < 8 /* rules out underflow */) {
                 /* if resetting to same value then just nop the instruction */
-                if (intrace && (state->reg_state[reg] & PS_VALID_VAL) != 0 && state->reg_vals[reg] == val) {
-                    inst = make_to_nop(state, inst, " register already set to val, simplify ", " to ", " register already set to val, but unable to simplify due to eflags");
+                if (intrace && (state->reg_state[reg] & PS_VALID_VAL) != 0 &&
+                    state->reg_vals[reg] == val) {
+                    inst = make_to_nop(state, inst,
+                                       " register already set to val, simplify ", " to ",
+                                       " register already set to val, but unable to "
+                                       "simplify due to eflags");
                 } else {
                     state->reg_state[reg] = PS_VALID_VAL;
                     state->reg_vals[reg] = val;
@@ -2522,10 +2621,15 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                          ((state->reg_state[reg] & PS_LVALID_VAL) != 0 &&
                           (state->reg_state[reg] & PS_HVALID_VAL) != 0)) &&
                         (state->reg_vals[reg] & 0x0000ffff) == (val & 0x0000ffff)) {
-                        inst = make_to_nop(state, inst, " register already set to val, simplify ", " to ", " register already set to val, but unable to simplify due to eflags");
+                        inst =
+                            make_to_nop(state, inst,
+                                        " register already set to val, simplify ", " to ",
+                                        " register already set to val, but unable to "
+                                        "simplify due to eflags");
                     } else {
                         state->reg_state[reg] |= PS_LVALID_VAL | PS_HVALID_VAL;
-                        state->reg_vals[reg] = (state->reg_vals[reg] & 0xffff0000) | (val & 0x0000ffff);
+                        state->reg_vals[reg] =
+                            (state->reg_vals[reg] & 0xffff0000) | (val & 0x0000ffff);
                     }
                 } else {
                     reg = opnd_get_reg(opnd) - REG_START_8;
@@ -2535,10 +2639,15 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                             ((state->reg_state[reg] & PS_VALID_VAL) != 0 ||
                              (state->reg_state[reg] & PS_LVALID_VAL) != 0) &&
                             (state->reg_vals[reg] & 0x000000ff) == (val & 0x000000ff)) {
-                            inst = make_to_nop(state, inst, " register already set to val, simplify ", " to ", " register already set to val, but unable to simplify due to eflags");
+                            inst = make_to_nop(state, inst,
+                                               " register already set to val, simplify ",
+                                               " to ",
+                                               " register already set to val, but unable "
+                                               "to simplify due to eflags");
                         } else {
                             state->reg_state[reg] |= PS_LVALID_VAL;
-                            state->reg_vals[reg] = (state->reg_vals[reg] & 0xffffff00) | (val & 0x000000ff);
+                            state->reg_vals[reg] =
+                                (state->reg_vals[reg] & 0xffffff00) | (val & 0x000000ff);
                         }
                     } else {
                         reg -= 4;
@@ -2547,17 +2656,23 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                             if (intrace &&
                                 ((state->reg_state[reg] & PS_VALID_VAL) != 0 ||
                                  (state->reg_state[reg] & PS_HVALID_VAL) != 0) &&
-                                (state->reg_vals[reg] & 0x0000ff00) == ((val << 8) & 0x0000ff00)) {
-                                inst = make_to_nop(state, inst, " register already set to val, simplify ", " to ", " register already set to val, but unable to simplify due to eflags");
+                                (state->reg_vals[reg] & 0x0000ff00) ==
+                                    ((val << 8) & 0x0000ff00)) {
+                                inst = make_to_nop(
+                                    state, inst,
+                                    " register already set to val, simplify ", " to ",
+                                    " register already set to val, but unable to "
+                                    "simplify due to eflags");
                             } else {
                                 state->reg_state[reg] |= PS_HVALID_VAL;
-                                state->reg_vals[reg] = (state->reg_vals[reg] & 0xffff00ff) | ((val << 8) & 0x0000ff00);
+                                state->reg_vals[reg] =
+                                    (state->reg_vals[reg] & 0xffff00ff) |
+                                    ((val << 8) & 0x0000ff00);
                             }
                         } else {
                             /* just in case */
                             for (i = 0; i < 8; i++) {
-                                if (instr_writes_to_reg(inst,
-                                                        REG_START_32 + (reg_id_t)i,
+                                if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i,
                                                         DR_QUERY_DEFAULT)) {
                                     state->reg_state[i] = 0;
                                 }
@@ -2568,11 +2683,13 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
             }
         } else {
             // do constant addresses
-            if (opnd_is_constant_address(opnd) && cp_global_aggr > 0 ) {
+            if (opnd_is_constant_address(opnd) && cp_global_aggr > 0) {
                 int disp = opnd_get_disp(opnd);
                 for (i = 0; i < NUM_CONSTANT_ADDRESS; i++) {
-                    if (state->addresses[i] == disp && state->address_vals[i] == val && (state->address_state[i] & PS_VALID_VAL) != 0) {
-                        loginst(dcontext, 3, inst, " mem location already set to val, simplify ");
+                    if (state->addresses[i] == disp && state->address_vals[i] == val &&
+                        (state->address_state[i] & PS_VALID_VAL) != 0) {
+                        loginst(dcontext, 3, inst,
+                                " mem location already set to val, simplify ");
                         backup = INSTR_CREATE_nop(dcontext);
                         replace_inst(dcontext, state->trace, inst, backup);
                         loginst(dcontext, 3, backup, " to ");
@@ -2587,8 +2704,12 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
             if (opnd_is_stack_address(opnd) && cp_local_aggr > 0) {
                 int disp = opnd_get_disp(opnd);
                 for (i = 0; i < NUM_STACK_SLOTS; i++) {
-                    if (state->stack_offsets_ebp[i] == disp && state->stack_vals[i] == val && (state->stack_address_state[i] & PS_VALID_VAL) != 0 && state->stack_scope[i] == state->cur_scope) {
-                        loginst(dcontext, 3, inst, " mem location already set to val, simplify ");
+                    if (state->stack_offsets_ebp[i] == disp &&
+                        state->stack_vals[i] == val &&
+                        (state->stack_address_state[i] & PS_VALID_VAL) != 0 &&
+                        state->stack_scope[i] == state->cur_scope) {
+                        loginst(dcontext, 3, inst,
+                                " mem location already set to val, simplify ");
                         backup = INSTR_CREATE_nop(dcontext);
                         replace_inst(dcontext, state->trace, inst, backup);
                         loginst(dcontext, 3, backup, " to ");
@@ -2597,7 +2718,6 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                 }
 
                 update_stack_val(state, disp, val);
-
             }
         }
     } else {
@@ -2609,7 +2729,8 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                 state->reg_state[i] = 0;
         }
         // update for regs written to, actually if xh then don't need to
-        // invalidate xl and vice versa, but to much work to check for that probably unlikely occurrence
+        // invalidate xl and vice versa, but to much work to check for that probably
+        // unlikely occurrence
         for (i = 0; i < 8; i++) {
             if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i, DR_QUERY_DEFAULT)) {
                 state->reg_state[i] = 0;
@@ -2618,7 +2739,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
         // update mem caches
         for (i = 0; i < num_dst; i++) {
             opnd = instr_get_dst(inst, i);
-            if (opnd_is_constant_address(opnd) && cp_global_aggr >0) {
+            if (opnd_is_constant_address(opnd) && cp_global_aggr > 0) {
                 clear_address_val(state, opnd_get_disp(opnd));
             }
         }
@@ -2636,14 +2757,13 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
 typedef struct _two_entry_list_element_t {
     int disp;
     int scope;
-    struct _two_entry_list_element_t * next;
+    struct _two_entry_list_element_t *next;
 } two_entry_list_element_t;
 
 typedef struct _start_list_element_t {
     int endscope;
-    two_entry_list_element_t * next;
+    two_entry_list_element_t *next;
 } start_list_element_t;
-
 
 /*************************************************************************/
 
@@ -2665,8 +2785,7 @@ handle_stack(prop_state_t *state, instr_t *inst)
         return inst;
     }
     if (instr_get_opcode(inst) == OP_leave ||
-        (instr_get_opcode(inst) == OP_pop &&
-         opnd_is_reg(instr_get_dst(inst, 0)) &&
+        (instr_get_opcode(inst) == OP_pop && opnd_is_reg(instr_get_dst(inst, 0)) &&
          opnd_get_reg(instr_get_dst(inst, 0)) == REG_EBP)) {
         state->cur_scope--;
 
@@ -2682,14 +2801,12 @@ handle_stack(prop_state_t *state, instr_t *inst)
     if (instr_writes_to_reg(inst, REG_EBP, DR_QUERY_DEFAULT)) {
         loginst(dcontext, 2, inst, "Lost stack scope count");
         state->lost_scope_count = true;
-        for (i = 0; i< NUM_STACK_SLOTS; i++) {
+        for (i = 0; i < NUM_STACK_SLOTS; i++) {
             state->stack_address_state[i] = 0;
         }
     }
     return inst;
 }
-
-
 
 /* FIXME : (could affect correctness at higher levels of optimization)
  * constant address and various operand sizes, at level 1 what if we write/read
@@ -2738,9 +2855,7 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     LOG(THREAD, LOG_OPTS, 3,
         "starting constant prop, global aggresiveness %d local aggresiveness %d\n",
         cp_global_aggr, cp_local_aggr);
-    DOLOG(4, LOG_OPTS, {
-        instrlist_disassemble(dcontext, tag, trace, THREAD);
-    });
+    DOLOG(4, LOG_OPTS, { instrlist_disassemble(dcontext, tag, trace, THREAD); });
 
     state.dcontext = dcontext;
     state.trace = trace;
@@ -2777,14 +2892,15 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             if (instr_get_opcode(inst) == OP_lea)
                 prop_opnd = propagate_address(opnd, &state);
             else {
-                prop_opnd = propagate_opnd(opnd, &state, instr_get_prefix_flag(inst, PREFIX_DATA));
+                prop_opnd = propagate_opnd(opnd, &state,
+                                           instr_get_prefix_flag(inst, PREFIX_DATA));
             }
             if (!opnd_same(opnd, prop_opnd)) {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_opnds_simplified++;
                 logopnd(dcontext, 3, opnd, " old operand");
                 logopnd(dcontext, 3, prop_opnd, " simplified to  ");
-#endif
+#    endif
                 if (backup == NULL)
                     backup = instr_clone(dcontext, inst);
                 instr_set_src(inst, i, prop_opnd);
@@ -2796,11 +2912,11 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             opnd = instr_get_dst(inst, i);
             prop_opnd = propagate_address(opnd, &state);
             if (!opnd_same(opnd, prop_opnd)) {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_opnds_simplified++;
                 logopnd(dcontext, 3, opnd, " old operand");
                 logopnd(dcontext, 3, prop_opnd, " simplified to  ");
-#endif
+#    endif
                 if (backup == NULL)
                     backup = instr_clone(dcontext, inst);
                 instr_set_dst(inst, i, prop_opnd);
@@ -2811,44 +2927,42 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         if (backup != NULL) {
             inst = prop_simplify(inst, &state);
             if (instr_is_encoding_possible(inst)) {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_instrs_simplified++;
                 loginst(dcontext, 3, backup, " old instruction");
                 loginst(dcontext, 3, inst, " simplified to  ");
-#endif
+#    endif
                 instr_destroy(dcontext, backup);
                 backup = NULL;
             } else {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_fail_simplified++;
                 loginst(dcontext, 3, backup, " was unable to simplify ");
                 loginst(dcontext, 3, inst, " to this ");
-#endif
+#    endif
                 replace_inst(dcontext, trace, inst, backup);
                 inst = backup;
                 backup = NULL;
             }
-
-
         }
-
 
         // update prop state
         if (state.hint == NULL)
             inst = update_prop_state(&state, inst, true);
         else {
-            loginst(dcontext, 3, state.hint, " using hint instruction instead of actual to update prop state ");
+            loginst(dcontext, 3, state.hint,
+                    " using hint instruction instead of actual to update prop state ");
             update_prop_state(&state, state.hint, false);
             instr_destroy(dcontext, state.hint);
             state.hint = NULL;
         }
     }
 
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "done constant prop\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
 /***************************************************************************/
@@ -2884,23 +2998,21 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     for (inst = instrlist_first(trace); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         if (is_zeroing_instr(inst)) {
-            cur_reg = opnd_get_reg(instr_get_dst(inst,0)) - REG_START_32;
+            cur_reg = opnd_get_reg(instr_get_dst(inst, 0)) - REG_START_32;
             /* if zeroed (and also of all sub registers) then kill the inst
              * otherwise mark reg and sub regs as zeroed  */
             if (check_down(zeroed, cur_reg)) {
                 /* is ok to remove instruction reg and subregs already zero */
-#ifdef DEBUG
+#    ifdef DEBUG
                 loginst(dcontext, 3, inst, "unnecsary xor removed ");
                 opt_stats_t.xors_removed++;
-#endif
+#    endif
                 remove_inst(dcontext, trace, inst);
-            }
-            else {
+            } else {
                 propagate_down(zeroed, cur_reg, true);
                 check_dsts = true;
             }
-        }
-        else {
+        } else {
             /* non-zeroing instruction, check for registers being written
              * and mark them non-zero if necessary */
             if (check_dsts) {
@@ -2927,9 +3039,9 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
  * relies to some degree on the ordering of enum reg in instr.h
  */
 
-#define NUM_ADD_CACHE 16
-#define ADD_KEEP 0x01
-#define ADD_DEAD 0x02
+#    define NUM_ADD_CACHE 16
+#    define ADD_KEEP 0x01
+#    define ADD_DEAD 0x02
 
 static int dc_global_aggr;
 static int dc_local_aggr;
@@ -2952,7 +3064,8 @@ add_address(dcontext_t *dcontext, int address, byte flag, int *adds, byte *flags
         adds[i] = address;
         flags[i] = flag;
     }
-    LOG(THREAD, LOG_OPTS, 3, " load const cache add: "PFX"  flags 0x%02x\n", address, flag);
+    LOG(THREAD, LOG_OPTS, 3, " load const cache add: " PFX "  flags 0x%02x\n", address,
+        flag);
 }
 
 static bool
@@ -2992,11 +3105,13 @@ add_init(dcontext_t *dcontext, int *addresses, byte *flags)
     /* probably only use exc so just put it in, and maby eax to since is fav */
     /* when need to store flags/pass arg, can always add more location later */
     /* probably cleaner way of getting addresses but who cares for now */
-    add_address(dcontext, opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)), ADD_KEEP, addresses, flags);
-    add_address(dcontext, opnd_get_disp(opnd_create_dcontext_field(dcontext, XAX_OFFSET)), ADD_KEEP, addresses, flags);
+    add_address(dcontext, opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)),
+                ADD_KEEP, addresses, flags);
+    add_address(dcontext, opnd_get_disp(opnd_create_dcontext_field(dcontext, XAX_OFFSET)),
+                ADD_KEEP, addresses, flags);
 }
 
-#if 0 /* not used */
+#    if 0 /* not used */
 static void
 add_stack_address(dcontext_t *dcontext, int address, byte flag, int scope, int *adds, byte *flags, int *scopes)
 {
@@ -3019,10 +3134,11 @@ add_stack_address(dcontext_t *dcontext, int address, byte flag, int scope, int *
     }
     LOG(THREAD, LOG_OPTS, 3, " stack const cache add: "PFX"  flags 0x%02x\n", address, flag);
 }
-#endif
+#    endif
 
 static bool
-stack_address_is_dead(dcontext_t *dcontext, int address, int scope, int *adds, byte *flags, int *scopes)
+stack_address_is_dead(dcontext_t *dcontext, int address, int scope, int *adds,
+                      byte *flags, int *scopes)
 {
     int i;
     for (i = 0; i < NUM_STACK_SLOTS; i++) {
@@ -3034,7 +3150,8 @@ stack_address_is_dead(dcontext_t *dcontext, int address, int scope, int *adds, b
 }
 
 static void
-stack_address_set_dead(dcontext_t *dcontext, int address, int scope, int *adds, byte *flags, int *scopes, bool dead)
+stack_address_set_dead(dcontext_t *dcontext, int address, int scope, int *adds,
+                       byte *flags, int *scopes, bool dead)
 {
     int i;
     for (i = 0; i < NUM_STACK_SLOTS; i++) {
@@ -3069,11 +3186,13 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
     dc_global_aggr = dynamo_options.remove_dead_code % 10;
     dc_local_aggr = (dynamo_options.remove_dead_code - dc_global_aggr) / 10;
-#ifdef DEBUG
-    LOG(THREAD, LOG_OPTS, 3, "removing dead loads, global aggressiveness %d local aggressiveness %d\n", dc_global_aggr, dc_local_aggr);
+#    ifdef DEBUG
+    LOG(THREAD, LOG_OPTS, 3,
+        "removing dead loads, global aggressiveness %d local aggressiveness %d\n",
+        dc_global_aggr, dc_local_aggr);
     if (stats->loglevel >= 4 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
     /* initialize */
 
     eflags = EFLAGS_READ_ALL;
@@ -3094,7 +3213,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     /* main loop runs from bottom of trace to top */
     for (inst = instrlist_last(trace); inst != NULL; inst = prev_inst) {
         prev_inst = instr_get_prev(inst);
-        loginst(dcontext,3,inst,"remove_dead_code working on:");
+        loginst(dcontext, 3, inst, "remove_dead_code working on:");
         if (instr_is_cti(inst) || instr_is_interrupt(inst)) {
             /* perhaps to a bit of multi-trace search here to see if really
              * necessary to mark all flags and regs as live when hit cti? */
@@ -3114,7 +3233,8 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     stack_state[i] &= (~ADD_DEAD);
                 else {
                     stack_state[i] = 0;
-                    stack_offsets_ebp[i] = 0; stack_scope[i]=0;
+                    stack_offsets_ebp[i] = 0;
+                    stack_scope[i] = 0;
                 }
             }
             ecx_load = NULL;
@@ -3136,9 +3256,8 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
              */
 
             if (opcode == OP_leave ||
-                (opcode == OP_pop &&
-                 opnd_is_reg(instr_get_dst(inst, 0)) &&
-                 opnd_get_reg(instr_get_dst(inst, 0))== REG_EBP)) {
+                (opcode == OP_pop && opnd_is_reg(instr_get_dst(inst, 0)) &&
+                 opnd_get_reg(instr_get_dst(inst, 0)) == REG_EBP)) {
                 scope++;
                 LOG(THREAD, LOG_OPTS, 3, "cur scope + to %d\n", scope);
             } else {
@@ -3157,18 +3276,22 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     }
                 } else {
                     if (instr_writes_to_reg(inst, REG_EBP, DR_QUERY_DEFAULT)) {
-                        LOG(THREAD, LOG_OPTS, 2, "dead code lost count of scope nesting, clearing cache\n");
+                        LOG(THREAD, LOG_OPTS, 2,
+                            "dead code lost count of scope nesting, clearing cache\n");
                         for (i = 0; i < NUM_STACK_SLOTS; i++)
                             stack_state[i] = 0;
                     }
                 }
             }
 
-            /* only eliminate instructions that have a destination or are known to eliminable */
-            /* believe? that any instr with at least 1 dst has no other effects beside that */
+            /* only eliminate instructions that have a destination or are known to
+             * eliminable */
+            /* believe? that any instr with at least 1 dst has no other effects beside
+             * that */
             /* dst and eflags.  Allow test, cmp, sahf to be killed */
-            killinst = killinst && !((num_dsts == 0) && (opcode != OP_sahf) &&
-                                     (opcode != OP_cmp) && (opcode != OP_test));
+            killinst = killinst &&
+                !((num_dsts == 0) && (opcode != OP_sahf) && (opcode != OP_cmp) &&
+                  (opcode != OP_test));
             /* check that all destinations are dead, (also not mem etc.) */
             for (i = 0; (i < num_dsts) && killinst; i++) {
                 dst = instr_get_dst(inst, i);
@@ -3180,18 +3303,23 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         if (ecx_load != NULL && is_store_to_ecxoff(dcontext, inst)) {
                             killinst = true;
                             if (kill_ecx_load) {
-#ifdef DEBUG
+#    ifdef DEBUG
                                 opt_stats_t.dead_loads_removed++;
                                 loginst(dcontext, 3, ecx_load, "removed dead code ");
-#endif
+#    endif
                                 remove_inst(dcontext, trace, ecx_load);
                             }
                         } else {
-                            killinst = killinst && address_is_dead(dcontext, opnd_get_disp(dst), addresses, address_state);
+                            killinst = killinst &&
+                                address_is_dead(dcontext, opnd_get_disp(dst), addresses,
+                                                address_state);
                         }
                     } else {
                         if (opnd_is_stack_address(dst)) {
-                            killinst = killinst && stack_address_is_dead(dcontext, opnd_get_disp(dst), scope, stack_offsets_ebp, stack_state, stack_scope);
+                            killinst = killinst &&
+                                stack_address_is_dead(dcontext, opnd_get_disp(dst), scope,
+                                                      stack_offsets_ebp, stack_state,
+                                                      stack_scope);
                         } else {
                             killinst = false;
                         }
@@ -3212,13 +3340,12 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             }
             if (killinst) {
                 /* delete the instruction */
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.dead_loads_removed++;
                 loginst(dcontext, 3, inst, "removed dead code ");
-#endif
+#    endif
                 remove_inst(dcontext, trace, inst);
-            }
-            else {
+            } else {
                 /* can't be killed so add dependencies */
                 /* add flag constraints */
                 eflags &= ~EFLAGS_WRITE_TO_READ(instr_get_eflags(inst, DR_QUERY_DEFAULT) &
@@ -3231,17 +3358,18 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         /* mark dst reg and sub regs as free */
                         dst_reg = opnd_get_reg(dst) - REG_START_32;
                         propagate_down(free, dst_reg, true);
-                    }
-                    else {
+                    } else {
                         if (opnd_is_constant_address(dst)) {
-                            address_set_dead(dcontext, opnd_get_disp(dst),
-                                             addresses, address_state, true);
+                            address_set_dead(dcontext, opnd_get_disp(dst), addresses,
+                                             address_state, true);
                         } else {
                             if (opnd_is_stack_address(dst)) {
-                                stack_address_set_dead(dcontext, opnd_get_disp(dst), scope, stack_offsets_ebp, stack_state, stack_scope, true);
+                                stack_address_set_dead(dcontext, opnd_get_disp(dst),
+                                                       scope, stack_offsets_ebp,
+                                                       stack_state, stack_scope, true);
                             }
                             /* reg used in address mark as unfree */
-                            for (j=opnd_num_regs_used(dst)-1; j>=0; j--) {
+                            for (j = opnd_num_regs_used(dst) - 1; j >= 0; j--) {
                                 dst_reg = opnd_get_reg_used(dst, j) - REG_START_32;
                                 propagate_down(free, dst_reg, false);
                             }
@@ -3255,13 +3383,15 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         /* mark src regs and sub regs not free */
                         src = instr_get_src(inst, i);
                         if (opnd_is_constant_address(src)) {
-                            address_set_dead(dcontext, opnd_get_disp(src),
-                                             addresses, address_state, false);
+                            address_set_dead(dcontext, opnd_get_disp(src), addresses,
+                                             address_state, false);
                         } else {
                             if (opnd_is_stack_address(src)) {
-                                stack_address_set_dead(dcontext, opnd_get_disp(src), scope, stack_offsets_ebp, stack_state, stack_scope, false);
+                                stack_address_set_dead(dcontext, opnd_get_disp(src),
+                                                       scope, stack_offsets_ebp,
+                                                       stack_state, stack_scope, false);
                             }
-                            for (j=opnd_num_regs_used(src)-1; j>=0; j--) {
+                            for (j = opnd_num_regs_used(src) - 1; j >= 0; j--) {
                                 src_reg = opnd_get_reg_used(src, j) - REG_START_32;
                                 propagate_down(free, src_reg, false);
                             }
@@ -3271,11 +3401,11 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             }
         }
     }
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "done removing dead code\n");
     if (stats->loglevel >= 4 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
 /***************************************************************************/
@@ -3294,16 +3424,14 @@ static bool
 is_stack_adjustment(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
-    return (
-            ((opcode == OP_add || opcode == OP_sub) &&
+    return (((opcode == OP_add || opcode == OP_sub) &&
              opnd_is_reg(instr_get_dst(inst, 0)) &&
              opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP &&
              opnd_is_immed_int(instr_get_src(inst, 0))) ||
 
-            (opcode == OP_lea &&
-             opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP &&
+            (opcode == OP_lea && opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP &&
              ((opnd_get_base(instr_get_src(inst, 0)) == REG_ESP &&
-               opnd_get_index(instr_get_src(inst, 0)) == REG_NULL ) ||
+               opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) ||
               (opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
                opnd_get_index(instr_get_src(inst, 0)) == REG_ESP &&
                opnd_get_scale(instr_get_src(inst, 0)) == 1))));
@@ -3314,9 +3442,9 @@ get_stack_adjustment(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
     if (opcode == OP_add)
-        return (int) opnd_get_immed_int(instr_get_src(inst, 0));
+        return (int)opnd_get_immed_int(instr_get_src(inst, 0));
     if (opcode == OP_sub)
-        return -(int) opnd_get_immed_int(instr_get_src(inst, 0));
+        return -(int)opnd_get_immed_int(instr_get_src(inst, 0));
     if (opcode == OP_lea)
         return opnd_get_disp(instr_get_src(inst, 0));
     else
@@ -3329,7 +3457,8 @@ set_stack_adjustment(instr_t *inst, int adjust)
     int opcode = instr_get_opcode(inst);
     opnd_t temp_opnd;
     if (opcode == OP_lea) {
-        instr_set_src(inst, 0, opnd_create_base_disp(REG_ESP, REG_NULL, 0, adjust, OPSZ_lea));
+        instr_set_src(inst, 0,
+                      opnd_create_base_disp(REG_ESP, REG_NULL, 0, adjust, OPSZ_lea));
         return;
     }
     if (opcode == OP_sub)
@@ -3341,31 +3470,31 @@ set_stack_adjustment(instr_t *inst, int adjust)
     instr_set_src(inst, 0, temp_opnd);
 }
 
-
 static void
 stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     instr_t *inst, *next, *first_adjust, *last_adjust;
-    int opcode, adj, max_off=0, cur_off=0, first_off=0;
-#ifdef DEBUG
+    int opcode, adj, max_off = 0, cur_off = 0, first_off = 0;
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "combining stack adjustments\n");
     if (stats->loglevel >= 4 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
     last_adjust = NULL;
     first_adjust = NULL;
     for (inst = instrlist_first(trace); inst != NULL; inst = next) {
         next = instr_get_next(inst); /* in case we destroy inst */
-#ifdef DEBUG
+#    ifdef DEBUG
         instr_decode(dcontext, inst);
-        loginst(dcontext,3,inst,"stack adjust considering");
-#endif
+        loginst(dcontext, 3, inst, "stack adjust considering");
+#    endif
         if (first_adjust == NULL) {
             if (is_stack_adjustment(inst)) {
                 first_adjust = inst;
                 first_off = get_stack_adjustment(inst);
                 cur_off = first_off;
-                LOG(THREAD, LOG_OPTS, 3, "  found starting stack adjust, offset %d\n", cur_off);
+                LOG(THREAD, LOG_OPTS, 3, "  found starting stack adjust, offset %d\n",
+                    cur_off);
                 max_off = 1000000; /* something large */
             }
         } else {
@@ -3373,12 +3502,14 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             if (is_stack_adjustment(inst)) {
                 adj = get_stack_adjustment(inst);
                 cur_off += adj;
-                LOG(THREAD, LOG_OPTS, 3, "  found stack adjust adjust by: %d, current offset now: %d\n", adj, cur_off);
+                LOG(THREAD, LOG_OPTS, 3,
+                    "  found stack adjust adjust by: %d, current offset now: %d\n", adj,
+                    cur_off);
                 if (last_adjust != NULL) {
-#ifdef DEBUG
+#    ifdef DEBUG
                     loginst(dcontext, 3, last_adjust, "  removing old last adjustment");
                     opt_stats_t.num_stack_adjust_removed++;
-#endif
+#    endif
                     ASSERT(cur_off % 4 == 0);
                     remove_inst(dcontext, trace, last_adjust);
                     last_adjust = inst;
@@ -3395,20 +3526,27 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             /* macro's by inserting a clean up instruction */
             if (!instr_uses_reg(inst, REG_ESP) && !instr_is_cti(inst) &&
                 !instr_is_interrupt(inst) && !instr_is_call(inst)) {
-                /* skip writes to constant address, presume that they will never be stack */
+                /* skip writes to constant address, presume that they will never be stack
+                 */
                 if ((opcode == OP_mov_st || opcode == OP_mov_imm) &&
                     opnd_is_constant_address(instr_get_dst(inst, 0))) {
                     LOG(THREAD, LOG_OPTS, 3, "store to constant mem, skipping\n");
                     continue;
                 }
                 if (instr_writes_memory(inst)) {
-                    /* could be write to the stack, since can't tell in general (aliases) */
-                    /* make sure if the cur_off is negative (allocating space on the stack) */
-                    /* we don't eventually set the offset of the last adjust to reserve less */
+                    /* could be write to the stack, since can't tell in general (aliases)
+                     */
+                    /* make sure if the cur_off is negative (allocating space on the
+                     * stack) */
+                    /* we don't eventually set the offset of the last adjust to reserve
+                     * less */
                     /* space then that */
                     LOG(THREAD, LOG_OPTS, 3, "write to memory");
                     if (cur_off < max_off) {
-                        LOG(THREAD, LOG_OPTS, 3, "\ncurrent offset %d, less than max offset %d, setting max offset to current offset\n", cur_off, max_off);
+                        LOG(THREAD, LOG_OPTS, 3,
+                            "\ncurrent offset %d, less than max offset %d, setting max "
+                            "offset to current offset\n",
+                            cur_off, max_off);
                         max_off = cur_off;
                     }
                 }
@@ -3418,7 +3556,8 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             /* fixing up */
             LOG(THREAD, LOG_OPTS, 3, "reached stopping point, clean up\n");
             if (max_off < cur_off) {
-                LOG(THREAD, LOG_OPTS, 3, "  max offset is less than current off set, set and fix\n");
+                LOG(THREAD, LOG_OPTS, 3,
+                    "  max offset is less than current off set, set and fix\n");
                 /* need to be sure to allocate enough space on stack at beginning */
                 loginst(dcontext, 3, first_adjust, "  replacing initial adjustment");
                 set_stack_adjustment(first_adjust, max_off);
@@ -3432,34 +3571,41 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             } else {
                 if (cur_off == 0) {
                     /* remove initial and last adjustment */
-#ifdef DEBUG
+#    ifdef DEBUG
                     opt_stats_t.num_stack_adjust_removed++;
-                    loginst(dcontext, 3, first_adjust, "  curent offset = 0 removing initial adjustment");
+                    loginst(dcontext, 3, first_adjust,
+                            "  curent offset = 0 removing initial adjustment");
                     if (last_adjust != NULL) {
                         opt_stats_t.num_stack_adjust_removed++;
-                        loginst(dcontext, 3, last_adjust, "  curent offset = 0 removing last adjustment");
+                        loginst(dcontext, 3, last_adjust,
+                                "  curent offset = 0 removing last adjustment");
                     }
-#endif
+#    endif
                     remove_inst(dcontext, trace, first_adjust);
                     if (last_adjust != NULL)
                         remove_inst(dcontext, trace, last_adjust);
                 } else {
                     /* change adjustment if necessary */
                     if (first_off != cur_off) {
-                        LOG(THREAD, LOG_OPTS, 3, "  current offset %d, initial offset %d\n", cur_off, first_off);
-                        loginst(dcontext, 3, first_adjust, "  replacing initial adjustment");
+                        LOG(THREAD, LOG_OPTS, 3,
+                            "  current offset %d, initial offset %d\n", cur_off,
+                            first_off);
+                        loginst(dcontext, 3, first_adjust,
+                                "  replacing initial adjustment");
                         set_stack_adjustment(first_adjust, cur_off);
                         loginst(dcontext, 3, first_adjust, "  with");
                         ASSERT(cur_off % 4 == 0);
                     } else {
-                        LOG(THREAD, LOG_OPTS, 3, "  current offset = last offset = %d, no change needed\n", cur_off);
+                        LOG(THREAD, LOG_OPTS, 3,
+                            "  current offset = last offset = %d, no change needed\n",
+                            cur_off);
                     }
                     /* remove last adjust */
                     if (last_adjust != NULL) {
-#ifdef DEBUG
+#    ifdef DEBUG
                         opt_stats_t.num_stack_adjust_removed++;
                         loginst(dcontext, 3, last_adjust, "  removing last adjustment");
-#endif
+#    endif
                         remove_inst(dcontext, trace, last_adjust);
                     }
                 }
@@ -3468,14 +3614,12 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             first_adjust = NULL;
         }
     }
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "done combining stack adjustments\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
-
-
 
 /****************************************************************************/
 /* call return matching, attempts to match calls with their corresponding
@@ -3508,10 +3652,10 @@ remove_return_no_save_eflags(dcontext_t *dcontext, instrlist_t *trace, instr_t *
     instr_t *inst2;
     int to_pop = 4;
     opnd_t replacement;
-#ifdef DEBUG
+#    ifdef DEBUG
     opt_stats_t.num_returns_removed++;
     opt_stats_t.num_return_instrs_removed += 4;
-#endif
+#    endif
 
     inst2 = instr_get_next(inst);
     ASSERT(instr_get_opcode(inst) == OP_mov_st);
@@ -3532,9 +3676,9 @@ remove_return_no_save_eflags(dcontext_t *dcontext, instrlist_t *trace, instr_t *
         loginst(dcontext, 3, inst, "removing");
         remove_inst(dcontext, trace, inst);
         inst = inst2;
-#ifdef DEBUG
+#    ifdef DEBUG
         opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
     }
 
     inst2 = instr_get_next(inst);
@@ -3557,15 +3701,17 @@ remove_return_no_save_eflags(dcontext_t *dcontext, instrlist_t *trace, instr_t *
 
     /* check for add here, is not uncommon to pop off the args after a return, if so */
     /* can save an instruction */
-    if ((instr_get_opcode(inst) == OP_add) && opnd_is_reg(instr_get_dst(inst, 0)) && (opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP) && opnd_is_immed_int(instr_get_src(inst, 0))) {
-        to_pop += (int) opnd_get_immed_int(instr_get_src(inst, 0));
-#ifdef DEBUG
+    if ((instr_get_opcode(inst) == OP_add) && opnd_is_reg(instr_get_dst(inst, 0)) &&
+        (opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP) &&
+        opnd_is_immed_int(instr_get_src(inst, 0))) {
+        to_pop += (int)opnd_get_immed_int(instr_get_src(inst, 0));
+#    ifdef DEBUG
         opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
         if (to_pop == 0) {
-#ifdef DEBUG
+#    ifdef DEBUG
             opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
             return inst;
         }
         if ((to_pop <= 127) && (to_pop >= -128)) {
@@ -3597,10 +3743,10 @@ remove_return(dcontext_t *dcontext, instrlist_t *trace, instr_t *inst)
         instr_t *inst2;
         int to_pop = 4;
         opnd_t replacement;
-#ifdef DEBUG
+#    ifdef DEBUG
         opt_stats_t.num_returns_removed++;
         opt_stats_t.num_return_instrs_removed += 6;
-#endif
+#    endif
 
         inst2 = instr_get_next(inst);
         ASSERT(instr_get_opcode(inst) == OP_mov_st);
@@ -3621,9 +3767,9 @@ remove_return(dcontext_t *dcontext, instrlist_t *trace, instr_t *inst)
             loginst(dcontext, 3, inst, "removing");
             remove_inst(dcontext, trace, inst);
             inst = inst2;
-#ifdef DEBUG
+#    ifdef DEBUG
             opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
         }
 
         inst2 = instr_get_next(inst);
@@ -3658,18 +3804,17 @@ remove_return(dcontext_t *dcontext, instrlist_t *trace, instr_t *inst)
 
         /* check for add here, is not uncommon to pop off the args after a return,
          * if so  can save an instruction */
-        if ((instr_get_opcode(inst) == OP_add) &&
-            opnd_is_reg(instr_get_dst(inst, 0)) &&
+        if ((instr_get_opcode(inst) == OP_add) && opnd_is_reg(instr_get_dst(inst, 0)) &&
             (opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP) &&
             opnd_is_immed_int(instr_get_src(inst, 0))) {
-            to_pop += (int) opnd_get_immed_int(instr_get_src(inst, 0));
-#ifdef DEBUG
+            to_pop += (int)opnd_get_immed_int(instr_get_src(inst, 0));
+#    ifdef DEBUG
             opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
             if (to_pop == 0) {
-#ifdef DEBUG
+#    ifdef DEBUG
                 opt_stats_t.num_return_instrs_removed++;
-#endif
+#    endif
                 return inst;
             }
             if ((to_pop <= 127) && (to_pop >= -128)) {
@@ -3688,21 +3833,18 @@ remove_return(dcontext_t *dcontext, instrlist_t *trace, instr_t *inst)
             } else {
                 replacement = OPND_CREATE_INT32(to_pop);
             }
-            inst2 =
-                INSTR_CREATE_add(dcontext, opnd_create_reg(REG_ESP), replacement);
-        }
-        else {
-            LOG(THREAD, LOG_OPTS, 3, "Forward eflags check failed using lea to adjust stack instead of add");
-            inst2 =
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ESP),
-                                 opnd_create_base_disp(REG_ESP, REG_NULL, 0,
-                                                       to_pop, OPSZ_lea));
+            inst2 = INSTR_CREATE_add(dcontext, opnd_create_reg(REG_ESP), replacement);
+        } else {
+            LOG(THREAD, LOG_OPTS, 3,
+                "Forward eflags check failed using lea to adjust stack instead of add");
+            inst2 = INSTR_CREATE_lea(
+                dcontext, opnd_create_reg(REG_ESP),
+                opnd_create_base_disp(REG_ESP, REG_NULL, 0, to_pop, OPSZ_lea));
         }
         loginst(dcontext, 3, inst2, "adjusting stack");
         instrlist_preinsert(trace, inst, inst2);
         return inst2;
-    }
-    else
+    } else
         return remove_return_no_save_eflags(dcontext, trace, inst);
 }
 
@@ -3725,12 +3867,10 @@ is_return(dcontext_t *dcontext, instr_t *inst)
             return false;
         if (instr_get_opcode(jecxz) == OP_lea)
             jecxz = instr_get_next(jecxz);
-        return (jecxz != NULL &&
-                instr_get_opcode(pop) == OP_pop &&
+        return (jecxz != NULL && instr_get_opcode(pop) == OP_pop &&
                 opnd_get_reg(instr_get_dst(pop, 0)) == REG_ECX &&
                 instr_get_opcode(jecxz) == OP_jecxz);
-    }
-    else {
+    } else {
         instr_t *lea, *cmp, *jne;
         if (pop == NULL)
             return false;
@@ -3746,11 +3886,9 @@ is_return(dcontext_t *dcontext, instr_t *inst)
         if (cmp == NULL)
             return false;
         jne = instr_get_next(cmp);
-        return (jne != NULL &&
-                instr_get_opcode(pop) == OP_pop &&
+        return (jne != NULL && instr_get_opcode(pop) == OP_pop &&
                 opnd_get_reg(instr_get_dst(pop, 0)) == REG_ECX &&
-                instr_get_opcode(cmp) == OP_cmp &&
-                instr_get_opcode(jne) == OP_jne);
+                instr_get_opcode(cmp) == OP_cmp && instr_get_opcode(jne) == OP_jne);
     }
 }
 
@@ -3766,11 +3904,10 @@ check_return(dcontext_t *dcontext, instr_t *inst, instr_t *push)
             lea = inst;
         check = instr_get_src(lea, 0);
         logopnd(dcontext, 3, check, "check opnd");
-        return (opnd_is_near_base_disp(check) &&
-                (opnd_get_disp(check) ==
-                 -(int) opnd_get_immed_int(instr_get_src(push, 0))));
-    }
-    else {
+        return (
+            opnd_is_near_base_disp(check) &&
+            (opnd_get_disp(check) == -(int)opnd_get_immed_int(instr_get_src(push, 0))));
+    } else {
         instr_t *cmp = instr_get_next(inst);
         opnd_t check;
         if (instr_get_opcode(cmp) != OP_cmp)
@@ -3778,13 +3915,11 @@ check_return(dcontext_t *dcontext, instr_t *inst, instr_t *push)
         check = instr_get_src(cmp, 1);
         logopnd(dcontext, 3, check, "check opnd");
         return (opnd_is_immed_int(check) &&
-                opnd_get_immed_int(check) ==
-                opnd_get_immed_int(instr_get_src(push, 0)));
+                opnd_get_immed_int(check) == opnd_get_immed_int(instr_get_src(push, 0)));
     }
 }
 
-
-#define CALL_RETURN_STACK_SIZE 40
+#    define CALL_RETURN_STACK_SIZE 40
 
 /* attempts to match calls with returns for the purpose of removing the return check
  * instructions */
@@ -3795,18 +3930,19 @@ call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instr_t *inst, *next_inst;
     int top, i, opcode;
     top = 0;
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "starting call return matching\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
     for (inst = instrlist_first(trace); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
         loginst(dcontext, 3, inst, "checking");
         // look for push_imm from call and add to state
         if (next_inst != NULL) {
             opcode = instr_get_opcode(next_inst);
-            if ((opcode == OP_push_imm) && (opnd_get_size(instr_get_src(next_inst, 0)) == OPSZ_4))  {
+            if ((opcode == OP_push_imm) &&
+                (opnd_get_size(instr_get_src(next_inst, 0)) == OPSZ_4)) {
                 inst = next_inst;
                 loginst(dcontext, 3, inst, "found call push");
                 if (top < CALL_RETURN_STACK_SIZE) {
@@ -3815,21 +3951,24 @@ call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 } else {
                     LOG(THREAD, LOG_OPTS, 1, "call return matching stack overflow\n");
                     for (i = 1; i < CALL_RETURN_STACK_SIZE; i++) {
-                        a[i-1] = a[i];
+                        a[i - 1] = a[i];
                     }
-                    a[top-1] = inst;
+                    a[top - 1] = inst;
                 }
             }
         }
         // look for pop from return and remove instruction is possible
         if (is_return(dcontext, inst)) {
             loginst(dcontext, 3, inst, "found start of return");
-            while ((top > 0) && (!check_return(dcontext, instr_get_next(instr_get_next(inst)), a[top-1]))) {
+            while ((top > 0) &&
+                   (!check_return(dcontext, instr_get_next(instr_get_next(inst)),
+                                  a[top - 1]))) {
                 top--;
-                loginst(dcontext, 3, a[top], "ignoring probable non call push immed on call return stack");
+                loginst(dcontext, 3, a[top],
+                        "ignoring probable non call push immed on call return stack");
             }
             if (top > 0) {
-                loginst(dcontext, 3, a[top-1], "corresponding push was");
+                loginst(dcontext, 3, a[top - 1], "corresponding push was");
                 LOG(THREAD, LOG_OPTS, 3, "attempting to remove return code\n");
                 next_inst = remove_return(dcontext, trace, inst);
                 top--;
@@ -3838,11 +3977,11 @@ call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             }
         }
     }
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "done call return matching\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#endif
+#    endif
 }
 
 /****************************************************************************/
@@ -3864,13 +4003,13 @@ peephole_optimize(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         next_inst = instr_get_next(inst);
         opcode = instr_get_opcode(inst);
         if (p4 && (opcode == OP_inc || opcode == OP_dec)) {
-#ifdef DEBUG
+#    ifdef DEBUG
             opt_stats_t.incs_examined++;
             if (replace_inc_with_add(dcontext, inst, trace))
                 opt_stats_t.incs_replaced++;
-#else
+#    else
             replace_inc_with_add(dcontext, inst, trace);
-#endif
+#    endif
         } else if (opcode == OP_leave) {
             /* on Pentium II and later, complex instructions like
              * enter and leave are slower (though smaller) than
@@ -3883,12 +4022,10 @@ peephole_optimize(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
              * seem to show up on spec though
              */
             instrlist_preinsert(trace, inst,
-                                INSTR_CREATE_mov_ld(dcontext,
-                                                    opnd_create_reg(REG_ESP),
+                                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_ESP),
                                                     opnd_create_reg(REG_EBP)));
             instrlist_preinsert(trace, inst,
-                                INSTR_CREATE_pop(dcontext,
-                                                 opnd_create_reg(REG_EBP)));
+                                INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_EBP)));
             instrlist_remove(trace, inst);
             instr_destroy(dcontext, inst);
         }
@@ -3938,7 +4075,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
             instr_t tinst;
             if (!opnd_is_near_pc(instr_get_target(in)))
                 break;
-            target = (byte *) opnd_get_pc(instr_get_target(in));
+            target = (byte *)opnd_get_pc(instr_get_target(in));
             loginst(dcontext, 3, in, "looking at target");
             instr_init(dcontext, &tinst);
             do {
@@ -3947,8 +4084,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
                 ASSERT(instr_valid(&tinst));
                 eflags = instr_get_eflags(&tinst, DR_QUERY_DEFAULT);
                 if ((eflags & EFLAGS_READ_CF) != 0) {
-                    loginst(dcontext, 3, in,
-                            "reads CF => cannot replace inc with add");
+                    loginst(dcontext, 3, in, "reads CF => cannot replace inc with add");
                     return false;
                 }
                 /* if writes but doesn't read, ok */
@@ -3987,88 +4123,88 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
 
 /****************************************************************************/
 /* josh's load removal optimization */
-#define MAX_DIST 40
+#    define MAX_DIST 40
 void
 remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    instr_t *instr, *next_inst,*first_mem_access,*reg_write_checker;
-    opnd_t mem_read,orig_reg_opnd ={0}; /* FIXME: check */
+    instr_t *instr, *next_inst, *first_mem_access, *reg_write_checker;
+    opnd_t mem_read, orig_reg_opnd = { 0 }; /* FIXME: check */
     reg_id_t orig_reg;
     int dist;
     uint ctis;
     bool removed_from_store = false;
-    LOG(THREAD, LOG_OPTS, 3,"entering remove_loads optimization\n");
+    LOG(THREAD, LOG_OPTS, 3, "entering remove_loads optimization\n");
 
     for (instr = instrlist_first(trace); instr != NULL; instr = next_inst) {
         next_inst = instr_get_next(instr);
 
-        //ensures that it is an instruction which reads memory
+        // ensures that it is an instruction which reads memory
         if (instr_reads_memory(instr)) {
-#ifdef DEBUG
+#    ifdef DEBUG
             opt_stats_t.loads_examined++;
-#endif
-            if (instr_get_opcode(instr)==OP_mov_ld) {
-                mem_read=instr_get_src_mem_access(instr);
-            }
-            else if (instr_get_opcode(instr)==OP_add) {
-                mem_read=instr_get_src_mem_access(instr);
-                if (opnd_same(mem_read,instr_get_dst(instr,0))) {
+#    endif
+            if (instr_get_opcode(instr) == OP_mov_ld) {
+                mem_read = instr_get_src_mem_access(instr);
+            } else if (instr_get_opcode(instr) == OP_add) {
+                mem_read = instr_get_src_mem_access(instr);
+                if (opnd_same(mem_read, instr_get_dst(instr, 0))) {
                     continue;
                 }
-            }
-            else {
+            } else {
                 continue;
             }
-        }
-        else {
+        } else {
             continue;
         }
 
         /* to simply things for debugging, just worry about cases where the read
            is indirect off the base pointer. this should be removed later */
-        if (opnd_get_base(mem_read)!=REG_EBP||opnd_get_index(mem_read)!=REG_NULL)
+        if (opnd_get_base(mem_read) != REG_EBP || opnd_get_index(mem_read) != REG_NULL)
             continue;
-        LOG(THREAD, LOG_OPTS, 3,"\n");
-        loginst(dcontext, 3,instr," reads memory, try to eliminate. ");
+        LOG(THREAD, LOG_OPTS, 3, "\n");
+        loginst(dcontext, 3, instr, " reads memory, try to eliminate. ");
 
-        //walk backwards to try to find where the memory was written
-        for (dist=0, first_mem_access=instr_get_prev(instr);
-             ((dist<MAX_DIST)&&(first_mem_access!=NULL));
-             first_mem_access=instr_get_prev(first_mem_access), dist++) {
+        // walk backwards to try to find where the memory was written
+        for (dist = 0, first_mem_access = instr_get_prev(instr);
+             ((dist < MAX_DIST) && (first_mem_access != NULL));
+             first_mem_access = instr_get_prev(first_mem_access), dist++) {
 
-            loginst(dcontext, 3,first_mem_access,"mem_writer walking backwards");
+            loginst(dcontext, 3, first_mem_access, "mem_writer walking backwards");
 
-            //if the instr writes to ebp (eventually, any register)
-            if (instruction_affects_mem_access(first_mem_access,mem_read)) {
-                loginst(dcontext,3,first_mem_access,"this instr. probably writes to ebp");
-                first_mem_access=NULL;
+            // if the instr writes to ebp (eventually, any register)
+            if (instruction_affects_mem_access(first_mem_access, mem_read)) {
+                loginst(dcontext, 3, first_mem_access,
+                        "this instr. probably writes to ebp");
+                first_mem_access = NULL;
                 break;
             }
-            //if its a move that writes to same memory location
+            // if its a move that writes to same memory location
             else if (instr_writes_memory(first_mem_access)) {
-                opnd_t writeopnd=instr_get_dst(first_mem_access,0);
+                opnd_t writeopnd = instr_get_dst(first_mem_access, 0);
 
-                //takes care of push/pop. should i make this if (!pushorpop?)
+                // takes care of push/pop. should i make this if (!pushorpop?)
                 if (opnd_is_memory_reference(writeopnd)) {
-                    loginst(dcontext,3,first_mem_access,"this instr writes to memory");
-                    if (opnd_same_address(writeopnd,mem_read)) {
+                    loginst(dcontext, 3, first_mem_access, "this instr writes to memory");
+                    if (opnd_same_address(writeopnd, mem_read)) {
 
+                        // if the writing instruction was a store, then its OK
 
-                        //if the writing instruction was a store, then its OK
-
-                        if (instr_get_opcode(first_mem_access)==OP_mov_st) {
-                            loginst(dcontext,3,first_mem_access,"this instr writes to same location");
-                            orig_reg_opnd=instr_get_src(first_mem_access,0);
-                            removed_from_store=true;
+                        if (instr_get_opcode(first_mem_access) == OP_mov_st) {
+                            loginst(dcontext, 3, first_mem_access,
+                                    "this instr writes to same location");
+                            orig_reg_opnd = instr_get_src(first_mem_access, 0);
+                            removed_from_store = true;
                             if (!opnd_is_reg(orig_reg_opnd)) {
-                                loginst(dcontext,3,first_mem_access,"source isn't a register. can't optimize for now");
-                                first_mem_access=NULL;
+                                loginst(
+                                    dcontext, 3, first_mem_access,
+                                    "source isn't a register. can't optimize for now");
+                                first_mem_access = NULL;
                             }
                             break;
-                        }
-                        else { //an add or something else wrote to memory
-                            loginst(dcontext,3,first_mem_access,"this non-store accesses memory, stop optimization");
-                            first_mem_access=NULL;
+                        } else { // an add or something else wrote to memory
+                            loginst(dcontext, 3, first_mem_access,
+                                    "this non-store accesses memory, stop optimization");
+                            first_mem_access = NULL;
 
                             break;
                         }
@@ -4084,37 +4220,41 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                              (opnd_get_index(mem_read) == opnd_get_index(writeopnd))) {
                         int scratch = opnd_get_disp(mem_read) - opnd_get_disp(writeopnd);
                         if ((scratch < 4) && (scratch > -4)) {
-                            first_mem_access=NULL;
+                            first_mem_access = NULL;
                             break;
                         }
                     } // end quick fix
 
                     if (!safe_write(first_mem_access)) {
-                        loginst(dcontext,3,first_mem_access,"unsafe write, killing optmization");
-                        first_mem_access=NULL;
+                        loginst(dcontext, 3, first_mem_access,
+                                "unsafe write, killing optmization");
+                        first_mem_access = NULL;
 
                         break;
                     }
                 }
             }
-            //check if the move reads from that location
+            // check if the move reads from that location
 
             else if (instr_reads_memory(first_mem_access)) {
-                opnd_t readopnd=instr_get_src(first_mem_access,0);
+                opnd_t readopnd = instr_get_src(first_mem_access, 0);
 
-                //takes care of push/pop. should i make this if (!pushorpop?)
+                // takes care of push/pop. should i make this if (!pushorpop?)
                 if (opnd_is_memory_reference(readopnd)) {
-                    loginst(dcontext,3,first_mem_access,"this instr reads from memory");
-                    if (opnd_same_address(readopnd,mem_read)) {
-                        //if the writing instruction was a store, then its OK
-                        if (instr_get_opcode(first_mem_access)==OP_mov_ld) {
-                            loginst(dcontext,3,first_mem_access,"this instr reads from the same location");
-                            orig_reg_opnd=instr_get_dst(first_mem_access,0);
-                            removed_from_store=false;
+                    loginst(dcontext, 3, first_mem_access,
+                            "this instr reads from memory");
+                    if (opnd_same_address(readopnd, mem_read)) {
+                        // if the writing instruction was a store, then its OK
+                        if (instr_get_opcode(first_mem_access) == OP_mov_ld) {
+                            loginst(dcontext, 3, first_mem_access,
+                                    "this instr reads from the same location");
+                            orig_reg_opnd = instr_get_dst(first_mem_access, 0);
+                            removed_from_store = false;
                             if (!opnd_is_reg(orig_reg_opnd)) {
-                                loginst(dcontext,3,first_mem_access,"dest. isn't a register. can't optimize for now");
+                                loginst(dcontext, 3, first_mem_access,
+                                        "dest. isn't a register. can't optimize for now");
                                 ASSERT(0);
-                                first_mem_access=NULL;
+                                first_mem_access = NULL;
                             }
 
                             break;
@@ -4122,144 +4262,150 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     }
                 }
             }
-
         }
         /* if it reached top of trace, or something wrote to ebp */
         if (!first_mem_access) {
-            LOG(THREAD, LOG_OPTS, 3,"reached top of trace, or an add or other non-move wrote to memory\n");
+            LOG(THREAD, LOG_OPTS, 3,
+                "reached top of trace, or an add or other non-move wrote to memory\n");
             continue;
         }
-        if (dist>=MAX_DIST) {
-            LOG(THREAD, LOG_OPTS, 3, "passed MAX_DIST threshold of %d\n",MAX_DIST);
+        if (dist >= MAX_DIST) {
+            LOG(THREAD, LOG_OPTS, 3, "passed MAX_DIST threshold of %d\n", MAX_DIST);
             continue;
         }
 
+        ASSERT(instr_num_dsts(first_mem_access) == 1 &&
+               instr_num_srcs(first_mem_access) == 1);
 
-        ASSERT(instr_num_dsts(first_mem_access)==1&&instr_num_srcs(first_mem_access)==1);
+        ctis = 0; // for stats of how many ctis are traversed
+        orig_reg = opnd_get_reg(orig_reg_opnd);
+        LOG(THREAD, LOG_OPTS, 3, "original register=%s\n", reg_names[orig_reg]);
 
+        // check here to see if anything overwrites the register holding the value
+        for (reg_write_checker = instr_get_next(first_mem_access);
+             reg_write_checker != instr;
+             reg_write_checker = instr_get_next(reg_write_checker)) {
 
-        ctis=0; //for stats of how many ctis are traversed
-        orig_reg=opnd_get_reg(orig_reg_opnd);
-        LOG(THREAD, LOG_OPTS, 3,"original register=%s\n",reg_names[orig_reg]);
-
-        //check here to see if anything overwrites the register holding the value
-        for (reg_write_checker=instr_get_next(first_mem_access);
-             reg_write_checker!=instr;
-             reg_write_checker=instr_get_next(reg_write_checker)) {
-
-            loginst(dcontext, 3,reg_write_checker,"walking forward");
+            loginst(dcontext, 3, reg_write_checker, "walking forward");
             if (instr_is_cti(reg_write_checker)) {
-                loginst(dcontext, 3,reg_write_checker,"holy shit, load-removal across basic blocks!");
+                loginst(dcontext, 3, reg_write_checker,
+                        "holy shit, load-removal across basic blocks!");
                 ctis++;
             }
 
-            //checks if something overwrites the register
+            // checks if something overwrites the register
 
-            if (instr_writes_to_reg(reg_write_checker,orig_reg, DR_QUERY_DEFAULT)) {
-#ifdef DEBUG
+            if (instr_writes_to_reg(reg_write_checker, orig_reg, DR_QUERY_DEFAULT)) {
+#    ifdef DEBUG
                 opt_stats_t.reg_overwritten++;
-#endif
-                loginst(dcontext,3,reg_write_checker,"original register was overwritten");
+#    endif
+                loginst(dcontext, 3, reg_write_checker,
+                        "original register was overwritten");
                 break;
             }
         }
 
-        if (!opnd_is_reg_32bit(orig_reg_opnd)||!opnd_is_reg_32bit(instr_get_dst(instr,0)))
+        if (!opnd_is_reg_32bit(orig_reg_opnd) ||
+            !opnd_is_reg_32bit(instr_get_dst(instr, 0)))
             continue;
 
-        if (reg_write_checker==instr) {
+        if (reg_write_checker == instr) {
             /* if reg_write_checker reached instr, then nothing overwrites the
                register, its OK to do optimization */
 
-            //replace load with register read
-            bool ok = instr_replace_src_opnd(instr,mem_read,orig_reg_opnd);
+            // replace load with register read
+            bool ok = instr_replace_src_opnd(instr, mem_read, orig_reg_opnd);
             ASSERT(ok);
 
-            //after optimization, got move w/ same src as dst, so remove the instruction
-            if (((instr_get_opcode(instr)==OP_mov_st)||(instr_get_opcode(instr)==OP_mov_ld))&&
-               (opnd_same(instr_get_src(instr,0),instr_get_dst(instr,0)))) {
-                LOG(THREAD, LOG_OPTS, 3,"replacing mem access with %s made src==dst. removing instr\n",
+            // after optimization, got move w/ same src as dst, so remove the instruction
+            if (((instr_get_opcode(instr) == OP_mov_st) ||
+                 (instr_get_opcode(instr) == OP_mov_ld)) &&
+                (opnd_same(instr_get_src(instr, 0), instr_get_dst(instr, 0)))) {
+                LOG(THREAD, LOG_OPTS, 3,
+                    "replacing mem access with %s made src==dst. removing instr\n",
                     reg_names[orig_reg]);
-                instrlist_remove(trace,instr);
-                instr_destroy(dcontext,instr);
-            }
-            else if (!instr_is_encoding_possible(instr)) {
-                loginst(dcontext, 3,instr,"encoding not possible ;( reverting to orig. instr\n");
-                ok = instr_replace_src_opnd(instr,opnd_create_reg(orig_reg),mem_read);
+                instrlist_remove(trace, instr);
+                instr_destroy(dcontext, instr);
+            } else if (!instr_is_encoding_possible(instr)) {
+                loginst(dcontext, 3, instr,
+                        "encoding not possible ;( reverting to orig. instr\n");
+                ok = instr_replace_src_opnd(instr, opnd_create_reg(orig_reg), mem_read);
                 ASSERT(ok);
-            }
-            else {
-                //update stats
-#ifdef DEBUG
-                opt_stats_t.ctis_in_load_removal+=ctis;
-#endif
+            } else {
+                // update stats
+#    ifdef DEBUG
+                opt_stats_t.ctis_in_load_removal += ctis;
+#    endif
                 if (removed_from_store) {
-#ifdef DEBUG
+#    ifdef DEBUG
                     opt_stats_t.loads_removed_from_stores++;
-#endif
-                    loginst(dcontext,3,instr,"replaced original instr with val from store");
-                }
-                else {
-#ifdef DEBUG
+#    endif
+                    loginst(dcontext, 3, instr,
+                            "replaced original instr with val from store");
+                } else {
+#    ifdef DEBUG
                     opt_stats_t.loads_removed_from_loads++;
-#endif
-                    loginst(dcontext,3,instr,"replaced original instr with val from load");
+#    endif
+                    loginst(dcontext, 3, instr,
+                            "replaced original instr with val from load");
                 }
             }
-        }
-        else {
-            //the register was overwritten. try to use some other register to hold the value
+        } else {
+            // the register was overwritten. try to use some other register to hold the
+            // value
             reg_id_t dead_reg;
             opnd_t dead_reg_opnd;
             instr_t *copy_to_dead_instr;
-            dead_reg=find_dead_register_across_instrs(first_mem_access,instr);
-            if (dead_reg!=REG_NULL) {
+            dead_reg = find_dead_register_across_instrs(first_mem_access, instr);
+            if (dead_reg != REG_NULL) {
 
-                dead_reg_opnd=opnd_create_reg(dead_reg);
-                LOG(THREAD, LOG_OPTS, 3,"looks like %s is free to hold the reg though!\n",reg_names[dead_reg]);
-                copy_to_dead_instr=INSTR_CREATE_mov_ld(dcontext,dead_reg_opnd,orig_reg_opnd);
-                instrlist_postinsert(trace,first_mem_access,copy_to_dead_instr);
-                loginst(dcontext,3,copy_to_dead_instr,"inserted this to save val. in dead register");
+                dead_reg_opnd = opnd_create_reg(dead_reg);
+                LOG(THREAD, LOG_OPTS, 3,
+                    "looks like %s is free to hold the reg though!\n",
+                    reg_names[dead_reg]);
+                copy_to_dead_instr =
+                    INSTR_CREATE_mov_ld(dcontext, dead_reg_opnd, orig_reg_opnd);
+                instrlist_postinsert(trace, first_mem_access, copy_to_dead_instr);
+                loginst(dcontext, 3, copy_to_dead_instr,
+                        "inserted this to save val. in dead register");
 
-                instr_replace_src_opnd(instr,mem_read,dead_reg_opnd);
-                loginst(dcontext,3,instr,"modified this instr to use the new dead register");
-#ifdef DEBUG
+                instr_replace_src_opnd(instr, mem_read, dead_reg_opnd);
+                loginst(dcontext, 3, instr,
+                        "modified this instr to use the new dead register");
+#    ifdef DEBUG
                 opt_stats_t.val_saved_in_dead_reg++;
-                opt_stats_t.ctis_in_load_removal+=ctis;
+                opt_stats_t.ctis_in_load_removal += ctis;
                 if (removed_from_store)
                     opt_stats_t.loads_removed_from_stores++;
                 else
                     opt_stats_t.loads_removed_from_loads++;
-#endif
-
+#    endif
             }
-
         }
-
     }
-    LOG(THREAD, LOG_OPTS, 3,"leaving remove_loads optimization\n");
+    LOG(THREAD, LOG_OPTS, 3, "leaving remove_loads optimization\n");
 }
 
 static reg_id_t
-find_dead_register_across_instrs(instr_t *start,instr_t *end)
+find_dead_register_across_instrs(instr_t *start, instr_t *end)
 {
     reg_id_t a;
     instr_t *instr = NULL;
 
-    for (a=REG_EAX;a<=REG_EDI;a++) {
-        if (is_dead_register(a,start)) {
-            for (instr=start;instr!=end;instr=instr_get_next(instr)) {
-                if (instr_uses_reg(instr,a))
+    for (a = REG_EAX; a <= REG_EDI; a++) {
+        if (is_dead_register(a, start)) {
+            for (instr = start; instr != end; instr = instr_get_next(instr)) {
+                if (instr_uses_reg(instr, a))
                     break;
             }
         }
-        if (instr==end)
+        if (instr == end)
             return a;
     }
     return REG_NULL;
 }
 
-#if 0 /* not used */
+#    if 0  /* not used */
 static int
 find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
 {
@@ -4303,95 +4449,91 @@ find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
 
     return REG_NULL;
 }
-#endif /* #if 0 */
+#    endif /* #if 0 */
 
 /****************************************************************************/
 /* prefetching */
 
-#define MIN_PREFETCH_DISTANCE 3
+#    define MIN_PREFETCH_DISTANCE 3
 
 static void
 prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
-    instr_t *instr,*loopinstr,*tracewalker,*prefetchinstr;
+    instr_t *instr, *loopinstr, *tracewalker, *prefetchinstr;
     opnd_t src_mem_access;
     int distance;
 
     bool insertprefetch;
 
-    loopinstr=find_next_self_loop(dcontext,tag,instrlist_first(trace));
-    if (loopinstr==NULL) {
+    loopinstr = find_next_self_loop(dcontext, tag, instrlist_first(trace));
+    if (loopinstr == NULL) {
         return;
     }
 
-    instr=instrlist_first(trace);
-    while (instr!=NULL) {
+    instr = instrlist_first(trace);
+    while (instr != NULL) {
 
-        if (instr_reads_memory(instr) &&
-            instr_get_opcode(instr)!=OP_prefetchnta) {
+        if (instr_reads_memory(instr) && instr_get_opcode(instr) != OP_prefetchnta) {
 
-            src_mem_access=instr_get_src_mem_access(instr);
+            src_mem_access = instr_get_src_mem_access(instr);
 
-            //only prefetch if the load is register-indirect
-            if (!(opnd_get_base(src_mem_access)||opnd_get_index(src_mem_access)))
+            // only prefetch if the load is register-indirect
+            if (!(opnd_get_base(src_mem_access) || opnd_get_index(src_mem_access)))
                 break;
 
-            prefetchinstr=INSTR_CREATE_prefetchnta(dcontext,
-                                                   opnd_create_base_disp(opnd_get_base(src_mem_access),
-                                                                         opnd_get_index(src_mem_access),
-                                                                         opnd_get_scale(src_mem_access),
-                                                                         opnd_get_disp(src_mem_access), OPSZ_1));
+            prefetchinstr = INSTR_CREATE_prefetchnta(
+                dcontext,
+                opnd_create_base_disp(opnd_get_base(src_mem_access),
+                                      opnd_get_index(src_mem_access),
+                                      opnd_get_scale(src_mem_access),
+                                      opnd_get_disp(src_mem_access), OPSZ_1));
 
-            insertprefetch=true;
-            tracewalker=instr->prev;  //start walk before instruction to prefetch for
-            distance=0;
+            insertprefetch = true;
+            tracewalker = instr->prev; // start walk before instruction to prefetch for
+            distance = 0;
             while (1) {
                 distance++;
-                //if beginning of trace is reached, go back to loop spot
-                if (tracewalker==NULL)
-                    tracewalker=loopinstr->prev;
+                // if beginning of trace is reached, go back to loop spot
+                if (tracewalker == NULL)
+                    tracewalker = loopinstr->prev;
 
-                //reached conflicting instruction
-                if (instruction_affects_mem_access(tracewalker,src_mem_access))
+                // reached conflicting instruction
+                if (instruction_affects_mem_access(tracewalker, src_mem_access))
                     break;
 
-                //came across same prefetch instruction already
-                if (instr_same(prefetchinstr,tracewalker)) {
-                    insertprefetch=false;
-                    break;
-                }
-
-                //looped completely around or load is after the loop instr
-                if ((tracewalker==instr)||(tracewalker==loopinstr)) {
-                    insertprefetch=false;
+                // came across same prefetch instruction already
+                if (instr_same(prefetchinstr, tracewalker)) {
+                    insertprefetch = false;
                     break;
                 }
-                tracewalker=tracewalker->prev;
+
+                // looped completely around or load is after the loop instr
+                if ((tracewalker == instr) || (tracewalker == loopinstr)) {
+                    insertprefetch = false;
+                    break;
+                }
+                tracewalker = tracewalker->prev;
             }
 
-            if (insertprefetch&&(distance<MIN_PREFETCH_DISTANCE||
-                                 (tracewalker->next==instr)))
-                insertprefetch=false;
+            if (insertprefetch &&
+                (distance < MIN_PREFETCH_DISTANCE || (tracewalker->next == instr)))
+                insertprefetch = false;
 
             if (insertprefetch) {
-#ifdef DEBUG
-                LOG(THREAD, LOG_OPTS, 3,"in trace "PFX" inserting prefetch for:",tag);
-                if (stats->loglevel>=3)
-                    instr_disassemble(dcontext,instr,THREAD);
-                LOG(THREAD, LOG_OPTS, 3," after instruction: ");
-                if (stats->loglevel>=3)
-                    instr_disassemble(dcontext,tracewalker,THREAD);
-                LOG(THREAD, LOG_OPTS, 3,"\n");
-#endif
-                instrlist_postinsert(trace,tracewalker,prefetchinstr);
-            }
-            else
-                instr_destroy(dcontext,prefetchinstr);
-
-
+#    ifdef DEBUG
+                LOG(THREAD, LOG_OPTS, 3, "in trace " PFX " inserting prefetch for:", tag);
+                if (stats->loglevel >= 3)
+                    instr_disassemble(dcontext, instr, THREAD);
+                LOG(THREAD, LOG_OPTS, 3, " after instruction: ");
+                if (stats->loglevel >= 3)
+                    instr_disassemble(dcontext, tracewalker, THREAD);
+                LOG(THREAD, LOG_OPTS, 3, "\n");
+#    endif
+                instrlist_postinsert(trace, tracewalker, prefetchinstr);
+            } else
+                instr_destroy(dcontext, prefetchinstr);
         }
-        instr=instr_get_next(instr);
-
+        instr = instr_get_next(instr);
     }
 }
 
@@ -4405,7 +4547,6 @@ prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
    Of course, transparency and memory aliasing problems don't make it very appealing.
 */
 
-
 /****************************************************************************/
 /* utility routines */
 
@@ -4415,7 +4556,8 @@ is_store_to_ecxoff(dcontext_t *dcontext, instr_t *inst)
     int opcode = instr_get_opcode(inst);
     return ((opcode == OP_mov_imm || opcode == OP_mov_st) &&
             opnd_is_near_base_disp(instr_get_dst(inst, 0)) &&
-            opnd_get_disp(instr_get_dst(inst, 0)) == opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)));
+            opnd_get_disp(instr_get_dst(inst, 0)) ==
+                opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)));
 }
 
 bool
@@ -4423,7 +4565,8 @@ is_load_from_ecxoff(dcontext_t *dcontext, instr_t *inst)
 {
     return (instr_get_opcode(inst) == OP_mov_ld &&
             opnd_is_near_base_disp(instr_get_src(inst, 0)) &&
-            opnd_get_disp(instr_get_src(inst, 0)) == opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)));
+            opnd_get_disp(instr_get_src(inst, 0)) ==
+                opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)));
 }
 
 /* returns true if the opnd is a constant address
@@ -4440,33 +4583,33 @@ is_zeroing_instr(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
     if (((opcode == OP_xor) || (opcode == OP_pxor) || (opcode == OP_sub)) &&
-        opnd_same(instr_get_src(inst,0), instr_get_src(inst,1)))
+        opnd_same(instr_get_src(inst, 0), instr_get_src(inst, 1)))
         return true;
     return false;
 }
 
 static bool
-is_dead_register(reg_id_t reg,instr_t *where)
+is_dead_register(reg_id_t reg, instr_t *where)
 {
-    //something tells me its a bad call to mess with these...
-    if (reg==REG_EBP||reg==REG_ESP)
+    // something tells me its a bad call to mess with these...
+    if (reg == REG_EBP || reg == REG_ESP)
         return false;
 
     while (!instr_is_cti(where)) {
-        if (instr_reg_in_src(where,reg))
+        if (instr_reg_in_src(where, reg))
             return false;
         else if (instr_writes_to_reg(where, reg, DR_QUERY_DEFAULT))
             return true;
-        //!instr_writes_to_reg(...).  probably writing to mem indirectly through reg
-        else if (instr_reg_in_dst(where,reg))
+        //! instr_writes_to_reg(...).  probably writing to mem indirectly through reg
+        else if (instr_reg_in_dst(where, reg))
             return false;
 
-        where=instr_get_next(where);
+        where = instr_get_next(where);
     }
     return false;
 }
 
-#if 0 /* not used */
+#    if 0 /* not used */
 static int
 find_dead_register(instr_t *where)
 {
@@ -4502,7 +4645,7 @@ is_dead_reg(dcontext_t *dcontext, instr_t *start_inst, int reg)
     /* in case something goes wrong */
     return false;
 }
-#endif
+#    endif
 
 /* replaces old with new and destroys old inst */
 void
@@ -4523,15 +4666,15 @@ remove_inst(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst)
 
 /* checks if instr writes to any registers that mem_access depends on */
 static bool
-instruction_affects_mem_access(instr_t *instr,opnd_t mem_access)
+instruction_affects_mem_access(instr_t *instr, opnd_t mem_access)
 {
-    reg_id_t base,index;
+    reg_id_t base, index;
     ASSERT(instr);
-    base=opnd_get_base(mem_access);
-    if (base!=REG_NULL&&instr_writes_to_reg(instr, base, DR_QUERY_DEFAULT))
+    base = opnd_get_base(mem_access);
+    if (base != REG_NULL && instr_writes_to_reg(instr, base, DR_QUERY_DEFAULT))
         return true;
-    index=opnd_get_index(mem_access);
-    if (index!=REG_NULL&&instr_writes_to_reg(instr, index, DR_QUERY_DEFAULT))
+    index = opnd_get_index(mem_access);
+    if (index != REG_NULL && instr_writes_to_reg(instr, index, DR_QUERY_DEFAULT))
         return true;
 
     return false;
@@ -4541,15 +4684,16 @@ instruction_affects_mem_access(instr_t *instr,opnd_t mem_access)
 static bool
 safe_write(instr_t *mem_writer)
 {
-    opnd_t mem_write=instr_get_dst(mem_writer,0);
+    opnd_t mem_write = instr_get_dst(mem_writer, 0);
 
     if (!opnd_is_base_disp(mem_write))
         return true;
 
-    else if (opnd_get_base(mem_write)==REG_NULL) //if there's no base, its prob. a constant mem addr
+    else if (opnd_get_base(mem_write) ==
+             REG_NULL) // if there's no base, its prob. a constant mem addr
         return true;
 
-    else if (opnd_get_base(mem_write)!=REG_EBP || opnd_get_index(mem_write)!=REG_NULL)
+    else if (opnd_get_base(mem_write) != REG_EBP || opnd_get_index(mem_write) != REG_NULL)
         return false;
 
     return true;
@@ -4561,8 +4705,8 @@ instr_get_src_mem_access(instr_t *instr)
     int a;
     opnd_t curop;
 
-    for (a=0;a<instr_num_srcs(instr);a++) {
-        curop=instr_get_src(instr,a);
+    for (a = 0; a < instr_num_srcs(instr); a++) {
+        curop = instr_get_src(instr, a);
         if (opnd_is_memory_reference(curop)) {
             return curop;
         }
@@ -4578,49 +4722,45 @@ find_next_self_loop(dcontext_t *dcontext, app_pc tag, instr_t *instr)
     app_pc target;
 
     while (instr != NULL) {
-        if (instr_is_cbr(instr)||instr_is_ubr(instr)) {
-            target=opnd_get_pc(instr_get_target(instr));
-            if (target==tag) {
+        if (instr_is_cbr(instr) || instr_is_ubr(instr)) {
+            target = opnd_get_pc(instr_get_target(instr));
+            if (target == tag) {
                 return instr;
             }
-
         }
 
-        instr=instr_get_next(instr);
+        instr = instr_get_next(instr);
     }
     return NULL;
 }
 
 void
-replace_self_loop_with_instr(dcontext_t *dcontext, app_pc tag,
-                             instrlist_t *trace, instr_t *desiredtargetinstr)
+replace_self_loop_with_instr(dcontext_t *dcontext, app_pc tag, instrlist_t *trace,
+                             instr_t *desiredtargetinstr)
 {
-    instr_t *top=instrlist_first(trace),*in;
+    instr_t *top = instrlist_first(trace), *in;
     opnd_t targetop;
 
-    in=top;
+    in = top;
 
     LOG(THREAD, LOG_OPTS, 3,
-        "entering replace_self_loop_with_instr looking for tag "PFX".\n",
-        tag);
-    while (in!=NULL) {
-        if (instr_is_cbr(in)||instr_is_ubr(in)) {
-            targetop=instr_get_target(in);
-            if (opnd_is_near_pc(targetop)&&opnd_get_pc(targetop)==tag) {
-                loginst(dcontext,3,in,"self_loop (pc target==tag) fixing in");
-                instr_set_target(in,opnd_create_instr(desiredtargetinstr));
-            }
-            else if (opnd_is_near_instr(targetop)&&opnd_get_instr(targetop)==top) {
-                loginst(dcontext,3,in,"self_loop (inter traget==top)fixing in");
-                logopnd(dcontext,3,opnd_create_instr(desiredtargetinstr),"self_loop in now points to");
-                instr_set_target(in,opnd_create_instr(desiredtargetinstr));
+        "entering replace_self_loop_with_instr looking for tag " PFX ".\n", tag);
+    while (in != NULL) {
+        if (instr_is_cbr(in) || instr_is_ubr(in)) {
+            targetop = instr_get_target(in);
+            if (opnd_is_near_pc(targetop) && opnd_get_pc(targetop) == tag) {
+                loginst(dcontext, 3, in, "self_loop (pc target==tag) fixing in");
+                instr_set_target(in, opnd_create_instr(desiredtargetinstr));
+            } else if (opnd_is_near_instr(targetop) && opnd_get_instr(targetop) == top) {
+                loginst(dcontext, 3, in, "self_loop (inter traget==top)fixing in");
+                logopnd(dcontext, 3, opnd_create_instr(desiredtargetinstr),
+                        "self_loop in now points to");
+                instr_set_target(in, opnd_create_instr(desiredtargetinstr));
             }
         }
-        in=instr_get_next(in);
+        in = instr_get_next(in);
     }
-
 }
-
 
 /* given a cbr, finds the previous instr that writes the flag the cbr reads */
 static instr_t *
@@ -4648,13 +4788,12 @@ propagate_down(bool *reg_rep, int index, bool value)
     if ((index >= 0) && (index < 24)) {
         reg_rep[index] = value;
         if (index < 12) {
-            reg_rep[index+8] = value;
+            reg_rep[index + 8] = value;
             if (index < 4) {
-                reg_rep[index+16] = value;
-                reg_rep[index+20] = value;
-            }
-            else if (index >= 8)
-                reg_rep[index+12] = value;
+                reg_rep[index + 16] = value;
+                reg_rep[index + 20] = value;
+            } else if (index >= 8)
+                reg_rep[index + 12] = value;
         }
     }
 }
@@ -4663,10 +4802,9 @@ static bool
 check_down(bool *reg_rep, int index)
 {
     return ((index >= 0) && (index < 24) && reg_rep[index] &&
-            ((index >= 12) || (reg_rep[index+8] &&
-                               ((index < 8) || reg_rep[index+12]) &&
-                               ((index >= 4) || (reg_rep[index+16] &&
-                                                 reg_rep[index+20])))));
+            ((index >= 12) ||
+             (reg_rep[index + 8] && ((index < 8) || reg_rep[index + 12]) &&
+              ((index >= 4) || (reg_rep[index + 16] && reg_rep[index + 20])))));
 }
 
 /* return true, if this instr is a nop, of one of a class of nops */
@@ -4681,11 +4819,11 @@ is_nop(instr_t *inst)
     if ((opcode == OP_mov_ld || opcode == OP_mov_st || opcode == OP_xchg) &&
         opnd_same(instr_get_src(inst, 0), instr_get_dst(inst, 0)))
         return true;
-    if (opcode == OP_lea &&
-        opnd_get_disp(instr_get_src(inst, 0)) == 0 &&
+    if (opcode == OP_lea && opnd_get_disp(instr_get_src(inst, 0)) == 0 &&
         ((opnd_get_base(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
           opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) ||
-         (opnd_get_index(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
+         (opnd_get_index(instr_get_src(inst, 0)) ==
+              opnd_get_reg(instr_get_dst(inst, 0)) &&
           opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
           opnd_get_scale(instr_get_src(inst, 0)) == 1)))
         return true;

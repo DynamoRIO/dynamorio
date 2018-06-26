@@ -31,19 +31,22 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
-#include "drreg-test-shared.h"
-#include <setjmp.h>
+#    include "tools.h"
+#    include "drreg-test-shared.h"
+#    include <setjmp.h>
 
 /* asm routines */
-void test_asm();
-void test_asm_faultA();
-void test_asm_faultB();
+void
+test_asm();
+void
+test_asm_faultA();
+void
+test_asm_faultB();
 
 static SIGJMP_BUF mark;
 
-#if defined(UNIX)
-# include <signal.h>
+#    if defined(UNIX)
+#        include <signal.h>
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -58,8 +61,8 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
-#elif defined(WINDOWS)
-# include <windows.h>
+#    elif defined(WINDOWS)
+#        include <windows.h>
 static LONG WINAPI
 handle_exception(struct _EXCEPTION_POINTERS *ep)
 {
@@ -72,17 +75,17 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
-#endif
+#    endif
 
 int
 main(int argc, const char *argv[])
 {
-#if defined(UNIX)
+#    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
     intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
-#elif defined(WINDOWS)
+#    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception);
-#endif
+#    endif
 
     print("drreg-test running\n");
 
@@ -105,8 +108,9 @@ main(int argc, const char *argv[])
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
-#include "drreg-test-shared.h"
+#    include "asm_defines.asm"
+#    include "drreg-test-shared.h"
+/* clang-format off */
 START_FILE
 
 #ifdef X64
@@ -346,4 +350,5 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 #endif

@@ -48,33 +48,62 @@
 #define COMPUTE_ITERS 150000
 
 #if VERBOSE
-# define VPRINT(...) print(__VA_ARGS__)
+#    define VPRINT(...) print(__VA_ARGS__)
 #else
-# define VPRINT(...) /* nothing */
+#    define VPRINT(...) /* nothing */
 #endif
 
 /* We have event bb look for this to make sure we're instrumenting the sideline
  * thread.
  */
 /* We could generate this via macros but that gets pretty obtuse */
-NOINLINE void func_0(void) { }
-NOINLINE void func_1(void) { }
-NOINLINE void func_2(void) { }
-NOINLINE void func_3(void) { }
-NOINLINE void func_4(void) { }
-NOINLINE void func_5(void) { }
-NOINLINE void func_6(void) { }
-NOINLINE void func_7(void) { }
-NOINLINE void func_8(void) { }
-NOINLINE void func_9(void) { }
+NOINLINE void
+func_0(void)
+{
+}
+NOINLINE void
+func_1(void)
+{
+}
+NOINLINE void
+func_2(void)
+{
+}
+NOINLINE void
+func_3(void)
+{
+}
+NOINLINE void
+func_4(void)
+{
+}
+NOINLINE void
+func_5(void)
+{
+}
+NOINLINE void
+func_6(void)
+{
+}
+NOINLINE void
+func_7(void)
+{
+}
+NOINLINE void
+func_8(void)
+{
+}
+NOINLINE void
+func_9(void)
+{
+}
 
 typedef void (*void_func_t)(void);
 static bool took_over_thread[NUM_THREADS];
 static void_func_t funcs[NUM_THREADS];
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     int i;
     app_pc pc = instr_get_app_pc(instrlist_first(bb));
@@ -124,16 +153,18 @@ sideline_spinner(void *arg)
     return THREAD_FUNC_RETURN_ZERO;
 }
 
-void foo(void)
+void
+foo(void)
 {
 }
 
-int main(void)
+int
+main(void)
 {
     double res = 0.;
     int i;
     void *stack = NULL;
-    thread_t thread[NUM_THREADS];  /* On Linux, the tid. */
+    thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
     /* We could generate this via macros but that gets pretty obtuse */
     funcs[0] = &func_0;
@@ -152,7 +183,7 @@ int main(void)
 
     for (i = 0; i < NUM_THREADS; i++) {
         sideline_ready[i] = create_cond_var();
-        thread[i] = create_thread(sideline_spinner, (void*)(uintptr_t)i);
+        thread[i] = create_thread(sideline_spinner, (void *)(uintptr_t)i);
     }
 
     /* Initialized DR */
@@ -164,7 +195,7 @@ int main(void)
 
     /* Wait for all the threads to be scheduled */
     VPRINT("waiting for ready\n");
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
@@ -173,7 +204,7 @@ int main(void)
     VPRINT("signaling continue\n");
     signal_cond_var(sideline_continue);
     VPRINT("waiting for ready\n");
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
@@ -185,16 +216,16 @@ int main(void)
 
     VPRINT("signaling native\n");
     signal_cond_var(go_native);
-    for (i=0; i<NUM_THREADS; i++) {
+    for (i = 0; i < NUM_THREADS; i++) {
         wait_cond_var(sideline_ready[i]);
         reset_cond_var(sideline_ready[i]);
     }
 
-    for (i=0; i<COMPUTE_ITERS; i++) {
+    for (i = 0; i < COMPUTE_ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
     }
     foo();
@@ -209,7 +240,7 @@ int main(void)
 
     destroy_cond_var(sideline_continue);
     destroy_cond_var(go_native);
-    for (i=0; i<NUM_THREADS; i++)
+    for (i = 0; i < NUM_THREADS; i++)
         destroy_cond_var(sideline_ready[i]);
 
     return 0;

@@ -56,34 +56,44 @@
  * which exposes the iterator and allows a separate control infrastructure to be
  * built.
  */
-class analysis_tool_t
-{
- public:
+class analysis_tool_t {
+public:
     /**
      * Errors encountered during the constructor will set the success flag, which should
      * be queried via operator!.  On an error, get_error_string() provides a descriptive
      * error message.
      */
-    analysis_tool_t() : success(true) {};
-    virtual ~analysis_tool_t() {}; /**< Destructor. */
+    analysis_tool_t()
+        : success(true){};
+    virtual ~analysis_tool_t(){}; /**< Destructor. */
     /** Returns whether the tool was created successfully. */
-    virtual bool operator!() { return !success; }
+    virtual bool operator!()
+    {
+        return !success;
+    }
     /** Returns a description of the last error. */
-    virtual std::string get_error_string() { return error_string; }
+    virtual std::string
+    get_error_string()
+    {
+        return error_string;
+    }
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry and
      * takes whatever actions the tool needs to perform its analysis.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
-    virtual bool process_memref(const memref_t &memref) = 0;
+    virtual bool
+    process_memref(const memref_t &memref) = 0;
     /**
      * This routine reports the results of the trace analysis.
      * The return value indicates whether it was successful.
      * On failure, get_error_string() returns a descriptive message.
      */
-    virtual bool print_results() = 0;
- protected:
+    virtual bool
+    print_results() = 0;
+
+protected:
     bool success;
     std::string error_string;
 };

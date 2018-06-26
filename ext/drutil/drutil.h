@@ -62,7 +62,6 @@ DR_EXPORT
 void
 drutil_exit(void);
 
-
 /***************************************************************************
  * MEMORY TRACING
  */
@@ -165,7 +164,6 @@ DR_EXPORT
 bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
-
 
 /*@}*/ /* end doxygen group */
 

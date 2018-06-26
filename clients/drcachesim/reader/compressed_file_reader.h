@@ -40,19 +40,21 @@
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
 
-class compressed_file_reader_t : public reader_t
-{
- public:
+class compressed_file_reader_t : public reader_t {
+public:
     compressed_file_reader_t();
     explicit compressed_file_reader_t(const char *file_name);
     virtual ~compressed_file_reader_t();
-    virtual bool init();
-    virtual bool is_complete();
+    virtual bool
+    init();
+    virtual bool
+    is_complete();
 
- protected:
-    virtual trace_entry_t * read_next_entry();
+protected:
+    virtual trace_entry_t *
+    read_next_entry();
 
- private:
+private:
     gzFile file;
     trace_entry_t entry_copy;
 };

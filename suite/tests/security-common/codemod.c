@@ -57,7 +57,7 @@ main()
 #elif defined(AARCH64)
     buf[0] = 0xd65f03c0; /* ret */
 #else
-# error NYI
+#    error NYI
 #endif
 
 #ifndef X86

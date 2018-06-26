@@ -30,13 +30,12 @@
  * DAMAGE.
  */
 
-
 #include "tools.h"
 #include <windows.h>
 
 static int count = 0;
 
-#if 0 /* FIXME i#2249: not handled yet */
+#if 0  /* FIXME i#2249: not handled yet */
 static void
 test_debug_register(void)
 {
@@ -69,21 +68,20 @@ test_eip(void)
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
         count++;
         print("single step seen\n");
-        //deactivate breakpoint
+        // deactivate breakpoint
         pExceptionInfo->ContextRecord->Dr0 = 0;
         pExceptionInfo->ContextRecord->Dr6 = 0;
         pExceptionInfo->ContextRecord->Dr7 = 0;
         return EXCEPTION_CONTINUE_EXECUTION;
-    }
-    else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
+    } else if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
         count++;
         print("breakpoint seen\n");
-        //deactivate breakpoint
+        // deactivate breakpoint
 #ifndef X64
         pExceptionInfo->ContextRecord->Eip++;
 #else
@@ -105,10 +103,9 @@ main(void)
 
     INIT();
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     print("start of test count = %d\n", count);
-
 
     hThread = GetCurrentThread();
     Context.ContextFlags = 0;
@@ -117,7 +114,7 @@ main(void)
         print("error for SetThreadContext\n");
     }
 
-#if 0 /* FIXME i#2249: not handled yet */
+#if 0  /* FIXME i#2249: not handled yet */
     Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
     if (GetThreadContext(hThread, &Context) != 0) {
         Context.Dr0 = (DWORD) (((char*)test_debug_register) + 4);
@@ -146,4 +143,3 @@ main(void)
 
     return 0;
 }
-

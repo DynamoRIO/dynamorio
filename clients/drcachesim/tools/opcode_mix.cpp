@@ -47,14 +47,17 @@
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose)
+opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose)
 {
     return new opcode_mix_t(module_file_path, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int verbose) :
-    dcontext(nullptr), raw2trace(nullptr), directory(module_file_path),
-    knob_verbose(verbose), instr_count(0)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
+    : dcontext(nullptr)
+    , raw2trace(nullptr)
+    , directory(module_file_path)
+    , knob_verbose(verbose)
+    , instr_count(0)
 {
     if (module_file_path.empty()) {
         error_string = "Module file path is missing";
@@ -62,7 +65,7 @@ opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int ver
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream*>(),
+    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream *>(),
                                 nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
@@ -80,42 +83,41 @@ opcode_mix_t::~opcode_mix_t()
 bool
 opcode_mix_t::process_memref(const memref_t &memref)
 {
-  if (!type_is_instr(memref.instr.type) &&
-      memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-      return "";
-  ++instr_count;
-  app_pc mapped_pc;
-  std::string err =
-      raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
-  if (!err.empty()) {
-      error_string = "Failed to find mapped address for " +
-          to_hex_string(memref.instr.addr) + ": " + err;
-      return false;
-  }
-  int opcode;
-  auto cached_opcode = opcode_cache.find(mapped_pc);
-  if (cached_opcode != opcode_cache.end()) {
-      opcode = cached_opcode->second;
-  } else {
-      instr_t instr;
-      instr_init(dcontext, &instr);
-      app_pc next_pc = decode(dcontext, mapped_pc, &instr);
-      if (next_pc == NULL || !instr_valid(&instr)) {
-          error_string = "Failed to decode instruction " +
-              to_hex_string(memref.instr.addr);
-          return false;
-      }
-      opcode = instr_get_opcode(&instr);
-      opcode_cache[mapped_pc] = opcode;
-      instr_free(dcontext, &instr);
-  }
-  ++opcode_counts[opcode];
-  return true;
+    if (!type_is_instr(memref.instr.type) &&
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
+        return "";
+    ++instr_count;
+    app_pc mapped_pc;
+    std::string err =
+        raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
+    if (!err.empty()) {
+        error_string = "Failed to find mapped address for " +
+            to_hex_string(memref.instr.addr) + ": " + err;
+        return false;
+    }
+    int opcode;
+    auto cached_opcode = opcode_cache.find(mapped_pc);
+    if (cached_opcode != opcode_cache.end()) {
+        opcode = cached_opcode->second;
+    } else {
+        instr_t instr;
+        instr_init(dcontext, &instr);
+        app_pc next_pc = decode(dcontext, mapped_pc, &instr);
+        if (next_pc == NULL || !instr_valid(&instr)) {
+            error_string =
+                "Failed to decode instruction " + to_hex_string(memref.instr.addr);
+            return false;
+        }
+        opcode = instr_get_opcode(&instr);
+        opcode_cache[mapped_pc] = opcode;
+        instr_free(dcontext, &instr);
+    }
+    ++opcode_counts[opcode];
+    return true;
 }
 
 static bool
-cmp_val(const std::pair<int, int_least64_t> &l,
-        const std::pair<int, int_least64_t> &r)
+cmp_val(const std::pair<int, int_least64_t> &l, const std::pair<int, int_least64_t> &r)
 {
     return (l.second > r.second);
 }
@@ -129,8 +131,8 @@ opcode_mix_t::print_results()
                                                       opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
-        std::cerr << std::setw(15) << keyvals.second << " : "
-                  << std::setw(9) << decode_opcode_name(keyvals.first) << "\n";
+        std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
+                  << decode_opcode_name(keyvals.first) << "\n";
     }
     return true;
 }

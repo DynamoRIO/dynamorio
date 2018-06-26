@@ -55,24 +55,14 @@ main(int argc, char **argv)
         fprintf(stderr, "creating subprocess %s\n", cmdline);
         fflush(stderr);
 
-        if (!CreateProcess(argv[1],
-                           cmdline,
-                           NULL,
-                           NULL,
-                           FALSE,
-                           0,
-                           NULL,
-                           NULL,
-                           &si,
+        if (!CreateProcess(argv[1], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si,
                            &pi)) {
             fprintf(stderr, "CreateProcess failure\n");
             fflush(stderr);
         } else
             WaitForSingleObject(pi.hProcess, INFINITE);
-    }
-    else {
-        fprintf(stderr,
-                "Usage: %s <process to run> [args for child]\n", argv[0]);
+    } else {
+        fprintf(stderr, "Usage: %s <process to run> [args for child]\n", argv[0]);
         fflush(stderr);
     }
 

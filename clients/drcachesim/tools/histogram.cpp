@@ -40,17 +40,16 @@
 const std::string histogram_t::TOOL_NAME = "Cache line histogram tool";
 
 analysis_tool_t *
-histogram_tool_create(unsigned int line_size = 64,
-                      unsigned int report_top = 10,
+histogram_tool_create(unsigned int line_size = 64, unsigned int report_top = 10,
                       unsigned int verbose = 0)
 {
     return new histogram_t(line_size, report_top, verbose);
 }
 
-histogram_t::histogram_t(unsigned int line_size,
-                         unsigned int report_top,
-                         unsigned int verbose) :
-    knob_line_size(line_size), knob_report_top(report_top)
+histogram_t::histogram_t(unsigned int line_size, unsigned int report_top,
+                         unsigned int verbose)
+    : knob_line_size(line_size)
+    , knob_report_top(report_top)
 {
     line_size_bits = compute_log2((int)line_size);
 }
@@ -74,8 +73,8 @@ histogram_t::process_memref(const memref_t &memref)
     return true;
 }
 
-bool cmp(const std::pair<addr_t, uint64_t> &l,
-         const std::pair<addr_t, uint64_t> &r)
+bool
+cmp(const std::pair<addr_t, uint64_t> &l, const std::pair<addr_t, uint64_t> &r)
 {
     return l.second > r.second;
 }
@@ -86,21 +85,21 @@ histogram_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "icache: " << icache_map.size() << " unique cache lines\n";
     std::cerr << "dcache: " << dcache_map.size() << " unique cache lines\n";
-    std::vector<std::pair<addr_t, uint64_t> > top(knob_report_top);
-    std::partial_sort_copy(icache_map.begin(), icache_map.end(),
-                           top.begin(), top.end(), cmp);
+    std::vector<std::pair<addr_t, uint64_t>> top(knob_report_top);
+    std::partial_sort_copy(icache_map.begin(), icache_map.end(), top.begin(), top.end(),
+                           cmp);
     std::cerr << "icache top " << top.size() << "\n";
-    for (std::vector<std::pair<addr_t, uint64_t> >::iterator it = top.begin();
+    for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
          it != top.end(); ++it) {
         std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
                   << ": " << std::dec << it->second << "\n";
     }
     top.clear();
     top.resize(knob_report_top);
-    std::partial_sort_copy(dcache_map.begin(), dcache_map.end(),
-                           top.begin(), top.end(), cmp);
+    std::partial_sort_copy(dcache_map.begin(), dcache_map.end(), top.begin(), top.end(),
+                           cmp);
     std::cerr << "dcache top " << top.size() << "\n";
-    for (std::vector<std::pair<addr_t, uint64_t> >::iterator it = top.begin();
+    for (std::vector<std::pair<addr_t, uint64_t>>::iterator it = top.begin();
          it != top.end(); ++it) {
         std::cerr << std::setw(18) << std::hex << std::showbase << (it->first << 6)
                   << ": " << std::dec << it->second << "\n";

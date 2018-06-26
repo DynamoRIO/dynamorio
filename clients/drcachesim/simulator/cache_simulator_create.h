@@ -49,24 +49,26 @@
  */
 // The options are currently documented in ../common/options.cpp.
 struct cache_simulator_knobs_t {
-    cache_simulator_knobs_t() :
-        num_cores(4),
-        line_size(64),
-        L1I_size(32*1024U),
-        L1D_size(32*1024U),
-        L1I_assoc(8),
-        L1D_assoc(8),
-        LL_size(8*1024*1024),
-        LL_assoc(16),
-        LL_miss_file(""),
-        replace_policy("LRU"),
-        data_prefetcher("nextline"),
-        skip_refs(0),
-        warmup_refs(0),
-        warmup_fraction(0.0),
-        sim_refs(1ULL << 63),
-        cpu_scheduling(false),
-        verbose(0) {}
+    cache_simulator_knobs_t()
+        : num_cores(4)
+        , line_size(64)
+        , L1I_size(32 * 1024U)
+        , L1D_size(32 * 1024U)
+        , L1I_assoc(8)
+        , L1D_assoc(8)
+        , LL_size(8 * 1024 * 1024)
+        , LL_assoc(16)
+        , LL_miss_file("")
+        , replace_policy("LRU")
+        , data_prefetcher("nextline")
+        , skip_refs(0)
+        , warmup_refs(0)
+        , warmup_fraction(0.0)
+        , sim_refs(1ULL << 63)
+        , cpu_scheduling(false)
+        , verbose(0)
+    {
+    }
     unsigned int num_cores;
     unsigned int line_size;
     uint64_t L1I_size;

@@ -57,13 +57,13 @@
 /* undefine this for a performance test */
 
 #ifdef NIGHTLY_REGRESSION
-#  define DEPTH 5
+#    define DEPTH 5
 #else
-# ifdef PERF
-#  define DEPTH 10              /* PERF */
-# else
-#  define DEPTH 100             /* STRESS */
-# endif
+#    ifdef PERF
+#        define DEPTH 10 /* PERF */
+#    else
+#        define DEPTH 100 /* STRESS */
+#    endif
 #endif
 
 static int depth = DEPTH;
@@ -87,7 +87,7 @@ main(int argc, char **argv)
     DWORD result = 0;
 
     INIT();
-    USE_USER32();               /* can't be in runall otherwise! */
+    USE_USER32(); /* can't be in runall otherwise! */
 
     if (argc == 1) {
         /* normal execution */
@@ -104,7 +104,7 @@ main(int argc, char **argv)
         print("subprocess %d running.\n", depth);
 #endif
 
-        _snprintf(cmdline, sizeof(cmdline), "%s %d", argv[0], depth-1);
+        _snprintf(cmdline, sizeof(cmdline), "%s %d", argv[0], depth - 1);
         /* this thread could do some work or just sleep a little */
         Sleep(10);
 #if VERBOSE
@@ -120,16 +120,8 @@ main(int argc, char **argv)
          * grandchild
          */
 
-        if (!CreateProcess(argv[0],
-                           cmdline,
-                           NULL,
-                           NULL,
-                           FALSE,
-                           CREATE_SUSPENDED,
-                           NULL,
-                           NULL,
-                           &si,
-                           &pi))
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL,
+                           NULL, &si, &pi))
             print("CreateProcess failure\n");
         else {
             DWORD exit_code = 0;
@@ -137,28 +129,27 @@ main(int argc, char **argv)
             DWORD proc_affinity;
             DWORD sys_affinity;
 
-            static const char* mylib = "earlythread.dll.dll";
+            static const char *mylib = "earlythread.dll.dll";
             /* note we're too lazy to allocate this string in the
              * child, but if exe is not ASLRed in child we should be fine
              */
 
             /* creating a thread to LoadLibrary */
 
-            hThread_child =
-                CreateRemoteThread(pi.hProcess, 0, 0, &LoadLibrary, (void*)mylib,
-                                   CREATE_SUSPENDED, NULL);
+            hThread_child = CreateRemoteThread(pi.hProcess, 0, 0, &LoadLibrary,
+                                               (void *)mylib, CREATE_SUSPENDED, NULL);
 
             if (hThread_child == NULL) {
-                print("Error in CreateRemoteThread(Code %d)\n",GetLastError());
+                print("Error in CreateRemoteThread(Code %d)\n", GetLastError());
             }
 
 #if PROCAFFINITY /* case 4181 - can't be set to 0 */
             if (!GetProcessAffinityMask(pi.hProcess, &proc_affinity, &sys_affinity)) {
                 print("GetProcessAffinityMask() failure %d\n", GetLastError());
             }
-#if VERBOSE
+#    if VERBOSE
             print("GetProcessAffinityMask = %x %x\n", proc_affinity, sys_affinity);
-#endif
+#    endif
 
             if (!SetProcessAffinityMask(pi.hProcess, 0)) {
                 print("SetProcessAffinityMask(0) failure %d\n", GetLastError());
@@ -185,7 +176,7 @@ main(int argc, char **argv)
 
                 /* FIXME: should play around with extra sleep if too
                  * deterministic otherwise */
-                Sleep(depth*10);
+                Sleep(depth * 10);
             } else {
                 /* we'll wake up after injected thread */
             }
@@ -198,7 +189,7 @@ main(int argc, char **argv)
             if (roundrobin &&
                 ((depth % 2) == 1)) { /* odd rounds injected thread goes first */
                 /* FIXME: may want to be able to disable this */
-                Sleep(depth*10);
+                Sleep(depth * 10);
 
                 result = ResumeThread(pi.hThread);
                 if (result == -1) {
@@ -209,7 +200,7 @@ main(int argc, char **argv)
             while (extra_threads-- < 0) {
                 /* inject a few more threads for kicks  */
                 HANDLE extra_child =
-                    CreateRemoteThread(pi.hProcess, 0, 0, &LoadLibrary, (void*)mylib,
+                    CreateRemoteThread(pi.hProcess, 0, 0, &LoadLibrary, (void *)mylib,
                                        0 /* ready to run */, NULL);
                 /* do we really have to wait on them? no.. */
 #if WAITEXTRA
@@ -217,7 +208,7 @@ main(int argc, char **argv)
 #endif
             }
 
-            if (hThread_child != NULL){
+            if (hThread_child != NULL) {
                 WaitForSingleObject(hThread_child, INFINITE);
                 CloseHandle(hThread_child);
 #if VERBOSE

@@ -37,24 +37,24 @@
 /***************************************************************************/
 #ifdef STANDALONE_DECODER /* around whole file */
 
-#include "../globals.h"
-#include "instr.h"
+#    include "../globals.h"
+#    include "instr.h"
 
-#ifdef UNIX
-#  include <unistd.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#    endif
 
 /* initialize to all zeros.  disassemble_set_syntax will write to it. */
 options_t dynamo_options;
 
 /* support use of STD* macros so user doesn't have to use "stdout->_fileno" */
-#ifdef UNIX
+#    ifdef UNIX
 file_t our_stdout = STDOUT_FILENO;
 file_t our_stderr = STDERR_FILENO;
 file_t our_stdin = STDIN_FILENO;
-#endif
+#    endif
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
 DR_API file_t
 dr_get_stdout_file(void)
 {
@@ -72,7 +72,7 @@ dr_get_stdin_file(void)
 {
     return GetStdHandle(STD_INPUT_HANDLE);
 }
-#endif
+#    endif
 
 static uint vendor = VENDOR_INTEL; /* default */
 
@@ -86,8 +86,7 @@ DR_API
 int
 proc_set_vendor(uint new_vendor)
 {
-    if (new_vendor == VENDOR_INTEL ||
-        new_vendor == VENDOR_AMD) {
+    if (new_vendor == VENDOR_INTEL || new_vendor == VENDOR_AMD) {
         uint old_vendor = vendor;
         vendor = new_vendor;
         return old_vendor;
@@ -135,7 +134,7 @@ proc_restore_fpstate(byte *buf)
 priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
-    return (priv_mcontext_t*)(&mc->IF_X86_ELSE(xdi,r0));
+    return (priv_mcontext_t *)(&mc->IF_X86_ELSE(xdi, r0));
 }
 
 /* XXX: duplicated from instrument.c, for convert_to_near_rel_common() */
@@ -153,8 +152,7 @@ instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
  */
 
 void
-double_print(double val, uint precision, uint *top, uint *bottom,
-             const char **sign)
+double_print(double val, uint precision, uint *top, uint *bottom, const char **sign)
 {
     uint i, precision_multiple;
     if (val < 0.0) {
@@ -178,7 +176,7 @@ bool
 print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
 {
     /* in io.c */
-#undef vsnprintf
+#    undef vsnprintf
     extern int vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     va_list ap;
@@ -187,16 +185,16 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
     len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
     va_end(ap);
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
-#ifdef UNIX
+#    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
      * or our_vsnprintf
      */
     if (len >= (ssize_t)(bufsz - *sofar))
         len = -1;
-#endif
+#    endif
     *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
     /* be paranoid: though usually many calls in a row and could delay until end */
-    buf[bufsz-1] = '\0';
+    buf[bufsz - 1] = '\0';
     return ok;
 }
 
@@ -208,7 +206,7 @@ print_file(file_t f, const char *fmt, ...)
      * to a buffer.  Only used internally for disassembly so should not
      * get even close to 4096.
      */
-#define MAX_PRINT_FILE_LEN 4096
+#    define MAX_PRINT_FILE_LEN 4096
     char buf[MAX_PRINT_FILE_LEN];
     ssize_t len;
 
@@ -216,25 +214,25 @@ print_file(file_t f, const char *fmt, ...)
     len = vsnprintf(buf, BUFFER_SIZE_ELEMENTS(buf), fmt, ap);
     va_end(ap);
 
-#ifdef UNIX
+#    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
      * or our_vsnprintf
      */
     if (len >= BUFFER_SIZE_ELEMENTS(buf))
         len = BUFFER_SIZE_ELEMENTS(buf); /* don't need NULL term */
-#else
+#    else
     if (len < 0)
         len = BUFFER_SIZE_ELEMENTS(buf); /* don't need NULL term */
-#endif
+#    endif
     os_write(f, buf, len);
 }
 
 ssize_t
 os_write(file_t f, const void *buf, size_t count)
 {
-#ifdef UNIX
+#    ifdef UNIX
     return write(f, buf, count);
-#else
+#    else
     /* file_t is HANDLE opened with CreateFile */
     DWORD written = 0;
     ssize_t out = -1;
@@ -242,11 +240,11 @@ os_write(file_t f, const void *buf, size_t count)
     if (f == INVALID_FILE)
         return out;
     /* our internal calls won't overflow uint */
-    ok = WriteFile(f, buf, (uint) count, &written, NULL);
+    ok = WriteFile(f, buf, (uint)count, &written, NULL);
     if (ok)
         out = (ssize_t)written;
     return out;
-#endif
+#    endif
 }
 
 #endif /* STANDALONE_DECODER */

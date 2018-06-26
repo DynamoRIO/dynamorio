@@ -37,17 +37,20 @@
  */
 #include <stdio.h>
 
-int ind(int (*func)(int), int arg)
+int
+ind(int (*func)(int), int arg)
 {
     fprintf(stderr, "inside ind\n");
     (*func)(arg);
 }
 
-int outer(int x)
+int
+outer(int x)
 {
     int y = 37;
 
-    int nested(int x) {
+    int nested(int x)
+    {
         int z = y + x;
         fprintf(stderr, "inside nested %d\n", z);
     }
@@ -56,7 +59,8 @@ int outer(int x)
     ind(nested, 4);
 }
 
-int main()
+int
+main()
 {
     outer(4);
     return 0;

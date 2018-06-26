@@ -31,39 +31,42 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-#include <assert.h>
+#    include <assert.h>
 
-int sandbox();
-int usebx();
+int
+sandbox();
+int
+usebx();
 
-#define MEMCHANGE_SIZE 1024
+#    define MEMCHANGE_SIZE 1024
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         print("access violation exception\n");
-        protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+        protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
         return EXCEPTION_CONTINUE_EXECUTION;
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     INIT();
     int count = 0;
 
     assert(PAGE_SIZE <= 4096);
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     print("start of test, count = %d\n", count);
-    protect_mem(sandbox, MEMCHANGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox, MEMCHANGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     protect_mem(usebx, MEMCHANGE_SIZE, ALLOW_READ);
     /* Sets DynamoRIO in sandboxing mode and generates an exception.
      * With a client storing translations, it is tested that
@@ -75,9 +78,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #if defined(ASSEMBLE_WITH_GAS)
@@ -151,4 +154,5 @@ _MYTEXT ENDS
 #endif
 
 END_FILE
+/* clang-format on */
 #endif

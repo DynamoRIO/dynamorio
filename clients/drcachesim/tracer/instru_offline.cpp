@@ -44,23 +44,21 @@
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for strlen */
 
-static const ptr_uint_t MAX_INSTR_COUNT = 64*1024;
+static const ptr_uint_t MAX_INSTR_COUNT = 64 * 1024;
 
-void * (*offline_instru_t::user_load)(module_data_t *module);
+void *(*offline_instru_t::user_load)(module_data_t *module);
 int (*offline_instru_t::user_print)(void *data, char *dst, size_t max_len);
 void (*offline_instru_t::user_free)(void *data);
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
-                                   bool memref_needs_info,
-                                   drvector_t *reg_vector,
-                                   ssize_t (*write_file)(file_t file,
-                                                         const void *data,
+                                   bool memref_needs_info, drvector_t *reg_vector,
+                                   ssize_t (*write_file)(file_t file, const void *data,
                                                          size_t count),
                                    file_t module_file)
-  : instru_t(insert_load_buf, memref_needs_info, reg_vector,
-             sizeof(offline_entry_t)),
-    write_file_func(write_file), modfile(module_file)
+    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t))
+    , write_file_func(write_file)
+    , modfile(module_file)
 {
     drcovlib_status_t res = drmodtrack_init();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
@@ -83,7 +81,7 @@ offline_instru_t::~offline_instru_t()
         buf = (char *)dr_global_alloc(size);
         res = drmodtrack_dump_buf(buf, size, &wrote);
         if (res == DRCOVLIB_SUCCESS) {
-            ssize_t written = write_file_func(modfile, buf, wrote - 1/*no null*/);
+            ssize_t written = write_file_func(modfile, buf, wrote - 1 /*no null*/);
             DR_ASSERT(written == (ssize_t)wrote - 1);
         }
         dr_global_free(buf, size);
@@ -108,11 +106,11 @@ offline_instru_t::load_custom_module_data(module_data_t *module)
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
-        return new(alloc) custom_module_data_t((const char *)module->start,
-                                               module->end - module->start, user_data);
+        return new (alloc) custom_module_data_t((const char *)module->start,
+                                                module->end - module->start, user_data);
     } else if (user_data != nullptr) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
-        return new(alloc) custom_module_data_t(nullptr, 0, user_data);
+        return new (alloc) custom_module_data_t(nullptr, 0, user_data);
     }
     return nullptr;
 }
@@ -160,10 +158,10 @@ offline_instru_t::free_custom_module_data(void *data)
 }
 
 bool
-offline_instru_t::custom_module_data
-(void * (*load_cb)(module_data_t *module),
- int (*print_cb)(void *data, char *dst, size_t max_len),
- void (*free_cb)(void *data))
+offline_instru_t::custom_module_data(void *(*load_cb)(module_data_t *module),
+                                     int (*print_cb)(void *data, char *dst,
+                                                     size_t max_len),
+                                     void (*free_cb)(void *data))
 {
     user_load = load_cb;
     user_print = print_cb;
@@ -174,7 +172,7 @@ offline_instru_t::custom_module_data
 trace_type_t
 offline_instru_t::get_entry_type(byte *buf_ptr) const
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     switch (entry->addr.type) {
     case OFFLINE_TYPE_MEMREF: return TRACE_TYPE_READ;
     case OFFLINE_TYPE_MEMREF_HIGH: return TRACE_TYPE_READ;
@@ -198,21 +196,21 @@ offline_instru_t::get_entry_size(byte *buf_ptr) const
 addr_t
 offline_instru_t::get_entry_addr(byte *buf_ptr) const
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     return entry->addr.addr;
 }
 
 void
 offline_instru_t::set_entry_addr(byte *buf_ptr, addr_t addr)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->addr.addr = addr;
 }
 
 int
 offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->pid.type = OFFLINE_TYPE_PID;
     entry->pid.pid = pid;
     return sizeof(offline_entry_t);
@@ -221,7 +219,7 @@ offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 int
 offline_instru_t::append_tid(byte *buf_ptr, thread_id_t tid)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->tid.type = OFFLINE_TYPE_THREAD;
     entry->tid.tid = tid;
     return sizeof(offline_entry_t);
@@ -230,7 +228,7 @@ offline_instru_t::append_tid(byte *buf_ptr, thread_id_t tid)
 int
 offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_FOOTER;
     entry->extended.valueA = 0;
@@ -241,12 +239,12 @@ offline_instru_t::append_thread_exit(byte *buf_ptr, thread_id_t tid)
 int
 offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr_t val)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
-    DR_ASSERT((int)type < 1<<EXT_VALUE_B_BITS);
+    DR_ASSERT((int)type < 1 << EXT_VALUE_B_BITS);
     entry->extended.valueB = type;
-    DR_ASSERT((unsigned long long)val < 1ULL<<EXT_VALUE_A_BITS);
+    DR_ASSERT((unsigned long long)val < 1ULL << EXT_VALUE_A_BITS);
     entry->extended.valueA = val;
     return sizeof(offline_entry_t);
 }
@@ -254,7 +252,7 @@ offline_instru_t::append_marker(byte *buf_ptr, trace_marker_type_t type, uintptr
 int
 offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 {
-    offline_entry_t *entry = (offline_entry_t *) buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->addr.type = OFFLINE_TYPE_IFLUSH;
     entry->addr.addr = start;
     ++entry;
@@ -266,8 +264,8 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 int
 offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 {
-    byte * new_buf = buf_ptr;
-    offline_entry_t *entry = (offline_entry_t *) new_buf;
+    byte *new_buf = buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
     entry->extended.valueA = OFFLINE_FILE_VERSION;
@@ -281,8 +279,8 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
 int
 offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
 {
-    byte * new_buf = buf_ptr;
-    offline_entry_t *entry = (offline_entry_t *) new_buf;
+    byte *new_buf = buf_ptr;
+    offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
     entry->timestamp.usec = instru_t::get_timestamp();
     new_buf += sizeof(*entry);
@@ -297,22 +295,19 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 {
     int disp = adjust;
 #ifdef X64
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) entry->combined_value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)entry->combined_value,
+                                     opnd_create_reg(scratch), ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(scratch)));
 #else
     instrlist_insert_mov_immed_ptrsz(drcontext, (int)entry->combined_value,
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
+                                     opnd_create_reg(scratch), ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(scratch)));
     instrlist_insert_mov_immed_ptrsz(drcontext, (int)(entry->combined_value >> 32),
-                                     opnd_create_reg(scratch),
-                                     ilist, where, NULL, NULL);
+                                     opnd_create_reg(scratch), ilist, where, NULL, NULL);
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp + 4),
                                opnd_create_reg(scratch)));
@@ -354,8 +349,8 @@ offline_instru_t::insert_save_pc(void *drcontext, instrlist_t *ilist, instr_t *w
 int
 offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
                                             instr_t *where, reg_id_t reg_ptr,
-                                            reg_id_t scratch, int adjust,
-                                            instr_t *app, opnd_t ref, bool write)
+                                            reg_id_t scratch, int adjust, instr_t *app,
+                                            opnd_t ref, bool write)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
@@ -413,8 +408,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         reserved = true;
     }
     MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext,
-                               OPND_CREATE_MEMPTR(reg_ptr, disp),
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, disp),
                                opnd_create_reg(reg_addr)));
     if (reserved) {
         res = drreg_unreserve_register(drcontext, ilist, where, reg_addr);
@@ -455,9 +449,8 @@ offline_instru_t::instr_has_multiple_different_memrefs(instr_t *instr)
 
 int
 offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                    reg_id_t reg_ptr, int adjust,
-                                    instr_t *app, opnd_t ref, bool write,
-                                    dr_pred_type_t pred)
+                                    reg_id_t reg_ptr, int adjust, instr_t *app,
+                                    opnd_t ref, bool write, dr_pred_type_t pred)
 {
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
     if (!memref_needs_full_info) // For full info we skip this for !pred
@@ -476,8 +469,8 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
             // insert a type entry.  (For instrs w/ identical memrefs, like an ALU
             // operation, the addresses are the same and the load will pass the
             // filter first and be found first in post-processing.)
-            adjust += insert_save_type_and_size(drcontext, ilist, where, reg_ptr,
-                                                reg_tmp, adjust, app, ref, write);
+            adjust += insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
+                                                adjust, app, ref, write);
         }
         res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -490,8 +483,8 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
 // We stored the instr count in *bb_field in bb_analysis().
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
-                                   instrlist_t *ilist, instr_t *where,
-                                   reg_id_t reg_ptr, int adjust, instr_t *app)
+                                   instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
+                                   int adjust, instr_t *app)
 {
     app_pc pc;
     reg_id_t reg_tmp;
@@ -510,7 +503,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     adjust += insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
                              memref_needs_full_info ? 1 : (uint)(ptr_uint_t)*bb_field);
     if (!memref_needs_full_info)
-        *(ptr_uint_t*)bb_field = MAX_INSTR_COUNT + 1;
+        *(ptr_uint_t *)bb_field = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
@@ -518,8 +511,8 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
 
 int
 offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
-                                     reg_id_t reg_ptr, int adjust,
-                                     instr_t **delay_instrs, int num_delay_instrs)
+                                     reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
+                                     int num_delay_instrs)
 {
     // The post-processor fills in all instr info other than our once-per-bb entry.
     return adjust;
@@ -527,7 +520,7 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded)
+                              instrlist_t *ilist, bool repstr_expanded)
 {
     instr_t *instr;
     ptr_uint_t count = 0;

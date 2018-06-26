@@ -42,23 +42,24 @@
 #include <signal.h>
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
 static int num_signals;
 
-static void event_exit(void);
+static void
+event_exit(void);
 #ifdef UNIX
-static dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info);
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *info);
 #endif
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    dr_set_client_name("DynamoRIO Sample Client 'signal'",
-                       "http://dynamorio.org/issues");
+    dr_set_client_name("DynamoRIO Sample Client 'signal'", "http://dynamorio.org/issues");
     drmgr_init();
 #ifdef UNIX
     drmgr_register_signal_event(event_signal);
@@ -66,10 +67,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* ask for best-effort printing to cmd window.  must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client signal is running\n");
     }
 #endif
@@ -84,10 +85,10 @@ event_exit(void)
     /* Note that using %f with dr_printf or dr_fprintf on Windows will print
      * garbage as they use ntdll._vsnprintf, so we must use dr_snprintf.
      */
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "<Number of signals seen: %d>", num_signals);
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "<Number of signals seen: %d>",
+                      num_signals);
     DR_ASSERT(len > 0);
-    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     drmgr_exit();

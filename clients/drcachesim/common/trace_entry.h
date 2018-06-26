@@ -71,7 +71,7 @@ typedef enum {
     TRACE_TYPE_READ,  /**< A data load. */
     TRACE_TYPE_WRITE, /**< A data store. */
 
-    TRACE_TYPE_PREFETCH,    /**< A general prefetch to the level 1 data cache. */
+    TRACE_TYPE_PREFETCH, /**< A general prefetch to the level 1 data cache. */
     // X86 specific prefetch
     TRACE_TYPE_PREFETCHT0,  /**< An x86 prefetch to all levels of the cache. */
     TRACE_TYPE_PREFETCHT1,  /**< An x86 prefetch to level 1 of the cache. */
@@ -111,9 +111,9 @@ typedef enum {
     // for the end address (exclusive) of flush.
     // The size field of both entries should be 0.
     // The _END entries are hidden by reader_t as memref_t has space for the size.
-    TRACE_TYPE_INSTR_FLUSH,     /**< An instruction cache flush. */
+    TRACE_TYPE_INSTR_FLUSH, /**< An instruction cache flush. */
     TRACE_TYPE_INSTR_FLUSH_END,
-    TRACE_TYPE_DATA_FLUSH,      /**< A data cache flush. */
+    TRACE_TYPE_DATA_FLUSH, /**< A data cache flush. */
     TRACE_TYPE_DATA_FLUSH_END,
 
     // These entries indicate that all subsequent memory references (until the
@@ -123,7 +123,7 @@ typedef enum {
     TRACE_TYPE_THREAD,
 
     // This entry indicates that the thread whose id is in the addr field exited:
-    TRACE_TYPE_THREAD_EXIT,     /**< A thread exit. */
+    TRACE_TYPE_THREAD_EXIT, /**< A thread exit. */
 
     // These entries indicate which process the current thread belongs to.
     // The process id is in the addr field.
@@ -230,7 +230,7 @@ typedef enum {
     // Values below here are available for users to use for custom markers.
 } trace_marker_type_t;
 
-extern const char * const trace_type_names[];
+extern const char *const trace_type_names[];
 
 /**
  * Returns whether the type represents an instruction fetch.
@@ -275,7 +275,7 @@ struct _trace_entry_t {
     // or marker sub-type.
     unsigned short size;
     union {
-        addr_t addr;     // 4/8 bytes: mem ref addr, instr pc, tid, pid, marker val
+        addr_t addr; // 4/8 bytes: mem ref addr, instr pc, tid, pid, marker val
         // The length of each instr in the instr bundle
         unsigned char length[sizeof(addr_t)];
     };
@@ -343,33 +343,33 @@ struct _offline_entry_t {
         // Unfortunately the compiler won't combine bitfields across the union border
         // so we have to duplicate the type field in each alternative.
         struct {
-            uint64_t addr:61;
-            uint64_t type:3;
+            uint64_t addr : 61;
+            uint64_t type : 3;
         } addr;
         struct {
             // This describes the entire basic block.
-            uint64_t modoffs:PC_MODOFFS_BITS;
-            uint64_t modidx:PC_MODIDX_BITS;
-            uint64_t instr_count:PC_INSTR_COUNT_BITS;
-            uint64_t type:PC_TYPE_BITS;
+            uint64_t modoffs : PC_MODOFFS_BITS;
+            uint64_t modidx : PC_MODIDX_BITS;
+            uint64_t instr_count : PC_INSTR_COUNT_BITS;
+            uint64_t type : PC_TYPE_BITS;
         } pc;
         struct {
-            uint64_t tid:61;
-            uint64_t type:3;
+            uint64_t tid : 61;
+            uint64_t type : 3;
         } tid;
         struct {
-            uint64_t pid:61;
-            uint64_t type:3;
+            uint64_t pid : 61;
+            uint64_t type : 3;
         } pid;
         struct {
-            uint64_t usec:61; // Microseconds since Jan 1, 1601.
-            uint64_t type:3;
+            uint64_t usec : 61; // Microseconds since Jan 1, 1601.
+            uint64_t type : 3;
         } timestamp;
         struct {
-            uint64_t valueA:EXT_VALUE_A_BITS; // Meaning is specific to ext type.
-            uint64_t valueB:EXT_VALUE_B_BITS; // Meaning is specific to ext type.
-            uint64_t ext:5;     // Holds an offline_ext_type_t value.
-            uint64_t type:3;
+            uint64_t valueA : EXT_VALUE_A_BITS; // Meaning is specific to ext type.
+            uint64_t valueB : EXT_VALUE_B_BITS; // Meaning is specific to ext type.
+            uint64_t ext : 5;                   // Holds an offline_ext_type_t value.
+            uint64_t type : 3;
         } extended;
         uint64_t combined_value;
         // XXX: add a CPU id entry for more faithful thread scheduling.

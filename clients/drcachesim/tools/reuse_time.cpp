@@ -39,22 +39,24 @@
 #include "../common/utils.h"
 
 #ifdef DEBUG
-# define DEBUG_VERBOSE(level) (knob_verbose >= (level))
+#    define DEBUG_VERBOSE(level) (knob_verbose >= (level))
 #else
-# define DEBUG_VERBOSE(level) (false)
+#    define DEBUG_VERBOSE(level) (false)
 #endif
 
 const std::string reuse_time_t::TOOL_NAME = "Reuse time tool";
 
 analysis_tool_t *
-reuse_time_tool_create(unsigned int line_size,
-                       unsigned int verbose)
+reuse_time_tool_create(unsigned int line_size, unsigned int verbose)
 {
     return new reuse_time_t(line_size, verbose);
 }
 
-reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose) :
-    time_stamp(0), total_instructions(0), knob_verbose(verbose), knob_line_size(line_size)
+reuse_time_t::reuse_time_t(unsigned int line_size, unsigned int verbose)
+    : time_stamp(0)
+    , total_instructions(0)
+    , knob_verbose(verbose)
+    , knob_line_size(line_size)
 {
     line_size_bits = compute_log2((int)knob_line_size);
 }
@@ -86,8 +88,7 @@ reuse_time_t::process_memref(const memref_t &memref)
     }
 
     // Ignore thread events and other tracing metadata.
-    if (memref.data.type != TRACE_TYPE_READ &&
-        memref.data.type != TRACE_TYPE_WRITE &&
+    if (memref.data.type != TRACE_TYPE_READ && memref.data.type != TRACE_TYPE_WRITE &&
         !type_is_prefetch(memref.data.type)) {
         return true;
     }
@@ -113,7 +114,8 @@ cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
 }
 
 bool
-reuse_time_t::print_results() {
+reuse_time_t::print_results()
+{
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total accesses: " << time_stamp << "\n";
     std::cerr << "Total instructions: " << total_instructions << "\n";
@@ -123,30 +125,28 @@ reuse_time_t::print_results() {
     int_least64_t count = 0;
     int_least64_t sum = 0;
     for (std::unordered_map<int_least64_t, int_least64_t>::iterator it =
-         reuse_time_histogram.begin(); it != reuse_time_histogram.end(); it++) {
+             reuse_time_histogram.begin();
+         it != reuse_time_histogram.end(); it++) {
         count += it->second;
         sum += it->first * it->second;
     }
     std::cerr << "Mean reuse time: " << sum / static_cast<double>(count) << "\n";
 
     std::cerr << "Reuse time histogram:\n";
-    std::cerr << std::setw(8) << "Distance"
-              << std::setw(12) << "Count"
-              << std::setw(9) << "Percent"
-              << std::setw(12) << "Cumulative";
+    std::cerr << std::setw(8) << "Distance" << std::setw(12) << "Count" << std::setw(9)
+              << "Percent" << std::setw(12) << "Cumulative";
     std::cerr << std::endl;
     double cum_percent = 0.0;
-    std::vector<std::pair<int_least64_t, int_least64_t> >
-        sorted(reuse_time_histogram.size());
+    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(
+        reuse_time_histogram.size());
     std::partial_sort_copy(reuse_time_histogram.begin(), reuse_time_histogram.end(),
                            sorted.begin(), sorted.end(), cmp_dist_key);
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double percent = it->second / static_cast<double>(count);
         cum_percent += percent;
-        std::cerr << std::setw(8) << it->first
-                  << std::setw(12) << it->second
-                  << std::setw(8) << percent * 100.0 << "%"
-                  << std::setw(11) << cum_percent * 100.0 << "%";
+        std::cerr << std::setw(8) << it->first << std::setw(12) << it->second
+                  << std::setw(8) << percent * 100.0 << "%" << std::setw(11)
+                  << cum_percent * 100.0 << "%";
         std::cerr << std::endl;
     }
     return true;

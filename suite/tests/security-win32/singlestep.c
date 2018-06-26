@@ -31,28 +31,27 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
-#include <windows.h>
-
+#    include "tools.h"
+#    include <windows.h>
 
 static int count = 0;
-int foo();
+int
+foo();
 
-void single_step_addr(void);
+void
+single_step_addr(void);
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {
         print("single step exception\n");
         if (pExceptionInfo->ExceptionRecord->ExceptionAddress == single_step_addr) {
             count++;
-        }
-        else {
-            print("got address "PFX", expected "PFX"\n",
-                  pExceptionInfo->ExceptionRecord->ExceptionAddress,
-                  single_step_addr);
+        } else {
+            print("got address " PFX ", expected " PFX "\n",
+                  pExceptionInfo->ExceptionRecord->ExceptionAddress, single_step_addr);
         }
         return EXCEPTION_CONTINUE_EXECUTION;
     }
@@ -64,18 +63,19 @@ main(void)
 {
     INIT();
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     print("start of test, count = %d\n", count);
-    protect_mem(foo, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
-    count+=foo();
+    protect_mem(foo, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    count += foo();
     print("end of test, count = %d\n", count);
 
     return 0;
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 /* int foo()
@@ -108,5 +108,5 @@ ADDRTAKEN_LABEL(single_step_addr:)
 END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif
-

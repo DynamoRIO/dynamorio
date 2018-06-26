@@ -42,7 +42,7 @@ XOPCODE(x_and, and, and_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sub, sub, sub, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub_s, sub, sub_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub, lea, sub, 0, REGARG(XAX), IMMARG(OPSZ_4))
-OPCODE(xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE (xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(arpl, arpl, arpl, X86_ONLY, MEMARG(OPSZ_2), REGARG(AX))
 OPCODE(lea, lea, lea, 0, REGARG(EAX), MEMARG(OPSZ_lea))
 OPCODE(mov_ld, mov_ld, mov_ld, 0, REGARG(EAX), MEMARG(OPSZ_4))
@@ -123,10 +123,12 @@ OPCODE(movsd_rr, movsd, movsd, 0, REGARG_PARTIAL(XMM1, OPSZ_8),
        REGARG_PARTIAL(XMM0, OPSZ_8))
 
 OPCODE(movlps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
-OPCODE(movlhps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG_PARTIAL(XMM4, OPSZ_8))
+OPCODE(movlhps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movlpd, movlpd, movlpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(movhps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
-OPCODE(movhlps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), REGARG_PARTIAL(XMM4, OPSZ_8))
+OPCODE(movhlps, movhps, movhps, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM4, OPSZ_8))
 OPCODE(movhpd, movhpd, movhpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(movaps, movaps, movaps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
@@ -423,7 +425,8 @@ OPCODE(vphsubdq, vphsubdq, vphsubdq, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 /****************************************************************************/
 /* TBM */
 OPCODE(blcfill, blcfill, blcfill, 0, REGARG(EDX), MEMARG(OPSZ_4))
-OPCODE(blcfill_b, blcfill, blcfill, X64_ONLY, REGARG(R11), opnd_create_base_disp(REG_R9, REG_R10, 1, 0x42, OPSZ_8))
+OPCODE(blcfill_b, blcfill, blcfill, X64_ONLY, REGARG(R11),
+       opnd_create_base_disp(REG_R9, REG_R10, 1, 0x42, OPSZ_8))
 OPCODE(blci, blci, blci, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blcic, blcic, blcic, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blcmsk, blcmsk, blcmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))

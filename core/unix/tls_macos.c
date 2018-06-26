@@ -45,7 +45,7 @@
 #include <i386/user_ldt.h>
 
 #ifndef MACOS
-# error Mac-only
+#    error Mac-only
 #endif
 
 /* From the (short) machdep syscall table */
@@ -54,14 +54,14 @@
 #define SYS_i386_get_ldt 6
 
 #ifdef X64
-# error TLS NYI
+#    error TLS NYI
 #else
 /* This is what thread_set_user_ldt and i386_set_ldt give us.
  * XXX: a 32-bit Mac kernel will return 0x3f?
  * If so, update GDT_NUM_TLS_SLOTS in tls.h.
  */
-# define TLS_DR_SELECTOR 0x1f
-# define TLS_DR_INDEX    0x3
+#    define TLS_DR_SELECTOR 0x1f
+#    define TLS_DR_INDEX 0x3
 #endif
 
 static uint tls_app_index;
@@ -73,7 +73,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
      * and sharing with the app.  No way to read current base?!?
      */
-# error NYI
+#    error NYI
 #else
     /* SYS_thread_set_user_ldt looks appealing, as it has built-in kernel
      * support which swaps it on thread switches.
@@ -84,10 +84,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     ldt_t ldt;
     int res;
 
-    ldt.data.base00 = (ushort)(ptr_uint_t) segment;
+    ldt.data.base00 = (ushort)(ptr_uint_t)segment;
     ldt.data.base16 = (byte)((ptr_uint_t)segment >> 16);
     ldt.data.base24 = (byte)((ptr_uint_t)segment >> 24);
-    ldt.data.limit00 = (ushort) PAGE_SIZE;
+    ldt.data.limit00 = (ushort)PAGE_SIZE;
     ldt.data.limit16 = 0;
     ldt.data.type = DESC_DATA_WRITE;
     ldt.data.dpl = USER_PRIVILEGE;
@@ -100,7 +100,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
     } else {
-        uint index = (uint) res;
+        uint index = (uint)res;
         uint selector = LDT_SELECTOR(index);
         /* XXX i#1405: we end up getting index 3 for the 1st thread,
          * but later ones seem to need new slots (originally I thought
@@ -134,10 +134,9 @@ tls_thread_free(tls_type_t tls_type, int index)
     /* FIXME: for 64-bit, our only option is thread_fast_set_cthread_self64
      * and sharing with the app.  No way to read current base?!?
      */
-# error NYI
+#    error NYI
 #else
-    int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3,
-                                         NULL, 0, 0);
+    int res = dynamorio_mach_dep_syscall(SYS_thread_set_user_ldt, 3, NULL, 0, 0);
     if (res < 0) {
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
@@ -158,16 +157,16 @@ tls_get_fs_gs_segment_base(uint seg)
     int res;
 
     if (seg != SEG_FS && seg != SEG_GS)
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
 
     selector = read_thread_register(seg);
     index = SELECTOR_INDEX(selector);
-    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
-        __FUNCTION__, selector, index, TEST(SELECTOR_IS_LDT, selector));
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n", __FUNCTION__,
+        selector, index, TEST(SELECTOR_IS_LDT, selector));
 
     if (!TEST(SELECTOR_IS_LDT, selector) && selector != 0) {
         ASSERT_NOT_IMPLEMENTED(false);
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
     }
 
     /* The man page is confusing, but experimentation shows it takes in the index,
@@ -177,14 +176,12 @@ tls_get_fs_gs_segment_base(uint seg)
     if (res < 0) {
         LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code %d\n", __FUNCTION__, res);
         ASSERT_NOT_REACHED();
-        return (byte *) POINTER_MAX;
+        return (byte *)POINTER_MAX;
     }
 
-    base = (byte *)
-        (((ptr_uint_t)ldt.data.base24 << 24) |
-         ((ptr_uint_t)ldt.data.base16 << 16) |
-         (ptr_uint_t)ldt.data.base00);
-    LOG(THREAD_GET, LOG_THREADS, 4, "%s => base "PFX"\n", __FUNCTION__, base);
+    base = (byte *)(((ptr_uint_t)ldt.data.base24 << 24) |
+                    ((ptr_uint_t)ldt.data.base16 << 16) | (ptr_uint_t)ldt.data.base00);
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s => base " PFX "\n", __FUNCTION__, base);
     return base;
 }
 
@@ -224,8 +221,7 @@ tls_get_descriptor(int index, our_modify_ldt_t *desc OUT)
         return false;
     }
     desc->entry_number = index;
-    desc->base_addr = (((uint)ldt.data.base24 << 24) |
-                       ((uint)ldt.data.base16 << 16) |
+    desc->base_addr = (((uint)ldt.data.base24 << 24) | ((uint)ldt.data.base16 << 16) |
                        (uint)ldt.data.base00);
     desc->limit = ((uint)ldt.data.limit16 << 16) | (uint)ldt.data.limit00;
     desc->seg_32bit = ldt.data.stksz;
@@ -271,7 +267,7 @@ void
 tls_initialize_indices(os_local_state_t *os_tls)
 {
 #ifdef X64
-# error NYI
+#    error NYI
 #else
     uint selector = read_thread_register(SEG_GS);
     tls_app_index = SELECTOR_INDEX(selector);

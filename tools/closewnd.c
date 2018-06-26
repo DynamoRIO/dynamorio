@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 #include "Windows.h"
 #include "stdio.h"
 
@@ -60,10 +59,8 @@ main(int argc, char **argv)
         if (hw == NULL) {
             wait_tot += SLEEP_INTERVAL_MS;
             Sleep(SLEEP_INTERVAL_MS);
-        }
-        else {
-            res = SendMessageTimeout(hw, WM_CLOSE, 0, 0, SMTO_NORMAL,
-                                     TIMEOUT_MS, NULL);
+        } else {
+            res = SendMessageTimeout(hw, WM_CLOSE, 0, 0, SMTO_NORMAL, TIMEOUT_MS, NULL);
             printf("Close message sent.\n");
             if (res == 0) {
                 /* error case */

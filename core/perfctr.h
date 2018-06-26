@@ -35,16 +35,15 @@
 
 #ifdef PAPI
 
-# include "x86-events.h"
-# define GUI_ALARM_UPDATE_RATIO 1
+#    include "x86-events.h"
+#    define GUI_ALARM_UPDATE_RATIO 1
 extern int perfctr_eventset;
 
-
-
-
-void hardware_perfctr_init(void);
-void hardware_perfctr_exit(void);
-void perfctr_update_gui(void);
-
+void
+hardware_perfctr_init(void);
+void
+hardware_perfctr_exit(void);
+void
+perfctr_update_gui(void);
 
 #endif

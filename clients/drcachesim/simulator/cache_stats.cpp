@@ -34,9 +34,11 @@
 #include <iomanip>
 #include "cache_stats.h"
 
-cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled) :
-    caching_device_stats_t(miss_file, warmup_enabled),
-    num_flushes(0), num_prefetch_hits(0), num_prefetch_misses(0)
+cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled)
+    : caching_device_stats_t(miss_file, warmup_enabled)
+    , num_flushes(0)
+    , num_prefetch_hits(0)
+    , num_prefetch_misses(0)
 {
 }
 
@@ -68,14 +70,16 @@ cache_stats_t::print_counts(std::string prefix)
 {
     caching_device_stats_t::print_counts(prefix);
     if (num_flushes != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Flushes:" <<
-            std::setw(20) << std::right << num_flushes << std::endl;
+        std::cerr << prefix << std::setw(18) << std::left << "Flushes:" << std::setw(20)
+                  << std::right << num_flushes << std::endl;
     }
     if (num_prefetch_hits + num_prefetch_misses != 0) {
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch hits:" <<
-            std::setw(20) << std::right << num_prefetch_hits << std::endl;
-        std::cerr << prefix << std::setw(18) << std::left << "Prefetch misses:" <<
-            std::setw(20) << std::right << num_prefetch_misses << std::endl;
+        std::cerr << prefix << std::setw(18) << std::left
+                  << "Prefetch hits:" << std::setw(20) << std::right << num_prefetch_hits
+                  << std::endl;
+        std::cerr << prefix << std::setw(18) << std::left
+                  << "Prefetch misses:" << std::setw(20) << std::right
+                  << num_prefetch_misses << std::endl;
     }
 }
 

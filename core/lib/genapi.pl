@@ -182,6 +182,7 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
     (
      "$core/arch/instrlist.h",
      "$core/lib/globals_shared.h", # defs
+     "$core/lib/c_defines.h", # defs
      "$core/globals.h",
      "$core/arch/arch_exports.h", # encode routines
      "$core/arch/proc.h",
@@ -292,7 +293,7 @@ foreach $file (@headers) {
     $in_define = 0;
     while (<IN>) {
         # support mcxtx.h include.  can generalize if necessary.
-        if ($_ =~ /#include "mcxtx.h"/) {
+        if ($_ =~ /# *include "mcxtx.h"/) {
             open(INC, "< $core/lib/mcxtx.h") || die "Error: couldn't open mcxtx.h\n";
             my $start_inc = 0;
             while (<INC>) {
@@ -403,6 +404,7 @@ sub process_header_line($)
     } elsif ($header && $l =~ /DR_API EXPORT BEGIN/) {
         $output_directly = 1;
         $did_output_something = 1;
+        $first_pound = 0;
     } elsif ($header && $l =~ /DR_API EXPORT VERBATIM/) {
         $output_verbatim = 1;
         $did_output_something = 1;
@@ -449,6 +451,7 @@ sub process_header_line($)
         }
         if ($output_directly && $l =~ /DR_API EXPORT END/) {
             $output_directly = 0;
+            $shrink_indent = 0;
         }
     } else {
         $skip = 0;
@@ -467,7 +470,24 @@ sub process_header_line($)
                 $skip = 1;
             }
         }
+        if ($in_define && $l =~ /^\# +/) {
+            # Reduce the indent added inside API_EXPORT_ONLY by clang-format.
+            $l =~ s/^\#    /#/;
+        }
     }
+    if ($output_directly) {
+        if (!$first_pound && $l =~ /^\#/) {
+            $first_pound = 1;
+            if ($l =~ /^\# /) {
+                # Reduce the indent inside surrounding CLIENT_INTERFACE by clang-format.
+                $shrink_indent = 1;
+            }
+        }
+        if ($shrink_indent) {
+            $l =~ s/^\#    /#/;
+        }
+    }
+
     if ($l =~ /^\#\s*ifdef (\S+)/ || $l =~ /^\#\s*if defined\((\S+)\)/) {
         # we want to keep all WINDOWS, UNIX, and X64 defines, so ignore those.
         if (&keep_define($1)) {

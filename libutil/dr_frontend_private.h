@@ -37,7 +37,6 @@
  * utils.c). The values are used in DO_DEBUG macros.
  */
 #ifdef DEBUG
-# define debuglevel DL_FATAL
-# define abortlevel DL_FATAL
+#    define debuglevel DL_FATAL
+#    define abortlevel DL_FATAL
 #endif
-

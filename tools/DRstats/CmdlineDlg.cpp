@@ -40,21 +40,20 @@
 
 #ifndef DRSTATS_DEMO /* around whole file */
 
-#include "stdafx.h"
-#include "DynamoRIO.h"
-#include "CmdlineDlg.h"
+#    include "stdafx.h"
+#    include "DynamoRIO.h"
+#    include "CmdlineDlg.h"
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    ifdef _DEBUG
+#        define new DEBUG_NEW
+#        undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
-#endif
+#    endif
 
 /////////////////////////////////////////////////////////////////////////////
 // CCmdlineDlg dialog
 
-
-CCmdlineDlg::CCmdlineDlg(CWnd* pParent /*=NULL*/)
+CCmdlineDlg::CCmdlineDlg(CWnd *pParent /*=NULL*/)
     : CDialog(CCmdlineDlg::IDD, pParent)
 {
     //{{AFX_DATA_INIT(CCmdlineDlg)
@@ -63,7 +62,7 @@ CCmdlineDlg::CCmdlineDlg(CWnd* pParent /*=NULL*/)
     //}}AFX_DATA_INIT
 }
 
-CCmdlineDlg::CCmdlineDlg(CString wdir, CWnd* pParent /*=NULL*/)
+CCmdlineDlg::CCmdlineDlg(CString wdir, CWnd *pParent /*=NULL*/)
     : CDialog(CCmdlineDlg::IDD, pParent)
 {
     //{{AFX_DATA_INIT(CCmdlineDlg)
@@ -72,8 +71,8 @@ CCmdlineDlg::CCmdlineDlg(CString wdir, CWnd* pParent /*=NULL*/)
     m_WorkingDir = wdir;
 }
 
-
-void CCmdlineDlg::DoDataExchange(CDataExchange* pDX)
+void
+CCmdlineDlg::DoDataExchange(CDataExchange *pDX)
 {
     CDialog::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CCmdlineDlg)
@@ -82,17 +81,17 @@ void CCmdlineDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(CCmdlineDlg, CDialog)
-    //{{AFX_MSG_MAP(CCmdlineDlg)
-    ON_BN_CLICKED(IDC_WORKING_DIR_BROWSE, OnWorkingDirBrowse)
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+//{{AFX_MSG_MAP(CCmdlineDlg)
+ON_BN_CLICKED(IDC_WORKING_DIR_BROWSE, OnWorkingDirBrowse)
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // CCmdlineDlg message handlers
+/////////////////////////////////////////////////////////////////////////////
+// CCmdlineDlg message handlers
 
-    BOOL CCmdlineDlg::OnInitDialog()
+BOOL
+CCmdlineDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
     UpdateData(FALSE); // write to controls
@@ -101,7 +100,8 @@ BEGIN_MESSAGE_MAP(CCmdlineDlg, CDialog)
 
 static TCHAR szFilter[] = _T("Directories (*)|*|All Files (*.*)|*.*||");
 
-void CCmdlineDlg::OnWorkingDirBrowse()
+void
+CCmdlineDlg::OnWorkingDirBrowse()
 {
     TCHAR folder[MAX_PATH];
     BROWSEINFO bi;
@@ -113,11 +113,11 @@ void CCmdlineDlg::OnWorkingDirBrowse()
     bi.lpfn = NULL;
     bi.lParam = NULL;
     bi.iImage = 0;
-#if _MSC_VER <= 1400 /* VS2005- */
+#    if _MSC_VER <= 1400 /* VS2005- */
     LPITEMIDLIST id = SHBrowseForFolder(&bi);
-#else
+#    else
     PIDLIST_ABSOLUTE id = SHBrowseForFolder(&bi);
-#endif
+#    endif
     if (id == NULL) // cancelled
         return;
     SHGetPathFromIDList(id, folder);
@@ -125,17 +125,20 @@ void CCmdlineDlg::OnWorkingDirBrowse()
     UpdateData(FALSE);
 }
 
-CString CCmdlineDlg::GetWorkingDir()
+CString
+CCmdlineDlg::GetWorkingDir()
 {
     return m_WorkingDir;
 }
 
-CString CCmdlineDlg::GetArguments()
+CString
+CCmdlineDlg::GetArguments()
 {
     return m_CmdLine;
 }
 
-void CCmdlineDlg::OnOK()
+void
+CCmdlineDlg::OnOK()
 {
     CDialog::OnOK();
 }

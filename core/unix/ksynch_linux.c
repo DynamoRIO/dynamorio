@@ -49,7 +49,7 @@
 #include "include/syscall.h" /* our own local copy */
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 /* Does the kernel support SYS_futex syscall? Safe to initialize assuming
@@ -65,8 +65,8 @@ ksynch_init(void)
      * argument format since 2.6.7.
      */
     volatile int futex_for_test = 0;
-    ptr_int_t res = dynamorio_syscall(SYS_futex, 6, &futex_for_test, FUTEX_WAKE, 1,
-                                      NULL, NULL, 0);
+    ptr_int_t res =
+        dynamorio_syscall(SYS_futex, 6, &futex_for_test, FUTEX_WAKE, 1, NULL, NULL, 0);
     kernel_futex_support = (res >= 0);
     ASSERT_CURIOSITY(kernel_futex_support);
 }
@@ -156,8 +156,8 @@ ksynch_wake_all(volatile int *futex)
     ASSERT(ALIGNED(futex, sizeof(int)));
     if (kernel_futex_support) {
         do {
-            res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAKE, INT_MAX,
-                                    NULL, NULL, 0);
+            res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAKE, INT_MAX, NULL, NULL,
+                                    0);
         } while (res == INT_MAX);
         res = 0;
     } else {
@@ -171,7 +171,7 @@ mutex_get_contended_event(mutex_t *lock)
 {
     if (!ksynch_var_initialized(&lock->contended_event)) {
         /* We just don't want to clobber an in-use event */
-        atomic_compare_exchange_int((int*)&lock->contended_event, -1, (int)0);
+        atomic_compare_exchange_int((int *)&lock->contended_event, -1, (int)0);
     }
     return &lock->contended_event;
 }

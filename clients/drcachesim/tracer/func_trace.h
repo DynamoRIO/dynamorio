@@ -37,8 +37,8 @@
 
 #include "trace_entry.h"
 
-typedef void (*func_trace_append_entry_t)
-    (void *drcontext, trace_marker_type_t marker, uintptr_t value);
+typedef void (*func_trace_append_entry_t)(void *drcontext, trace_marker_type_t marker,
+                                          uintptr_t value);
 
 // Initializes the func_trace module. Each call must be paired with a
 // corresponding call to func_trace_exit().

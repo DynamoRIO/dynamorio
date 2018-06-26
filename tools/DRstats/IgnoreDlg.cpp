@@ -40,22 +40,21 @@
 
 #ifndef DRSTATS_DEMO /* around whole file */
 
-#include "stdafx.h"
-#include "DynamoRIO.h"
-#include "IgnoreDlg.h"
-#include <assert.h>
+#    include "stdafx.h"
+#    include "DynamoRIO.h"
+#    include "IgnoreDlg.h"
+#    include <assert.h>
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    ifdef _DEBUG
+#        define new DEBUG_NEW
+#        undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
-#endif
+#    endif
 
 /////////////////////////////////////////////////////////////////////////////
 // CIgnoreDlg dialog
 
-
-CIgnoreDlg::CIgnoreDlg(CWnd* pParent /*=NULL*/)
+CIgnoreDlg::CIgnoreDlg(CWnd *pParent /*=NULL*/)
     : CDialog(CIgnoreDlg::IDD, pParent)
 {
     //{{AFX_DATA_INIT(CIgnoreDlg)
@@ -63,8 +62,8 @@ CIgnoreDlg::CIgnoreDlg(CWnd* pParent /*=NULL*/)
     //}}AFX_DATA_INIT
 }
 
-
-void CIgnoreDlg::DoDataExchange(CDataExchange* pDX)
+void
+CIgnoreDlg::DoDataExchange(CDataExchange *pDX)
 {
     CDialog::DoDataExchange(pDX);
     //{{AFX_DATA_MAP(CIgnoreDlg)
@@ -72,17 +71,17 @@ void CIgnoreDlg::DoDataExchange(CDataExchange* pDX)
     //}}AFX_DATA_MAP
 }
 
-
 BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
-    //{{AFX_MSG_MAP(CIgnoreDlg)
-    ON_BN_CLICKED(IDC_SET_PERMANENT, OnSetPermanent)
-    //}}AFX_MSG_MAP
-    END_MESSAGE_MAP()
+//{{AFX_MSG_MAP(CIgnoreDlg)
+ON_BN_CLICKED(IDC_SET_PERMANENT, OnSetPermanent)
+//}}AFX_MSG_MAP
+END_MESSAGE_MAP()
 
-    /////////////////////////////////////////////////////////////////////////////
-    // CIgnoreDlg message handlers
+/////////////////////////////////////////////////////////////////////////////
+// CIgnoreDlg message handlers
 
-    BOOL CIgnoreDlg::OnInitDialog()
+BOOL
+CIgnoreDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
 
@@ -91,12 +90,13 @@ BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
     assert(len < MAX_PATH);
     if (len > 0 && len < MAX_PATH)
         m_IgnoreList = path; // makes new storage, right?
-    UpdateData(FALSE); // FALSE means set controls
+    UpdateData(FALSE);       // FALSE means set controls
 
     return TRUE;
 }
 
-void CIgnoreDlg::OnOK()
+void
+CIgnoreDlg::OnOK()
 {
     UpdateData(TRUE); // read from controls
     BOOL res = SetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), m_IgnoreList);
@@ -104,7 +104,8 @@ void CIgnoreDlg::OnOK()
     CDialog::OnOK();
 }
 
-void CIgnoreDlg::OnSetPermanent()
+void
+CIgnoreDlg::OnSetPermanent()
 {
     // it takes a while to broadcast the "we've changed env vars" message,
     // so set a wait cursor
@@ -123,8 +124,8 @@ void CIgnoreDlg::OnSetPermanent()
 
     UpdateData(TRUE); // get values from controls
     TCHAR *val = m_IgnoreList.GetBuffer(0);
-    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ,
-                        (LPBYTE) val, (DWORD) _tcslen(val)+1);
+    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ, (LPBYTE)val,
+                        (DWORD)_tcslen(val) + 1);
     assert(res == ERROR_SUCCESS);
 
     RegCloseKey(hk);
@@ -134,8 +135,8 @@ void CIgnoreDlg::OnSetPermanent()
     DWORD_PTR dwReturnValue;
     // Code I copied this from used an ANSI string...I'm leaving
     // it like that FIXME
-    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       (LPARAM) "Environment", SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM) "Environment",
+                       SMTO_ABORTIFHUNG, 5000, &dwReturnValue);
 
     SetCursor(prev_cursor);
 

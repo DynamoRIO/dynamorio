@@ -52,12 +52,12 @@ signal_handler(int sig)
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
     pid_t child;
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) signal_handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))signal_handler;
     rc = sigfillset(&act.sa_mask);
     ASSERT_NOERR(rc);
     /* set SA_RESTART to test that part of DR code */

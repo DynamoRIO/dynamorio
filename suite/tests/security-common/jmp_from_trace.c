@@ -43,7 +43,9 @@
 #define SWITCH_AFTER 50
 
 /* totally random dummy function */
-int dummycall() {
+int
+dummycall()
+{
     int i = 1, j = 2;
 
     if ((i += 10) < (j -= 50))
@@ -52,8 +54,9 @@ int dummycall() {
         return i - j + 32;
 }
 
-int badtarget = 10;  /* .B */
-int bad_trace4()
+int badtarget = 10; /* .B */
+int
+bad_trace4()
 {
     int i, j;
     int a = 1, b = 100, c = 1000;
@@ -71,7 +74,7 @@ int bad_trace4()
                 fnptr();
             }
             if (c < SWITCH_AFTER) {
-                fnptr = (int (*)())&badtarget;
+                fnptr = (int (*)()) & badtarget;
                 print("Next time around jump to data section\n");
             }
         }
@@ -79,10 +82,11 @@ int bad_trace4()
     return 0;
 }
 
-int main ()
+int
+main()
 {
-  INIT();
-  print ("Start\n");
-  bad_trace4();
-  print("SHOULD NEVER GET HERE\n");
+    INIT();
+    print("Start\n");
+    bad_trace4();
+    print("SHOULD NEVER GET HERE\n");
 }

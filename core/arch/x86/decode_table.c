@@ -39,8 +39,8 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
-#include "instr.h" /* for REG_ constants */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
+#include "instr.h"      /* for REG_ constants */
 #include "decode.h"
 #include "decode_private.h"
 
@@ -60,6 +60,10 @@
  * now though we do not rely on being able to predict which instrs are
  * invalid.
  */
+
+// We skip auto-formatting for the entire file to keep our aligned op_instr
+// entries and our single-line table entries:
+/* clang-format off */
 
 /****************************************************************************
  * Operand pointers into tables
@@ -6350,3 +6354,4 @@ const instr_info_t extra_operands[] =
     {OP_CONTD,0x0f3710, "<getsec cont'd", ecx, xx, xx, xx, xx, predcx, x, END_LIST},
 };
 
+/* clang-format on */

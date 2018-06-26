@@ -54,7 +54,7 @@
  * linker will resolve it to our implementations.
  */
 #ifdef _STRING_H
-# error "Don't include <string.h> in string.c"
+#    error "Don't include <string.h> in string.c"
 #endif
 
 /* Private strlen. */
@@ -88,12 +88,12 @@ strchr(const char *str, int c)
 {
     while (true) {
         if (*str == c)
-            return (char *) str;
+            return (char *)str;
         if (*str == '\0')
             return NULL;
         str++;
     }
-    return NULL;  /* Keep the compiler happy. */
+    return NULL; /* Keep the compiler happy. */
 }
 
 /* Private strrchr.  Returns pointer to last instance of c in str or NULL if c
@@ -111,7 +111,7 @@ strrchr(const char *str, int c)
             break;
         str++;
     }
-    return (char *) ret;
+    return (char *)ret;
 }
 
 /* Private strncpy.  Standard caveat about not copying trailing null byte on
@@ -153,8 +153,8 @@ void *
 memmove(void *dst, const void *src, size_t n)
 {
     ssize_t i;
-    byte *dst_b = (byte *) dst;
-    const byte *src_b = (const byte *) src;
+    byte *dst_b = (byte *)dst;
+    const byte *src_b = (const byte *)src;
     if (dst < src)
         return memcpy(dst, src, n);
     /* FIXME: Could use reverse DF and rep movs. */
@@ -172,40 +172,40 @@ memmove(void *dst, const void *src, size_t n)
  */
 void *
 __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
-# ifdef MACOS
+#    ifdef MACOS
 /* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
     return memmove(dst, src, n);
 }
-# else
+#    else
     __attribute__((alias("memmove")));
-# endif
+#    endif
 void *
 __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
-# ifdef MACOS
+#    ifdef MACOS
 /* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
     return strncpy(dst, src, n);
 }
-# else
+#    else
     __attribute__((alias("strncpy")));
-# endif
+#    endif
 void *
 __strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
-# ifdef MACOS
+#    ifdef MACOS
 /* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
  * XXX: better to test for support at config time: for now assuming none on Mac.
  */
 {
     return strncat(dst, src, n);
 }
-# else
+#    else
     __attribute__((alias("strncat")));
-# endif
+#    endif
 #endif
 
 /* Private strcmp. */
@@ -261,7 +261,7 @@ strstr(const char *haystack, const char *needle)
     size_t needle_len = strlen(needle);
     while (*cur != '\0') {
         if (strncmp(cur, needle, needle_len) == 0) {
-            return (char *) cur;
+            return (char *)cur;
         }
         cur++;
     }
@@ -304,13 +304,12 @@ unsigned long
 strtoul(const char *str, char **end, int base)
 {
     uint64 num;
-    const char *parse_end = parse_int(str, &num, base, 0/*width*/,
-                                      true/*signed*/);
+    const char *parse_end = parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
     if (end != NULL)
-        *end = (char *) parse_end;
+        *end = (char *)parse_end;
     if (parse_end == NULL)
         return ULONG_MAX;
-    return (unsigned long) num;  /* truncate */
+    return (unsigned long)num; /* truncate */
 }
 
 #ifdef STANDALONE_UNIT_TEST
@@ -349,7 +348,7 @@ unit_test_string(void)
 
     /* strncpy, strncat */
     strncpy(buf, test_path, sizeof(buf));
-    EXPECT(is_region_memset_to_char((byte *) buf + strlen(test_path),
+    EXPECT(is_region_memset_to_char((byte *)buf + strlen(test_path),
                                     sizeof(buf) - strlen(test_path), '\0'),
            true);
     strncat(buf, "/foo_wont_copy", 4);
@@ -357,20 +356,20 @@ unit_test_string(void)
 
     /* strtoul */
     num = strtoul(identity("-10"), NULL, 0);
-    EXPECT((long)num, -10);  /* negative */
+    EXPECT((long)num, -10); /* negative */
     num = strtoul(identity("0777"), NULL, 0);
-    EXPECT(num, 0777);  /* octal */
+    EXPECT(num, 0777); /* octal */
     num = strtoul(identity("0xdeadBEEF"), NULL, 0);
-    EXPECT(num, 0xdeadbeef);  /* hex */
-    num = strtoul(identity("deadBEEF next"), (char **) &ret, 16);
-    EXPECT(num, 0xdeadbeef);  /* non-0x prefixed hex */
-    EXPECT(strcmp(ret, " next"), 0);  /* end */
+    EXPECT(num, 0xdeadbeef); /* hex */
+    num = strtoul(identity("deadBEEF next"), (char **)&ret, 16);
+    EXPECT(num, 0xdeadbeef);         /* non-0x prefixed hex */
+    EXPECT(strcmp(ret, " next"), 0); /* end */
     num = strtoul(identity("1001a"), NULL, 2);
-    EXPECT(num, 9);  /* binary */
+    EXPECT(num, 9); /* binary */
     num = strtoul(identity("1aZ"), NULL, 36);
-    EXPECT(num, 1 * 36 * 36 + 10 * 36 + 35);  /* weird base */
-    num = strtoul(identity("1aZ"), (char **) &ret, 37);
-    EXPECT(num, ULONG_MAX);  /* invalid base */
+    EXPECT(num, 1 * 36 * 36 + 10 * 36 + 35); /* weird base */
+    num = strtoul(identity("1aZ"), (char **)&ret, 37);
+    EXPECT(num, ULONG_MAX); /* invalid base */
     EXPECT(ret == NULL, true);
 
     /* memmove */

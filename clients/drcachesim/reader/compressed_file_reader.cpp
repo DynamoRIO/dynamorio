@@ -37,10 +37,11 @@
 #include "../common/utils.h"
 
 #ifdef VERBOSE
-# include <iostream>
+#    include <iostream>
 #endif
 
-compressed_file_reader_t::compressed_file_reader_t() : file(NULL)
+compressed_file_reader_t::compressed_file_reader_t()
+    : file(NULL)
 {
     /* Empty. */
 }
@@ -77,7 +78,7 @@ compressed_file_reader_t::~compressed_file_reader_t()
 trace_entry_t *
 compressed_file_reader_t::read_next_entry()
 {
-    int len = gzread(file, (char*)&entry_copy, sizeof(entry_copy));
+    int len = gzread(file, (char *)&entry_copy, sizeof(entry_copy));
     // Returns less than asked-for for end of file, or –1 for error.
     if (len < (int)sizeof(entry_copy))
         return NULL;

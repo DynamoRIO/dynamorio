@@ -53,7 +53,6 @@
 /* around whole file: */
 #ifdef STEAL_REGISTER
 
-
 /* In the following functions, edi is assumed to be a pointer to the
  * dynamo context object.  The application's version of edi is kept
  * in memory, and we use ebx as a scratch register.  We use esi as
@@ -81,8 +80,6 @@
  * it to use BX/SI/DX just like in 32-bit mode we'd use EBX/ESI/EDX.
  */
 
-
-
 /* you must pass in the NEXT instruction!
  * restore_state restores state prior to the instruction passed in!
  * you can pass in null, in which case restore_state will append
@@ -97,39 +94,41 @@ restore_state(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
     if (instr != NULL) {
         /* insert store if edi's value in ebx doesn't match dcontext->xdi */
         if (ilist->flags != EDI_VAL_IN_EBX_AND_MEM) {
-            instrlist_preinsert(ilist, instr,
-                                instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
+            instrlist_preinsert(
+                ilist, instr,
+                instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
         }
 
         /* restore application's value for ebx in ebx */
-        instrlist_preinsert(ilist, instr,
-                            instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+        instrlist_preinsert(
+            ilist, instr,
+            instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
 
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
         /* restore app's edi */
-        instrlist_preinsert(ilist, instr,
-                            instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-#endif
+        instrlist_preinsert(
+            ilist, instr,
+            instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
+#    endif
 
     } else {
         if (ilist->flags != EDI_VAL_IN_EBX_AND_MEM) {
-            instrlist_append(ilist,
-                             instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
+            instrlist_append(
+                ilist, instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
         }
 
-        instrlist_append(ilist,
-                         instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+        instrlist_append(
+            ilist, instr_create_restore_from_dcontext(dcontext, REG_EBX, XBX_OFFSET));
 
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
         /* restore app's edi */
-        instrlist_append(ilist,
-                         instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-#endif
+        instrlist_append(
+            ilist, instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
+#    endif
     }
 
     ilist->flags = EDI_VAL_IN_MEM;
 }
-
 
 static void
 expand_pusha(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
@@ -143,33 +142,31 @@ expand_pusha(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
     if (ilist->flags != EDI_VAL_IN_MEM)
         restore_state(dcontext, instr, ilist);
 
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
     return;
-#endif
+#    endif
 
     /* reverse order! */
 
     /* build and insert push instruction as binary */
     instrlist_postinsert(ilist, instr,
-                      instr_create_raw_3bytes(dcontext,
-                                              0xff,
-                                              0x77,/* %edi + 8-bit offset + /6 */
-                                              XDI_OFFSET));
+                         instr_create_raw_3bytes(dcontext, 0xff,
+                                                 0x77, /* %edi + 8-bit offset + /6 */
+                                                 XDI_OFFSET));
 
     /* build and insert addl instruction as binary */
     instrlist_postinsert(ilist, instr,
-                      instr_create_raw_3bytes(dcontext,
-                                              0x83,
-                                              0xc4, /* %esp + 8-bit immed + /0 */
-                                              4));
+                         instr_create_raw_3bytes(dcontext, 0x83,
+                                                 0xc4, /* %esp + 8-bit immed + /0 */
+                                                 4));
 }
 
 static void
 expand_popa(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
     return;
-#endif
+#    endif
 
     /* Convert into the following sequence:
          movl  (%esp), %ebx     # get edi value from stack
@@ -184,15 +181,13 @@ expand_popa(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
     instrlist_preinsert(ilist, instr,
                         instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
     instrlist_preinsert(ilist, instr,
-                        INSTR_CREATE_mov_st(dcontext,
-                                            OPND_CREATE_MEM32(REG_ESP, 12),
+                        INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_ESP, 12),
                                             opnd_create_reg(REG_EDI)));
     instrlist_postinsert(ilist, instr,
-                        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EDI),
-                                            OPND_CREATE_MEM32(REG_ESP, -20)));
+                         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EDI),
+                                             OPND_CREATE_MEM32(REG_ESP, -20)));
     ilist->flags = EDI_VAL_IN_MEM;
 }
-
 
 /* Handle implicit references to edi.  This routine assumes that
  * edi is both read and written, that no explicit operands exist
@@ -210,22 +205,21 @@ becomes
   0x0142cba3   8b 5f 04             mov   0x4(%edi),%ebx
 */
 static void
-use_edi(dcontext_t *dcontext,
-        instr_t *instr, instrlist_t *ilist)
+use_edi(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
     /* save cur edi, then bring dcontext into edi */
     instrlist_preinsert(ilist, instr,
                         instr_create_save_to_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-    instrlist_preinsert(ilist, instr,
-                        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EDI),
-                                             opnd_create_immed_int((int)dcontext,
-                                                                   OPSZ_PTR)));
-#endif
+    instrlist_preinsert(
+        ilist, instr,
+        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EDI),
+                             opnd_create_immed_int((int)dcontext, OPSZ_PTR)));
+#    endif
 
     if (ilist->flags == EDI_VAL_IN_MEM) {
         instrlist_preinsert(ilist, instr,
-                           instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+                            instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
         instrlist_preinsert(ilist, instr,
                             XINST_CREATE_move(dcontext, opnd_create_reg(REG_EBX),
                                              opnd_create_reg(REG_EDI));
@@ -234,20 +228,19 @@ use_edi(dcontext_t *dcontext,
     } else {
         /* create 'xchg %edi, %ebx' */
         instrlist_preinsert(ilist, instr,
-                           INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_EDI),
-                                             opnd_create_reg(REG_EBX)));
+                            INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_EDI),
+                                              opnd_create_reg(REG_EBX)));
     }
 
     /* instruction can now use edi */
 
     /* create 'xchg %edi, %ebx' */
-    instrlist_postinsert(ilist, instr,
-                      INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_EDI),
-                                        opnd_create_reg(REG_EBX)));
+    instrlist_postinsert(
+        ilist, instr,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_EDI), opnd_create_reg(REG_EBX)));
 
     ilist->flags = EDI_VAL_IN_EBX;
 }
-
 
 /* An alternative rewriter: Rewrite the modrm byte using esi or edx, since
  *  ebx is unavailable (i.e., simultaneously used).
@@ -267,41 +260,39 @@ becomes:
   0x0142facf   8b 5f 04             mov   0x4(%edi),%ebx
 */
 static void
-use_different_reg(dcontext_t *dcontext,
-                  instr_t *instr, instrlist_t *ilist, int reg, int offs,
-                  bool read, bool write)
+use_different_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist, int reg,
+                  int offs, bool read, bool write)
 {
     if (ilist->flags != EDI_VAL_IN_MEM)
-        restore_state(dcontext, instr, ilist);  /* cannot use ebx */
+        restore_state(dcontext, instr, ilist); /* cannot use ebx */
 
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
     /* save cur edi, then bring shared_dcontext into edi */
     instrlist_preinsert(ilist, instr,
                         instr_create_save_to_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-    instrlist_preinsert(ilist, instr,
-                        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EDI),
-                                             opnd_create_immed_int((int)dcontext,
-                                                                   OPSZ_PTR)));
-#endif
+    instrlist_preinsert(
+        ilist, instr,
+        INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EDI),
+                             opnd_create_immed_int((int)dcontext, OPSZ_PTR)));
+#    endif
 
     /* save current reg */
-    instrlist_preinsert(ilist, instr,
-                       instr_create_save_to_dcontext(dcontext, reg, offs));
+    instrlist_preinsert(ilist, instr, instr_create_save_to_dcontext(dcontext, reg, offs));
     if (read) {
         /* bring in current value of edi */
-        instrlist_preinsert(ilist, instr,
-                           instr_create_restore_from_dcontext(dcontext, reg, XDI_OFFSET));
+        instrlist_preinsert(
+            ilist, instr, instr_create_restore_from_dcontext(dcontext, reg, XDI_OFFSET));
     }
 
     /* instr goes here */
 
     /* add to ilist in reverse order */
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
     /* restore app's edi */
-    instrlist_postinsert(ilist, instr,
-                      load_abs_instr(dcontext, REG_EDI,
-                                     ((int)(&shared_dcontext)) + XDI_OFFSET));
-#endif
+    instrlist_postinsert(
+        ilist, instr,
+        load_abs_instr(dcontext, REG_EDI, ((int)(&shared_dcontext)) + XDI_OFFSET));
+#    endif
     /* restore previous value of reg */
     instrlist_postinsert(ilist, instr,
                          instr_create_restore_from_dcontext(dcontext, reg, offs));
@@ -311,7 +302,6 @@ use_different_reg(dcontext_t *dcontext,
                              instr_create_save_to_dcontext(dcontext, reg, XDI_OFFSET));
     }
 }
-
 
 /*###########################################################################
  *
@@ -406,27 +396,27 @@ becomes:
  *###########################################################################*/
 
 static void
-use_ebx(dcontext_t *dcontext,
-        instr_t *instr, instrlist_t *ilist, bool read, bool write)
+use_ebx(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist, bool read, bool write)
 {
     if (ilist->flags == EDI_VAL_IN_MEM) {
 
-#ifndef DCONTEXT_IN_EDI
+#    ifndef DCONTEXT_IN_EDI
         /* save cur edi, then bring shared_dcontext into edi */
+        instrlist_preinsert(
+            ilist, instr,
+            store_abs_instr(dcontext, REG_EDI, ((int)(&shared_dcontext)) + XDI_OFFSET));
         instrlist_preinsert(ilist, instr,
-                       store_abs_instr(dcontext, REG_EDI,
-                                       ((int)(&shared_dcontext)) + XDI_OFFSET));
-        instrlist_preinsert(ilist, instr,
-                           move_immed_instr(dcontext, (int)&shared_dcontext, REG_EDI));
-#endif
+                            move_immed_instr(dcontext, (int)&shared_dcontext, REG_EDI));
+#    endif
 
         /* save current ebx */
         instrlist_preinsert(ilist, instr,
-                           instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
+                            instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
         if (read) {
             /* bring value of edi into ebx */
-            instrlist_preinsert(ilist, instr,
-                               instr_create_restore_from_dcontext(dcontext, REG_EBX, XDI_OFFSET));
+            instrlist_preinsert(
+                ilist, instr,
+                instr_create_restore_from_dcontext(dcontext, REG_EBX, XDI_OFFSET));
             ilist->flags = EDI_VAL_IN_EBX_AND_MEM;
         }
     }
@@ -439,45 +429,49 @@ use_ebx(dcontext_t *dcontext,
     }
 }
 
-
 void
 steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
-    opnd_t * uses[5];
-#ifdef DCONTEXT_IN_EDI
+    opnd_t *uses[5];
+#    ifdef DCONTEXT_IN_EDI
     opnd_t save[5];
-#endif
+#    endif
     int i, num_uses;
     bool writes, reads;
 
-#ifndef DCONTEXT_IN_EDI
-#if 0
+#    ifndef DCONTEXT_IN_EDI
+#        if 0
     i = GLOBAL_STAT(num_fragments);
     /* use this to narrow location of reg steal bug */
     if (i < 0 || i > 1000000)
         return;
-#endif
-#endif
+#        endif
+#    endif
 
     /* special cases */
     switch (instr_get_opcode(instr)) {
-    case OP_pusha:
-        expand_pusha(dcontext, instr, ilist);
-        return;
-    case OP_popa:
-        expand_popa(dcontext, instr, ilist);
-        return;
-    case OP_ins:     case OP_rep_ins:
-    case OP_outs:    case OP_rep_outs:
-    case OP_movs:    case OP_rep_movs:
-    case OP_stos:    case OP_rep_stos:
-    case OP_lods:    case OP_rep_lods:
-    case OP_cmps:    case OP_rep_cmps:    case OP_repne_cmps:
-    case OP_scas:    case OP_rep_scas:    case OP_repne_scas:
+    case OP_pusha: expand_pusha(dcontext, instr, ilist); return;
+    case OP_popa: expand_popa(dcontext, instr, ilist); return;
+    case OP_ins:
+    case OP_rep_ins:
+    case OP_outs:
+    case OP_rep_outs:
+    case OP_movs:
+    case OP_rep_movs:
+    case OP_stos:
+    case OP_rep_stos:
+    case OP_lods:
+    case OP_rep_lods:
+    case OP_cmps:
+    case OP_rep_cmps:
+    case OP_repne_cmps:
+    case OP_scas:
+    case OP_rep_scas:
+    case OP_repne_scas:
         /* these all use edi implicitly, there's no way around it */
         use_edi(dcontext, instr, ilist);
         return;
-   }
+    }
 
     if (!instr_uses_reg(instr, REG_EDI) && !uses_reg(instr, REG_DI)) {
         if (ilist->flags != EDI_VAL_IN_MEM)
@@ -494,13 +488,13 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
     /* gather edi usage info */
     num_uses = 0;
     writes = reads = false;
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_uses_reg(instr_get_dst(instr, i), REG_EDI) ||
             opnd_uses_reg(instr_get_dst(instr, i), REG_DI)) {
             /* FIXME: this code was written back when accessed instr fields
              * directly...need to fix this up
              */
-#error FIXME -- OLD CODE
+#    error FIXME -- OLD CODE
             uses[num_uses++] = &instr->dsts[i];
             if (opnd_is_memory_reference(instr_get_dst(instr, i)))
                 reads = true;
@@ -511,13 +505,13 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
                 writes = true;
         }
     }
-    for (i=0; i<instr_num_src(instr); i++) {
+    for (i = 0; i < instr_num_src(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), REG_EDI) ||
             opnd_uses_reg(instr_get_src(instr, i), REG_DI)) {
             /* FIXME: this code was written back when accessed instr fields
              * directly...need to fix this up
              */
-#error FIXME -- OLD CODE
+#    error FIXME -- OLD CODE
             if (i == 0)
                 uses[num_uses++] = &instr->src0;
             else
@@ -532,9 +526,9 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
      * need to select 16-bit data size, + 16 bit offset from 0x14(%edi)?
      * no 16-bit offset b/c of little-endian-ness!
      */
-#ifdef DCONTEXT_IN_EDI
+#    ifdef DCONTEXT_IN_EDI
     if (ilist->flags == EDI_VAL_IN_MEM) {
-        for (i=0; i<num_uses; i++) {
+        for (i = 0; i < num_uses; i++) {
             save[i] = *uses[i];
             if (opnd_is_reg(save[i]) && opnd_get_reg(save[i]) == REG_EDI) {
                 *uses[i] = opnd_create_base_disp(REG_EDI, REG_NULL, 0, XDI_OFFSET,
@@ -542,7 +536,7 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
             } else {
                 /* give up */
                 int j;
-                for (j=0; j<i; j++)
+                for (j = 0; j < i; j++)
                     *uses[j] = save[j];
                 i = 0;
                 break;
@@ -563,36 +557,34 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
             /* Else, restore */
             if (i == 0) /* flag saying "changed OP_mov_ld to OP_mov_st" */
                 instr_set_opcode(instr, OP_mov_ld);
-            for (i=0; i<num_uses; i++) {
+            for (i = 0; i < num_uses; i++) {
                 *uses[i] = save[i];
             }
         }
     }
-#endif
+#    endif
 
     if (!instr_uses_reg(instr, REG_EBX) && !instr_uses_reg(instr, REG_BX) &&
         !instr_uses_reg(instr, REG_BL) && !instr_uses_reg(instr, REG_BH)) {
         /* use ebx */
         use_ebx(dcontext, instr, ilist, reads, writes);
-        for (i=0; i<num_uses; i++) {
+        for (i = 0; i < num_uses; i++) {
             opnd_replace_reg(uses[i], REG_EDI, REG_EBX);
             opnd_replace_reg(uses[i], REG_DI, REG_BX);
         }
-    }
-    else if (!instr_uses_reg(instr, REG_ESI) && !instr_uses_reg(instr, REG_SI)) {
+    } else if (!instr_uses_reg(instr, REG_ESI) && !instr_uses_reg(instr, REG_SI)) {
         /* use esi */
         use_different_reg(dcontext, instr, ilist, REG_ESI, XSI_OFFSET, reads, writes);
-        for (i=0; i<num_uses; i++) {
+        for (i = 0; i < num_uses; i++) {
             opnd_replace_reg(uses[i], REG_EDI, REG_ESI);
             opnd_replace_reg(uses[i], REG_DI, REG_SI);
         }
-    }
-    else {
+    } else {
         ASSERT(!instr_uses_reg(instr, REG_EDX) && !instr_uses_reg(instr, REG_DX) &&
                !instr_uses_reg(instr, REG_DL) && !instr_uses_reg(instr, REG_DH));
         /* use edx */
         use_different_reg(dcontext, instr, ilist, REG_EDX, XDX_OFFSET, reads, writes);
-        for (i=0; i<num_uses; i++) {
+        for (i = 0; i < num_uses; i++) {
             opnd_replace_reg(uses[i], REG_EDI, REG_EDX);
             opnd_replace_reg(uses[i], REG_DI, REG_DX);
         }
@@ -619,6 +611,5 @@ becomes:
   0x0265e0ed   89 5d a8             mov    %ebx -> 0xffffffa8(%ebp)
   0x0265e0f0   8b 5f 04             mov    0x4(%edi) -> %ebx
 */
-
 
 #endif /* STEAL_REGISTER (around whole file) */

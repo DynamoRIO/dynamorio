@@ -44,11 +44,10 @@
 
 #define DEBUG
 
-
 #ifdef X64
-enum {LAST_STATUS_VALUE_OFFSET = 0x1250};
+enum { LAST_STATUS_VALUE_OFFSET = 0x1250 };
 #else
-enum {LAST_STATUS_VALUE_OFFSET = 0xbf4}; /* on Win2000+ case 6789 */
+enum { LAST_STATUS_VALUE_OFFSET = 0xbf4 }; /* on Win2000+ case 6789 */
 #endif
 
 int
@@ -62,22 +61,19 @@ get_last_status()
 #endif
 }
 
-
 #ifdef DEBUG
 int verbose = 0;
 
 void
 print_status(bool ok)
 {
-    printf("%s 0x%08x %s %d\n",
-           ok ? "" : "NTSTATUS",
-           ok ? 0 : get_last_status(),
+    printf("%s 0x%08x %s %d\n", ok ? "" : "NTSTATUS", ok ? 0 : get_last_status(),
            ok ? "success:" : "GLE", GetLastError());
 }
 #endif
 
-
-int usage(char *us)
+int
+usage(char *us)
 {
     fprintf(stderr, "\
 Usage: %s\n\
@@ -95,7 +91,8 @@ drdel -f <file> -d <directory> -r \n\
     -b         delete on next boot\n\
 \n\
     -v         verbose\n\
-\n", us);
+\n",
+            us);
     return 0;
 }
 
@@ -113,12 +110,12 @@ is_file_in_use(WCHAR *filename)
 {
     HANDLE hFile;
 
-    hFile = CreateFile(filename,              // file to open
-                       GENERIC_READ,          // open for reading
-                       0,                     // EXCLUSIVE access, should fail if in use
-                                              // note will fail anyone trying to use at this time
-                       NULL,                  // default security
-                       OPEN_EXISTING,         // existing file only
+    hFile = CreateFile(filename,      // file to open
+                       GENERIC_READ,  // open for reading
+                       0,             // EXCLUSIVE access, should fail if in use
+                                      // note will fail anyone trying to use at this time
+                       NULL,          // default security
+                       OPEN_EXISTING, // existing file only
                        FILE_ATTRIBUTE_NORMAL, // normal file
                        NULL);                 // no attr. template
 
@@ -129,29 +126,28 @@ is_file_in_use(WCHAR *filename)
      * PointerCount are one number vs another.
      */
 
-/*
-0:000> !handle 10 f
-Handle 10
-  Type                 File
-  Attributes           0
-  GrantedAccess        0x120089:
-         ReadControl,Synch
-         Read/List,ReadEA,ReadAttr
-  HandleCount          2
-  PointerCount         3
-  No Object Specific Information available
-*/
+    /*
+    0:000> !handle 10 f
+    Handle 10
+      Type                 File
+      Attributes           0
+      GrantedAccess        0x120089:
+             ReadControl,Synch
+             Read/List,ReadEA,ReadAttr
+      HandleCount          2
+      PointerCount         3
+      No Object Specific Information available
+    */
 
     if (verbose) {
         print_status(hFile != INVALID_HANDLE_VALUE);
     }
 
     if (hFile == INVALID_HANDLE_VALUE)
-        return true;            /* in use */
+        return true; /* in use */
     CloseHandle(hFile);
     return false;
 }
-
 
 /* see in utils.c file_exists() that one cannot
  * open the root directory (and in fact "\\remote\share" as well)
@@ -178,19 +174,19 @@ is_file_present(WCHAR *filename)
     return true;
 }
 
-
 bool
 delete_file_on_close(WCHAR *filename)
 {
     HANDLE hFile;
 
-    hFile = CreateFile(filename,              // file to open
-                       0,                     // just existence check
-                       FILE_SHARE_READ|FILE_SHARE_DELETE, // share for reading FIXME: do we need this
-                       NULL,                  // default security
-                       OPEN_EXISTING,         // existing file only
-                       FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, // normal file, delete on close
-                       NULL);                 // no attr. template
+    hFile = CreateFile(
+        filename,                            // file to open
+        0,                                   // just existence check
+        FILE_SHARE_READ | FILE_SHARE_DELETE, // share for reading FIXME: do we need this
+        NULL,                                // default security
+        OPEN_EXISTING,                       // existing file only
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, // normal file, delete on close
+        NULL);                                             // no attr. template
     if (verbose) {
         print_status(hFile != INVALID_HANDLE_VALUE);
     }
@@ -232,8 +228,9 @@ int onclose = 0;
  * {existing, not existing} x {in use, or not} x {DELETED, or not}
  *        x {.used, or not} x {pending reboot removal, or not}
  *
-reboot removal - MoveFileEx(MOVEFILE_DELAY_UNTIL_REBOOT) adds to PendingFileRenameOperations
-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations
+reboot removal - MoveFileEx(MOVEFILE_DELAY_UNTIL_REBOOT) adds to
+PendingFileRenameOperations HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session
+Manager\PendingFileRenameOperations
 
  * - not existing
  * - existing, hard link x {in use, not in use}
@@ -330,34 +327,25 @@ main(int argc, char *argv[])
         if (!strcmp(argv[argidx], "-help")) {
             usage(argv[0]);
             exit(0);
-        }
-        else if (!strcmp(argv[argidx], "-f")) {
+        } else if (!strcmp(argv[argidx], "-f")) {
             _snwprintf(filebuf, MAX_PATH, L"%S", argv[++argidx]);
             file = 1;
-        }
-        else if (!strcmp(argv[argidx], "-d")) {
+        } else if (!strcmp(argv[argidx], "-d")) {
             _snwprintf(dirbuf, MAX_PATH, L"%S", argv[++argidx]);
             dir = 1;
-        }
-        else if (!strcmp(argv[argidx], "-m")) {
+        } else if (!strcmp(argv[argidx], "-m")) {
             delete = 1;
-        }
-        else if (!strcmp(argv[argidx], "-o")) {
+        } else if (!strcmp(argv[argidx], "-o")) {
             onclose = 1;
-        }
-        else if (!strcmp(argv[argidx], "-b")) {
+        } else if (!strcmp(argv[argidx], "-b")) {
             onboot = 1;
-        }
-        else if (!strcmp(argv[argidx], "-t")) {
+        } else if (!strcmp(argv[argidx], "-t")) {
             temprename = 1;
-        }
-        else if (!strcmp(argv[argidx], "-c")) {
+        } else if (!strcmp(argv[argidx], "-c")) {
             check_in_use = 1;
-        }
-        else if (!strcmp(argv[argidx], "-v")) {
+        } else if (!strcmp(argv[argidx], "-v")) {
             verbose = 1;
-        }
-        else {
+        } else {
             fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
             usage(argv[0]);
             exit(0);

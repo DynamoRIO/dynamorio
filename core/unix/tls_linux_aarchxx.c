@@ -38,19 +38,19 @@
 #include "../globals.h"
 #include "tls.h"
 #ifndef AARCH64
-# include "include/syscall.h"
+#    include "include/syscall.h"
 #endif
 
 #ifndef LINUX
-# error Linux-only
+#    error Linux-only
 #endif
 
 #ifndef AARCHXX
-# error ARM/AArch64-only
+#    error ARM/AArch64-only
 #endif
 
 #ifndef CLIENT_INTERFACE
-# error CLIENT_INTERFACE build only for TLS mangling on ARM/AArch64
+#    error CLIENT_INTERFACE build only for TLS mangling on ARM/AArch64
 #endif
 
 byte **
@@ -66,8 +66,7 @@ void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
     ASSERT((byte *)(os_tls->self) == segment);
-    LOG(GLOBAL, LOG_THREADS, 2,
-        "tls_thread_init: cur priv lib tls base is "PFX"\n",
+    LOG(GLOBAL, LOG_THREADS, 2, "tls_thread_init: cur priv lib tls base is " PFX "\n",
         os_tls->os_seg_info.priv_lib_tls_base);
     write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
     ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
