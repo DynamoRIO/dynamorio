@@ -65,7 +65,7 @@
     ...................................................................
 ---- <application exited with code 0> ----
 Cache simulation results:
-Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
+Core #0 \(.*\)
   L1I stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
@@ -76,64 +76,10 @@ Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
     Misses:                     *[0-9,\.]*
     Invalidations:              *[0-9,\.]*
 .*    Miss rate:                *[0-9,\.]*%
-Core #1 \([0-9] traced CPU\(s\): [#0-9, ]+\)
-  L1I stats:
+L2 stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-  L1D stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-Core #2 \([0-9] traced CPU\(s\): [#0-9, ]+\)
-  L1I stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-  L1D stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-Core #3 \([0-9] traced CPU\(s\): [#0-9, ]+\)
-  L1I stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-  L1D stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:              *[0-9,\.]*
-.*    Miss rate:                *[0-9,\.]*%
-P[0-3]L2 stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:                      *0
-    Local miss rate:            *[0-9,\.]*%
-    Child hits:                 *[0-9,\.]*
-    Total miss rate:            *[0-9,\.]*%
-P[0-3]L2 stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:                      *0
-    Local miss rate:            *[0-9,\.]*%
-    Child hits:                 *[0-9,\.]*
-    Total miss rate:            *[0-9,\.]*%
-P[0-3]L2 stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:                      *0
-    Local miss rate:            *[0-9,\.]*%
-    Child hits:                 *[0-9,\.]*
-    Total miss rate:            *[0-9,\.]*%
-P[0-3]L2 stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Invalidations:                      *0
     Local miss rate:            *[0-9,\.]*%
     Child hits:                 *[0-9,\.]*
     Total miss rate:            *[0-9,\.]*%

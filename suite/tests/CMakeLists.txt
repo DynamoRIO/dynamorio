@@ -2515,7 +2515,7 @@ if (CLIENT_INTERFACE)
 
         # Threads test that reads the cache configuration from a config file.
         torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
-          "-config_file ${config_files_dir}/cores-4-levels-3-no-missfile.conf"
+          "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
           "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
