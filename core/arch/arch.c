@@ -169,6 +169,8 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "fcache_enter_indirect:\n");
             else if (last_pc == code->do_callback_return)
                 print_file(file, "do_callback_return:\n");
+            else if (last_pc == code->do_int2e_syscall)
+                print_file(file, "do_int2e_syscall:\n");
 # else
             else if (last_pc == code->do_int_syscall)
                 print_file(file, "do_int_syscall:\n");
@@ -1090,6 +1092,10 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          0, &code->do_syscall_offs);
+    pc = check_size_and_cache_line(isa_mode, code, pc);
+    code->do_int2e_syscall = pc;
+    pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
+                         0x2e/*force int*/, &code->do_int2e_syscall_offs);
 #else /* UNIX */
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_syscall = pc;
@@ -1865,6 +1871,14 @@ get_do_callback_return_entry(dcontext_t *dcontext)
     generated_code_t *code = THREAD_GENCODE(dcontext);
     return (cache_pc) code->do_callback_return;
 }
+
+cache_pc
+get_do_int2e_syscall_entry(dcontext_t *dcontext)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    return (cache_pc) code->do_int2e_syscall;
+}
+
 #else
 /* PR 286922: we need an int syscall even when vsyscall is sys{call,enter} */
 cache_pc
@@ -3226,8 +3240,10 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         }
     }
 #else
-    /* we assume only single method; else need multiple do_syscalls */
-    ASSERT(new_method == get_syscall_method());
+    /* There is usually a single method but we handle int 2e in an application
+     * even if syscall (or WOW64) is primarly used.
+     */
+    ASSERT(new_method == get_syscall_method() || new_method == SYSCALL_METHOD_INT);
 #endif
 }
 
