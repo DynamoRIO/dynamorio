@@ -49,6 +49,8 @@ basic_counts_tool_create(unsigned int verbose)
 basic_counts_t::basic_counts_t(unsigned int verbose) :
     total_threads(0), total_instrs(0), total_instrs_nofetch(0), total_prefetches(0),
     total_loads(0), total_stores(0), total_sched_markers(0), total_xfer_markers(0),
+    total_func_id_markers(0), total_func_retaddr_markers(0),
+    total_func_arg_markers(0), total_func_retval_markers(0),
     total_other_markers(0), knob_verbose(verbose)
 {
     // Empty.
@@ -87,8 +89,28 @@ basic_counts_t::process_memref(const memref_t &memref)
           ++thread_xfer_markers[memref.data.tid];
           ++total_xfer_markers;
       } else {
-          ++thread_other_markers[memref.data.tid];
-          ++total_other_markers;
+          switch(memref.marker.marker_type) {
+            case TRACE_MARKER_TYPE_FUNC_ID:
+              ++total_func_id_markers;
+              ++thread_func_id_markers[memref.data.tid];
+              break;
+            case TRACE_MARKER_TYPE_FUNC_RETADDR:
+              ++total_func_retaddr_markers;
+              ++thread_func_retaddr_markers[memref.data.tid];
+              break;
+            case TRACE_MARKER_TYPE_FUNC_ARG:
+              ++total_func_arg_markers;
+              ++thread_func_arg_markers[memref.data.tid];
+              break;
+            case TRACE_MARKER_TYPE_FUNC_RETVAL:
+              ++total_func_retval_markers;
+              ++thread_func_retval_markers[memref.data.tid];
+              break;
+            default:
+              ++thread_other_markers[memref.data.tid];
+              ++total_other_markers;
+              break;
+          }
       }
   } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
       ++total_threads;
@@ -116,6 +138,14 @@ basic_counts_t::print_results() {
     std::cerr << std::setw(12) << total_threads << " total threads\n";
     std::cerr << std::setw(12) << total_sched_markers << " total scheduling markers\n";
     std::cerr << std::setw(12) << total_xfer_markers << " total transfer markers\n";
+    std::cerr << std::setw(12) << total_func_id_markers <<
+                 " total function id markers\n";
+    std::cerr << std::setw(12) << total_func_retaddr_markers <<
+                 " total function return address markers\n";
+    std::cerr << std::setw(12) << total_func_arg_markers <<
+                 " total function argument markers\n";
+    std::cerr << std::setw(12) << total_func_retval_markers <<
+                 " total function return value markers\n";
     std::cerr << std::setw(12) << total_other_markers << " total other markers\n";
 
     // Print the threads sorted by instrs.
@@ -134,6 +164,14 @@ basic_counts_t::print_results() {
         std::cerr << std::setw(12) << thread_sched_markers[tid] <<
             " scheduling markers\n";
         std::cerr << std::setw(12) << thread_xfer_markers[tid] << " transfer markers\n";
+        std::cerr << std::setw(12) << thread_func_id_markers[tid] <<
+                     " function id markers\n";
+        std::cerr << std::setw(12) << thread_func_retaddr_markers[tid] <<
+                     " function return address markers\n";
+        std::cerr << std::setw(12) << thread_func_arg_markers[tid] <<
+                     " function argument markers\n";
+        std::cerr << std::setw(12) << thread_func_retval_markers[tid] <<
+                     " function return value markers\n";
         std::cerr << std::setw(12) << thread_other_markers[tid] << " other markers\n";
     }
     return true;
