@@ -191,6 +191,38 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CPU_ID,
 
+    /**
+     * The marker value contains the function id defined by the user in the
+     * -record_function (and -record_heap_value if -record_heap is specified)
+     * option.
+     */
+    TRACE_MARKER_TYPE_FUNC_ID,
+
+    // XXX i#3048: replace return address with callstack information.
+    /**
+     * The marker value contains the return address of the just-entered
+     * function, whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry.
+     */
+    TRACE_MARKER_TYPE_FUNC_RETADDR,
+
+    /**
+     * The marker value contains one argument value of the just-entered
+     * function, whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such entries
+     * for one function invocation is equal to the specified argument in
+     * -record_function (or pre-defined functions in -record_heap_value if
+     * -record_heap is specified).
+     */
+    TRACE_MARKER_TYPE_FUNC_ARG,
+
+    /**
+     * The marker value contains the return value of the just-entered function,
+     * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
+     * marker entry
+     */
+    TRACE_MARKER_TYPE_FUNC_RETVAL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
