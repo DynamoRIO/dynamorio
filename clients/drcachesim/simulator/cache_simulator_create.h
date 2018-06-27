@@ -86,8 +86,15 @@ struct cache_simulator_knobs_t {
     unsigned int verbose;
 };
 
-/** Creates an instance of a cache simulator. */
+/** Creates an instance of a cache simulator with a 2-level hierarchy. */
 analysis_tool_t *
 cache_simulator_create(const cache_simulator_knobs_t &knobs);
+
+/**
+ * Creates an instance of a cache simulator using a cache hierarchy defined
+ * in a configuration file.
+ */
+analysis_tool_t *
+cache_simulator_create(const std::string &config_file);
 
 #endif /* _CACHE_SIMULATOR_CREATE_H_ */

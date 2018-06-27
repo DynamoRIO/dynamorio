@@ -46,6 +46,7 @@
 class simulator_t : public analysis_tool_t
 {
  public:
+    simulator_t() {}
     simulator_t(unsigned int num_cores,
                 uint64_t skip_refs,
                 uint64_t warmup_refs,
@@ -57,6 +58,15 @@ class simulator_t : public analysis_tool_t
     virtual bool process_memref(const memref_t &memref);
 
  protected:
+    // Initialize knobs. Success or failure is indicated by setting/resetting
+    // the success variable.
+    void init_knobs(unsigned int num_cores,
+                    uint64_t skip_refs,
+                    uint64_t warmup_refs,
+                    double warmup_fraction,
+                    uint64_t sim_refs,
+                    bool cpu_scheduling,
+                    unsigned int verbose);
     void print_core(int core) const;
     int find_emptiest_core(std::vector<int> &counts) const;
     virtual int core_for_thread(memref_tid_t tid);
