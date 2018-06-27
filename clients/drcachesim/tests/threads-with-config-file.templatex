@@ -80,13 +80,13 @@ L2 stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Invalidations:              *[0-9,\.]*
-    Local miss rate:            *[0-9,\.]*%
+.*    Local miss rate:            *[0-9,\.]*%
     Child hits:                 *[0-9,\.]*
     Total miss rate:            *[0-9,\.]*%
 LLC stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Invalidations:                      *0
-    Local miss rate:            *[0-9,\.]*%
+.*    Local miss rate:            *[0-9,\.]*%
     Child hits:                 *[0-9,\.]*
     Total miss rate:            *[0-9,\.]*%
