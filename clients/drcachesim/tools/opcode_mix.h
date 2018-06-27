@@ -38,6 +38,7 @@
 
 #include "analysis_tool.h"
 #include "tracer/raw2trace.h"
+#include "tracer/raw2trace_directory.h"
 
 class opcode_mix_t : public analysis_tool_t
 {
@@ -50,6 +51,9 @@ class opcode_mix_t : public analysis_tool_t
  protected:
     void *dcontext;
     raw2trace_t *raw2trace;
+    // We reference directory.modfile_bytes throughout operation, so its lifetime
+    // must match ours.
+    raw2trace_directory_t directory;
     unsigned int knob_verbose;
     int_least64_t instr_count;
     std::unordered_map<int, int_least64_t> opcode_counts;

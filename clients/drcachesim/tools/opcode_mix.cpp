@@ -45,6 +45,7 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#include <string.h>
 
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
@@ -55,15 +56,15 @@ opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose
 }
 
 opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int verbose) :
-    dcontext(nullptr), raw2trace(nullptr), knob_verbose(verbose), instr_count(0)
+    dcontext(nullptr), raw2trace(nullptr), directory(module_file_path),
+    knob_verbose(verbose), instr_count(0)
 {
     if (module_file_path.empty()) {
         success = false;
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace_directory_t dir(module_file_path);
-    raw2trace = new raw2trace_t(dir.modfile_bytes, std::vector<std::istream*>(),
+    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream*>(),
                                 nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
