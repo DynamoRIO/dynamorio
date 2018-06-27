@@ -42,6 +42,21 @@ set(AARCH64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/opcode_names.h
 )
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
+
+set(CODEC_TXT "${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt")
+
+execute_process(
+  COMMAND ${PYTHON_EXECUTABLE}
+          "${PROJECT_SOURCE_DIR}/make/aarch64_check_codec_order.py"
+          "${PROJECT_SOURCE_DIR}/core/arch/aarch64"
+  RESULT_VARIABLE CHECK_RC
+  OUTPUT_VARIABLE CHECK_MSG
+)
+
+if (CHECK_RC)
+  message(FATAL_ERROR "Wrong order in codec.txt or codec.c: ${CHECK_MSG}")
+endif()
+
 # Auto-generate decoder files from codec.txt.
 add_custom_command(
   OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
