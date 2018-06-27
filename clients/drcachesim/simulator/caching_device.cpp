@@ -222,6 +222,10 @@ caching_device_t::invalidate(const addr_t tag)
             cache_block.tag = TAG_INVALID;
             cache_block.counter = 0;
             stats->invalidate();
+            // Invalidate last_tag if it was this tag.
+            if (last_tag == tag) {
+                last_tag = TAG_INVALID;
+            }
             // Invalidate the block in the children's caches.
             if (inclusive && !children.empty()) {
                 for (auto &child : children) {

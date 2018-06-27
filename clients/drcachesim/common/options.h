@@ -105,6 +105,7 @@ extern droption_t<bytesize_t> op_skip_refs;
 extern droption_t<bytesize_t> op_warmup_refs;
 extern droption_t<double> op_warmup_fraction;
 extern droption_t<bytesize_t> op_sim_refs;
+extern droption_t<std::string> op_config_file;
 extern droption_t<unsigned int> op_report_top;
 extern droption_t<unsigned int> op_reuse_distance_threshold;
 extern droption_t<bool> op_reuse_distance_histogram;
