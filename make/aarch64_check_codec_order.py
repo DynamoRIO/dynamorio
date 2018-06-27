@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # **********************************************************
 # Copyright (c) 2018 Arm Limited    All rights reserved.
 # **********************************************************
@@ -82,6 +84,7 @@ def main():
         r'^decode_opnd_([^\(]+).+'), ignore_until='each type of operand')
     print('Checking if operand order in codec.txt matches codec.c')
     check(op_names_txt, op_names_c)
+    print('  OK!')
 
 
 if __name__ == '__main__':
