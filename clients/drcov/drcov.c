@@ -125,6 +125,8 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
     const char *token;
     /* default values */
     nudge_kills = true;
+    
+    ops->dump_signal=0;
 
     for (i = 1/*skip client*/; i < argc; i++) {
         token = argv[i];
@@ -155,6 +157,13 @@ options_init(client_id_t id, int argc, const char *argv[], drcovlib_options_t *o
             token = argv[++i];
             if (dr_sscanf(token, "%u", &verbose) != 1) {
                 USAGE_CHECK(false, "invalid -verbose number");
+            }
+        }
+        else if (strcmp(token, "-dump_signal") == 0) {
+            USAGE_CHECK((i + 1) < argc, "missing -dump_signal number");
+            token = argv[++i];
+            if (dr_sscanf(token, "%u", &ops->dump_signal) != 1) {
+                USAGE_CHECK(false, "invalid -dump_signal number");
             }
         }
         else {
