@@ -44,6 +44,7 @@
 #include <string>
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drwrap.h"
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drutil.h"
@@ -52,6 +53,7 @@
 #include "instru.h"
 #include "raw2trace.h"
 #include "physaddr.h"
+#include "func_trace.h"
 #include "../common/trace_entry.h"
 #include "../common/named_pipe.h"
 #include "../common/options.h"
@@ -151,6 +153,15 @@ static volatile bool exited_process;
 /* virtual to physical translation */
 static bool have_phys;
 static physaddr_t physaddr;
+
+// The purpose of priority = DRMGR_PRIORITY_INSERT_DRWRAP + 1 is to make sure
+// function pre/post callbacks of drwrap API happens before memtrace's
+// meta instruction, so that function trace entries will not be appended to the
+// middle of a BB's PC and Memory Access trace entries. Assumption made here is
+// that, every function pre/post callback always happens at the first
+// instruction of a BB.
+static drmgr_priority_t memtrace_pri = {sizeof(drmgr_priority_t),
+    DRMGR_PRIORITY_NAME_MEMTRACE, NULL, NULL, DRMGR_PRIORITY_INSERT_DRWRAP + 1};
 
 /* Allocated TLS slot offsets */
 enum {
@@ -509,6 +520,16 @@ clean_call(void)
 /***************************************************************************
  * Tracing instrumentation.
  */
+
+static void
+append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t value)
+{
+    per_thread_t *data = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
+    if (data->seg_base == NULL)
+        return;  /* This thread was filtered out. */
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker, value);
+}
 
 static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -1266,7 +1287,8 @@ enable_delay_instrumentation()
      * to tracing instrumentation.
      */
     if (!drmgr_register_bb_instrumentation_event(event_delay_bb_analysis,
-                                                 event_delay_app_instruction, NULL))
+                                                 event_delay_app_instruction,
+                                                 &memtrace_pri))
         DR_ASSERT(false);
     enable_tracing_lock = dr_mutex_create();
 }
@@ -1297,7 +1319,7 @@ enable_tracing_instrumentation()
                                                     event_bb_analysis,
                                                     event_app_instruction,
                                                     event_bb_instru2instru,
-                                                    NULL))
+                                                    &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
     tracing_enabled = true;
@@ -1604,6 +1626,7 @@ event_exit(void)
     if (op_trace_after_instrs.get_value() > 0)
         exit_delay_instrumentation();
     drmgr_exit();
+    func_trace_exit();
 }
 
 static bool
@@ -1710,6 +1733,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
           op_L0D_size.get_value() != 0))) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
+
+    if (!func_trace_init(append_marker_seg_base))
+        DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86

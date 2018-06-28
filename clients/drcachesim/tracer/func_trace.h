@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,35 +30,23 @@
  * DAMAGE.
  */
 
-#ifndef _OPCODE_MIX_H_
-#define _OPCODE_MIX_H_ 1
+// func_trace.h: header of module for recording function traces
 
-#include <string>
-#include <unordered_map>
+#ifndef _FUNC_TRACE_
+#define _FUNC_TRACE_ 1
 
-#include "analysis_tool.h"
-#include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
+#include "trace_entry.h"
 
-class opcode_mix_t : public analysis_tool_t
-{
- public:
-    opcode_mix_t(const std::string& module_file_path, unsigned int verbose);
-    virtual ~opcode_mix_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+typedef void (*func_trace_append_entry_t)
+    (void *drcontext, trace_marker_type_t marker, uintptr_t value);
 
- protected:
-    void *dcontext;
-    raw2trace_t *raw2trace;
-    // We reference directory.modfile_bytes throughout operation, so its lifetime
-    // must match ours.
-    raw2trace_directory_t directory;
-    unsigned int knob_verbose;
-    int_least64_t instr_count;
-    std::unordered_map<int, int_least64_t> opcode_counts;
-    std::unordered_map<app_pc, int> opcode_cache;
-    static const std::string TOOL_NAME;
-};
+// Initializes the func_trace module. Each call must be paired with a
+// corresponding call to func_trace_exit().
+bool
+func_trace_init(func_trace_append_entry_t append_entry_);
 
-#endif /* _OPCODE_MIX_H_ */
+// Cleans up the func_trace module
+void
+func_trace_exit();
+
+#endif /* _FUNC_TRACE_ */

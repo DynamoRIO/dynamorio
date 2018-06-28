@@ -310,6 +310,10 @@ droption_t<std::string> op_view_syntax
  "The option can be set to one of att (default), intel, dr and arm."
  "An invalid specification falls back to the default.");
 
+droption_t<std::string> op_config_file
+(DROPTION_SCOPE_FRONTEND, "config_file", "", "Cache hierarchy configuration file",
+ "The full path to the cache hierarchy configuration file.");
+
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int> op_report_top
 (DROPTION_SCOPE_FRONTEND, "report_top", 10,
@@ -339,3 +343,44 @@ droption_t<bool> op_reuse_verify_skip
  "Verifies every skip list-calculated reuse distance with a full list walk. "
  "This incurs significant additional overhead.  This option is only available "
  "in debug builds.");
+
+#define OP_RECORD_FUNC_ITEM_SEP "&"
+// XXX i#3048: replace function return address with function callstack
+// XXX i#3048: add a section to drcachesim.dox.in on function tracing
+droption_t<std::string> op_record_function
+(DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
+ OP_RECORD_FUNC_ITEM_SEP, "",
+ "Record invocations trace for the specified function(s).",
+ "Record invocations trace for the specified function(s) in the option"
+ " value. Default value is empty. The value should fit this format:"
+ " function_name|function_id|func_args_num"
+ " (e.g., -record_function \"memset|10|3\"). The trace would contain"
+ " information for function return address, function argument value(s),"
+ " and function return value. We only record pointer-sized arguments and"
+ " return value. The trace is labeled with the function_id via an ID entry"
+ " prior to each set of value entries."
+ " Recording multiple functions can be achieved by using the separator"
+ " \"" OP_RECORD_FUNC_ITEM_SEP "\" (e.g., -record_function \"memset|10|3"
+ OP_RECORD_FUNC_ITEM_SEP "memcpy|11|3\"), or"
+ " specifying multiple -record_function options (e.g., -record_function"
+ " \"memset|10|3\" -record_function \"memcpy|11|3\")."
+ " Note that the provided function id should be unique, and not collide with"
+ " existing heap functions (see -record_heap_value) if -record_heap"
+ " option is enabled.");
+droption_t<bool> op_record_heap
+(DROPTION_SCOPE_ALL, "record_heap", false,
+ "Enable recording a trace for the defined heap functions.",
+ "It is a convenience option to enable recording a trace for the defined heap"
+ " functions in -record_heap_value. Specifying this option is equivalent to"
+ " -record_function [heap_functions], where [heap_functions] is"
+ " the value in -record_heap_value.");
+droption_t<std::string> op_record_heap_value
+(DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
+ OP_RECORD_FUNC_ITEM_SEP,
+ "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
+ "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
+ "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
+ "Functions recorded by -record_heap",
+ "Functions recorded by -record_heap. The option value should fit the same"
+ " format required by -record_function. These functions will not"
+ " be traced unless -record_heap is specified.");

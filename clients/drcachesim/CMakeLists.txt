@@ -152,6 +152,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   common/trace_entry.cpp
   reader/reader.cpp
+  reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
   )
@@ -207,10 +208,13 @@ macro(add_drmemtrace name type)
     tracer/instru_offline.cpp
     tracer/instru_online.cpp
     tracer/physaddr.cpp
+    tracer/func_trace.cpp
     ${client_and_sim_srcs}
     )
   configure_DynamoRIO_client(${name})
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
+  use_DynamoRIO_extension(${name} drsyms${ext_sfx})
+  use_DynamoRIO_extension(${name} drwrap${ext_sfx})
   use_DynamoRIO_extension(${name} drreg${ext_sfx})
   use_DynamoRIO_extension(${name} drutil${ext_sfx})
   use_DynamoRIO_extension(${name} drx${ext_sfx})
@@ -393,10 +397,10 @@ if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp)
   if (ZLIB_FOUND)
     target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static ${ZLIB_LIBRARIES})
+      drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
   else ()
     target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-      drmemtrace_static)
+      drmemtrace_static drmemtrace_analyzer)
   endif ()
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
@@ -433,6 +437,11 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
+
+    add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_malloc)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)

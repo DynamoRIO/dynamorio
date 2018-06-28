@@ -2458,9 +2458,16 @@ if (CLIENT_INTERFACE)
         set(tool.drcachesim.${testname}_rawtemp ON) # no preprocessor
       endmacro (torunonly_drcachesim)
 
+      set(config_files_dir ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+
       # We have a couple of sanity checks that at least nothing crashes.
       # We also test some runtime parameters.
       torunonly_drcachesim(simple ${ci_shared_app} "" "")
+
+      # Simple test that reads the cache configuration from a config file.
+      torunonly_drcachesim(simple-config-file ${ci_shared_app}
+        "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
+        "")
 
       # TLB simulator's single-thread sanity check
       torunonly_drcachesim(TLB-simple ${ci_shared_app} "-simulator_type TLB" "")
@@ -2470,6 +2477,11 @@ if (CLIENT_INTERFACE)
       torunonly_drcachesim(missfile ${ci_shared_app}
         "-LL_miss_file ${CMAKE_CURRENT_BINARY_DIR}/drtestmf.gz" "")
       set(tool.drcachesim.missfile_source simple) # Share simple template.
+
+      # Test miss file production. Test reads the cache configuration from a config file.
+      torunonly_drcachesim(missfile-config-file ${ci_shared_app}
+        "-config_file ${config_files_dir}/cores-1-levels-3-with-missfile.conf"
+        "")
 
       if (NOT WIN32) # No physaddr access on Windows.
         torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
@@ -2498,6 +2510,12 @@ if (CLIENT_INTERFACE)
         # more deterministic output.
         # We test -cpu_scheduling on several tests with many threads.
         torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
+          "${annotation_test_args}")
+        set(tool.drcachesim.threads_timeout 150) # This test is long.
+
+        # Threads test that reads the cache configuration from a config file.
+        torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
+          "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
           "${annotation_test_args}")
         set(tool.drcachesim.threads_timeout 150) # This test is long.
 
@@ -2662,6 +2680,10 @@ if (CLIENT_INTERFACE)
             # We test cpu_scheduling for offline traces here.
             "" "@-cpu_scheduling" "")
           set(tool.drcacheoff.burst_threads_nodr ON)
+
+          torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
+            "" "@-simulator_type@basic_counts" "")
+          set(tool.drcacheoff.burst_malloc_nodr ON)
 
           torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
             "" "@-simulator_type@basic_counts" "")

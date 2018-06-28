@@ -3782,7 +3782,6 @@ test_floatdp3(void *dc)
     test_instr_encoding(dc, OP_fnmsub, instr);
 }
 
-
 int
 main(int argc, char *argv[])
 {
