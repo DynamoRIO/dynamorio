@@ -77,11 +77,11 @@ view_t::view_t(const std::string& module_file_path,
 
     dr_disasm_flags_t flags = DR_DISASM_ATT;
     if (syntax == "intel") {
-      flags = DR_DISASM_INTEL;
+        flags = DR_DISASM_INTEL;
     } else if (syntax == "dr") {
-      flags = DR_DISASM_DR;
+        flags = DR_DISASM_DR;
     } else if (syntax == "arm") {
-      flags = DR_DISASM_ARM;
+        flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
 }
@@ -99,8 +99,10 @@ view_t::process_memref(const memref_t &memref)
       return true;
 
   if (instr_count < skip_refs ||
-      instr_count >= (skip_refs + sim_refs))
-    return true;
+      instr_count >= (skip_refs + sim_refs)) {
+      ++instr_count;
+      return true;
+  }
 
   ++instr_count;
 
@@ -113,21 +115,21 @@ view_t::process_memref(const memref_t &memref)
   std::string disasm;
   auto cached_disasm = disasm_cache.find(mapped_pc);
   if (cached_disasm != disasm_cache.end()) {
-    disasm = cached_disasm->second;
+      disasm = cached_disasm->second;
   } else {
-    instr_t instr;
-    instr_init(dcontext, &instr);
-    app_pc next_pc = decode(dcontext, mapped_pc, &instr);
-    if (next_pc == NULL || !instr_valid(&instr))
-        return false;
+      instr_t instr;
+      instr_init(dcontext, &instr);
+      app_pc next_pc = decode(dcontext, mapped_pc, &instr);
+      if (next_pc == NULL || !instr_valid(&instr))
+          return false;
 
-    // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
-    // exported so we just use the same value here.
-    char buf[196];
-    instr_disassemble_to_buffer(dcontext, &instr, buf, 196);
-    disasm = buf;
-    disasm_cache.insert({mapped_pc, disasm});
-    instr_free(dcontext, &instr);
+      // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
+      // exported so we just use the same value here.
+      char buf[196];
+      instr_disassemble_to_buffer(dcontext, &instr, buf, 196);
+      disasm = buf;
+      disasm_cache.insert({mapped_pc, disasm});
+      instr_free(dcontext, &instr);
   }
   std::cerr << disasm << "\n";
   ++num_disasm_instrs;
