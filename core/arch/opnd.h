@@ -262,7 +262,7 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
-#ifdef AARCH64
+# ifdef AARCH64
     /* SVE vector registers */
     DR_REG_Z0,  DR_REG_Z1,   DR_REG_Z2,   DR_REG_Z3,
     DR_REG_Z4,  DR_REG_Z5,   DR_REG_Z6,   DR_REG_Z7,
@@ -272,7 +272,7 @@ enum {
     DR_REG_Z20, DR_REG_Z21,  DR_REG_Z22,  DR_REG_Z23,
     DR_REG_Z24, DR_REG_Z25,  DR_REG_Z26,  DR_REG_Z27,
     DR_REG_Z28, DR_REG_Z29,  DR_REG_Z30,  DR_REG_Z31,
-#endif
+# endif
 
 # ifndef AARCH64
     /* Coprocessor registers */
