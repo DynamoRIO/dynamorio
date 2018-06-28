@@ -2647,6 +2647,8 @@ if (CLIENT_INTERFACE)
       set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.simple)
       set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.filter)
 
+      # We use the same shared app again so here we depend on the opcode mix test
+      # to complete before running the view tool test.
       torunonly_drcacheoff(view ${ci_shared_app} ""
         "@-simulator_type@view" "")
       set(tool.drcacheoff.view_depends tool.drcacheoff.opcode_mix)

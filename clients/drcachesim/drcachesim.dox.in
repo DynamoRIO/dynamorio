@@ -397,26 +397,28 @@ is distinct from the number of trace entries.
 
 \code
 $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
-mov    %rsp, %rdi
-call   $0x00007f09ea72d860
-push   %rbp
-mov    %rsp, %rbp
-push   %r15
-push   %r14
-push   %r13
-push   %r12
-mov    %rdi, %r12
-push   %rbx
-sub    $0x48, %rsp
-rdtsc
-shl    $0x20, %rdx
-mov    %eax, %eax
-or     %rax, %rdx
-mov    <rel> 0x00007f09ea94fe70, %rax
-mov    %rdx, <rel> 0x00007f09ea94fc60
-lea    <rel> 0x00007f09ea94fe70, %rdx
-mov    %rdx, %r14
-sub    <rel> 0x00007efeeaf68000, %r14
+  0x00007f3a5127d870  48 83 ec 48          sub    $0x48, %rsp
+  0x00007f3a5127d874  0f 31                rdtsc
+  0x00007f3a5127d876  48 c1 e2 20          shl    $0x20, %rdx
+  0x00007f3a5127d87a  89 c0                mov    %eax, %eax
+  0x00007f3a5127d87c  48 09 c2             or     %rax, %rdx
+  0x00007f3a5127d87f  48 8b 05 ea 25 22 00 mov    <rel> 0x00007f3a5149fe70, %rax
+  0x00007f3a5127d886  48 89 15 d3 23 22 00 mov    %rdx, <rel> 0x00007f3a5149fc60
+  0x00007f3a5127d88d  48 8d 15 dc 25 22 00 lea    <rel> 0x00007f3a5149fe70, %rdx
+  0x00007f3a5127d894  49 89 d6             mov    %rdx, %r14
+  0x00007f3a5127d897  4c 2b 35 62 27 22 00 sub    <rel> 0x00007f3a514a0000, %r14
+  0x00007f3a5127d89e  48 85 c0             test   %rax, %rax
+  0x00007f3a5127d8a1  48 89 15 40 31 22 00 mov    %rdx, <rel> 0x00007f3a514a09e8
+  0x00007f3a5127d8a8  4c 89 35 29 31 22 00 mov    %r14, <rel> 0x00007f3a514a09d8
+  0x00007f3a5127d8af  0f 84 9b 00 00 00    jz     $0x00007f3a5127d950
+  0x00007f3a5127d8b5  4c 8d 05 84 27 22 00 lea    <rel> 0x00007f3a514a0040, %r8
+  0x00007f3a5127d8bc  49 b9 d8 03 00 80 03 mov    $0x00000003800003d8, %r9
+                      00 00 00
+  0x00007f3a5127d8c6  48 b9 78 fb ff 7f 03 mov    $0x000000037ffffb78, %rcx
+                      00 00 00
+  0x00007f3a5127d8d0  48 8d 35 41 31 22 00 lea    <rel> 0x00007f3a514a0a18, %rsi
+  0x00007f3a5127d8d7  bf ff ff ff 6f       mov    $0x6fffffff, %edi
+  0x00007f3a5127d8dc  41 bb ff fd ff 6f    mov    $0x6ffffdff, %r11d
 View tool results:
              20 : total disassembled instructions
 \endcode

@@ -43,7 +43,7 @@
  */
 
 /**
- * Creates an analysis tool which prints out the dissasembled instructions from
+ * Creates an analysis tool which prints out the disassembled instructions from
  * the binary in the order they are present in the trace. This tool needs access
  * to the modules.log and original libraries and binaries from the traced execution.
  * It does not support online analysis.

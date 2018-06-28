@@ -56,8 +56,8 @@ class view_t : public analysis_tool_t
     unsigned int knob_verbose;
     uint64_t instr_count;
     static const std::string TOOL_NAME;
-    uint64_t skip_refs;
-    uint64_t sim_refs;
+    uint64_t knob_skip_refs;
+    uint64_t knob_sim_refs;
     uint64_t num_disasm_instrs;
     std::unordered_map<app_pc, std::string> disasm_cache;
 };
