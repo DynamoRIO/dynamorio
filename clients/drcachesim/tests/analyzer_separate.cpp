@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -96,10 +96,14 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<analysis_tool_t*> tools;
     tools.push_back(tool);
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
-    if (!analyzer)
-        FATAL_ERROR("failed to initialize analyzer");
-    if (!analyzer.run())
-        FATAL_ERROR("failed to run analyzer");
+    if (!analyzer) {
+        FATAL_ERROR("failed to initialize analyzer: %s",
+                    analyzer.get_error_string().c_str());
+    }
+    if (!analyzer.run()) {
+        FATAL_ERROR("failed to run analyzer: %s",
+                    analyzer.get_error_string().c_str());
+    }
     analyzer.print_stats();
     delete tool;
 
