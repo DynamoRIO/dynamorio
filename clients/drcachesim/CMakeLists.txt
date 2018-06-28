@@ -83,7 +83,9 @@ add_exported_library(drmemtrace_histogram STATIC tools/histogram.cpp)
 add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
+add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
+configure_DynamoRIO_standalone(drmemtrace_view)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -131,7 +133,7 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_raw2trace)
+  drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace)
 # To avoid dup symbol errors between drinjectlib and the drdecode brought in
 # by drfrontendlib we have to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -272,6 +274,7 @@ restore_nonclient_flags(drmemtrace_histogram)
 restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
+restore_nonclient_flags(drmemtrace_view)
 restore_nonclient_flags(drmemtrace_analyzer)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
@@ -306,13 +309,14 @@ add_win32_flags(drmemtrace_histogram)
 add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
+add_win32_flags(drmemtrace_view)
 add_win32_flags(drmemtrace_analyzer)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
   # The client, and our standalone DR users, had /MT added so we need to override.
   # XXX: solve this by avoiding the /MT in the first place!
-  foreach (src ${client_and_sim_srcs} ${sim_srcs} ${raw2trace_srcs} tools/opcode_mix.cpp)
+  foreach (src ${client_and_sim_srcs} ${sim_srcs} ${raw2trace_srcs} tools/opcode_mix.cpp tools/view.cpp)
     get_property(cur SOURCE ${src} PROPERTY COMPILE_FLAGS)
     string(REPLACE "/MT " "" cur ${cur}) # Avoid override warning.
     set_source_files_properties(${src} COMPILE_FLAGS "${cur} /MTd")

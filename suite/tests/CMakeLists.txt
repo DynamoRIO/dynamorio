@@ -2647,6 +2647,12 @@ if (CLIENT_INTERFACE)
       set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.simple)
       set(tool.drcacheoff.opcode_mix_depends tool.drcacheoff.filter)
 
+      # We use the same shared app again so here we depend on the opcode mix test
+      # to complete before running the view tool test.
+      torunonly_drcacheoff(view ${ci_shared_app} ""
+        "@-simulator_type@view" "")
+      set(tool.drcacheoff.view_depends tool.drcacheoff.opcode_mix)
+
       # FIXME i#2007: fails to link on A64
       # XXX i#1551: startstop API is NYI on ARM
       # XXX i#1997: dynamorio_static is not supported on Mac yet
