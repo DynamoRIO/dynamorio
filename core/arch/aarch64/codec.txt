@@ -103,7 +103,7 @@
 -----------xxxxx----------------  x16        # X register (or XZR)
 -----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
 -----------xxxxx----------------  x16p1      # ... add 1
------------xxxxx----------------  z16        # Z register (or XZR)
+-----------xxxxx----------------  z16        # Z register
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
