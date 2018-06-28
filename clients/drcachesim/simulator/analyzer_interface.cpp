@@ -45,8 +45,45 @@
 #include "../tools/reuse_time_create.h"
 #include "../tools/basic_counts_create.h"
 #include "../tools/opcode_mix_create.h"
+#include "../tools/view_create.h"
 #include "../tracer/raw2trace.h"
 #include <fstream>
+
+/* Get the path to the modules.log file by examining
+ * 1. the module_file option
+ * 2. the trace directory
+ * If a trace file is provided instead of a trace directory, it searches in the
+ * directory which contains the trace file.
+ */
+static std::string
+get_module_file_path()
+{
+    std::string module_file_path;
+    if (!op_module_file.get_value().empty())
+        module_file_path = op_module_file.get_value();
+    else {
+        std::string trace_dir;
+        if (!op_indir.get_value().empty())
+            trace_dir = op_indir.get_value();
+        else {
+            if (op_infile.get_value().empty()) {
+                ERRMSG("Usage error: the opcode mix tool requires offline traces.\n");
+                return "";
+            }
+            size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
+            if (sep_index != std::string::npos)
+                trace_dir = std::string(op_infile.get_value(), 0, sep_index);
+        }
+        module_file_path = trace_dir + std::string(DIRSEP) +
+            DRMEMTRACE_MODULE_LIST_FILENAME;
+        if (!std::ifstream(module_file_path.c_str()).good()) {
+            trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
+            module_file_path = trace_dir + std::string(DIRSEP) +
+                DRMEMTRACE_MODULE_LIST_FILENAME;
+        }
+    }
+    return module_file_path;
+}
 
 analysis_tool_t *
 drmemtrace_analysis_tool_create()
@@ -115,37 +152,22 @@ drmemtrace_analysis_tool_create()
     } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
     } else if (op_simulator_type.get_value() == OPCODE_MIX) {
-        // This tool needs the modules.log, which we assume is next to the trace file or
-        // in the raw/ subdir from raw2trace.
-        std::string module_file_path;
-        if (!op_module_file.get_value().empty())
-            module_file_path = op_module_file.get_value();
-        else {
-            std::string trace_dir;
-            if (!op_indir.get_value().empty())
-                trace_dir = op_indir.get_value();
-            else {
-                if (op_infile.get_value().empty()) {
-                    ERRMSG("Usage error: the opcode mix tool requires offline traces.\n");
-                    return nullptr;
-                }
-                size_t sep_index = op_infile.get_value().find_last_of(DIRSEP ALT_DIRSEP);
-                if (sep_index != std::string::npos)
-                    trace_dir = std::string(op_infile.get_value(), 0, sep_index);
-            }
-            module_file_path = trace_dir + std::string(DIRSEP) +
-                DRMEMTRACE_MODULE_LIST_FILENAME;
-            if (!std::ifstream(module_file_path.c_str()).good()) {
-                trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-                module_file_path = trace_dir + std::string(DIRSEP) +
-                    DRMEMTRACE_MODULE_LIST_FILENAME;
-            }
-        }
+        std::string module_file_path = get_module_file_path();
+        if (module_file_path.empty())
+            return nullptr;
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value());
+    } else if (op_simulator_type.get_value() == VIEW) {
+        std::string module_file_path = get_module_file_path();
+        if (module_file_path.empty())
+            return nullptr;
+        return view_tool_create(module_file_path, op_skip_refs.get_value(),
+                                op_sim_refs.get_value(), op_view_syntax.get_value(),
+                                op_verbose.get_value());
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
                "Please choose " CPU_CACHE ", " TLB ", "
-               HISTOGRAM ", " REUSE_DIST ", or " BASIC_COUNTS ".\n");
+               HISTOGRAM ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX " or "
+               VIEW ".\n");
         return nullptr;
     }
 }
