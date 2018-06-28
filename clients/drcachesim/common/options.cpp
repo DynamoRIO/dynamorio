@@ -304,6 +304,12 @@ droption_t<bytesize_t> op_sim_refs
  "The simulated references come after the skipped and warmup references, "
  "and the references following the simulated ones are dropped.");
 
+droption_t<std::string> op_view_syntax
+(DROPTION_SCOPE_FRONTEND, "view_syntax", "att", "Syntax to use for disassembly.",
+ "Specifies the syntax to use when viewing disassembled offline traces."
+ "The option can be set to one of att (default), intel, dr and arm."
+ "An invalid specification falls back to the default.");
+
 // XXX: if we separate histogram + reuse_distance we should move this with them.
 droption_t<unsigned int> op_report_top
 (DROPTION_SCOPE_FRONTEND, "report_top", 10,

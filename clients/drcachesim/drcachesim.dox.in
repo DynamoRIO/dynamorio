@@ -389,6 +389,38 @@ Opcode mix tool results:
 ...
 \endcode
 
+The view tool prints out disassembled instructions in att, intel, arm or DR
+format for offline traces. The -skip_refs and -sim_refs flags can be used to
+set a start point and end point for the disassembled view. Note that these
+flags compute the number of instructions which are skipped or displayed which
+is distinct from the number of trace entries.
+
+\code
+$ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
+mov    %rsp, %rdi
+call   $0x00007f09ea72d860
+push   %rbp
+mov    %rsp, %rbp
+push   %r15
+push   %r14
+push   %r13
+push   %r12
+mov    %rdi, %r12
+push   %rbx
+sub    $0x48, %rsp
+rdtsc
+shl    $0x20, %rdx
+mov    %eax, %eax
+or     %rax, %rdx
+mov    <rel> 0x00007f09ea94fe70, %rax
+mov    %rdx, <rel> 0x00007f09ea94fc60
+lea    <rel> 0x00007f09ea94fe70, %rdx
+mov    %rdx, %r14
+sub    <rel> 0x00007efeeaf68000, %r14
+View tool results:
+             20 : total disassembled instructions
+\endcode
+
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
@@ -803,11 +835,11 @@ use_DynamoRIO_drmemtrace(mytool)
 
 The \p drmemtrace_analyzer library exported by the DynamoRIO package is the
 main library to link when building a new tool.  The tools described above
-are also exported as the libraries \p drmemtrace_basic_counts, \p
-drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
+are also exported as the libraries \p drmemtrace_basic_counts, \p drmemtrace_view,
+\p drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
 drmemtrace_reuse_time, and \p drmemtrace_simulator and can be created using
 the basic_counts_tool_create(), opcode_mix_tool_create(), histogram_tool_create(),
-reuse_distance_tool_create(), reuse_time_tool_create(),
+reuse_distance_tool_create(), reuse_time_tool_create(), view_tool_create(),
 cache_simulator_create(), and tlb_simulator_create() functions.
 
 ****************************************************************************

@@ -48,6 +48,7 @@
 #define REUSE_TIME                              "reuse_time"
 #define BASIC_COUNTS                            "basic_counts"
 #define OPCODE_MIX                              "opcode_mix"
+#define VIEW                                    "view"
 #define CACHE_TYPE_INSTRUCTION                  "instruction"
 #define CACHE_TYPE_DATA                         "data"
 #define CACHE_TYPE_UNIFIED                      "unified"
@@ -110,4 +111,5 @@ extern droption_t<unsigned int> op_reuse_distance_threshold;
 extern droption_t<bool> op_reuse_distance_histogram;
 extern droption_t<unsigned int> op_reuse_skip_dist;
 extern droption_t<bool> op_reuse_verify_skip;
+extern droption_t<std::string> op_view_syntax;
 #endif /* _OPTIONS_H_ */
