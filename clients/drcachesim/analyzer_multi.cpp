@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,13 +50,13 @@ analyzer_multi_t::analyzer_multi_t()
 {
     if (!create_analysis_tools()) {
         success = false;
-        ERRMSG("Failed to create analysis tool\n");
+        error_string = "Failed to create analysis tool: " + error_string;
         return;
     }
     // XXX: add a "required" flag to droption to avoid needing this here
     if (op_infile.get_value().empty() && op_ipc_name.get_value().empty()) {
-        ERRMSG("Usage error: -ipc_name or -infile is required\nUsage:\n%s",
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        error_string = "Usage error: -ipc_name or -infile is required\nUsage:\n" +
+            droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         success = false;
         return;
     }
@@ -72,8 +72,10 @@ analyzer_multi_t::analyzer_multi_t()
             raw2trace_directory_t dir(op_indir.get_value(), tracefile);
             raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file);
             std::string error = raw2trace.do_conversion();
-            if (!error.empty())
-                ERRMSG("raw2trace failed: %s\n", error.c_str());
+            if (!error.empty()) {
+                success = false;
+                error_string = "raw2trace failed: " + error;
+            }
             trace_iter = new file_reader_t(tracefile.c_str());
         }
         // We don't support a compressed file here (is_complete() is too hard
@@ -120,6 +122,7 @@ analyzer_multi_t::create_analysis_tools()
     tools = new analysis_tool_t*[max_num_tools];
     tools[0] = drmemtrace_analysis_tool_create();
     if (tools[0] != NULL && !*tools[0]) {
+        error_string = tools[0]->get_error_string();
         delete tools[0];
         tools[0] = NULL;
     }
@@ -130,6 +133,7 @@ analyzer_multi_t::create_analysis_tools()
     if (op_test_mode.get_value()) {
         tools[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
         if (tools[1] != NULL && !*tools[1]) {
+            error_string = tools[1]->get_error_string();
             delete tools[1];
             tools[1] = NULL;
         }

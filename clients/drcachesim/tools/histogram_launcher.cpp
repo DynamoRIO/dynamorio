@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -107,10 +107,14 @@ _tmain(int argc, const TCHAR *targv[])
         tools.push_back(&tool2);
     }
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
-    if (!analyzer)
-        FATAL_ERROR("failed to initialize analyzer");
-    if (!analyzer.run())
-        FATAL_ERROR("failed to run analyzer");
+    if (!analyzer) {
+        FATAL_ERROR("failed to initialize analyzer: %s",
+                    analyzer.get_error_string().c_str());
+    }
+    if (!analyzer.run()) {
+        FATAL_ERROR("failed to run analyzer: %s",
+                    analyzer.get_error_string().c_str());
+    }
     analyzer.print_stats();
     delete tool1;
 
@@ -120,14 +124,21 @@ _tmain(int argc, const TCHAR *targv[])
                                      op_report_top.get_value(),
                                      op_verbose.get_value());
         analyzer_t external(op_trace.get_value());
-        if (!external)
-            FATAL_ERROR("failed to initialize analyzer");
-        for (reader_t &iter = external.begin(); iter != external.end(); ++iter) {
-            if (!tool1->process_memref(*iter))
-                FATAL_ERROR("tool failed to process entire trace");
+        if (!external) {
+            FATAL_ERROR("failed to initialize analyzer: %s",
+                        external.get_error_string().c_str());
         }
-        if (!tool1->print_results())
-            FATAL_ERROR("tool failed to print results");
+        for (reader_t &iter = external.begin(); iter != external.end(); ++iter) {
+            std::string error;
+            if (!tool1->process_memref(*iter)) {
+                FATAL_ERROR("tool failed to process entire trace: %s",
+                            tool1->get_error_string().c_str());
+            }
+        }
+        if (!tool1->print_results()) {
+            FATAL_ERROR("tool failed to print results: %s",
+                        tool1->get_error_string().c_str());
+        }
         delete tool1;
     }
 

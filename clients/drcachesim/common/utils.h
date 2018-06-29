@@ -36,6 +36,9 @@
 #define _UTILS_H_ 1
 
 #include <stdio.h>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 // XXX: perhaps we should use a C++-ish stream approach instead
 // This cannot be named ERROR as that conflicts with Windows headers.
@@ -106,6 +109,14 @@ compute_log2(int value)
     }
     // returns -1 if value is not a power of 2.
     return -1;
+}
+
+template<typename T>
+std::string to_hex_string(T integer)
+{
+  std::stringstream sstream;
+  sstream << "0x" << std::setfill('0') << std::setw(sizeof(T)*2) << std::hex << integer;
+  return sstream.str();
 }
 
 #endif /* _UTILS_H_ */
