@@ -112,6 +112,7 @@ view_t::process_memref(const memref_t &memref)
   app_pc orig_pc = (app_pc)memref.instr.addr;
   std::string err =
       raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
+
   if (!err.empty()) {
       error_string = "Failed to find mapped address for " +
           to_hex_string(memref.instr.addr) + ": " + err;
@@ -126,6 +127,7 @@ view_t::process_memref(const memref_t &memref)
       // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
       // exported so we just use the same value here.
       char buf[196];
+
       byte *next_pc =
           disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
                                 /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
