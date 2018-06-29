@@ -37,27 +37,30 @@
  */
 
 #include "dr_api.h"
-#include "opcode_mix.h"
+#include "view.h"
 #include "common/utils.h"
 #include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <vector>
-#include <string.h>
 
-const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
+const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
-opcode_mix_tool_create(const std::string& module_file_path, unsigned int verbose)
+view_tool_create(const std::string& module_file_path,
+                 uint64_t skip_refs, uint64_t sim_refs, const std::string& syntax,
+                 unsigned int verbose)
 {
-    return new opcode_mix_t(module_file_path, verbose);
+    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int verbose) :
+view_t::view_t(const std::string& module_file_path,
+               uint64_t skip_refs, uint64_t sim_refs, const std::string& syntax,
+               unsigned int verbose) :
     dcontext(nullptr), raw2trace(nullptr), directory(module_file_path),
-    knob_verbose(verbose), instr_count(0)
+    knob_verbose(verbose), instr_count(0), knob_skip_refs(skip_refs),
+    knob_sim_refs(sim_refs), num_disasm_instrs(0)
 {
     if (module_file_path.empty()) {
         error_string = "Module file path is missing";
@@ -73,67 +76,80 @@ opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int ver
         success = false;
         return;
     }
+
+    dr_disasm_flags_t flags = DR_DISASM_ATT;
+    if (syntax == "intel") {
+        flags = DR_DISASM_INTEL;
+    } else if (syntax == "dr") {
+        flags = DR_DISASM_DR;
+    } else if (syntax == "arm") {
+        flags = DR_DISASM_ARM;
+    }
+    disassemble_set_syntax(flags);
 }
 
-opcode_mix_t::~opcode_mix_t()
+view_t::~view_t()
 {
     delete raw2trace;
 }
 
 bool
-opcode_mix_t::process_memref(const memref_t &memref)
+view_t::process_memref(const memref_t &memref)
 {
   if (!type_is_instr(memref.instr.type) &&
       memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-      return "";
+      return true;
+
+  if (instr_count < knob_skip_refs ||
+      instr_count >= (knob_skip_refs + knob_sim_refs)) {
+      ++instr_count;
+      return true;
+  }
+
   ++instr_count;
+
   app_pc mapped_pc;
+  app_pc orig_pc = (app_pc)memref.instr.addr;
   std::string err =
-      raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
+      raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
   if (!err.empty()) {
       error_string = "Failed to find mapped address for " +
           to_hex_string(memref.instr.addr) + ": " + err;
       return false;
   }
-  int opcode;
-  auto cached_opcode = opcode_cache.find(mapped_pc);
-  if (cached_opcode != opcode_cache.end()) {
-      opcode = cached_opcode->second;
+
+  std::string disasm;
+  auto cached_disasm = disasm_cache.find(mapped_pc);
+  if (cached_disasm != disasm_cache.end()) {
+      disasm = cached_disasm->second;
   } else {
-      instr_t instr;
-      instr_init(dcontext, &instr);
-      app_pc next_pc = decode(dcontext, mapped_pc, &instr);
-      if (next_pc == NULL || !instr_valid(&instr)) {
-          error_string = "Failed to decode instruction " +
-              to_hex_string(memref.instr.addr);
+      // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
+      // exported so we just use the same value here.
+      char buf[196];
+      byte *next_pc =
+          disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+                                /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
+                                /*printed=*/nullptr);
+      if (next_pc == nullptr) {
+          error_string = "Failed to disassemble " + to_hex_string(memref.instr.addr);
           return false;
       }
-      opcode = instr_get_opcode(&instr);
-      opcode_cache[mapped_pc] = opcode;
-      instr_free(dcontext, &instr);
+      disasm = buf;
+      disasm_cache.insert({mapped_pc, disasm});
   }
-  ++opcode_counts[opcode];
+  // XXX: For now we print the disassembly of instructions only. We should extend
+  // this tool to annotate load/store operations with the entries recorded in
+  // the offline trace.
+  std::cerr << disasm;
+  ++num_disasm_instrs;
   return true;
 }
 
-static bool
-cmp_val(const std::pair<int, int_least64_t> &l,
-        const std::pair<int, int_least64_t> &r)
-{
-    return (l.second > r.second);
-}
-
 bool
-opcode_mix_t::print_results()
+view_t::print_results()
 {
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << instr_count << " : total executed instructions\n";
-    std::vector<std::pair<int, int_least64_t>> sorted(opcode_counts.begin(),
-                                                      opcode_counts.end());
-    std::sort(sorted.begin(), sorted.end(), cmp_val);
-    for (const auto &keyvals : sorted) {
-        std::cerr << std::setw(15) << keyvals.second << " : "
-                  << std::setw(9) << decode_opcode_name(keyvals.first) << "\n";
-    }
+    std::cerr << std::setw(15) << num_disasm_instrs
+              << " : total disassembled instructions\n";
     return true;
 }

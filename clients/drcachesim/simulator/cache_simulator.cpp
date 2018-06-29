@@ -91,9 +91,9 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     if (!llc->init(knobs.LL_assoc, (int)knobs.line_size,
                    (int)knobs.LL_size, NULL,
                    new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
-        ERRMSG("Usage error: failed to initialize LL cache.  Ensure sizes and "
-               "associativity are powers of 2, that the total size is a multiple "
-               "of the line size, and that any miss file path is writable.\n");
+        error_string = "Usage error: failed to initialize LL cache.  Ensure sizes and "
+            "associativity are powers of 2, that the total size is a multiple "
+            "of the line size, and that any miss file path is writable.";
         success = false;
         return;
     }
@@ -124,9 +124,9 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
                               new cache_stats_t("", warmup_enabled),
                               knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
                               new prefetcher_t((int)knobs.line_size) : nullptr)) {
-            ERRMSG("Usage error: failed to initialize L1 caches.  Ensure sizes and "
-                   "associativity are powers of 2 "
-                   "and that the total sizes are multiples of the line size.\n");
+            error_string = "Usage error: failed to initialize L1 caches.  Ensure sizes "
+                   "and associativity are powers of 2 "
+                   "and that the total sizes are multiples of the line size.";
             success = false;
             return;
         }
@@ -147,8 +147,8 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
     std::map<string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
-        ERRMSG("Usage error: Failed to read/parse configuration file %s.\n",
-               config_file.c_str());
+        error_string = "Usage error: Failed to read/parse configuration file " +
+            config_file;
         success = false;
         return;
     }
@@ -194,8 +194,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         // Locate the cache's configuration.
         const auto &cache_config_it = cache_params.find(cache_name);
         if (cache_config_it == cache_params.end()) {
-            ERRMSG("Error locating the configuration of the cache: %s\n",
-                   cache_name.c_str());
+            error_string = "Error locating the configuration of the cache: " + cache_name;
             success = false;
             return;
         }
@@ -206,8 +205,8 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         if (cache_config.parent != CACHE_PARENT_MEMORY) {
             const auto &parent_it = all_caches.find(cache_config.parent);
             if (parent_it == all_caches.end()) {
-                ERRMSG("Error locating the configuration of the parent cache: %s\n",
-                       cache_config.parent.c_str());
+                error_string = "Error locating the configuration of the parent cache: " +
+                    cache_config.parent;
                 success = false;
                 return;
             }
@@ -221,8 +220,8 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
             for (string &child_name : cache_config.children) {
                 const auto &child_it = all_caches.find(child_name);
                 if (child_it == all_caches.end()) {
-                    ERRMSG("Error locating the configuration of the cache: %s\n",
-                           child_name.c_str());
+                    error_string = "Error locating the configuration of the cache: " +
+                        child_name;
                     success = false;
                     return;
                 }
@@ -236,8 +235,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
                          cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE ?
                              new prefetcher_t((int)knobs.line_size) : nullptr,
                          cache_config.inclusive, children)) {
-            ERRMSG("Usage error: failed to initialize the cache %s\n",
-                   cache_name.c_str());
+            error_string = "Usage error: failed to initialize the cache " + cache_name;
             success = false;
             return;
         }
@@ -302,7 +300,8 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     // Both warmup and simulated references are simulated.
 
-    simulator_t::process_memref(memref);
+    if (!simulator_t::process_memref(memref))
+        return false;
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         // We ignore markers before we ask core_for_thread, to avoid asking
@@ -372,7 +371,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
                 memref.instr.size << "\n";
         }
     } else {
-        ERRMSG("unhandled memref type");
+        error_string = "Unhandled memref type " + std::to_string(memref.data.type);
         return false;
     }
 

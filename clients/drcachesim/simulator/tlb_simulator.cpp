@@ -60,18 +60,26 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
     dtlbs = new tlb_t* [knobs.num_cores];
     lltlbs = new tlb_t* [knobs.num_cores];
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
+        itlbs[i] = NULL;
+        dtlbs[i] = NULL;
+        lltlbs[i] = NULL;
+    }
+    for (unsigned int i = 0; i < knobs.num_cores; i++) {
         itlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (itlbs[i] == NULL) {
+            error_string = "Failed to create itlbs";
             success = false;
             return;
         }
         dtlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (dtlbs[i] == NULL) {
+            error_string = "Failed to create dtlbs";
             success = false;
             return;
         }
         lltlbs[i] = create_tlb(knobs.TLB_replace_policy);
         if (lltlbs[i] == NULL) {
+            error_string = "Failed to create lltlbs";
             success = false;
             return;
         }
@@ -82,8 +90,8 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs_) :
                             knobs.TLB_L1D_entries, lltlbs[i], new tlb_stats_t) ||
             !lltlbs[i]->init(knobs.TLB_L2_assoc, (int)knobs.page_size,
                              knobs.TLB_L2_entries, NULL, new tlb_stats_t)) {
-            ERRMSG("Usage error: failed to initialize TLBs. Ensure entry number, "
-                   "page size and associativity are powers of 2.\n");
+            error_string = "Usage error: failed to initialize TLBs. Ensure entry number, "
+                "page size and associativity are powers of 2.";
             success = false;
             return;
         }
@@ -126,7 +134,8 @@ tlb_simulator_t::process_memref(const memref_t &memref)
 
     // Both warmup and simulated references are simulated.
 
-    simulator_t::process_memref(memref);
+    if (!simulator_t::process_memref(memref))
+        return false;
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         // We ignore markers before we ask core_for_thread, to avoid asking
@@ -162,7 +171,7 @@ tlb_simulator_t::process_memref(const memref_t &memref)
              memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // TLB simulator ignores prefetching, cache flushing, and markers
     } else {
-        ERRMSG("unhandled memref type");
+        error_string = "Unhandled memref type " + std::to_string(memref.data.type);
         return false;
     }
 

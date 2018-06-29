@@ -1,0 +1,4 @@
+Hello, world!
+.*
+View tool results:
+    *[0-9]* : total disassembled instructions
