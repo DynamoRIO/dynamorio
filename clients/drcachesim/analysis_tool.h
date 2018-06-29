@@ -61,7 +61,7 @@ class analysis_tool_t
  public:
     /**
      * Errors encountered during the constructor will set the success flag, which should
-     * be queried via operator!, as well as the error_string flag for a descriptive
+     * be queried via operator!.  On an error, get_error_string() provides a descriptive
      * error message.
      */
     analysis_tool_t() : success(true) {};
