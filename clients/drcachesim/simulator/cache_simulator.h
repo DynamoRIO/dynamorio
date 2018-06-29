@@ -63,7 +63,7 @@ class cache_simulator_t : public simulator_t
     bool check_warmed_up();
  protected:
     // Create a cache_t object with a specific replacement policy.
-    virtual cache_t *create_cache(std::string policy);
+    virtual cache_t *create_cache(const std::string& policy);
 
     cache_simulator_knobs_t knobs;
 

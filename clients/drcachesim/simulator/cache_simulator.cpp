@@ -56,7 +56,7 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
 }
 
 analysis_tool_t *
-cache_simulator_create(const string &config_file)
+cache_simulator_create(const std::string &config_file)
 {
     return new cache_simulator_t(config_file);
 }
@@ -98,7 +98,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
         return;
     }
 
-    string cache_name = "LL";
+    std::string cache_name = "LL";
     all_caches[cache_name] = llc;
     llcaches[cache_name] = llc;
 
@@ -173,7 +173,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
 
     // Create all the caches in the hierarchy.
     for (auto &cache_params_it : cache_params) {
-        string cache_name = cache_params_it.first;
+        std::string cache_name = cache_params_it.first;
         auto &cache_config = cache_params_it.second;
 
         cache_t *cache = create_cache(cache_config.replace_policy);
@@ -188,7 +188,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
     // Initialize all the caches in the hierarchy and identify both
     // the L1 caches and LLC(s).
     for (auto &cache_it : all_caches) {
-        string cache_name = cache_it.first;
+        std::string cache_name = cache_it.first;
         cache_t *cache = cache_it.second;
 
         // Locate the cache's configuration.
@@ -217,7 +217,7 @@ cache_simulator_t::cache_simulator_t(const string &config_file) :
         std::vector<caching_device_t*> children;
         children.clear();
         if (cache_config.inclusive) {
-            for (string &child_name : cache_config.children) {
+            for (std::string &child_name : cache_config.children) {
                 const auto &child_it = all_caches.find(child_name);
                 if (child_it == all_caches.end()) {
                     error_string = "Error locating the configuration of the cache: " +
@@ -468,7 +468,7 @@ cache_simulator_t::print_results()
 }
 
 cache_t*
-cache_simulator_t::create_cache(std::string policy)
+cache_simulator_t::create_cache(const std::string& policy)
 {
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
         policy == REPLACE_POLICY_LRU) // set to LRU

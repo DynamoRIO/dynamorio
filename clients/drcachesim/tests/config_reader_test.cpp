@@ -37,10 +37,10 @@
 #include "../simulator/cache_simulator_create.h"
 
 static void
-check_cache(const std::map<string, cache_params_t> &caches, string name,
-            string type, int core, uint64_t size, unsigned int assoc,
-            bool inclusive, string parent, string replace_policy,
-            string prefetcher, string miss_file) {
+check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
+            std::string type, int core, uint64_t size, unsigned int assoc,
+            bool inclusive, std::string parent, std::string replace_policy,
+            std::string prefetcher, std::string miss_file) {
     auto cache_it = caches.find(name);
     if (cache_it == caches.end()) {
         std::cerr << "drcachesim config_reader_test failed (cache: "
@@ -69,8 +69,8 @@ int
 main(int argc, const char *argv[])
 {
     cache_simulator_knobs_t knobs;
-    std::map<string, cache_params_t> caches;
-    string file_name = "single_core.conf";
+    std::map<std::string, cache_params_t> caches;
+    std::string file_name = "single_core.conf";
 
     config_reader_t config;
     if (!config.configure(file_name, knobs, caches)) {

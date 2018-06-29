@@ -46,9 +46,9 @@ config_reader_t::~config_reader_t()
 }
 
 bool
-config_reader_t::configure(const string &config_file,
+config_reader_t::configure(const std::string &config_file,
                            cache_simulator_knobs_t &knobs,
-                           std::map<string, cache_params_t> &caches)
+                           std::map<std::string, cache_params_t> &caches)
 {
     // Open the config file.
     fin.open(config_file);
@@ -59,7 +59,7 @@ config_reader_t::configure(const string &config_file,
 
     // Walk through the configuration file.
     while (!fin.eof()) {
-        string param;
+        std::string param;
 
         if (!(fin >> ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
@@ -133,7 +133,7 @@ config_reader_t::configure(const string &config_file,
         }
         else if (param == "cpu_scheduling") {
             // Whether to simulate CPU scheduling or not.
-            string bool_val;
+            std::string bool_val;
             if (!(fin >> bool_val)) {
                 ERRMSG("Error reading cpu_scheduling from "
                        "the configuration file\n");
@@ -177,7 +177,7 @@ bool
 config_reader_t::configure_cache(cache_params_t &cache)
 {
     // String used to construct meaningful error messages.
-    string error_msg;
+    std::string error_msg;
 
     char c;
     if (!(fin >> ws >> c)) {
@@ -190,7 +190,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
     }
 
     while (!fin.eof()) {
-        string param;
+        std::string param;
         if (!(fin >> ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
@@ -231,7 +231,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
         }
         else if (param == "size") {
             // Cache size in bytes.
-            string size_str;
+            std::string size_str;
             if (!(fin >> size_str)) {
                 ERRMSG("Error reading cache size from "
                        "the configuration file\n");
@@ -262,7 +262,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
         }
         else if (param == "inclusive") {
             // Is the cache inclusive of its children.
-            string bool_val;
+            std::string bool_val;
             if (!(fin >> bool_val)) {
                 ERRMSG("Error reading cache inclusivity from "
                        "the configuration file\n");
@@ -341,7 +341,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
 
 bool
 config_reader_t::check_cache_config(int num_cores,
-                                    std::map<string, cache_params_t>
+                                    std::map<std::string, cache_params_t>
                                         &caches_map)
 {
     int *core_inst_caches = new int[num_cores];
@@ -352,7 +352,7 @@ config_reader_t::check_cache_config(int num_cores,
     }
 
     for (auto &cache_map : caches_map) {
-        string cache_name = cache_map.first;
+        std::string cache_name = cache_map.first;
         auto &cache = cache_map.second;
 
         // Associate a cache to a core.
@@ -395,7 +395,7 @@ config_reader_t::check_cache_config(int num_cores,
             }
 
             // Check for cycles between the cache and its parent.
-            string parent = cache.parent;
+            std::string parent = cache.parent;
             while (parent != CACHE_PARENT_MEMORY) {
                 if (parent == cache_name) {
                     ERRMSG("Cache %s & its parent %s have a cyclic reference\n",
@@ -429,7 +429,7 @@ config_reader_t::check_cache_config(int num_cores,
 //      droption_t<bytesize_t>::convert_from_string
 //      Consider sharing the function using a single copy.
 bool
-config_reader_t::convert_string_to_size(const string &s, uint64_t &size)
+config_reader_t::convert_string_to_size(const std::string &s, uint64_t &size)
 {
     char suffix = *s.rbegin();  // s.back() only in C++11
     int scale;
