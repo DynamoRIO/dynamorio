@@ -54,12 +54,17 @@ unit_test_warmup_fraction()
     // Feed it some memrefs, warmup fraction is set to 0.5 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check for the warmup_fraction.
+    std::string error;
     for (int i = 0; i < 16 + 1; i++) {
         memref_t ref;
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 8;
         ref.data.addr = i * 128;
-        cache_sim.process_memref(ref);
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_warmup_fraction failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
     }
 
     if (!cache_sim.check_warmed_up()) {
@@ -86,12 +91,17 @@ unit_test_warmup_refs()
     // Feed it some memrefs, warmup refs = 16 where the capacity at
     // each level is 32 lines each. The first 16 memrefs warm up the cache and
     // the 17th allows us to check.
+    std::string error;
     for (int i = 0; i < 16 + 1; i++) {
         memref_t ref;
         ref.data.type = TRACE_TYPE_READ;
         ref.data.size = 8;
         ref.data.addr = i * 128;
-        cache_sim.process_memref(ref);
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_warmup_fraction failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
     }
 
     if (!cache_sim.check_warmed_up()) {

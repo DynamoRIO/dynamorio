@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -319,7 +319,9 @@ _tmain(int argc, const TCHAR *targv[])
 
     if (!op_offline.get_value() || have_trace_file) {
         if (!analyzer->run()) {
-            FATAL_ERROR("failed to run analyzer");
+            std::string error_string = analyzer->get_error_string();
+            FATAL_ERROR("failed to run analyzer%s%s",
+                        error_string.empty() ? "" : ": ", error_string.c_str());
         }
     }
 
@@ -347,7 +349,11 @@ _tmain(int argc, const TCHAR *targv[])
     } else
         errcode = 0;
 
-    analyzer->print_stats();
+    if (!analyzer->print_stats()) {
+        std::string error_string = analyzer->get_error_string();
+        FATAL_ERROR("failed to print results%s%s",
+                    error_string.empty() ? "" : ": ", error_string.c_str());
+    }
 
     // release analyzer's space
     delete analyzer;

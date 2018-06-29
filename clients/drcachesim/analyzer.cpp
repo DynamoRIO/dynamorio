@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,7 +73,9 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
     for (int i = 0; i < num_tools; ++i) {
         if (tools[i] == NULL || !*tools[i]) {
             success = false;
-            ERRMSG("Tool is not successfully initialized\n");
+            error_string = "Tool is not successfully initialized";
+            if (tools[i] != NULL)
+                error_string += ": " + tools[i]->get_error_string();
             return;
         }
     }
@@ -119,32 +121,38 @@ analyzer_t::start_reading()
 bool
 analyzer_t::run()
 {
-    bool res = true;
     if (!start_reading())
         return false;
 
     for (; *trace_iter != *trace_end; ++(*trace_iter)) {
         for (int i = 0; i < num_tools; ++i) {
             memref_t memref = **trace_iter;
-            res = tools[i]->process_memref(memref) && res;
+            // We short-circuit and exit on an error to avoid confusion over
+            // the results and avoid wasted continued work.
+            if (!tools[i]->process_memref(memref)) {
+                error_string = tools[i]->get_error_string();
+                return false;
+            }
         }
     }
-    return res;
+    return true;
 }
 
 bool
 analyzer_t::print_stats()
 {
-    bool res = true;
     for (int i = 0; i < num_tools; ++i) {
-        res = tools[i]->print_results() && res;
+        if (!tools[i]->print_results()) {
+            error_string = tools[i]->get_error_string();
+            return false;
+        }
         if (i+1 < num_tools) {
             // Separate tool output.
             std::cerr << "\n=========================================================="
                 "=================\n";
         }
     }
-    return res;
+    return true;
 }
 
 reader_t &
