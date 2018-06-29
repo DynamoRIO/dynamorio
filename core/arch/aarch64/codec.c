@@ -909,6 +909,20 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
+/* Used to encode a SVE vector register (z registers). */
+
+static inline bool
+encode_opnd_z(uint pos_start, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    if (!opnd_is_reg(opnd))
+        return false;
+    num = opnd_get_reg(opnd) - DR_REG_Z0;
+    if (num >= 32)
+        return false;
+    *enc_out = num << pos_start;
+    return true;
+}
 
 /*******************************************************************************
  * Pairs of functions for decoding and encoding each type of operand, as listed in
@@ -1141,6 +1155,21 @@ encode_opnd_q0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(0, 4, opnd, enc_out);
 }
 
+/* z0: Z register at bit position 0. */
+
+static inline bool
+decode_opnd_z0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_Z0 + extract_uint(enc, 0, 5));
+    return true;
+}
+
+static inline bool
+encode_opnd_z0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_z(0, opnd, enc_out);
+}
+
 /* q0p1: as q0 but add 1 mod 32 to reg number */
 
 static inline bool
@@ -1279,6 +1308,21 @@ static inline bool
 encode_opnd_d5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(5, 3, opnd, enc_out);
+}
+
+/* z5: Z register at bit position 5. */
+
+static inline bool
+decode_opnd_z5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_Z0 + extract_uint(enc, 5, 5));
+    return true;
+}
+
+static inline bool
+encode_opnd_z5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_z(5, opnd, enc_out);
 }
 
 /* mem9qpost: post-indexed mem9q, so offset is zero */
@@ -1599,6 +1643,21 @@ static inline bool
 encode_opnd_x16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxnp(true, 1, 16, opnd, enc_out);
+}
+
+/* z16: Z register at bit position 16. */
+
+static inline bool
+decode_opnd_z16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_Z0 + extract_uint(enc, 16, 5));
+    return true;
+}
+
+static inline bool
+encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_z(16, opnd, enc_out);
 }
 
 /* mem9off: just the 9-bit offset from mem9 */

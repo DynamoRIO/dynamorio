@@ -2075,3 +2075,29 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1f7789e4 : fnmsub d4, d15, d23, d2                  : fnmsub %d15 %d23 %d2 -> %d4
 1f3789e4 : fnmsub s4, s15, s23, s2                  : fnmsub %s15 %s23 %s2 -> %s4
 1ff789e4 : fnmsub h4, h15, h23, h2                  : fnmsub %h15 %h23 %h2 -> %h4
+
+# SVE integer add/subtract vectors (unpredicated)
+043e0362 : add z2.b, z27.b, z30.b                   : add    %z27 %z30 $0x00 -> %z2
+047e0362 : add z2.h, z27.h, z30.h                   : add    %z27 %z30 $0x01 -> %z2
+04be0362 : add z2.s, z27.s, z30.s                   : add    %z27 %z30 $0x02 -> %z2
+04fe0362 : add z2.d, z27.d, z30.d                   : add    %z27 %z30 $0x03 -> %z2
+043d05a0 : sub z0.b, z13.b, z29.b                   : sub    %z13 %z29 $0x00 -> %z0
+047d05a0 : sub z0.h, z13.h, z29.h                   : sub    %z13 %z29 $0x01 -> %z0
+04bd05a0 : sub z0.s, z13.s, z29.s                   : sub    %z13 %z29 $0x02 -> %z0
+04fd05a0 : sub z0.d, z13.d, z29.d                   : sub    %z13 %z29 $0x03 -> %z0
+042a123f : sqadd z31.b, z17.b, z10.b                : sqadd  %z17 %z10 $0x00 -> %z31
+046a123f : sqadd z31.h, z17.h, z10.h                : sqadd  %z17 %z10 $0x01 -> %z31
+04aa123f : sqadd z31.s, z17.s, z10.s                : sqadd  %z17 %z10 $0x02 -> %z31
+04ea123f : sqadd z31.d, z17.d, z10.d                : sqadd  %z17 %z10 $0x03 -> %z31
+043417e2 : uqadd z2.b, z31.b, z20.b                 : uqadd  %z31 %z20 $0x00 -> %z2
+047417e2 : uqadd z2.h, z31.h, z20.h                 : uqadd  %z31 %z20 $0x01 -> %z2
+04b417e2 : uqadd z2.s, z31.s, z20.s                 : uqadd  %z31 %z20 $0x02 -> %z2
+04f417e2 : uqadd z2.d, z31.d, z20.d                 : uqadd  %z31 %z20 $0x03 -> %z2
+043719e4 : sqsub z4.b, z15.b, z23.b                 : sqsub  %z15 %z23 $0x00 -> %z4
+047719e4 : sqsub z4.h, z15.h, z23.h                 : sqsub  %z15 %z23 $0x01 -> %z4
+04b719e4 : sqsub z4.s, z15.s, z23.s                 : sqsub  %z15 %z23 $0x02 -> %z4
+04f719e4 : sqsub z4.d, z15.d, z23.d                 : sqsub  %z15 %z23 $0x03 -> %z4
+04281f42 : uqsub z2.b, z26.b, z8.b                  : uqsub  %z26 %z8 $0x00 -> %z2
+04681f42 : uqsub z2.h, z26.h, z8.h                  : uqsub  %z26 %z8 $0x01 -> %z2
+04a81f42 : uqsub z2.s, z26.s, z8.s                  : uqsub  %z26 %z8 $0x02 -> %z2
+04e81f42 : uqsub z2.d, z26.d, z8.d                  : uqsub  %z26 %z8 $0x03 -> %z2
