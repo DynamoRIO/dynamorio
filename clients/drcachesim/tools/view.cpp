@@ -63,6 +63,10 @@ view_t::view_t(const std::string& module_file_path,
     knob_sim_refs(sim_refs), num_disasm_instrs(0)
 {
     if (module_file_path.empty()) {
+<<<<<<< HEAD
+=======
+        error_string = "Module file path is missing";
+>>>>>>> ea21f0eda4b8cd2412a2345fd0544896c7d72552
         success = false;
         return;
     }
@@ -71,6 +75,10 @@ view_t::view_t(const std::string& module_file_path,
                                 nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
+<<<<<<< HEAD
+=======
+        error_string = "Failed to load binaries: " + error;
+>>>>>>> ea21f0eda4b8cd2412a2345fd0544896c7d72552
         success = false;
         return;
     }
@@ -110,8 +118,12 @@ view_t::process_memref(const memref_t &memref)
   app_pc orig_pc = (app_pc)memref.instr.addr;
   std::string err =
       raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
-  if (!err.empty())
+
+  if (!err.empty()) {
+      error_string = "Failed to find mapped address for " +
+          to_hex_string(memref.instr.addr) + ": " + err;
       return false;
+  }
 
   std::string disasm;
   auto cached_disasm = disasm_cache.find(mapped_pc);
@@ -121,9 +133,15 @@ view_t::process_memref(const memref_t &memref)
       // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
       // exported so we just use the same value here.
       char buf[196];
-      disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
-                            /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
-                            /*printed=*/nullptr);
+
+      byte *next_pc =
+          disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+                                /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
+                                /*printed=*/nullptr);
+      if (next_pc == nullptr) {
+          error_string = "Failed to disassemble " + to_hex_string(memref.instr.addr);
+          return false;
+      }
       disasm = buf;
       disasm_cache.insert({mapped_pc, disasm});
   }

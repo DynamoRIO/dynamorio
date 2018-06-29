@@ -617,7 +617,11 @@
 #define INSTR_CREATE_fmov_general(dc, Rd, Rn) \
     instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
 
-/* -------- Advanced SIMD three same including fp16 versions ---------------- */
+/* -------- Advanced SIMD three same including fp16 versions ----------------
+ * Some macros are also used for
+ *   SVE Integer Arithmetic - Unpredicated Group
+ *   Advanced SIMD three same (FP16)
+ */
 
 /**
  * Creates a SHADD vector instruction.

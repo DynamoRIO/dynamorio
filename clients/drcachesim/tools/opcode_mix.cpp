@@ -60,6 +60,7 @@ opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int ver
     knob_verbose(verbose), instr_count(0)
 {
     if (module_file_path.empty()) {
+        error_string = "Module file path is missing";
         success = false;
         return;
     }
@@ -68,6 +69,7 @@ opcode_mix_t::opcode_mix_t(const std::string& module_file_path, unsigned int ver
                                 nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
+        error_string = "Failed to load binaries: " + error;
         success = false;
         return;
     }
@@ -83,13 +85,16 @@ opcode_mix_t::process_memref(const memref_t &memref)
 {
   if (!type_is_instr(memref.instr.type) &&
       memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-      return true;
+      return "";
   ++instr_count;
   app_pc mapped_pc;
   std::string err =
       raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
-  if (!err.empty())
+  if (!err.empty()) {
+      error_string = "Failed to find mapped address for " +
+          to_hex_string(memref.instr.addr) + ": " + err;
       return false;
+  }
   int opcode;
   auto cached_opcode = opcode_cache.find(mapped_pc);
   if (cached_opcode != opcode_cache.end()) {
@@ -98,8 +103,11 @@ opcode_mix_t::process_memref(const memref_t &memref)
       instr_t instr;
       instr_init(dcontext, &instr);
       app_pc next_pc = decode(dcontext, mapped_pc, &instr);
-      if (next_pc == NULL || !instr_valid(&instr))
+      if (next_pc == NULL || !instr_valid(&instr)) {
+          error_string = "Failed to decode instruction " +
+              to_hex_string(memref.instr.addr);
           return false;
+      }
       opcode = instr_get_opcode(&instr);
       opcode_cache[mapped_pc] = opcode;
       instr_free(dcontext, &instr);

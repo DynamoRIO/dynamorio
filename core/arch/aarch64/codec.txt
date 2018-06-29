@@ -69,6 +69,7 @@
 ---------------------------xxxxx  s0         # S register
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
+---------------------------xxxxx  z0         # Z register
 ---------------------------xxxxx  q0p1       # Q register, add 1
 ---------------------------xxxxx  q0p2       # Q register, add 2
 ---------------------------xxxxx  q0p3       # Q register, add 3
@@ -79,6 +80,7 @@
 ----------------------xxxxx-----  h5         # H register
 ----------------------xxxxx-----  s5         # S register
 ----------------------xxxxx-----  d5         # D register
+----------------------xxxxx-----  z5         # Z register
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
@@ -101,6 +103,7 @@
 -----------xxxxx----------------  x16        # X register (or XZR)
 -----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
 -----------xxxxx----------------  x16p1      # ... add 1
+-----------xxxxx----------------  z16        # Z register
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
@@ -1110,3 +1113,11 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 00011111xx0xxxxx1xxxxxxxxxxxxxxx     fmsub     float_reg0 : float_reg5 float_reg16 float_reg10
 00011111xx1xxxxx0xxxxxxxxxxxxxxx     fnmadd    float_reg0 : float_reg5 float_reg16 float_reg10
 00011111xx1xxxxx1xxxxxxxxxxxxxxx     fnmsub    float_reg0 : float_reg5 float_reg16 float_reg10
+
+# SVE integer add/subtract vectors (unpredicated)
+00000100xx1xxxxx000000xxxxxxxxxx     add       z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000001xxxxxxxxxx     sub       z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000100xxxxxxxxxx     sqadd     z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000101xxxxxxxxxx     uqadd     z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000110xxxxxxxxxx     sqsub     z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000111xxxxxxxxxx     uqsub     z0 : z5 z16 bhsd_sz
