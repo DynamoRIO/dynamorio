@@ -64,9 +64,14 @@ test_get_size()
         ASSERT(reg_get_size((reg_id_t) DR_REG_Q0 + i) == OPSZ_16);
     }
 
-    // Check sizes of SVE regs.
+    // Check sizes of SVE vector regs.
     for (uint i = 0; i < 32; i++) {
         ASSERT(reg_get_size((reg_id_t) DR_REG_Z0 + i) == OPSZ_SCALABLE);
+    }
+
+    // Check sizes of SVE predicate regs.
+    for (uint i = 0; i < 16; i++) {
+        ASSERT(reg_get_size((reg_id_t) DR_REG_P0 + i) == OPSZ_SCALABLE_PRED);
     }
 }
 
