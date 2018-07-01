@@ -61,6 +61,7 @@ class cache_simulator_t : public simulator_t
 
     // Exposed to make it easy to test
     bool check_warmed_up();
+    uint64_t knobs_sim_refs() const;
  protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *create_cache(const std::string& policy);
