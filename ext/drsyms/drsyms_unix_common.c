@@ -47,7 +47,9 @@
 #include <stddef.h> /* offsetof */
 
 #include "demangle.h"
-#include "libelftc.h"
+#ifdef DRSYM_HAVE_LIBELFTC
+# include "libelftc.h"
+#endif
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
@@ -626,8 +628,6 @@ size_t
 drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
                            uint flags)
 {
-    int status;
-
     if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
         /* The demangle.cc implementation is fast and replaces template args
          * with <> and omits parameters.  Use it if the user doesn't
@@ -639,6 +639,7 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
             return len;  /* Success or truncation. */
         }
     } else {
+#ifdef DRSYM_HAVE_LIBELFTC
         /* If the user wants template arguments or overloads, we use the
          * libelftc demangler which is slower, but can properly demangle
          * template arguments.
@@ -649,15 +650,15 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
         byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, DR_FPSTATE_ALIGN);
 
         proc_save_fpstate(fp_align);
-        status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
+        int status = elftc_demangle(mangled, dst, dst_sz, ELFTC_DEM_GNU3);
         proc_restore_fpstate(fp_align);
 
-#ifdef WINDOWS
+# ifdef WINDOWS
         /* our libelftc returns the # of chars needed, and copies the truncated
          * unmangled name
          */
         return status;
-#else
+# else
         /* XXX: let's make the same change to the libelftc we're using here */
         if (status == 0) {
             return strlen(dst) + 1;
@@ -674,7 +675,8 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
              */
             return dst_sz * 2;
         }
-#endif
+# endif
+#endif /* DRSYM_HAVE_LIBELFTC */
     }
 
     /* If the demangling failed, copy the mangled symbol into the output. */
