@@ -82,10 +82,7 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-/*
- * Generate move (immediate) of a 64-bit value using 4 instructions. Instead of using #0
- * with movk, we insert NOPs.
- */
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions. */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
@@ -95,19 +92,10 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 
     if ((val >> 16 & 0xffff) != 0)
         *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
-    else
-        *pc++ = NOP_INST;
-
     if ((val >> 32 & 0xffff) != 0)
         *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
-    else
-        *pc++ = NOP_INST;
-
     if ((val >> 48 & 0xffff) != 0)
         *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
-    else
-        *pc++ = NOP_INST;
-
     return pc;
 }
 
@@ -122,6 +110,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                              linkstub_t *l, cache_pc stub_pc, ushort l_flags)
 {
     uint *pc = (uint *)stub_pc;
+    uint num_nops_needed = 0;
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
@@ -130,10 +119,20 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *) stub_pc - 1 );
+
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_fcache_return_tls_offs(dcontext, f->flags) >>
                  3 << 10);
+
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate in a registers. Ideally we would skip adding NOPs, but
+         * the lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
+
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     } else {
@@ -145,13 +144,23 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *) stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate in a registers. Ideally we would skip adding NOPs, but
+         * the lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
+
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     }
-     ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
+
+    ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
            DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)stub_pc);
 }
@@ -888,6 +897,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = NOP_INSTR; /* nop */
+        *(uint *)pc = NOP_INST; /* nop */
     return true;
 }
