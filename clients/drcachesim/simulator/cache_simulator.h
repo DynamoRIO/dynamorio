@@ -41,7 +41,6 @@
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "cache.h"
-#include "../reader/config_reader.h"
 
 class cache_simulator_t : public simulator_t
 {
