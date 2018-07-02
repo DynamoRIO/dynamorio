@@ -184,7 +184,6 @@ configure_extension(drsyms_static ON)
 configure_drsyms_target(drsyms_static)
 use_DynamoRIO_extension(drsyms_static drcontainers)
 
-
 target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
 if (LINUX)
   target_link_libraries(drsyms "${elf_libpath}")
