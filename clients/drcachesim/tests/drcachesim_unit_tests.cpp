@@ -129,7 +129,7 @@ unit_test_sim_refs()
         }
     }
 
-    if (cache_sim.knobs_sim_refs() != 0) {
+    if (cache_sim.remaining_sim_refs() != 0) {
         std::cerr << "drcachesim unit_test_sim_refs failed\n";
         exit(1);
     }

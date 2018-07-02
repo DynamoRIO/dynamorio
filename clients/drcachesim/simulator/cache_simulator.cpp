@@ -287,7 +287,8 @@ cache_simulator_t::~cache_simulator_t()
 }
 
 uint64_t
-cache_simulator_t::knobs_sim_refs() const {
+cache_simulator_t::remaining_sim_refs() const
+{
   return knobs.sim_refs;
 }
 
