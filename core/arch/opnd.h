@@ -291,7 +291,15 @@ enum {
 # endif
 # ifdef AARCH64
     DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
+# else
+    DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
+# endif
 
+    /* AArch32 Thread Registers */
+    DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
+    DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+
+# ifdef AARCH64
     /* SVE vector registers */
     DR_REG_Z0,  DR_REG_Z1,   DR_REG_Z2,   DR_REG_Z3,
     DR_REG_Z4,  DR_REG_Z5,   DR_REG_Z6,   DR_REG_Z7,
@@ -307,13 +315,7 @@ enum {
     DR_REG_P4,  DR_REG_P5,   DR_REG_P6,   DR_REG_P7,
     DR_REG_P8,  DR_REG_P9,   DR_REG_P10,  DR_REG_P11,
     DR_REG_P12, DR_REG_P13,  DR_REG_P14,  DR_REG_P15,
-# else
-    DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
-# endif
-
-    /* AArch32 Thread Registers */
-    DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
-    DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+#endif
 
     /* Aliases below here: */
 
