@@ -909,7 +909,7 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* p: used to encode an SVE predicate register. */
+/* Used to encode a SVE predicate register (P register). */
 
 static inline bool
 encode_opnd_p(uint pos_start, uint max_reg_num, opnd_t opnd, OUT uint *enc_out)
@@ -924,7 +924,7 @@ encode_opnd_p(uint pos_start, uint max_reg_num, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* Used to encode a SVE vector register (z registers). */
+/* Used to encode a SVE vector register (Z registers). */
 
 static inline bool
 encode_opnd_z(uint pos_start, opnd_t opnd, OUT uint *enc_out)
