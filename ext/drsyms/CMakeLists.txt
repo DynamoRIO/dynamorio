@@ -182,6 +182,10 @@ configure_extension(drsyms_static ON)
 configure_drsyms_target(drsyms_static)
 use_DynamoRIO_extension(drsyms_static drcontainers)
 
+# we always use the elftoolchain library when building with cmake
+append_property_string(TARGET drsyms COMPILE_FLAGS "-DDRSYM_HAVE_LIBELFTC")
+append_property_string(TARGET drsyms_static COMPILE_FLAGS "-DDRSYM_HAVE_LIBELFTC")
+
 target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
 if (LINUX)
   target_link_libraries(drsyms "${elf_libpath}")
