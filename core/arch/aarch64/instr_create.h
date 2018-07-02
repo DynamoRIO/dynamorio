@@ -1821,7 +1821,7 @@
 /* -------- SVE bitwise logical operations (predicated) ---------------- */
 
 /**
- * Creates a ORR scalable vector instruction.
+ * Creates an ORR scalable vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Zd      The output SVE vector register.
  * \param Pg      Predicate register for predicated instruction, P0-P7.
@@ -1834,7 +1834,7 @@
     instr_create_1dst_4src(dc, OP_orr, Zd, Pg, Zd_, Zm, width)
 
 /**
- * Creates a EOR scalable vector instruction.
+ * Creates an EOR scalable vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Zd      The output SVE vector register.
  * \param Pg      Predicate register for predicated instruction, P0-P7.
@@ -1847,7 +1847,7 @@
     instr_create_1dst_4src(dc, OP_eor, Zd, Pg, Zd_, Zm, width)
 
 /**
- * Creates a AND scalable vector instruction.
+ * Creates an AND scalable vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Zd      The output SVE vector register.
  * \param Pg      Predicate register for predicated instruction, P0-P7.
