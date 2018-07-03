@@ -126,13 +126,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  get_fcache_return_tls_offs(dcontext, f->flags) >>
                  3 << 10);
 
-        /* Fill up with NOPs, depending on how many instructions we needed to move
-         * the immediate in a registers. Ideally we would skip adding NOPs, but
-         * the lots of places expect the stub size to be fixed.
-         */
-        for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
-
         /* br x1 */
         *pc++ = 0xd61f0000 | 1 << 5;
     } else {
@@ -149,6 +142,9 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
+        /* br x1 */
+        *pc++ = 0xd61f0000 | 1 << 5;
+    }
         /* Fill up with NOPs, depending on how many instructions we needed to move
          * the immediate in a registers. Ideally we would skip adding NOPs, but
          * the lots of places expect the stub size to be fixed.
@@ -156,9 +152,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         for (uint j = 0; j < num_nops_needed; j++)
             *pc++ = NOP_INST;
 
-        /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
-    }
 
     ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
            DIRECT_EXIT_STUB_SIZE(l_flags));
@@ -277,9 +270,14 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     else
         exit_target = get_linked_entry(dcontext, target_tag);
 
-    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
-                  (2 * AARCH64_INSTR_SIZE));
+    /* Set pc to the last instruction in the stub. */
+    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - AARCH64_INSTR_SIZE);
 
+    /* Skip NOP instructions backwards. First non-NOP instruction must be the branch. */
+    while (*pc == NOP_INST)
+        pc--;
+
+    pc -= 1;
     /* ldr x1, [x(stolen), #(offs)] */
     pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
              get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
