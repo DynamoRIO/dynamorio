@@ -43,6 +43,9 @@
 #define PRE    instrlist_meta_preinsert
 #define OPREG  opnd_create_reg
 
+#define NOP_INST 0xd503201f
+#define BR_X1_INST (0xd61f0000 | 1 << 5) /* br x1 */
+
 /***************************************************************************/
 /*                               EXIT STUB                                 */
 /***************************************************************************/
@@ -80,16 +83,20 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-/* Generate move (immediate) of a 64-bit value using 4 instructions. */
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions. */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
     uint rt = dst - DR_REG_X0;
     ASSERT(rt < 31);
     *pc++ = 0xd2800000 | rt | (val       & 0xffff) << 5; /* mov  x(rt), #x */
-    *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
-    *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
-    *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
+
+    if ((val >> 16 & 0xffff) != 0)
+        *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
+    if ((val >> 32 & 0xffff) != 0)
+        *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
+    if ((val >> 48 & 0xffff) != 0)
+        *pc++ = 0xf2e00000 | rt | (val >> 48 & 0xffff) << 5; /* movk x(rt), #x, lsl #48 */
     return pc;
 }
 
@@ -104,6 +111,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                              linkstub_t *l, cache_pc stub_pc, ushort l_flags)
 {
     uint *pc = (uint *)stub_pc;
+    uint num_nops_needed = 0;
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
     if (LINKSTUB_DIRECT(l_flags)) {
@@ -112,12 +120,13 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *) stub_pc - 1 );
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_fcache_return_tls_offs(dcontext, f->flags) >>
                  3 << 10);
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     } else {
         /* Stub starts out unlinked. */
         cache_pc exit_target = get_unlinked_entry(dcontext,
@@ -127,12 +136,21 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
+        num_nops_needed = 4 - (pc - (uint *) stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     }
+
+    /* Fill up with NOPs, depending on how many instructions we needed to move
+     * the immediate in a registers. Ideally we would skip adding NOPs, but
+     * lots of places expect the stub size to be fixed.
+     */
+    for (uint j = 0; j < num_nops_needed; j++)
+        *pc++ = NOP_INST;
+
     ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
            DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)stub_pc);
@@ -233,6 +251,18 @@ exit_cti_disp_pc(cache_pc branch_pc)
     return NULL;
 }
 
+/* Skips NOP instructions backwards until the first non-NOP instruction is found. */
+static uint *
+get_stub_branch(uint *pc)
+{
+    /* Skip NOP instructions backwards. */
+    while (*pc == NOP_INST)
+        pc--;
+    /* The First non-NOP instruction must be the branch. */
+    ASSERT(*pc == BR_X1_INST);
+    return pc;
+}
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, bool hot_patch,
@@ -250,17 +280,17 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
     else
         exit_target = get_linked_entry(dcontext, target_tag);
 
+    /* Set pc to the last instruction in the stub. */
     pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
-                  (2 * AARCH64_INSTR_SIZE));
+                  AARCH64_INSTR_SIZE);
 
+    pc = get_stub_branch(pc) - 1;
     /* ldr x1, [x(stolen), #(offs)] */
-    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-             get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
-    /* br x1 */
-    pc[1] = 0xd61f0000 | 1 << 5;
+    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     if (hot_patch)
-        machine_cache_sync(pc, pc + 2, true);
+        machine_cache_sync(pc, pc + 1, true);
 }
 
 cache_pc
@@ -296,9 +326,11 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
                                     extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
 
+    /* Set pc to the last instruction in the stub. */
     pc = (uint *)(stub_pc +
                   exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
-                                 f->flags) - (2 * AARCH64_INSTR_SIZE));
+                                 f->flags) - AARCH64_INSTR_SIZE);
+    pc = get_stub_branch(pc) - 1;
 
     /* ldr x1, [x(stolen), #(offs)] */
     *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
@@ -870,6 +902,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = 0xd503201f; /* nop */
+        *(uint *)pc = NOP_INST; /* nop */
     return true;
 }
