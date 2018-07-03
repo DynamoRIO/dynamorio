@@ -327,8 +327,9 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     exit_target = ibl_code->unlinked_ibl_entry;
 
     /* Set pc to the last instruction in the stub. */
-    pc = (uint *)(stub_pc +exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
-                                          f->flags) - AARCH64_INSTR_SIZE);
+    pc = (uint *)(stub_pc +
+                  exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
+                                 f->flags) - AARCH64_INSTR_SIZE);
     pc = get_stub_branch(pc) - 1;
 
     /* ldr x1, [x(stolen), #(offs)] */
