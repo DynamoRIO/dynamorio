@@ -138,13 +138,13 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     }
 }
 
-cache_simulator_t::cache_simulator_t(const string &config_file) :
+cache_simulator_t::cache_simulator_t(const std::string &config_file) :
     simulator_t(),
     l1_icaches(NULL),
     l1_dcaches(NULL),
     is_warmed_up(false)
 {
-    std::map<string, cache_params_t> cache_params;
+    std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
         error_string = "Usage error: Failed to read/parse configuration file " +
