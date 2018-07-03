@@ -315,7 +315,7 @@ enum {
     DR_REG_P4,  DR_REG_P5,   DR_REG_P6,   DR_REG_P7,
     DR_REG_P8,  DR_REG_P9,   DR_REG_P10,  DR_REG_P11,
     DR_REG_P12, DR_REG_P13,  DR_REG_P14,  DR_REG_P15,
-#endif
+# endif
 
     /* Aliases below here: */
 
