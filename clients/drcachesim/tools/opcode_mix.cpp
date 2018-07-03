@@ -38,9 +38,6 @@
 
 #include "dr_api.h"
 #include "opcode_mix.h"
-#include "common/utils.h"
-#include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>

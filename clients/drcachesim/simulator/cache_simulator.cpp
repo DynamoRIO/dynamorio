@@ -138,13 +138,13 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     }
 }
 
-cache_simulator_t::cache_simulator_t(const string &config_file) :
+cache_simulator_t::cache_simulator_t(const std::string &config_file) :
     simulator_t(),
     l1_icaches(NULL),
     l1_dcaches(NULL),
     is_warmed_up(false)
 {
-    std::map<string, cache_params_t> cache_params;
+    std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
         error_string = "Usage error: Failed to read/parse configuration file " +
@@ -286,6 +286,12 @@ cache_simulator_t::~cache_simulator_t()
     }
 }
 
+uint64_t
+cache_simulator_t::remaining_sim_refs() const
+{
+  return knobs.sim_refs;
+}
+
 bool
 cache_simulator_t::process_memref(const memref_t &memref)
 {
@@ -294,9 +300,15 @@ cache_simulator_t::process_memref(const memref_t &memref)
         return true;
     }
 
+    // If no warmup is specified and we have simulated sim_refs then
+    // we are done.
+    if ((knobs.warmup_refs == 0 && knobs.warmup_fraction == 0.0)
+        && knobs.sim_refs == 0)
+        return true;
+
     // The references after warmup and simulated ones are dropped.
     if (check_warmed_up() && knobs.sim_refs == 0)
-        return true;;
+        return true;
 
     // Both warmup and simulated references are simulated.
 
@@ -393,7 +405,8 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
 // Return true if the number of warmup references have been executed or if
 // specified fraction of the llcaches has been loaded. Also return true if the
-// cache has already been warmed up.
+// cache has already been warmed up. When there are multiple last level caches
+// this function only returns true when all of them have been warmed up.
 bool
 cache_simulator_t::check_warmed_up()
 {
@@ -480,6 +493,6 @@ cache_simulator_t::create_cache(const std::string& policy)
 
     // undefined replacement policy
     ERRMSG("Usage error: undefined replacement policy. "
-           "Please choose " REPLACE_POLICY_LRU" or " REPLACE_POLICY_LFU".\n");
+           "Please choose " REPLACE_POLICY_LRU " or " REPLACE_POLICY_LFU ".\n");
     return NULL;
 }
