@@ -375,8 +375,13 @@ enum {
     DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
     DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
 
+# ifdef AARCH64
     DR_REG_LAST_VALID_ENUM = DR_REG_P15, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_P15, /**< Last value of register enums */
+# else
+    DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
+# endif
 
 # ifdef AARCH64
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
