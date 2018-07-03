@@ -909,7 +909,22 @@ encode_opnd_float_reg(int pos, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
-/* Used to encode a SVE vector register (z registers). */
+/* Used to encode a SVE predicate register (P register). */
+
+static inline bool
+encode_opnd_p(uint pos_start, uint max_reg_num, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    if (!opnd_is_reg(opnd))
+        return false;
+    num = opnd_get_reg(opnd) - DR_REG_P0;
+    if (num > max_reg_num)
+        return false;
+    *enc_out = num << pos_start;
+    return true;
+}
+
+/* Used to encode a SVE vector register (Z registers). */
 
 static inline bool
 encode_opnd_z(uint pos_start, opnd_t opnd, OUT uint *enc_out)
@@ -1386,6 +1401,21 @@ encode_opnd_extam(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return false;
     *enc_out = t;
     return true;
+}
+
+/* p10_low: P register at bit position 10; P0-P7 */
+
+static inline bool
+decode_opnd_p10_low(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 10, 3));
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
 /* ign10: ignored register field at bit position 10 in load/store exclusive */

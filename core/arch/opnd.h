@@ -262,18 +262,6 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
-# ifdef AARCH64
-    /* SVE vector registers */
-    DR_REG_Z0,  DR_REG_Z1,   DR_REG_Z2,   DR_REG_Z3,
-    DR_REG_Z4,  DR_REG_Z5,   DR_REG_Z6,   DR_REG_Z7,
-    DR_REG_Z8,  DR_REG_Z9,   DR_REG_Z10,  DR_REG_Z11,
-    DR_REG_Z12, DR_REG_Z13,  DR_REG_Z14,  DR_REG_Z15,
-    DR_REG_Z16, DR_REG_Z17,  DR_REG_Z18,  DR_REG_Z19,
-    DR_REG_Z20, DR_REG_Z21,  DR_REG_Z22,  DR_REG_Z23,
-    DR_REG_Z24, DR_REG_Z25,  DR_REG_Z26,  DR_REG_Z27,
-    DR_REG_Z28, DR_REG_Z29,  DR_REG_Z30,  DR_REG_Z31,
-# endif
-
 # ifndef AARCH64
     /* Coprocessor registers */
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
@@ -310,6 +298,24 @@ enum {
     /* AArch32 Thread Registers */
     DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
     DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+
+# ifdef AARCH64
+    /* SVE vector registers */
+    DR_REG_Z0,  DR_REG_Z1,   DR_REG_Z2,   DR_REG_Z3,
+    DR_REG_Z4,  DR_REG_Z5,   DR_REG_Z6,   DR_REG_Z7,
+    DR_REG_Z8,  DR_REG_Z9,   DR_REG_Z10,  DR_REG_Z11,
+    DR_REG_Z12, DR_REG_Z13,  DR_REG_Z14,  DR_REG_Z15,
+    DR_REG_Z16, DR_REG_Z17,  DR_REG_Z18,  DR_REG_Z19,
+    DR_REG_Z20, DR_REG_Z21,  DR_REG_Z22,  DR_REG_Z23,
+    DR_REG_Z24, DR_REG_Z25,  DR_REG_Z26,  DR_REG_Z27,
+    DR_REG_Z28, DR_REG_Z29,  DR_REG_Z30,  DR_REG_Z31,
+
+    /* SVE predicate registers */
+    DR_REG_P0,  DR_REG_P1,   DR_REG_P2,   DR_REG_P3,
+    DR_REG_P4,  DR_REG_P5,   DR_REG_P6,   DR_REG_P7,
+    DR_REG_P8,  DR_REG_P9,   DR_REG_P10,  DR_REG_P11,
+    DR_REG_P12, DR_REG_P13,  DR_REG_P14,  DR_REG_P15,
+# endif
 
     /* Aliases below here: */
 
@@ -369,8 +375,13 @@ enum {
     DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
     DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
 
+# ifdef AARCH64
+    DR_REG_LAST_VALID_ENUM = DR_REG_P15, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_P15, /**< Last value of register enums */
+# else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
+# endif
 
 # ifdef AARCH64
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
