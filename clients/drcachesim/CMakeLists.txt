@@ -146,6 +146,7 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 # export in a single dir for 3rd-party tool integration.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_exported_library(drmemtrace_analyzer STATIC
