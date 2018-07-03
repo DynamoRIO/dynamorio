@@ -254,7 +254,9 @@ exit_cti_disp_pc(cache_pc branch_pc)
 }
 
 /* Skips NOP instructions backwards until the first non-NOP instruction is found. */
-static uint *get_stub_branch(uint *pc) {
+static uint *
+get_stub_branch(uint *pc)
+{
     /* Skip NOP instructions backwards. */
     while (*pc == NOP_INST)
         pc--;
