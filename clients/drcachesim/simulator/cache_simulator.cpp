@@ -138,7 +138,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     }
 }
 
-cache_simulator_t::cache_simulator_t(const string &config_file) :
+cache_simulator_t::cache_simulator_t(const std::string &config_file) :
     simulator_t(),
     l1_icaches(NULL),
     l1_dcaches(NULL),
