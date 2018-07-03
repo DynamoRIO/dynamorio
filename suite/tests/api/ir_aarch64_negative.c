@@ -80,6 +80,114 @@ test_fmov_general(void *dc)
     ASSERT(!instr_is_encoding_possible(instr));
 }
 
+static void
+test_sve_int_bin_pred_log(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    /* SVE bitwise logical operations (predicated)
+     * Make sure we fail to encode if output and first input registers do not match.
+     */
+
+    instr = INSTR_CREATE_orr_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P7),
+                                      opnd_create_reg(DR_REG_Z5),
+                                      opnd_create_reg(DR_REG_Z13),
+                                      OPND_CREATE_BYTE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_eor_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z29),
+                                      opnd_create_reg(DR_REG_P4),
+                                      opnd_create_reg(DR_REG_Z9),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      OPND_CREATE_DOUBLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_and_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_P1),
+                                      opnd_create_reg(DR_REG_Z1),
+                                      opnd_create_reg(DR_REG_Z23),
+                                      OPND_CREATE_SINGLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_bic_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P2),
+                                      opnd_create_reg(DR_REG_Z3),
+                                      opnd_create_reg(DR_REG_Z24),
+                                      OPND_CREATE_HALF());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+
+    /* Make sure predicate registers P8-P15 are not accepted. */
+    instr = INSTR_CREATE_orr_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P8),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_Z13),
+                                      OPND_CREATE_BYTE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_eor_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z29),
+                                      opnd_create_reg(DR_REG_P9),
+                                      opnd_create_reg(DR_REG_Z29),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      OPND_CREATE_DOUBLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_and_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_P10),
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_Z23),
+                                      OPND_CREATE_SINGLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_and_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_P11),
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_Z23),
+                                      OPND_CREATE_SINGLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_bic_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P12),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_Z24),
+                                      OPND_CREATE_HALF());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_and_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_P13),
+                                      opnd_create_reg(DR_REG_Z31),
+                                      opnd_create_reg(DR_REG_Z23),
+                                      OPND_CREATE_SINGLE());
+    ASSERT(!instr_is_encoding_possible(instr));
+
+    instr = INSTR_CREATE_bic_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P14),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_Z24),
+                                      OPND_CREATE_HALF());
+
+    instr = INSTR_CREATE_bic_sve_pred(dc,
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_P15),
+                                      opnd_create_reg(DR_REG_Z2),
+                                      opnd_create_reg(DR_REG_Z24),
+                                      OPND_CREATE_HALF());
+    ASSERT(!instr_is_encoding_possible(instr));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -91,6 +199,9 @@ main(int argc, char *argv[])
 
     test_fmov_general(dcontext);
     print("test_fmov_general complete\n");
+
+    test_sve_int_bin_pred_log(dcontext);
+    print("test_sve_int_bin_pred_log complete\n");
 
     print("All tests complete\n");
     return 0;
