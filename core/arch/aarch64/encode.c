@@ -76,7 +76,7 @@ const char * const reg_names[] = {
     "b16", "b17", "b18", "b19", "b20", "b21", "b22", "b23",
     "b24", "b25", "b26", "b27", "b28", "b29", "b30", "b31",
     "nzcv", "fpcr", "fpsr",
-    "tpidr_el0", "tpidrro_el0"
+    "tpidr_el0", "tpidrro_el0",
     "z0", "z1", "z2", "q3", "z4", "z5", "z6", "z7",
     "z8", "z9", "z10", "z11", "z12", "z13", "z14", "z15",
     "z16", "z17", "z18", "z19", "z20", "z21", "z22", "z23",

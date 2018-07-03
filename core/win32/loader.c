@@ -1510,12 +1510,15 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
-    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L3-1") ||
+    else if (str_case_prefix(name, "API-MS-Win-Core-Console-L2-2") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L3-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Console-L3-2") ||
              str_case_prefix(name, "API-MS-Win-Core-Enclave-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Fibers-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LargeInteger-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-LibraryLoader-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-3") ||
              str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
@@ -1536,6 +1539,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1"))
+        return "kernel.appcore.dll";
     else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
         /* We've seen many different GDI-* */
         return "gdi32full.dll";

@@ -38,8 +38,6 @@
 
 #include "dr_api.h"
 #include "view.h"
-#include "common/utils.h"
-#include "tracer/raw2trace.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
