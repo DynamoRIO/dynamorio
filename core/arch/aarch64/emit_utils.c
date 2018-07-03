@@ -125,7 +125,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_fcache_return_tls_offs(dcontext, f->flags) >>
                  3 << 10);
-
         /* br x1 */
         *pc++ = BR_X1_INST;
     } else {
@@ -141,7 +140,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
-
         /* br x1 */
         *pc++ = BR_X1_INST;
     }
