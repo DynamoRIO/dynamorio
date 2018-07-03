@@ -121,7 +121,6 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         num_nops_needed = 4 - (pc - (uint *) stub_pc - 1 );
-
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_fcache_return_tls_offs(dcontext, f->flags) >>
