@@ -37,8 +37,8 @@
 #include <unordered_map>
 
 #include "analysis_tool.h"
-#include "tracer/raw2trace.h"
-#include "tracer/raw2trace_directory.h"
+#include "raw2trace.h"
+#include "raw2trace_directory.h"
 
 class opcode_mix_t : public analysis_tool_t
 {
