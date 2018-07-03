@@ -288,8 +288,8 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
 
     pc = get_stub_branch(pc) - 1;
     /* ldr x1, [x(stolen), #(offs)] */
-    pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-          get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     if (hot_patch)
         machine_cache_sync(pc, pc + 1, true);
