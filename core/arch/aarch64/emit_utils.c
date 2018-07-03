@@ -44,6 +44,7 @@
 #define OPREG  opnd_create_reg
 
 #define NOP_INST 0xd503201f
+#define BR_X1_INST (0xd61f0000 | 1 << 5) /* br x1 */
 
 /***************************************************************************/
 /*                               EXIT STUB                                 */
@@ -127,7 +128,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  3 << 10);
 
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     } else {
         /* Stub starts out unlinked. */
         cache_pc exit_target = get_unlinked_entry(dcontext,
@@ -143,15 +144,15 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
         /* br x1 */
-        *pc++ = 0xd61f0000 | 1 << 5;
+        *pc++ = BR_X1_INST;
     }
-        /* Fill up with NOPs, depending on how many instructions we needed to move
-         * the immediate in a registers. Ideally we would skip adding NOPs, but
-         * the lots of places expect the stub size to be fixed.
-         */
-        for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
 
+    /* Fill up with NOPs, depending on how many instructions we needed to move
+     * the immediate in a registers. Ideally we would skip adding NOPs, but
+     * lots of places expect the stub size to be fixed.
+     */
+    for (uint j = 0; j < num_nops_needed; j++)
+        *pc++ = NOP_INST;
 
     ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) ==
            DIRECT_EXIT_STUB_SIZE(l_flags));
@@ -253,6 +254,16 @@ exit_cti_disp_pc(cache_pc branch_pc)
     return NULL;
 }
 
+/* Skips NOP instructions backwards until the first non-NOP instruction is found. */
+static uint *get_stub_branch(uint *pc) {
+    /* Skip NOP instructions backwards. */
+    while (*pc == NOP_INST)
+        pc--;
+    /* The First non-NOP instruction must be the branch. */
+    ASSERT(*pc == BR_X1_INST);
+    return pc;
+}
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, bool hot_patch,
@@ -271,21 +282,16 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
         exit_target = get_linked_entry(dcontext, target_tag);
 
     /* Set pc to the last instruction in the stub. */
-    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) - AARCH64_INSTR_SIZE);
+    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
+                  AARCH64_INSTR_SIZE);
 
-    /* Skip NOP instructions backwards. First non-NOP instruction must be the branch. */
-    while (*pc == NOP_INST)
-        pc--;
-
-    pc -= 1;
+    pc = get_stub_branch(pc) - 1;
     /* ldr x1, [x(stolen), #(offs)] */
-    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-             get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
-    /* br x1 */
-    pc[1] = 0xd61f0000 | 1 << 5;
+    pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+          get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     if (hot_patch)
-        machine_cache_sync(pc, pc + 2, true);
+        machine_cache_sync(pc, pc + 1, true);
 }
 
 cache_pc
@@ -321,9 +327,10 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
                                     extract_branchtype(l->flags), f->flags);
     exit_target = ibl_code->unlinked_ibl_entry;
 
-    pc = (uint *)(stub_pc +
-                  exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
-                                 f->flags) - (2 * AARCH64_INSTR_SIZE));
+    /* Set pc to the last instruction in the stub. */
+    pc = (uint *)(stub_pc +exit_stub_size(dcontext, ibl_code->indirect_branch_lookup_routine,
+                                          f->flags) - AARCH64_INSTR_SIZE);
+    pc = get_stub_branch(pc) - 1;
 
     /* ldr x1, [x(stolen), #(offs)] */
     *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
