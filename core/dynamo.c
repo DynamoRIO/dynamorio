@@ -858,10 +858,6 @@ standalone_init(void)
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
     stats = &nonshared_stats;
-#if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
-    /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
-    dynamo_options.deadlock_avoidance = false;
-#endif
 #ifdef UNIX
     os_page_size_init((const char **)our_environ);
 #endif
@@ -870,6 +866,10 @@ standalone_init(void)
     if (!syscalls_init())
         return NULL; /* typically b/c of unsupported OS version */
 #endif
+#ifdef DEBUG
+    nonshared_stats.logmask = LOG_ALL;
+#endif
+
     config_init();
     options_init();
     vmm_heap_init();
@@ -892,8 +892,6 @@ standalone_init(void)
 
 # ifdef DEBUG
     /* FIXME: share code w/ main init routine? */
-    nonshared_stats.logmask = LOG_ALL;
-    options_init();
     if (stats->loglevel > 0) {
         char initial_options[MAX_OPTIONS_STRING];
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);

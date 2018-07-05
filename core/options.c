@@ -209,9 +209,8 @@ char option_string[MAX_OPTIONS_STRING] = {0,};
 # define ASSERT_OWN_OPTIONS_LOCK(b, l) ASSERT_OWN_WRITE_LOCK(b, l)
 # define CORE_STATIC static
 /* official options */
-options_t dynamo_options = {
-# include "optionsx.h"
-};
+options_t dynamo_options;
+
 /* Temporary string, static to save stack space in synchronize_dynamic_options().
  * FIXME case 8074: should protect this better as w/o DR dll randomization attacker
  * can repeatedly try to clobber.  Move to heap?  Or shrink stack space elsewhere
@@ -2440,11 +2439,19 @@ options_init()
 {
     int ret = 0, retval;
 
-    /* .lspdata pages start out writable so no unprotect needed here */
-    write_lock(&options_lock);
+    /* Apart from when we start of, we might end up here due to post processing.
+     * When here due to post processing, dynamo_options would not be writable.
+     * So we make them writable first.
+     */
+    options_make_writable();
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
+    /* Set to default options. */
+    set_dynamo_options_defaults(&dynamo_options);
+#if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
+    /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
+    dynamo_options.deadlock_avoidance = false;
+#endif
     /* get dynamo options */
-    adjust_defaults_for_page_size(&dynamo_options);
     retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
