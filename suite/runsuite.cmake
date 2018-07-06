@@ -129,8 +129,6 @@ if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.svn" OR
     if (svn_result OR svn_err)
       message(FATAL_ERROR "*** ${SVN} diff failed: ***\n${svn_result} ${svn_err}")
     endif (svn_result OR svn_err)
-    # Remove tabs from the revision lines
-    string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
   endif (SVN)
 else ()
   if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
@@ -138,13 +136,12 @@ else ()
     if (GIT)
       # Included committed, staged, and unstaged changes.
       # We assume "origin/master" contains the top-of-trunk.
-      execute_process(COMMAND "${GIT} diff origin/master"
+      # We pass -U0 so clang-format-diff only complains about touched lines.
+      execute_process(COMMAND ${GIT} diff -U0 origin/master
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE diff_contents)
-      # Remove tabs from the revision lines
-      string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
@@ -156,7 +153,7 @@ else ()
         endif ()
         if (git_result OR git_err)
           # Not a fatal error as this can happen when mixing cygwin and windows git.
-          message(STATUS "${GIT} remote -v failed: ${git_err}")
+          message(STATUS "${GIT} remote -v failed (${git_result}): ${git_err}")
           set(git_out OFF)
         endif (git_result OR git_err)
         if (NOT git_out)
@@ -179,10 +176,59 @@ if (NOT DEFINED diff_contents)
   message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
 endif ()
 
-# Check for tabs.  We already removed them from svn's diff format.
-string(REGEX MATCH "\t" match "${diff_contents}")
+# Ensure changes are formatted according to clang-format.
+# XXX i#2876: we'd like to ignore changes to files like this which we don't
+# want to mark up with "// clang-format off":
+# + ext/drsyms/libefltc/include/*.h
+# + third_party/libgcc/*.c
+# + third_party/valgrind/*.h
+# However, there's no simple way to do that.  For now we punt until someone
+# changes one of those.
+#
+# Prefer named version 6.0 from apt.llvm.org.
+find_program(CLANG_FORMAT_DIFF clang-format-diff-6.0 DOC "clang-format-diff")
+if (NOT CLANG_FORMAT_DIFF)
+  find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
+endif ()
+if (NOT CLANG_FORMAT_DIFF)
+  find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
+endif ()
+if (CLANG_FORMAT_DIFF)
+  get_filename_component(CUR_DIR "." ABSOLUTE)
+  set(diff_file "${CUR_DIR}/runsuite_diff.patch")
+  file(WRITE ${diff_file} "${diff_contents}")
+  execute_process(COMMAND ${CLANG_FORMAT_DIFF} -p1
+    WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+    INPUT_FILE ${diff_file}
+    RESULT_VARIABLE format_result
+    ERROR_VARIABLE format_err
+    OUTPUT_VARIABLE format_out)
+  if (format_result OR format_err)
+    message(FATAL_ERROR
+      "Error (${format_result}) running clang-format-diff: ${format_err}")
+  endif ()
+  if (format_out)
+    # The WARNING and FATAL_ERROR message types try to format the diff and it
+    # looks bad w/ extra newlines, so we use STATUS for a more verbatim printout.
+    message(STATUS
+      "Changes are not formatted properly:\n${format_out}")
+    message(FATAL_ERROR
+      "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+  endif ()
+else ()
+  if (arg_travis)
+    message(FATAL_ERROR "FATAL ERROR: clang-format is required on Travis!")
+  else ()
+    message("clang-format-diff not found: skipping format checks")
+  endif ()
+endif ()
+
+# Check for tabs other than on the revision lines.
+# The clang-format check will now find these in C files, but not non-C files.
+string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_notabs "${diff_contents}")
+string(REGEX MATCH "\t" match "${diff_notabs}")
 if (NOT "${match}" STREQUAL "")
-  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_contents}")
+  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_notabs}")
   message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
 endif ()
 
@@ -199,6 +245,7 @@ endif ()
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.
+# The clang-format check will now find these in C files, but not non-C files.
 string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
@@ -207,7 +254,6 @@ if (NOT "${match}" STREQUAL "")
 endif ()
 
 ##################################################
-
 
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
