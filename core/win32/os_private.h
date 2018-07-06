@@ -169,6 +169,9 @@ extern int *wow64_index;
 #  define SYS_CONST const
 #endif
 extern int windows_unknown_syscalls[];
+extern SYS_CONST int windows_10_1803_x64_syscalls[];
+extern SYS_CONST int windows_10_1803_wow64_syscalls[];
+extern SYS_CONST int windows_10_1803_x86_syscalls[];
 extern SYS_CONST int windows_10_1709_x64_syscalls[];
 extern SYS_CONST int windows_10_1709_wow64_syscalls[];
 extern SYS_CONST int windows_10_1709_x86_syscalls[];
@@ -222,7 +225,7 @@ enum {
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64, w81x86, w81w64, w81x64, w10x86, w10w64, w10x64,\
                 w11x86, w11w64, w11x64, w12x86, w12w64, w12x64, w13x86, w13w64, w13x64, \
-                w14x86, w14w64, w14x64) \
+                w14x86, w14w64, w14x64, w15x86, w15w64, w15x64) \
     SYS_##name,
 #include "syscallx.h"
 #undef SYSCALL

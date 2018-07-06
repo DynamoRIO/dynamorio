@@ -657,6 +657,7 @@ signal_handler(int sig)
 #  define OS_INIT() set_global_filter()
 
 /* XXX: when updating here, update core/os_exports.h too */
+# define WINDOWS_VERSION_10_1803 105
 # define WINDOWS_VERSION_10_1709 104
 # define WINDOWS_VERSION_10_1703 103
 # define WINDOWS_VERSION_10_1607 102
