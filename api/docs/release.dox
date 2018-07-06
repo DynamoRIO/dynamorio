@@ -236,6 +236,8 @@ Further non-compatibility-affecting changes include:
    drcachesim saves file offset information in modules.log on UNIX platforms.
  - Added dr_prepopulate_cache() and dr_prepopulate_indirect_targets() for
    setting up the code cache prior to execution.
+ - Added support for Windows 10 1803. We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
 
 **************************************************
 <hr>

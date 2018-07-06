@@ -580,7 +580,20 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
             /* Win10 does not provide a version number so we use the presence
              * of newly added syscalls to distinguish major updates.
              */
-            if (get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
+            if (get_proc_address(get_ntdll_base(), "NtAllocateVirtualMemoryEx") != NULL) {
+                if (module_is_64bit(get_ntdll_base())) {
+                    syscalls = (int *) windows_10_1803_x64_syscalls;
+                    os_name = "Microsoft Windows 10-1803 x64";
+                } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                    syscalls = (int *) windows_10_1803_wow64_syscalls;
+                    os_name = "Microsoft Windows 10-1803 x64";
+                } else {
+                    syscalls = (int *) windows_10_1803_x86_syscalls;
+                    os_name = "Microsoft Windows 10-1803";
+                }
+                os_version = WINDOWS_VERSION_10_1803;
+            }
+            else if (get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *) windows_10_1709_x64_syscalls;
                     os_name = "Microsoft Windows 10-1709 x64";
@@ -817,16 +830,16 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
              */
             syscalls = windows_unknown_syscalls;
             if (module_is_64bit(get_ntdll_base())) {
-                memcpy(syscalls, windows_10_1709_x64_syscalls,
+                memcpy(syscalls, windows_10_1803_x64_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
-                memcpy(syscalls, windows_10_1709_wow64_syscalls,
+                memcpy(syscalls, windows_10_1803_wow64_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             } else {
-                memcpy(syscalls, windows_10_1709_x86_syscalls,
+                memcpy(syscalls, windows_10_1803_x86_syscalls,
                        SYS_MAX*sizeof(syscalls[0]));
             }
-            os_version = WINDOWS_VERSION_10_1709; /* just use latest */
+            os_version = WINDOWS_VERSION_10_1803; /* just use latest */
         }
     } else if (peb->OSPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
         /* Win95 or Win98 */
@@ -8723,6 +8736,7 @@ early_inject_init()
         case WINDOWS_VERSION_10_1607:
         case WINDOWS_VERSION_10_1703:
         case WINDOWS_VERSION_10_1709:
+        case WINDOWS_VERSION_10_1803:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
              * (XXX: would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of
