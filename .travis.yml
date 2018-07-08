@@ -63,6 +63,12 @@ jobs:
     - os: linux
       compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
+      addons:
+        apt:
+          sources:
+          - llvm-toolchain-trusty-6.0
+          packages:
+          - clang-format-6.0
     # AArchXX cross-compile with gcc, no tests:
     - os: linux
       compiler: gcc
@@ -99,14 +105,10 @@ install:
   - >
       if [[ "`uname`" == "Linux" ]]; then
       sudo apt-get -y install doxygen transfig vera++ cmake3; fi
-  # Install multilib and clang-format for non-cross-compiling Linux builds:
+  # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          # The software-properties-common package is already on Travis.
-          sudo apt-add-repository "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-6.0 main"
-          sudo apt-get update
-          sudo apt-get -y install clang-format-6.0 g++-multilib
+          sudo apt-get -y install g++-multilib
       fi
   # Install cross-compilers for cross-compiling Linux build:
   - >
