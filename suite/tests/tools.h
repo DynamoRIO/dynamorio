@@ -81,6 +81,7 @@ extern "C" {
 #endif
 
 /* Get the defines for "true" and "false" w/o messing up clang-format. */
+#define DR_DO_NOT_DEFINE_bool
 #include "c_defines.h"
 
 /* check if all bits in mask are set in var */

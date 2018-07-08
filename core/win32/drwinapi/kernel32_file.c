@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 #include "../ntdll.h"
 #include "../os_private.h"
 #include "drwinapi_private.h"
+/* avoid define conflicts with ntdll.h with recent WDK */
+#undef FILE_READ_ACCESS
+#undef FILE_WRITE_ACCESS
 #include <winioctl.h> /* DEVICE_TYPE_FROM_CTL_CODE */
 
 static HANDLE(WINAPI *priv_kernel32_OpenConsoleW)(LPCWSTR, DWORD, BOOL, DWORD);

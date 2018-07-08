@@ -1629,8 +1629,12 @@ query_full_attributes_file(PCWSTR filename, PFILE_NETWORK_OPEN_INFORMATION info)
  * them here */
 #define FILE_ANY_ACCESS 0
 #define FILE_SPECIAL_ACCESS (FILE_ANY_ACCESS)
-#define FILE_READ_ACCESS (0x0001)  // file & pipe
-#define FILE_WRITE_ACCESS (0x0002) // file & pipe
+#ifndef FILE_READ_ACCESS
+# define FILE_READ_ACCESS (0x0001)  // file & pipe
+#endif
+#ifndef FILE_WRITE_ACCESS
+# define FILE_WRITE_ACCESS (0x0002) // file & pipe
+#endif
 
 /* share flags, from ntddk.h, rest are in winnt.h */
 #define FILE_SHARE_VALID_FLAGS 0x00000007
