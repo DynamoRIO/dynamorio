@@ -76,10 +76,17 @@ jobs:
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=32_only
     # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
-    # require clang-format:
+    # install and require clang-format:
     - os: linux
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no INSTALL_FORMAT=yes EXTRA_ARGS="64_only require_format"
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          - llvm-toolchain-trusty-6.0
+          packages:
+          - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
     - os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
@@ -103,17 +110,7 @@ install:
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
-          sudo apt-get -y install g++-multilib
-      fi
-  # Install clang-format:
-  - >
-      if [[ "`uname`" == "Linux" && $INSTALL_FORMAT == yes ]]; then
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          # The software-properties-common package is already on Travis.
-          sudo apt-add-repository "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-6.0 main"
-          sudo apt-get update
-          sudo apt-get -y --force-yes install libllvm6.0 libstdc++6 clang-format-6.0
-      fi
+      sudo apt-get -y install g++-multilib; fi
   # Install cross-compilers for cross-compiling Linux build:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == yes ]]; then
