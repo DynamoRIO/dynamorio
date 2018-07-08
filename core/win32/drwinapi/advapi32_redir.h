@@ -58,7 +58,7 @@ advapi32_redir_lookup(const char *name);
  */
 
 #ifndef __out_data_source
-# define __out_data_source(x) /* nothing */
+#    define __out_data_source(x) /* nothing */
 #endif
 
 #if _MSC_VER <= 1400 /* VS2005- */
@@ -66,54 +66,35 @@ advapi32_redir_lookup(const char *name);
 typedef LONG LSTATUS;
 #endif
 
+LSTATUS
+WINAPI
+redirect_RegCloseKey(__in HKEY hKey);
 
 LSTATUS
 WINAPI
-redirect_RegCloseKey (
-    __in HKEY hKey
-    );
+redirect_RegOpenKeyExA(__in HKEY hKey, __in_opt LPCSTR lpSubKey, __in_opt DWORD ulOptions,
+                       __in REGSAM samDesired, __out PHKEY phkResult);
 
 LSTATUS
 WINAPI
-redirect_RegOpenKeyExA (
-    __in HKEY hKey,
-    __in_opt LPCSTR lpSubKey,
-    __in_opt DWORD ulOptions,
-    __in REGSAM samDesired,
-    __out PHKEY phkResult
-    );
+redirect_RegOpenKeyExW(__in HKEY hKey, __in_opt LPCWSTR lpSubKey,
+                       __in_opt DWORD ulOptions, __in REGSAM samDesired,
+                       __out PHKEY phkResult);
 
 LSTATUS
 WINAPI
-redirect_RegOpenKeyExW (
-    __in HKEY hKey,
-    __in_opt LPCWSTR lpSubKey,
-    __in_opt DWORD ulOptions,
-    __in REGSAM samDesired,
-    __out PHKEY phkResult
-    );
+redirect_RegQueryValueExA(__in HKEY hKey, __in_opt LPCSTR lpValueName,
+                          __reserved LPDWORD lpReserved, __out_opt LPDWORD lpType,
+                          __out_bcount_part_opt(*lpcbData, *lpcbData)
+                              __out_data_source(REGISTRY) LPBYTE lpData,
+                          __inout_opt LPDWORD lpcbData);
 
 LSTATUS
 WINAPI
-redirect_RegQueryValueExA (
-    __in HKEY hKey,
-    __in_opt LPCSTR lpValueName,
-    __reserved LPDWORD lpReserved,
-    __out_opt LPDWORD lpType,
-    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
-    __inout_opt LPDWORD lpcbData
-    );
-
-LSTATUS
-WINAPI
-redirect_RegQueryValueExW (
-    __in HKEY hKey,
-    __in_opt LPCWSTR lpValueName,
-    __reserved LPDWORD lpReserved,
-    __out_opt LPDWORD lpType,
-    __out_bcount_part_opt(*lpcbData, *lpcbData) __out_data_source(REGISTRY) LPBYTE lpData,
-    __inout_opt LPDWORD lpcbData
-    );
-
+redirect_RegQueryValueExW(__in HKEY hKey, __in_opt LPCWSTR lpValueName,
+                          __reserved LPDWORD lpReserved, __out_opt LPDWORD lpType,
+                          __out_bcount_part_opt(*lpcbData, *lpcbData)
+                              __out_data_source(REGISTRY) LPBYTE lpData,
+                          __inout_opt LPDWORD lpcbData);
 
 #endif /* _ADVAPI32_REDIR_H_ */

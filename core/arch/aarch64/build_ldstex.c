@@ -71,8 +71,7 @@ instr_is_exclusive_load(instr_t *instr)
     case OP_ldxp:
     case OP_ldxr:
     case OP_ldxrb:
-    case OP_ldxrh:
-        return true;
+    case OP_ldxrh: return true;
     }
     return false;
 }
@@ -156,7 +155,7 @@ instr_create_ldstex(dcontext_t *dcontext, int len, uint *pc, instr_t *instr,
 byte *
 decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ldstex)
 {
-# define N (MAX_INSTR_LENGTH / AARCH64_INSTR_SIZE)
+#define N (MAX_INSTR_LENGTH / AARCH64_INSTR_SIZE)
     instr_t ibuf[2 * N];
     uint *pc = (uint *)pc_;
     uint *orig_pc = (uint *)orig_pc_;
@@ -202,8 +201,8 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
 
     /* Quick check for hopeless situations. */
     if (len == 0 || !(seen_ldex && seen_stex) ||
-        !(seen_branch_to_start || (instr_is_exclusive_load(&ibuf[0]) ||
-                                   instr_is_exclusive_store(&ibuf[0])))) {
+        !(seen_branch_to_start ||
+          (instr_is_exclusive_load(&ibuf[0]) || instr_is_exclusive_store(&ibuf[0])))) {
         for (i = 0; i < len; i++)
             instr_reset(dcontext, &ibuf[i]);
         return NULL;
@@ -247,9 +246,8 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
          * If it does, it would be impossible to mangle it so it is better not to
          * create an OP_ldstex.
          */
-        reg_id_t regs[] = { dr_reg_stolen,
-                            DR_REG_X0, DR_REG_X1, DR_REG_X2,
-                            DR_REG_X3, DR_REG_X4, DR_REG_X5 };
+        reg_id_t regs[] = { dr_reg_stolen, DR_REG_X0, DR_REG_X1, DR_REG_X2,
+                            DR_REG_X3,     DR_REG_X4, DR_REG_X5 };
         int r;
         for (r = 0; r < sizeof(regs) / sizeof(*regs); r++) {
             for (i = ldstex_beg; i < ldstex_end; i++) {
@@ -264,8 +262,8 @@ decode_ldstex(dcontext_t *dcontext, byte *pc_, byte *orig_pc_, instr_t *instr_ld
     }
 
     if (!failed) {
-        instr_create_ldstex(dcontext, ldstex_end - ldstex_beg,
-                            pc + ldstex_beg, &ibuf[ldstex_beg], instr_ldstex);
+        instr_create_ldstex(dcontext, ldstex_end - ldstex_beg, pc + ldstex_beg,
+                            &ibuf[ldstex_beg], instr_ldstex);
     }
 
     for (i = 0; i < len; i++)

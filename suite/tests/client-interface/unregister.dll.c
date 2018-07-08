@@ -32,26 +32,27 @@
 
 #include "dr_api.h"
 
-static void unregister();
+static void
+unregister();
 
-static
-dr_emit_flags_t bb_event(void* drcontext, void* tag, instrlist_t* bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     dr_fprintf(STDERR, "got BB event\n");
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         (void *)unregister, false, 0);
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), (void *)unregister, false,
+                         0);
     return DR_EMIT_DEFAULT;
 }
 
-static
-void unregister()
+static void
+unregister()
 {
     dr_unregister_bb_event(bb_event);
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
 }
-

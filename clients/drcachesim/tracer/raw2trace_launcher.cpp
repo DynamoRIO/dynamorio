@@ -33,10 +33,10 @@
 /* Standalone raw2trace converter. */
 
 #ifdef WINDOWS
-# define UNICODE
-# define _UNICODE
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
+#    define UNICODE
+#    define _UNICODE
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
 #endif
 
 #include "droption.h"
@@ -44,23 +44,25 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
-static droption_t<std::string> op_indir
-(DROPTION_SCOPE_FRONTEND, "indir", "", "[Required] Directory with trace input files",
- "Specifies a directory within which all *.log files will be processed.");
+static droption_t<std::string>
+    op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
+             "[Required] Directory with trace input files",
+             "Specifies a directory within which all *.log files will be processed.");
 
-static droption_t<std::string> op_out
-(DROPTION_SCOPE_FRONTEND, "out", "", "[Required] Path to output file",
- "Specifies the path to the output file.");
+static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
+                                      "[Required] Path to output file",
+                                      "Specifies the path to the output file.");
 
-static droption_t<unsigned int> op_verbose
-(DROPTION_SCOPE_FRONTEND, "verbose", 0, "Verbosity level for diagnostic output",
- "Verbosity level for diagnostic output.");
+static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0,
+                                           "Verbosity level for diagnostic output",
+                                           "Verbosity level for diagnostic output.");
 
-#define FATAL_ERROR(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-    exit(1); \
-} while (0)
+#define FATAL_ERROR(msg, ...)                               \
+    do {                                                    \
+        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                     \
+        exit(1);                                            \
+    } while (0)
 
 int
 _tmain(int argc, const TCHAR *targv[])
@@ -74,8 +76,7 @@ _tmain(int argc, const TCHAR *targv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_indir.get_value().empty() ||
-        op_out.get_value().empty()) {
+        op_indir.get_value().empty() || op_out.get_value().empty()) {
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }

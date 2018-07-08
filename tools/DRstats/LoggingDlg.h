@@ -35,79 +35,104 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #if !defined(AFX_LOGGINGDLG_H__A05FE00B_E413_49FE_AD2F_2062AE912991__INCLUDED_)
-#define AFX_LOGGINGDLG_H__A05FE00B_E413_49FE_AD2F_2062AE912991__INCLUDED_
+#    define AFX_LOGGINGDLG_H__A05FE00B_E413_49FE_AD2F_2062AE912991__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 // LoggingDlg.h : header file
 //
 
 /////////////////////////////////////////////////////////////////////////////
 // CLoggingDlg dialog
 
-class CLoggingDlg : public CDialog
-{
+class CLoggingDlg : public CDialog {
     // Construction
 public:
-    int GetMask();
-    int GetLevel();
-    BOOL OnInitDialog();
-    CLoggingDlg(int level, int mask, CWnd* pParent = NULL);
+    int
+    GetMask();
+    int
+    GetLevel();
+    BOOL
+    OnInitDialog();
+    CLoggingDlg(int level, int mask, CWnd *pParent = NULL);
 
     // Dialog Data
     //{{AFX_DATA(CLoggingDlg)
     enum { IDD = IDD_LOGGING };
     CButton m_OKButton;
-    CComboBox       m_Verbosity;
+    CComboBox m_Verbosity;
     CString m_Mask;
     //}}AFX_DATA
-
 
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CLoggingDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
 protected:
-    CLoggingDlg(CWnd* pParent = NULL);   // standard constructor
-    BOOL SetMaskValue(int mask);
-    int GetMaskValue();
-    void VerifyMaskString();
+    CLoggingDlg(CWnd *pParent = NULL); // standard constructor
+    BOOL
+    SetMaskValue(int mask);
+    int
+    GetMaskValue();
+    void
+    VerifyMaskString();
     int m_Level;
-    void CheckboxChange(int id);
+    void
+    CheckboxChange(int id);
     // hold final values
     int final_level;
     int final_mask;
 
     // Generated message map functions
     //{{AFX_MSG(CLoggingDlg)
-    afx_msg void OnChangeEditMask();
-    afx_msg void OnLogAll();
-    afx_msg void OnLogVmareas();
-    afx_msg void OnLogAsynch();
-    afx_msg void OnLogCache();
-    afx_msg void OnLogDispatch();
-    afx_msg void OnLogEmit();
-    afx_msg void OnLogFragment();
-    afx_msg void OnLogHeap();
-    afx_msg void OnLogInterp();
-    afx_msg void OnLogLinks();
-    afx_msg void OnLogMonitor();
-    afx_msg void OnLogStats();
-    afx_msg void OnLogSyscalls();
-    afx_msg void OnLogThreads();
-    afx_msg void OnLogTop();
-    afx_msg void OnLogNone();
-    virtual void OnOK();
+    afx_msg void
+    OnChangeEditMask();
+    afx_msg void
+    OnLogAll();
+    afx_msg void
+    OnLogVmareas();
+    afx_msg void
+    OnLogAsynch();
+    afx_msg void
+    OnLogCache();
+    afx_msg void
+    OnLogDispatch();
+    afx_msg void
+    OnLogEmit();
+    afx_msg void
+    OnLogFragment();
+    afx_msg void
+    OnLogHeap();
+    afx_msg void
+    OnLogInterp();
+    afx_msg void
+    OnLogLinks();
+    afx_msg void
+    OnLogMonitor();
+    afx_msg void
+    OnLogStats();
+    afx_msg void
+    OnLogSyscalls();
+    afx_msg void
+    OnLogThreads();
+    afx_msg void
+    OnLogTop();
+    afx_msg void
+    OnLogNone();
+    virtual void
+    OnOK();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_LOGGINGDLG_H__A05FE00B_E413_49FE_AD2F_2062AE912991__INCLUDED_)

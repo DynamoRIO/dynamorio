@@ -37,7 +37,7 @@
 #include "../common/utils.h"
 
 #ifdef VERBOSE
-# include <iostream>
+#    include <iostream>
 #endif
 
 file_reader_t::file_reader_t()
@@ -45,8 +45,8 @@ file_reader_t::file_reader_t()
     /* Empty. */
 }
 
-file_reader_t::file_reader_t(const char *file_name) :
-    fstream(file_name, std::ifstream::binary)
+file_reader_t::file_reader_t(const char *file_name)
+    : fstream(file_name, std::ifstream::binary)
 {
     /* Empty. */
 }
@@ -77,7 +77,7 @@ file_reader_t::~file_reader_t()
 trace_entry_t *
 file_reader_t::read_next_entry()
 {
-    if (!fstream.read((char*)&entry_copy, sizeof(entry_copy)))
+    if (!fstream.read((char *)&entry_copy, sizeof(entry_copy)))
         return NULL;
     return &entry_copy;
 }
@@ -91,7 +91,7 @@ file_reader_t::is_complete()
     std::streampos pos = fstream.tellg();
     fstream.seekg(-(int)sizeof(trace_entry_t), fstream.end);
     // Avoid reaching eof b/c we can't seek away from it.
-    if (fstream.read((char*)&entry_copy.type, sizeof(entry_copy.type)) &&
+    if (fstream.read((char *)&entry_copy.type, sizeof(entry_copy.type)) &&
         entry_copy.type == TRACE_TYPE_FOOTER)
         res = true;
     fstream.seekg(pos);

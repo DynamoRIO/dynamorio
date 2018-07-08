@@ -39,18 +39,18 @@
 #include "../fragment.h" /* for rct_module_table_t, is inlined so need struct definition
                        * FIXME - remove this header dependency */
 
-#define OS_IMAGE_READ    IMAGE_SCN_MEM_READ
-#define OS_IMAGE_WRITE   IMAGE_SCN_MEM_WRITE
+#define OS_IMAGE_READ IMAGE_SCN_MEM_READ
+#define OS_IMAGE_WRITE IMAGE_SCN_MEM_WRITE
 #define OS_IMAGE_EXECUTE IMAGE_SCN_MEM_EXECUTE
 
 #ifndef IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE
-# define IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 0x0040
+#    define IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 0x0040
 #endif
 
 typedef struct _os_module_data_t {
-    app_pc preferred_base; /* module preferred base from the PE headers */
-    uint checksum; /* module checksum from the PE headers */
-    uint timestamp; /* module timestamp from the PE headers */
+    app_pc preferred_base;       /* module preferred base from the PE headers */
+    uint checksum;               /* module checksum from the PE headers */
+    uint timestamp;              /* module timestamp from the PE headers */
     size_t module_internal_size; /* module internal size (from PE headers SizeOfImage) */
 
     size_t code_size; /* sum of the size of all code sections */

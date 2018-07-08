@@ -37,7 +37,8 @@
 
 #define DBGHELP_LIB "dbghelp.dll"
 
-int main()
+int
+main()
 {
     bool dir_exists;
     int res;
@@ -46,8 +47,7 @@ int main()
         printf("drfront_create_dir failed \n");
         return -1;
     }
-    if (drfront_access("test_dir", DRFRONT_EXIST, 
-                       &dir_exists) != DRFRONT_SUCCESS ||
+    if (drfront_access("test_dir", DRFRONT_EXIST, &dir_exists) != DRFRONT_SUCCESS ||
         !dir_exists) {
         printf("failed to get access to test_dir\n");
         return -1;

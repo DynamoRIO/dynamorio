@@ -35,19 +35,19 @@
 #include "tools.h"
 #include "thread.h"
 
-typedef unsigned char* app_pc;
+typedef unsigned char *app_pc;
 
 /* not including main thread */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #ifdef NIGHTLY_REGRESSION
-#  define SAFE_NATIVE
-enum {TOTAL_THREADS = 2};
+#    define SAFE_NATIVE
+enum { TOTAL_THREADS = 2 };
 #else
 // #define SAFE_NATIVE  // brutal NtTerminateProcess(0
-enum {TOTAL_THREADS = 200};
+enum { TOTAL_THREADS = 200 };
 #endif
 
 // #define VERBOSE
@@ -58,76 +58,77 @@ enum {TOTAL_THREADS = 200};
 /* nothing fancy:
  * start up some threads and then exit the process
  */
-enum {ROUNDS = 1};
+enum { ROUNDS = 1 };
 #else
 /* calling NtTerminateProcess(0) is in very unsafe - although often works well */
-enum {ROUNDS = 10};
+enum { ROUNDS = 10 };
 #endif
 
 #ifdef ALL_RACES
 /* for thread start races terminate early */
-enum {WAIT_TO_START = 1,
-      WAIT_TO_FINISH = TOTAL_THREADS/10,
+enum {
+    WAIT_TO_START = 1,
+    WAIT_TO_FINISH = TOTAL_THREADS / 10,
 };
 #else
 /* for thread stop races wait for everyone to start */
-enum {WAIT_TO_START = TOTAL_THREADS,
-      WAIT_TO_FINISH = TOTAL_THREADS/10,
+enum {
+    WAIT_TO_START = TOTAL_THREADS,
+    WAIT_TO_FINISH = TOTAL_THREADS / 10,
 };
 #endif
 
 #define UNIPROC
 
-enum {LOOP_WORK = 100};
+enum { LOOP_WORK = 100 };
 
 /* --------- */
 HANDLE thread[TOTAL_THREADS];
 
-long global_started = 0;                   /* unsynchronized */
-long global_finished = 0;                   /* unsynchronized */
-
+long global_started = 0;  /* unsynchronized */
+long global_finished = 0; /* unsynchronized */
 
 #ifdef UNIPROC
-#  define YIELD() thread_yield()    /* or do nothing on a multi processor */
+#    define YIELD() thread_yield() /* or do nothing on a multi processor */
 #else
-#  define YIELD() /* or do nothing on a multi processor */
+#    define YIELD() /* or do nothing on a multi processor */
 #endif
 
-int compare( const void *arg1, const void *arg2 )
+int
+compare(const void *arg1, const void *arg2)
 {
-   /* Compare all of both strings: */
-   return _stricmp( * ( char** ) arg1, * ( char** ) arg2 );
+    /* Compare all of both strings: */
+    return _stricmp(*(char **)arg1, *(char **)arg2);
 }
 
 void
 sort()
 {
     int argc = 5;
-    char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
+    char *argv[] = { "one", "two", "three", "five", "six", "unsorted" };
 #ifdef VERY_VERBOSE
     int i;
 #endif
 
-   /* Sort remaining args using Quicksort algorithm: */
-   qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );
+    /* Sort remaining args using Quicksort algorithm: */
+    qsort((void *)argv, (size_t)argc, sizeof(char *), compare);
 
 #ifdef VERY_VERBOSE
-   /* Output sorted list: */
-   for( i = 0; i < argc; ++i )
-       print( " %s", argv[i] );
-   print( "\n" );
+    /* Output sorted list: */
+    for (i = 0; i < argc; ++i)
+        print(" %s", argv[i]);
+    print("\n");
 #endif
 }
 
-unsigned int __stdcall
-executor(void *arg)
+unsigned int __stdcall executor(void *arg)
 {
     int w;
-    sort();                 /* do some work */
+    sort(); /* do some work */
     InterlockedIncrement(&global_started);
 
     for (w = 0; w < LOOP_WORK; w++) {
-        sort();                 /* do more work */
+        sort(); /* do more work */
         if (w % 10 == 0)
             YIELD();
     }
@@ -143,8 +144,8 @@ main()
     int round;
     int t;
 
-    GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle OPTIONAL,
-                                   IN NTSTATUS ExitStatus));
+    GET_NTDLL(NtTerminateProcess,
+              (IN HANDLE ProcessHandle OPTIONAL, IN NTSTATUS ExitStatus));
 
     INIT();
 
@@ -214,13 +215,17 @@ when setting THREADS=1000
 ---------------------------
 threadexit.exe - Illegal System DLL Relocation
 ---------------------------
-The system DLL user32.dll was relocated in memory. The application will not run properly. The relocation occurred because the DLL Dynamically Allocated Memory occupied an address range reserved for Windows system DLLs. The vendor supplying the DLL should be contacted for a new DLL.
+The system DLL user32.dll was relocated in memory. The application will not run properly.
+The relocation occurred because the DLL Dynamically Allocated Memory occupied an address
+range reserved for Windows system DLLs. The vendor supplying the DLL should be contacted
+for a new DLL.
 ---------------------------
 OK
 ---------------------------
 Assertion failed: thread[t] != NULL, file win32/threadexit.c, line 180
 
-LastStatusValue: (NTSTATUS) 0xc0000017 - {Not Enough Quota}  Not enough virtual memory or paging file quota is available to complete the specified operation.
+LastStatusValue: (NTSTATUS) 0xc0000017 - {Not Enough Quota}  Not enough virtual memory or
+paging file quota is available to complete the specified operation.
 
 
 

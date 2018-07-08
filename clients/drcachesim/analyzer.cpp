@@ -35,12 +35,16 @@
 #include "analyzer.h"
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
-# include "reader/compressed_file_reader.h"
+#    include "reader/compressed_file_reader.h"
 #endif
 #include "common/utils.h"
 
-analyzer_t::analyzer_t() :
-    success(true), trace_iter(NULL), trace_end(NULL), num_tools(0), tools(NULL)
+analyzer_t::analyzer_t()
+    : success(true)
+    , trace_iter(NULL)
+    , trace_end(NULL)
+    , num_tools(0)
+    , tools(NULL)
 {
     /* Nothing else: child class needs to initialize. */
 }
@@ -66,9 +70,12 @@ analyzer_t::init_file_reader(const std::string &trace_file)
 }
 
 analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in,
-                       int num_tools_in) :
-    success(true), trace_iter(NULL), trace_end(NULL), num_tools(num_tools_in),
-    tools(tools_in)
+                       int num_tools_in)
+    : success(true)
+    , trace_iter(NULL)
+    , trace_end(NULL)
+    , num_tools(num_tools_in)
+    , tools(tools_in)
 {
     for (int i = 0; i < num_tools; ++i) {
         if (tools[i] == NULL || !*tools[i]) {
@@ -83,8 +90,12 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
         success = false;
 }
 
-analyzer_t::analyzer_t(const std::string &trace_file) :
-    success(true), trace_iter(NULL), trace_end(NULL), num_tools(0), tools(NULL)
+analyzer_t::analyzer_t(const std::string &trace_file)
+    : success(true)
+    , trace_iter(NULL)
+    , trace_end(NULL)
+    , num_tools(0)
+    , tools(NULL)
 {
     if (!init_file_reader(trace_file))
         success = false;
@@ -96,8 +107,11 @@ analyzer_t::~analyzer_t()
     delete trace_end;
 }
 
+// Work around clang-format bug: no newline after return type for single-char operator.
+// clang-format off
 bool
 analyzer_t::operator!()
+// clang-format on
 {
     return !success;
 }
@@ -146,10 +160,10 @@ analyzer_t::print_stats()
             error_string = tools[i]->get_error_string();
             return false;
         }
-        if (i+1 < num_tools) {
+        if (i + 1 < num_tools) {
             // Separate tool output.
             std::cerr << "\n=========================================================="
-                "=================\n";
+                         "=================\n";
         }
     }
     return true;

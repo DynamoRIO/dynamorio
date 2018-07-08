@@ -61,14 +61,14 @@ cache_simulator_create(const std::string &config_file)
     return new cache_simulator_t(config_file);
 }
 
-cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
-    simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
-                knobs_.warmup_fraction, knobs_.sim_refs,
-                knobs_.cpu_scheduling, knobs_.verbose),
-    knobs(knobs_),
-    l1_icaches(NULL),
-    l1_dcaches(NULL),
-    is_warmed_up(false)
+cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_)
+    : simulator_t(knobs_.num_cores, knobs_.skip_refs, knobs_.warmup_refs,
+                  knobs_.warmup_fraction, knobs_.sim_refs, knobs_.cpu_scheduling,
+                  knobs_.verbose)
+    , knobs(knobs_)
+    , l1_icaches(NULL)
+    , l1_dcaches(NULL)
+    , is_warmed_up(false)
 {
     // XXX i#1703: get defaults from hardware being run on.
 
@@ -88,12 +88,11 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
 
     bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
-    if (!llc->init(knobs.LL_assoc, (int)knobs.line_size,
-                   (int)knobs.LL_size, NULL,
+    if (!llc->init(knobs.LL_assoc, (int)knobs.line_size, (int)knobs.LL_size, NULL,
                    new cache_stats_t(knobs.LL_miss_file, warmup_enabled))) {
         error_string = "Usage error: failed to initialize LL cache.  Ensure sizes and "
-            "associativity are powers of 2, that the total size is a multiple "
-            "of the line size, and that any miss file path is writable.";
+                       "associativity are powers of 2, that the total size is a multiple "
+                       "of the line size, and that any miss file path is writable.";
         success = false;
         return;
     }
@@ -102,8 +101,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     all_caches[cache_name] = llc;
     llcaches[cache_name] = llc;
 
-    l1_icaches = new cache_t* [knobs.num_cores];
-    l1_dcaches = new cache_t* [knobs.num_cores];
+    l1_icaches = new cache_t *[knobs.num_cores];
+    l1_dcaches = new cache_t *[knobs.num_cores];
     for (unsigned int i = 0; i < knobs.num_cores; i++) {
         l1_icaches[i] = create_cache(knobs.replace_policy);
         if (l1_icaches[i] == NULL) {
@@ -117,16 +116,17 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
         }
 
         if (!l1_icaches[i]->init(knobs.L1I_assoc, (int)knobs.line_size,
-                              (int)knobs.L1I_size, llc,
-                              new cache_stats_t("", warmup_enabled)) ||
+                                 (int)knobs.L1I_size, llc,
+                                 new cache_stats_t("", warmup_enabled)) ||
             !l1_dcaches[i]->init(knobs.L1D_assoc, (int)knobs.line_size,
-                              (int)knobs.L1D_size, llc,
-                              new cache_stats_t("", warmup_enabled),
-                              knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE ?
-                              new prefetcher_t((int)knobs.line_size) : nullptr)) {
+                                 (int)knobs.L1D_size, llc,
+                                 new cache_stats_t("", warmup_enabled),
+                                 knobs.data_prefetcher == PREFETCH_POLICY_NEXTLINE
+                                     ? new prefetcher_t((int)knobs.line_size)
+                                     : nullptr)) {
             error_string = "Usage error: failed to initialize L1 caches.  Ensure sizes "
-                   "and associativity are powers of 2 "
-                   "and that the total sizes are multiples of the line size.";
+                           "and associativity are powers of 2 "
+                           "and that the total sizes are multiples of the line size.";
             success = false;
             return;
         }
@@ -138,25 +138,23 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs_) :
     }
 }
 
-cache_simulator_t::cache_simulator_t(const std::string &config_file) :
-    simulator_t(),
-    l1_icaches(NULL),
-    l1_dcaches(NULL),
-    is_warmed_up(false)
+cache_simulator_t::cache_simulator_t(const std::string &config_file)
+    : simulator_t()
+    , l1_icaches(NULL)
+    , l1_dcaches(NULL)
+    , is_warmed_up(false)
 {
     std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
-        error_string = "Usage error: Failed to read/parse configuration file " +
-            config_file;
+        error_string =
+            "Usage error: Failed to read/parse configuration file " + config_file;
         success = false;
         return;
     }
 
-    init_knobs(knobs.num_cores, knobs.skip_refs,
-               knobs.warmup_refs, knobs.warmup_fraction,
-               knobs.sim_refs, knobs.cpu_scheduling,
-               knobs.verbose);
+    init_knobs(knobs.num_cores, knobs.skip_refs, knobs.warmup_refs, knobs.warmup_fraction,
+               knobs.sim_refs, knobs.cpu_scheduling, knobs.verbose);
 
     if (knobs.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs.data_prefetcher != PREFETCH_POLICY_NONE) {
@@ -165,11 +163,10 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file) :
         return;
     }
 
-    bool warmup_enabled = ((knobs.warmup_refs > 0) ||
-                           (knobs.warmup_fraction > 0.0));
+    bool warmup_enabled = ((knobs.warmup_refs > 0) || (knobs.warmup_fraction > 0.0));
 
-    l1_icaches = new cache_t* [knobs.num_cores];
-    l1_dcaches = new cache_t* [knobs.num_cores];
+    l1_icaches = new cache_t *[knobs.num_cores];
+    l1_dcaches = new cache_t *[knobs.num_cores];
 
     // Create all the caches in the hierarchy.
     for (auto &cache_params_it : cache_params) {
@@ -214,14 +211,14 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file) :
         }
 
         // Locate the cache's children.
-        std::vector<caching_device_t*> children;
+        std::vector<caching_device_t *> children;
         children.clear();
         if (cache_config.inclusive) {
             for (std::string &child_name : cache_config.children) {
                 const auto &child_it = all_caches.find(child_name);
                 if (child_it == all_caches.end()) {
-                    error_string = "Error locating the configuration of the cache: " +
-                        child_name;
+                    error_string =
+                        "Error locating the configuration of the cache: " + child_name;
                     success = false;
                     return;
                 }
@@ -232,8 +229,9 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file) :
         if (!cache->init((int)cache_config.assoc, (int)knobs.line_size,
                          (int)cache_config.size, parent,
                          new cache_stats_t("", warmup_enabled),
-                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE ?
-                             new prefetcher_t((int)knobs.line_size) : nullptr,
+                         cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
+                             ? new prefetcher_t((int)knobs.line_size)
+                             : nullptr,
                          cache_config.inclusive, children)) {
             error_string = "Usage error: failed to initialize the cache " + cache_name;
             success = false;
@@ -243,8 +241,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file) :
         bool is_l1_or_llc = false;
 
         // Assign the pointers to the L1 instruction and data caches.
-        if (cache_config.core >= 0 &&
-            cache_config.core < (int)knobs.num_cores) {
+        if (cache_config.core >= 0 && cache_config.core < (int)knobs.num_cores) {
             is_l1_or_llc = true;
             if (cache_config.type == CACHE_TYPE_INSTRUCTION ||
                 cache_config.type == CACHE_TYPE_UNIFIED) {
@@ -279,17 +276,17 @@ cache_simulator_t::~cache_simulator_t()
     }
 
     if (l1_icaches != NULL) {
-        delete [] l1_icaches;
+        delete[] l1_icaches;
     }
     if (l1_dcaches != NULL) {
-        delete [] l1_dcaches;
+        delete[] l1_dcaches;
     }
 }
 
 uint64_t
 cache_simulator_t::remaining_sim_refs() const
 {
-  return knobs.sim_refs;
+    return knobs.sim_refs;
 }
 
 bool
@@ -302,8 +299,7 @@ cache_simulator_t::process_memref(const memref_t &memref)
 
     // If no warmup is specified and we have simulated sim_refs then
     // we are done.
-    if ((knobs.warmup_refs == 0 && knobs.warmup_fraction == 0.0)
-        && knobs.sim_refs == 0)
+    if ((knobs.warmup_refs == 0 && knobs.warmup_fraction == 0.0) && knobs.sim_refs == 0)
         return true;
 
     // The references after warmup and simulated ones are dropped.
@@ -319,9 +315,9 @@ cache_simulator_t::process_memref(const memref_t &memref)
         // We ignore markers before we ask core_for_thread, to avoid asking
         // too early on a timestamp marker.
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                "marker type " << memref.marker.marker_type <<
-                " value " << memref.marker.marker_value << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << "marker type " << memref.marker.marker_type << " value "
+                      << memref.marker.marker_value << "\n";
         }
         return true;
     }
@@ -341,9 +337,9 @@ cache_simulator_t::process_memref(const memref_t &memref)
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR) {
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                " @" << (void *)memref.instr.addr << " instr x" <<
-                memref.instr.size << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << " @" << (void *)memref.instr.addr << " instr x"
+                      << memref.instr.size << "\n";
         }
         l1_icaches[core]->request(memref);
     } else if (memref.data.type == TRACE_TYPE_READ ||
@@ -352,24 +348,24 @@ cache_simulator_t::process_memref(const memref_t &memref)
                // TRACE_TYPE_PREFETCH_INSTR is handled above.
                type_is_prefetch(memref.data.type)) {
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                " @" << (void *)memref.data.pc <<
-                " " << trace_type_names[memref.data.type] << " " <<
-                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << " @" << (void *)memref.data.pc << " "
+                      << trace_type_names[memref.data.type] << " "
+                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
         l1_dcaches[core]->request(memref);
     } else if (memref.flush.type == TRACE_TYPE_INSTR_FLUSH) {
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                " @" << (void *)memref.data.pc << " iflush " <<
-                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << " @" << (void *)memref.data.pc << " iflush "
+                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
         l1_icaches[core]->flush(memref);
     } else if (memref.flush.type == TRACE_TYPE_DATA_FLUSH) {
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                " @" << (void *)memref.data.pc << " dflush " <<
-                (void *)memref.data.addr << " x" << memref.data.size << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << " @" << (void *)memref.data.pc << " dflush "
+                      << (void *)memref.data.addr << " x" << memref.data.size << "\n";
         }
         l1_dcaches[core]->flush(memref);
     } else if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
@@ -378,9 +374,9 @@ cache_simulator_t::process_memref(const memref_t &memref)
     } else if (memref.marker.type == TRACE_TYPE_INSTR_NO_FETCH) {
         // Just ignore.
         if (knobs.verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: " <<
-                " @" << (void *)memref.instr.addr << " non-fetched instr x" <<
-                memref.instr.size << "\n";
+            std::cerr << "::" << memref.data.pid << "." << memref.data.tid << ":: "
+                      << " @" << (void *)memref.instr.addr << " non-fetched instr x"
+                      << memref.instr.size << "\n";
         }
     } else {
         error_string = "Unhandled memref type " + std::to_string(memref.data.type);
@@ -457,8 +453,7 @@ cache_simulator_t::print_results()
                 l1_icaches[i]->get_stats()->print_stats("    ");
                 std::cerr << "  L1D stats:" << std::endl;
                 l1_dcaches[i]->get_stats()->print_stats("    ");
-            }
-            else {
+            } else {
                 std::cerr << "  unified L1 stats:" << std::endl;
                 l1_icaches[i]->get_stats()->print_stats("    ");
             }
@@ -480,11 +475,11 @@ cache_simulator_t::print_results()
     return true;
 }
 
-cache_t*
-cache_simulator_t::create_cache(const std::string& policy)
+cache_t *
+cache_simulator_t::create_cache(const std::string &policy)
 {
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
-        policy == REPLACE_POLICY_LRU) // set to LRU
+        policy == REPLACE_POLICY_LRU)             // set to LRU
         return new cache_lru_t;
     if (policy == REPLACE_POLICY_LFU) // set to LFU
         return new cache_t;

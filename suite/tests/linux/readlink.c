@@ -50,7 +50,7 @@ main(int argc, char *argv[])
     res = readlink(proc, buf, BUFFER_SIZE_ELEMENTS(buf));
     NULL_TERMINATE_BUFFER(buf);
     if (res > 0 && strrchr(buf, '/') != NULL)
-        print("/proc/pid/exe points to %s\n", strrchr(buf, '/')+1);
+        print("/proc/pid/exe points to %s\n", strrchr(buf, '/') + 1);
     else {
         perror("readlink failed");
         return 1;
@@ -69,11 +69,11 @@ main(int argc, char *argv[])
             assert(result == child);
             print("child has exited\n");
         } else {
-            const char *arg[2] = {proc, NULL};
+            const char *arg[2] = { proc, NULL };
             /* Update for child's pid */
             snprintf(proc, BUFFER_SIZE_ELEMENTS(proc), "/proc/%d/exe", getpid());
             NULL_TERMINATE_BUFFER(proc);
-            res = execve(proc, (char **)arg, NULL/*env*/);
+            res = execve(proc, (char **)arg, NULL /*env*/);
             if (res < 0)
                 perror("execve failed");
         }

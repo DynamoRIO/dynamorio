@@ -44,33 +44,41 @@
 #include "memref.h"
 #include "utils.h"
 
-class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
-{
- public:
+class reader_t : public std::iterator<std::input_iterator_tag, memref_t> {
+public:
     reader_t();
-    virtual ~reader_t() {}
+    virtual ~reader_t()
+    {
+    }
 
     // This may block.
-    virtual bool init() = 0;
+    virtual bool
+    init() = 0;
 
-    virtual const memref_t& operator*();
+    virtual const memref_t &operator*();
 
     // To avoid double-dispatch (requires listing all derived types in the base here)
     // and RTTI in trying to get the right operators called for subclasses, we
     // instead directly check at_eof here.  If we end up needing to run code
     // and a bool field is not enough we can change this to invoke a virtual
     // method is_at_eof().
-    virtual bool operator==(const reader_t& rhs) const {
+    virtual bool
+    operator==(const reader_t &rhs) const
+    {
         return BOOLS_MATCH(at_eof, rhs.at_eof);
     }
-    virtual bool operator!=(const reader_t& rhs) const {
+    virtual bool
+    operator!=(const reader_t &rhs) const
+    {
         return !BOOLS_MATCH(at_eof, rhs.at_eof);
     }
 
-    virtual reader_t& operator++();
+    virtual reader_t &
+    operator++();
 
     // Supplied for subclasses that may fail in their constructors.
-    virtual bool operator!() {
+    virtual bool operator!()
+    {
         return false;
     }
 
@@ -80,12 +88,13 @@ class reader_t : public std::iterator<std::input_iterator_tag, memref_t>
     // 2) It is difficult to implement for file_reader_t as streams do not
     //    have a copy constructor.
 
- protected:
-    virtual trace_entry_t * read_next_entry() = 0;
+protected:
+    virtual trace_entry_t *
+    read_next_entry() = 0;
 
     bool at_eof;
 
- private:
+private:
     trace_entry_t *input_entry;
     memref_t cur_ref;
     memref_tid_t cur_tid;

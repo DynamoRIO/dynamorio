@@ -31,34 +31,44 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
 
-#include <assert.h>
-#include <stdio.h>
-#include <math.h>
+#    include <assert.h>
+#    include <stdio.h>
+#    include <math.h>
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-# include <stdlib.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#        include <stdlib.h>
+#    endif
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 /* asm routines */
-void test_modrm16(char *buf);
-void test_nops(void);
-void test_sse3(char *buf);
-void test_3dnow(char *buf);
-void test_far_cti(void);
-void test_data16_mbr(void);
-void test_rip_rel_ind(void);
-void test_bsr(void);
-void test_SSE2(void);
-void test_mangle_seg(void);
+void
+test_modrm16(char *buf);
+void
+test_nops(void);
+void
+test_sse3(char *buf);
+void
+test_3dnow(char *buf);
+void
+test_far_cti(void);
+void
+test_data16_mbr(void);
+void
+test_rip_rel_ind(void);
+void
+test_bsr(void);
+void
+test_SSE2(void);
+void
+test_mangle_seg(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -66,14 +76,14 @@ static bool print_access_vio = true;
 
 void (*func_ptr)(void);
 
-#define VERBOSE 0
+#    define VERBOSE 0
 
-#define ITERS 1500000
+#    define ITERS 1500000
 
 static int a[ITERS];
 
-#ifdef UNIX
-# define ALT_STACK_SIZE  (SIGSTKSZ*3)
+#    ifdef UNIX
+#        define ALT_STACK_SIZE (SIGSTKSZ * 3)
 
 int
 my_setjmp(sigjmp_buf env)
@@ -96,14 +106,14 @@ signal_handler(int sig)
     }
     exit(-1);
 }
-#else
+#    else
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) {
         count++;
@@ -112,23 +122,24 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
     }
     /* Shouldn't get here in normal operation so this isn't #if VERBOSE */
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-#if VERBOSE
+#        if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
-        print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress,
-            (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
-            pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-#endif
+        print("\tPC " PFX " tried to %s address " PFX "\n",
+              pExceptionInfo->ExceptionRecord->ExceptionAddress,
+              (pExceptionInfo->ExceptionRecord->ExceptionInformation[0] == 0) ? "read"
+                                                                              : "write",
+              pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+#        endif
         count++;
         if (print_access_vio)
             print("Access violation, instance %d\n", count);
         longjmp(mark, count);
     }
-    print("Exception "PFX" occurred, process about to die silently\n",
+    print("Exception " PFX " occurred, process about to die silently\n",
           pExceptionInfo->ExceptionRecord->ExceptionCode);
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
 static void
 actual_call_target(void)
@@ -136,81 +147,82 @@ actual_call_target(void)
     print("Made it to actual_call_target\n");
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     int i;
-#ifndef X64
+#    ifndef X64
     int j;
-#endif
+#    endif
     char *buf;
-#ifdef UNIX
+#    ifdef UNIX
     stack_t sigstack;
-#endif
+#    endif
 
-#ifdef UNIX
+#    ifdef UNIX
     /* our modrm16 tests clobber esp so we need an alternate stack */
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     i = sigaltstack(&sigstack, NULL);
     assert(i == 0);
-    intercept_signal(SIGILL, (handler_3_t) signal_handler, true);
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, true);
-#else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-#endif
+    intercept_signal(SIGILL, (handler_3_t)signal_handler, true);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, true);
+#    else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#    endif
 
-    buf = allocate_mem(7*256+1, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    buf = allocate_mem(7 * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
 
-#ifndef X64
+#    ifndef X64
     print("Jumping to a sequence of every addr16 modrm byte\n");
-    for (j=0; j<256; j++) {
+    for (j = 0; j < 256; j++) {
         int mod = ((j >> 6) & 0x3); /* top 2 bits */
         int reg = ((j >> 3) & 0x7); /* middle 3 bits */
-        int rm  = (j & 0x7);        /* bottom 3 bits */
-# if defined(UNIX) || defined(X64)
-        buf[j*7 + 0] = 0x65; /* gs: */
-# else
-        buf[j*7 + 0] = 0x64; /* fs: */
-# endif
-        buf[j*7 + 1] = 0x67; /* addr16 */
-        buf[j*7 + 2] = 0x8b; /* load */
-# ifdef WINDOWS
+        int rm = (j & 0x7);         /* bottom 3 bits */
+#        if defined(UNIX) || defined(X64)
+        buf[j * 7 + 0] = 0x65; /* gs: */
+#        else
+        buf[j * 7 + 0] = 0x64; /* fs: */
+#        endif
+        buf[j * 7 + 1] = 0x67; /* addr16 */
+        buf[j * 7 + 2] = 0x8b; /* load */
+#        ifdef WINDOWS
         /* Windows can't handle stack pointer being off */
         if (reg == 4) { /* xsp */
-            buf[j*7 + 3] = j | 0x8;
+            buf[j * 7 + 3] = j | 0x8;
         } else
-            buf[j*7 + 3] = j; /* nearly every single modrm byte */
-# else
-        buf[j*7 + 3] = j; /* every single modrm byte */
-# endif
+            buf[j * 7 + 3] = j; /* nearly every single modrm byte */
+#        else
+        buf[j * 7 + 3] = j;    /* every single modrm byte */
+#        endif
         if (mod == 1) {
-            buf[j*7 + 4] = 0x03; /* disp */
-            buf[j*7 + 5] = 0xc3;
+            buf[j * 7 + 4] = 0x03; /* disp */
+            buf[j * 7 + 5] = 0xc3;
         } else if (mod == 2 || (mod == 0 && rm == 6)) {
-            buf[j*7 + 4] = 0x03; /* disp */
-            buf[j*7 + 5] = 0x00; /* disp */
+            buf[j * 7 + 4] = 0x03; /* disp */
+            buf[j * 7 + 5] = 0x00; /* disp */
         } else {
-            buf[j*7 + 4] = 0xc3; /* ret */
-            buf[j*7 + 5] = 0xc3;
+            buf[j * 7 + 4] = 0xc3; /* ret */
+            buf[j * 7 + 5] = 0xc3;
         }
-        buf[j*7 + 6] = 0xc3;
+        buf[j * 7 + 6] = 0xc3;
     }
-    buf[256*7] = 0xcc;
+    buf[256 * 7] = 0xcc;
     print_access_vio = false;
-    for (j=0; j<256; j++) {
+    for (j = 0; j < 256; j++) {
         i = SIGSETJMP(mark);
         if (i == 0)
-            test_modrm16(&buf[j*7]);
+            test_modrm16(&buf[j * 7]);
         else
             continue;
     }
     print("Done with modrm test: tested %d\n", j);
     count = 0;
     print_access_vio = true;
-#endif /* !X64 */
+#    endif /* !X64 */
 
     /* multi-byte nop tests (case 9862) */
     i = SIGSETJMP(mark);
@@ -250,11 +262,11 @@ int main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
-#ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
+#    ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
-#endif
+#    endif
 
     /* i#1024: rip-rel ind branch */
     print("Testing rip-rel ind branch\n");
@@ -271,17 +283,17 @@ int main(int argc, char *argv[])
     /* i#1493: segment register mangling */
     test_mangle_seg();
 
-#ifdef UNIX
+#    ifdef UNIX
     free(sigstack.ss_sp);
-#endif
+#    endif
 
     print("All done\n");
     return 0;
 }
 
-
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_modrm16
@@ -705,4 +717,5 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
         END_FUNC(FUNCNAME)
 END_FILE
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

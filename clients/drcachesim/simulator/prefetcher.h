@@ -41,13 +41,16 @@
 
 class caching_device_t;
 
-class prefetcher_t
-{
- public:
+class prefetcher_t {
+public:
     prefetcher_t(int block_size);
-    virtual ~prefetcher_t() {}
-    virtual void prefetch(caching_device_t *cache, const memref_t &memref);
- private:
+    virtual ~prefetcher_t()
+    {
+    }
+    virtual void
+    prefetch(caching_device_t *cache, const memref_t &memref);
+
+private:
     int block_size;
 };
 

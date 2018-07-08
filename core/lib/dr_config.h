@@ -35,8 +35,8 @@
 #define _DR_CONFIG_H_ 1
 
 /* Internally we mark routines with export linkage. */
-#include "configure.h"  /* for WINDOWS/UNIX */
-#include "globals_shared.h"  /* for DR_EXPORT */
+#include "configure.h"      /* for WINDOWS/UNIX */
+#include "globals_shared.h" /* for DR_EXPORT */
 
 /* DR_API EXPORT TOFILE dr_config.h */
 /* DR_API EXPORT BEGIN */
@@ -69,9 +69,9 @@ typedef enum {
      */
     DR_MODE_NONE = 0,
 
-    /** Run DynamoRIO in Code Manipulation mode. */
+/** Run DynamoRIO in Code Manipulation mode. */
 #ifdef HOT_PATCHING_INTERFACE
-    /** Note that this mode also supports the Probe API. */
+/** Note that this mode also supports the Probe API. */
 #endif
     DR_MODE_CODE_MANIPULATION = 1,
 
@@ -153,7 +153,6 @@ typedef enum {
     DR_PLATFORM_NONE,    /**< Invalid platform. */
 } dr_platform_t;
 
-
 /* Note that we provide this as an inlined function for use by
  * dr_nudge_client and dr_nudge_client_ex without requiring drconfiglib
  * to be linked into a client.
@@ -174,48 +173,22 @@ dr_config_status_code_to_string(dr_config_status_t code)
      * the status enum.
      */
     switch (code) {
-    case DR_SUCCESS:
-        msg = "success";
-        break;
-    case DR_PROC_REG_EXISTS:
-        msg = "registration already exists";
-        break;
-    case DR_PROC_REG_INVALID:
-        msg = "target process is not registered";
-        break;
-    case DR_PRIORITY_INVALID:
-        msg = "invalid priority value";
-        break;
-    case DR_ID_CONFLICTING:
-        msg = "conflicting ID";
-        break;
-    case DR_ID_INVALID:
-        msg = "invalid client ID";
-        break;
-    case DR_NUDGE_PID_NOT_INJECTED:
-        msg = "target process is not under DynamoRIO";
-        break;
-    case DR_NUDGE_TIMEOUT:
-        msg = "timed out";
-        break;
-    case DR_CONFIG_STRING_TOO_LONG:
-        msg = "config option string too long";
-        break;
-    case DR_CONFIG_FILE_WRITE_FAILED:
-        msg = "failed to write to the config file";
-        break;
-    case DR_NUDGE_PID_NOT_FOUND:
-        msg = "target process id does not exist";
-        break;
+    case DR_SUCCESS: msg = "success"; break;
+    case DR_PROC_REG_EXISTS: msg = "registration already exists"; break;
+    case DR_PROC_REG_INVALID: msg = "target process is not registered"; break;
+    case DR_PRIORITY_INVALID: msg = "invalid priority value"; break;
+    case DR_ID_CONFLICTING: msg = "conflicting ID"; break;
+    case DR_ID_INVALID: msg = "invalid client ID"; break;
+    case DR_NUDGE_PID_NOT_INJECTED: msg = "target process is not under DynamoRIO"; break;
+    case DR_NUDGE_TIMEOUT: msg = "timed out"; break;
+    case DR_CONFIG_STRING_TOO_LONG: msg = "config option string too long"; break;
+    case DR_CONFIG_FILE_WRITE_FAILED: msg = "failed to write to the config file"; break;
+    case DR_NUDGE_PID_NOT_FOUND: msg = "target process id does not exist"; break;
     case DR_CONFIG_DIR_NOT_FOUND:
         msg = "failed to locate a valid config directory";
         break;
-    case DR_FAILURE:
-        msg = "unknown failure";
-        break;
-    default:
-        msg = "invalid dr_config_status_t code";
-        break;
+    case DR_FAILURE: msg = "unknown failure"; break;
+    default: msg = "invalid dr_config_status_t code"; break;
     }
     return msg;
 }
@@ -291,14 +264,9 @@ DR_EXPORT
  * unregistered.
  */
 dr_config_status_t
-dr_register_process(const char *process_name,
-                    process_id_t pid,
-                    bool global,
-                    const char *dr_root_dir,
-                    dr_operation_mode_t dr_mode,
-                    bool debug,
-                    dr_platform_t dr_platform,
-                    const char *dr_options);
+dr_register_process(const char *process_name, process_id_t pid, bool global,
+                    const char *dr_root_dir, dr_operation_mode_t dr_mode, bool debug,
+                    dr_platform_t dr_platform, const char *dr_options);
 
 DR_EXPORT
 /**
@@ -335,9 +303,7 @@ DR_EXPORT
  *              is not currently registered to run under DynamoRIO.
  */
 dr_config_status_t
-dr_unregister_process(const char *process_name,
-                      process_id_t pid,
-                      bool global,
+dr_unregister_process(const char *process_name, process_id_t pid, bool global,
                       dr_platform_t dr_platform);
 
 #ifdef WINDOWS
@@ -372,8 +338,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_register_syswide(dr_platform_t dr_platform,
-                    const char *dr_root_dir);
+dr_register_syswide(dr_platform_t dr_platform, const char *dr_root_dir);
 
 DR_EXPORT
 /**
@@ -396,8 +361,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_unregister_syswide(dr_platform_t dr_platform,
-                      const char *dr_root_dir);
+dr_unregister_syswide(dr_platform_t dr_platform, const char *dr_root_dir);
 
 DR_EXPORT
 /**
@@ -415,8 +379,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 bool
-dr_syswide_is_on(dr_platform_t dr_platform,
-                 const char *dr_root_dir);
+dr_syswide_is_on(dr_platform_t dr_platform, const char *dr_root_dir);
 
 #endif /* WINDOWS */
 
@@ -474,14 +437,10 @@ DR_EXPORT
  * \return      true if the process is registered for the given platform.
  */
 bool
-dr_process_is_registered(const char *process_name,
-                         process_id_t pid,
-                         bool global,
-                         dr_platform_t dr_platform,
-                         char *dr_root_dir              /* OUT */,
-                         dr_operation_mode_t *dr_mode   /* OUT */,
-                         bool *debug                    /* OUT */,
-                         char *dr_options               /* OUT */);
+dr_process_is_registered(const char *process_name, process_id_t pid, bool global,
+                         dr_platform_t dr_platform, char *dr_root_dir /* OUT */,
+                         dr_operation_mode_t *dr_mode /* OUT */, bool *debug /* OUT */,
+                         char *dr_options /* OUT */);
 
 #ifdef WINDOWS
 
@@ -514,8 +473,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_registered_process_iterator_t *
-dr_registered_process_iterator_start(dr_platform_t dr_platform,
-                                     bool global);
+dr_registered_process_iterator_start(dr_platform_t dr_platform, bool global);
 
 DR_EXPORT
 /**
@@ -569,8 +527,7 @@ dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
                                     char *process_name /* OUT */,
                                     char *dr_root_dir /* OUT */,
                                     dr_operation_mode_t *dr_mode /* OUT */,
-                                    bool *debug /* OUT */,
-                                    char *dr_options /* OUT */);
+                                    bool *debug /* OUT */, char *dr_options /* OUT */);
 
 DR_EXPORT
 /**
@@ -653,14 +610,9 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of registration.
  */
 dr_config_status_t
-dr_register_client(const char *process_name,
-                   process_id_t pid,
-                   bool global,
-                   dr_platform_t dr_platform,
-                   client_id_t client_id,
-                   size_t client_pri,
-                   const char *client_path,
-                   const char *client_options);
+dr_register_client(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id, size_t client_pri,
+                   const char *client_path, const char *client_options);
 
 DR_EXPORT
 /**
@@ -698,11 +650,8 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of unregistration.
  */
 dr_config_status_t
-dr_unregister_client(const char *process_name,
-                     process_id_t pid,
-                     bool global,
-                     dr_platform_t dr_platform,
-                     client_id_t client_id);
+dr_unregister_client(const char *process_name, process_id_t pid, bool global,
+                     dr_platform_t dr_platform, client_id_t client_id);
 
 DR_EXPORT
 /**
@@ -738,9 +687,7 @@ DR_EXPORT
  * \return      The number of clients registered for the given process and platform.
  */
 size_t
-dr_num_registered_clients(const char *process_name,
-                          process_id_t pid,
-                          bool global,
+dr_num_registered_clients(const char *process_name, process_id_t pid, bool global,
                           dr_platform_t dr_platform);
 
 DR_EXPORT
@@ -792,13 +739,10 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of the call.
  */
 dr_config_status_t
-dr_get_client_info(const char *process_name,
-                   process_id_t pid,
-                   bool global,
-                   dr_platform_t dr_platform,
-                   client_id_t client_id,
-                   size_t *client_pri,  /* OUT */
-                   char *client_path,   /* OUT */
+dr_get_client_info(const char *process_name, process_id_t pid, bool global,
+                   dr_platform_t dr_platform, client_id_t client_id,
+                   size_t *client_pri, /* OUT */
+                   char *client_path,  /* OUT */
                    char *client_options /* OUT */);
 
 typedef struct _dr_client_iterator_t dr_client_iterator_t;
@@ -839,9 +783,7 @@ DR_EXPORT
  *              dr_client_iterator_stop()
  */
 dr_client_iterator_t *
-dr_client_iterator_start(const char *process_name,
-                         process_id_t pid,
-                         bool global,
+dr_client_iterator_start(const char *process_name, process_id_t pid, bool global,
                          dr_platform_t dr_platform);
 
 DR_EXPORT
@@ -874,11 +816,10 @@ DR_EXPORT
  *                              array of length #DR_MAX_OPTIONS_LENGTH.
  */
 void
-dr_client_iterator_next(dr_client_iterator_t *iter,
-                        client_id_t *client_id, /* OUT */
-                        size_t *client_pri,     /* OUT */
-                        char *client_path,      /* OUT */
-                        char *client_options    /* OUT */);
+dr_client_iterator_next(dr_client_iterator_t *iter, client_id_t *client_id, /* OUT */
+                        size_t *client_pri,                                 /* OUT */
+                        char *client_path,                                  /* OUT */
+                        char *client_options /* OUT */);
 
 DR_EXPORT
 /**
@@ -937,11 +878,8 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_nudge_process(const char *process_name,
-                 client_id_t client_id,
-                 uint64 arg,
-                 uint timeout_ms,
-                 int *nudge_count /*OUT */);
+dr_nudge_process(const char *process_name, client_id_t client_id, uint64 arg,
+                 uint timeout_ms, int *nudge_count /*OUT */);
 #endif
 
 DR_EXPORT
@@ -981,10 +919,7 @@ DR_EXPORT
  * \note Not yet available on MacOS.
  */
 dr_config_status_t
-dr_nudge_pid(process_id_t process_id,
-             client_id_t client_id,
-             uint64 arg,
-             uint timeout_ms);
+dr_nudge_pid(process_id_t process_id, client_id_t client_id, uint64 arg, uint timeout_ms);
 
 #ifdef WINDOWS
 DR_EXPORT
@@ -1026,9 +961,7 @@ DR_EXPORT
  * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
-dr_nudge_all(client_id_t client_id,
-             uint64 arg,
-             uint timeout_ms,
+dr_nudge_all(client_id_t client_id, uint64 arg, uint timeout_ms,
              int *nudge_count /*OUT */);
 #endif /* WINDOWS */
 
@@ -1065,9 +998,7 @@ DR_EXPORT
  * \return      A dr_config_status_t code indicating the result of the request.
  */
 dr_config_status_t
-dr_get_config_dir(bool global,
-                  bool alternative_local,
-                  char *config_dir /* OUT */,
+dr_get_config_dir(bool global, bool alternative_local, char *config_dir /* OUT */,
                   size_t config_dir_sz);
 
 #ifdef __cplusplus

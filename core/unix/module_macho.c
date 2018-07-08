@@ -62,13 +62,13 @@
 #include <dlfcn.h>
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
-# undef LOG
-# define LOG(...) /* nothing */
-# include <sys/utsname.h> /* for kernel_is_64bit */
-# undef ASSERT
-# define ASSERT(x) ((void) 0)
-# undef ASSERT_NOT_IMPLEMENTED
-# define ASSERT_NOT_IMPLEMENTED(x) ((void) 0)
+#    undef LOG
+#    define LOG(...)         /* nothing */
+#    include <sys/utsname.h> /* for kernel_is_64bit */
+#    undef ASSERT
+#    define ASSERT(x) ((void)0)
+#    undef ASSERT_NOT_IMPLEMENTED
+#    define ASSERT_NOT_IMPLEMENTED(x) ((void)0)
 
 /* Compatibility layer
  * XXX i#1409: really we should split out a lib shared w/ non-core from os.c.
@@ -115,7 +115,7 @@ is_macho_header(app_pc base, size_t size)
     if (base == NULL)
         return false;
     if (size >= sizeof(hdr_safe)) {
-        hdr = (struct mach_header *) base;
+        hdr = (struct mach_header *)base;
     } else {
         if (!safe_read(base, sizeof(hdr_safe), &hdr_safe))
             return false;
@@ -126,12 +126,10 @@ is_macho_header(app_pc base, size_t size)
     if ((hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86) ||
         (hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
         /* We shouldn't see MH_PRELOAD as it can't be loaded by the kernel */
-        if (hdr->filetype == MH_EXECUTE ||
-            hdr->filetype == MH_DYLIB ||
-            hdr->filetype == MH_BUNDLE ||
-            hdr->filetype == MH_DYLINKER ||
+        if (hdr->filetype == MH_EXECUTE || hdr->filetype == MH_DYLIB ||
+            hdr->filetype == MH_BUNDLE || hdr->filetype == MH_DYLINKER ||
             hdr->filetype == MH_FVMLIB) {
-           return true;
+            return true;
         }
     }
     return false;
@@ -165,12 +163,11 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                             OUT app_pc *out_base /* relative pc */,
                             OUT app_pc *out_first_end /* relative pc */,
                             OUT app_pc *out_max_end /* relative pc */,
-                            OUT char **out_soname,
-                            OUT os_module_data_t *out_data)
+                            OUT char **out_soname, OUT os_module_data_t *out_data)
 {
-    mach_header_t *hdr = (mach_header_t *) base;
+    mach_header_t *hdr = (mach_header_t *)base;
     struct load_command *cmd, *cmd_stop;
-    app_pc seg_min_start = (app_pc) POINTER_MAX;
+    app_pc seg_min_start = (app_pc)POINTER_MAX;
     app_pc seg_max_end = NULL, seg_first_end;
     bool found_seg = false;
     size_t linkedit_file_off = 0, linkedit_mem_off, exports_file_off = 0;
@@ -179,20 +176,18 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
         if (cmd->cmd == LC_SEGMENT) {
-            segment_command_t *seg = (segment_command_t *) cmd;
+            segment_command_t *seg = (segment_command_t *)cmd;
             found_seg = true;
-            LOG(GLOBAL, LOG_VMAREAS, 4,
-                "%s: segment %s addr=0x%x sz=0x%x file=0x%x\n", __FUNCTION__,
-                seg->segname, seg->vmaddr, seg->vmsize, seg->fileoff);
+            LOG(GLOBAL, LOG_VMAREAS, 4, "%s: segment %s addr=0x%x sz=0x%x file=0x%x\n",
+                __FUNCTION__, seg->segname, seg->vmaddr, seg->vmsize, seg->fileoff);
             if ((app_pc)seg->vmaddr + seg->vmsize > seg_max_end)
                 seg_max_end = (app_pc)seg->vmaddr + seg->vmsize;
-            if (strcmp(seg->segname, "__PAGEZERO") == 0 &&
-                seg->initprot == 0) {
+            if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
                 /* Skip it: zero page for executable, and it's hard to identify
                  * that page as part of the module.
                  */
             } else if ((app_pc)seg->vmaddr < seg_min_start) {
-                seg_min_start = (app_pc) seg->vmaddr;
+                seg_min_start = (app_pc)seg->vmaddr;
                 seg_first_end = (app_pc)seg->vmaddr + seg->vmsize;
             }
             if (strcmp(seg->segname, "__LINKEDIT") == 0) {
@@ -200,15 +195,14 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                 linkedit_mem_off = seg->vmaddr;
             }
         } else if (cmd->cmd == LC_DYLD_INFO || cmd->cmd == LC_DYLD_INFO_ONLY) {
-            struct dyld_info_command *di = (struct dyld_info_command *) cmd;
-            LOG(GLOBAL, LOG_VMAREAS, 4,
-                "%s: exports addr=0x%x sz=0x%x\n", __FUNCTION__,
+            struct dyld_info_command *di = (struct dyld_info_command *)cmd;
+            LOG(GLOBAL, LOG_VMAREAS, 4, "%s: exports addr=0x%x sz=0x%x\n", __FUNCTION__,
                 di->export_off, di->export_size);
             exports_file_off = di->export_off;
             if (out_data != NULL)
                 out_data->exports_sz = di->export_size;
         } else if (cmd->cmd == LC_ID_DYLIB) {
-            struct dylib_command *dy = (struct dylib_command *) cmd;
+            struct dylib_command *dy = (struct dylib_command *)cmd;
             char *soname = (char *)cmd + dy->dylib.name.offset;
             /* XXX: we assume these strings are always null-terminated */
             /* They seem to have full paths on Mac.  We drop to basename, as
@@ -234,7 +228,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
         if (linkedit_file_off > 0) {
             linkedit_delta = ((ssize_t)linkedit_mem_off - linkedit_file_off);
         }
-        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: bounds "PFX"-"PFX"\n", __FUNCTION__,
+        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: bounds " PFX "-" PFX "\n", __FUNCTION__,
             seg_min_start, seg_max_end);
         if (out_base != NULL)
             *out_base = seg_min_start;
@@ -254,16 +248,15 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             cmd = (struct load_command *)(hdr + 1);
             while (cmd < cmd_stop) {
                 if (cmd->cmd == LC_SEGMENT) {
-                    segment_command_t *seg = (segment_command_t *) cmd;
+                    segment_command_t *seg = (segment_command_t *)cmd;
                     if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
                         /* skip */
                     } else {
-                        app_pc seg_start = (app_pc) seg->vmaddr + load_delta;
+                        app_pc seg_start = (app_pc)seg->vmaddr + load_delta;
                         size_t seg_size = seg->vmsize;
                         bool shared = false;
-                        if (strcmp(seg->segname, "__LINKEDIT") == 0 &&
-                            have_shared && seg_start >= shared_start &&
-                            seg_start < shared_end) {
+                        if (strcmp(seg->segname, "__LINKEDIT") == 0 && have_shared &&
+                            seg_start >= shared_start && seg_start < shared_end) {
                             /* We assume that all __LINKEDIT segments in the
                              * dyld cache are shared as one single segment.
                              */
@@ -274,31 +267,29 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                              */
                             if (seg_start + seg->vmsize > shared_end) {
                                 LOG(GLOBAL, LOG_VMAREAS, 4,
-                                    "%s: truncating __LINKEDIT size from "PIFX
-                                    " to "PIFX"\n", __FUNCTION__, seg->vmsize,
-                                    shared_end - seg_start);
+                                    "%s: truncating __LINKEDIT size from " PIFX
+                                    " to " PIFX "\n",
+                                    __FUNCTION__, seg->vmsize, shared_end - seg_start);
                                 seg_size = shared_end - seg_start;
                             }
                         }
-                        module_add_segment_data
-                            (out_data, 0/*don't know*/, seg_start, seg_size,
-                             /* we want initprot, not maxprot, right? */
-                             vmprot_to_memprot(seg->initprot),
-                             /* XXX: alignment is specified per section --
-                              * ignoring for now
-                              */
-                             PAGE_SIZE,
-                             shared,
-                             seg->fileoff);
+                        module_add_segment_data(
+                            out_data, 0 /*don't know*/, seg_start, seg_size,
+                            /* we want initprot, not maxprot, right? */
+                            vmprot_to_memprot(seg->initprot),
+                            /* XXX: alignment is specified per section --
+                             * ignoring for now
+                             */
+                            PAGE_SIZE, shared, seg->fileoff);
                     }
                 } else if (cmd->cmd == LC_SYMTAB) {
                     /* even if stripped, dynamic symbols are in this table */
-                    struct symtab_command *symtab = (struct symtab_command *) cmd;
-                    out_data->symtab = (app_pc) symtab->symoff + load_delta +
-                        linkedit_delta;
+                    struct symtab_command *symtab = (struct symtab_command *)cmd;
+                    out_data->symtab =
+                        (app_pc)symtab->symoff + load_delta + linkedit_delta;
                     out_data->num_syms = symtab->nsyms;
-                    out_data->strtab = (app_pc) symtab->stroff + load_delta +
-                        linkedit_delta;
+                    out_data->strtab =
+                        (app_pc)symtab->stroff + load_delta + linkedit_delta;
                     out_data->strtab_sz = symtab->strsize;
                 } else if (cmd->cmd == LC_UUID) {
                     memcpy(out_data->uuid, ((struct uuid_command *)cmd)->uuid,
@@ -312,8 +303,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             out_data->base_address = seg_min_start;
             out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
             if (linkedit_file_off > 0 && exports_file_off > 0) {
-                out_data->exports = (app_pc) load_delta + exports_file_off +
-                    linkedit_delta;
+                out_data->exports =
+                    (app_pc)load_delta + exports_file_off + linkedit_delta;
             } else
                 out_data->exports = NULL;
         }
@@ -330,12 +321,10 @@ module_num_program_headers(app_pc base)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool
-module_read_program_header(app_pc base,
-                           uint segment_num,
+module_read_program_header(app_pc base, uint segment_num,
                            OUT app_pc *segment_base /* relative pc */,
                            OUT app_pc *segment_end /* relative pc */,
-                           OUT uint *segment_prot,
-                           OUT size_t *segment_align)
+                           OUT uint *segment_prot, OUT size_t *segment_align)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
     return false;
@@ -344,7 +333,7 @@ module_read_program_header(app_pc base,
 app_pc
 module_entry_point(app_pc base, ptr_int_t load_delta)
 {
-    mach_header_t *hdr = (mach_header_t *) base;
+    mach_header_t *hdr = (mach_header_t *)base;
     struct load_command *cmd, *cmd_stop;
     ASSERT(is_macho_header(base, PAGE_SIZE));
     cmd = (struct load_command *)(hdr + 1);
@@ -354,23 +343,23 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
             /* There's no nice struct for this: see thread_command in loader.h. */
 #define LC_UNIXTHREAD_REGS_OFFS 16
 #ifdef X64
-            const x86_thread_state64_t *reg = (const x86_thread_state64_t *)
-                ((char*)cmd + LC_UNIXTHREAD_REGS_OFFS);
+            const x86_thread_state64_t *reg =
+                (const x86_thread_state64_t *)((char *)cmd + LC_UNIXTHREAD_REGS_OFFS);
             return (app_pc)reg->__rip + load_delta
 #else
-            const i386_thread_state_t *reg = (const i386_thread_state_t *)
-                ((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);
+            const i386_thread_state_t *reg =
+                (const i386_thread_state_t *)((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);
             return (app_pc)reg->__eip + load_delta;
 #endif
         }
         /* XXX: should we have our own headers so we can build on an older machine? */
 #ifdef LC_MAIN
         else if (cmd->cmd == LC_MAIN) {
-            struct entry_point_command *ec = (struct entry_point_command *) cmd;
+            struct entry_point_command *ec = (struct entry_point_command *)cmd;
             /* Offset is from start of __TEXT so we just add to base (which has
              * skipped __PAGEZERO)
              */
-            return base + (ptr_uint_t) ec->entryoff;
+            return base + (ptr_uint_t)ec->entryoff;
         }
 #endif
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
@@ -387,7 +376,7 @@ module_is_header(app_pc base, size_t size /*optional*/)
 bool
 module_is_executable(app_pc base)
 {
-    struct mach_header *hdr = (struct mach_header *) base;
+    struct mach_header *hdr = (struct mach_header *)base;
     if (!is_macho_header(base, 0))
         return false;
     /* We shouldn't see MH_PRELOAD as it can't be loaded by the kernel.
@@ -425,10 +414,8 @@ read_uleb128(byte *start, byte *max, byte **next_entry OUT)
 }
 
 app_pc
-get_proc_address_from_os_data(os_module_data_t *os_data,
-                              ptr_int_t load_delta,
-                              const char *name,
-                              OUT bool *is_indirect_code)
+get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t load_delta,
+                              const char *name, OUT bool *is_indirect_code)
 {
     /* Walk the Mach-O export trie.  We don't support < 10.6 which is when
      * they put this scheme in place.
@@ -447,8 +434,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
     if (os_data->exports == NULL || name[0] == '0')
         return NULL;
 
-    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s %s: trie "PFX"-"PFX"\n", __FUNCTION__, name,
-        ptr, max);
+    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s %s: trie " PFX "-" PFX "\n", __FUNCTION__, name, ptr,
+        max);
     while (ptr < max) {
         bool match = false;
         node_sz = read_uleb128(ptr, max, &ptr);
@@ -457,8 +444,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
         /* Skip symbol info, until we find a match */
         ptr += node_sz;
         children = *ptr++;
-        LOG(GLOBAL, LOG_SYMBOLS, 4, "  node @"PFX" size=%d children=%d\n",
-            ptr - 1 - node_sz - 1/*can be wrong*/, node_sz, children);
+        LOG(GLOBAL, LOG_SYMBOLS, 4, "  node @" PFX " size=%d children=%d\n",
+            ptr - 1 - node_sz - 1 /*can be wrong*/, node_sz, children);
         for (i = 0; i < children; i++) {
             /* Each edge is a string followed by the offset of that edge's target node */
             char next_char;
@@ -485,8 +472,8 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
             }
             node_offs = read_uleb128(ptr, max, &ptr);
             if (match) {
-                LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatched child #%d offs="PIFX"\n",
-                    i, node_offs);
+                LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatched child #%d offs=" PIFX "\n", i,
+                    node_offs);
                 name_loc += idx;
                 if (node_offs == 0) /* avoid infinite loop */
                     return NULL;
@@ -507,7 +494,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
         if (TEST(EXPORT_SYMBOL_FLAGS_REEXPORT, flags)) {
             /* Forwarder */
             read_uleb128(ptr, max, &ptr); /* ordinal */
-            const char *forw_name = (const char *) ptr;
+            const char *forw_name = (const char *)ptr;
             if (forw_name[0] == '\0') /* see if has different name */
                 forw_name = name;
             LOG(GLOBAL, LOG_SYMBOLS, 4, "\tforwarder %s\n", forw_name);
@@ -515,18 +502,18 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
         } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
             /* Lazy or non-lazy pointer */
             DEBUG_DECLARE(size_t stub_offs =)
-                read_uleb128(ptr, max, &ptr);
+            read_uleb128(ptr, max, &ptr);
             size_t resolver_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(resolver_offs + load_delta);
             if (is_indirect_code != NULL)
                 *is_indirect_code = true;
-            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tstub="PFX", resolver="PFX"\n",
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tstub=" PFX ", resolver=" PFX "\n",
                 (app_pc)(stub_offs + load_delta), res);
         } else {
             size_t sym_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(sym_offs + load_delta);
-            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatch offs="PIFX" => "PFX"\n",
-                sym_offs, res);
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatch offs=" PIFX " => " PFX "\n", sym_offs,
+                res);
         }
     }
     return res;
@@ -541,16 +528,17 @@ get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code 
     ma = module_pc_lookup((app_pc)lib);
     if (ma != NULL) {
         res = get_proc_address_from_os_data(&ma->os_data,
-                                            (ma->os_data.in_shared_cache) ?
-                                            /* segment starts are rebased, but not
-                                             * the trie offsets
-                                             */
-                                            (ptr_int_t) ma->start :
-                                            ma->start - ma->os_data.base_address,
+                                            (ma->os_data.in_shared_cache)
+                                                ?
+                                                /* segment starts are rebased, but not
+                                                 * the trie offsets
+                                                 */
+                                                (ptr_int_t)ma->start
+                                                : ma->start - ma->os_data.base_address,
                                             name, is_indirect_code);
     }
     os_get_module_info_unlock();
-    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, name, res);
+    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => " PFX "\n", __func__, name, res);
     return convert_data_to_function(res);
 }
 
@@ -578,9 +566,8 @@ platform_from_macho(file_t f, dr_platform_t *platform)
         return false;
     switch (mach_hdr.cputype) {
     case CPU_TYPE_X86_64: *platform = DR_PLATFORM_64BIT; break;
-    case CPU_TYPE_X86:    *platform = DR_PLATFORM_32BIT; break;
-    default:
-        return false;
+    case CPU_TYPE_X86: *platform = DR_PLATFORM_32BIT; break;
+    default: return false;
     }
     return true;
 }
@@ -591,8 +578,7 @@ module_get_platform(file_t f, dr_platform_t *platform, dr_platform_t *alt_platfo
     struct fat_header fat_hdr;
     /* Both headers start with a 32-bit magic # */
     uint32_t magic;
-    if (os_read(f, &magic, sizeof(magic)) != sizeof(magic) ||
-        !os_seek(f, 0, SEEK_SET))
+    if (os_read(f, &magic, sizeof(magic)) != sizeof(magic) || !os_seek(f, 0, SEEK_SET))
         return false;
     if (magic == FAT_CIGAM) { /* big-endian */
         /* This is a "fat" or "universal" binary */
@@ -663,10 +649,8 @@ module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 }
 
 bool
-module_read_os_data(app_pc base, bool dyn_reloc,
-                    OUT ptr_int_t *load_delta,
-                    OUT os_module_data_t *os_data,
-                    OUT char **soname)
+module_read_os_data(app_pc base, bool dyn_reloc, OUT ptr_int_t *load_delta,
+                    OUT os_module_data_t *os_data, OUT char **soname)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
     return false;
@@ -677,9 +661,9 @@ char *
 get_shared_lib_name(app_pc map)
 {
     char *soname;
-    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false,
-                                     true/*doesn't matter for soname*/,
-                                     NULL, NULL, NULL, &soname, NULL))
+    if (!module_walk_program_headers(map, PAGE_SIZE /*at least*/, false,
+                                     true /*doesn't matter for soname*/, NULL, NULL, NULL,
+                                     &soname, NULL))
         return NULL;
     return soname;
 }
@@ -699,11 +683,11 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
 byte *
 module_dynamorio_lib_base(void)
 {
-# if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST)
-    return (byte *) &_mh_execute_header;
-# else
-    return (byte *) &_mh_dylib_header;
-# endif
+#    if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST)
+    return (byte *)&_mh_execute_header;
+#    else
+    return (byte *)&_mh_dylib_header;
+#    endif
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
@@ -727,9 +711,9 @@ module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT)
         LOG(GLOBAL, LOG_VMAREAS, 2, "could not find dyld shared cache\n");
         return false;
     }
-    hdr = (struct dyld_cache_header *) cache_start;
-    map = (struct dyld_cache_mapping_info *) (cache_start + hdr->mappingOffset);
-    cache_end = (app_pc) cache_start;
+    hdr = (struct dyld_cache_header *)cache_start;
+    map = (struct dyld_cache_mapping_info *)(cache_start + hdr->mappingOffset);
+    cache_end = (app_pc)cache_start;
     /* Find the max endpoint.  We assume the gap in between the +ro and
      * +rw mappings will never hold anything else.
      */
@@ -738,10 +722,10 @@ module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT)
             cache_end = (app_pc)(ptr_uint_t)(map->address + map->size);
         map++;
     }
-    LOG(GLOBAL, LOG_VMAREAS, 2, "dyld shared cache is "PFX"-"PFX"\n",
+    LOG(GLOBAL, LOG_VMAREAS, 2, "dyld shared cache is " PFX "-" PFX "\n",
         (app_pc)cache_start, cache_end);
     if (start != NULL)
-        *start = (app_pc) cache_start;
+        *start = (app_pc)cache_start;
     if (end != NULL)
         *end = cache_end;
     return true;
@@ -774,7 +758,7 @@ lookup_in_symtab(app_pc lib_base, const char *symbol)
         }
     }
     os_get_module_info_unlock();
-    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, symbol, res);
+    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => " PFX "\n", __func__, symbol, res);
     return res;
 }
 
@@ -788,15 +772,15 @@ module_walk_dyld_list(app_pc dyld_base)
      * look up "dyld_all_image_infos".  Unfortunately dyld has no exports
      * trie and so we must walk the symbol table.
      */
-    dyinfo = (struct dyld_all_image_infos *)
-        lookup_in_symtab(dyld_base, "dyld_all_image_infos");
+    dyinfo = (struct dyld_all_image_infos *)lookup_in_symtab(dyld_base,
+                                                             "dyld_all_image_infos");
     /* We rely on this -- so until Mac support is more solid let's assert */
     if (dyinfo == NULL || !is_readable_without_exception((byte *)dyinfo, PAGE_SIZE)) {
         SYSLOG_INTERNAL_WARNING("failed to walk dyld shared cache libraries");
         return;
     }
-    LOG(GLOBAL, LOG_VMAREAS, 2,
-        "Walking %d modules in dyld module list\n", dyinfo->infoArrayCount);
+    LOG(GLOBAL, LOG_VMAREAS, 2, "Walking %d modules in dyld module list\n",
+        dyinfo->infoArrayCount);
     for (i = 0; i < dyinfo->infoArrayCount; i++) {
         const struct dyld_image_info *modinfo = &dyinfo->infoArray[i];
         bool already = false;
@@ -805,18 +789,16 @@ module_walk_dyld_list(app_pc dyld_base)
             already = true;
         os_get_module_info_unlock();
         if (already) {
-            LOG(GLOBAL, LOG_VMAREAS, 2,
-                "Module %d: "PFX" already seen %s\n", i, modinfo->imageLoadAddress,
-                modinfo->imageFilePath);
+            LOG(GLOBAL, LOG_VMAREAS, 2, "Module %d: " PFX " already seen %s\n", i,
+                modinfo->imageLoadAddress, modinfo->imageFilePath);
             continue;
         }
         /* module_list_add() will call module_walk_program_headers() and find
          * the segments.  The dyld shared cache typically splits __TEXT from
          * __DATA, so we don't want to try to find a "size" of the module.
          */
-        LOG(GLOBAL, LOG_VMAREAS, 2,
-            "Module %d: "PFX" %s\n", i, modinfo->imageLoadAddress,
-            modinfo->imageFilePath);
+        LOG(GLOBAL, LOG_VMAREAS, 2, "Module %d: " PFX " %s\n", i,
+            modinfo->imageLoadAddress, modinfo->imageFilePath);
         module_list_add((app_pc)modinfo->imageLoadAddress, PAGE_SIZE, false,
                         modinfo->imageFilePath, 0);
     }

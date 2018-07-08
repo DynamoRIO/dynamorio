@@ -7,7 +7,7 @@
 #define SYSCALL_LINUX_UAPI_H 1
 
 #ifndef LINUX
-# error Only use this file on Linux
+#    error Only use this file on Linux
 #endif
 
 #define __NR_io_setup 0

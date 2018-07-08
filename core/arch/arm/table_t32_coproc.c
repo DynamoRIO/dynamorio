@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
  * However, all such encodings start 0xef8, so we only have to ensure that 0xff8
  * also maps to the same thing, which we do via the 2 simd8 entries containing duplicates.
  */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /****************************************************************************
  * Top-level T32 table for coprocessor instructions starting with 0xec.
@@ -3162,3 +3165,5 @@ const instr_info_t T32_ext_vtb[][9] = {
     {OP_vtbx_8,         0xffb00b40, "vtbx.8",         VBq, xx, LXA4q, VCq, xx, no, x, xvtb[0][0x06]},
   },
 };
+
+/* clang-format on */

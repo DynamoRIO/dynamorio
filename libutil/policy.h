@@ -120,40 +120,36 @@ see sample.mfp for an example policy string:
 #ifndef _DETERMINA_POLICY_H_
 #define _DETERMINA_POLICY_H_
 
-
 #include "config.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#define POLICY_DEF_KEYS  \
-  MSG_FIELD(APP_NAME)  \
-  MSG_FIELD(GLOBAL)  \
-  MSG_FIELD(BEGIN_BLOCK)  \
-  MSG_FIELD(END_BLOCK)  \
-  MSG_FIELD(GLOBAL_PROTECT)  \
-  MSG_FIELD(BEGIN_MP_MODES)  \
-  MSG_FIELD(END_MP_MODES)
+#define POLICY_DEF_KEYS       \
+    MSG_FIELD(APP_NAME)       \
+    MSG_FIELD(GLOBAL)         \
+    MSG_FIELD(BEGIN_BLOCK)    \
+    MSG_FIELD(END_BLOCK)      \
+    MSG_FIELD(GLOBAL_PROTECT) \
+    MSG_FIELD(BEGIN_MP_MODES) \
+    MSG_FIELD(END_MP_MODES)
 
 typedef enum {
 #define MSG_FIELD(x) MSGKEY_##x,
     POLICY_DEF_KEYS
 #undef MSG_FIELD
-    MSGKEY_BAD_FIELD
+        MSGKEY_BAD_FIELD
 } msg_id;
 
-
 char *
-parse_policy_line(char *start, BOOL *done, msg_id *mfield,
-                  WCHAR *param, WCHAR *value, SIZE_T maxchars);
+parse_policy_line(char *start, BOOL *done, msg_id *mfield, WCHAR *param, WCHAR *value,
+                  SIZE_T maxchars);
 
 DWORD
 parse_policy(char *policy_definition,
              /* OUT */ ConfigGroup **config,
-             /* OUT */ ConfigGroup **options,
-             BOOL validating);
+             /* OUT */ ConfigGroup **options, BOOL validating);
 
 #ifdef __cplusplus
 }

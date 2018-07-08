@@ -44,8 +44,8 @@
  * implementation for Linux.
  */
 
-#include "configure.h"  /* for UNIX */
-#include "globals_shared.h"  /* for DYNAMORIO_VAR_EXE_PATH */
+#include "configure.h"      /* for UNIX */
+#include "globals_shared.h" /* for DYNAMORIO_VAR_EXE_PATH */
 
 #include <errno.h>
 #include <unistd.h>
@@ -62,8 +62,7 @@ main(int argc, char **argv)
     char *app;
 
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <libdynamorio.so> <app path> [argv...]\n",
-                argv[0]);
+        fprintf(stderr, "Usage: %s <libdynamorio.so> <app path> [argv...]\n", argv[0]);
         return -1;
     }
 
@@ -92,7 +91,7 @@ main(int argc, char **argv)
      * We pass libdr_so as the filename.  For argv, we pass the rest of the
      * command line starting with the app's path.
      */
-    setenv(DYNAMORIO_VAR_EXE_PATH, app, true/*overwrite*/);
+    setenv(DYNAMORIO_VAR_EXE_PATH, app, true /*overwrite*/);
     r = execv(libdr_so, &argv[2]);
     /* Only returns on error. */
     fprintf(stderr, "%s: can't exec %s\n", argv[0], app);

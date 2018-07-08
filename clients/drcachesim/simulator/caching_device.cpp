@@ -37,8 +37,10 @@
 #include "../common/utils.h"
 #include <assert.h>
 
-caching_device_t::caching_device_t() :
-    blocks(NULL), stats(NULL), prefetcher(NULL)
+caching_device_t::caching_device_t()
+    : blocks(NULL)
+    , stats(NULL)
+    , prefetcher(NULL)
 {
     /* Empty. */
 }
@@ -49,17 +51,16 @@ caching_device_t::~caching_device_t()
         return;
     for (int i = 0; i < num_blocks; i++)
         delete blocks[i];
-    delete [] blocks;
+    delete[] blocks;
 }
 
 bool
 caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
                        caching_device_t *parent_, caching_device_stats_t *stats_,
                        prefetcher_t *prefetcher_, bool inclusive_,
-                       const std::vector<caching_device_t*>& children_)
+                       const std::vector<caching_device_t *> &children_)
 {
-    if (!IS_POWER_OF_2(associativity_) ||
-        !IS_POWER_OF_2(block_size_) ||
+    if (!IS_POWER_OF_2(associativity_) || !IS_POWER_OF_2(block_size_) ||
         !IS_POWER_OF_2(num_blocks_) ||
         // Assuming caching device block size is at least 4 bytes
         block_size_ < 4)
@@ -82,7 +83,7 @@ caching_device_t::init(int associativity_, int block_size_, int num_blocks_,
     stats = stats_;
     prefetcher = prefetcher_;
 
-    blocks = new caching_device_block_t* [num_blocks];
+    blocks = new caching_device_block_t *[num_blocks];
     init_blocks();
 
     last_tag = TAG_INVALID; // sentinel
@@ -102,7 +103,7 @@ caching_device_t::request(const memref_t &memref_in)
     // We support larger sizes to improve the IPC perf.
     // This means that one memref could touch multiple blocks.
     // We treat each block separately for statistics purposes.
-    addr_t final_addr = memref_in.data.addr + memref_in.data.size - 1/*avoid overflow*/;
+    addr_t final_addr = memref_in.data.addr + memref_in.data.size - 1 /*avoid overflow*/;
     addr_t final_tag = compute_tag(final_addr);
     addr_t tag = compute_tag(memref_in.data.addr);
 
@@ -111,7 +112,7 @@ caching_device_t::request(const memref_t &memref_in)
         // Make sure last_tag is properly in sync.
         assert(tag != TAG_INVALID &&
                tag == get_caching_device_block(last_block_idx, last_way).tag);
-        stats->access(memref_in, true/*hit*/);
+        stats->access(memref_in, true /*hit*/);
         if (parent != NULL)
             parent->stats->child_access(memref_in, true);
         access_update(last_block_idx, last_way);
@@ -129,7 +130,7 @@ caching_device_t::request(const memref_t &memref_in)
 
         for (way = 0; way < associativity; ++way) {
             if (get_caching_device_block(block_idx, way).tag == tag) {
-                stats->access(memref, true/*hit*/);
+                stats->access(memref, true /*hit*/);
                 if (parent != NULL)
                     parent->stats->child_access(memref, true);
                 break;
@@ -137,7 +138,7 @@ caching_device_t::request(const memref_t &memref_in)
         }
 
         if (way == associativity) {
-            stats->access(memref, false/*miss*/);
+            stats->access(memref, false /*miss*/);
             missed = true;
             // If no parent we assume we get the data from main memory
             if (parent != NULL) {
@@ -154,8 +155,7 @@ caching_device_t::request(const memref_t &memref_in)
                 loaded_blocks++;
             } else if (inclusive && !children.empty()) {
                 for (auto &child : children) {
-                    child->invalidate(
-                        get_caching_device_block(block_idx, way).tag);
+                    child->invalidate(get_caching_device_block(block_idx, way).tag);
                 }
             }
             get_caching_device_block(block_idx, way).tag = tag;
@@ -171,7 +171,7 @@ caching_device_t::request(const memref_t &memref_in)
         if (tag + 1 <= final_tag) {
             addr_t next_addr = (tag + 1) << block_size_bits;
             memref.data.addr = next_addr;
-            memref.data.size = final_addr - next_addr + 1/*undo the -1*/;
+            memref.data.size = final_addr - next_addr + 1 /*undo the -1*/;
         }
 
         // Optimization: remember last tag

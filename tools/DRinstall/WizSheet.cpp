@@ -39,8 +39,8 @@
 #include "WizSheet.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
-#undef THIS_FILE
+#    define new DEBUG_NEW
+#    undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
 
@@ -49,8 +49,7 @@ static char THIS_FILE[] = __FILE__;
 
 IMPLEMENT_DYNAMIC(CWizardSheet, CPropertySheet)
 
-CWizardSheet::CWizardSheet(UINT nIDCaption, CWnd* pParentWnd,
-                           UINT iSelectPage)
+CWizardSheet::CWizardSheet(UINT nIDCaption, CWnd *pParentWnd, UINT iSelectPage)
     : CPropertySheet(nIDCaption, pParentWnd, iSelectPage)
 {
     // add all the pages of the wizard
@@ -61,8 +60,7 @@ CWizardSheet::CWizardSheet(UINT nIDCaption, CWnd* pParentWnd,
     m_psh.dwFlags &= ~(PSH_HASHELP);
 }
 
-CWizardSheet::CWizardSheet(LPCTSTR pszCaption, CWnd* pParentWnd,
-                           UINT iSelectPage)
+CWizardSheet::CWizardSheet(LPCTSTR pszCaption, CWnd *pParentWnd, UINT iSelectPage)
     : CPropertySheet(pszCaption, pParentWnd, iSelectPage)
 
 {
@@ -78,11 +76,10 @@ CWizardSheet::~CWizardSheet()
 {
 }
 
-
 BEGIN_MESSAGE_MAP(CWizardSheet, CPropertySheet)
-    //{{AFX_MSG_MAP(CWizardSheet)
-    // NOTE - the ClassWizard will add and remove mapping macros here.
-    //}}AFX_MSG_MAP
+//{{AFX_MSG_MAP(CWizardSheet)
+// NOTE - the ClassWizard will add and remove mapping macros here.
+//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////

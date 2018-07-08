@@ -31,16 +31,16 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h"
-#include <windows.h>
-
+#    include "tools.h"
+#    include <windows.h>
 
 static int count = 0;
-int foo();
+int
+foo();
 
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {
         count++;
@@ -55,17 +55,18 @@ main(void)
 {
     INIT();
 
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 
     print("start of test, count = %d\n", count);
-    count+=foo();
+    count += foo();
     print("end of test, count = %d\n", count);
 
     return 0;
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 /* int foo()
@@ -81,5 +82,5 @@ GLOBAL_LABEL(FUNCNAME:)
 END_FUNC(FUNCNAME)
 
 END_FILE
+/* clang-format on */
 #endif
-

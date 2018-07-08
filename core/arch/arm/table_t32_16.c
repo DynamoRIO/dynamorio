@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
@@ -39,6 +39,9 @@
 /****************************************************************************
  * T32.16 table for outside IT block
  */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /* top-level table */
 /* Indexed by bits 15:12*/
@@ -299,3 +302,5 @@ const instr_info_t T32_16_ext_bits_6_4[][8] = {
       {INVALID,    0xbf70, "(bad)",     xx, xx, xx, xx, xx, no, x,       NA},
     },
 };
+
+/* clang-format on */

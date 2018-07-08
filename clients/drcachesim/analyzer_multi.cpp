@@ -37,13 +37,13 @@
 #include "common/utils.h"
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
-# include "reader/compressed_file_reader.h"
+#    include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
 #include "tracer/raw2trace_directory.h"
 #include "tracer/raw2trace.h"
 #ifdef DEBUG
-# include "tests/trace_invariants.h"
+#    include "tests/trace_invariants.h"
 #endif
 
 analyzer_multi_t::analyzer_multi_t()
@@ -62,8 +62,8 @@ analyzer_multi_t::analyzer_multi_t()
     }
     if (!op_indir.get_value().empty()) {
         // XXX: better to put in app name + pid, or rely on staying inside subdir?
-        std::string tracefile = op_indir.get_value() + std::string(DIRSEP) +
-            TRACE_FILENAME;
+        std::string tracefile =
+            op_indir.get_value() + std::string(DIRSEP) + TRACE_FILENAME;
         file_reader_t *existing = new file_reader_t(tracefile.c_str());
         if (existing->is_complete())
             trace_iter = existing;
@@ -90,7 +90,7 @@ analyzer_multi_t::analyzer_multi_t()
             // This is the most likely cause of the error.
             // XXX: Even better would be to propagate the mkfifo errno here.
             error_string = "try removing stale pipe file " +
-                reinterpret_cast<ipc_reader_t*>(trace_iter)->get_pipe_name();
+                reinterpret_cast<ipc_reader_t *>(trace_iter)->get_pipe_name();
 #endif
         }
     } else {
@@ -111,7 +111,6 @@ analyzer_multi_t::~analyzer_multi_t()
     destroy_analysis_tools();
 }
 
-
 bool
 analyzer_multi_t::create_analysis_tools()
 {
@@ -119,7 +118,7 @@ analyzer_multi_t::create_analysis_tools()
     /* FIXME i#2006: create a single top-level tool for multi-component
      * tools.
      */
-    tools = new analysis_tool_t*[max_num_tools];
+    tools = new analysis_tool_t *[max_num_tools];
     tools[0] = drmemtrace_analysis_tool_create();
     if (tools[0] != NULL && !*tools[0]) {
         error_string = tools[0]->get_error_string();
@@ -152,5 +151,5 @@ analyzer_multi_t::destroy_analysis_tools()
         return;
     for (int i = 0; i < num_tools; i++)
         delete tools[i];
-    delete [] tools;
+    delete[] tools;
 }

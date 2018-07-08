@@ -33,17 +33,17 @@
 
 #ifndef ASM_CODE_ONLY
 
-#include "tools.h"
+#    include "tools.h"
 
-#ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-# include <stdlib.h>
-#endif
+#    ifdef UNIX
+#        include <unistd.h>
+#        include <signal.h>
+#        include <ucontext.h>
+#        include <errno.h>
+#        include <stdlib.h>
+#    endif
 
-#include <setjmp.h>
+#    include <setjmp.h>
 
 static SIGJMP_BUF mark;
 static int count = 0;
@@ -58,11 +58,11 @@ print_fault_code(unsigned char *pc)
      *   0x0000000000403059  48 c7 c1 07 00 00 00 mov    $0x00000007 -> %rcx
      *   0x0000000000403060  89 01                mov    %eax -> (%rcx)
      */
-    print("fault bytes are %02x %02x preceded by %02x %02x %02x %02x\n",
-          *pc, *(pc+1), *(pc-4), *(pc-3), *(pc-2), *(pc-1));
+    print("fault bytes are %02x %02x preceded by %02x %02x %02x %02x\n", *pc, *(pc + 1),
+          *(pc - 4), *(pc - 3), *(pc - 2), *(pc - 1));
 }
 
-#ifdef UNIX
+#    ifdef UNIX
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -75,24 +75,24 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     exit(-1);
 }
-#else
-# include <windows.h>
+#    else
+#        include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
         pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
             EXCEPTION_ILLEGAL_INSTRUCTION)
             print("Illegal instruction\n");
-        print_fault_code((unsigned char *)
-                         pExceptionInfo->ExceptionRecord->ExceptionAddress);
+        print_fault_code(
+            (unsigned char *)pExceptionInfo->ExceptionRecord->ExceptionAddress);
         SIGLONGJMP(mark, count++);
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
-#endif
+#    endif
 
 static byte global_buf[8];
 
@@ -129,13 +129,18 @@ sandbox_direction_flag(void);
  * @ILT+10(_sandbox_last_byte):
  *   0040100F: E9 E6 9F 02 00     jmp         _sandbox_last_byte
  */
-void sandbox_cross_page_no_ilt(void);
-void last_byte_jmp_no_ilt(void);
-void sandbox_fault_no_ilt(void);
-void sandbox_illegal_no_ilt(void);
-void sandbox_direction_flag_no_ilt(void);
+void
+sandbox_cross_page_no_ilt(void);
+void
+last_byte_jmp_no_ilt(void);
+void
+sandbox_fault_no_ilt(void);
+void
+sandbox_illegal_no_ilt(void);
+void
+sandbox_direction_flag_no_ilt(void);
 
-#ifdef X64
+#    ifdef X64
 /* Reduced from V8, which uses x64 absolute addresses in code which ends up
  * being sandboxed.  The original code is not self-modifying, but is flushed
  * enough to trigger sandboxing.
@@ -147,11 +152,11 @@ void sandbox_direction_flag_no_ilt(void);
 void
 test_mov_abs(void)
 {
-    char *rwx_mem = allocate_mem(4096, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    char *rwx_mem = allocate_mem(4096, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     char *pc = rwx_mem;
     void *(*do_selfmod_abs)(void);
     void *out_val = 0;
-    uint64 *global_addr = (uint64 *) pc;
+    uint64 *global_addr = (uint64 *)pc;
 
     /* Put a 64-bit 0xdeadbeefdeadbeef into mapped memory.  Typically most
      * memory from mmap is outside the low 4 GB, so this makes sure that any
@@ -165,24 +170,24 @@ test_mov_abs(void)
      * same page as the data to trigger sandboxing.
      */
     do_selfmod_abs = (void *(*)(void))pc;
-    *pc++ = 0x48;  /* REX.W */
-    *pc++ = 0xa1;  /* movabs load -> rax */
+    *pc++ = 0x48; /* REX.W */
+    *pc++ = 0xa1; /* movabs load -> rax */
     *(uint64 **)pc = global_addr;
     pc += 8;
-    *pc++ = 0x48;  /* REX.W */
-    *pc++ = 0xa3;  /* movabs store <- rax */
+    *pc++ = 0x48; /* REX.W */
+    *pc++ = 0xa3; /* movabs store <- rax */
     *(uint64 **)pc = global_addr;
     pc += 8;
-    *pc++ = 0xc3;  /* ret */
+    *pc++ = 0xc3; /* ret */
 
     print("before do_selfmod_abs\n");
     out_val = do_selfmod_abs();
-    print(PFX"\n", out_val);
+    print(PFX "\n", out_val);
     /* rwx_mem is leaked, tools.h doesn't give us a way to free it. */
 }
 
 /* FIXME: Test reladdr. */
-#endif /* X64 */
+#    endif /* X64 */
 
 static void
 test_code_self_mod(void)
@@ -190,7 +195,7 @@ test_code_self_mod(void)
     /* Make the code writable.  Note that main and the exception handler
      * __except_handler3 are on this page too.
      */
-    protect_mem(code_self_mod, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(code_self_mod, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     print("Executed 0x%x iters\n", code_self_mod(0xabcd));
     print("Executed 0x%x iters\n", code_self_mod(0x1234));
     print("Executed 0x%x iters\n", code_self_mod(0xef01));
@@ -201,7 +206,7 @@ cross_page_check(int a)
 {
     int i;
     for (i = 0; i < sizeof(global_buf); i++) {
-        if (a != global_buf[i])  /* Can't do more than 256 iters. */
+        if (a != global_buf[i]) /* Can't do more than 256 iters. */
             print("global_buf not set right");
     }
 }
@@ -212,7 +217,7 @@ test_sandbox_cross_page(void)
     int i;
     print("start cross-page test\n");
     /* Make sandbox_cross_page code writable */
-    protect_mem(sandbox_cross_page_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_cross_page_no_ilt, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     for (i = 0; i < 50; i++) {
         sandbox_cross_page(i, global_buf);
     }
@@ -228,21 +233,21 @@ test_sandbox_last_byte(void)
     int r;
     byte *last_byte = (byte *)last_byte_jmp_no_ilt + 1;
     if (!ALIGNED(last_byte, PAGE_SIZE)) {
-        print("laste_byte is not page-aligned: "PFX"\n"
+        print("laste_byte is not page-aligned: " PFX "\n"
               "Instruction sizes in sandbox_last_byte must be wrong.\n",
               last_byte);
     }
     print("start last byte test\n");
-    protect_mem(last_byte, PAGE_SIZE, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(last_byte, PAGE_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     /* Execute self-modifying code to create a sandboxed page. */
     make_last_byte_selfmod();
     r = sandbox_last_byte();
-    print("sandbox_last_byte: %d\n", r);  /* Should be 0. */
+    print("sandbox_last_byte: %d\n", r); /* Should be 0. */
 
     /* Make the relative jmp offset zero, so it goes to the next instruction. */
     *last_byte = 0;
     r = sandbox_last_byte();
-    print("sandbox_last_byte: %d\n", r);  /* Should be 1. */
+    print("sandbox_last_byte: %d\n", r); /* Should be 1. */
     print("end last byte test\n");
 }
 
@@ -257,12 +262,12 @@ test_sandbox_fault(void)
 {
     int i;
     print("start fault test\n");
-    protect_mem(sandbox_fault_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_fault_no_ilt, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     i = SIGSETJMP(mark);
     if (i == 0)
         sandbox_fault(42);
     /* i#1441: test max writes with illegal instr */
-    protect_mem(sandbox_illegal_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_illegal_no_ilt, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     i = SIGSETJMP(mark);
     if (i == 0)
         sandbox_illegal_instr(42);
@@ -272,7 +277,7 @@ test_sandbox_fault(void)
 static void
 test_sandbox_cti_tgt(void)
 {
-    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     sandbox_cti_tgt();
     print("end selfmod loop test\n");
 }
@@ -281,7 +286,7 @@ static void
 test_sandbox_direction_flag(void)
 {
     /* i#2155: test sandboxing with direction flag set */
-    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     sandbox_direction_flag();
     print("end selfmod direction flag test\n");
 }
@@ -291,18 +296,18 @@ main(void)
 {
     INIT();
 
-#ifdef UNIX
+#    ifdef UNIX
     intercept_signal(SIGSEGV, signal_handler, false);
     intercept_signal(SIGILL, signal_handler, false);
-#else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
-#endif
+#    else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
+#    endif
 
     test_code_self_mod();
 
-#ifdef X64
+#    ifdef X64
     test_mov_abs();
-#endif
+#    endif
 
     test_sandbox_cross_page();
 
@@ -318,8 +323,9 @@ main(void)
 
 #else /* ASM_CODE_ONLY */
 
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
 
+/* clang-format off */
 START_FILE
 
 DECL_EXTERN(cross_page_check)
@@ -586,5 +592,6 @@ END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
 END_FILE
+/* clang-format on */
 
 #endif /* ASM_CODE_ONLY */

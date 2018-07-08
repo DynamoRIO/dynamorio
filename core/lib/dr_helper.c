@@ -37,7 +37,7 @@
  * rather than putting this into say asm_shared.asm).
  */
 
-#include "../globals.h"   /* just to disable warning C4206 about an empty file */
+#include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 WEAK void
 internal_error(const char *file, int line, const char *expr)
@@ -145,8 +145,7 @@ is_shebang(INOUT char *str, OUT char **interp, OUT char **arg)
 }
 
 bool
-find_script_interpreter(OUT script_interpreter_t *result,
-                        IN const char *fname,
+find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count))
 {
     const int max_line_len = SCRIPT_LINE_MAX;

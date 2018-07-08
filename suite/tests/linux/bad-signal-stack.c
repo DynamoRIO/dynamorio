@@ -37,7 +37,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#define ALT_STACK_SIZE  (SIGSTKSZ*4)
+#define ALT_STACK_SIZE (SIGSTKSZ * 4)
 
 static void
 signal_handler(int sig)
@@ -54,7 +54,7 @@ main(int argc, char *argv[])
 
     /* Make an alternate stack that's not writable. */
     stack_t sigstack;
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
@@ -64,7 +64,7 @@ main(int argc, char *argv[])
     /* Test checking for SA_ONSTACK: this one should be delivered to the main
      * stack and should work.
      */
-    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler, false);
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
@@ -72,8 +72,8 @@ main(int argc, char *argv[])
      * crash with SIGSEGV, which we handle on the main stack and whose
      * resumption is the same post-kill point, letting us continue.
      */
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
-    intercept_signal(SIGUSR1, (handler_3_t) signal_handler, true);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 

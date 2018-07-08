@@ -38,10 +38,10 @@
 #include <math.h>
 
 #ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
+#    include <unistd.h>
+#    include <signal.h>
+#    include <ucontext.h>
+#    include <errno.h>
 #endif
 
 #define ITERS 1500000
@@ -60,28 +60,29 @@ signal_handler(int sig)
 /* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
  * our batch runs
  */
-# include <windows.h>
+#    include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION)
         print("Got a seg fault\n");
-# if VERBOSE
+#    if VERBOSE
     print("Exception occurred, process about to die silently\n");
-# endif
+#    endif
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 #endif
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
 
 #ifdef UNIX
-    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
+    intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #endif
 
     print("Segfault about to happen\n");

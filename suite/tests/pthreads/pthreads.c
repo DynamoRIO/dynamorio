@@ -32,7 +32,8 @@
  */
 
 /* Build with:
- * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd -liberty
+ * gcc -o pthreads pthreads.c -lpthread -D_REENTRANT -I../lib -L../lib -ldynamo -ldl -lbfd
+ * -liberty
  */
 
 #include <stdio.h>
@@ -46,7 +47,7 @@ volatile double intervals; /* How many intervals? */
 void *
 process(void *arg)
 {
-    char *id = (char *) arg;
+    char *id = (char *)arg;
     register double width, localsum;
     register int i;
     register int iproc;
@@ -54,14 +55,14 @@ process(void *arg)
 #if VERBOSE
     fprintf(stderr, "\tthread %s starting\n", id);
 #endif
-    iproc = (*((char *) arg) - '0');
+    iproc = (*((char *)arg) - '0');
 
     /* Set width */
     width = 1.0 / intervals;
 
     /* Do the local computations */
     localsum = 0;
-    for (i=iproc; i<intervals; i+=2) {
+    for (i = iproc; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
     }
@@ -75,14 +76,14 @@ process(void *arg)
 #if VERBOSE
     fprintf(stderr, "\tthread %s exiting\n", id);
 #endif
-    return(NULL);
+    return (NULL);
 }
 
 int
 main(int argc, char **argv)
 {
     pthread_t thread0, thread1;
-    void * retval;
+    void *retval;
 
 #if 0
     /* Get the number of intervals */
@@ -106,8 +107,7 @@ main(int argc, char **argv)
     }
 
     /* Join (collapse) the two threads */
-    if (pthread_join(thread0, &retval) ||
-        pthread_join(thread1, &retval)) {
+    if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
         fprintf(stderr, "%s: thread join failed\n", argv[0]);
         exit(1);
     }

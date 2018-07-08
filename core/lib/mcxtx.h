@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,10 +37,11 @@
  * structs for internal and external use.
  *
  */
+/* clang-format off */
 /* START INCLUDE */
 
 #ifdef AARCHXX
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
     /* We want to simplify things by keeping this in register lists order.
@@ -49,7 +50,7 @@
      * or a 32-byte or 64-byte cache line.
      * Any changes in order here must be mirrored in arch/arm.asm offsets.
      */
-# endif
+#    endif
     reg_t r0;   /**< The r0 register. */
     reg_t r1;   /**< The r1 register. */
     reg_t r2;   /**< The r2 register. */
@@ -63,7 +64,7 @@
     reg_t r10;  /**< The r10 register. */
     reg_t r11;  /**< The r11 register. */
     reg_t r12;  /**< The r12 register. */
-# ifdef X64 /* 64-bit */
+#    ifdef X64 /* 64-bit */
     reg_t r13;  /**< The r13 register. */
     reg_t r14;  /**< The r14 register. */
     reg_t r15;  /**< The r15 register. */
@@ -103,7 +104,7 @@
             uint fpsr; /**< Floating-Point Status Register. */
         }; /**< AArch64 flag registers. */
     }; /**< The anonymous union of alternative names for flag registers. */
-# else /* 32-bit */
+#    else /* 32-bit */
     union {
         reg_t r13; /**< The r13 register. */
         reg_t sp;  /**< The stack pointer register.*/
@@ -126,7 +127,7 @@
         uint apsr; /**< The application program status registers in AArch32. */
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
-# endif /* 64/32-bit */
+#    endif /* 64/32-bit */
     /**
      * The SIMD registers.  We would probably be ok if we did not preserve the
      * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
@@ -135,7 +136,7 @@
      */
     dr_simd_t simd[NUM_SIMD_SLOTS];
 #else /* X86 */
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
     /* Our inlined ibl uses eax-edx, so we place them together to fit
@@ -148,7 +149,7 @@
      * UPDATE: actually we now use TLS for scratch slots.
      * See the list above of places that assume dr_mcxt_t layout.
      */
-# endif
+#    endif
     union {
         reg_t xdi; /**< The platform-independent name for full rdi/edi register. */
         reg_t IF_X64_ELSE(rdi, edi); /**< The platform-dependent name for
@@ -189,7 +190,7 @@
         reg_t IF_X64_ELSE(rax, eax); /**< The platform-dependent name for
                                           rax/eax register. */
     }; /**< The anonymous union of alternative names for rax/eax register. */
-# ifdef X64
+#    ifdef X64
     reg_t r8;  /**< The r8 register. \note For 64-bit DR builds only. */
     reg_t r9;  /**< The r9 register. \note For 64-bit DR builds only. */
     reg_t r10; /**< The r10 register. \note For 64-bit DR builds only. */
@@ -198,7 +199,7 @@
     reg_t r13; /**< The r13 register. \note For 64-bit DR builds only. */
     reg_t r14; /**< The r14 register. \note For 64-bit DR builds only. */
     reg_t r15; /**< The r15 register. \note For 64-bit DR builds only. */
-# endif
+#    endif
     union {
         reg_t xflags; /**< The platform-independent name for
                            full rflags/eflags register. */
@@ -230,7 +231,7 @@
      * contain the full ymm register values; otherwise, the top 128
      * bits of each slot will be undefined.
      */
-# ifdef AVOID_API_EXPORT
+#    ifdef AVOID_API_EXPORT
     /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
      * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
      * mmx0-7 are also caller-saved on linux but we assume they're not
@@ -243,6 +244,6 @@
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
      * DrMi#665: we now preserve all of the xmm registers.
      */
-# endif
+#    endif
     dr_ymm_t ymm[NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

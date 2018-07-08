@@ -70,7 +70,7 @@ thread_routine(void *arg)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
     rc = sigemptyset(&act.sa_mask); /* do not block signals within handler */
     ASSERT_NOERR(rc);
     act.sa_flags = SA_SIGINFO;
@@ -95,7 +95,7 @@ main(int argc, char **argv)
     struct timespec sleeptime;
 
     pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&condvar,  NULL);
+    pthread_cond_init(&condvar, NULL);
 
     if (pthread_create(&thread, NULL, thread_routine, NULL) != 0) {
         perror("failed to create thread");

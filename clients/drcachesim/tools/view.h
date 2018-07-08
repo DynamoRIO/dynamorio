@@ -40,16 +40,17 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
-class view_t : public analysis_tool_t
-{
- public:
-    view_t(const std::string& module_file_path, uint64_t skip_refs,
-           uint64_t sim_refs, const std::string& syntax, unsigned int verbose);
+class view_t : public analysis_tool_t {
+public:
+    view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
+           const std::string &syntax, unsigned int verbose);
     virtual ~view_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     void *dcontext;
     raw2trace_t *raw2trace;
     raw2trace_directory_t directory;

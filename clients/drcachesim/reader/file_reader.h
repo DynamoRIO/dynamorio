@@ -43,19 +43,21 @@
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
 
-class file_reader_t : public reader_t
-{
- public:
+class file_reader_t : public reader_t {
+public:
     file_reader_t();
     explicit file_reader_t(const char *file_name);
     virtual ~file_reader_t();
-    virtual bool init();
-    virtual bool is_complete();
+    virtual bool
+    init();
+    virtual bool
+    is_complete();
 
- protected:
-    virtual trace_entry_t * read_next_entry();
+protected:
+    virtual trace_entry_t *
+    read_next_entry();
 
- private:
+private:
     std::ifstream fstream;
     trace_entry_t entry_copy;
 };

@@ -49,10 +49,11 @@
 // where function_name can contain spaces (for instance, C++ namespace prefix)
 #define PATTERN_SEPARATOR "|"
 
-#define NOTIFY(level, ...) do {            \
-    if (op_verbose.get_value() >= (level)) \
-        dr_fprintf(STDERR, __VA_ARGS__);   \
-} while (0)
+#define NOTIFY(level, ...)                     \
+    do {                                       \
+        if (op_verbose.get_value() >= (level)) \
+            dr_fprintf(STDERR, __VA_ARGS__);   \
+    } while (0)
 
 static int func_trace_init_count;
 
@@ -61,7 +62,7 @@ static drvector_t funcs;
 static std::string funcs_str, funcs_str_sep;
 
 typedef struct {
-    char name[2048];  // probably the maximum length of C/C++ symbol
+    char name[2048]; // probably the maximum length of C/C++ symbol
     int id;
     int arg_num;
 } func_metadata_t;
@@ -69,8 +70,7 @@ typedef struct {
 static func_metadata_t *
 create_func_metadata(std::string name, int id, int arg_num)
 {
-    func_metadata_t *f =
-        (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
+    func_metadata_t *f = (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
     strncpy(f->name, name.c_str(), BUFFER_SIZE_ELEMENTS(f->name));
     f->id = id;
     f->arg_num = arg_num;
@@ -99,8 +99,7 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
         return;
 
     size_t idx = (size_t)*user_data;
-    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
-                                                               (uint)idx);
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
@@ -120,8 +119,7 @@ func_post_hook(void *wrapcxt, void *user_data)
         return;
 
     size_t idx = (size_t)user_data;
-    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
-                                                               (uint)idx);
+    func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
@@ -132,19 +130,17 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 {
     if (drcontext == NULL || mod == NULL)
         return;
-    dr_log(NULL, DR_LOG_ALL, 1,
-           "instru_funcs_module_load start=%p, mod->full_path=%s\n",
+    dr_log(NULL, DR_LOG_ALL, 1, "instru_funcs_module_load start=%p, mod->full_path=%s\n",
            mod->start, mod->full_path);
 
     for (size_t i = 0; i < funcs.entries; i++) {
-        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs,
-                                                                   (uint)i);
+        func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)i);
         size_t offset;
-        if (drsym_lookup_symbol(mod->full_path, f->name, &offset,
-                                DRSYM_DEMANGLE) == DRSYM_SUCCESS) {
+        if (drsym_lookup_symbol(mod->full_path, f->name, &offset, DRSYM_DEMANGLE) ==
+            DRSYM_SUCCESS) {
             dr_log(NULL, DR_LOG_ALL, 1,
-                   "Found and trace func name=%s, id=%d, arg_num=%d\n",
-                   f->name, f->id, f->arg_num);
+                   "Found and trace func name=%s, id=%d, arg_num=%d\n", f->name, f->id,
+                   f->arg_num);
             app_pc f_pc = mod->start + offset;
             drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)i, 0);
         }
@@ -160,8 +156,7 @@ split_by(std::string s, std::string sep)
         pos = s.find(sep);
         vec.push_back(s.substr(0, pos));
         s.erase(0, pos + sep.length());
-    }
-    while (pos != std::string::npos);
+    } while (pos != std::string::npos);
     return vec;
 }
 
@@ -194,8 +189,7 @@ func_trace_init(func_trace_append_entry_t append_entry_)
 
     auto op_values = split_by(funcs_str, funcs_str_sep);
     std::set<int> existing_ids;
-    if (!drvector_init(&funcs, (uint)op_values.size(), false,
-                       free_func_entry)) {
+    if (!drvector_init(&funcs, (uint)op_values.size(), false, free_func_entry)) {
         DR_ASSERT(false);
         goto failed;
     }
@@ -204,16 +198,20 @@ func_trace_init(func_trace_append_entry_t append_entry_)
     for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
         if (items.size() != 3) {
-            NOTIFY(0, "Warning: -record_function or -record_heap_value was not"
-                      " passed a triplet, input=%s\n", funcs_str.c_str());
+            NOTIFY(0,
+                   "Warning: -record_function or -record_heap_value was not"
+                   " passed a triplet, input=%s\n",
+                   funcs_str.c_str());
             continue;
         }
         std::string name = items[0];
         int id = atoi(items[1].c_str());
         int arg_num = atoi(items[2].c_str());
         if (existing_ids.find(id) != existing_ids.end()) {
-            NOTIFY(0, "Warning: duplicated function id in -record_function or"
-                      " -record_heap_value, input=%s\n", funcs_str.c_str());
+            NOTIFY(0,
+                   "Warning: duplicated function id in -record_function or"
+                   " -record_heap_value, input=%s\n",
+                   funcs_str.c_str());
             continue;
         }
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",

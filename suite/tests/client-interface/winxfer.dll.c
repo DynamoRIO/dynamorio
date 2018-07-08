@@ -50,9 +50,9 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
-           info->source_mcontext == NULL ? 0 : info->source_mcontext->pc,
-           info->target_pc, info->target_xsp);
-    dr_mcontext_t mc = {sizeof(mc)};
+           info->source_mcontext == NULL ? 0 : info->source_mcontext->pc, info->target_pc,
+           info->target_xsp);
+    dr_mcontext_t mc = { sizeof(mc) };
     mc.flags = DR_MC_CONTROL;
     bool ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);
@@ -82,15 +82,14 @@ static bool
 exception_event(void *dcontext, dr_exception_t *excpt)
 {
     void *fault_address = (void *)excpt->record->ExceptionInformation[1];
-    dr_fprintf(STDERR,
-               "exception %x addr "PFX"\n",
-               excpt->record->ExceptionCode,
+    dr_fprintf(STDERR, "exception %x addr " PFX "\n", excpt->record->ExceptionCode,
                (ptr_uint_t)excpt->record->ExceptionInformation[1]);
     return true;
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_kernel_xfer_event(kernel_xfer_event);
     dr_register_exception_event(exception_event);

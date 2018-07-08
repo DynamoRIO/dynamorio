@@ -33,18 +33,20 @@
 
 #include "tools.h"
 
-
-void foo(void)
+void
+foo(void)
 {
     print("called foo()\n");
 }
 
-void bar(void)
+void
+bar(void)
 {
     print("called bar()\n");
 }
 
-int main(void)
+int
+main(void)
 {
     /* Kind of a hack, but seems to work: Use a nop to mark a call
      * instruction whose target address we can steal, and another nop

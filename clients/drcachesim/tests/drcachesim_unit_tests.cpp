@@ -41,11 +41,11 @@ make_test_knobs()
 {
     cache_simulator_knobs_t knobs;
     knobs.num_cores = 1;
-    knobs.L1I_size = 32*64;
-    knobs.L1D_size = 32*64;
+    knobs.L1I_size = 32 * 64;
+    knobs.L1D_size = 32 * 64;
     knobs.L1I_assoc = 32;
     knobs.L1D_assoc = 32;
-    knobs.LL_size = 32*64;
+    knobs.LL_size = 32 * 64;
     knobs.LL_assoc = 32;
     knobs.data_prefetcher = "none";
     return knobs;
@@ -134,7 +134,6 @@ unit_test_sim_refs()
         exit(1);
     }
 }
-
 
 int
 main(int argc, const char *argv[])

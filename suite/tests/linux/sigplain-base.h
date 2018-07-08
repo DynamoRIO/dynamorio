@@ -50,27 +50,26 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <sys/time.h> /* itimer */
-#include <string.h> /*  memset */
+#include <string.h>   /*  memset */
 
 #if USE_SIGSTACK
-# include <stdlib.h> /* malloc */
+#    include <stdlib.h> /* malloc */
 /* need more space if might get nested signals */
-# if USE_TIMER
-#  define ALT_STACK_SIZE  (SIGSTKSZ*4)
-# else
-#  define ALT_STACK_SIZE  (SIGSTKSZ*2)
-# endif
+#    if USE_TIMER
+#        define ALT_STACK_SIZE (SIGSTKSZ * 4)
+#    else
+#        define ALT_STACK_SIZE (SIGSTKSZ * 2)
+#    endif
 #endif
 
 #if USE_TIMER
 /* need to run long enough to get itimer hit */
-# define ITERS 3500000
+#    define ITERS 3500000
 #else
-# define ITERS 500000
+#    define ITERS 500000
 #endif
 
 static int a[ITERS];
-
 
 /* strategy: anything that won't be the same across multiple runs,
  * hide inside #if VERBOSE.
@@ -100,7 +99,7 @@ custom_intercept_signal(int sig, handler_1_t handler)
     int rc;
     struct sigaction act;
 
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
 #if BLOCK_IN_HANDLER
     rc = sigfillset(&act.sa_mask); /* block all signals within handler */
 #else
@@ -114,8 +113,8 @@ custom_intercept_signal(int sig, handler_1_t handler)
     ASSERT_NOERR(rc);
 }
 
-
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     int i, j, rc;
@@ -137,15 +136,15 @@ int main(int argc, char *argv[])
 #endif
 
 #if USE_SIGSTACK
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
-# if VERBOSE
-    print("Set up sigstack: 0x%08x - 0x%08x\n",
-          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
-# endif
+#    if VERBOSE
+    print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
+          sigstack.ss_sp + sigstack.ss_size);
+#    endif
 #endif
 
     custom_intercept_signal(SIGSEGV, signal_handler);
@@ -160,11 +159,11 @@ int main(int argc, char *argv[])
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);
 
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
         j = (i << 4) / (i | 0x38);
         a[i] += j;

@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /*
  * services.h
  *
@@ -41,12 +40,9 @@
 #ifndef _DETERMINA_SERVICES_H_
 #define _DETERMINA_SERVICES_H_
 
-
 typedef DWORD ServiceHandle;
 
 #define INVALID_SERVICE_HANDLE 0xffffffff
-
-
 
 /* Loads services information from the registry and sets up
  *  ArakshaService handles; must be called before using any service
@@ -70,10 +66,8 @@ get_service_name(ServiceHandle service);
 const WCHAR *
 get_service_display_name(ServiceHandle service);
 
-
 /* the callback should return FALSE to abort the walk */
-typedef BOOL (*services_callback)(ServiceHandle service,
-                                  void **param);
+typedef BOOL (*services_callback)(ServiceHandle service, void **param);
 
 /* enumeration callback for all of the services on the system */
 DWORD
@@ -99,7 +93,5 @@ add_dependent_service(ServiceHandle service, ServiceHandle requiredService);
 
 DWORD
 reset_dependent_services(ServiceHandle service);
-
-
 
 #endif

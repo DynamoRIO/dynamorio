@@ -35,8 +35,9 @@
 #include <iostream>
 #include <string.h>
 
-trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose) :
-    knob_offline(offline), knob_verbose(verbose)
+trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose)
+    : knob_offline(offline)
+    , knob_verbose(verbose)
 {
     memset(&prev_instr, 0, sizeof(prev_instr));
     memset(&prev_marker, 0, sizeof(prev_marker));
@@ -55,10 +56,12 @@ trace_invariants_t::process_memref(const memref_t &memref)
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         if (knob_verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: " <<
-                " @" << (void *)memref.instr.addr <<
-                ((memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ? " non-fetched" : "")
-                << " instr x" << memref.instr.size << "\n";
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << " @" << (void *)memref.instr.addr
+                      << ((memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH)
+                              ? " non-fetched"
+                              : "")
+                      << " instr x" << memref.instr.size << "\n";
         }
         // Invariant: offline traces guarantee that a branch target must immediately
         // follow the branch w/ no intervening trace switch.
@@ -69,27 +72,27 @@ trace_invariants_t::process_memref(const memref_t &memref)
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
-        if (prev_instr.instr.addr != 0/*first*/ &&
+        if (prev_instr.instr.addr != 0 /*first*/ &&
             prev_instr.instr.tid == memref.instr.tid &&
             !type_is_instr_branch(prev_instr.instr.type)) {
-            assert(// Regular fall-through.
-                   (prev_instr.instr.addr + prev_instr.instr.size == memref.instr.addr) ||
-                   // String loop.
-                   (prev_instr.instr.addr == memref.instr.addr &&
-                    memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ||
-                   // Kernel-mediated.
-                   (prev_marker.instr.tid == memref.instr.tid &&
-                    (prev_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                     prev_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                   prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
+            assert( // Regular fall-through.
+                (prev_instr.instr.addr + prev_instr.instr.size == memref.instr.addr) ||
+                // String loop.
+                (prev_instr.instr.addr == memref.instr.addr &&
+                 memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ||
+                // Kernel-mediated.
+                (prev_marker.instr.tid == memref.instr.tid &&
+                 (prev_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                  prev_marker.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+                prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER);
         }
         prev_instr = memref;
     }
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         if (knob_verbose >= 3) {
-            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: " <<
-                "marker type " << memref.marker.marker_type <<
-                " value " << memref.marker.marker_value << "\n";
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << "marker type " << memref.marker.marker_type << " value "
+                      << memref.marker.marker_value << "\n";
         }
         prev_marker = memref;
         // Clear prev_instr to avoid a branch-gap failure above for things like

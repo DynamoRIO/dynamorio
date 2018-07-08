@@ -39,17 +39,19 @@
 #include "tools.h" /* for print() */
 
 #ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
-# include <stdlib.h>
+#    include <unistd.h>
+#    include <signal.h>
+#    include <ucontext.h>
+#    include <errno.h>
+#    include <stdlib.h>
 #endif
 
 #include <setjmp.h>
 
-static void foo(void)
-{ /* nothing: just a marker */ }
+static void
+foo(void)
+{ /* nothing: just a marker */
+}
 
 SIGJMP_BUF mark;
 
@@ -70,36 +72,38 @@ signal_handler(int sig)
 
 #else
 
-# include <windows.h>
+#    include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+our_top_handler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-#if VERBOSE
+#    if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
-        print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress,
-            (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
-            pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-#endif
+        print("\tPC " PFX " tried to %s address " PFX "\n",
+              pExceptionInfo->ExceptionRecord->ExceptionAddress,
+              (pExceptionInfo->ExceptionRecord->ExceptionInformation[0] == 0) ? "read"
+                                                                              : "write",
+              pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+#    endif
         count++;
         print("Access violation, instance %d\n", count);
         SIGLONGJMP(mark, count);
     }
-    print("Exception "PFX" occurred, process about to die silently\n",
+    print("Exception " PFX " occurred, process about to die silently\n",
           pExceptionInfo->ExceptionRecord->ExceptionCode);
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
 #endif
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     int i, j;
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #endif
 
     /* Each test in cleancall.dll.c crashes at the end */
@@ -110,7 +114,8 @@ int main(int argc, char *argv[])
             /* use 2 NOPs + call to indicate it's ok to do the tests
              * now that the handlers are all set up
              */
-            NOP; NOP;
+            NOP;
+            NOP;
             foo();
             print("did not crash\n");
         }

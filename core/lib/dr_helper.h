@@ -44,50 +44,59 @@
  * include globals_shared.h.
  */
 #ifndef _DR_API_H_
-# include "globals_shared.h"
+#    include "globals_shared.h"
 #endif
 
 #ifdef UNIX
-# ifdef MACOS
+#    ifdef MACOS
 /* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
-int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
-int64 dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
-ptr_int_t dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
-# else
-ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
-# endif
+int64
+dynamorio_syscall(uint sysnum, uint num_args, ...);
+int64
+dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
+ptr_int_t
+dynamorio_mach_syscall(uint sysnum, uint num_args, ...);
+#    else
+ptr_int_t
+dynamorio_syscall(uint sysnum, uint num_args, ...);
+#    endif
 #endif
 
 #ifdef AARCH64
-void clear_icache(void *beg, void *end);
+void
+clear_icache(void *beg, void *end);
 #endif
 
-void dr_fpu_exception_init(void);
+void
+dr_fpu_exception_init(void);
 
 #ifdef X86
 /* returns the value of mmx register #index in val */
-void get_mmx_val(OUT uint64 *val, uint index);
+void
+get_mmx_val(OUT uint64 *val, uint index);
 #endif
 
 #ifdef WINDOWS
 /* no intrinsic available, and no inline asm support, so we have asm routines */
-byte * get_frame_ptr(void);
-byte * get_stack_ptr(void);
+byte *
+get_frame_ptr(void);
+byte *
+get_stack_ptr(void);
 #endif
 
 #ifdef UNIX
-# if defined(LINUX)
+#    if defined(LINUX)
 /* Linux allows five levels of script interpreter and truncates the first line
  * of the file after 127 bytes.
  */
-#  define SCRIPT_RECURSION_MAX 5
-#  define SCRIPT_LINE_MAX 127
-# elif defined(MACOS)
-#  define SCRIPT_RECURSION_MAX 1
-#  define SCRIPT_LINE_MAX 512
-# else
-#  error NYI
-# endif
+#        define SCRIPT_RECURSION_MAX 5
+#        define SCRIPT_LINE_MAX 127
+#    elif defined(MACOS)
+#        define SCRIPT_RECURSION_MAX 1
+#        define SCRIPT_LINE_MAX 512
+#    else
+#        error NYI
+#    endif
 typedef struct _script_interpreter_t {
     /* number of additional arguments */
     int argc;
@@ -109,8 +118,7 @@ typedef struct _script_interpreter_t {
  * executable.
  */
 bool
-find_script_interpreter(OUT script_interpreter_t *result,
-                        IN const char *fname,
+find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count));
 #endif /* UNIX */
 

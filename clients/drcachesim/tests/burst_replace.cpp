@@ -49,13 +49,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAGIC_VALUE ((void*)0xdeadbeefUL)
+#define MAGIC_VALUE ((void *)0xdeadbeefUL)
 
 bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -79,8 +79,7 @@ local_open_file(const char *fname, uint mode_flags)
      * functions for transparency.
      */
     file_t f = dr_open_file(fname, mode_flags);
-    dr_fprintf(STDERR, "open file %s with flag 0x%x @ %d\n",
-               fname, mode_flags, f);
+    dr_fprintf(STDERR, "open file %s with flag 0x%x @ %d\n", fname, mode_flags, f);
     return f;
 }
 
@@ -91,8 +90,8 @@ local_read_file(file_t file, void *data, size_t count)
      * functions for transparency.
      */
     ssize_t res = dr_read_file(file, data, count);
-    dr_fprintf(STDERR, "reading %u bytes from file %d to @ " PFX
-               ", actual read %d bytes\n",
+    dr_fprintf(STDERR,
+               "reading %u bytes from file %d to @ " PFX ", actual read %d bytes\n",
                count, file, data, res);
     return res;
 }
@@ -105,8 +104,8 @@ local_write_file(file_t file, const void *data, size_t size)
      * functions for transparency.
      */
     ssize_t res = dr_write_file(file, data, size);
-    dr_fprintf(STDERR, "%d: writing %u bytes @ " PFX
-               " to file %d, actual write %d bytes\n",
+    dr_fprintf(STDERR,
+               "%d: writing %u bytes @ " PFX " to file %d, actual write %d bytes\n",
                count, size, data, file, res);
     /* Assuming it is a single-threaded app, we do not worry about
      * racy access on count.
@@ -135,8 +134,7 @@ local_create_dir(const char *dir)
     /* This is called within the DR context, so we use DR
      * functions for transparency.
      */
-    dr_fprintf(STDERR, "create dir %s %s\n",
-               res ? "successfully" : "failed to", dir);
+    dr_fprintf(STDERR, "create dir %s %s\n", res ? "successfully" : "failed to", dir);
     return res;
 }
 
@@ -149,14 +147,14 @@ load_cb(module_data_t *module)
 static int
 print_cb(void *data, char *dst, size_t max_len)
 {
-    return dr_snprintf(dst, max_len, PFX",", data);
+    return dr_snprintf(dst, max_len, PFX ",", data);
 }
 
 static const char *
 parse_cb(const char *src, OUT void **data)
 {
     const char *res;
-    if (dr_sscanf(src, PIFX",", data) != 1)
+    if (dr_sscanf(src, PIFX ",", data) != 1)
         return NULL;
     res = strchr(src, ',');
     return (res == NULL) ? NULL : res + 1;
@@ -165,8 +163,7 @@ parse_cb(const char *src, OUT void **data)
 static std::string
 process_cb(drmodtrack_info_t *info, void *data, void *user_data)
 {
-    assert((app_pc)data == info->start ||
-           info->containing_index != info->index);
+    assert((app_pc)data == info->start || info->containing_index != info->index);
     assert(user_data == MAGIC_VALUE);
     return "";
 }
@@ -191,8 +188,8 @@ post_process()
          */
         raw2trace_directory_t dir(output_path, output_trace);
         raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, NULL, NULL);
-        std::string error = raw2trace.handle_custom_data(parse_cb, process_cb,
-                                                         MAGIC_VALUE, free_cb);
+        std::string error =
+            raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
         assert(error.empty());
         error = raw2trace.do_module_parsing();
         assert(error.empty());
@@ -202,8 +199,8 @@ post_process()
      */
     raw2trace_directory_t dir(output_path, output_trace);
     raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL, 0);
-    std::string error = raw2trace.handle_custom_data(parse_cb, process_cb,
-                                                     MAGIC_VALUE, free_cb);
+    std::string error =
+        raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());
     error = raw2trace.do_conversion();
     assert(error.empty());
@@ -214,7 +211,7 @@ main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static int iter_start = outer_iters/3;
+    static int iter_start = outer_iters / 3;
     static int iter_stop = iter_start + 4;
 
     if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'"))

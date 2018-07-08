@@ -53,10 +53,10 @@ extern "C" {
  * DR's TLS field routines directly.
  */
 #ifndef dr_set_tls_field
-# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 #endif
 
 /***************************************************************************
@@ -121,7 +121,7 @@ drx_aflags_are_dead(instr_t *where);
 /** Flags for \p drx_insert_counter_update */
 enum {
     DRX_COUNTER_64BIT = 0x01, /**< 64-bit counter is used for update. */
-    DRX_COUNTER_LOCK  = 0x10, /**< Counter update is atomic. */
+    DRX_COUNTER_LOCK = 0x10,  /**< Counter update is atomic. */
 };
 
 DR_EXPORT
@@ -157,8 +157,9 @@ DR_EXPORT
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, IF_NOT_X86_(dr_spill_slot_t slot2)
-                          void *addr, int value, uint flags);
+                          dr_spill_slot_t slot,
+                          IF_NOT_X86_(dr_spill_slot_t slot2) void *addr, int value,
+                          uint flags);
 
 /***************************************************************************
  * SOFT KILLS
@@ -226,7 +227,7 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
  * \note This flag value must not conflict with any DR_FILE_* flag value
  * used by dr_open_file().
  */
-#define DRX_FILE_SKIP_OPEN  0x8000
+#define DRX_FILE_SKIP_OPEN 0x8000
 
 DR_EXPORT
 /**
@@ -271,9 +272,9 @@ DR_EXPORT
  * \note May be called without calling drx_init().
  */
 file_t
-drx_open_unique_appid_file(const char *dir, ptr_int_t id,
-                           const char *prefix, const char *suffix,
-                           uint extra_flags, char *result OUT, size_t result_len);
+drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
+                           const char *suffix, uint extra_flags, char *result OUT,
+                           size_t result_len);
 
 DR_EXPORT
 /**
@@ -290,9 +291,8 @@ DR_EXPORT
  * \note May be called without calling drx_init().
  */
 bool
-drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
-                          const char *prefix, const char *suffix,
-                          char *result OUT, size_t result_len);
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
+                          const char *suffix, char *result OUT, size_t result_len);
 
 /***************************************************************************
  * BUFFER FILLING LIBRARY
@@ -315,7 +315,7 @@ enum {
      * Buffer size to be specified in drx_buf_create_circular_buffer() in order
      * to make use of the fast circular buffer optimization.
      */
-    DRX_BUF_FAST_CIRCULAR_BUFSZ = (1<<16)
+    DRX_BUF_FAST_CIRCULAR_BUFSZ = (1 << 16)
 };
 
 /**
@@ -327,9 +327,9 @@ enum {
  */
 enum {
     /** Priority of drx_buf thread init event */
-    DRMGR_PRIORITY_THREAD_INIT_DRX_BUF       =  -7500,
+    DRMGR_PRIORITY_THREAD_INIT_DRX_BUF = -7500,
     /** Priority of drx_buf thread exit event */
-    DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF       =  -7500,
+    DRMGR_PRIORITY_THREAD_EXIT_DRX_BUF = -7500,
 };
 
 /** Name of drx_buf thread init priority for buffer initialization. */
@@ -361,8 +361,7 @@ DR_EXPORT
  * \return NULL if unsuccessful, a valid opaque struct pointer if successful.
  */
 drx_buf_t *
-drx_buf_create_trace_buffer(size_t buffer_size,
-                            drx_buf_full_cb_t full_cb);
+drx_buf_create_trace_buffer(size_t buffer_size, drx_buf_full_cb_t full_cb);
 
 DR_EXPORT
 /** Cleans up the buffer associated with \p buf. \returns whether successful. */
@@ -406,8 +405,8 @@ DR_EXPORT
  */
 bool
 drx_buf_insert_buf_store(void *drcontext, drx_buf_t *buf, instrlist_t *ilist,
-                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch,
-                         opnd_t opnd, opnd_size_t opsz, short offset);
+                         instr_t *where, reg_id_t buf_ptr, reg_id_t scratch, opnd_t opnd,
+                         opnd_size_t opsz, short offset);
 
 DR_EXPORT
 /**

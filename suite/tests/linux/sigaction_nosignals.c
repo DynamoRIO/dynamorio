@@ -53,7 +53,7 @@
  * If we add non-RT tests we could likely run some of those but with caveats
  * for the 8 signals.
  */
-# error Android is not supported
+#    error Android is not supported
 #endif
 
 #define SIGMAX 64
@@ -193,10 +193,10 @@ test_rw(int signum, unsigned char *act, unsigned char *oldact, size_t sigsetsize
     memrand(test_rw_sys, sizeof(test_rw_sys));
     memcpy(test_rw_sim, test_rw_sys, sizeof(test_rw_sys));
     ret_sys = sys_sigaction(signum, act, oldact, sigsetsize);
-    ret_sim = sim_sigaction(signum,
-                            act == NULL ? NULL : test_rw_sim + (act - test_rw_sys),
-                            oldact == NULL ? NULL : test_rw_sim + (oldact - test_rw_sys),
-                            sigsetsize, prot_rw, prot_rw);
+    ret_sim =
+        sim_sigaction(signum, act == NULL ? NULL : test_rw_sim + (act - test_rw_sys),
+                      oldact == NULL ? NULL : test_rw_sim + (oldact - test_rw_sys),
+                      sigsetsize, prot_rw, prot_rw);
     assert(ret_sys == ret_sim);
     assert(memcmp(test_rw_sys, test_rw_sim, sizeof(test_rw_sys)) == 0);
 }
@@ -229,8 +229,7 @@ tests_rw(void)
 
     /* Try some random values. */
     for (i = 0; i < 1000; i++) {
-        test_rw(rand() % (SIGMAX + 2),
-                rand() % 2 == 0 ? NULL : base + rand() % SIGACTSZ,
+        test_rw(rand() % (SIGMAX + 2), rand() % 2 == 0 ? NULL : base + rand() % SIGACTSZ,
                 rand() % 2 == 0 ? NULL : base + rand() % SIGACTSZ,
                 SIGSETSIZE + (rand() % 10 == 0 ? 1 : 0));
     }
@@ -275,19 +274,15 @@ test_prot(int signum, int t1, int t2, size_t sigsetsize)
         mprotect_nofail(test_prot_mem1, sim_array_size, prot1);
     if (t2 != 0)
         mprotect_nofail(test_prot_mem2, sim_array_size, prot2);
-    ret_sys = sys_sigaction(signum,
-                            t1 == 0 ? NULL : test_prot_mem1 + MARGIN,
-                            t2 == 0 ? NULL : test_prot_mem2 + MARGIN,
-                            sigsetsize);
+    ret_sys = sys_sigaction(signum, t1 == 0 ? NULL : test_prot_mem1 + MARGIN,
+                            t2 == 0 ? NULL : test_prot_mem2 + MARGIN, sigsetsize);
     if (t1 != 0)
         mprotect_nofail(test_prot_mem1, sim_array_size, PROT_READ | PROT_WRITE);
     if (t2 != 0)
         mprotect_nofail(test_prot_mem2, sim_array_size, PROT_READ | PROT_WRITE);
 
-    ret_sim = sim_sigaction(signum,
-                            t1 == 0 ? NULL : sim_new + MARGIN,
-                            t2 == 0 ? NULL : sim_old + MARGIN,
-                            sigsetsize, prot1, prot2);
+    ret_sim = sim_sigaction(signum, t1 == 0 ? NULL : sim_new + MARGIN,
+                            t2 == 0 ? NULL : sim_old + MARGIN, sigsetsize, prot1, prot2);
 
     assert(ret_sys == ret_sim ||
            /* 32-bit on a 64-bit kernel returns -ENXIO for invalid oact (i#1984) */

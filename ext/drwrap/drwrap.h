@@ -78,7 +78,6 @@ DR_EXPORT
 void
 drwrap_exit(void);
 
-
 /***************************************************************************
  * FUNCTION REPLACING
  */
@@ -91,9 +90,9 @@ drwrap_exit(void);
  * instrumentation pass ordering.
  */
 enum {
-    DRMGR_PRIORITY_APP2APP_DRWRAP  = -500, /**< Priority of drwrap_replace() */
-    DRMGR_PRIORITY_INSERT_DRWRAP   =  500, /**< Priority of drwrap_wrap() */
-    DRMGR_PRIORITY_FAULT_DRWRAP    =  500, /**< Priority of fault handling event */
+    DRMGR_PRIORITY_APP2APP_DRWRAP = -500, /**< Priority of drwrap_replace() */
+    DRMGR_PRIORITY_INSERT_DRWRAP = 500,   /**< Priority of drwrap_wrap() */
+    DRMGR_PRIORITY_FAULT_DRWRAP = 500,    /**< Priority of fault handling event */
 };
 
 /**
@@ -103,13 +102,13 @@ enum {
 #define DRMGR_PRIORITY_NAME_DRWRAP "drwrap"
 
 /** Spill slot used to store user_data parameter for drwrap_replace_native() */
-#define DRWRAP_REPLACE_NATIVE_DATA_SLOT    SPILL_SLOT_2
+#define DRWRAP_REPLACE_NATIVE_DATA_SLOT SPILL_SLOT_2
 
 /**
  * Spill slot used to store application stack address (or DR_REG_LR for ARM)
  * for drwrap_replace_native().
  */
-#define DRWRAP_REPLACE_NATIVE_SP_SLOT      SPILL_SLOT_3
+#define DRWRAP_REPLACE_NATIVE_SP_SLOT SPILL_SLOT_3
 
 DR_EXPORT
 /**
@@ -269,7 +268,6 @@ DR_EXPORT
 void
 drwrap_replace_native_fini(void *drcontext);
 
-
 /***************************************************************************
  * FUNCTION WRAPPING
  */
@@ -321,8 +319,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drwrap_wrap(app_pc func,
-            void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_wrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
             void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 /**
@@ -331,7 +328,7 @@ drwrap_wrap(app_pc func,
  */
 typedef enum {
     /** Provided for convenience when calling drwrap_wrap_ex() with no flags. */
-    DRWRAP_FLAGS_NONE             = 0x00,
+    DRWRAP_FLAGS_NONE = 0x00,
     /**
      * When a Windows exception occurs, all
      * post-call callbacks for all live wrapped functions on the wrap
@@ -341,7 +338,7 @@ typedef enum {
      * that particular callback has been bypassed, but those
      * heuristics are not guaranteed.
      */
-    DRWRAP_UNWIND_ON_EXCEPTION    = 0x01,
+    DRWRAP_UNWIND_ON_EXCEPTION = 0x01,
 } drwrap_wrap_flags_t;
 
 /* offset of drwrap_callconv_t in drwrap_wrap_flags_t */
@@ -354,48 +351,48 @@ typedef enum {
  */
 typedef enum {
     /** The AMD64 ABI calling convention. */
-    DRWRAP_CALLCONV_AMD64          = 0x01000000,
+    DRWRAP_CALLCONV_AMD64 = 0x01000000,
     /** The Microsoft x64 calling convention. */
-    DRWRAP_CALLCONV_MICROSOFT_X64  = 0x02000000,
+    DRWRAP_CALLCONV_MICROSOFT_X64 = 0x02000000,
     /** The ARM calling convention. */
-    DRWRAP_CALLCONV_ARM            = 0x03000000,
+    DRWRAP_CALLCONV_ARM = 0x03000000,
     /** The IA-32 cdecl calling convention. */
-    DRWRAP_CALLCONV_CDECL          = 0x04000000,
+    DRWRAP_CALLCONV_CDECL = 0x04000000,
     /* For the purposes of drwrap, stdcall is an alias to cdecl, since the
      * only difference is whether the caller or callee cleans up the stack.
      */
     /** The Microsoft IA-32 stdcall calling convention. */
-    DRWRAP_CALLCONV_STDCALL        = DRWRAP_CALLCONV_CDECL,
+    DRWRAP_CALLCONV_STDCALL = DRWRAP_CALLCONV_CDECL,
     /** The IA-32 fastcall calling convention. */
-    DRWRAP_CALLCONV_FASTCALL       = 0x05000000,
+    DRWRAP_CALLCONV_FASTCALL = 0x05000000,
     /** The Microsoft IA-32 thiscall calling convention. */
-    DRWRAP_CALLCONV_THISCALL       = 0x06000000,
+    DRWRAP_CALLCONV_THISCALL = 0x06000000,
     /** The ARM AArch64 calling convention. */
-    DRWRAP_CALLCONV_AARCH64        = 0x07000000,
+    DRWRAP_CALLCONV_AARCH64 = 0x07000000,
 #ifdef X64
-# ifdef AARCH64
+#    ifdef AARCH64
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AARCH64,
-# elif defined(UNIX) /* x64 */
+#    elif defined(UNIX) /* x64 */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_AMD64,
-# else /* WINDOWS x64 */
+#    else               /* WINDOWS x64 */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_MICROSOFT_X64,
-# endif
+#    endif
 #else /* 32-bit */
-# ifdef ARM
+#    ifdef ARM
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_ARM,
-# else /* x86: UNIX or WINDOWS */
+#    else /* x86: UNIX or WINDOWS */
     /** Default calling convention for the platform. */
     DRWRAP_CALLCONV_DEFAULT = DRWRAP_CALLCONV_CDECL,
-# endif
+#    endif
 #endif
     /** The platform-specific calling convention for a vararg function. */
     DRWRAP_CALLCONV_VARARG = DRWRAP_CALLCONV_DEFAULT,
     /* Mask for isolating the calling convention from other flags. */
-    DRWRAP_CALLCONV_MASK           = 0xff000000
+    DRWRAP_CALLCONV_MASK = 0xff000000
 } drwrap_callconv_t;
 
 DR_EXPORT
@@ -415,10 +412,9 @@ DR_EXPORT
  * to DRWRAP_CALLCONV_DEFAULT.
  */
 bool
-drwrap_wrap_ex(app_pc func,
-               void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
-               void (*post_func_cb)(void *wrapcxt, void *user_data),
-               void *user_data, uint flags);
+drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
+               void (*post_func_cb)(void *wrapcxt, void *user_data), void *user_data,
+               uint flags);
 
 DR_EXPORT
 /**
@@ -431,8 +427,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drwrap_unwrap(app_pc func,
-              void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_unwrap(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
               void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 DR_EXPORT
@@ -675,7 +670,7 @@ typedef enum {
      * drwrap_set_global_flags() sets this flag, no later call can
      * remove it.
      */
-    DRWRAP_SAFE_READ_RETADDR    = 0x01,
+    DRWRAP_SAFE_READ_RETADDR = 0x01,
     /**
      * By default function arguments stored in memory are read and
      * written directly.  A more conservative and safe approach would
@@ -685,7 +680,7 @@ typedef enum {
      * drwrap_set_global_flags() sets this flag, no later call can
      * remove it.
      */
-    DRWRAP_SAFE_READ_ARGS       = 0x02,
+    DRWRAP_SAFE_READ_ARGS = 0x02,
     /**
      * If this flag is set, then a leaner wrapping mechanism is used
      * with lower overhead.  However, several features are not
@@ -704,7 +699,7 @@ typedef enum {
      * restrictions.
      * Once set, this flag cannot be unset.
      */
-    DRWRAP_NO_FRILLS            = 0x04,
+    DRWRAP_NO_FRILLS = 0x04,
     /**
      * If this flag is set, then a leaner clean call is used to invoke
      * wrap pre callbacks.  This clean call assumes that all wrap requests
@@ -724,7 +719,7 @@ typedef enum {
      * restrictions.
      * Once set, this flag cannot be unset.
      */
-    DRWRAP_FAST_CLEANCALLS      = 0x08,
+    DRWRAP_FAST_CLEANCALLS = 0x08,
 } drwrap_global_flags_t;
 
 DR_EXPORT
@@ -736,15 +731,13 @@ DR_EXPORT
 bool
 drwrap_set_global_flags(drwrap_global_flags_t flags);
 
-
 DR_EXPORT
 /**
  * \return whether \p func is currently wrapped with \p pre_func_cb
  * and \p post_func_cb.
  */
 bool
-drwrap_is_wrapped(app_pc func,
-                  void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
+drwrap_is_wrapped(app_pc func, void (*pre_func_cb)(void *wrapcxt, OUT void **user_data),
                   void (*post_func_cb)(void *wrapcxt, void *user_data));
 
 DR_EXPORT

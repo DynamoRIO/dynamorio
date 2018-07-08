@@ -57,13 +57,13 @@ extern "C" {
 
 /** Success code for each drreg operation */
 typedef enum {
-    DRREG_SUCCESS,                  /**< Operation succeeded. */
-    DRREG_ERROR,                    /**< Operation failed. */
-    DRREG_ERROR_INVALID_PARAMETER,  /**< Operation failed: invalid parameter */
+    DRREG_SUCCESS,                     /**< Operation succeeded. */
+    DRREG_ERROR,                       /**< Operation failed. */
+    DRREG_ERROR_INVALID_PARAMETER,     /**< Operation failed: invalid parameter */
     DRREG_ERROR_FEATURE_NOT_AVAILABLE, /**< Operation failed: not available */
-    DRREG_ERROR_REG_CONFLICT,       /**< Operation failed: register conflict */
-    DRREG_ERROR_IN_USE,             /**< Operation failed: resource already in use */
-    DRREG_ERROR_OUT_OF_SLOTS,       /**< Operation failed: no more TLS slots */
+    DRREG_ERROR_REG_CONFLICT,          /**< Operation failed: register conflict */
+    DRREG_ERROR_IN_USE,                /**< Operation failed: resource already in use */
+    DRREG_ERROR_OUT_OF_SLOTS,          /**< Operation failed: no more TLS slots */
     /**
      * Operation failed: app value not available.
      * Set \p conservative in \p drreg_options_t to avoid this error.
@@ -84,11 +84,11 @@ typedef enum {
  */
 enum {
     /** Priority of drreg analysis and pre-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_HIGH =  -7500,
+    DRMGR_PRIORITY_INSERT_DRREG_HIGH = -7500,
     /** Priority of drreg post-insert */
-    DRMGR_PRIORITY_INSERT_DRREG_LOW  =   7500,
+    DRMGR_PRIORITY_INSERT_DRREG_LOW = 7500,
     /** Priority of drreg fault handling event */
-    DRMGR_PRIORITY_FAULT_DRREG       =  -7500,
+    DRMGR_PRIORITY_FAULT_DRREG = -7500,
 };
 
 /**
@@ -100,7 +100,7 @@ enum {
 /**
  * Name of drreg instrumentation pass priorities for analysis and insert
  * steps that are meant to take place after any tool actions.
-  */
+ */
 #define DRMGR_PRIORITY_NAME_DRREG_LOW "drreg_low"
 
 /**
@@ -316,7 +316,7 @@ typedef enum {
      * registers needed inside control flow prior to any forward branches).  Such
      * scratch registers are then restored prior to each application instruction.
      */
-    DRREG_IGNORE_CONTROL_FLOW            = 0x002,
+    DRREG_IGNORE_CONTROL_FLOW = 0x002,
 } drreg_bb_properties_t;
 
 DR_EXPORT
@@ -404,8 +404,8 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
-drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where,
-                    reg_id_t app_reg, reg_id_t dst_reg);
+drreg_get_app_value(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t app_reg,
+                    reg_id_t dst_reg);
 
 DR_EXPORT
 /**
@@ -431,8 +431,8 @@ DR_EXPORT
  * any values that were already restored are not undone.
  */
 drreg_status_t
-drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         opnd_t opnd, INOUT reg_id_t *swap);
+drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t opnd,
+                         INOUT reg_id_t *swap);
 
 DR_EXPORT
 /**
@@ -557,7 +557,7 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_unreserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          reg_id_t reg);
+                         reg_id_t reg);
 
 DR_EXPORT
 /**
@@ -595,7 +595,6 @@ DR_EXPORT
 drreg_status_t
 drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                                 bool *restore OUT, reg_id_t *reg_spilled OUT);
-
 
 /*@}*/ /* end doxygen group */
 

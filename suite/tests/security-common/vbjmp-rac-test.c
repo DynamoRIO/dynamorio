@@ -35,10 +35,10 @@
 #include <math.h>
 
 #ifdef UNIX
-# include <unistd.h>
-# include <signal.h>
-# include <ucontext.h>
-# include <errno.h>
+#    include <unistd.h>
+#    include <signal.h>
+#    include <ucontext.h>
+#    include <errno.h>
 #endif
 
 #include "tools.h" /* for print() */
@@ -62,18 +62,17 @@ vbpop()
 {
     print("in vbpop\n");
 #ifdef UNIX
-    __asm__ volatile (
-            "push    $bad_target\n"
-            "jmp     some_func\n"
-       "some_func:\n"
-            "call bar\n"
-            // this call needed to get the RET in its own fragment
-            // otherwise we actually match the loose pattern in at_vbjmp_exception()
-            // which is very similar to what's happening here in at_vbpop_exception()
-            "ret\n"
-       "bad_target:\n"
-            "xor %eax,%eax\n"
-            );
+    __asm__ volatile(
+        "push    $bad_target\n"
+        "jmp     some_func\n"
+        "some_func:\n"
+        "call bar\n"
+        // this call needed to get the RET in its own fragment
+        // otherwise we actually match the loose pattern in at_vbjmp_exception()
+        // which is very similar to what's happening here in at_vbpop_exception()
+        "ret\n"
+        "bad_target:\n"
+        "xor %eax,%eax\n");
 #else
     __asm {
             push    offset bad_target
@@ -92,13 +91,11 @@ void
 vbjmp()
 {
 #ifdef UNIX
-    __asm__ volatile (
-            "mov     $0x38,%eax\n"
-            "cmp     $0xc033,%ax\n"
-            "mov     $0x1d6600,%edx\n"
-            "push    $foo\n"
-            "ret"
-            );
+    __asm__ volatile("mov     $0x38,%eax\n"
+                     "cmp     $0xc033,%ax\n"
+                     "mov     $0x1d6600,%edx\n"
+                     "push    $foo\n"
+                     "ret");
 #else
     __asm {
             mov     eax,0x38
@@ -110,15 +107,15 @@ vbjmp()
 #endif
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     int i;
-    unsigned char original670[] =
-"\xb8\x38\x00\x00\x00"       /* mov     eax,0x38 */
-"\x66\x3d\x33\xc0"           /* cmp     ax,0xc033 */
-"\xba\x00\x66\x1d\x00"       /* mov     edx,0x1d6600 */
-"\x68\xfc\xe4\x00\x65"       /* push    0x6500e4fc */
-"\xc3"                       /* ret */
+    unsigned char original670[] = "\xb8\x38\x00\x00\x00" /* mov     eax,0x38 */
+                                  "\x66\x3d\x33\xc0"     /* cmp     ax,0xc033 */
+                                  "\xba\x00\x66\x1d\x00" /* mov     edx,0x1d6600 */
+                                  "\x68\xfc\xe4\x00\x65" /* push    0x6500e4fc */
+                                  "\xc3"                 /* ret */
         ;
     INIT();
 

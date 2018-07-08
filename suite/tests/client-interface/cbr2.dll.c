@@ -35,42 +35,43 @@
 
 #define MINSERT instrlist_meta_preinsert
 
-static
-void thread_init_event(void *drcontext)
+static void
+thread_init_event(void *drcontext)
 {
     dr_set_tls_field(drcontext, NULL);
 }
 
-static
-void at_taken(app_pc targ_addr)
+static void
+at_taken(app_pc targ_addr)
 {
     void *drcontext = dr_get_current_drcontext();
     dr_set_tls_field(drcontext, targ_addr);
 }
 
-static
-void at_not_taken(app_pc fall_addr)
+static void
+at_not_taken(app_pc fall_addr)
 {
     void *drcontext = dr_get_current_drcontext();
     dr_set_tls_field(drcontext, fall_addr);
 }
 
-static
-void at_bb(app_pc bb_addr)
+static void
+at_bb(app_pc bb_addr)
 {
     void *drcontext = dr_get_current_drcontext();
     app_pc cbr_addr = dr_get_tls_field(drcontext);
 
     if (cbr_addr != NULL && cbr_addr != bb_addr) {
-        dr_fprintf(STDERR, "ERROR: expected branch to "PFX", but entered BB at "PFX"\n",
-                  cbr_addr, bb_addr);
+        dr_fprintf(STDERR,
+                   "ERROR: expected branch to " PFX ", but entered BB at " PFX "\n",
+                   cbr_addr, bb_addr);
     }
 
     dr_set_tls_field(drcontext, NULL);
 }
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
 
@@ -84,10 +85,9 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
     dr_prepare_for_call(drcontext, bb, instr);
 
-    MINSERT(bb, instr, INSTR_CREATE_push_imm
-            (drcontext, OPND_CREATE_INT32((ptr_uint_t)bb_addr)));
-    MINSERT(bb, instr, INSTR_CREATE_call
-            (drcontext, opnd_create_pc((void*)at_bb)));
+    MINSERT(bb, instr,
+            INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)bb_addr)));
+    MINSERT(bb, instr, INSTR_CREATE_call(drcontext, opnd_create_pc((void *)at_bb)));
 
     dr_cleanup_after_call(drcontext, bb, instr, 4);
 
@@ -95,7 +95,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         next_instr = instr_get_next(instr);
 
         if (instr_is_cbr(instr)) {
-            instr_t* jmp_ft;
+            instr_t *jmp_ft;
             app_pc targ, fall, instr_addr;
             opnd_t opnd;
 
@@ -107,10 +107,11 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
             dr_prepare_for_call(drcontext, bb, NULL);
 
-            MINSERT(bb, NULL, INSTR_CREATE_push_imm
-                    (drcontext, OPND_CREATE_INT32((ptr_uint_t)fall)));
-            MINSERT(bb, NULL, INSTR_CREATE_call
-                    (drcontext, opnd_create_pc((void*)at_not_taken)));
+            MINSERT(
+                bb, NULL,
+                INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)fall)));
+            MINSERT(bb, NULL,
+                    INSTR_CREATE_call(drcontext, opnd_create_pc((void *)at_not_taken)));
 
             dr_cleanup_after_call(drcontext, bb, NULL, 4);
 
@@ -128,18 +129,19 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
             dr_prepare_for_call(drcontext, bb, NULL);
 
-            MINSERT(bb, NULL, INSTR_CREATE_push_imm
-                    (drcontext, OPND_CREATE_INT32((ptr_uint_t)targ)));
-            MINSERT(bb, NULL, INSTR_CREATE_call
-                    (drcontext, opnd_create_pc((void*)at_taken)));
+            MINSERT(
+                bb, NULL,
+                INSTR_CREATE_push_imm(drcontext, OPND_CREATE_INT32((ptr_uint_t)targ)));
+            MINSERT(bb, NULL,
+                    INSTR_CREATE_call(drcontext, opnd_create_pc((void *)at_taken)));
 
             dr_cleanup_after_call(drcontext, bb, NULL, 4);
 
             /* jump to the original target block (this should
              * not be a meta-instruction). */
-            instrlist_preinsert(bb, NULL,
-                                INSTR_XL8(INSTR_CREATE_jmp
-                                          (drcontext, opnd_create_pc(targ)), targ));
+            instrlist_preinsert(
+                bb, NULL,
+                INSTR_XL8(INSTR_CREATE_jmp(drcontext, opnd_create_pc(targ)), targ));
 
             /*
              * Redirect the cbr to jump to our 'taken' callback.
@@ -164,7 +166,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);

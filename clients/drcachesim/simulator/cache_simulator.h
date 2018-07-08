@@ -42,9 +42,8 @@
 #include "cache_stats.h"
 #include "cache.h"
 
-class cache_simulator_t : public simulator_t
-{
- public:
+class cache_simulator_t : public simulator_t {
+public:
     // This constructor is used when the cache hierarchy is configured
     // using a set of knobs. It assumes a 2-level cache hierarchy with
     // private L1 data and instruction caches and a shared LLC.
@@ -55,15 +54,21 @@ class cache_simulator_t : public simulator_t
     cache_simulator_t(const std::string &config_file);
 
     virtual ~cache_simulator_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
     // Exposed to make it easy to test
-    bool check_warmed_up();
-    uint64_t remaining_sim_refs() const;
- protected:
+    bool
+    check_warmed_up();
+    uint64_t
+    remaining_sim_refs() const;
+
+protected:
     // Create a cache_t object with a specific replacement policy.
-    virtual cache_t *create_cache(const std::string& policy);
+    virtual cache_t *
+    create_cache(const std::string &policy);
 
     cache_simulator_knobs_t knobs;
 
@@ -73,11 +78,11 @@ class cache_simulator_t : public simulator_t
     cache_t **l1_dcaches;
 
     // The following unordered maps map a cache's name to a pointer to it.
-    std::unordered_map<std::string, cache_t*> llcaches;  // LLC(s)
-    std::unordered_map<std::string, cache_t*> other_caches;  // Non-L1, non-LLC caches
-    std::unordered_map<std::string, cache_t*> all_caches;  // All caches.
+    std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)
+    std::unordered_map<std::string, cache_t *> other_caches; // Non-L1, non-LLC caches
+    std::unordered_map<std::string, cache_t *> all_caches;   // All caches.
 
- private:
+private:
     bool is_warmed_up;
 };
 

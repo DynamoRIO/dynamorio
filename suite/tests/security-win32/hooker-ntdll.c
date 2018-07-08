@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,24 +34,24 @@
 /* case 2525 - hooker for LdrLoadDll or NtProtectVirtualMemory */
 
 /* one should use a CALL and the other should use a JMP
-*   just to be sure
-*
-*  FIXME: need to get this test also to be done like initapc.dll.c so that
-*  this all happens BEFORE we take control
-**/
+ *   just to be sure
+ *
+ *  FIXME: need to get this test also to be done like initapc.dll.c so that
+ *  this all happens BEFORE we take control
+ **/
 
 #include "tools.h"
 #include <windows.h>
 
-#define NAKED __declspec( naked )
+#define NAKED __declspec(naked)
 
 /* check for some unexpected behaviours with size = 5 and size = 0x1000, or even 0x2000 */
-enum {HOOK_SIZE = 0x1000};
+enum { HOOK_SIZE = 0x1000 };
 
 /*
  * NTSTATUS LdrLoadDll(LPCWSTR path_name, DWORD flags,
  *                     PUNICODE_STRING libname, HMODULE* hModule)
-*/
+ */
 
 NAKED
 hooker4()
@@ -60,11 +61,12 @@ hooker4()
         pushf
     }
     /* here we can do whatever we need to */
-
+    /* clang-format off */ /* work around clang-format bug */
     __asm {
         popf
         popa
     }
+    /* clang-format on */
 
     /* know the number of args */
     __asm {
@@ -81,10 +83,12 @@ hooker5()
     }
     /* here we can do whatever we need to */
 
+    /* clang-format off */ /* work around clang-format bug */
     __asm {
         popf
         popa
     }
+    /* clang-format on */
 
     /* know the number of args */
     __asm {
@@ -93,13 +97,13 @@ hooker5()
 }
 
 void
-do_hook(const char* hookfn, int args, int use_call)
+do_hook(const char *hookfn, int args, int use_call)
 {
     HANDLE ntdll = GetModuleHandle(TEXT("ntdll.DLL"));
-    unsigned char* hooktarget = (char*)GetProcAddress(ntdll, hookfn);
+    unsigned char *hooktarget = (char *)GetProcAddress(ntdll, hookfn);
 
-    DWORD old_code1 = *(DWORD*)hooktarget;
-    DWORD old_code2 = *(DWORD*)(hooktarget+1);
+    DWORD old_code1 = *(DWORD *)hooktarget;
+    DWORD old_code2 = *(DWORD *)(hooktarget + 1);
 
     DWORD size = HOOK_SIZE; /* although 5 bytes would have been just fine */
     DWORD prev = 0xbadcde;
@@ -107,87 +111,76 @@ do_hook(const char* hookfn, int args, int use_call)
 
     DWORD pc_rel_target;
 
-    enum {op_JMP  = 0xe9};
-    enum {op_CALL = 0xe8};
+    enum { op_JMP = 0xe9 };
+    enum { op_CALL = 0xe8 };
 
-    void* trampoline_target;
+    void *trampoline_target;
 
     if (use_call)
-        args += 1;                /* clean up addr of CALL */
+        args += 1; /* clean up addr of CALL */
 
     switch (args) {
-    case 4:
-        trampoline_target = hooker4; break;
-    case 5:
-        trampoline_target = hooker5; break;
-    default:
-        print("BAD args\n");
+    case 4: trampoline_target = hooker4; break;
+    case 5: trampoline_target = hooker5; break;
+    default: print("BAD args\n");
     }
 
     __try {
         *hooktarget = 0xba;
         print("bad: why is this writable?\n");
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
         print("ok: can't write\n");
     }
 
-    res = VirtualProtect(hooktarget,
-                         size,
-                         PAGE_EXECUTE_READWRITE,
-                         &prev);
-    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE="PFMT" prev="PFMT"\n",
-          hookfn, (hooktarget /* disabled */,0), size, (res /* eax noisy */, 0) , GetLastError(), prev);
+    res = VirtualProtect(hooktarget, size, PAGE_EXECUTE_READWRITE, &prev);
+    print("VirtualProtect(%s[" PFX "],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE=" PFMT
+          " prev=" PFMT "\n",
+          hookfn, (hooktarget /* disabled */, 0), size, (res /* eax noisy */, 0),
+          GetLastError(), prev);
 
 #ifdef VERBOSE
-    print("before hooking %s = %02x %02x %02x %02x %02x\n",
-          hookfn,
-          hooktarget[0], hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
+    print("before hooking %s = %02x %02x %02x %02x %02x\n", hookfn, hooktarget[0],
+          hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
 #endif
 
-    pc_rel_target =  (DWORD)trampoline_target - ((DWORD)hooktarget + 5); /* target = offset + cur pc + size*/
+    pc_rel_target = (DWORD)trampoline_target -
+        ((DWORD)hooktarget + 5); /* target = offset + cur pc + size*/
 
     __try {
         *hooktarget = use_call ? op_CALL : op_JMP;
-        *(DWORD*)(hooktarget+1) = pc_rel_target;
+        *(DWORD *)(hooktarget + 1) = pc_rel_target;
 
         /* now let's get smart here and see if hook worked */
 #ifdef VERBOSE
-        print("after  hooking %s = %02x %02x %02x %02x %02x\n",
-              hookfn,
-              hooktarget[0], hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
+        print("after  hooking %s = %02x %02x %02x %02x %02x\n", hookfn, hooktarget[0],
+              hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
 #endif
-        if (*(DWORD*)(hooktarget+1) != pc_rel_target)
+        if (*(DWORD *)(hooktarget + 1) != pc_rel_target)
             print("there be witches! what happened to my write?\n");
         else
             print("hooked %s\n", hookfn);
         /* FIXME: try it out and see what happens */
 
         /* restore */
-        *(DWORD*)hooktarget     = old_code1;
-        *(DWORD*)(hooktarget+1) = old_code2;
+        *(DWORD *)hooktarget = old_code1;
+        *(DWORD *)(hooktarget + 1) = old_code2;
 
         print("restored old code\n");
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
         print("bad: can't write, though made writable\n");
     }
 
-
     /* restore page permissoins now, could be optional */
-    res = VirtualProtect(hooktarget,
-                         size,
-                         PAGE_EXECUTE_READ,
-                         &prev);
-    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READ,...) = %d GLE="PFMT"\n",
-          hookfn, (hooktarget /* disabled */,0), size, (res /* eax noisy */, 0) , GetLastError());
-    print("old permissions ...prev="PFMT")\n", prev);
+    res = VirtualProtect(hooktarget, size, PAGE_EXECUTE_READ, &prev);
+    print("VirtualProtect(%s[" PFX "],%d,PAGE_EXECUTE_READ,...) = %d GLE=" PFMT "\n",
+          hookfn, (hooktarget /* disabled */, 0), size, (res /* eax noisy */, 0),
+          GetLastError());
+    print("old permissions ...prev=" PFMT ")\n", prev);
 
     __try {
         *hooktarget = 0xba;
         print("bad: why is this writable?\n");
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
         print("ok: can't write\n");
     }
 

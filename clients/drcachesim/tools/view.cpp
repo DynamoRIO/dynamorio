@@ -46,19 +46,22 @@
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
-view_tool_create(const std::string& module_file_path,
-                 uint64_t skip_refs, uint64_t sim_refs, const std::string& syntax,
-                 unsigned int verbose)
+view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
+                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
 {
     return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
 }
 
-view_t::view_t(const std::string& module_file_path,
-               uint64_t skip_refs, uint64_t sim_refs, const std::string& syntax,
-               unsigned int verbose) :
-    dcontext(nullptr), raw2trace(nullptr), directory(module_file_path),
-    knob_verbose(verbose), instr_count(0), knob_skip_refs(skip_refs),
-    knob_sim_refs(sim_refs), num_disasm_instrs(0)
+view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
+               const std::string &syntax, unsigned int verbose)
+    : dcontext(nullptr)
+    , raw2trace(nullptr)
+    , directory(module_file_path)
+    , knob_verbose(verbose)
+    , instr_count(0)
+    , knob_skip_refs(skip_refs)
+    , knob_sim_refs(sim_refs)
+    , num_disasm_instrs(0)
 {
     if (module_file_path.empty()) {
         error_string = "Module file path is missing";
@@ -66,7 +69,7 @@ view_t::view_t(const std::string& module_file_path,
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream*>(),
+    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream *>(),
                                 nullptr, dcontext, verbose);
     std::string error = raw2trace->do_module_parsing_and_mapping();
     if (!error.empty()) {
@@ -94,53 +97,51 @@ view_t::~view_t()
 bool
 view_t::process_memref(const memref_t &memref)
 {
-  if (!type_is_instr(memref.instr.type) &&
-      memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-      return true;
+    if (!type_is_instr(memref.instr.type) &&
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
+        return true;
 
-  if (instr_count < knob_skip_refs ||
-      instr_count >= (knob_skip_refs + knob_sim_refs)) {
-      ++instr_count;
-      return true;
-  }
+    if (instr_count < knob_skip_refs || instr_count >= (knob_skip_refs + knob_sim_refs)) {
+        ++instr_count;
+        return true;
+    }
 
-  ++instr_count;
+    ++instr_count;
 
-  app_pc mapped_pc;
-  app_pc orig_pc = (app_pc)memref.instr.addr;
-  std::string err =
-      raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
-  if (!err.empty()) {
-      error_string = "Failed to find mapped address for " +
-          to_hex_string(memref.instr.addr) + ": " + err;
-      return false;
-  }
+    app_pc mapped_pc;
+    app_pc orig_pc = (app_pc)memref.instr.addr;
+    std::string err = raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
+    if (!err.empty()) {
+        error_string = "Failed to find mapped address for " +
+            to_hex_string(memref.instr.addr) + ": " + err;
+        return false;
+    }
 
-  std::string disasm;
-  auto cached_disasm = disasm_cache.find(mapped_pc);
-  if (cached_disasm != disasm_cache.end()) {
-      disasm = cached_disasm->second;
-  } else {
-      // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
-      // exported so we just use the same value here.
-      char buf[196];
-      byte *next_pc =
-          disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
-                                /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
-                                /*printed=*/nullptr);
-      if (next_pc == nullptr) {
-          error_string = "Failed to disassemble " + to_hex_string(memref.instr.addr);
-          return false;
-      }
-      disasm = buf;
-      disasm_cache.insert({mapped_pc, disasm});
-  }
-  // XXX: For now we print the disassembly of instructions only. We should extend
-  // this tool to annotate load/store operations with the entries recorded in
-  // the offline trace.
-  std::cerr << disasm;
-  ++num_disasm_instrs;
-  return true;
+    std::string disasm;
+    auto cached_disasm = disasm_cache.find(mapped_pc);
+    if (cached_disasm != disasm_cache.end()) {
+        disasm = cached_disasm->second;
+    } else {
+        // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
+        // exported so we just use the same value here.
+        char buf[196];
+        byte *next_pc =
+            disassemble_to_buffer(dcontext, mapped_pc, orig_pc, /*show_pc=*/true,
+                                  /*show_bytes=*/true, buf, BUFFER_SIZE_ELEMENTS(buf),
+                                  /*printed=*/nullptr);
+        if (next_pc == nullptr) {
+            error_string = "Failed to disassemble " + to_hex_string(memref.instr.addr);
+            return false;
+        }
+        disasm = buf;
+        disasm_cache.insert({ mapped_pc, disasm });
+    }
+    // XXX: For now we print the disassembly of instructions only. We should extend
+    // this tool to annotate load/store operations with the entries recorded in
+    // the offline trace.
+    std::cerr << disasm;
+    ++num_disasm_instrs;
+    return true;
 }
 
 bool

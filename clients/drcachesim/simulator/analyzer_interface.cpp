@@ -74,12 +74,12 @@ get_module_file_path()
             if (sep_index != std::string::npos)
                 trace_dir = std::string(op_infile.get_value(), 0, sep_index);
         }
-        module_file_path = trace_dir + std::string(DIRSEP) +
-            DRMEMTRACE_MODULE_LIST_FILENAME;
+        module_file_path =
+            trace_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
         if (!std::ifstream(module_file_path.c_str()).good()) {
             trace_dir += std::string(DIRSEP) + OUTFILE_SUBDIR;
-            module_file_path = trace_dir + std::string(DIRSEP) +
-                DRMEMTRACE_MODULE_LIST_FILENAME;
+            module_file_path =
+                trace_dir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
         }
     }
     return module_file_path;
@@ -92,8 +92,7 @@ drmemtrace_analysis_tool_create()
         const std::string &config_file = op_config_file.get_value();
         if (!config_file.empty()) {
             return cache_simulator_create(config_file);
-        }
-        else {
+        } else {
             cache_simulator_knobs_t knobs;
             knobs.num_cores = op_num_cores.get_value();
             knobs.line_size = op_line_size.get_value();
@@ -133,8 +132,7 @@ drmemtrace_analysis_tool_create()
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         return tlb_simulator_create(knobs);
     } else if (op_simulator_type.get_value() == HISTOGRAM) {
-        return histogram_tool_create(op_line_size.get_value(),
-                                     op_report_top.get_value(),
+        return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
     } else if (op_simulator_type.get_value() == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
@@ -147,8 +145,7 @@ drmemtrace_analysis_tool_create()
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
     } else if (op_simulator_type.get_value() == REUSE_TIME) {
-        return reuse_time_tool_create(op_line_size.get_value(),
-                                      op_verbose.get_value());
+        return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
     } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
     } else if (op_simulator_type.get_value() == OPCODE_MIX) {
@@ -165,9 +162,8 @@ drmemtrace_analysis_tool_create()
                                 op_verbose.get_value());
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE ", " TLB ", "
-               HISTOGRAM ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX " or "
-               VIEW ".\n");
+               "Please choose " CPU_CACHE ", " TLB ", " HISTOGRAM ", " REUSE_DIST
+               ", " BASIC_COUNTS ", " OPCODE_MIX " or " VIEW ".\n");
         return nullptr;
     }
 }

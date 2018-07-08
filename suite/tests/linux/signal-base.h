@@ -50,31 +50,31 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <sys/time.h> /* itimer */
-#include <string.h> /*  memset */
+#include <string.h>   /*  memset */
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, siginfo_t *, void *);
 
 #if USE_LONGJMP
-#include <setjmp.h>
+#    include <setjmp.h>
 static jmp_buf env;
 #endif
 
 #if USE_SIGSTACK
-# include <stdlib.h> /* malloc */
+#    include <stdlib.h> /* malloc */
 /* need more space if might get nested signals */
-# if USE_TIMER
-#  define ALT_STACK_SIZE  (SIGSTKSZ*4)
-# else
-#  define ALT_STACK_SIZE  (SIGSTKSZ*2)
-# endif
+#    if USE_TIMER
+#        define ALT_STACK_SIZE (SIGSTKSZ * 4)
+#    else
+#        define ALT_STACK_SIZE (SIGSTKSZ * 2)
+#    endif
 #endif
 
 #if USE_TIMER
 /* need to run long enough to get itimer hit */
-# define ITERS 3500000
+#    define ITERS 3500000
 #else
-# define ITERS 500000
+#    define ITERS 500000
 #endif
 
 static int a[ITERS];
@@ -93,12 +93,12 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #if VERBOSE
-    print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n",
-          sig, *(&sig - 1), ucxt);
+    print("signal_handler: sig=%d, retaddr=0x%08x, ucxt=0x%08x\n", sig, *(&sig - 1),
+          ucxt);
 #else
-# if USE_TIMER
+#    if USE_TIMER
     if (sig != SIGVTALRM)
-# endif
+#    endif
         print("in signal handler\n");
 #endif
 
@@ -106,7 +106,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 
     case SIGSEGV: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
 #if USE_LONGJMP && BLOCK_IN_HANDLER
         sigset_t set;
         int rc;
@@ -117,14 +117,14 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         print("Got SIGSEGV\n");
 #endif
 #if USE_LONGJMP
-# if BLOCK_IN_HANDLER
+#    if BLOCK_IN_HANDLER
         /* longjmp will bypass sigreturn, and sigreturn is what resets
          * the set of blocked signals, so we have to unblock them here
          */
         rc = sigemptyset(&set); /* reset blocked signals */
         ASSERT_NOERR(rc);
         sigprocmask(SIG_SETMASK, &set, NULL);
-# endif
+#    endif
         longjmp(env, 1);
 #endif
         break;
@@ -132,7 +132,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 
     case SIGUSR1: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
 #if VERBOSE
         print("Got SIGUSR1 @ 0x%08x\n", pc);
 #else
@@ -144,16 +144,15 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #ifdef LINUX
     case __SIGRTMAX: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
+        void *pc = (void *)sc->SC_XIP;
         /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
          * sources. */
-        assert(__SIGRTMAX == 64 &&
-               __SIGRTMAX == SIGRTMAX);
-# if VERBOSE
+        assert(__SIGRTMAX == 64 && __SIGRTMAX == SIGRTMAX);
+#    if VERBOSE
         print("Got SIGRTMAX @ 0x%08x\n", pc);
-# else
+#    else
         print("Got SIGRTMAX\n");
-# endif
+#    endif
         break;
     }
 #endif
@@ -161,17 +160,16 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #if USE_TIMER
     case SIGVTALRM: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *) sc->SC_XIP;
-#if VERBOSE
+        void *pc = (void *)sc->SC_XIP;
+#    if VERBOSE
         print("Got SIGVTALRM @ 0x%08x\n", pc);
-#endif
+#    endif
         timer_hits++;
         break;
     }
 #endif
 
-    default:
-        assert(0);
+    default: assert(0);
     }
 }
 
@@ -196,8 +194,8 @@ custom_intercept_signal(int sig, handler_t handler)
     ASSERT_NOERR(rc);
 }
 
-
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     double res = 0.;
     int i, j, rc;
@@ -209,7 +207,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if USE_TIMER
-    custom_intercept_signal(SIGVTALRM, (handler_t) signal_handler);
+    custom_intercept_signal(SIGVTALRM, (handler_t)signal_handler);
     t.it_interval.tv_sec = 0;
     t.it_interval.tv_usec = 10000;
     t.it_value.tv_sec = 0;
@@ -219,22 +217,22 @@ int main(int argc, char *argv[])
 #endif
 
 #if USE_SIGSTACK
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
-# if VERBOSE
-    print("Set up sigstack: 0x%08x - 0x%08x\n",
-          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
-# endif
+#    if VERBOSE
+    print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
+          sigstack.ss_sp + sigstack.ss_size);
+#    endif
 #endif
 
-    custom_intercept_signal(SIGSEGV, (handler_t) signal_handler);
-    custom_intercept_signal(SIGUSR1, (handler_t) signal_handler);
-    custom_intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+    custom_intercept_signal(SIGSEGV, (handler_t)signal_handler);
+    custom_intercept_signal(SIGUSR1, (handler_t)signal_handler);
+    custom_intercept_signal(SIGUSR2, (handler_t)SIG_IGN);
 #ifdef LINUX
-    custom_intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
+    custom_intercept_signal(__SIGRTMAX, (handler_t)signal_handler);
 #endif
 
     res = cos(0.56);
@@ -265,11 +263,11 @@ int main(int argc, char *argv[])
     kill(getpid(), SIGSEGV);
 #endif
 
-    for (i=0; i<ITERS; i++) {
+    for (i = 0; i < ITERS; i++) {
         if (i % 2 == 0) {
-            res += cos(1./(double)(i+1));
+            res += cos(1. / (double)(i + 1));
         } else {
-            res += sin(1./(double)(i+1));
+            res += sin(1. / (double)(i + 1));
         }
         j = (i << 4) / (i | 0x38);
         a[i] += j;

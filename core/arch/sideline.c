@@ -46,47 +46,48 @@
 /****************************************************************************/
 /* include files and typedefs */
 
-#ifdef WINDOWS
-#    include <windows.h>
-#    include <ntdll.h>
-#    define RUN_SIG WINAPI
-#else /* UNIX */
-#    include <sys/types.h> /* for wait */
-#    include <sys/wait.h>  /* for wait */
-#    include <linux/sched.h>     /* for clone */
-#    include <signal.h>    /* for SIGCHLD */
-#    include <string.h>    /* for memset */
-#    include <unistd.h>    /* for nice */
-#    define RUN_SIG
-     typedef pid_t thread_t;
-#    define THREAD_STACK_SIZE   (32*1024) /* FIXME: why different than DYNAMORIO_STACK_SIZE? */
-#endif
+#    ifdef WINDOWS
+#        include <windows.h>
+#        include <ntdll.h>
+#        define RUN_SIG WINAPI
+#    else                        /* UNIX */
+#        include <sys/types.h>   /* for wait */
+#        include <sys/wait.h>    /* for wait */
+#        include <linux/sched.h> /* for clone */
+#        include <signal.h>      /* for SIGCHLD */
+#        include <string.h>      /* for memset */
+#        include <unistd.h>      /* for nice */
+#        define RUN_SIG
+typedef pid_t thread_t;
+#        define THREAD_STACK_SIZE \
+            (32 * 1024) /* FIXME: why different than DYNAMORIO_STACK_SIZE? */
+#    endif
 
-#include "sideline.h"
-#include "arch.h"
-#include "instr.h"
-#include "instrlist.h"
-#include "decode.h"
-#include "../fragment.h"
-#include "../emit.h"
-#include "../link.h"
-#include "../fcache.h"
+#    include "sideline.h"
+#    include "arch.h"
+#    include "instr.h"
+#    include "instrlist.h"
+#    include "decode.h"
+#    include "../fragment.h"
+#    include "../emit.h"
+#    include "../link.h"
+#    include "../fcache.h"
 
-#define OPTVERB_3 4
+#    define OPTVERB_3 4
 //#define VERB_3 3
-#define VERB_3 4
-#define VERB_2 2
+#    define VERB_3 4
+#    define VERB_2 2
 
 /* minimum number of samples before a trace is optimized */
-#define SAMPLE_COUNT_THRESHOLD 3
+#    define SAMPLE_COUNT_THRESHOLD 3
 /* frequency, in number of samples, at which we optimize hottest trace */
-#define SAMPLE_TO_OPTIMIZE_RATIO 5000
+#    define SAMPLE_TO_OPTIMIZE_RATIO 5000
 
 /****************************************************************************/
 /* global vars */
 
 /* sampled by sideline thread to find hot traces */
-volatile fragment_t * sideline_trace;
+volatile fragment_t *sideline_trace;
 
 /* number of processors we're running on */
 int num_processors;
@@ -115,27 +116,27 @@ file_t logfile;
 */
 
 typedef struct _sample_entry_t {
-    ptr_uint_t    tag;
-    int     counter;
-    struct  _sample_entry_t * next;    /* for chaining entries */
+    ptr_uint_t tag;
+    int counter;
+    struct _sample_entry_t *next; /* for chaining entries */
 } sample_entry_t;
 
 typedef struct _sample_table_t {
-    uint  hash_bits;
-    uint  hash_mask;
-    hash_function_t  hash_func;
-    uint           hash_mask_offset; /* ignores given number of LSB bits */
-    uint  capacity;
-    uint  entries;
-    mutex_t         lock;   /* lock to sequence update of this table */
-    sample_entry_t **table;  /* hash_bits-bit addressed hash table */
+    uint hash_bits;
+    uint hash_mask;
+    hash_function_t hash_func;
+    uint hash_mask_offset; /* ignores given number of LSB bits */
+    uint capacity;
+    uint entries;
+    mutex_t lock;           /* lock to sequence update of this table */
+    sample_entry_t **table; /* hash_bits-bit addressed hash table */
 } sample_table_t;
 
-#define INITIAL_HASH_BITS 12
+#    define INITIAL_HASH_BITS 12
 
 static sample_table_t table;
 DECLARE_CXTSWPROT_VAR(mutex_t do_not_delete_lock, INIT_LOCK_FREE(do_not_delete_lock));
-static fragment_t * fragment_now_optimizing;
+static fragment_t *fragment_now_optimizing;
 
 /* List to remember fragments we've replaced but can't delete until
  * owning thread reaches a safe point.
@@ -143,14 +144,14 @@ static fragment_t * fragment_now_optimizing;
  */
 
 typedef struct _remember_entry_t {
-    fragment_t  *f;
-    struct _remember_entry_t * next;
+    fragment_t *f;
+    struct _remember_entry_t *next;
 } remember_entry_t;
 
 typedef struct _remember_list_t {
     dcontext_t *dcontext;
     remember_entry_t *list;
-    struct _remember_list_t * next;
+    struct _remember_list_t *next;
 } remember_list_t;
 
 static remember_list_t *remember;
@@ -158,21 +159,21 @@ DECLARE_CXTSWPROT_VAR(static mutex_t remember_lock, INIT_LOCK_FREE(remember_lock
 
 static int num_samples;
 
-#ifdef DEBUG
+#    ifdef DEBUG
 static int num_optimized;
 static int num_opt_with_no_synch;
-#endif
+#    endif
 
 /****************************************************************************/
 /* thread synchronization */
 
 static thread_id_t child_tid;
-#ifdef WINDOWS
+#    ifdef WINDOWS
 static HANDLE child_handle;
-#else /* UNIX */
+#    else /* UNIX */
 static thread_t child;
 static void *stack;
-#endif
+#    endif
 
 static event_t wake_event;
 static event_t asleep_event;
@@ -185,18 +186,27 @@ static volatile bool child_exit;
 /****************************************************************************/
 /* forward declarations */
 
-static int RUN_SIG sideline_run(void *arg);
-static void sideline_sample(void);
-static void sideline_examine_traces(void);
-static sample_entry_t *update_sample_entry(uint tag);
-static sample_entry_t *find_hottest_entry(void);
-static void remove_sample_entry(uint tag);
+static int RUN_SIG
+sideline_run(void *arg);
+static void
+sideline_sample(void);
+static void
+sideline_examine_traces(void);
+static sample_entry_t *
+update_sample_entry(uint tag);
+static sample_entry_t *
+find_hottest_entry(void);
+static void
+remove_sample_entry(uint tag);
 
-static void add_remember_entry(dcontext_t *dcontext, fragment_t *f);
-#ifdef UNIX
-static thread_t create_thread(int (*fcn)(void *), void *arg, void **stack);
-static void delete_thread(thread_t thread, void *stack);
-#endif
+static void
+add_remember_entry(dcontext_t *dcontext, fragment_t *f);
+#    ifdef UNIX
+static thread_t
+create_thread(int (*fcn)(void *), void *arg, void **stack);
+static void
+delete_thread(thread_t thread, void *stack);
+#    endif
 
 /****************************************************************************/
 
@@ -204,16 +214,15 @@ static void delete_thread(thread_t thread, void *stack);
 void
 sideline_init()
 {
-#ifdef WINDOWS
+#    ifdef WINDOWS
     int res;
-#endif
-    pause_for_sideline = (thread_id_t) 0;
+#    endif
+    pause_for_sideline = (thread_id_t)0;
     paused_for_sideline_event = create_event();
     resume_from_sideline_event = create_event();
 
     num_processors = get_num_processors();
-    LOG(GLOBAL, LOG_TOP|LOG_SIDELINE, 1,
-        "Number of processors: %d\n", num_processors);
+    LOG(GLOBAL, LOG_TOP | LOG_SIDELINE, 1, "Number of processors: %d\n", num_processors);
 
     wake_event = create_event();
     asleep_event = create_event();
@@ -227,58 +236,56 @@ sideline_init()
     table.capacity = HASHTABLE_SIZE(table.hash_bits);
     table.entries = 0;
     ASSIGN_INIT_LOCK_FREE(table.lock, sideline_table_lock);
-    table.table = (sample_entry_t**)
-        global_heap_alloc(table.capacity*sizeof(sample_entry_t*) HEAPACCT(ACCT_SIDELINE));
-    memset(table.table, 0, table.capacity*sizeof(sample_entry_t*));
+    table.table = (sample_entry_t **)global_heap_alloc(
+        table.capacity * sizeof(sample_entry_t *) HEAPACCT(ACCT_SIDELINE));
+    memset(table.table, 0, table.capacity * sizeof(sample_entry_t *));
     fragment_now_optimizing = NULL;
 
     remember = NULL;
 
     num_samples = 0;
-#ifdef DEBUG
+#    ifdef DEBUG
     num_optimized = 0;
     num_opt_with_no_synch = 0;
-#endif
+#    endif
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* start thread suspended so can add_thread before it runs */
-    child_handle = create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false),
-                                 (void *)sideline_run, NULL, NULL, 0,
-                                 15*PAGE_SIZE, 12*PAGE_SIZE, true, &child_tid);
+    child_handle =
+        create_thread(NT_CURRENT_PROCESS, IF_X64_ELSE(true, false), (void *)sideline_run,
+                      NULL, NULL, 0, 15 * PAGE_SIZE, 12 * PAGE_SIZE, true, &child_tid);
 
-# if 0 /* need non-kernel32 implementation, use NtSetInformationThread */
+#        if 0 /* need non-kernel32 implementation, use NtSetInformationThread */
     /* give sideline thread a lower priority */
     SetThreadPriority(child_handle, THREAD_PRIORITY_BELOW_NORMAL);
     /* if want to glue thread to a single processor, use
      * SetThreadAffinity function -- I don't think we want to do that though
      */
-# else
+#        else
     ASSERT_NOT_IMPLEMENTED(false);
-# endif
+#        endif
 
-#else /* UNIX */
+#    else  /* UNIX */
     child = create_thread(sideline_run, NULL, &stack);
     child_tid = child;
 
     /* priority of child can only be set by child itself, in sideline_run() */
-#endif /* UNIX */
+#    endif /* UNIX */
 
     /* tell dynamo core about new thread so it won't be treated as app thread */
     /* we created without CLONE_THREAD so its own thread group */
-    add_thread(IF_WINDOWS_ELSE(child_handle, child_tid)
-               child_tid, false, NULL);
+    add_thread(IF_WINDOWS_ELSE(child_handle, child_tid) child_tid, false, NULL);
 
-    LOG(GLOBAL, LOG_SIDELINE, 1, "Sideline thread (id "TIDFMT") created\n", child_tid);
+    LOG(GLOBAL, LOG_SIDELINE, 1, "Sideline thread (id " TIDFMT ") created\n", child_tid);
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* now let child thread run */
     res = nt_thread_resume(child_handle, NULL);
     ASSERT(res);
-#endif
+#    endif
 
     sideline_start();
 }
-
 
 /* atexit cleanup */
 void
@@ -309,32 +316,32 @@ sideline_exit()
     }
     wait_for_event(exited_event, 0);
 
-#ifdef WINDOWS
+#    ifdef WINDOWS
     /* wait for child to die */
     nt_wait_event_with_timeout(child_handle, INFINITE_WAIT);
-#else /* UNIX */
+#    else /* UNIX */
     delete_thread(child, stack);
-#endif
+#    endif
     LOG(logfile, LOG_SIDELINE, 1, "Sideline thread destroyed\n");
 
-    LOG(logfile, LOG_SIDELINE|LOG_STATS, 1,
-        "Sideline samples taken: %d\n", num_samples);
-#ifdef DEBUG
-    LOG(logfile, LOG_SIDELINE|LOG_STATS, 1,
-        "Sideline optimizations performed: %d\n", num_optimized);
-    LOG(logfile, LOG_SIDELINE|LOG_STATS, 1,
-        "Sideline optimizations performed w/o synch: %d\n",
-        num_opt_with_no_synch);
-#endif
+    LOG(logfile, LOG_SIDELINE | LOG_STATS, 1, "Sideline samples taken: %d\n",
+        num_samples);
+#    ifdef DEBUG
+    LOG(logfile, LOG_SIDELINE | LOG_STATS, 1, "Sideline optimizations performed: %d\n",
+        num_optimized);
+    LOG(logfile, LOG_SIDELINE | LOG_STATS, 1,
+        "Sideline optimizations performed w/o synch: %d\n", num_opt_with_no_synch);
+#    endif
 
-    for (i=0; i<table.capacity; i++) {
+    for (i = 0; i < table.capacity; i++) {
         while (table.table[i]) {
             sample = table.table[i];
             table.table[i] = sample->next;
             global_heap_free(sample, sizeof(sample_entry_t) HEAPACCT(ACCT_SIDELINE));
         }
     }
-    global_heap_free(table.table, table.capacity*sizeof(sample_entry_t*) HEAPACCT(ACCT_SIDELINE));
+    global_heap_free(table.table,
+                     table.capacity * sizeof(sample_entry_t *) HEAPACCT(ACCT_SIDELINE));
 
     l = remember;
     while (l != NULL) {
@@ -374,15 +381,16 @@ add_sideline_prefix(dcontext_t *dcontext, instrlist_t *trace)
 {
     instr_t *inst = instr_build(dcontext, OP_mov_st, 1, 1);
     instr_set_src(inst, 0, opnd_create_immed_int(0x12345678, OPSZ_4));
-    instr_set_dst(inst, 0, opnd_create_base_disp(REG_NULL, REG_NULL, 0,
-                                    (int)&sideline_trace, OPSZ_4));
+    instr_set_dst(
+        inst, 0,
+        opnd_create_base_disp(REG_NULL, REG_NULL, 0, (int)&sideline_trace, OPSZ_4));
     instrlist_prepend(trace, inst);
 }
 
 void
 finalize_sideline_prefix(dcontext_t *dcontext, fragment_t *trace_f)
 {
-    byte *start_pc = (byte *) FCACHE_ENTRY_PC(trace_f);
+    byte *start_pc = (byte *)FCACHE_ENTRY_PC(trace_f);
     byte *pc;
 
     /* ASSUMPTION: sideline prefix is at top of fragment! */
@@ -435,14 +443,15 @@ sideline_run(void *arg)
     logfile = open_log_file("sideline", NULL, 0);
     LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: in sideline_run()\n");
 
-#ifdef UNIX
+#    ifdef UNIX
     /* priority can only be set by thread itself, so do it here */
     nice(10);
-#endif
+#    endif
 
     while (!child_exit) {
         if (child_sleep) {
-            LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: sideline thread going to sleep\n");
+            LOG(logfile, LOG_SIDELINE, VERB_3,
+                "SIDELINE: sideline thread going to sleep\n");
             signal_event(asleep_event);
             wait_for_event(wake_event, 0);
             continue;
@@ -456,13 +465,14 @@ sideline_run(void *arg)
     }
     signal_event(exited_event);
 
-    LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: sideline thread exiting sideline_run()\n");
-#ifdef WINDOWS
+    LOG(logfile, LOG_SIDELINE, VERB_3,
+        "SIDELINE: sideline thread exiting sideline_run()\n");
+#    ifdef WINDOWS
     /* with current create_thread implementation can't return from the run
      * function */
     os_terminate(NULL, TERMINATE_THREAD);
     ASSERT_NOT_REACHED();
-#endif
+#    endif
     return 0;
 }
 
@@ -477,7 +487,7 @@ static void
 sideline_sample()
 {
     sample_entry_t *e;
-    fragment_t *sample = (fragment_t *) sideline_trace; /* the sample! */
+    fragment_t *sample = (fragment_t *)sideline_trace; /* the sample! */
 
     /* WARNING: we're using fragment_t* to make it easier to find target thread
      * and its trace at once, but the trace could have been deleted, so be
@@ -490,8 +500,8 @@ sideline_sample()
     } else {
         e = update_sample_entry((ptr_uint_t)sample);
         LOG(logfile, LOG_SIDELINE, VERB_3,
-            "\tSIDELINE: sample now is "PFX" == F%d with count %d\n",
-            sample, ((fragment_t*)sample)->id, e->counter);
+            "\tSIDELINE: sample now is " PFX " == F%d with count %d\n", sample,
+            ((fragment_t *)sample)->id, e->counter);
     }
 
     /* we would clear the entry -- but a write to the shared memory is a big
@@ -532,31 +542,30 @@ sideline_examine_traces()
         return;
     }
 
-    f = (fragment_t *) e->tag;
+    f = (fragment_t *)e->tag;
     LOG(logfile, LOG_SIDELINE, VERB_3,
-        "\tSIDELINE: hottest entry is "PFX" == F%d with count %d\n",
-        f, f->id, e->counter);
+        "\tSIDELINE: hottest entry is " PFX " == F%d with count %d\n", f, f->id,
+        e->counter);
     /* don't need entry anymore, no matter what happens */
     remove_sample_entry(e->tag);
 
     /* a trace we optimized could still run old code that posts samples */
     if ((f->flags & FRAG_DO_NOT_SIDELINE) != 0) {
         LOG(logfile, LOG_SIDELINE, VERB_3,
-            "\tSIDELINE: hottest entry F%d already sidelined\n",
-            f->id);
+            "\tSIDELINE: hottest entry F%d already sidelined\n", f->id);
         /* don't loop here looking for another entry -- let run() loop */
         mutex_unlock(&do_not_delete_lock);
         return;
     } else {
         LOG(logfile, LOG_SIDELINE, VERB_2,
-            "\tSIDELINE: optimizing hottest entry == F%d with count %d\n",
-            f->id, e->counter);
+            "\tSIDELINE: optimizing hottest entry == F%d with count %d\n", f->id,
+            e->counter);
         f = sideline_optimize(f, remove_sideline_profiling, optimize_trace_wrapper);
-#ifdef DEBUG
+#    ifdef DEBUG
         if (f != NULL)
             LOG(logfile, LOG_SIDELINE, VERB_2,
                 "\t  SIDELINE: optimized fragment is F%d\n", f->id);
-#endif
+#    endif
     }
 
     mutex_unlock(&do_not_delete_lock);
@@ -564,8 +573,8 @@ sideline_examine_traces()
 
 fragment_t *
 sideline_optimize(fragment_t *f,
-                  void (*remove_profiling_func)(dcontext_t *,instrlist_t *),
-                  void (*optimize_function)(dcontext_t *,fragment_t *,instrlist_t *))
+                  void (*remove_profiling_func)(dcontext_t *, instrlist_t *),
+                  void (*optimize_function)(dcontext_t *, fragment_t *, instrlist_t *))
 {
     fragment_t *new_f = NULL;
     dcontext_t *dcontext;
@@ -577,7 +586,7 @@ sideline_optimize(fragment_t *f,
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nsideline_optimize: F%d\n", f->id);
     ASSERT((f->flags & FRAG_IS_TRACE) != 0);
 
-    LOG(logfile, LOG_SIDELINE,1, "\nsideline_optimize:  tag= "PFX, f->tag);
+    LOG(logfile, LOG_SIDELINE, 1, "\nsideline_optimize:  tag= " PFX, f->tag);
 
     dcontext = get_dcontext_for_fragment(f);
     /* HACK to work with routines like unlink_branch that don't
@@ -594,7 +603,7 @@ sideline_optimize(fragment_t *f,
     if (dcontext->whereami != DR_WHERE_FCACHE) {
         /* wait for thread to reach waiting point in dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
-            "\nsideline_optimize: waiting for target thread "TIDFMT"\n",
+            "\nsideline_optimize: waiting for target thread " TIDFMT "\n",
             pause_for_sideline);
         if (!dynamo_exited && !child_sleep && !child_exit) {
             /* must give up do_not_delete_lock in case app thread is going to
@@ -623,37 +632,37 @@ sideline_optimize(fragment_t *f,
     /* build IR */
     ilist = decode_fragment(dcontext, f, NULL, NULL, f->flags, NULL, NULL);
 
-#ifdef DEBUG
-    ASSERT(instr_get_opcode(instrlist_last(ilist))==OP_jmp);
+#    ifdef DEBUG
+    ASSERT(instr_get_opcode(instrlist_last(ilist)) == OP_jmp);
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nbefore removing profiling:\n");
     if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
-#endif
+#    endif
     remove_profiling_func(dcontext, ilist);
 
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nafter removing profiling:\n");
     if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
-#endif
+#    endif
 
-    /* FIXME: separate always-do-online optimizations from
-     * sideline optimizations
-     * for now, we do all online or all sideline
-     * FIXME: our ilist is already fully decoded, so we could avoid the
-     * full decode pass in optimize_trace
-     */
-#ifdef DEBUG
+        /* FIXME: separate always-do-online optimizations from
+         * sideline optimizations
+         * for now, we do all online or all sideline
+         * FIXME: our ilist is already fully decoded, so we could avoid the
+         * full decode pass in optimize_trace
+         */
+#    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
     if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
-#endif
+#    endif
     optimize_function(dcontext, f, ilist);
-#ifdef DEBUG
+#    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nafter optimization:\n");
     if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
-#endif
+#    endif
     /* Note that the offline optimization interface cannot be used
      * here because it requires inserting the optimized code prior
      * to creating a fragment.  Here we must replace the entire
@@ -676,7 +685,7 @@ sideline_optimize(fragment_t *f,
     f->flags |= FRAG_DO_NOT_SIDELINE;
     flags = f->flags;
     DEBUG_DECLARE(ok =)
-        vm_area_add_to_list(dcontext, f->tag, &vmlist, flags, f, false/*no locks*/);
+    vm_area_add_to_list(dcontext, f->tag, &vmlist, flags, f, false /*no locks*/);
     ASSERT(ok); /* should never fail for private fragments */
     new_f = emit_invisible_fragment(dcontext, f->tag, ilist, flags, vmlist);
     fragment_copy_data_fields(dcontext, f, new_f);
@@ -696,17 +705,17 @@ sideline_optimize(fragment_t *f,
     /* clean up */
     instrlist_clear_and_destroy(dcontext, ilist);
 
-#ifdef DEBUG
+#    ifdef DEBUG
     num_optimized++;
     if (stats->loglevel >= 2 && (stats->logmask & LOG_SIDELINE) != 0) {
         disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
-        LOG(logfile, LOG_SIDELINE, 2, "\tSIDELINE: emitted optimized F%d to replace F%d\n",
-            new_f->id, f->id);
+        LOG(logfile, LOG_SIDELINE, 2,
+            "\tSIDELINE: emitted optimized F%d to replace F%d\n", new_f->id, f->id);
     }
-#endif /* DEBUG */
+#    endif /* DEBUG */
 
- exit_sideline_optimize:
-    pause_for_sideline = (thread_id_t) 0;
+exit_sideline_optimize:
+    pause_for_sideline = (thread_id_t)0;
     if (!mutex_trylock(&sideline_lock)) {
         /* thread is waiting in dispatch */
         signal_event(resume_from_sideline_event);
@@ -717,10 +726,10 @@ sideline_optimize(fragment_t *f,
         reset_event(paused_for_sideline_event);
         reset_event(resume_from_sideline_event);
     }
-#ifdef DEBUG
+#    ifdef DEBUG
     else
         num_opt_with_no_synch++;
-#endif
+#    endif
     mutex_unlock(&sideline_lock);
     /* see HACK above */
     set_thread_private_dcontext(NULL);
@@ -755,8 +764,9 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
                 LOG(logfile, LOG_SIDELINE, VERB_3, "sideline_cleanup: cleaning up F%d\n",
                     e->f->id);
 
-                fragment_delete(dcontext, e->f, FRAGDEL_NO_OUTPUT |
-                                FRAGDEL_NO_UNLINK | FRAGDEL_NO_HTABLE);
+                fragment_delete(dcontext, e->f,
+                                FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
+                                    FRAGDEL_NO_HTABLE);
                 STATS_INC(num_fragments_deleted_sideline);
 
                 global_heap_free(e, sizeof(remember_entry_t) HEAPACCT(ACCT_SIDELINE));
@@ -774,7 +784,6 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
     mutex_unlock(&remember_lock);
 }
 
-
 static sample_entry_t *
 find_hottest_entry()
 {
@@ -783,7 +792,7 @@ find_hottest_entry()
     int max_counter = 0;
 
     mutex_lock(&table.lock);
-    for (i=0; i<table.capacity; i++) {
+    for (i = 0; i < table.capacity; i++) {
         for (e = table.table[i]; e; e = e->next) {
             if (e->counter > max_counter) {
                 max_counter = e->counter;
@@ -816,7 +825,8 @@ update_sample_entry(ptr_uint_t tag)
         e->counter++;
     } else {
         /* make new entry */
-        e = (sample_entry_t*) global_heap_alloc(sizeof(sample_entry_t) HEAPACCT(ACCT_SIDELINE));
+        e = (sample_entry_t *)global_heap_alloc(sizeof(sample_entry_t)
+                                                    HEAPACCT(ACCT_SIDELINE));
         e->tag = tag;
         e->counter = 1;
         e->next = table.table[hindex];
@@ -876,8 +886,8 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
     while (l != NULL) {
         if (l->dcontext == dcontext) {
             /* make new entry */
-            e = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t)
-                                                      HEAPACCT(ACCT_SIDELINE));
+            e = (remember_entry_t *)global_heap_alloc(sizeof(remember_entry_t)
+                                                          HEAPACCT(ACCT_SIDELINE));
             e->f = f;
             e->next = l->list;
             l->list = e;
@@ -887,11 +897,11 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
         l = l->next;
     }
     /* make new list */
-    l = (remember_list_t*) global_heap_alloc(sizeof(remember_list_t)
-                                             HEAPACCT(ACCT_SIDELINE));
+    l = (remember_list_t *)global_heap_alloc(sizeof(remember_list_t)
+                                                 HEAPACCT(ACCT_SIDELINE));
     l->dcontext = dcontext;
-    l->list = (remember_entry_t*) global_heap_alloc(sizeof(remember_entry_t)
-                                                    HEAPACCT(ACCT_SIDELINE));
+    l->list = (remember_entry_t *)global_heap_alloc(sizeof(remember_entry_t)
+                                                        HEAPACCT(ACCT_SIDELINE));
     l->list->f = f;
     l->list->next = NULL;
     l->next = remember;
@@ -899,7 +909,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
     mutex_unlock(&remember_lock);
 }
 
-#ifdef UNIX /***************************************************************/
+#    ifdef UNIX /***************************************************************/
 /* Create a new thread. It should be passed "fcn", a function which
  * takes two arguments, (the second one is a dummy, always 4). The
  * first argument is passed in "arg". Returns the PID of the new
@@ -948,7 +958,6 @@ delete_thread(thread_t thread, void *stack)
         ASSERT_NOT_REACHED();
     }
 }
-#endif /* UNIX ***************************************************************/
-
+#    endif /* UNIX ***************************************************************/
 
 #endif /* SIDELINE -- around whole file */

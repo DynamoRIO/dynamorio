@@ -57,39 +57,46 @@ extern "C" {
  */
 
 /* drmgr replaces the bb event */
-# define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
-# define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+#    define dr_register_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
+#    define dr_unregister_bb_event DO_NOT_USE_bb_event_USE_drmgr_bb_events_instead
 
 /* drmgr replaces the tls field routines */
-# define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
-# define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_get_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_set_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_read_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
+#    define dr_insert_write_tls_field DO_NOT_USE_tls_field_USE_drmgr_tls_field_instead
 
 /* drmgr replaces these events in order to provide ordering control */
-# define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_unregister_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_unregister_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
-# define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-# define dr_unregister_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
-# define dr_register_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
-# define dr_unregister_post_syscall_event DO_NOT_USE_post_syscall_USE_drmgr_events_instead
-# define dr_register_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
-# define dr_unregister_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
-# define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
-# define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
-# define dr_register_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
-# define dr_unregister_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
-# define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
-# define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
-# define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
-# define dr_unregister_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
-# define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
-# define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
-# define dr_register_restore_state_ex_event DO_NOT_USE_restore_state_ex_USE_drmgr_instead
-# define dr_unregister_restore_state_ex_event \
-    DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+#    define dr_register_thread_init_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_unregister_thread_init_event \
+        DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_register_thread_exit_event DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_unregister_thread_exit_event \
+        DO_NOT_USE_thread_event_USE_drmgr_events_instead
+#    define dr_register_pre_syscall_event DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+#    define dr_unregister_pre_syscall_event \
+        DO_NOT_USE_pre_syscall_USE_drmgr_events_instead
+#    define dr_register_post_syscall_event \
+        DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+#    define dr_unregister_post_syscall_event \
+        DO_NOT_USE_post_syscall_USE_drmgr_events_instead
+#    define dr_register_module_load_event DO_NOT_USE_module_load_USE_drmgr_events_instead
+#    define dr_unregister_module_load_event \
+        DO_NOT_USE_module_load_USE_drmgr_events_instead
+#    define dr_register_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+#    define dr_unregister_module_unload_event DO_NOT_USE_module_unload_USE_drmgr_instead
+#    define dr_register_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
+#    define dr_unregister_kernel_xfer_event DO_NOT_USE_kernel_xfer_event_USE_drmgr_instead
+#    define dr_register_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
+#    define dr_unregister_signal_event DO_NOT_USE_signal_event_USE_drmgr_instead
+#    define dr_register_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
+#    define dr_unregister_exception_event DO_NOT_USE_exception_event_USE_drmgr_instead
+#    define dr_register_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+#    define dr_unregister_restore_state_event DO_NOT_USE_restore_state_USE_drmgr_instead
+#    define dr_register_restore_state_ex_event \
+        DO_NOT_USE_restore_state_ex_USE_drmgr_instead
+#    define dr_unregister_restore_state_ex_event \
+        DO_NOT_USE_restore_state_ex_USE_drmgr_instead
 
 #endif /* !STATIC_DRMGR_ONLY */
 
@@ -105,8 +112,8 @@ extern "C" {
  * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
-typedef dr_emit_flags_t (*drmgr_xform_cb_t)
-    (void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating);
+typedef dr_emit_flags_t (*drmgr_xform_cb_t)(void *drcontext, void *tag, instrlist_t *bb,
+                                            bool for_trace, bool translating);
 
 /**
  * Callback function for the second stage: application analysis.
@@ -118,9 +125,9 @@ typedef dr_emit_flags_t (*drmgr_xform_cb_t)
  * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
-typedef dr_emit_flags_t (*drmgr_analysis_cb_t)
-    (void *drcontext, void *tag, instrlist_t *bb,
-     bool for_trace, bool translating, OUT void **user_data);
+typedef dr_emit_flags_t (*drmgr_analysis_cb_t)(void *drcontext, void *tag,
+                                               instrlist_t *bb, bool for_trace,
+                                               bool translating, OUT void **user_data);
 
 /**
  * Callback function for the first stage when using a user data parameter:
@@ -137,9 +144,9 @@ typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
  * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
-typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)
-    (void *drcontext, void *tag, instrlist_t *bb,
-     bool for_trace, bool translating, void *user_data);
+typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)(void *drcontext, void *tag,
+                                               instrlist_t *bb, bool for_trace,
+                                               bool translating, void *user_data);
 
 /**
  * Callback function for the third stage: instrumentation insertion.
@@ -151,9 +158,10 @@ typedef dr_emit_flags_t (*drmgr_ilist_ex_cb_t)
  * any instrumentation pass requests DR_EMIT_STORE_TRANSLATIONS, they
  * will be stored.
  */
-typedef dr_emit_flags_t (*drmgr_insertion_cb_t)
-    (void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-     bool for_trace, bool translating, void *user_data);
+typedef dr_emit_flags_t (*drmgr_insertion_cb_t)(void *drcontext, void *tag,
+                                                instrlist_t *bb, instr_t *inst,
+                                                bool for_trace, bool translating,
+                                                void *user_data);
 
 /** Specifies the ordering of callbacks for \p drmgr's events */
 typedef struct _drmgr_priority_t {
@@ -187,11 +195,11 @@ typedef struct _drmgr_priority_t {
 
 /** Labels the current bb building phase */
 typedef enum {
-    DRMGR_PHASE_NONE,         /**< Not currently in a bb building event. */
-    DRMGR_PHASE_APP2APP,      /**< Currently in the app2app phase. */
-    DRMGR_PHASE_ANALYSIS,     /**< Currently in the analysis phase.. */
-    DRMGR_PHASE_INSERTION,    /**< Currently in the instrumentation insertion phase. */
-    DRMGR_PHASE_INSTRU2INSTRU,/**< Currently in the instru2instru phase. */
+    DRMGR_PHASE_NONE,          /**< Not currently in a bb building event. */
+    DRMGR_PHASE_APP2APP,       /**< Currently in the app2app phase. */
+    DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase.. */
+    DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
+    DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
 } drmgr_bb_phase_t;
 
 /***************************************************************************
@@ -407,7 +415,6 @@ DR_EXPORT
 bool
 drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 
-
 DR_EXPORT
 /**
  * Registers callbacks for all four instrumentation passes at once, with a \p
@@ -526,8 +533,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_insert_read_tls_field(void *drcontext, int idx,
-                            instrlist_t *ilist, instr_t *where, reg_id_t reg);
+drmgr_insert_read_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
+                            reg_id_t reg);
 
 DR_EXPORT
 /**
@@ -539,10 +546,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_insert_write_tls_field(void *drcontext, int idx,
-                             instrlist_t *ilist, instr_t *where, reg_id_t reg,
-                             reg_id_t scratch);
-
+drmgr_insert_write_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
+                             reg_id_t reg, reg_id_t scratch);
 
 /***************************************************************************
  * CLS
@@ -643,8 +648,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_insert_read_cls_field(void *drcontext, int idx,
-                            instrlist_t *ilist, instr_t *where, reg_id_t reg);
+drmgr_insert_read_cls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
+                            reg_id_t reg);
 
 DR_EXPORT
 /**
@@ -657,9 +662,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_insert_write_cls_field(void *drcontext, int idx,
-                             instrlist_t *ilist, instr_t *where, reg_id_t reg,
-                             reg_id_t scratch);
+drmgr_insert_write_cls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
+                             reg_id_t reg, reg_id_t scratch);
 
 DR_EXPORT
 /**
@@ -698,7 +702,6 @@ DR_EXPORT
  */
 void *
 drmgr_get_parent_cls_field(void *drcontext, int idx);
-
 
 /***************************************************************************
  * INSTRUCTION NOTE FIELD
@@ -784,7 +787,7 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_thread_init_event_user_data(void (*func)(void *drcontext,
-                                             void *user_data));
+                                                          void *user_data));
 
 DR_EXPORT
 /**
@@ -834,7 +837,7 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
-                                             void *user_data));
+                                                          void *user_data));
 
 DR_EXPORT
 /**
@@ -872,8 +875,7 @@ DR_EXPORT
 bool
 drmgr_register_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
                                                         void *user_data),
-                                           drmgr_priority_t *priority,
-                                           void *user_data);
+                                           drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
 /**
@@ -927,8 +929,7 @@ DR_EXPORT
 bool
 drmgr_register_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
                                                          void *user_data),
-                                            drmgr_priority_t *priority,
-                                            void *user_data);
+                                            drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
 /**
@@ -970,9 +971,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_module_load_event_ex(void (*func)
-                                    (void *drcontext, const module_data_t *info,
-                                     bool loaded),
+drmgr_register_module_load_event_ex(void (*func)(void *drcontext,
+                                                 const module_data_t *info, bool loaded),
                                     drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -983,9 +983,9 @@ DR_EXPORT
  * the execution of the callback. \return whether successful.
  */
 bool
-drmgr_register_module_load_event_user_data(void (*func)
-                                           (void *drcontext, const module_data_t *info,
-                                            bool loaded, void *user_data),
+drmgr_register_module_load_event_user_data(void (*func)(void *drcontext,
+                                                        const module_data_t *info,
+                                                        bool loaded, void *user_data),
                                            drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
@@ -995,9 +995,8 @@ DR_EXPORT
  * (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_module_load_event(void (*func)
-                                   (void *drcontext, const module_data_t *info,
-                                    bool loaded));
+drmgr_unregister_module_load_event(void (*func)(void *drcontext,
+                                                const module_data_t *info, bool loaded));
 
 DR_EXPORT
 /**
@@ -1006,9 +1005,9 @@ DR_EXPORT
  * and false if it is not (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_module_load_event_user_data(void (*func)
-                                             (void *drcontext, const module_data_t *info,
-                                              bool loaded, void *user_data));
+drmgr_unregister_module_load_event_user_data(void (*func)(void *drcontext,
+                                                          const module_data_t *info,
+                                                          bool loaded, void *user_data));
 
 DR_EXPORT
 /**
@@ -1018,8 +1017,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_module_unload_event(void (*func)
-                                   (void *drcontext, const module_data_t *info));
+drmgr_register_module_unload_event(void (*func)(void *drcontext,
+                                                const module_data_t *info));
 
 DR_EXPORT
 /**
@@ -1031,8 +1030,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_module_unload_event_ex(void (*func)
-                                      (void *drcontext, const module_data_t *info),
+drmgr_register_module_unload_event_ex(void (*func)(void *drcontext,
+                                                   const module_data_t *info),
                                       drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -1043,11 +1042,10 @@ DR_EXPORT
  * execution of the callback. \return whether successful.
  */
 bool
-drmgr_register_module_unload_event_user_data(void (*func)
-                                             (void *drcontext, const module_data_t *info,
-                                              void *user_data),
-                                             drmgr_priority_t *priority,
-                                             void *user_data);
+drmgr_register_module_unload_event_user_data(void (*func)(void *drcontext,
+                                                          const module_data_t *info,
+                                                          void *user_data),
+                                             drmgr_priority_t *priority, void *user_data);
 DR_EXPORT
 /**
  * Unregister a callback function for the module unload event.
@@ -1055,8 +1053,8 @@ DR_EXPORT
  * (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_module_unload_event(void (*func)
-                                     (void *drcontext, const module_data_t *info));
+drmgr_unregister_module_unload_event(void (*func)(void *drcontext,
+                                                  const module_data_t *info));
 
 DR_EXPORT
 /**
@@ -1065,10 +1063,9 @@ DR_EXPORT
  * successful and false if it is not (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_module_unload_event_user_data(void (*func)
-                                               (void *drcontext,
-                                                const module_data_t *info,
-                                                void *user_data));
+drmgr_unregister_module_unload_event_user_data(void (*func)(void *drcontext,
+                                                            const module_data_t *info,
+                                                            void *user_data));
 
 DR_EXPORT
 /**
@@ -1110,9 +1107,8 @@ DR_EXPORT
  * behaves just like DR's signal event dr_register_signal_event().
  * \return whether successful.
  */
-bool
-drmgr_register_signal_event(dr_signal_action_t (*func)
-                            (void *drcontext, dr_siginfo_t *siginfo));
+bool drmgr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                            dr_siginfo_t *siginfo));
 
 DR_EXPORT
 /**
@@ -1126,8 +1122,8 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_signal_event_ex(dr_signal_action_t (*func)
-                               (void *drcontext, dr_siginfo_t *siginfo),
+drmgr_register_signal_event_ex(dr_signal_action_t (*func)(void *drcontext,
+                                                          dr_siginfo_t *siginfo),
                                drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -1136,9 +1132,8 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
-bool
-drmgr_unregister_signal_event(dr_signal_action_t (*func)
-                              (void *drcontext, dr_siginfo_t *siginfo));
+bool drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                              dr_siginfo_t *siginfo));
 #endif /* UNIX */
 
 #ifdef WINDOWS
@@ -1183,9 +1178,10 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drmgr_register_restore_state_event(void (*func)
-                                   (void *drcontext, void *tag, dr_mcontext_t *mcontext,
-                                    bool restore_memory, bool app_code_consistent));
+drmgr_register_restore_state_event(void (*func)(void *drcontext, void *tag,
+                                                dr_mcontext_t *mcontext,
+                                                bool restore_memory,
+                                                bool app_code_consistent));
 
 DR_EXPORT
 /**
@@ -1224,9 +1220,10 @@ DR_EXPORT
  * (e.g., \p func was not registered).
  */
 bool
-drmgr_unregister_restore_state_event(void (*func)
-                                     (void *drcontext, void *tag, dr_mcontext_t *mcontext,
-                                      bool restore_memory, bool app_code_consistent));
+drmgr_unregister_restore_state_event(void (*func)(void *drcontext, void *tag,
+                                                  dr_mcontext_t *mcontext,
+                                                  bool restore_memory,
+                                                  bool app_code_consistent));
 
 DR_EXPORT
 /**

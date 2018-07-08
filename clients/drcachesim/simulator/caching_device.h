@@ -51,40 +51,69 @@
 // We assume we're only invoked from a single thread of control and do
 // not need to synchronize data access.
 
-class caching_device_t
-{
- public:
+class caching_device_t {
+public:
     caching_device_t();
-    virtual bool init(int associativity, int block_size, int num_blocks,
-                      caching_device_t *parent, caching_device_stats_t *stats,
-                      prefetcher_t *prefetcher = nullptr,
-                      bool inclusive = false,
-                      const std::vector<caching_device_t*>& children = {});
+    virtual bool
+    init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
+         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
+         bool inclusive = false, const std::vector<caching_device_t *> &children = {});
     virtual ~caching_device_t();
-    virtual void request(const memref_t &memref);
-    virtual void invalidate(const addr_t tag);
+    virtual void
+    request(const memref_t &memref);
+    virtual void
+    invalidate(const addr_t tag);
 
-    caching_device_stats_t *get_stats() const { return stats; }
-    void set_stats(caching_device_stats_t *stats_) { stats = stats_; }
-    prefetcher_t *get_prefetcher() const { return prefetcher; }
-    caching_device_t *get_parent() const { return parent; }
-    inline double get_loaded_fraction() const {
-        return double(loaded_blocks)/num_blocks;
+    caching_device_stats_t *
+    get_stats() const
+    {
+        return stats;
+    }
+    void
+    set_stats(caching_device_stats_t *stats_)
+    {
+        stats = stats_;
+    }
+    prefetcher_t *
+    get_prefetcher() const
+    {
+        return prefetcher;
+    }
+    caching_device_t *
+    get_parent() const
+    {
+        return parent;
+    }
+    inline double
+    get_loaded_fraction() const
+    {
+        return double(loaded_blocks) / num_blocks;
     }
 
- protected:
-    virtual void access_update(int block_idx, int way);
-    virtual int replace_which_way(int block_idx);
+protected:
+    virtual void
+    access_update(int block_idx, int way);
+    virtual int
+    replace_which_way(int block_idx);
 
-    inline addr_t compute_tag(addr_t addr) { return addr >> block_size_bits; }
-    inline int compute_block_idx(addr_t tag) {
+    inline addr_t
+    compute_tag(addr_t addr)
+    {
+        return addr >> block_size_bits;
+    }
+    inline int
+    compute_block_idx(addr_t tag)
+    {
         return (tag & blocks_per_set_mask) << assoc_bits;
     }
-    inline caching_device_block_t& get_caching_device_block(int block_idx, int way) {
+    inline caching_device_block_t &
+    get_caching_device_block(int block_idx, int way)
+    {
         return *(blocks[block_idx + way]);
     }
     // a pure virtual function for subclasses to initialize their own block array
-    virtual void init_blocks() = 0;
+    virtual void
+    init_blocks() = 0;
 
     int associativity;
     int block_size;
@@ -94,7 +123,7 @@ class caching_device_t
 
     // Pointers to the caching device's parent and children devices.
     caching_device_t *parent;
-    std::vector<caching_device_t*> children;
+    std::vector<caching_device_t *> children;
 
     // If true, this device is inclusive of its children.
     bool inclusive;

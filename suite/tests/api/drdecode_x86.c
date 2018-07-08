@@ -39,13 +39,13 @@
 
 #define GD GLOBAL_DCONTEXT
 
-#define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-         abort(), 0) : 0))
+#define ASSERT(x)                                                                    \
+    ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
+                      abort(), 0)                                                    \
+                   : 0))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 static void
 test_disasm_style(void)
@@ -53,23 +53,22 @@ test_disasm_style(void)
     byte buf[128];
     byte *pc, *end;
     instrlist_t *ilist = instrlist_create(GD);
-    instrlist_append(ilist, INSTR_CREATE_mov_st
-                     (GD, OPND_CREATE_MEM32(REG_XCX, 37),
-                      opnd_create_reg(REG_EAX)));
-    instrlist_append(ilist, INSTR_CREATE_mov_imm
-                     (GD, opnd_create_reg(REG_EDI),
-                      OPND_CREATE_INT32(17)));
+    instrlist_append(ilist,
+                     INSTR_CREATE_mov_st(GD, OPND_CREATE_MEM32(REG_XCX, 37),
+                                         opnd_create_reg(REG_EAX)));
+    instrlist_append(
+        ilist, INSTR_CREATE_mov_imm(GD, opnd_create_reg(REG_EDI), OPND_CREATE_INT32(17)));
     end = instrlist_encode(GD, ilist, buf, false);
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 
     pc = buf;
     while (pc < end)
-        pc = disassemble_with_info(GD, pc, STDOUT, false/*no pc*/, true);
+        pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
 
     disassemble_set_syntax(DR_DISASM_INTEL);
     pc = buf;
     while (pc < end)
-        pc = disassemble_with_info(GD, pc, STDOUT, false/*no pc*/, true);
+        pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
 
     instrlist_clear_and_destroy(GD, ilist);
 }
@@ -84,9 +83,8 @@ test_vendor(void)
 
     /* create 10-byte mem ref which for Intel requires rex prefix */
     proc_set_vendor(VENDOR_INTEL);
-    instr = INSTR_CREATE_lss
-        (GD, opnd_create_reg(REG_XAX),
-         opnd_create_base_disp(REG_XDX, REG_NULL, 0, 42, OPSZ_10));
+    instr = INSTR_CREATE_lss(GD, opnd_create_reg(REG_XAX),
+                             opnd_create_base_disp(REG_XDX, REG_NULL, 0, 42, OPSZ_10));
     end = instr_encode(GD, instr, buf);
     ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
 

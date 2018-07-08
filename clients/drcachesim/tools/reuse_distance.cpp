@@ -48,12 +48,12 @@ reuse_distance_tool_create(const reuse_distance_knobs_t &knobs)
     return new reuse_distance_t(knobs);
 }
 
-reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs_) :
-    knobs(knobs_), total_refs(0)
+reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs_)
+    : knobs(knobs_)
+    , total_refs(0)
 {
     line_size_bits = compute_log2((int)knobs.line_size);
-    ref_list = new line_ref_list_t(knobs.distance_threshold,
-                                   knobs.skip_list_distance,
+    ref_list = new line_ref_list_t(knobs.distance_threshold, knobs.skip_list_distance,
                                    knobs.verify_skip);
     if (DEBUG_VERBOSE(2)) {
         std::cerr << "cache line size " << knobs.line_size << ", "
@@ -80,19 +80,18 @@ reuse_distance_t::process_memref(const memref_t &memref)
         }
         std::cerr << std::endl;
     }
-    if (type_is_instr(memref.instr.type) ||
-        memref.data.type == TRACE_TYPE_READ ||
+    if (type_is_instr(memref.instr.type) || memref.data.type == TRACE_TYPE_READ ||
         memref.data.type == TRACE_TYPE_WRITE ||
         // We may potentially handle prefetches differently.
         // TRACE_TYPE_PREFETCH_INSTR is handled above.
         type_is_prefetch(memref.data.type)) {
         ++total_refs;
         addr_t tag = memref.data.addr >> line_size_bits;
-        std::unordered_map<addr_t, line_ref_t*>::iterator it = cache_map.find(tag);
+        std::unordered_map<addr_t, line_ref_t *>::iterator it = cache_map.find(tag);
         if (it == cache_map.end()) {
             line_ref_t *ref = new line_ref_t(tag);
             // insert into the map
-            cache_map.insert(std::pair<addr_t, line_ref_t*>(tag, ref));
+            cache_map.insert(std::pair<addr_t, line_ref_t *>(tag, ref));
             // insert into the list
             ref_list->add_to_front(ref);
         } else {
@@ -113,14 +112,14 @@ reuse_distance_t::process_memref(const memref_t &memref)
 
 static bool
 cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
-                  const std::pair<int_least64_t, int_least64_t> &r)
+             const std::pair<int_least64_t, int_least64_t> &r)
 {
     return l.first < r.first;
 }
 
 static bool
-cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
-               const std::pair<addr_t, line_ref_t*> &r)
+cmp_total_refs(const std::pair<addr_t, line_ref_t *> &l,
+               const std::pair<addr_t, line_ref_t *> &r)
 {
     if (l.second->total_refs > r.second->total_refs)
         return true;
@@ -134,8 +133,8 @@ cmp_total_refs(const std::pair<addr_t, line_ref_t*> &l,
 }
 
 static bool
-cmp_distant_refs(const std::pair<addr_t, line_ref_t*> &l,
-                 const std::pair<addr_t, line_ref_t*> &r)
+cmp_distant_refs(const std::pair<addr_t, line_ref_t *> &l,
+                 const std::pair<addr_t, line_ref_t *> &r)
 {
     if (l.second->distant_refs > r.second->distant_refs)
         return true;
@@ -172,15 +171,15 @@ reuse_distance_t::print_results()
     double sum_of_squares = 0;
     int_least64_t recount = 0;
     bool have_median = false;
-    std::vector<std::pair<int_least64_t, int_least64_t> > sorted(dist_map.size());
-    std::partial_sort_copy(dist_map.begin(), dist_map.end(),
-                           sorted.begin(), sorted.end(), cmp_dist_key);
+    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(dist_map.size());
+    std::partial_sort_copy(dist_map.begin(), dist_map.end(), sorted.begin(), sorted.end(),
+                           cmp_dist_key);
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double diff = it->first - mean;
         sum_of_squares += (diff * diff) * it->second;
         if (!have_median) {
             recount += it->second;
-            if (recount >= count/2) {
+            if (recount >= count / 2) {
                 std::cerr << "Reuse distance median: " << it->first << "\n";
                 have_median = true;
             }
@@ -197,52 +196,50 @@ reuse_distance_t::print_results()
         for (auto it = sorted.begin(); it != sorted.end(); ++it) {
             double percent = it->second / static_cast<double>(count);
             cum_percent += percent;
-            std::cerr << std::setw(8) << it->first
-                      << std::setw(12) << it->second
-                      << std::setw(8) << percent*100. << "%"
-                      << std::setw(8) << cum_percent*100. << "%\n";
+            std::cerr << std::setw(8) << it->first << std::setw(12) << it->second
+                      << std::setw(8) << percent * 100. << "%" << std::setw(8)
+                      << cum_percent * 100. << "%\n";
         }
     } else {
         std::cerr << "(Pass -reuse_distance_histogram to see all the data.)\n";
     }
 
     std::cerr << "\n";
-    std::cerr << "Reuse distance threshold = "
-              << ref_list->threshold << " cache lines\n";
-    std::vector<std::pair<addr_t, line_ref_t*> > top(knobs.report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(),
-                           top.begin(), top.end(), cmp_total_refs);
+    std::cerr << "Reuse distance threshold = " << ref_list->threshold << " cache lines\n";
+    std::vector<std::pair<addr_t, line_ref_t *>> top(knobs.report_top);
+    std::partial_sort_copy(cache_map.begin(), cache_map.end(), top.begin(), top.end(),
+                           cmp_total_refs);
     std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
-              << ": " << std::setw(17) << "#references  "
-              << std::setw(14) << "#distant refs" << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
+              << ": " << std::setw(17) << "#references  " << std::setw(14)
+              << "#distant refs"
+              << "\n";
+    for (std::vector<std::pair<addr_t, line_ref_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
         std::cerr << std::setw(18) << std::hex << std::showbase
-                  << (it->first << line_size_bits)
-                  << ": " << std::setw(12) << std::dec << it->second->total_refs
-                  << ", " << std::setw(12) << std::dec << it->second->distant_refs
-                  << "\n";
+                  << (it->first << line_size_bits) << ": " << std::setw(12) << std::dec
+                  << it->second->total_refs << ", " << std::setw(12) << std::dec
+                  << it->second->distant_refs << "\n";
     }
     top.clear();
     top.resize(knobs.report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(),
-                           top.begin(), top.end(), cmp_distant_refs);
+    std::partial_sort_copy(cache_map.begin(), cache_map.end(), top.begin(), top.end(),
+                           cmp_distant_refs);
     std::cerr << "Top " << top.size() << " distant repeatedly referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
-              << ": " << std::setw(17) << "#references  "
-              << std::setw(14) << "#distant refs" << "\n";
-    for (std::vector<std::pair<addr_t, line_ref_t*> >::iterator it = top.begin();
+              << ": " << std::setw(17) << "#references  " << std::setw(14)
+              << "#distant refs"
+              << "\n";
+    for (std::vector<std::pair<addr_t, line_ref_t *>>::iterator it = top.begin();
          it != top.end(); ++it) {
         if (it->second == NULL) // Very small app.
             break;
         std::cerr << std::setw(18) << std::hex << std::showbase
-                  << (it->first << line_size_bits)
-                  << ": " << std::setw(12) << std::dec << it->second->total_refs
-                  << ", " << std::setw(12) << std::dec << it->second->distant_refs
-                  << "\n";
+                  << (it->first << line_size_bits) << ": " << std::setw(12) << std::dec
+                  << it->second->total_refs << ", " << std::setw(12) << std::dec
+                  << it->second->distant_refs << "\n";
     }
 
     return true;

@@ -43,7 +43,7 @@ void
 pool_init(mempool_t *pool, char *buf, size_t sz)
 {
     pool->base = buf;
-    pool->cur = (char*)ALIGN_FORWARD(buf, 8);
+    pool->cur = (char *)ALIGN_FORWARD(buf, 8);
     pool->size = sz;
 }
 
@@ -58,7 +58,7 @@ pool_alloc(mempool_t *pool, size_t sz)
         ret = pool->cur;
         pool->cur = next;
     } else {
-        ret = NULL;  /* Overflow. */
+        ret = NULL; /* Overflow. */
     }
     return ret;
 }

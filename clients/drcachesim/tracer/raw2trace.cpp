@@ -50,43 +50,46 @@
 #define INVALID_THREAD_ID 0
 
 // Assumes we return an error string by convention.
-#define CHECK(val, msg) do { \
-    if (!(val)) return msg; \
-} while (0)
+#define CHECK(val, msg) \
+    do {                \
+        if (!(val))     \
+            return msg; \
+    } while (0)
 
-#define WARN(msg, ...) do {                                  \
-    fprintf(stderr, "WARNING: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-} while (0)
+#define WARN(msg, ...)                                        \
+    do {                                                      \
+        fprintf(stderr, "WARNING: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                       \
+    } while (0)
 
-#define VPRINT(level, ...) do { \
-    if (this->verbosity >= (level)) { \
-        fprintf(stderr, "[drmemtrace]: "); \
-        fprintf(stderr, __VA_ARGS__); \
-    } \
-} while (0)
+#define VPRINT(level, ...)                     \
+    do {                                       \
+        if (this->verbosity >= (level)) {      \
+            fprintf(stderr, "[drmemtrace]: "); \
+            fprintf(stderr, __VA_ARGS__);      \
+        }                                      \
+    } while (0)
 
-#define DO_VERBOSE(level, x) do { \
-    if (this->verbosity >= (level)) { \
-        x; /* ; makes vera++ happy */ \
-    } \
-} while (0)
+#define DO_VERBOSE(level, x)              \
+    do {                                  \
+        if (this->verbosity >= (level)) { \
+            x; /* ; makes vera++ happy */ \
+        }                                 \
+    } while (0)
 
 /***************************************************************************
  * Module list
  */
 
-const char * (*raw2trace_t::user_parse)(const char *src, OUT void **data);
+const char *(*raw2trace_t::user_parse)(const char *src, OUT void **data);
 void (*raw2trace_t::user_free)(void *data);
 bool raw2trace_t::has_custom_data = true;
 
 std::string
-raw2trace_t::handle_custom_data(const char * (*parse_cb)(const char *src,
-                                                         OUT void **data),
+raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
                                 std::string (*process_cb)(drmodtrack_info_t *info,
                                                           void *data, void *user_data),
-                                void *process_cb_user_data,
-                                void (*free_cb)(void *data))
+                                void *process_cb_user_data, void (*free_cb)(void *data))
 {
     user_parse = parse_cb;
     user_process = process_cb;
@@ -160,7 +163,7 @@ raw2trace_t::parse_custom_module_data(const char *src, OUT void **data)
 void
 raw2trace_t::free_custom_module_data(void *data)
 {
-    custom_module_data_t *custom_data = (custom_module_data_t*)data;
+    custom_module_data_t *custom_data = (custom_module_data_t *)data;
     if (user_free != nullptr)
         (*user_free)(custom_data->user_data);
     delete custom_data;
@@ -172,8 +175,7 @@ raw2trace_t::do_module_parsing()
     uint num_mods;
     VPRINT(1, "Reading module file from memory\n");
     if (drmodtrack_add_custom_data(nullptr, nullptr, parse_custom_module_data,
-                                   free_custom_module_data) !=
-        DRCOVLIB_SUCCESS) {
+                                   free_custom_module_data) != DRCOVLIB_SUCCESS) {
         return "Failed to set up custom module parser";
     }
     if (drmodtrack_offline_read(INVALID_FILE, modmap, NULL, &modhandle, &num_mods) !=
@@ -205,14 +207,14 @@ raw2trace_t::read_and_map_modules()
         return err;
     for (auto it = modlist.begin(); it != modlist.end(); ++it) {
         drmodtrack_info_t &info = *it;
-        custom_module_data_t *custom_data = (custom_module_data_t*)info.custom;
+        custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
         if (custom_data != nullptr && custom_data->contents_size > 0) {
             VPRINT(1, "Using module %d %s stored %zd-byte contents @" PFX "\n",
                    (int)modvec.size(), info.path, custom_data->contents_size,
                    (ptr_uint_t)custom_data->contents);
-            modvec.push_back(module_t(info.path, info.start,
-                                      (byte *)custom_data->contents,
-                                      custom_data->contents_size, true/*external data*/));
+            modvec.push_back(
+                module_t(info.path, info.start, (byte *)custom_data->contents,
+                         custom_data->contents_size, true /*external data*/));
         } else if (strcmp(info.path, "<unknown>") == 0 ||
                    // This should only happen with legacy trace data that's missing
                    // the vdso contents.
@@ -233,8 +235,8 @@ raw2trace_t::read_and_map_modules()
                                       modvec[info.containing_index].map_base, 0));
         } else {
             size_t map_size;
-            byte *base_pc = dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE,
-                                                   &map_size);
+            byte *base_pc =
+                dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
@@ -259,12 +261,11 @@ raw2trace_t::unmap_modules(void)
 {
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet.
-    if (modhandle != nullptr &&
-        drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
-          return "Failed to clean up module table data";
+    if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+        return "Failed to clean up module table data";
     }
-    for (std::vector<module_t>::iterator mvi = modvec.begin();
-         mvi != modvec.end(); ++mvi) {
+    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+         ++mvi) {
         if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
             bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
             if (!ok)
@@ -277,10 +278,10 @@ raw2trace_t::unmap_modules(void)
 std::string
 raw2trace_t::do_module_parsing_and_mapping()
 {
-   std::string error = read_and_map_modules();
-   if (!error.empty())
-       return error;
-   return "";
+    std::string error = read_and_map_modules();
+    if (!error.empty())
+        return error;
+    return "";
 }
 
 std::string
@@ -296,8 +297,8 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
         *mapped_address = trace_address - last_orig_base + last_map_base;
         return "";
     }
-    for (std::vector<module_t>::iterator mvi = modvec.begin();
-         mvi != modvec.end(); ++mvi) {
+    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+         ++mvi) {
         if (trace_address >= mvi->orig_base &&
             trace_address < mvi->orig_base + mvi->map_size) {
             *mapped_address = trace_address - mvi->orig_base + mvi->map_base;
@@ -328,13 +329,13 @@ raw2trace_t::read_from_thread_file(uint tidx, offline_entry_t *dest, size_t coun
     size_t from_buf = 0;
     if (!pre_read[tidx].empty()) {
         from_buf = (std::min)(pre_read[tidx].size(), count);
-        memcpy(dest, &pre_read[tidx][0], from_buf*sizeof(*dest));
+        memcpy(dest, &pre_read[tidx][0], from_buf * sizeof(*dest));
         pre_read[tidx].erase(pre_read[tidx].begin(), pre_read[tidx].begin() + from_buf);
         dest += from_buf;
         count -= from_buf;
     }
     if (count > 0) {
-        if (!thread_files[tidx]->read((char*)dest, count*sizeof(*dest))) {
+        if (!thread_files[tidx]->read((char *)dest, count * sizeof(*dest))) {
             if (num_read != nullptr)
                 *num_read = from_buf + (size_t)thread_files[tidx]->gcount();
             return false;
@@ -390,8 +391,10 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         // may not itself be predicated.
         // XXX i#2015: if there are multiple predicated memrefs, our instr vs
         // data stream may not be in the correct order here.
-        VPRINT(4, "Missing memref from predication, 0-iter repstr, or filter "
-               "(next type is 0x" ZHEX64_FORMAT_STRING ")\n", in_entry.combined_value);
+        VPRINT(4,
+               "Missing memref from predication, 0-iter repstr, or filter "
+               "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
+               in_entry.combined_value);
         unread_from_thread_file(tidx, &in_entry, 1);
         return "";
     }
@@ -401,17 +404,17 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
             buf->size = 1;
         } else if (instru_t::instr_is_flush(instr)) {
             buf->type = TRACE_TYPE_DATA_FLUSH;
-            buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
+            buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
         } else {
             if (write)
                 buf->type = TRACE_TYPE_WRITE;
             else
                 buf->type = TRACE_TYPE_READ;
-            buf->size = (ushort) opnd_size_in_bytes(opnd_get_size(ref));
+            buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
         }
     }
     // We take the full value, to handle low or high.
-    buf->addr = (addr_t) in_entry.combined_value;
+    buf->addr = (addr_t)in_entry.combined_value;
 #ifdef X86
     if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
         opnd_get_index(ref) == DR_REG_NULL) {
@@ -476,7 +479,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             modvec[in_entry->pc.modidx].orig_base;
         // To avoid repeatedly decoding the same instruction on every one of its
         // dynamic executions, we cache the decoding in a hashtable.
-        instr = (instr_t *) hashtable_lookup(&decode_cache, decode_pc);
+        instr = (instr_t *)hashtable_lookup(&decode_cache, decode_pc);
         if (instr == NULL) {
             instr = instr_create(dcontext);
             // We assume the default ISA mode and currently require the 32-bit
@@ -514,8 +517,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             }
         } else
             prev_instr_was_rep_string = false;
-        buf->size = (ushort) (skip_icache ? 0 : instr_length(dcontext, instr));
-        buf->addr = (addr_t) orig_pc;
+        buf->size = (ushort)(skip_icache ? 0 : instr_length(dcontext, instr));
+        buf->addr = (addr_t)orig_pc;
         ++buf;
         decode_pc = pc;
         // We need to interleave instrs with memrefs.
@@ -525,8 +528,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             (instr_reads_memory(instr) || instr_writes_memory(instr))) {
             for (int j = 0; j < instr_num_srcs(instr); j++) {
                 if (opnd_is_memory_reference(instr_get_src(instr, j))) {
-                    std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_src(instr, j), false);
+                    std::string error =
+                        append_memref(&buf, tidx, instr, instr_get_src(instr, j), false);
                     if (error == FAULT_INTERRUPTED_BB) {
                         truncated = true;
                         break;
@@ -536,8 +539,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             }
             for (int j = 0; !truncated && j < instr_num_dsts(instr); j++) {
                 if (opnd_is_memory_reference(instr_get_dst(instr, j))) {
-                    std::string error = append_memref(&buf, tidx, instr,
-                                                      instr_get_dst(instr, j), true);
+                    std::string error =
+                        append_memref(&buf, tidx, instr, instr_get_dst(instr, j), true);
                     if (error == FAULT_INTERRUPTED_BB) {
                         truncated = true;
                         break;
@@ -557,11 +560,11 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             // handle it in post-processing by delaying a thread-block-final branch (and
             // its memrefs) to that thread's next block.  This changes the timestamp
             // of the branch, which we live with.
-            delayed_branch[tidx].insert(delayed_branch[tidx].begin(),
-                                        (char *)buf_start, (char *)buf);
+            delayed_branch[tidx].insert(delayed_branch[tidx].begin(), (char *)buf_start,
+                                        (char *)buf);
         } else {
-            if (!out_file->write((char*)buf_start,
-                                 (buf - buf_start)*sizeof(trace_entry_t)))
+            if (!out_file->write((char *)buf_start,
+                                 (buf - buf_start) * sizeof(trace_entry_t)))
                 return "Failed to write to output file";
         }
     }
@@ -607,7 +610,7 @@ raw2trace_t::merge_and_process_thread_files()
     // First read the tid and pid entries which precede any timestamps.
     // We append the tid to the output on every thread switch, and the pid
     // the very first time (using wrote_pid[]).
-    for (uint i=0; i<thread_files.size(); ++i) {
+    for (uint i = 0; i < thread_files.size(); ++i) {
         if (!read_from_thread_file(i, &in_entry, 1))
             return "Failed to read header from input file";
         // Handle legacy traces which have the timestamp first.
@@ -637,7 +640,7 @@ raw2trace_t::merge_and_process_thread_files()
             // Pick the next thread by looking for the smallest timestamp.
             uint64 min_time = 0xffffffffffffffff;
             uint next_tidx = 0;
-            for (uint i=0; i<times.size(); ++i) {
+            for (uint i = 0; i < times.size(); ++i) {
                 if (times[i] == 0 && !thread_file_at_eof(i)) {
                     offline_entry_t entry;
                     if (!read_from_thread_file(i, &entry, 1))
@@ -645,16 +648,17 @@ raw2trace_t::merge_and_process_thread_files()
                     if (entry.timestamp.type != OFFLINE_TYPE_TIMESTAMP)
                         return "Missing timestamp entry";
                     times[i] = entry.timestamp.usec;
-                    VPRINT(3, "Thread %u timestamp is @0x" ZHEX64_FORMAT_STRING
-                           "\n", (uint)tids[i], times[i]);
+                    VPRINT(3, "Thread %u timestamp is @0x" ZHEX64_FORMAT_STRING "\n",
+                           (uint)tids[i], times[i]);
                 }
                 if (times[i] != 0 && times[i] < min_time) {
                     min_time = times[i];
                     next_tidx = i;
                 }
             }
-            VPRINT(2, "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING
-                   "\n", (uint)tids[next_tidx], times[next_tidx]);
+            VPRINT(2,
+                   "Next thread in timestamp order is %u @0x" ZHEX64_FORMAT_STRING "\n",
+                   (uint)tids[next_tidx], times[next_tidx]);
             tidx = next_tidx;
             // Write out the tid (and pid for the first entry).
             DR_ASSERT(tids[tidx] != INVALID_THREAD_ID);
@@ -670,13 +674,13 @@ raw2trace_t::merge_and_process_thread_files()
             // We have to write this now before we append any bb entries.
             size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file->write((char*)buf_base, size))
+            if (!out_file->write((char *)buf_base, size))
                 return "Failed to write to output file";
             buf = buf_base;
             times[tidx] = 0; // Read from file for this thread's next timestamp.
         }
-        VPRINT(4, "About to read thread %d at pos %d\n",
-               (uint)tids[tidx], (int)thread_files[tidx]->tellg());
+        VPRINT(4, "About to read thread %d at pos %d\n", (uint)tids[tidx],
+               (int)thread_files[tidx]->tellg());
         if (!read_from_thread_file(tidx, &in_entry, 1)) {
             if (thread_file_at_eof(tidx)) {
                 // Rather than a fatal error we try to continue to provide partial
@@ -704,8 +708,7 @@ raw2trace_t::merge_and_process_thread_files()
             if (in_entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
                 // Push forward to EOF.
                 offline_entry_t entry;
-                if (read_from_thread_file(tidx, &entry, 1) ||
-                    !thread_file_at_eof(tidx))
+                if (read_from_thread_file(tidx, &entry, 1) || !thread_file_at_eof(tidx))
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
@@ -729,10 +732,10 @@ raw2trace_t::merge_and_process_thread_files()
             if (!last_bb_handled) {
                 // For currently-unhandled non-module code, memrefs are handled here
                 // where we can easily handle the transition out of the bb.
-                trace_entry_t *entry = (trace_entry_t *) buf;
+                trace_entry_t *entry = (trace_entry_t *)buf;
                 entry->type = TRACE_TYPE_READ; // Guess.
-                entry->size = 1; // Guess.
-                entry->addr = (addr_t) in_entry.combined_value;
+                entry->size = 1;               // Guess.
+                entry->addr = (addr_t)in_entry.combined_value;
                 VPRINT(4, "Appended non-module memref to " PFX "\n",
                        (ptr_uint_t)entry->addr);
                 buf += sizeof(*entry);
@@ -749,7 +752,7 @@ raw2trace_t::merge_and_process_thread_files()
             if (!read_from_thread_file(tidx, &entry, 1) ||
                 entry.addr.type != OFFLINE_TYPE_IFLUSH)
                 return "Flush missing 2nd entry";
-            VPRINT(2, "Flush " PFX"-" PFX"\n", (ptr_uint_t)in_entry.addr.addr,
+            VPRINT(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
             buf += instru.append_iflush(buf, in_entry.addr.addr,
                                         (size_t)(entry.addr.addr - in_entry.addr.addr));
@@ -761,7 +764,7 @@ raw2trace_t::merge_and_process_thread_files()
         if (buf > buf_base) {
             size_t size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-            if (!out_file->write((char*)buf_base, size))
+            if (!out_file->write((char *)buf_base, size))
                 return "Failed to write to output file";
         }
     } while (thread_count > 0);
@@ -773,7 +776,7 @@ raw2trace_t::check_thread_file(std::istream *f)
 {
     // Check version header.
     offline_entry_t ver_entry;
-    if (!f->read((char*)&ver_entry, sizeof(ver_entry))) {
+    if (!f->read((char *)&ver_entry, sizeof(ver_entry))) {
         return "Unable to read thread log file";
     }
     if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
@@ -799,7 +802,7 @@ raw2trace_t::do_conversion()
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
     entry.addr = TRACE_ENTRY_VERSION;
-    if (!out_file->write((char*)&entry, sizeof(entry)))
+    if (!out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
     error = merge_and_process_thread_files();
@@ -809,22 +812,29 @@ raw2trace_t::do_conversion()
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
     entry.addr = 0;
-    if (!out_file->write((char*)&entry, sizeof(entry)))
+    if (!out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write footer to output file";
     VPRINT(1, "Successfully converted %zu thread files\n", thread_files.size());
     return "";
 }
 
 raw2trace_t::raw2trace_t(const char *module_map_in,
-                         const std::vector<std::istream*> &thread_files_in,
-                         std::ostream *out_file_in,
-                         void *dcontext_in,
+                         const std::vector<std::istream *> &thread_files_in,
+                         std::ostream *out_file_in, void *dcontext_in,
                          unsigned int verbosity_in)
-    : modmap(module_map_in), modhandle(NULL), thread_files(thread_files_in),
-      out_file(out_file_in), dcontext(dcontext_in),
-      prev_instr_was_rep_string(false), instrs_are_separate(false),
-      verbosity(verbosity_in), user_process(nullptr), user_process_data(nullptr),
-      last_orig_base(nullptr), last_map_size(0), last_map_base(nullptr)
+    : modmap(module_map_in)
+    , modhandle(NULL)
+    , thread_files(thread_files_in)
+    , out_file(out_file_in)
+    , dcontext(dcontext_in)
+    , prev_instr_was_rep_string(false)
+    , instrs_are_separate(false)
+    , verbosity(verbosity_in)
+    , user_process(nullptr)
+    , user_process_data(nullptr)
+    , last_orig_base(nullptr)
+    , last_map_size(0)
+    , last_map_base(nullptr)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();
@@ -837,7 +847,7 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     // We go ahead and start with a reasonably large capacity.
     hashtable_init_ex(&decode_cache, 16, HASH_INTPTR, false, false, NULL, NULL, NULL);
     // We pay a little memory to get a lower load factor.
-    hashtable_config_t config = {sizeof(config), true, 40};
+    hashtable_config_t config = { sizeof(config), true, 40 };
     hashtable_configure(&decode_cache, &config);
 
     delayed_branch.resize(thread_files.size());
