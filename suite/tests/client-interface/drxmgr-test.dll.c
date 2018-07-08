@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-
 /* Tests the drx extension with drmgr */
 
 #include "dr_api.h"
@@ -38,12 +37,13 @@
 #include "drreg.h"
 #include "drx.h"
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 static uint counterA;
 static uint counterB;
@@ -54,7 +54,7 @@ event_exit(void)
     drx_exit();
     drreg_exit();
     drmgr_exit();
-    CHECK(counterB == 3*counterA, "counter inc messed up");
+    CHECK(counterB == 3 * counterA, "counter inc messed up");
     dr_fprintf(STDERR, "event_exit\n");
 }
 
@@ -65,17 +65,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!drmgr_is_first_instr(drcontext, inst))
         return DR_EMIT_DEFAULT;
     /* Exercise drreg's adjacent increment aflags spill removal code */
-    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
-                              IF_NOT_X86_(SPILL_SLOT_MAX+1) &counterA, 1, 0);
-    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX+1,
-                              IF_NOT_X86_(SPILL_SLOT_MAX+1) &counterB, 3, 0);
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX + 1,
+                              IF_NOT_X86_(SPILL_SLOT_MAX + 1) & counterA, 1, 0);
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX + 1,
+                              IF_NOT_X86_(SPILL_SLOT_MAX + 1) & counterB, 3, 0);
     return DR_EMIT_DEFAULT;
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
     drreg_status_t res;
     bool ok = drmgr_init();
     CHECK(ok, "drmgr_init failed");

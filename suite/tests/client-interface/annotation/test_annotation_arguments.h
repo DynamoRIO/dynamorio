@@ -53,8 +53,7 @@
 extern "C" {
 #endif
 
-DR_DECLARE_ANNOTATION(void, test_annotation_two_args,
-                      (unsigned int a, unsigned int b));
+DR_DECLARE_ANNOTATION(void, test_annotation_two_args, (unsigned int a, unsigned int b));
 
 DR_DECLARE_ANNOTATION(int, test_annotation_three_args,
                       (unsigned int a, unsigned int b, unsigned int c));
@@ -78,4 +77,3 @@ DR_DECLARE_ANNOTATION(void, test_annotation_ten_args,
 #endif
 
 #endif
-

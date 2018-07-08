@@ -39,15 +39,15 @@
 #include <vector>
 
 #ifdef UNIX
-# include <dirent.h> /* opendir, readdir */
-# include <unistd.h> /* getcwd */
+#    include <dirent.h> /* opendir, readdir */
+#    include <unistd.h> /* getcwd */
 #else
-# define UNICODE
-# define _UNICODE
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
-# include <direct.h> /* _getcwd */
-# pragma comment(lib, "User32.lib")
+#    define UNICODE
+#    define _UNICODE
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#    include <direct.h> /* _getcwd */
+#    pragma comment(lib, "User32.lib")
 #endif
 
 #include "dr_api.h"
@@ -56,22 +56,26 @@
 #include "raw2trace_directory.h"
 #include "utils.h"
 
-#define FATAL_ERROR(msg, ...) do { \
-    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
-    fflush(stderr); \
-    exit(1); \
-} while (0)
+#define FATAL_ERROR(msg, ...)                               \
+    do {                                                    \
+        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
+        fflush(stderr);                                     \
+        exit(1);                                            \
+    } while (0)
 
-#define CHECK(val, msg, ...) do { \
-    if (!(val)) FATAL_ERROR(msg, ##__VA_ARGS__); \
-} while (0)
+#define CHECK(val, msg, ...)                 \
+    do {                                     \
+        if (!(val))                          \
+            FATAL_ERROR(msg, ##__VA_ARGS__); \
+    } while (0)
 
-#define VPRINT(level, ...) do { \
-    if (this->verbosity >= (level)) { \
-        fprintf(stderr, "[drmemtrace]: "); \
-        fprintf(stderr, __VA_ARGS__); \
-    } \
-} while (0)
+#define VPRINT(level, ...)                     \
+    do {                                       \
+        if (this->verbosity >= (level)) {      \
+            fprintf(stderr, "[drmemtrace]: "); \
+            fprintf(stderr, __VA_ARGS__);      \
+        }                                      \
+    } while (0)
 
 #ifdef UNIX
 void
@@ -84,7 +88,7 @@ raw2trace_directory_t::open_thread_files()
         FATAL_ERROR("Failed to list directory %s", indir.c_str());
     while ((ent = readdir(dir)) != NULL)
         open_thread_log_file(ent->d_name);
-    closedir (dir);
+    closedir(dir);
 }
 #else
 void
@@ -120,16 +124,16 @@ void
 raw2trace_directory_t::open_thread_log_file(const char *basename)
 {
     char path[MAXIMUM_PATH];
-    CHECK(basename[0] != '/',
-          "dir iterator entry %s should not be an absolute path\n", basename);
+    CHECK(basename[0] != '/', "dir iterator entry %s should not be an absolute path\n",
+          basename);
     // Skip the module list log.
     if (strcmp(basename, DRMEMTRACE_MODULE_LIST_FILENAME) == 0)
         return;
     // Skip any non-.raw in case someone put some other file in there.
     if (strstr(basename, OUTFILE_SUFFIX) == NULL)
         return;
-    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s",
-                    indir.c_str(), DIRSEP, basename) <= 0) {
+    if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", indir.c_str(), DIRSEP,
+                    basename) <= 0) {
         FATAL_ERROR("Failed to get full path of file %s", basename);
     }
     NULL_TERMINATE_BUFFER(path);
@@ -162,14 +166,16 @@ raw2trace_directory_t::read_module_file(const std::string &modfilename)
 raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
                                              const std::string &outname_in,
                                              unsigned int verbosity_in)
-    : indir(indir_in), outname(outname_in), verbosity(verbosity_in)
+    : indir(indir_in)
+    , outname(outname_in)
+    , verbosity(verbosity_in)
 {
     // Support passing both base dir and raw/ subdir.
     if (indir.find(OUTFILE_SUBDIR) == std::string::npos) {
         indir += std::string(DIRSEP) + OUTFILE_SUBDIR;
     }
-    std::string modfilename = indir + std::string(DIRSEP) +
-        DRMEMTRACE_MODULE_LIST_FILENAME;
+    std::string modfilename =
+        indir + std::string(DIRSEP) + DRMEMTRACE_MODULE_LIST_FILENAME;
     read_module_file(modfilename);
 
     out_file.open(outname.c_str(), std::ofstream::binary);
@@ -182,7 +188,9 @@ raw2trace_directory_t::raw2trace_directory_t(const std::string &indir_in,
 
 raw2trace_directory_t::raw2trace_directory_t(const std::string &module_file_path,
                                              unsigned int verbosity_in)
-    : indir(""), outname(""), verbosity(verbosity_in)
+    : indir("")
+    , outname("")
+    , verbosity(verbosity_in)
 {
     read_module_file(module_file_path);
 }
@@ -191,7 +199,7 @@ raw2trace_directory_t::~raw2trace_directory_t()
 {
     delete[] modfile_bytes;
     dr_close_file(modfile);
-    for (std::vector<std::istream*>::iterator fi = thread_files.begin();
+    for (std::vector<std::istream *>::iterator fi = thread_files.begin();
          fi != thread_files.end(); ++fi) {
         delete *fi;
     }

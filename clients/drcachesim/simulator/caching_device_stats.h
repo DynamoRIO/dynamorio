@@ -39,13 +39,12 @@
 #include <string>
 #include <stdint.h>
 #ifdef HAS_ZLIB
-# include <zlib.h>
+#    include <zlib.h>
 #endif
 #include "memref.h"
 
-class caching_device_stats_t
-{
- public:
+class caching_device_stats_t {
+public:
     explicit caching_device_stats_t(const std::string &miss_file,
                                     bool warmup_enabled = false);
     virtual ~caching_device_stats_t();
@@ -53,30 +52,43 @@ class caching_device_stats_t
     // Called on each access.
     // A multi-block memory reference invokes this routine
     // separately for each block touched.
-    virtual void access(const memref_t &memref, bool hit);
+    virtual void
+    access(const memref_t &memref, bool hit);
 
     // Called on each access by a child caching device.
-    virtual void child_access(const memref_t &memref, bool hit);
+    virtual void
+    child_access(const memref_t &memref, bool hit);
 
-    virtual void print_stats(std::string prefix);
+    virtual void
+    print_stats(std::string prefix);
 
-    virtual void reset();
+    virtual void
+    reset();
 
-    virtual bool operator!() { return !success; }
+    virtual bool operator!()
+    {
+        return !success;
+    }
 
     // Process invalidations due to cache inclusions.
-    virtual void invalidate();
+    virtual void
+    invalidate();
 
- protected:
+protected:
     bool success;
 
     // print different groups of information, beneficial for code reuse
-    virtual void print_warmup(std::string prefix);
-    virtual void print_counts(std::string prefix); // hit/miss numbers
-    virtual void print_rates(std::string prefix); // hit/miss rates
-    virtual void print_child_stats(std::string prefix); // child/total info
+    virtual void
+    print_warmup(std::string prefix);
+    virtual void
+    print_counts(std::string prefix); // hit/miss numbers
+    virtual void
+    print_rates(std::string prefix); // hit/miss rates
+    virtual void
+    print_child_stats(std::string prefix); // child/total info
 
-    virtual void dump_miss(const memref_t &memref);
+    virtual void
+    dump_miss(const memref_t &memref);
 
     int_least64_t num_hits;
     int_least64_t num_misses;

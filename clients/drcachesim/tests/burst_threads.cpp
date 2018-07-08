@@ -45,7 +45,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #ifndef UNIX
-# include <process.h>
+#    include <process.h>
 #endif
 #include "../../../suite/tests/condvar.h"
 
@@ -58,7 +58,7 @@ bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -80,13 +80,13 @@ unsigned int __stdcall
 #else
 void *
 #endif
-thread_func(void *arg)
+    thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static const int iter_start = outer_iters/3;
+    static const int iter_start = outer_iters / 3;
     static const int iter_stop = iter_start + 4;
 
     /* We use an outer loop to test re-attaching (i#2157). */
@@ -138,16 +138,17 @@ main(int argc, const char *argv[])
      * running more and their trace files get up to 65MB or more, with the
      * merged result several GB's: too much for a test.  We thus cap each thread.
      */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;"
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -client_lib ';;"
                    "-offline -max_trace_size 256K'"))
         std::cerr << "failed to set env var!\n";
 
     burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
-        pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
+        pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
 #else
-        thread[i] = _beginthreadex(NULL, 0, thread_func, (void*)(uintptr_t)i, 0, NULL);
+        thread[i] = _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, NULL);
 #endif
     }
     for (uint i = 0; i < num_threads; i++) {

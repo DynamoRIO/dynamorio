@@ -65,8 +65,8 @@ typedef struct _elem_t {
 elem_t *head = NULL;
 elem_t *tail = NULL;
 
-static
-elem_t *find(void *tag)
+static elem_t *
+find(void *tag)
 {
     elem_t *iter = head;
     while (iter) {
@@ -78,16 +78,15 @@ elem_t *find(void *tag)
     return NULL;
 }
 
-static
-void increment(void *tag)
+static void
+increment(void *tag)
 {
     elem_t *elem;
 
     elem = find(tag);
     if (elem != NULL) {
         elem->count++;
-    }
-    else {
+    } else {
         elem = dr_global_alloc(sizeof(elem_t));
 
         elem->tag = tag;
@@ -98,8 +97,7 @@ void increment(void *tag)
         if (head == NULL) {
             head = elem;
             tail = elem;
-        }
-        else {
+        } else {
             tail->next = elem;
             elem->prev = tail;
             tail = elem;
@@ -107,16 +105,15 @@ void increment(void *tag)
     }
 }
 
-static
-void decrement(void *tag)
+static void
+decrement(void *tag)
 {
     elem_t *elem;
 
     elem = find(tag);
     if (elem == NULL) {
-        dr_fprintf(STDERR, "ERROR removing "PFX"\n", tag);
-    }
-    else {
+        dr_fprintf(STDERR, "ERROR removing " PFX "\n", tag);
+    } else {
         elem->count--;
 
         if (elem->count == 0) {
@@ -138,8 +135,8 @@ void decrement(void *tag)
     }
 }
 
-static
-void exit_event(void)
+static void
+exit_event(void)
 {
     int count = 0;
 
@@ -147,7 +144,7 @@ void exit_event(void)
     while (iter) {
         elem_t *next = iter->next;
         count += iter->count;
-        dr_fprintf(STDERR, "ERROR: "PFX" undeleted\n", iter->tag);
+        dr_fprintf(STDERR, "ERROR: " PFX " undeleted\n", iter->tag);
         dr_global_free(iter, sizeof(elem_t));
         iter = next;
     }
@@ -160,28 +157,28 @@ void exit_event(void)
         dr_fprintf(STDERR, "constructed BB %d times\n", bb_build_count);
 }
 
-static
-dr_emit_flags_t trace_event(void *drcontext, void *tag, instrlist_t *trace,
-                            bool translating)
+static dr_emit_flags_t
+trace_event(void *drcontext, void *tag, instrlist_t *trace, bool translating)
 {
     if (!translating)
         increment(tag);
     return DR_EMIT_DEFAULT;
 }
 
-static
-void deleted_event(void *dcontext, void *tag)
+static void
+deleted_event(void *dcontext, void *tag)
 {
     decrement(tag);
 }
 
-void flush_event(int flush_id)
+void
+flush_event(int flush_id)
 {
     dr_fprintf(STDERR, "Flush completion id=%d\n", flush_id);
 }
 
-static
-void callback(void *tag, app_pc next_pc)
+static void
+callback(void *tag, app_pc next_pc)
 {
     callback_count++;
 
@@ -191,7 +188,10 @@ void callback(void *tag, app_pc next_pc)
     if (callback_count % 100 == 0) {
         if (callback_count % 200 == 0) {
             /* For windows test dr_flush_region() half the time */
-            dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
+            dr_mcontext_t mcontext = {
+                sizeof(mcontext),
+                DR_MC_ALL,
+            };
 
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
@@ -209,8 +209,8 @@ void callback(void *tag, app_pc next_pc)
 }
 
 #ifdef WINDOWS
-static
-bool string_match(const char *str1, const char *str2)
+static bool
+string_match(const char *str1, const char *str2)
 {
     if (str1 == NULL || str2 == NULL)
         return false;
@@ -225,8 +225,8 @@ bool string_match(const char *str1, const char *str2)
     return false;
 }
 
-static
-void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
+static void
+module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 {
     if (string_match(dr_module_preferred_name(data), "client.flush.exe")) {
         start = data->start;
@@ -235,17 +235,16 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 }
 #endif
 
-static
-dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr;
     if (!translating)
         increment(tag);
 
-    /* I'm looking for a specific BB in the test .exe.  I've marked
-     * it with a couple nops.
-     */
+        /* I'm looking for a specific BB in the test .exe.  I've marked
+         * it with a couple nops.
+         */
 #ifdef WINDOWS
     if ((app_pc)tag >= start && (app_pc)tag < end) {
 #endif
@@ -258,19 +257,19 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t *bb,
              * 2 nop instructions in a row aren't that uncommon on Linux (where we can't
              * restrict our search to just the test.exe module) we use an unusual nop
              * for the second one: xchg xbp, xbp */
-            if (next != NULL && instr_is_nop(next) &&
-                instr_get_opcode(next) == OP_xchg &&
+            if (next != NULL && instr_is_nop(next) && instr_get_opcode(next) == OP_xchg &&
                 instr_writes_to_exact_reg(next, REG_XBP, DR_QUERY_DEFAULT)) {
 
                 bb_build_count++;
 
                 if (delay_flush_at_next_build) {
                     delay_flush_at_next_build = false;
-                    dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
+                    dr_delay_flush_region((app_pc)tag - 20, 30, callback_count,
+                                          flush_event);
                 }
 
-                dr_insert_clean_call(drcontext, bb, instr, (void *)callback,
-                                     false, 2, OPND_CREATE_INTPTR(tag),
+                dr_insert_clean_call(drcontext, bb, instr, (void *)callback, false, 2,
+                                     OPND_CREATE_INTPTR(tag),
                                      OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
             }
         }
@@ -286,7 +285,7 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* Test kernel xfer on dr_redirect_execution */
     dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     ASSERT(info->source_mcontext != NULL);
-    dr_mcontext_t mc = {sizeof(mc)};
+    dr_mcontext_t mc = { sizeof(mc) };
     mc.flags = DR_MC_CONTROL;
     bool ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);
@@ -298,7 +297,8 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
     dr_fprintf(STDERR, "options = %s\n", options);

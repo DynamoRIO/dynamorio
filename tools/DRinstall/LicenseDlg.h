@@ -38,65 +38,73 @@
 #define _LICENSE_DLG_H_
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
 /////////////////////////////////////////////////////////////////////////////
 // LicEdit
 
-class LicEdit : public CEdit
-{
-    void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
-    void OnEnVscroll();
+class LicEdit : public CEdit {
+    void
+    OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar);
+    void
+    OnEnVscroll();
     DECLARE_MESSAGE_MAP()
 };
 
 /////////////////////////////////////////////////////////////////////////////
 // CLicenseDlg dialog
 
-class CLicenseDlg : public CPropertyPage
-{
+class CLicenseDlg : public CPropertyPage {
     DECLARE_DYNCREATE(CLicenseDlg)
 
-// Construction
+    // Construction
 public:
-    BOOL CheckWindowsVersion();
-    BOOL OnInitDialog();
+    BOOL
+    CheckWindowsVersion();
+    BOOL
+    OnInitDialog();
     CLicenseDlg();
     ~CLicenseDlg();
 
-// Dialog Data
+    // Dialog Data
     //{{AFX_DATA(CLicenseDlg)
     enum { IDD = IDD_LICENSE };
     LicEdit m_LicenseEdit;
     CString m_License;
     //}}AFX_DATA
 
-
-// Overrides
+    // Overrides
     // ClassWizard generate virtual function overrides
     //{{AFX_VIRTUAL(CLicenseDlg)
 public:
-    virtual BOOL OnSetActive();
+    virtual BOOL
+    OnSetActive();
+
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
-// Implementation
+    // Implementation
 protected:
     BOOL m_FirstTime;
-    void UpdateScrollbar();
+    void
+    UpdateScrollbar();
     // Generated message map functions
     //{{AFX_MSG(CLicenseDlg)
-    afx_msg void OnAgree();
-    afx_msg void OnDisagree();
-    afx_msg void OnUnderstand();
+    afx_msg void
+    OnAgree();
+    afx_msg void
+    OnDisagree();
+    afx_msg void
+    OnUnderstand();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
-
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
+// Microsoft Developer Studio will insert additional declarations immediately before the
+// previous line.
 
 #endif // _LICENSE_DLG_H_

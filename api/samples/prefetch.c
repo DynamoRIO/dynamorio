@@ -45,11 +45,13 @@
 #include "dr_api.h"
 #include "drmgr.h"
 
-static void event_exit(void);
-static dr_emit_flags_t event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                                        bool for_trace, bool translating);
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating);
 
-static void *count_mutex;  /* for multithread support */
+static void *count_mutex; /* for multithread support */
 static int prefetches_removed = 0, prefetchws_removed = 0;
 
 DR_EXPORT void
@@ -86,8 +88,8 @@ event_exit(void)
 }
 
 static dr_emit_flags_t
-event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb,
-                 bool for_trace, bool translating)
+event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                 bool translating)
 {
     instr_t *instr, *next_instr;
     int opcode;

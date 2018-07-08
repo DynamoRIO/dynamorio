@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,29 +36,38 @@
 #include "../common/utils.h"
 
 #ifdef VERBOSE
-# include <iostream>
+#    include <iostream>
 #endif
 
 // Following typical stream iterator convention, the default constructor
 // produces an EOF object.
-reader_t::reader_t() : at_eof(true), input_entry(NULL), cur_tid(0), cur_pid(0),
-                       cur_pc(0), prev_instr_addr(0), bundle_idx(0)
+reader_t::reader_t()
+    : at_eof(true)
+    , input_entry(NULL)
+    , cur_tid(0)
+    , cur_pid(0)
+    , cur_pc(0)
+    , prev_instr_addr(0)
+    , bundle_idx(0)
 {
     /* Empty. */
 }
 
-const memref_t&
+// Work around clang-format bug: no newline after return type for single-char operator.
+// clang-format off
+const memref_t &
 reader_t::operator*()
+// clang-format on
 {
     return cur_ref;
 }
 
-reader_t&
+reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
-        if (bundle_idx == 0/*not in instr bundle*/)
+        if (bundle_idx == 0 /*not in instr bundle*/)
             input_entry = read_next_entry();
         if (input_entry == NULL) {
             ERRMSG("Trace is truncated\n");
@@ -74,8 +83,8 @@ reader_t::operator++()
             break;
         }
 #ifdef VERBOSE
-        std::cerr << "RECV: " << input_entry->type << " sz=" << input_entry->size <<
-            " addr=" << (void *)input_entry->addr << std::endl;
+        std::cerr << "RECV: " << input_entry->type << " sz=" << input_entry->size
+                  << " addr=" << (void *)input_entry->addr << std::endl;
 #endif
         bool have_memref = false;
         switch (input_entry->type) {
@@ -93,7 +102,7 @@ reader_t::operator++()
             assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.data.pid = cur_pid;
             cur_ref.data.tid = cur_tid;
-            cur_ref.data.type = (trace_type_t) input_entry->type;
+            cur_ref.data.type = (trace_type_t)input_entry->type;
             cur_ref.data.size = input_entry->size;
             cur_ref.data.addr = input_entry->addr;
             // The trace stream always has the instr fetch first, which we
@@ -128,7 +137,7 @@ reader_t::operator++()
                 have_memref = true;
                 cur_ref.instr.pid = cur_pid;
                 cur_ref.instr.tid = cur_tid;
-                cur_ref.instr.type = (trace_type_t) input_entry->type;
+                cur_ref.instr.type = (trace_type_t)input_entry->type;
                 cur_ref.instr.size = input_entry->size;
                 cur_pc = input_entry->addr;
                 cur_ref.instr.addr = cur_pc;
@@ -155,7 +164,7 @@ reader_t::operator++()
             assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.flush.pid = cur_pid;
             cur_ref.flush.tid = cur_tid;
-            cur_ref.flush.type = (trace_type_t) input_entry->type;
+            cur_ref.flush.type = (trace_type_t)input_entry->type;
             cur_ref.flush.size = input_entry->size;
             cur_ref.flush.addr = input_entry->addr;
             if (cur_ref.flush.size != 0)
@@ -167,34 +176,34 @@ reader_t::operator++()
             have_memref = true;
             break;
         case TRACE_TYPE_THREAD:
-            cur_tid = (memref_tid_t) input_entry->addr;
+            cur_tid = (memref_tid_t)input_entry->addr;
             // tid2pid might not be filled in yet: if so, we expect a
             // TRACE_TYPE_PID entry right after this one, and later asserts
             // will complain if it wasn't there.
             cur_pid = tid2pid[cur_tid];
             break;
         case TRACE_TYPE_THREAD_EXIT:
-            cur_tid = (memref_tid_t) input_entry->addr;
+            cur_tid = (memref_tid_t)input_entry->addr;
             cur_pid = tid2pid[cur_tid];
             assert(cur_tid != 0 && cur_pid != 0);
             // We do pass this to the caller but only some fields are valid:
             cur_ref.exit.pid = cur_pid;
             cur_ref.exit.tid = cur_tid;
-            cur_ref.exit.type = (trace_type_t) input_entry->type;
+            cur_ref.exit.type = (trace_type_t)input_entry->type;
             have_memref = true;
             break;
         case TRACE_TYPE_PID:
-            cur_pid = (memref_pid_t) input_entry->addr;
+            cur_pid = (memref_pid_t)input_entry->addr;
             // We do want to replace, in case of tid reuse.
             tid2pid[cur_tid] = cur_pid;
             break;
         case TRACE_TYPE_MARKER:
             have_memref = true;
-            cur_ref.marker.type = (trace_type_t) input_entry->type;
+            cur_ref.marker.type = (trace_type_t)input_entry->type;
             assert(cur_tid != 0 && cur_pid != 0);
             cur_ref.marker.pid = cur_pid;
             cur_ref.marker.tid = cur_tid;
-            cur_ref.marker.marker_type = (trace_marker_type_t) input_entry->size;
+            cur_ref.marker.marker_type = (trace_marker_type_t)input_entry->size;
             cur_ref.marker.marker_value = input_entry->addr;
             break;
         default:

@@ -40,15 +40,16 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
-class opcode_mix_t : public analysis_tool_t
-{
- public:
-    opcode_mix_t(const std::string& module_file_path, unsigned int verbose);
+class opcode_mix_t : public analysis_tool_t {
+public:
+    opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
     virtual ~opcode_mix_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     void *dcontext;
     raw2trace_t *raw2trace;
     // We reference directory.modfile_bytes throughout operation, so its lifetime

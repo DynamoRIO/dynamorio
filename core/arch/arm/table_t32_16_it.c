@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
@@ -41,6 +41,9 @@
  */
 
 /* FIXME i#1551: add support for instrs that can only be "outside or last in IT block". */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /* top-level table */
 /* Indexed by bits 15:12*/
@@ -280,3 +283,5 @@ const instr_info_t T32_16_it_ext_imm_10_6[][2] = {
       {OP_lsl,   0x0000, "lsl",        RZw, xx, RYw, i5_6, xx, no, x, z96[0][0x02]},
     },
 };
+
+/* clang-format on */

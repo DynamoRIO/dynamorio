@@ -45,22 +45,24 @@
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 /* for printing to buffers */
-# define MAX_OPND_DIS_SZ   64 /* gets long w/ ibl target names */
+#    define MAX_OPND_DIS_SZ 64 /* gets long w/ ibl target names */
 /* Long examples:
- * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
- * "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> "
+ * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00
+ * ...>" "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> "
  * "0x000007fefd1a2728[8byte] %rax "
  */
-# define MAX_INSTR_DIS_SZ 196
+#    define MAX_INSTR_DIS_SZ 196
 /* Here's a pretty long one,
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> "
  * "0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
  * For ARM:
- * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13 %s14 "
- * "%s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30 %s31 "
+ * " 8ca90aa1   vstm.hi %s0 %s1 %s2 %s3 %s4 %s5 %s6 %s7 %s8 %s9 %s10 %s11 %s12 %s13
+ * %s14 "
+ * "%s15 %s16 %s17 %s18 %s19 %s20 %s21 %s22 %s23 %s24 %s25 %s26 %s27 %s28 %s29 %s30
+ * %s31 "
  * "%r9 -> (%r9)[124byte]"
  */
-# define MAX_PC_DIS_SZ    228
+#    define MAX_PC_DIS_SZ 228
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
@@ -73,19 +75,19 @@ typedef enum {
      * Lists source operands first, then "->", and then destination
      * operands.
      */
-    DR_DISASM_DR             =  0x0,
+    DR_DISASM_DR = 0x0,
     /**
      * Requests Intel syntax for disassembly.  This sets the same option that is
      * controlled by the runtime option \p -syntax_intel.  Implicit operands
      * are not displayed.
      */
-    DR_DISASM_INTEL          =  0x1,
+    DR_DISASM_INTEL = 0x1,
     /**
      * Requests AT&T syntax for disassembly.  This sets the same option that is
      * controlled by the runtime option \p -syntax_att.  Implicit operands
      * are not displayed.
      */
-    DR_DISASM_ATT            =  0x2,
+    DR_DISASM_ATT = 0x2,
     /**
      * Certain reserved or unspecified opcodes are in a gray area where they
      * could be decoded with their length and operands understood, but they are
@@ -94,20 +96,20 @@ typedef enum {
      * option is set, DR tightens up its decoding and does treat them as
      * invalid.
      */
-    DR_DISASM_STRICT_INVALID =  0x4,
+    DR_DISASM_STRICT_INVALID = 0x4,
     /**
      * This flag only applies to the default DR style (i.e., it does not apply
      * when DR_DISASM_INTEL or DR_DISASM_ATT is selected).  That style by
      * default displays the size of memory or sub-register operands via a
      * suffix "[Nbytes]".  Setting this flag removes that suffix.
      */
-    DR_DISASM_NO_OPND_SIZE   =  0x8,
+    DR_DISASM_NO_OPND_SIZE = 0x8,
     /**
      * Requests standard ARM assembler syntax for disassembly.  This
      * sets the same option that is controlled by the runtime option
      * \p -syntax_arm.  Implicit operands are not displayed.
      */
-    DR_DISASM_ARM            =  0x10,
+    DR_DISASM_ARM = 0x10,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
 
@@ -135,16 +137,16 @@ byte *
 disassemble(dcontext_t *dcontext, byte *pc, file_t outfile);
 
 DR_UNS_API /* deprecated from interface */
-/**
- * Decodes and then prints the instruction at address \p pc to file \p outfile.
- * Prior to the instruction the address and raw bytes of the instruction
- * are printed.
- * The default is to use DR's custom syntax (see disassemble_set_syntax()).
- * Returns the address of the subsequent instruction, or a guess if the instruction
- * at \p pc is invalid.
- */
-byte *
-disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile);
+    /**
+     * Decodes and then prints the instruction at address \p pc to file \p outfile.
+     * Prior to the instruction the address and raw bytes of the instruction
+     * are printed.
+     * The default is to use DR's custom syntax (see disassemble_set_syntax()).
+     * Returns the address of the subsequent instruction, or a guess if the instruction
+     * at \p pc is invalid.
+     */
+    byte *
+    disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile);
 
 DR_API
 /**
@@ -156,8 +158,8 @@ DR_API
  * at \p pc is invalid.
  */
 byte *
-disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile,
-                      bool show_pc, bool show_bytes);
+disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile, bool show_pc,
+                      bool show_bytes);
 
 DR_API
 /**
@@ -171,8 +173,8 @@ DR_API
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
 byte *
-disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc,
-                      file_t outfile, bool show_pc, bool show_bytes);
+disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, file_t outfile,
+                      bool show_pc, bool show_bytes);
 
 DR_API
 /**
@@ -191,10 +193,8 @@ DR_API
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
 byte *
-disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc,
-                      bool show_pc, bool show_bytes, char *buf, size_t bufsz,
-                      int *printed OUT);
-
+disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc, bool show_pc,
+                      bool show_bytes, char *buf, size_t bufsz, int *printed OUT);
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
@@ -223,8 +223,8 @@ DR_API
  * The default is to use DR's custom syntax (see disassemble_set_syntax()).
  */
 size_t
-instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr,
-                            char *buf, size_t bufsz);
+instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr, char *buf,
+                            size_t bufsz);
 
 /* DR_API EXPORT TOFILE dr_ir_opnd.h */
 DR_API
@@ -293,8 +293,8 @@ DR_API
  * \endcode
  */
 void
-instrlist_disassemble(dcontext_t *dcontext, app_pc tag,
-                      instrlist_t *ilist, file_t outfile);
+instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
+                      file_t outfile);
 
 #endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 

@@ -38,15 +38,16 @@
 
 #include "analysis_tool.h"
 
-class basic_counts_t : public analysis_tool_t
-{
- public:
+class basic_counts_t : public analysis_tool_t {
+public:
     basic_counts_t(unsigned int verbose);
     virtual ~basic_counts_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     int_least64_t total_threads;
     int_least64_t total_instrs;
     int_least64_t total_instrs_nofetch;

@@ -32,34 +32,37 @@
 
 #include "dr_api.h"
 
-static uint64 bbcnt0    = 0;
+static uint64 bbcnt0 = 0;
 static uint64 bbcnt0_fp = 0;
-static uint64 bbcnt1    = 0;
-static uint64 bbcnt4    = 0;
+static uint64 bbcnt1 = 0;
+static uint64 bbcnt4 = 0;
 
-static void bbcount4(reg_t r1, reg_t r2, reg_t r3, reg_t r4)
+static void
+bbcount4(reg_t r1, reg_t r2, reg_t r3, reg_t r4)
 {
     bbcnt4++;
 }
 
-static void bbcount1(reg_t r1)
+static void
+bbcount1(reg_t r1)
 {
     bbcnt1++;
 }
 
-static void bbcount0_fp()
+static void
+bbcount0_fp()
 {
     bbcnt0_fp++;
 }
 
-static void bbcount0()
+static void
+bbcount0()
 {
     bbcnt0++;
 }
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr;
 
@@ -70,34 +73,33 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
     dr_insert_clean_call(drcontext, bb, instr, bbcount1, false, 1,
                          opnd_create_reg(REG_XAX));
     dr_insert_clean_call(drcontext, bb, instr, bbcount4, false, 4,
-                         opnd_create_reg(REG_XAX),
-                         opnd_create_reg(REG_XBX),
-                         opnd_create_reg(REG_XCX),
-                         opnd_create_reg(REG_XDX));
+                         opnd_create_reg(REG_XAX), opnd_create_reg(REG_XBX),
+                         opnd_create_reg(REG_XCX), opnd_create_reg(REG_XDX));
     return DR_EMIT_DEFAULT;
 }
 
-static
-void check(uint64 count, const char *str)
+static void
+check(uint64 count, const char *str)
 {
     dr_fprintf(STDERR, "%s... ", str);
     if (bbcnt0 == count) {
         dr_fprintf(STDERR, "yes\n");
-    }
-    else {
+    } else {
         dr_fprintf(STDERR, "no\n");
     }
 }
 
-void exit_event(void)
+void
+exit_event(void)
 {
     check(bbcnt0_fp, "bbcount0_fp");
-    check(bbcnt1,    "bbcount1");
-    check(bbcnt4,    "bbcount4");
+    check(bbcnt1, "bbcount1");
+    check(bbcnt4, "bbcount4");
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
     dr_register_exit_event(exit_event);

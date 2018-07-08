@@ -31,14 +31,16 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#include "tools.h" /* for print() */
-#include <stdio.h>
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
+#    include <stdio.h>
 
 /* in asm */
-void test_jecxz(int *x);
+void
+test_jecxz(int *x);
 
-int main()
+int
+main()
 {
     int x = 0;
     test_jecxz(&x);
@@ -47,7 +49,8 @@ int main()
 }
 
 #else /* asm code *************************************************************/
-#include "asm_defines.asm"
+#    include "asm_defines.asm"
+/* clang-format off */
 START_FILE
 
 #define FUNCNAME test_jecxz
@@ -99,4 +102,5 @@ GLOBAL_LABEL(FUNCNAME:)
 
 
 END_FILE
+/* clang-format on */
 #endif

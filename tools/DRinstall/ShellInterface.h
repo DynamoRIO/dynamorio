@@ -38,20 +38,24 @@
 #define _SHELL_INTERFACE_H
 
 #if _MSC_VER > 1000
-#pragma once
+#    pragma once
 #endif // _MSC_VER > 1000
 
-class CShellInterface
-{
+class CShellInterface {
 public:
     CShellInterface();
     virtual ~CShellInterface();
 
-    static void Initialize();
-    static void Uninitialize();
-    static BOOL CreateLinkFile(LPCTSTR pszShortcutFile, LPTSTR pszLink, LPTSTR pszDesc);
-    static BOOL CopyDir(LPCTSTR from, LPCTSTR to, HWND hwnd);
-    static BOOL DeleteFile(LPCTSTR name, HWND hwnd);
+    static void
+    Initialize();
+    static void
+    Uninitialize();
+    static BOOL
+    CreateLinkFile(LPCTSTR pszShortcutFile, LPTSTR pszLink, LPTSTR pszDesc);
+    static BOOL
+    CopyDir(LPCTSTR from, LPCTSTR to, HWND hwnd);
+    static BOOL
+    DeleteFile(LPCTSTR name, HWND hwnd);
 
     static BOOL m_bInitialized;
 };

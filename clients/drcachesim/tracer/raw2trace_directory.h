@@ -50,17 +50,20 @@ public:
     ~raw2trace_directory_t();
 
     char *modfile_bytes;
-    std::vector<std::istream*> thread_files;
+    std::vector<std::istream *> thread_files;
     std::ofstream out_file;
 
 private:
-    void read_module_file(const std::string &modfilename);
-    void open_thread_files();
-    void open_thread_log_file(const char *basename);
+    void
+    read_module_file(const std::string &modfilename);
+    void
+    open_thread_files();
+    void
+    open_thread_log_file(const char *basename);
     file_t modfile;
     std::string indir;
     std::string outname;
     unsigned int verbosity;
 };
 
-#endif  /* _RAW2TRACE_DIRECTORY_H_ */
+#endif /* _RAW2TRACE_DIRECTORY_H_ */

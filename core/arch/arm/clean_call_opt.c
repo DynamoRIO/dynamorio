@@ -71,15 +71,14 @@ check_callee_ilist_inline(dcontext_t *dcontext, callee_info_t *ci)
 }
 
 void
-analyze_clean_call_aflags(dcontext_t *dcontext,
-                          clean_call_info_t *cci, instr_t *where)
+analyze_clean_call_aflags(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#2094: NYI on ARM */
 }
 
 void
-insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci,
-                       instrlist_t *ilist, instr_t *where, opnd_t *args)
+insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
+                       instr_t *where, opnd_t *args)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#2094: NYI on ARM */
 }
@@ -92,8 +91,8 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
 }
 
 void
-insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci,
-                        instrlist_t *ilist, instr_t *where, opnd_t *args)
+insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
+                        instr_t *where, opnd_t *args)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#2094: NYI on ARM */
 }

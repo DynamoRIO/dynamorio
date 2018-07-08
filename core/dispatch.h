@@ -55,27 +55,28 @@ void
 transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_state);
 
 /* hooks on entry/exit to/from DR */
-#define NO_HOOK ((void (*)(void)) NULL)
+#define NO_HOOK ((void (*)(void))NULL)
 
 #define HOOK_ENABLED_HELPER SELF_PROTECT_ON_CXT_SWITCH
 
 #define HOOK_ENABLED (HOOK_ENABLED_HELPER || INTERNAL_OPTION(single_thread_in_DR))
 
 #define ENTER_DR_HOOK (HOOK_ENABLED ? entering_dynamorio : NO_HOOK)
-#define EXIT_DR_HOOK  (HOOK_ENABLED ? exiting_dynamorio : NO_HOOK)
+#define EXIT_DR_HOOK (HOOK_ENABLED ? exiting_dynamorio : NO_HOOK)
 
-#define ENTERING_DR() do {   \
+#define ENTERING_DR()        \
+    do {                     \
         if (HOOK_ENABLED)    \
             ENTER_DR_HOOK(); \
     } while (0);
 
-#define EXITING_DR() do {    \
-        if (HOOK_ENABLED)    \
-            EXIT_DR_HOOK();  \
+#define EXITING_DR()        \
+    do {                    \
+        if (HOOK_ENABLED)   \
+            EXIT_DR_HOOK(); \
     } while (0);
 
-
 /* magic value to set next_tag to, to indicate a return to native_exec */
-#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t) -1)
+#define BACK_TO_NATIVE_AFTER_SYSCALL ((app_pc)(ptr_uint_t)-1)
 
 #endif /* _DISPATCH_H_ */

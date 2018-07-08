@@ -43,7 +43,7 @@ static int result = 0;
 static ULONG_PTR apc_arg = 0;
 
 unsigned int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     int res;
     synch_2 = FALSE;
@@ -57,7 +57,7 @@ run_func(void * arg)
      * well technically 192 is io completion interruption, but seems to
      * report that for any interrupting APC */
     printf("SleepEx returned %d\n", res);
-    printf("Apc arg = %d\n", (int) apc_arg);
+    printf("Apc arg = %d\n", (int)apc_arg);
     printf("Result = %d\n", result);
     fflush(stdout);
     return 0;
@@ -79,7 +79,7 @@ main()
 
     printf("Before _beginthreadex\n");
     fflush(stdout);
-    hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
+    hThread = (HANDLE)_beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
 
     while (synch_2) {
         SwitchToThread();

@@ -62,9 +62,10 @@ static void
 kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     dr_fprintf(STDERR, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
-    dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %d %p to %p sp=%zx\n", __FUNCTION__, info->type,
-           info->sig, info->source_mcontext->pc, info->target_pc, info->target_xsp);
-    dr_mcontext_t mc = {sizeof(mc)};
+    dr_log(drcontext, DR_LOG_ALL, 2, "%s: %d %d %p to %p sp=%zx\n", __FUNCTION__,
+           info->type, info->sig, info->source_mcontext->pc, info->target_pc,
+           info->target_xsp);
+    dr_mcontext_t mc = { sizeof(mc) };
     mc.flags = DR_MC_CONTROL;
     bool ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);
@@ -134,7 +135,7 @@ signal_event(void *dcontext, dr_siginfo_t *info)
 static void
 thread_func(void *arg)
 {
-    int fd = (int)(long) arg;
+    int fd = (int)(long)arg;
     char buf[16];
     child_pid = getpid();
     child_tid = syscall(SYS_gettid);
@@ -167,7 +168,7 @@ test_syscall_auto_restart(void)
     int pipefd[2];
     int res = pipe(pipefd);
     ASSERT(res != -1);
-    bool success = dr_create_client_thread(thread_func, (void*)(long)pipefd[0]);
+    bool success = dr_create_client_thread(thread_func, (void *)(long)pipefd[0]);
     ASSERT(success);
     dr_event_wait(child_alive);
     /* XXX: there's no easy race-free solution here: we need the thread to
@@ -188,7 +189,7 @@ test_syscall_auto_restart(void)
      */
     kill(getpid(), SIGCHLD);
 #else
-# error Unsupported OS
+#    error Unsupported OS
 #endif
     dr_event_destroy(child_alive); /* deliberately left non-NULL */
     dr_event_destroy(child_dead);
@@ -196,7 +197,7 @@ test_syscall_auto_restart(void)
 }
 
 static dr_emit_flags_t
-bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool translating)
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr, *next_next_instr;
     if (child_alive == NULL)
@@ -208,8 +209,7 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
             next_next_instr = instr_get_next(next_instr);
         else
             next_next_instr = NULL;
-        if (instr_is_nop(instr) &&
-            next_instr != NULL && instr_is_nop(next_instr) &&
+        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
             next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
 
             redirect_tag = tag;
@@ -220,7 +220,8 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
     dr_register_signal_event(signal_event);

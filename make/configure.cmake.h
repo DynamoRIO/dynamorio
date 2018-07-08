@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,6 +34,8 @@
 /* configure.cmake.h
  * processed by cmake to contain all configuration defines
  */
+// We disable formatting as it messes up the ${var} references.
+/* clang-format off */
 #ifndef _CONFIGURE_H_
 #define _CONFIGURE_H_ 1
 
@@ -328,3 +330,4 @@
 #endif
 
 #endif /* _CONFIGURE_H_ */
+/* clang-format on */

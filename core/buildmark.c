@@ -40,5 +40,5 @@ const char dynamorio_buildmark[] = __DATE__ " " __TIME__;
 const char dynamorio_buildmark[] = "unknown";
 #endif
 
-const char dynamorio_version_string[] = PRODUCT_NAME" "VERSION_NUMBER_STRING", "\
-                                        BUILD_NUMBER_STRING", (c) "COMPANY_LONG_NAME;
+const char dynamorio_version_string[] = PRODUCT_NAME
+    " " VERSION_NUMBER_STRING ", " BUILD_NUMBER_STRING ", (c) " COMPANY_LONG_NAME;

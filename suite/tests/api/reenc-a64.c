@@ -45,7 +45,8 @@
 
 #define ORIG_PC ((byte *)0x10000000)
 
-void test1(void *dc, uint enc, int len)
+void
+test1(void *dc, uint enc, int len)
 {
     instr_t instr;
     byte *pc1, *pc2;
@@ -55,8 +56,7 @@ void test1(void *dc, uint enc, int len)
     pc1 = decode_from_copy(dc, (byte *)&enc, ORIG_PC, &instr);
     if (pc1 == NULL && instr_get_opcode(&instr) == OP_INVALID)
         goto done;
-    if (pc1 != (byte *)&enc + len ||
-        instr_get_opcode(&instr) < OP_FIRST ||
+    if (pc1 != (byte *)&enc + len || instr_get_opcode(&instr) < OP_FIRST ||
         instr_get_opcode(&instr) > OP_LAST) {
         dr_printf("%08x  Decode failed\n", enc);
         goto done;
@@ -76,11 +76,12 @@ void test1(void *dc, uint enc, int len)
         disassemble_from_copy(dc, (byte *)&enc2, ORIG_PC, STDOUT, false, false);
     }
 
- done:
+done:
     instr_free(dc, &instr);
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     uint a, b, i;
     void *dc;

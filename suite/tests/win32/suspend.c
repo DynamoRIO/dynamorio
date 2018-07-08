@@ -85,11 +85,12 @@ ThreadProc2(LPVOID param)
     return 0;
 }
 
-#define CHECK_SUSPEND_COUNT(val, expect) do {                                    \
-        if ((val) != (expect)) {                                                 \
-            printf("\nfailure, suspend count is %d instead of %d on line %d\n",  \
-                   (val), (expect), __LINE__);                                   \
-        }                                                                        \
+#define CHECK_SUSPEND_COUNT(val, expect)                                               \
+    do {                                                                               \
+        if ((val) != (expect)) {                                                       \
+            printf("\nfailure, suspend count is %d instead of %d on line %d\n", (val), \
+                   (expect), __LINE__);                                                \
+        }                                                                              \
     } while (0)
 
 int
@@ -100,7 +101,7 @@ main(void)
     DWORD res;
 
 #if DO_SIMPLE_SUSPEND_TEST
-    ht=CreateThread(NULL, 0, &ThreadProc1, NULL, 0, &tid);
+    ht = CreateThread(NULL, 0, &ThreadProc1, NULL, 0, &tid);
 
     while (synch_2) {
         SwitchToThread();
@@ -126,7 +127,7 @@ main(void)
 #if DO_SYNCH_WITH_SUSPEND_SELF_TEST
     res = 0;
     /* First we test suspending a new thread that hasn't been initialized by dr yet. */
-    ht=CreateThread(NULL, 0, &ThreadProc2, NULL, CREATE_SUSPENDED, &tid);
+    ht = CreateThread(NULL, 0, &ThreadProc2, NULL, CREATE_SUSPENDED, &tid);
     res = SuspendThread(ht);
     CHECK_SUSPEND_COUNT(res, 1);
     res = ResumeThread(ht);
@@ -148,9 +149,9 @@ main(void)
     CHECK_SUSPEND_COUNT(res, 1);
     printf("suspended(count = %d)...", res);
     fflush(stdout);
-# if SLEEP_FOR_NUDGE
+#    if SLEEP_FOR_NUDGE
     Sleep(20000);
-# endif
+#    endif
     res = ResumeThread(ht);
     CHECK_SUSPEND_COUNT(res, 2);
     res = ResumeThread(ht);
@@ -162,7 +163,7 @@ main(void)
 #if DO_SYNCH_WITH_ALL_SUSPEND_SELF_TEST
     /* xref case 9333, our new thread will suspend itself and we then want to trigger
      * a synch_with_all_threads, will use the process exit one */
-    ht=CreateThread(NULL, 0, &ThreadProc2, NULL, 0, &tid);
+    ht = CreateThread(NULL, 0, &ThreadProc2, NULL, 0, &tid);
     SwitchToThread();
     /* FIXME - this is racy, we can't be sure thread has suspended itself without
      * suspending it ourselves, we'll just sleep a little to try and be sure. (We could

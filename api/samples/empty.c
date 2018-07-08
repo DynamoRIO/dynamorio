@@ -40,7 +40,8 @@
 
 #include "dr_api.h"
 
-static void event_exit(void);
+static void
+event_exit(void);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -97,6 +97,7 @@
 /* to make some system calls actionable only in DEBUG (because all we do is log) */
 #define ACTION_LOG IF_DEBUG_ELSE(true, false)
 #define ACTION_CLIENT IF_CLIENT_INTERFACE_ELSE(true, false)
+/* clang-format off */
 /*                                                                                                                 vista         vista
  *                                                                                     xp-w7                vista   x64   vista   x64                                      w8.1    w8.1  w8.1    w10     w10   w10    w11     w11  w11     w12     w12  w12     w13     w13  w13     w14     w14  w14   w15     w15  w15
  *      Name                       action?  nargs arg32 ntsp0 ntsp3 ntsp4  2000     xp wow64   xp64   2003   sp0    sp0    sp1    sp1   w7x86 w7x64  w8x86 w8wow64 w8x64    x86   wow64   x64    x86   wow64   x64    x86   wow64  x64     x86   wow64  x64     x86   wow64  x64     x86   wow64  x64   x86   wow64  x64 */
@@ -153,11 +154,13 @@ SYSCALL(QueryFullAttributesFile,      false,    2, 0x08, 0x69, 0x69, 0x69, 0x81,
 SYSCALL(SetInformationFile,           false,    5, 0x14, 0xa0, 0xa1, 0xa1, 0xc2, 0x0e0,    0, 0x024, 0x0e9, 0x131, 0x024, 0x12d, 0x024, 0x149,0x024, 0x04e,0x00025,0x025, 0x051,0x00026,0x026, 0x052,0x00027,0x027, 0x052,0x00027,0x027, 0x052,0x00027,0x027, 0x052,0x00027,0x027, 0x053,0x00027,0x027, 0x053,0x00027,0x027)
 SYSCALL(SetInformationThread,         false,    4, 0x10, 0xa4, 0xa5, 0xa5, 0xc7, 0x0e5,    0, 0x00a, 0x0ee, 0x136, 0x00a, 0x132, 0x00a, 0x14f,0x00a, 0x048,0x0000b,0x00b, 0x04b,0x0000c,0x00c, 0x04c,0x0000d,0x00d, 0x04c,0x0000d,0x00d, 0x04c,0x0000d,0x00d, 0x04c,0x0000d,0x00d, 0x04d,0x0000d,0x00d, 0x04d,0x0000d,0x00d)
 SYSCALL(SetValueKey,                  false,    6, 0x18, 0xb2, 0xb3, 0xb3, 0xd7, 0x0f7,    0, 0x05d, 0x100, 0x148, 0x05d, 0x144, 0x05d, 0x166,0x05d, 0x030,0x0005e,0x05e, 0x031,0x0005f,0x05f, 0x032,0x00060,0x060, 0x032,0x00060,0x060, 0x032,0x00060,0x060, 0x032,0x00060,0x060, 0x033,0x00060,0x060, 0x033,0x00060,0x060)
+/* clang-format on */
 
 /* I moved comments down here to make it easier to paste new columns in: */
-/* XXX: OpenSection processing is needed only for ASLR_SHARED, but can't be made dynamic */
-/* XXX: move AlertResumeThread, which is debug-only, to an strace-like client (update: we do have drstrace
- * now), not needed for core DynamoRIO (at least not that we know of)
+/* XXX: OpenSection processing is needed only for ASLR_SHARED, but can't be made dynamic
+ */
+/* XXX: move AlertResumeThread, which is debug-only, to an strace-like client (update: we
+ * do have drstrace now), not needed for core DynamoRIO (at least not that we know of)
  */
 /* TestAlert and below are for DR's own use */
 
@@ -167,12 +170,13 @@ SYSCALL(SetValueKey,                  false,    6, 0x18, 0xb2, 0xb3, 0xb3, 0xd7,
  * which gets rather complex, when it's going to be rare that a job is killed
  * from within.  Disabled for now.
  */
+/* clang-format off */
 SYSCALL(TerminateJobObject,           true,     2, 0x08, NONE, NONE, NONE, 0xdf, 0x100, 0x07, 0x11a, 0x109, 0x151, 0x17b, 0x14d, 0x174, 0x171,0x17d, 0x024,0x70195,0x195, 0x024,0x7019a,0x19a, 0x024,0x7019a,0x1a2, 0x025,0x701a5,0x1a5, 0x025,0x701ab,0x1ab, 0x025,0x701b1,0x1b1, 0x025,0x701b5,0x1b5, 0x025, 0x0701b7, 0x1b7)
+/* clang-format on */
 #endif
 
 #undef NONE
 #undef ACTION_LOG
-
 
 /* Attic - there is little point in continuing to update the syscall numbers
  * below since they are only used for ignorable system calls which is
@@ -204,6 +208,7 @@ SYSCALL(TerminateJobObject,           true,     2, 0x08, NONE, NONE, NONE, 0xdf,
      * right thing.  Thus, we don't bother to intercept, as we will never
      * see those system calls, right?
      */
+/* clang-format off */
 /*                                                                                                          vista  vista
  *      Name                       action?  nargs arg32 ntsp0 ntsp3 ntsp4  2000     xp wow64   xp64   2003   sp0    sp1     w7   w7x64 */
 SYSCALL(AlertThread,                  false,    1, 0x04, 0x07, 0x07, 0x07, 0x0c, 0x00d, 0x03, 0x06a, 0x00e, 0x00e, 0x00e, 0x00e, 0x06a)
@@ -223,4 +228,5 @@ SYSCALL(WaitForMultipleObjects,       false,    5, 0x14, 0xc3, 0xc4, 0xc4, 0xe9,
 SYSCALL(WaitForSingleObject,          false,    3, 0x0c, 0xc4, 0xc5, 0xc5, 0xea, 0x10f, 0x0d, 0x001, 0x119, 0x164, 0x160, 0x187, 0x001)
 SYSCALL(WaitHighEventPair,            false,    1, 0x04, 0xc5, 0xc6, 0xc6, 0xeb, 0x110, 0x03, 0x126, 0x11a, 0x165, 0x161, 0x189, 0x18e)
 SYSCALL(WaitLowEventPair,             false,    1, 0x04, 0xc6, 0xc7, 0xc7, 0xec, 0x111, 0x03, 0x127, 0x11b, 0x166, 0x162, 0x18a, 0x18f)
+/* clang-format on */
 #endif /* if 0 */

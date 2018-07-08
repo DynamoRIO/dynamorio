@@ -35,22 +35,22 @@
 
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
-# define NIGHTLY_REGRESSION
+#    define NIGHTLY_REGRESSION
 #endif
 
 #include "tools.h"
 #include "thread.h"
 
-typedef unsigned char* app_pc;
+typedef unsigned char *app_pc;
 
-#define SILENT                  /* no writes at all */
+#define SILENT /* no writes at all */
 
 /* observe page faults and private size growth, see what happens if I
  * set the Working set size to a small number
  */
 
-enum {SWAP_OUT_AFTER_THREAD = 1}; /* trims working set down after each thread */
-enum {SWAP_OUT_AFTER_BATCH = 1}; /* trims working set down after batch  */
+enum { SWAP_OUT_AFTER_THREAD = 1 }; /* trims working set down after each thread */
+enum { SWAP_OUT_AFTER_BATCH = 1 };  /* trims working set down after batch  */
 
 /*
  * native (0,0) pf delta is 15k,   time 30s
@@ -61,63 +61,63 @@ enum {SWAP_OUT_AFTER_BATCH = 1}; /* trims working set down after batch  */
  */
 
 #ifdef NIGHTLY_REGRESSION
-enum {TOTAL_THREADS = 40};
+enum { TOTAL_THREADS = 40 };
 #else
-enum {TOTAL_THREADS = 20000};
+enum { TOTAL_THREADS = 20000 };
 #endif
 
-enum {BATCH_SIZE = 10};
+enum { BATCH_SIZE = 10 };
 
-enum {ROUNDS = 10};
+enum { ROUNDS = 10 };
 
 #define UNIPROC
 
-enum {LOOP_WORK = 100};
+enum { LOOP_WORK = 100 };
 
 /* --------- */
 thread_t thread[TOTAL_THREADS];
 
-long global_started = 0;                   /* unsynchronized */
-long global_finished = 0;                   /* unsynchronized */
+long global_started = 0;  /* unsynchronized */
+long global_finished = 0; /* unsynchronized */
 
 #ifdef UNIPROC
-#  define YIELD() thread_yield()    /* or do nothing on a multi processor */
+#    define YIELD() thread_yield() /* or do nothing on a multi processor */
 #else
-#  define YIELD() /* or do nothing on a multi processor */
+#    define YIELD() /* or do nothing on a multi processor */
 #endif
 
-int compare( const void *arg1, const void *arg2 )
+int
+compare(const void *arg1, const void *arg2)
 {
-   /* Compare all of both strings: */
-   return _stricmp( * ( char** ) arg1, * ( char** ) arg2 );
+    /* Compare all of both strings: */
+    return _stricmp(*(char **)arg1, *(char **)arg2);
 }
 
 void
 sort()
 {
     int argc = 5;
-    char *argv[] = {"one", "two", "three","five", "six", "unsorted"};
+    char *argv[] = { "one", "two", "three", "five", "six", "unsorted" };
 
-   /* Sort remaining args using Quicksort algorithm: */
-   qsort( (void *)argv, (size_t)argc, sizeof( char * ), compare );
+    /* Sort remaining args using Quicksort algorithm: */
+    qsort((void *)argv, (size_t)argc, sizeof(char *), compare);
 
 #ifdef VERY_VERBOSE
-   /* Output sorted list: */
-   for( i = 0; i < argc; ++i )
-       print( " %s", argv[i] );
-   print( "\n" );
+    /* Output sorted list: */
+    for (i = 0; i < argc; ++i)
+        print(" %s", argv[i]);
+    print("\n");
 #endif
 }
 
-unsigned int __stdcall
-executor(void *arg)
+unsigned int __stdcall executor(void *arg)
 {
     int w;
-    sort();                 /* do some work */
+    sort(); /* do some work */
     InterlockedIncrement(&global_started);
 
     for (w = 0; w < LOOP_WORK; w++) {
-        sort();                 /* do more work */
+        sort(); /* do more work */
         if (w % 10 == 0)
             YIELD();
     }
@@ -127,8 +127,7 @@ executor(void *arg)
     return 0;
 }
 
-enum {MINSIZE_KB = 500,
-      MAXSIZE_KB = 1000};
+enum { MINSIZE_KB = 500, MAXSIZE_KB = 1000 };
 
 int
 main()
@@ -139,13 +138,11 @@ main()
 
     INIT();
 
-
     /* this doesn't do much in fact */
-    res = SetProcessWorkingSetSize(GetCurrentProcess(),
-                                   MINSIZE_KB*1024,
-                                   MAXSIZE_KB*1024);
-    // on Win2003 there is a SetProcessWorkingSetSizeEx that sets QUOTA_LIMITS_HARDWS_ENABLE
-
+    res = SetProcessWorkingSetSize(GetCurrentProcess(), MINSIZE_KB * 1024,
+                                   MAXSIZE_KB * 1024);
+    // on Win2003 there is a SetProcessWorkingSetSizeEx that sets
+    // QUOTA_LIMITS_HARDWS_ENABLE
 
     if (res == 0)
         print("SetProcessWorkingSetSize failed GLE: %d\n", GetLastError());
@@ -170,26 +167,25 @@ main()
 #ifdef VERBOSE
             print("started %d threads\n", TOTAL_THREADS);
 #else
-#ifndef SILENT
+#    ifndef SILENT
             print("started some threads\n");
-#endif
+#    endif
 #endif
             for (t = 0; t < BATCH_SIZE; t++) {
                 assert(thread[t] != NULL);
                 join_thread(thread[t]);
-                thread[t] = NULL; /* in case want to synch with some in a batch, but with all at the end */
+                thread[t] = NULL; /* in case want to synch with some in a batch, but with
+                                     all at the end */
 
                 if (SWAP_OUT_AFTER_THREAD) {
-                    res = SetProcessWorkingSetSize(GetCurrentProcess(),
-                                                   -1, -1);
+                    res = SetProcessWorkingSetSize(GetCurrentProcess(), -1, -1);
                 }
             }
 #ifdef VERBOSE
             print("some %d work, done %d\n", global_started, global_finished);
 #endif
             if (SWAP_OUT_AFTER_BATCH) {
-                res = SetProcessWorkingSetSize(GetCurrentProcess(),
-                                               -1, -1);
+                res = SetProcessWorkingSetSize(GetCurrentProcess(), -1, -1);
             }
         }
     }
@@ -197,4 +193,3 @@ main()
     print("done\n");
     return 0;
 }
-

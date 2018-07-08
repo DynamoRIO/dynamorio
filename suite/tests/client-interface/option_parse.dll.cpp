@@ -38,46 +38,43 @@
 #include "droption.h"
 #include <string.h>
 
-static droption_t<unsigned int> op_x
-(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
- "Longer desc of some param.");
-static droption_t<std::string> op_y
-(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE, "<default>", "Another param",
- "Longer desc of another param.");
-static droption_t<std::string> op_z
-(DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
- "Longer desc of yet another param.");
-static droption_t<int> op_foo
-(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
- "Longer desc of missing param.");
-static droption_t<std::string> op_bar
-(DROPTION_SCOPE_CLIENT, "bar", "some string with spaces", "Missing string param",
- "Longer desc of missing string param.");
-static droption_t<bool> op_flag
-(DROPTION_SCOPE_CLIENT, "flag", true, "Bool param",
- "Longer desc of bool param.");
-static droption_t<std::string> op_sweep
-(DROPTION_SCOPE_CLIENT, "sweep", DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE,
- "", "All the unknown params",
- "Longer desc of unknown param accum.");
-static droption_t<std::string> op_front
-(DROPTION_SCOPE_FRONTEND, "front", "", "Front-end param",
- "Longer desc of front-end param.");
-static droption_t<std::string> op_front2
-(DROPTION_SCOPE_FRONTEND, "front2", "", "Front-end param2",
- "Longer desc of front-end param2.");
-static droption_t<twostring_t> op_takes2
-(DROPTION_SCOPE_CLIENT, "takes2", DROPTION_FLAG_ACCUMULATE,
- twostring_t("",""), "Param that takes 2",
- "Longer desc of param that takes 2.");
-static droption_t<std::string> op_val_sep
-(DROPTION_SCOPE_CLIENT, "val_sep", DROPTION_FLAG_ACCUMULATE, "+",
- std::string(""), "Param that uses customized separator \"+\"",
- "Longer desc of that uses customized separator \"+\"");
-static droption_t<twostring_t> op_val_sep2
-(DROPTION_SCOPE_CLIENT, "val_sep2", DROPTION_FLAG_ACCUMULATE, "+",
- twostring_t("",""), "Param that takes 2 and uses customized separator \"+\"",
- "Longer desc of param that takes 2 and uses customized separator \"+\"");
+static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
+                                     "Longer desc of some param.");
+static droption_t<std::string> op_y(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE,
+                                    "<default>", "Another param",
+                                    "Longer desc of another param.");
+static droption_t<std::string> op_z(DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
+                                    "Longer desc of yet another param.");
+static droption_t<int> op_foo(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
+                              "Longer desc of missing param.");
+static droption_t<std::string> op_bar(DROPTION_SCOPE_CLIENT, "bar",
+                                      "some string with spaces", "Missing string param",
+                                      "Longer desc of missing string param.");
+static droption_t<bool> op_flag(DROPTION_SCOPE_CLIENT, "flag", true, "Bool param",
+                                "Longer desc of bool param.");
+static droption_t<std::string> op_sweep(DROPTION_SCOPE_CLIENT, "sweep",
+                                        DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE,
+                                        "", "All the unknown params",
+                                        "Longer desc of unknown param accum.");
+static droption_t<std::string> op_front(DROPTION_SCOPE_FRONTEND, "front", "",
+                                        "Front-end param",
+                                        "Longer desc of front-end param.");
+static droption_t<std::string> op_front2(DROPTION_SCOPE_FRONTEND, "front2", "",
+                                         "Front-end param2",
+                                         "Longer desc of front-end param2.");
+static droption_t<twostring_t> op_takes2(DROPTION_SCOPE_CLIENT, "takes2",
+                                         DROPTION_FLAG_ACCUMULATE, twostring_t("", ""),
+                                         "Param that takes 2",
+                                         "Longer desc of param that takes 2.");
+static droption_t<std::string>
+    op_val_sep(DROPTION_SCOPE_CLIENT, "val_sep", DROPTION_FLAG_ACCUMULATE, "+",
+               std::string(""), "Param that uses customized separator \"+\"",
+               "Longer desc of that uses customized separator \"+\"");
+static droption_t<twostring_t>
+    op_val_sep2(DROPTION_SCOPE_CLIENT, "val_sep2", DROPTION_FLAG_ACCUMULATE, "+",
+                twostring_t("", ""),
+                "Param that takes 2 and uses customized separator \"+\"",
+                "Longer desc of param that takes 2 and uses customized separator \"+\"");
 
 static void
 test_argv(int argc, const char *argv[])
@@ -141,10 +138,9 @@ dr_client_main(client_id_t client_id, int argc, const char *argv[])
     dr_fprintf(STDERR, "param bar = |%s|\n", op_bar.get_value().c_str());
     dr_fprintf(STDERR, "param flag = |%d|\n", op_flag.get_value());
     dr_fprintf(STDERR, "param sweep = |%s|\n", op_sweep.get_value().c_str());
-    dr_fprintf(STDERR, "param takes2 = |%s|,|%s|\n",
-               op_takes2.get_value().first.c_str(), op_takes2.get_value().second.c_str());
-    dr_fprintf(STDERR, "param val_sep = |%s|\n",
-               op_val_sep.get_value().c_str());
+    dr_fprintf(STDERR, "param takes2 = |%s|,|%s|\n", op_takes2.get_value().first.c_str(),
+               op_takes2.get_value().second.c_str());
+    dr_fprintf(STDERR, "param val_sep = |%s|\n", op_val_sep.get_value().c_str());
     dr_fprintf(STDERR, "param val_sep2 = |%s|,|%s|\n",
                op_val_sep2.get_value().first.c_str(),
                op_val_sep2.get_value().second.c_str());

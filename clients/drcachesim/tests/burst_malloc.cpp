@@ -48,7 +48,7 @@ bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -79,7 +79,8 @@ int
 main(int argc, const char *argv[])
 {
     /* We also test -rstats_to_stderr */
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -rstats_to_stderr"
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -rstats_to_stderr"
                    " -client_lib ';;-offline -record_heap"
                    " -record_function \"malloc|0|1\"'"))
         std::cerr << "failed to set env var!\n";
@@ -108,9 +109,9 @@ main(int argc, const char *argv[])
 }
 
 #if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
-# ifdef __cplusplus
+#    ifdef __cplusplus
 extern "C" {
-# endif
+#    endif
 
 /* This dr_client_main should be called instead of the one in tracer.cpp */
 DR_EXPORT void
@@ -120,7 +121,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drmemtrace_client_main(id, argc, argv);
 }
 
-# ifdef __cplusplus
+#    ifdef __cplusplus
 }
-# endif
-#endif  /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+#    endif
+#endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */

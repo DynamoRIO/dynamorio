@@ -35,20 +35,30 @@
 
 #include "globals.h"
 
-void unit_test_io(void);
+void
+unit_test_io(void);
 #ifdef UNIX
-void unit_test_string(void);
-void unit_test_os(void);
+void
+unit_test_string(void);
+void
+unit_test_os(void);
 #endif
-void unit_test_options(void);
-void unit_test_vmareas(void);
-void unit_test_utils(void);
+void
+unit_test_options(void);
+void
+unit_test_vmareas(void);
+void
+unit_test_utils(void);
 #ifdef WINDOWS
-void unit_test_drwinapi(void);
+void
+unit_test_drwinapi(void);
 #endif
-void unit_test_asm(dcontext_t *dc);
-void unit_test_atomic_ops(void);
-void unit_test_jit_fragment_tree(void);
+void
+unit_test_asm(dcontext_t *dc);
+void
+unit_test_atomic_ops(void);
+void
+unit_test_jit_fragment_tree(void);
 
 int
 main(int argc, char **argv, char **envp)

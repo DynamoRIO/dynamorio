@@ -35,22 +35,21 @@
 /* Copyright (c) 2002 Hewlett-Packard Company */
 
 #if !defined(AFX_SYSWIDEDLG_H__7611241D_B288_4915_AA69_890788F0D63D__INCLUDED_)
-#define AFX_SYSWIDEDLG_H__7611241D_B288_4915_AA69_890788F0D63D__INCLUDED_
+#    define AFX_SYSWIDEDLG_H__7611241D_B288_4915_AA69_890788F0D63D__INCLUDED_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#    if _MSC_VER > 1000
+#        pragma once
+#    endif // _MSC_VER > 1000
 // SyswideDlg.h : header file
 //
 
 /////////////////////////////////////////////////////////////////////////////
 // CSyswideDlg dialog
 
-class CSyswideDlg : public CDialog
-{
+class CSyswideDlg : public CDialog {
     // Construction
 public:
-    CSyswideDlg(CWnd* pParent = NULL);   // standard constructor
+    CSyswideDlg(CWnd *pParent = NULL); // standard constructor
 
     // Dialog Data
     //{{AFX_DATA(CSyswideDlg)
@@ -58,25 +57,26 @@ public:
     // NOTE: the ClassWizard will add data members here
     //}}AFX_DATA
 
-
     // Overrides
     // ClassWizard generated virtual function overrides
     //{{AFX_VIRTUAL(CSyswideDlg)
 protected:
-    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+    virtual void
+    DoDataExchange(CDataExchange *pDX); // DDX/DDV support
     //}}AFX_VIRTUAL
 
     // Implementation
 protected:
-
     // Generated message map functions
     //{{AFX_MSG(CSyswideDlg)
-    virtual void OnOK();
+    virtual void
+    OnOK();
     //}}AFX_MSG
     DECLARE_MESSAGE_MAP()
 };
 
 //{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+// Microsoft Visual C++ will insert additional declarations immediately before the
+// previous line.
 
 #endif // !defined(AFX_SYSWIDEDLG_H__7611241D_B288_4915_AA69_890788F0D63D__INCLUDED_)

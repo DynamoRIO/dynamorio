@@ -45,11 +45,11 @@
 /* The order is in increasing permissiveness and the values are chosen to
  * match up with equivalent requested states below */
 typedef enum {
-    THREAD_SYNCH_NONE=0,
+    THREAD_SYNCH_NONE = 0,
 
     /* At consistent state, holding no locks, suitable for terminate,
      * suitable for suspending */
-    THREAD_SYNCH_NO_LOCKS=3,
+    THREAD_SYNCH_NO_LOCKS = 3,
 
     /* At consistent state, holding no locks, suitable for terminate,
      * suitable for suspending, but cannot be transferred elsewhere:
@@ -57,18 +57,18 @@ typedef enum {
      * in-progress task (such as flushing or hot patch updating).
      * Xref case 6821.
      */
-    THREAD_SYNCH_NO_LOCKS_NO_XFER=4,
+    THREAD_SYNCH_NO_LOCKS_NO_XFER = 4,
 
     /* At consistent state, holding no locks, with valid mcontext
      * (including app_errno), suitable for suspending.  But, not
      * suitable for transferring elsewhere in DR -- ok to transfer
      * if going native, though.
      */
-    THREAD_SYNCH_VALID_MCONTEXT_NO_XFER=5,
+    THREAD_SYNCH_VALID_MCONTEXT_NO_XFER = 5,
 
     /* At consistent state, holding no locks, with valid mcontext, suitable
      *  for suspending, note that valid mcontext includes app_errno */
-    THREAD_SYNCH_VALID_MCONTEXT=6
+    THREAD_SYNCH_VALID_MCONTEXT = 6
 } thread_synch_permission_t;
 
 /* Requested states */
@@ -76,23 +76,23 @@ typedef enum {
 /* The order is in increasingly strong requests and the values are chosen to
  * match up with equivalent given permissions above */
 typedef enum {
-    THREAD_SYNCH_SUSPENDED=1,
-    THREAD_SYNCH_SUSPENDED_AND_CLEANED=2,
+    THREAD_SYNCH_SUSPENDED = 1,
+    THREAD_SYNCH_SUSPENDED_AND_CLEANED = 2,
     /* xref case 8747, may be best to avoid TERMINATED_AND_CLEANED where possible */
-    THREAD_SYNCH_TERMINATED_AND_CLEANED=3,
+    THREAD_SYNCH_TERMINATED_AND_CLEANED = 3,
 
     /* A target thread that has THREAD_SYNCH_NO_LOCKS_NO_XFER is acceptable.
      * Xref case 6821.
      */
-    THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER=4,
+    THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER = 4,
 
-    THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT=5
+    THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT = 5
 } thread_synch_state_t;
 
 typedef enum {
-    THREAD_SYNCH_RESULT_SUCCESS         = 1,
+    THREAD_SYNCH_RESULT_SUCCESS = 1,
     THREAD_SYNCH_RESULT_SUSPEND_FAILURE = 2,
-    THREAD_SYNCH_RESULT_NOT_SAFE        = 3,
+    THREAD_SYNCH_RESULT_NOT_SAFE = 3,
 } thread_synch_result_t;
 
 /* option bits that affect both synch_with_all_threads() and synch_with_thread(),
@@ -104,34 +104,31 @@ enum {
      * both synch_with_thread() and all_threads() while the last only
      * applies to all_threads().
      */
-    THREAD_SYNCH_SUSPEND_FAILURE_ABORT  = 0x00000001,
+    THREAD_SYNCH_SUSPEND_FAILURE_ABORT = 0x00000001,
     THREAD_SYNCH_SUSPEND_FAILURE_IGNORE = 0x00000002,
     /* retry will cause synch_with_all_threads to keep trying until hit
      * the loop max, so may want to combine w/ SMALL_LOOP_MAX.
      * retry does not apply to synch_with_thread(), only to all_threads().
      */
-    THREAD_SYNCH_SUSPEND_FAILURE_RETRY  = 0x00000004,
+    THREAD_SYNCH_SUSPEND_FAILURE_RETRY = 0x00000004,
 
     /* specifies a much smaller loop max */
-    THREAD_SYNCH_SMALL_LOOP_MAX         = 0x00000008,
+    THREAD_SYNCH_SMALL_LOOP_MAX = 0x00000008,
 
     /* specifies whether we should terminate client threads */
-    THREAD_SYNCH_SKIP_CLIENT_THREAD     = 0x00000010,
+    THREAD_SYNCH_SKIP_CLIENT_THREAD = 0x00000010,
 };
 
 /* convenience macros */
-#define THREAD_SYNCH_IS_CLEANED(desired_synch_state)  (                \
-     desired_synch_state == THREAD_SYNCH_SUSPENDED_AND_CLEANED ||      \
-     desired_synch_state == THREAD_SYNCH_TERMINATED_AND_CLEANED        \
-     )
-#define THREAD_SYNCH_IS_TERMINATED(desired_synch_state) (              \
-     desired_synch_state == THREAD_SYNCH_TERMINATED_AND_CLEANED        \
-     )
+#define THREAD_SYNCH_IS_CLEANED(desired_synch_state)              \
+    (desired_synch_state == THREAD_SYNCH_SUSPENDED_AND_CLEANED || \
+     desired_synch_state == THREAD_SYNCH_TERMINATED_AND_CLEANED)
+#define THREAD_SYNCH_IS_TERMINATED(desired_synch_state) \
+    (desired_synch_state == THREAD_SYNCH_TERMINATED_AND_CLEANED)
 /* desired_perm can be a thread_synch_state_t.  The enums are designed to be
  * comparable. */
-#define THREAD_SYNCH_SAFE(synch_perm, desired_perm) (                  \
-     synch_perm >= (thread_synch_permission_t)desired_perm             \
-     )
+#define THREAD_SYNCH_SAFE(synch_perm, desired_perm) \
+    (synch_perm >= (thread_synch_permission_t)desired_perm)
 
 void
 synch_init(void);
@@ -184,8 +181,7 @@ thread_synch_successful(thread_record_t *tr);
  */
 thread_synch_result_t
 synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
-                  thread_synch_permission_t cur_state,
-                  thread_synch_state_t desired_state,
+                  thread_synch_permission_t cur_state, thread_synch_state_t desired_state,
                   uint flags);
 
 /* held on return from synch_with_all_threads together with thread_initexit_lock*/
@@ -215,9 +211,8 @@ extern mutex_t all_threads_synch_lock;
  */
 bool
 synch_with_all_threads(thread_synch_state_t desired_synch_state,
-                       thread_record_t ***threads,
-                       int *num_threads, thread_synch_permission_t cur_state,
-                       uint flags);
+                       thread_record_t ***threads, int *num_threads,
+                       thread_synch_permission_t cur_state, uint flags);
 void
 end_synch_with_all_threads(thread_record_t **threads, uint num_threads, bool resume);
 void
@@ -250,9 +245,8 @@ bool
 set_synched_thread_context(thread_record_t *trec,
                            /* pass either mc or both cxt and cxt_size */
                            priv_mcontext_t *mc, void *cxt, size_t cxt_size,
-                           thread_synch_state_t desired_state
-                           _IF_X64(byte *cxt_alloc)
-                           _IF_WINDOWS(NTSTATUS *status/*OUT*/));
+                           thread_synch_state_t desired_state _IF_X64(byte *cxt_alloc)
+                               _IF_WINDOWS(NTSTATUS *status /*OUT*/));
 
 bool
 translate_mcontext(thread_record_t *trec, priv_mcontext_t *mc, bool restore_memory,

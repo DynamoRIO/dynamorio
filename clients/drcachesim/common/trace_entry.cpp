@@ -32,7 +32,7 @@
 
 #include "trace_entry.h"
 
-const char * const trace_type_names[] = {
+const char *const trace_type_names[] = {
     "read",
     "write",
     "prefetch",

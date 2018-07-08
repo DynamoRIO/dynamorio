@@ -47,7 +47,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #ifndef UNIX
-# include <process.h>
+#    include <process.h>
 #endif
 #include "../../../suite/tests/condvar.h"
 
@@ -64,7 +64,7 @@ bool
 my_setenv(const char *var, const char *value)
 {
 #ifdef UNIX
-    return setenv(var, value, 1/*override*/) == 0;
+    return setenv(var, value, 1 /*override*/) == 0;
 #else
     return SetEnvironmentVariable(var, value) == TRUE;
 #endif
@@ -109,14 +109,14 @@ static bool
 should_trace_thread_cb(thread_id_t thread_id, void *user_data)
 {
     /* Test user_data across reattach (see setup below). */
-    if (*static_cast<int*>(user_data) == 0)
+    if (*static_cast<int *>(user_data) == 0)
         std::cerr << "invalid user_data (likely reattach error)\n";
 #ifdef UNIX
     /* We have no simple way to get the id (short of letting each thread get
      * its own and using synch to wait for them all) so we just take the 1st N.
      * We assume this is called exactly once per thread.  We are fine with races.
      */
-    return filter_call_count++ < num_threads/2;
+    return filter_call_count++ < num_threads / 2;
 #else
     for (uint i = 0; i < num_threads; i++) {
         if (thread_id == tid[i])
@@ -131,13 +131,13 @@ unsigned int __stdcall
 #else
 void *
 #endif
-thread_func(void *arg)
+    thread_func(void *arg)
 {
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     static const int reattach_iters = 4;
     static const int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
-    static const int iter_start = outer_iters/3;
+    static const int iter_start = outer_iters / 3;
     static const int iter_stop = iter_start + 4;
     int *cb_arg[reattach_iters];
 
@@ -156,9 +156,8 @@ thread_func(void *arg)
                 /* Not filtering on this run, so we don't want output to avoid
                  * messing up the template.
                  */
-                drmemtrace_status_t res =
-                    drmemtrace_replace_file_ops(open_nothing, nullptr, write_nothing,
-                                                close_nothing, create_no_dir);
+                drmemtrace_status_t res = drmemtrace_replace_file_ops(
+                    open_nothing, nullptr, write_nothing, close_nothing, create_no_dir);
                 assert(res == DRMEMTRACE_SUCCESS);
             } else {
 #ifdef UNIX
@@ -227,9 +226,10 @@ main(int argc, const char *argv[])
     burst_owner_finished = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
 #ifdef UNIX
-        pthread_create(&thread[i], NULL, thread_func, (void*)(uintptr_t)i);
+        pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
 #else
-        thread[i] = _beginthreadex(NULL, 0, thread_func, (void*)(uintptr_t)i, 0, &tid[i]);
+        thread[i] =
+            _beginthreadex(NULL, 0, thread_func, (void *)(uintptr_t)i, 0, &tid[i]);
 #endif
     }
     for (uint i = 0; i < num_threads; i++) {

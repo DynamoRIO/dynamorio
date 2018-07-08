@@ -42,13 +42,11 @@
 static void
 test_disasm(void)
 {
-    const uint b[] = {
-        0x0b010000, 0xd65f03c0
-    };
+    const uint b[] = { 0x0b010000, 0xd65f03c0 };
     byte *pc = (byte *)b;
 
     while (pc < (byte *)b + sizeof(b))
-        pc = disassemble_with_info(GD, pc, STDOUT, false/*no pc*/, true);
+        pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
 }
 
 int

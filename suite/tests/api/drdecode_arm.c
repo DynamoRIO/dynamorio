@@ -39,13 +39,13 @@
 
 #define GD GLOBAL_DCONTEXT
 
-#define ASSERT(x) \
-    ((void)((!(x)) ? \
-        (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__,  __LINE__, #x),\
-         abort(), 0) : 0))
+#define ASSERT(x)                                                                    \
+    ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
+                      abort(), 0)                                                    \
+                   : 0))
 
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
 
 #define ORIG_PC ((byte *)0x10000)
 
@@ -54,7 +54,10 @@ test_LSB(void)
 {
     /* Test i#1688: LSB=1 decoding */
     const ushort b[] = {
-        0xf300,0xe100, 0x4668, 0x0002,
+        0xf300,
+        0xe100,
+        0x4668,
+        0x0002,
     };
     byte *pc = (byte *)b;
     byte *start = pc;
@@ -62,13 +65,13 @@ test_LSB(void)
     /* First decode w/ LSB=0 => ARM */
     while (pc < (byte *)b + sizeof(b)) {
         pc = disassemble_from_copy(GD, pc, ORIG_PC + (pc - start), STDOUT,
-                                   false/*don't show pc*/, true);
+                                   false /*don't show pc*/, true);
     }
     /* Now decode w/ LSB=1 => Thumb */
     pc = dr_app_pc_as_jump_target(DR_ISA_ARM_THUMB, (byte *)b);
     while (pc < (byte *)b + sizeof(b)) {
         pc = disassemble_from_copy(GD, pc, ORIG_PC + (pc - start), STDOUT,
-                                   false/*don't show pc*/, true);
+                                   false /*don't show pc*/, true);
     }
     /* Thread mode should not change */
     ASSERT(dr_get_isa_mode(GD) == DR_ISA_ARM_A32);

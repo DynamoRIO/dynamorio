@@ -38,9 +38,9 @@
 #include "proc.h"
 #include "instr.h"
 #ifdef UNIX
-# include "../../unix/include/syscall.h"
+#    include "../../unix/include/syscall.h"
 #else
-# error NYI
+#    error NYI
 #endif
 
 /* arch specific proc info */
@@ -71,7 +71,7 @@ machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
          * Note that gcc's __clear_cache just calls this syscall (and requires
          * library support that we don't build with).
          */
-        dynamorio_syscall(SYS_cacheflush, 3, pc_start, pc_end, 0/*flags: must be 0*/);
+        dynamorio_syscall(SYS_cacheflush, 3, pc_start, pc_end, 0 /*flags: must be 0*/);
     }
 }
 
@@ -104,16 +104,14 @@ proc_restore_fpstate(byte *buf)
 }
 
 void
-dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       opnd_t buf)
+dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
-dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          opnd_t buf)
+dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);

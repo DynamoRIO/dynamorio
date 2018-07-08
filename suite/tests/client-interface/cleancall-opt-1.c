@@ -33,24 +33,27 @@
 
 /* Export instrumented functions so we can easily find them in client.  */
 #ifdef WINDOWS
-# define EXPORT __declspec(dllexport)
+#    define EXPORT __declspec(dllexport)
 #else /* UNIX */
-# define EXPORT __attribute__((visibility("default")))
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
 /* List of instrumented functions. */
-#define FUNCTIONS() \
-        FUNCTION(empty) \
-        FUNCTION(out_of_line) \
-        FUNCTION(modify_gprs) \
-        FUNCTION(inscount) \
-        FUNCTION(compiler_inscount) \
-        FUNCTION(bbcount) \
-        FUNCTION(aflags_clobber) \
-        LAST_FUNCTION()
+#define FUNCTIONS()             \
+    FUNCTION(empty)             \
+    FUNCTION(out_of_line)       \
+    FUNCTION(modify_gprs)       \
+    FUNCTION(inscount)          \
+    FUNCTION(compiler_inscount) \
+    FUNCTION(bbcount)           \
+    FUNCTION(aflags_clobber)    \
+    LAST_FUNCTION()
 
 /* Definitions for every function. */
-#define FUNCTION(FUNCNAME) EXPORT void FUNCNAME(void) { }
+#define FUNCTION(FUNCNAME)     \
+    EXPORT void FUNCNAME(void) \
+    {                          \
+    }
 #define LAST_FUNCTION()
 FUNCTIONS()
 #undef FUNCTION

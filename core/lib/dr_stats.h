@@ -39,15 +39,15 @@
 #include "globals_shared.h"
 
 #ifdef WINDOWS
-  /* No registry for stats (b/c it requires advapi32.dll which can't be used
-   * when injected via user32.dll registry key)
-   * Instead, a piece of shared memory with the key base name below holds the
-   * total number of DR instances.
-   */
-# define DR_SHMEM_KEY "DynamoRIOStatistics"
+/* No registry for stats (b/c it requires advapi32.dll which can't be used
+ * when injected via user32.dll registry key)
+ * Instead, a piece of shared memory with the key base name below holds the
+ * total number of DR instances.
+ */
+#    define DR_SHMEM_KEY "DynamoRIOStatistics"
 #elif defined(UNIX)
-# define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
-# define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
+#    define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
+#    define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
 #endif
 
 #define STAT_NAME_MAX_LEN 50
@@ -72,25 +72,25 @@ typedef struct _dr_statistics_t {
 #ifdef UNIX
     char magicstring[DYNAMORIO_MAGIC_STRING_LEN];
 #endif
-    process_id_t process_id;    /* process id */
+    process_id_t process_id;         /* process id */
     char process_name[MAXIMUM_PATH]; /* process name */
-    uint logmask;               /* what to log */
-    uint loglevel;              /* how much detail to log */
-    char logdir[MAXIMUM_PATH];  /* full path of logging directory */
+    uint logmask;                    /* what to log */
+    uint loglevel;                   /* how much detail to log */
+    char logdir[MAXIMUM_PATH];       /* full path of logging directory */
     uint64 perfctr_vals[NUM_EVENTS];
     uint num_stats;
 #ifdef NOT_DYNAMORIO_CORE
     /* variable-length to avoid tying to specific DR version */
     single_stat_t stats[1];
 #else
-# ifdef DEBUG
-#  define STATS_DEF(desc, name) single_stat_t name##_pair;
-# else
-#  define RSTATS_DEF(desc, name) single_stat_t name##_pair;
-# endif
-# include "statsx.h"
-# undef STATS_DEF
-# undef RSTATS_DEF
+#    ifdef DEBUG
+#        define STATS_DEF(desc, name) single_stat_t name##_pair;
+#    else
+#        define RSTATS_DEF(desc, name) single_stat_t name##_pair;
+#    endif
+#    include "statsx.h"
+#    undef STATS_DEF
+#    undef RSTATS_DEF
 #endif
 } dr_statistics_t;
 
@@ -118,15 +118,15 @@ typedef struct {
      * Used for other threads to be able to request thread local stats,
      * and also for the not fully explained self-interruption on linux?
      */
-# ifdef DEBUG
-#  define STATS_DEF(desc, name) stats_int_t name##_thread;
-# else
-#  define RSTATS_DEF(desc, name) stats_int_t name##_thread;
-# endif
-# include "statsx.h"
+#    ifdef DEBUG
+#        define STATS_DEF(desc, name) stats_int_t name##_thread;
+#    else
+#        define RSTATS_DEF(desc, name) stats_int_t name##_thread;
+#    endif
+#    include "statsx.h"
 } thread_local_statistics_t;
-# undef STATS_DEF
-# undef RSTATS_DEF
+#    undef STATS_DEF
+#    undef RSTATS_DEF
 #endif /* !NOT_DYNAMORIO_CORE */
 
 #endif /* _DR_STATS_H_ */

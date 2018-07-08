@@ -52,12 +52,12 @@
 #include <sys/syscall.h>
 
 #ifndef MACOS
-# error Mac-only
+#    error Mac-only
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
-# undef LOG
-# define LOG(...) /* nothing */
+#    undef LOG
+#    define LOG(...) /* nothing */
 #endif
 
 /* Code passed to SYS_proc_info */
@@ -120,15 +120,14 @@ memquery_file_backing(struct proc_regionwithpathinfo *info, app_pc addr)
     res = dynamorio_syscall(SYS_proc_info, 7, PROC_INFO_PID_INFO, get_process_id(),
                             PROC_PIDREGIONPATHINFO,
                             /* represent 64-bit arg as 2 32-bit args */
-                            addr, NULL,
-                            info, sizeof(*info));
+                            addr, NULL, info, sizeof(*info));
 #endif
     return (res >= 0);
 }
 
 int
-memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
-                        char *fullpath/*OPTIONAL OUT*/, size_t path_size)
+memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+                        char *fullpath /*OPTIONAL OUT*/, size_t path_size)
 {
     return memquery_library_bounds_by_iterator(name, start, end, fullpath, path_size);
 }
@@ -136,9 +135,9 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
 bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 {
-    internal_iter_t *ii = (internal_iter_t *) &iter->internal;
+    internal_iter_t *ii = (internal_iter_t *)&iter->internal;
     memset(ii, 0, sizeof(*ii));
-    ii->address = (vm_address_t) start;
+    ii->address = (vm_address_t)start;
     iter->may_alloc = may_alloc;
     if (may_alloc) {
         ii->dcontext = get_thread_private_dcontext();
@@ -157,7 +156,7 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
 void
 memquery_iterator_stop(memquery_iter_t *iter)
 {
-    internal_iter_t *ii = (internal_iter_t *) &iter->internal;
+    internal_iter_t *ii = (internal_iter_t *)&iter->internal;
     if (ii->dcontext != NULL) {
         HEAP_TYPE_FREE(ii->dcontext, ii->backing, struct proc_regionwithpathinfo,
                        ACCT_MEM_MGT, PROTECTED);
@@ -168,7 +167,7 @@ memquery_iterator_stop(memquery_iter_t *iter)
 bool
 memquery_iterator_next(memquery_iter_t *iter)
 {
-    internal_iter_t *ii = (internal_iter_t *) &iter->internal;
+    internal_iter_t *ii = (internal_iter_t *)&iter->internal;
     kern_return_t kr = KERN_SUCCESS;
     vm_size_t size = 0;
     /* 64-bit versions seem to work fine for 32-bit */
@@ -176,7 +175,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     do {
         kr = vm_region_recurse_64(mach_task_self(), &ii->address, &size, &ii->depth,
                                   (vm_region_info_64_t)&ii->info, &count);
-        LOG(GLOBAL, LOG_ALL, 5, "%s: res=%d "PFX"-"PFX" sub=%d depth=%d\n",
+        LOG(GLOBAL, LOG_ALL, 5, "%s: res=%d " PFX "-" PFX " sub=%d depth=%d\n",
             __FUNCTION__, kr, ii->address, ii->address + size, ii->info.is_submap,
             ii->depth);
         if (kr != KERN_SUCCESS) {
@@ -194,21 +193,21 @@ memquery_iterator_next(memquery_iter_t *iter)
         }
     } while (true);
 
-    iter->vm_start = (app_pc) ii->address;
+    iter->vm_start = (app_pc)ii->address;
     /* XXX: should switch to storing size to avoid pointer overflow */
-    iter->vm_end = (app_pc) ii->address + size;
+    iter->vm_end = (app_pc)ii->address + size;
     /* we do not expose ii->info.max_protection */
     iter->prot = vmprot_to_memprot(ii->info.protection);
     iter->offset = 0; /* XXX: not filling in */
-    iter->inode = 0; /* XXX: not filling in */
+    iter->inode = 0;  /* XXX: not filling in */
     if (memquery_file_backing(ii->backing, iter->vm_start)) {
         NULL_TERMINATE_BUFFER(ii->backing->prp_vip.vip_path);
         iter->comment = ii->backing->prp_vip.vip_path;
     } else
         iter->comment = "";
 
-    LOG(GLOBAL, LOG_ALL, 5, "%s: returning "PFX"-"PFX" prot=0x%x %s\n",
-        __FUNCTION__, iter->vm_start, iter->vm_end, iter->prot, iter->comment);
+    LOG(GLOBAL, LOG_ALL, 5, "%s: returning " PFX "-" PFX " prot=0x%x %s\n", __FUNCTION__,
+        iter->vm_start, iter->vm_end, iter->prot, iter->comment);
 
     /* Prepare for next call */
     ii->address += size;
@@ -222,7 +221,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     memquery_iter_t iter;
     bool res = false;
     bool free = true;
-    memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
+    memquery_iterator_start(&iter, (app_pc)pc, false /*won't alloc*/);
     if (memquery_iterator_next(&iter) && iter.vm_start <= pc) {
         /* There may be some inner regions we have to wade through */
         while (iter.vm_end <= pc) {
@@ -249,9 +248,9 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
          * find the prior allocated region.  We could try just a few pages back,
          * but querying a free region is rare so we go with simple.
          */
-        internal_iter_t *ii = (internal_iter_t *) &iter.internal;
+        internal_iter_t *ii = (internal_iter_t *)&iter.internal;
         app_pc last_end = NULL;
-        app_pc next_start = (app_pc) POINTER_MAX;
+        app_pc next_start = (app_pc)POINTER_MAX;
         ii->address = 0;
         while (memquery_iterator_next(&iter)) {
             if (iter.vm_start > pc) {
@@ -262,7 +261,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
         }
         info->base_pc = last_end;
         info->size = (next_start - last_end);
-        if (next_start == (app_pc) POINTER_MAX)
+        if (next_start == (app_pc)POINTER_MAX)
             info->size++;
         info->prot = MEMPROT_NONE;
         info->type = DR_MEMTYPE_FREE;

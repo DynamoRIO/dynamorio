@@ -56,11 +56,11 @@ struct _instr_list_t {
      * However, we do here to avoid breaking backward compatibility
      */
     app_pc fall_through_bb;
-# ifdef ARM
+#    ifdef ARM
     dr_pred_type_t auto_pred;
-# endif /* ARM */
-#endif /* CLIENT_INTERFACE */
-}; /* instrlist_t */
+#    endif /* ARM */
+#endif     /* CLIENT_INTERFACE */
+};         /* instrlist_t */
 
 /* DR_API EXPORT TOFILE dr_ir_instrlist.h */
 /* DR_API EXPORT BEGIN */
@@ -77,7 +77,7 @@ struct _instr_list_t {
 
 DR_API
 /** Returns an initialized instrlist_t allocated on the thread-local heap. */
-instrlist_t*
+instrlist_t *
 instrlist_create(dcontext_t *dcontext);
 
 DR_API
@@ -147,7 +147,7 @@ instrlist_get_our_mangling(instrlist_t *ilist);
 
 DR_API
 /** Returns the first instr_t in \p ilist. */
-instr_t*
+instr_t *
 instrlist_first(instrlist_t *ilist);
 
 DR_API
@@ -169,7 +169,7 @@ instrlist_first_app(instrlist_t *ilist);
 
 DR_API
 /** Returns the last instr_t in \p ilist. */
-instr_t*
+instr_t *
 instrlist_last(instrlist_t *ilist);
 
 DR_API
@@ -199,7 +199,6 @@ DR_API
 void
 instrlist_prepend(instrlist_t *ilist, instr_t *instr);
 
-
 DR_API
 /**
  * Allocates a new instrlist_t and for each instr_t in \p old allocates
@@ -209,9 +208,8 @@ DR_API
  * (this routine assumes that all such targets are contained within \p old,
  * and may fault otherwise).
  */
-instrlist_t*
+instrlist_t *
 instrlist_clone(dcontext_t *dcontext, instrlist_t *old);
-
 
 /* Adds every instr_t in prependee to the front of ilist (maintaining
  * the original order).
@@ -248,7 +246,7 @@ instrlist_postinsert(instrlist_t *ilist, instr_t *where, instr_t *instr);
 
 DR_API
 /** Replaces \p oldinst with \p newinst in \p ilist (does not destroy \p oldinst). */
-instr_t*
+instr_t *
 instrlist_replace(instrlist_t *ilist, instr_t *oldinst, instr_t *newinst);
 
 DR_API

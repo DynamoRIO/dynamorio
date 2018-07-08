@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
@@ -45,6 +45,9 @@
  *   "(0)" bits as we'd need a separate mask and it seems very low priority
  *   and maybe even undesirable to mark an instr invalid with a "(0)" set to 1.
  */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /****************************************************************************
  * Top-level A32 table for predicate != 1111, indexed by bits 27:20
@@ -1789,3 +1792,5 @@ const instr_info_t A32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<{s,u}mlal{,d} cont'd>",  xx, xx, RCw, xx, xx, no, x, END_LIST},
 };
+
+/* clang-format on */

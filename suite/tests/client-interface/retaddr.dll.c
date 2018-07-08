@@ -48,8 +48,8 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         if (instr_is_return(instr)) {
             dr_clobber_retaddr_after_read(drcontext, bb, instr, 0);
             /* i#2364 : mbr should be tested against different kinds of return. */
-            dr_insert_mbr_instrumentation(drcontext, bb, instr,
-                                          (app_pc)mbr_instru, SPILL_SLOT_1);
+            dr_insert_mbr_instrumentation(drcontext, bb, instr, (app_pc)mbr_instru,
+                                          SPILL_SLOT_1);
         }
     }
     return DR_EMIT_DEFAULT;
@@ -61,14 +61,14 @@ exit_event(void)
     /* We assume returns are executed at least twice. */
     if (num_ret > 1) {
         dr_fprintf(STDERR, "instrumentation for return ok\n");
-    }
-    else {
+    } else {
         dr_fprintf(STDERR, "FAIL no instrumented returns\n");
     }
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     dr_register_bb_event(bb_event);

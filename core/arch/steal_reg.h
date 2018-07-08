@@ -42,8 +42,10 @@
 /* This header file declares the tables and functions that help decode
    x86 instructions so that we can steal edi for our own uses. */
 
-void steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
-void restore_state(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
+void
+steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
+void
+restore_state(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist);
 
 /* We use the instrlist_t flags field to signify when the application's
  * value in ebx is in dcontext and ebx actually contains the

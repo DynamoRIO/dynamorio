@@ -38,15 +38,16 @@
 
 #include "analysis_tool.h"
 
-class reuse_time_t : public analysis_tool_t
-{
- public:
+class reuse_time_t : public analysis_tool_t {
+public:
     reuse_time_t(unsigned int line_size, unsigned int verbose);
     virtual ~reuse_time_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     std::unordered_map<addr_t, int_least64_t> time_map;
     int_least64_t time_stamp;
     int_least64_t total_instructions;

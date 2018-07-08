@@ -41,17 +41,16 @@
 #include "analysis_tool.h"
 #include "memref.h"
 
-class histogram_t : public analysis_tool_t
-{
- public:
-    histogram_t(unsigned int line_size,
-                unsigned int report_top,
-                unsigned int verbose);
+class histogram_t : public analysis_tool_t {
+public:
+    histogram_t(unsigned int line_size, unsigned int report_top, unsigned int verbose);
     virtual ~histogram_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
+protected:
     std::unordered_map<addr_t, uint64_t> icache_map;
     std::unordered_map<addr_t, uint64_t> dcache_map;
 

@@ -39,18 +39,19 @@
 #include "drreg-test-shared.h"
 #include <string.h> /* memset */
 
-#define CHECK(x, msg) do {               \
-    if (!(x)) {                          \
-        dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        dr_abort();                      \
-    }                                    \
-} while (0);
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 #define MAGIC_VAL 0xabcd
 
 static dr_emit_flags_t
-event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                   bool for_trace, bool translating, OUT void **user_data)
+event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, OUT void **user_data)
 {
     instr_t *inst;
     bool prev_was_mov_const = false;
@@ -63,7 +64,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb,
                 val1 != 0 && /* rule out xor w/ self */
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
-                *user_data = (void *) val1;
+                *user_data = (void *)val1;
                 instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
             } else
                 prev_was_mov_const = true;
@@ -86,8 +87,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     reg_id_t reg, random = IF_X86_ELSE(DR_REG_XDI, DR_REG_R5);
     drreg_status_t res;
     drvector_t allowed;
-    ptr_int_t subtest = (ptr_int_t) user_data;
-    drreg_reserve_info_t info = {sizeof(info),};
+    ptr_int_t subtest = (ptr_int_t)user_data;
+    drreg_reserve_info_t info = {
+        sizeof(info),
+    };
 
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
@@ -98,7 +101,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* Local tests */
         res = drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
         CHECK(res == DRREG_SUCCESS, "default reserve should always work");
-        dr_log(drcontext, DR_LOG_ALL, 3, "drreg at "PFX" scratch=%s\n",
+        dr_log(drcontext, DR_LOG_ALL, 3, "drreg at " PFX " scratch=%s\n",
                instr_get_app_pc(inst), get_register_name(reg));
         /* test restore app value back to reg */
         res = drreg_get_app_value(drcontext, bb, inst, reg, reg);
@@ -139,7 +142,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         res = drreg_are_aflags_dead(drcontext, inst, &dead);
         CHECK(res == DRREG_SUCCESS, "query of aflags should work");
         CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
-              (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "liveness inconsistency");
+                  (!dead && TESTANY(EFLAGS_READ_ARITH, flags)),
+              "liveness inconsistency");
         res = drreg_unreserve_register(drcontext, bb, inst, reg);
         CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
 
@@ -153,7 +157,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
               "slot info should succeed");
         res = drreg_reservation_info_ex(drcontext, reg, &info);
         CHECK(res == DRREG_SUCCESS && opnd_is_memory_reference(info.opnd) &&
-              info.reserved, "slot info_ex unexpected result");
+                  info.reserved,
+              "slot info_ex unexpected result");
         /* test stateless restore when live */
         drreg_statelessly_restore_app_value(drcontext, bb, reg, inst, inst, NULL, NULL);
 
@@ -187,17 +192,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* test aflags */
         res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
         CHECK(res == DRREG_SUCCESS && !info.reserved &&
-              ((info.holds_app_value && !info.app_value_retained &&
-                opnd_is_null(info.opnd)) ||
-               (!info.holds_app_value && info.app_value_retained &&
-                !opnd_is_null(info.opnd))),
+                  ((info.holds_app_value && !info.app_value_retained &&
+                    opnd_is_null(info.opnd)) ||
+                   (!info.holds_app_value && info.app_value_retained &&
+                    !opnd_is_null(info.opnd))),
               "aflags un-reserve query failed");
         res = drreg_reserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
         res = drreg_reservation_info_ex(drcontext, DR_REG_NULL, &info);
         CHECK(res == DRREG_SUCCESS && info.reserved &&
-              ((info.app_value_retained && !opnd_is_null(info.opnd)) ||
-               (info.holds_app_value && opnd_is_null(info.opnd))),
+                  ((info.app_value_retained && !opnd_is_null(info.opnd)) ||
+                   (info.holds_app_value && opnd_is_null(info.opnd))),
               "aflags reserve query failed");
         res = drreg_restore_app_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "restore of app aflags should work");
@@ -223,39 +228,39 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         CHECK(res == DRREG_SUCCESS, "unreserve of xax should work");
         drvector_delete(&only_xax);
 #endif
-    } else if (subtest == DRREG_TEST_1_C ||
-               subtest == DRREG_TEST_2_C ||
+    } else if (subtest == DRREG_TEST_1_C || subtest == DRREG_TEST_2_C ||
                subtest == DRREG_TEST_3_C) {
         /* Cross-app-instr tests */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #1/2/3\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
             CHECK(res == DRREG_SUCCESS, "reserve of test reg should work");
-            instrlist_meta_preinsert(bb, inst, XINST_CREATE_load_int
-                                     (drcontext, opnd_create_reg(reg),
-                                      OPND_CREATE_INT32(MAGIC_VAL)));
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_load_int(drcontext,
+                                                           opnd_create_reg(reg),
+                                                           OPND_CREATE_INT32(MAGIC_VAL)));
         } else if (drmgr_is_last_instr(drcontext, inst)) {
             dr_insert_clean_call(drcontext, bb, inst, check_const, false, 2,
-                                 opnd_create_reg(TEST_REG),
-                                 OPND_CREATE_INT32(MAGIC_VAL));
+                                 opnd_create_reg(TEST_REG), OPND_CREATE_INT32(MAGIC_VAL));
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
         }
-    } else if (subtest == DRREG_TEST_4_C ||
-               subtest == DRREG_TEST_5_C) {
+    } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
-        } else if (instr_is_nop(inst)
-                   IF_ARM(|| instr_get_opcode(inst) == OP_mov &&
-                          /* assembler uses "mov r0,r0" for our nop */
-                          opnd_same(instr_get_dst(inst, 0), instr_get_src(inst, 0)))) {
+        } else if (instr_is_nop(inst) IF_ARM(
+                       ||
+                       instr_get_opcode(inst) == OP_mov &&
+                           /* assembler uses "mov r0,r0" for our nop */
+                           opnd_same(instr_get_dst(inst, 0), instr_get_src(inst, 0)))) {
             /* Modify aflags to test preserving for app */
-            instrlist_meta_preinsert(bb, inst, XINST_CREATE_cmp
-                                     (drcontext, opnd_create_reg(DR_REG_START_32),
-                                      OPND_CREATE_INT32(0)));
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_cmp(drcontext,
+                                                      opnd_create_reg(DR_REG_START_32),
+                                                      OPND_CREATE_INT32(0)));
         } else if (drmgr_is_last_instr(drcontext, inst)) {
             res = drreg_unreserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
@@ -270,8 +275,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 }
 
 dr_emit_flags_t
-event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
-                    bool for_trace, bool translating)
+event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                    bool translating)
 {
     /* Test using outside of insert event */
     uint flags;
@@ -308,7 +313,8 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb,
     res = drreg_are_aflags_dead(drcontext, inst, &dead);
     CHECK(res == DRREG_SUCCESS, "query of aflags should work");
     CHECK((dead && !TESTANY(EFLAGS_READ_ARITH, flags)) ||
-          (!dead && TESTANY(EFLAGS_READ_ARITH, flags)), "aflags liveness inconsistency");
+              (!dead && TESTANY(EFLAGS_READ_ARITH, flags)),
+          "aflags liveness inconsistency");
     res = drreg_is_register_dead(drcontext, DR_REG_START_GPR, inst, &dead);
     CHECK(res == DRREG_SUCCESS, "query of liveness should work");
 
@@ -333,9 +339,8 @@ dr_init(client_id_t id)
     /* We actually need 3 slots (flags + 2 scratch) but we want to test using
      * a DR slot.
      */
-    drreg_options_t ops = {sizeof(ops), 2 /*max slots needed*/, false};
-    if (!drmgr_init() ||
-        drreg_init(&ops) != DRREG_SUCCESS)
+    drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         CHECK(false, "init failed");
 
     /* register events */
