@@ -112,7 +112,7 @@ install:
           # The software-properties-common package is already on Travis.
           sudo apt-add-repository "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-6.0 main"
           sudo apt-get update
-          sudo apt-get -y --force-yes install clang-format-6.0
+          sudo apt-get -y --force-yes install libllvm6.0 libstdc++6 clang-format-6.0
       fi
   # Install cross-compilers for cross-compiling Linux build:
   - >
