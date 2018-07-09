@@ -79,7 +79,7 @@ jobs:
     # install and require clang-format:
     - os: linux
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no INSTALL_FORMAT=yes EXTRA_ARGS="64_only require_format"
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS="64_only require_format"
       addons:
         apt:
           sources:

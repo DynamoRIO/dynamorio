@@ -217,6 +217,8 @@ if (CLANG_FORMAT_DIFF)
       "Changes are not formatted properly:\n${format_out}")
     message(FATAL_ERROR
       "FATAL ERROR: Changes are not formatted properly (see diff above)!")
+  else ()
+    message("clang-format check passed")
   endif ()
 else ()
   if (arg_require_format)

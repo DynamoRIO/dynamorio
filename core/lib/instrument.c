@@ -2727,7 +2727,7 @@ dr_get_os_version(dr_os_version_info_t *info)
         case WINDOWS_VERSION_2003: info->version = DR_WINDOWS_VERSION_2003; break;
         case WINDOWS_VERSION_XP: info->version = DR_WINDOWS_VERSION_XP; break;
         case WINDOWS_VERSION_2000: info->version = DR_WINDOWS_VERSION_2000; break;
-        case WINDOWS_VERSION_NT: info->version = DR_WINDOWS_VERSION_NT; break;
+          case WINDOWS_VERSION_NT: info->version = DR_WINDOWS_VERSION_NT; break;
         default: CLIENT_ASSERT(false, "unsupported windows version");
         };
     } else
