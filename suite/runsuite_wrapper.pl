@@ -129,6 +129,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.loader' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#1369
+                                   'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1,
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
