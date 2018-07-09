@@ -158,6 +158,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                 $issue_no = "#2417";
             }
         } else {
+            # FIXME i#2921: fix flaky ptsig test
+            %ignore_failures_32 = ('code_api|pthreads.ptsig' => 1);
             # FIXME i#2941: fix flaky threadfilter test
             %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
             $issue_no = "#2941";
