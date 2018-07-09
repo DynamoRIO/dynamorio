@@ -122,11 +122,14 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
+                                   'code_api|client.drmgr-test' => 1, # i#653
+                                   'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1);
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.loader' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#1369
+                                   'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1,
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
@@ -155,6 +158,12 @@ for (my $i = 0; $i < $#lines; ++$i) {
             } else {
                 $issue_no = "#2417";
             }
+        } else {
+            # FIXME i#2921: fix flaky ptsig test
+            %ignore_failures_32 = ('code_api|pthreads.ptsig' => 1);
+            # FIXME i#2941: fix flaky threadfilter test
+            %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
+            $issue_no = "#2941";
         }
 
         # Read ahead to examine the test failures:
