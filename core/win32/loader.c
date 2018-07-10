@@ -1515,6 +1515,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Psm-Key-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Quirks-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-RegistryUserSpecific-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Legacy-L1-1") ||
