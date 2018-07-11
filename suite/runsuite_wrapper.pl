@@ -154,7 +154,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.histogram.gzip' => 1);
             if ($needs_unsafe_ldstex) {
                 # FIXME i1698: ldrex..strex pair constraints
-                %unsafe_ldstex = ('code_api|linux.child-whitelist' => 1,
+                %ignore_failures_64 = ('code_api|linux.child-whitelist' => 1,
                                   'code_api|linux.sigsuspend' => 1,
                                   'code_api|pthreads.pthreads_exit' => 1,
                                   'code_api|code_api|pthreads.pthreads' => 1,
