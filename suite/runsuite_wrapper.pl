@@ -44,7 +44,7 @@ use File::Basename;
 my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
-my $needs_unsafe_ldstex = 0
+my $needs_unsafe_ldstex = 0;
 
 # Forward args to runsuite.cmake:
 my $args = '';
