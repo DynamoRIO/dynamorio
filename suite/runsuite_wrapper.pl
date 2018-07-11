@@ -155,15 +155,20 @@ for (my $i = 0; $i < $#lines; ++$i) {
             if ($needs_unsafe_ldstex) {
                 # FIXME i1698: ldrex..strex pair constraints
                 %ignore_failures_64 = ('code_api|linux.child-whitelist' => 1,
-                                  'code_api|linux.sigsuspend' => 1,
-                                  'code_api|pthreads.pthreads_exit' => 1,
-                                  'code_api|code_api|pthreads.pthreads' => 1,
-                                  'code_api|client.truncate' => 1,
-                                  'code_api|client.drmgr-test' => 1,
-                                  'code_api|tool.drcacheoff.simple' => 1,
-                                  'code_api|tool.drcacheoff.multiproc' => 1,
-                                  'code_api|tool.drcacheoff.opcode_mix' => 1,
-                                  'code_api|tool.histogram.offline' => 1);
+                                      'code_api|linux.sigsuspend' => 1,
+                                      'code_api|linux.threadexit2' => 1,
+                                      'code_api|linux.vfork' => 1,
+                                      'code_api|pthreads.ptsig' => 1,
+                                      'code_api|pthreads.pthreads_exit' => 1,
+                                      'code_api|code_api|pthreads.pthreads' => 1,
+                                      'code_api|client.truncate' => 1,
+                                      'code_api|client.drmgr-test' => 1,
+                                      'code_api|client.drx_buf-test' => 1,
+                                      'code_api|tool.drcacheoff.simple' => 1,
+                                      'code_api|tool.drcacheoff.multiproc' => 1,
+                                      'code_api|tool.drcacheoff.opcode_mix' => 1,
+                                      'code_api|tool.drcacheoff.view' => 1,
+                                      'code_api|tool.histogram.offline' => 1);
             } else {
                 # FIXME i#2417: fix flaky AArch64 tests
                 %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
