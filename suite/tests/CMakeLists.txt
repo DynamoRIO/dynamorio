@@ -1082,7 +1082,7 @@ set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
 
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
-  set(dr_ops ${dr_test_ops} ${dr_ops_aux} ${TEST_OPTIONS})
+  set(dr_ops ${dr_test_ops} ${TEST_OPTIONS} ${dr_ops_aux})
   if (NOT CLIENT_INTERFACE)
     # XXX i#1802: non-CI builds have a bug w/ early injection which we work around:
     set(dr_ops ${dr_ops} -no_early_inject)

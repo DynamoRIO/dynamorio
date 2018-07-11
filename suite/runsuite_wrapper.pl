@@ -44,11 +44,13 @@ use File::Basename;
 my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
+my $needs_unsafe_ldstex = 0
 
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
     $is_CI = 1 if ($ARGV[$i] eq 'travis');
+    $needs_unsafe_ldstex = 1 if ($ARGV[$i] eq 'needs_unsafe_ldstex');
     if ($i == 0) {
         $args .= ",$ARGV[$i]";
     } else {
@@ -150,11 +152,28 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
                                    'code_api|tool.histogram.gzip' => 1);
-            # FIXME i#2417: fix flaky AArch64 tests
-            %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
-                                   'code_api|pthreads.pthreads_exit' => 1);
+            if ($needs_unsafe_ldstex) {
+                # FIXME i1698: ldrex..strex pair constraints
+                %unsafe_ldstex = ('code_api|linux.child-whitelist' => 1,
+                                  'code_api|linux.sigsuspend' => 1,
+                                  'code_api|pthreads.pthreads_exit' => 1,
+                                  'code_api|code_api|pthreads.pthreads' => 1,
+                                  'code_api|client.truncate' => 1,
+                                  'code_api|client.drmgr-test' => 1,
+                                  'code_api|tool.drcacheoff.simple' => 1,
+                                  'code_api|tool.drcacheoff.multiproc' => 1,
+                                  'code_api|tool.drcacheoff.opcode_mix' => 1,
+                                  'code_api|tool.histogram.offline' => 1);
+            } else {
+                # FIXME i#2417: fix flaky AArch64 tests
+                %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
+                                       'code_api|pthreads.pthreads_exit' => 1);
+           }
+
             if ($is_32) {
                 $issue_no = "#2416";
+            } elsif ($needs_unsafe_ldstex) {
+                $issue_no = "#1698";
             } else {
                 $issue_no = "#2417";
             }
