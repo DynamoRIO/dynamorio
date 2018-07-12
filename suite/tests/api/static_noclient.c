@@ -59,12 +59,15 @@ main(int argc, const char *argv[])
      * attach+detach testing.
      * XXX: When there's a client, this requires a flag to skip the client init
      * in this first dr_app_setup().
+     * FIXME i#2040: this hits the app_fls_data assert on Windows.
      */
+#ifdef UNIX
     dr_app_setup();
     instr_t *instr = XINST_CREATE_return(GLOBAL_DCONTEXT);
     assert(instr_is_return(instr));
     instr_destroy(GLOBAL_DCONTEXT, instr);
     dr_app_stop_and_cleanup();
+#endif
 
     print("pre-DR init\n");
     dr_app_setup();

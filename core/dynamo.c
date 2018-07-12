@@ -2855,7 +2855,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
      */
     dynamo_thread_under_dynamo(dcontext);
     signal_event(dr_app_started);
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_started = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */
