@@ -462,6 +462,7 @@ extern bool control_all_threads;     /* ok for "weird" things to happen -- not a
                                         threads are under our control */
 extern bool dynamo_heap_initialized; /* has dynamo_heap been initialized? */
 extern bool dynamo_initialized;      /* has dynamo been initialized? */
+extern bool dynamo_started;          /* has DR initiated takeover of the app? */
 extern bool dynamo_exited;           /* has dynamo exited? */
 extern bool dynamo_exited_all_other_threads; /* has dynamo exited and synched? */
 extern bool dynamo_exited_and_cleaned;       /* has dynamo component cleanup started? */
