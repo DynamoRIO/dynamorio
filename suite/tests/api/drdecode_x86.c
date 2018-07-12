@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -105,12 +105,33 @@ test_vendor(void)
 #endif
 }
 
+static void
+test_ptrsz_imm(void)
+{
+    /* We just ensure that these interfaces are available: we don't stress their
+     * corner cases here.
+     */
+    instrlist_t *ilist = instrlist_create(GD);
+    instr_t *callee = INSTR_CREATE_label(GD);
+    instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist,
+                                    opnd_create_reg(DR_REG_RAX), ilist, NULL, NULL, NULL);
+    instrlist_append(ilist, INSTR_CREATE_call_ind(GD, opnd_create_reg(DR_REG_RAX)));
+    instrlist_insert_push_instr_addr(GD, callee, (byte *)ilist, ilist, NULL, NULL, NULL);
+    instrlist_append(ilist, callee);
+    instrlist_insert_mov_immed_ptrsz(GD, (ptr_uint_t)ilist, opnd_create_reg(DR_REG_RAX),
+                                     ilist, NULL, NULL, NULL);
+    instrlist_insert_push_immed_ptrsz(GD, (ptr_uint_t)ilist, ilist, NULL, NULL, NULL);
+    instrlist_clear_and_destroy(GD, ilist);
+}
+
 int
 main()
 {
     test_disasm_style();
 
     test_vendor();
+
+    test_ptrsz_imm();
 
     printf("done\n");
 

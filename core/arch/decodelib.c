@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,15 +135,6 @@ priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
     return (priv_mcontext_t *)(&mc->IF_X86_ELSE(xdi, r0));
-}
-
-/* XXX: duplicated from instrument.c, for convert_to_near_rel_common() */
-/* Inserts inst as a non-application instruction into ilist after "where" */
-void
-instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
-{
-    instr_set_meta(inst);
-    instrlist_postinsert(ilist, where, inst);
 }
 
 /* XXX: the code below is duplicated w/ only minor changes from utils.c.
