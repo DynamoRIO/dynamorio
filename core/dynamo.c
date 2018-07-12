@@ -92,6 +92,7 @@
 /* global thread-shared variables */
 bool dynamo_initialized = false;
 bool dynamo_heap_initialized = false;
+bool dynamo_started = false;
 bool automatic_startup = false;
 bool control_all_threads = false;
 #ifdef WINDOWS
@@ -1154,6 +1155,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 #endif /* DEBUG */
 
     dynamo_initialized = false;
+    dynamo_started = false;
     return SUCCESS;
 }
 
@@ -2853,6 +2855,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
      */
     dynamo_thread_under_dynamo(dcontext);
     signal_event(dr_app_started);
+    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    dynamo_started = true;
+    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.
      */

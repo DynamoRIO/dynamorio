@@ -2021,6 +2021,17 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
     my_id = get_thread_id();
     my_dcontext = get_thread_private_dcontext();
+    if (my_dcontext == NULL) {
+        /* We support detach after just dr_app_setup() with no start. */
+        ASSERT(!dynamo_started);
+        my_tr = thread_lookup(my_id);
+        ASSERT(my_tr != NULL);
+        my_dcontext = my_tr->dcontext;
+        os_process_under_dynamorio_initiate(my_dcontext);
+        os_process_under_dynamorio_complete(my_dcontext);
+        dynamo_thread_under_dynamo(my_dcontext);
+        ASSERT(get_thread_private_dcontext() == my_dcontext);
+    }
     ASSERT(my_dcontext != NULL);
 
     LOG(GLOBAL, LOG_ALL, 1, "Detach: thread %d starting detach process\n", my_id);
