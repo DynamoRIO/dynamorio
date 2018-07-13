@@ -190,7 +190,7 @@ generate_code()
     const size_t sequence_size = 73; /* Measured manually. */
     /* The final return takes up 1 byte. */
     code_size = NUM_SEQUENCES * sequence_size + 1;
-    generated_code = allocate_mem(code_size, PROT_EXEC | PROT_READ | PROT_WRITE);
+    generated_code = allocate_mem(code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
 
     /* Synthesize code which includes a lot of indirect branches to test i#3098.
@@ -219,7 +219,7 @@ generate_code()
     byte *end_pc = instrlist_encode(GLOBAL_DCONTEXT, ilist, generated_code, true);
     assert(end_pc <= generated_code + code_size);
 
-    protect_mem(generated_code, code_size, PROT_EXEC | PROT_READ);
+    protect_mem(generated_code, code_size, ALLOW_EXEC | ALLOW_READ);
 
 #if VERBOSE > 0
     for (int i = 0; i < tags.entries; i++)
@@ -235,8 +235,7 @@ generate_code()
 void
 cleanup_code(void)
 {
-    int result = munmap(generated_code, code_size);
-    assert(result == 0);
+    free_mem(generated_code, code_size);
 }
 
 /***************************************************************************

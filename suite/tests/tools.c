@@ -167,20 +167,21 @@ get_os_prot_word(int prot)
 }
 
 char *
-allocate_mem(int size, int prot)
+allocate_mem(size_t size, int prot)
 {
 #    ifdef UNIX
     char *res = (char *)mmap((void *)0, size, get_os_prot_word(prot),
                              MAP_PRIVATE | MAP_ANON, -1, 0);
     if (res == MAP_FAILED)
         return NULL;
+    return res;
 #    else
     return (char *)VirtualAlloc(NULL, size, MEM_COMMIT, get_os_prot_word(prot));
 #    endif
 }
 
 void
-free_mem(char *addr, int size)
+free_mem(char *addr, size_t size)
 {
 #    ifdef UNIX
     int res = munmap(addr, size);

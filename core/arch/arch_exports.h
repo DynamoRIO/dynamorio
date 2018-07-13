@@ -366,6 +366,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 #        define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int(var, val)
 #        define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE_int
 #    endif
+#    define MEMORY_STORE_BARRIER()       /* not needed on x86 */
 #    define SPINLOCK_PAUSE() _mm_pause() /* PAUSE = 0xf3 0x90 = repz nop */
 #    define RDTSC_LL(var) (var = __rdtsc())
 #    define SERIALIZE_INSTRUCTIONS()     \

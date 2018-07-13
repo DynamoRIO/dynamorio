@@ -2295,11 +2295,21 @@ if (CLIENT_INTERFACE)
       # We use -checklevel 0 to disable the DOCHECK in check_thread_vm_area
       # which makes building 150K bbs very slow.
       "-disable_traces -shared_bb_ibt_tables -checklevel 0" "" OFF OFF)
+    use_DynamoRIO_extension(api.ibl-stress drcontainers)
     if (UNIX)
       target_link_libraries(api.ibl-stress ${libpthread})
+    else ()
+      # On Windows, somehow linking with drcontainers inserts it and drhelper
+      # in front of dynamorio.lib, despite being added to the link list later,
+      # which results in unresolved symbols.
+      # The only fix I could come up with is to force dynamorio.lib earlier
+      # using the link flags:
+      get_target_property(drpath dynamorio LOCATION${location_suffix})
+      get_filename_component(drdir ${drpath} DIRECTORY)
+      get_filename_component(drname ${drpath} NAME_WE)
+      append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
     endif ()
-    use_DynamoRIO_extension(api.ibl-stress drcontainers)
-  endif ()
+endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
