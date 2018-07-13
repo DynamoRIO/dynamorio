@@ -91,24 +91,24 @@ generate_stack_accesses(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
 {
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RBP)));
+                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBP)));
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RBX)));
+                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBX)));
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RDI)));
+                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XDI)));
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RSI)));
+                     INSTR_CREATE_push(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XSI)));
     encode_pc = append_ilist(
-        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RSI)));
+        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XSI)));
     encode_pc = append_ilist(
-        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RDI)));
+        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XDI)));
     encode_pc = append_ilist(
-        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RBX)));
+        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBX)));
     encode_pc = append_ilist(
-        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RBP)));
+        ilist, encode_pc, INSTR_CREATE_pop(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XBP)));
     return encode_pc;
 }
 
@@ -139,7 +139,7 @@ generate_indirect_call(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     instr_t *after_callee = INSTR_CREATE_label(GLOBAL_DCONTEXT);
     instr_t *first, *last;
     instrlist_insert_mov_instr_addr(GLOBAL_DCONTEXT, callee, generated_code,
-                                    opnd_create_reg(DR_REG_RAX), ilist, NULL, &first,
+                                    opnd_create_reg(DR_REG_XAX), ilist, NULL, &first,
                                     &last);
     while (first != NULL && first != last) {
         print_instr_pc(first, encode_pc);
@@ -148,7 +148,7 @@ generate_indirect_call(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     }
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_call_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RAX)));
+                     INSTR_CREATE_call_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XAX)));
     drvector_append(tags, encode_pc);
     encode_pc =
         append_ilist(ilist, encode_pc,
@@ -168,7 +168,7 @@ generate_indirect_jump(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     instr_t *target = INSTR_CREATE_label(GLOBAL_DCONTEXT);
     instr_t *first, *last;
     instrlist_insert_mov_instr_addr(GLOBAL_DCONTEXT, target, generated_code,
-                                    opnd_create_reg(DR_REG_RAX), ilist, NULL, &first,
+                                    opnd_create_reg(DR_REG_XAX), ilist, NULL, &first,
                                     &last);
     while (first != NULL && first != last) {
         print_instr_pc(first, encode_pc);
@@ -177,7 +177,7 @@ generate_indirect_jump(instrlist_t *ilist, drvector_t *tags, byte *encode_pc)
     }
     encode_pc =
         append_ilist(ilist, encode_pc,
-                     INSTR_CREATE_jmp_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_RAX)));
+                     INSTR_CREATE_jmp_ind(GLOBAL_DCONTEXT, opnd_create_reg(DR_REG_XAX)));
     drvector_append(tags, encode_pc);
     encode_pc = append_ilist(ilist, encode_pc, target);
     encode_pc = generate_stack_accesses(ilist, tags, encode_pc);
@@ -190,7 +190,8 @@ generate_code()
     const size_t sequence_size = 73; /* Measured manually. */
     /* The final return takes up 1 byte. */
     code_size = NUM_SEQUENCES * sequence_size + 1;
-    generated_code = allocate_mem(code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+    generated_code =
+        (byte *)allocate_mem(code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
 
     /* Synthesize code which includes a lot of indirect branches to test i#3098.
@@ -235,7 +236,7 @@ generate_code()
 void
 cleanup_code(void)
 {
-    free_mem(generated_code, code_size);
+    free_mem((char *)generated_code, code_size);
 }
 
 /***************************************************************************
