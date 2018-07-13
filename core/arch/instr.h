@@ -433,8 +433,8 @@ struct _instr_t {
  * is provided in api/samples/inscount.cpp
  */
 enum note_type_id {
-    EMULATION_STATE  = 1, /* Instruction used to emulate, contains emulation data */
-    EMULATION_HELPER = 2  /* Instruction used to emulate */
+    EMULATION_STATE = 1, /* Instruction used to emulate, contains emulation data */
+    EMULATION_HELPER = 2 /* Instruction used to emulate */
 };
 
 /**
@@ -442,29 +442,27 @@ enum note_type_id {
  *       when code has been reviewed.
  */
 typedef struct _note_t {
-    enum note_type_id   type_id;
-    struct _note_t     *next;
+    enum note_type_id type_id;
+    struct _note_t *next;
 } note_t;
-
 
 /**
  * TODO: Full doxygen comments will be done as part of upstream pull request,
  *       when code has been reviewed.
  */
 typedef struct _emulation_state_t {
-    note_t       header;
-    app_pc       pc;
-    uint         raw_instr_bits;
+    note_t header;
+    app_pc pc;
+    uint raw_instr_bits;
     unsigned int version;
 } emulation_state_t;
-
 
 /**
  * TODO: Full doxygen comments will be done as part of upstream pull request,
  *       when code has been reviewed.
  */
 typedef struct _emulation_helper_t {
-    note_t             header;
+    note_t header;
     emulation_state_t *instr_being_emulated;
 } emulation_helper_t;
 
