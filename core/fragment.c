@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -644,6 +644,13 @@ static const fragment_entry_t fe_sentinel = { NULL_TAG, HASHLOOKUP_SENTINEL_STAR
 #define ENTRY_IS_INVALID(fe) IBL_ENTRY_IS_INVALID(fe)
 #define IBL_ENTRIES_ARE_EQUAL(fe1, fe2) ((fe1).tag_fragment == (fe2).tag_fragment)
 #define ENTRIES_ARE_EQUAL(table, fe1, fe2) IBL_ENTRIES_ARE_EQUAL(fe1, fe2)
+/* We set start_pc_fragment first to avoid races in a shared table where
+ * another thread matches the tag but then jumps to a bogus address. */
+#define ENTRY_SET_TO_ENTRY(e, f)                                                      \
+    (e).start_pc_fragment = (f).start_pc_fragment;                                    \
+    /* Ensure the start_pc_fragment store completes before the tag_fragment store: */ \
+    MEMORY_STORE_BARRIER();                                                           \
+    (e).tag_fragment = (f).tag_fragment
 #define HASHTABLE_WHICH_HEAP(flags) FRAGTABLE_WHICH_HEAP(flags)
 #define HTLOCK_RANK table_rwlock
 #define HASHTABLE_ENTRY_STATS 1
@@ -907,13 +914,12 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
             continue;
         }
         /* We need these writes to be atomic, so check that they're aligned. */
-        ASSERT(ALIGNED(&table[i].tag_fragment, 4));
-        ASSERT(ALIGNED(&table[i].start_pc_fragment, 4));
-        /* We update the tag first so that so that a thread that's skipping
-         * along a chain will exit ASAP. Breaking the chain is ok since we're
-         * nullifying the entire table.
+        ASSERT(ALIGNED(&table[i].tag_fragment, sizeof(table[i].tag_fragment)));
+        ASSERT(ALIGNED(&table[i].start_pc_fragment, sizeof(table[i].start_pc_fragment)));
+        /* We cannot set the tag to fe_empty.tag_fragment to break the hash chain
+         * as the target_delete path relies on acquiring the tag from the table entry,
+         * so we leave it alone.
          */
-        table[i].tag_fragment = fe_empty.tag_fragment;
         /* We set the payload to target_delete to induce a cache exit.
          *
          * The target_delete path leads to a loss of information -- we can't

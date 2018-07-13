@@ -5095,33 +5095,6 @@ dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag_out)
 #endif /* CLIENT_INTERFACE */
 
 DR_API
-/* Inserts inst as a non-application instruction into ilist prior to "where" */
-void
-instrlist_meta_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
-{
-    instr_set_meta(inst);
-    instrlist_preinsert(ilist, where, inst);
-}
-
-DR_API
-/* Inserts inst as a non-application instruction into ilist after "where" */
-void
-instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
-{
-    instr_set_meta(inst);
-    instrlist_postinsert(ilist, where, inst);
-}
-
-DR_API
-/* Inserts inst as a non-application instruction onto the end of ilist */
-void
-instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
-{
-    instr_set_meta(inst);
-    instrlist_append(ilist, inst);
-}
-
-DR_API
 void
 instrlist_meta_fault_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
@@ -7594,9 +7567,6 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
     uint i;
     if (dcontext == NULL)
         return false;
-#    ifdef UNIX
-    os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
-#    endif
     /* Initially I took in an opcode and used extract_branchtype(instr_branch_type())
      * but every use case had to make a fake instr to get the opcode and had no
      * good cross-platform method so I switched to an enum.  We're unlikely to
@@ -7610,6 +7580,9 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
     }
     SYSLOG_INTERNAL_INFO("pre-populating ibt[%d] table for %d tags", ibl_type,
                          tags_count);
+#    ifdef UNIX
+    os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
+#    endif
     for (i = 0; i < tags_count; i++) {
         fragment_add_ibl_target(dcontext, tags[i], ibl_type);
     }
@@ -7998,67 +7971,6 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                void *user_data))
 {
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
-}
-
-DR_API
-/* Create instructions for storing pointer-size integer val to dst,
- * and then insert them into ilist prior to where.
- * The "first" and "last" created instructions are returned.
- */
-void
-instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
-                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
-                                 OUT instr_t **last)
-{
-    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
-    insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst, ilist, where, first, last);
-}
-
-DR_API
-/* Create instructions for pushing pointer-size integer val on the stack,
- * and then insert them into ilist prior to where.
- * The "first" and "last" created instructions are returned.
- */
-void
-instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val, instrlist_t *ilist,
-                                  instr_t *where, OUT instr_t **first, OUT instr_t **last)
-{
-    insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where, first, last);
-}
-
-DR_API
-void
-instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
-                                opnd_t dst, instrlist_t *ilist, instr_t *where,
-                                OUT instr_t **first, OUT instr_t **last)
-{
-    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
-    if (encode_pc == NULL) {
-        /* Pass highest code cache address.
-         * XXX: unless we're beyond the reservation!  Would still be reachable
-         * from rest of vmcode, but might be higher than vmcode_get_end()!
-         */
-        encode_pc = vmcode_get_end();
-    }
-    insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst, ilist, where,
-                          first, last);
-}
-
-DR_API
-void
-instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
-                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
-                                 OUT instr_t **last)
-{
-    if (encode_pc == NULL) {
-        /* Pass highest code cache address.
-         * XXX: unless we're beyond the reservation!  Would still be reachable
-         * from rest of vmcode, but might be higher than vmcode_get_end()!
-         */
-        encode_pc = vmcode_get_end();
-    }
-    insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, ilist, where,
-                           first, last);
 }
 
 #endif /* CLIENT_INTERFACE */

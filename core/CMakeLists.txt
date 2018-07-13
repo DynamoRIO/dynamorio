@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -231,6 +231,7 @@ set(ARCH_SRCS
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
+  arch/mangle_utils.c
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
@@ -898,6 +899,7 @@ endif (UNIX)
 add_library(drdecode
   ${DECODER_SRCS}
   arch/${ARCH_NAME_SHARED}/mangle.c
+  arch/mangle_utils.c
   arch/decodelib.c
   )
 set_target_properties(drdecode PROPERTIES

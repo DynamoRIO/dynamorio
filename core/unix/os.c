@@ -9304,7 +9304,13 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
             ok = get_memory_info_from_os((app_pc)get_mcontext(dcontext)->xsp,
                                          &ostd->stack_base, &size, NULL);
         }
-        ASSERT(ok);
+        if (!ok) {
+            /* This can happen with dr_prepopulate_cache() before we start running
+             * the app.
+             */
+            ASSERT(!dynamo_started);
+            return false;
+        }
         ostd->stack_top = ostd->stack_base + size;
         LOG(THREAD, LOG_THREADS, 1, "App stack is " PFX "-" PFX "\n", ostd->stack_base,
             ostd->stack_top);
