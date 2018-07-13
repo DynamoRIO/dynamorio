@@ -616,7 +616,10 @@ int
 get_os_prot_word(int prot);
 
 char *
-allocate_mem(int size, int prot);
+allocate_mem(size_t size, int prot);
+
+void
+free_mem(char *addr, size_t size);
 
 void
 protect_mem(void *start, size_t len, int prot);
