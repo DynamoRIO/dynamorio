@@ -177,7 +177,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             continue;
         /* Data about the emulated instruction can be extracted from the note
          * by casting based on the note's type_id, e g.
-         * emulation_state_t* enote = (emulation_state_t*)instr_find_note(instr, EMULATION_STATE);
+         * emulation_state_t* enote =
+         *     (emulation_state_t*)instr_find_note(instr, EMULATION_STATE);
          */
         num_instrs++;
     }

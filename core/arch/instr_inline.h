@@ -433,9 +433,10 @@ note_t *
 instr_find_note(instr_t *instr, enum note_type_id type)
 {
     note_t *note;
-    for (note = instr->note; note != NULL; note = note->next)
+    for (note = instr->note; note != NULL; note = note->next) {
         if (note->type_id == type)
             return note;
+    }
     return NULL;
 }
 
