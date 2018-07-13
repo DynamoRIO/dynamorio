@@ -164,9 +164,21 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             }
         }
     }
-    /* Count instructions */
+    /* Count instructions. If this client is being run with a client which
+     * emulates instructions, then both native and emulated instructions will be
+     * counted. The native emulation helper instructions which are used to
+     * emulate will be ignored in order to provide an accurate count. It is the
+     * responsibility of the emulation client to create an emulation note
+     * setting the type_id and note data correctly.
+     */
     for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next_app(instr)) {
+        if (instr_find_note(instr, EMULATION_HELPER) != NULL)
+            continue;
+        /* Data about the emulated instruction can be extracted from the note
+         * by casting based on the note's type_id, e g.
+         * emulation_state_t* enote = (emulation_state_t*)instr_find_note(instr, EMULATION_STATE);
+         */
         num_instrs++;
     }
     *user_data = (void *)(ptr_uint_t)num_instrs;

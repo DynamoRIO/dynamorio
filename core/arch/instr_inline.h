@@ -414,10 +414,29 @@ instr_set_note(instr_t *instr, void *value)
 }
 
 INSTR_INLINE
+void
+instr_add_note(instr_t *instr, note_t *value)
+{
+    value->next = instr->note;
+    instr->note = value;
+}
+
+INSTR_INLINE
 void *
 instr_get_note(instr_t *instr)
 {
     return instr->note;
+}
+
+INSTR_INLINE
+note_t *
+instr_find_note(instr_t *instr, enum note_type_id type)
+{
+    note_t *note;
+    for (note = instr->note; note != NULL; note = note->next)
+        if (note->type_id == type)
+            return note;
+    return NULL;
 }
 
 INSTR_INLINE
