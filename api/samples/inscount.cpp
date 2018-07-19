@@ -176,7 +176,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
          instr != NULL;
          instr = instr_get_next(instr)) {
         if (instr_is_label(instr)) {
-            if (((ptr_int_t)instr_get_note(instr)) == get_emul_note_val(DRMGR_NOTE_EMUL_START)) {
+            if (((ptr_int_t)instr_get_note(instr)) ==
+                    get_emul_note_val(DRMGR_NOTE_EMUL_START)) {
                 num_instrs++;
                 is_emulation = true;
                 /* Data about the emulated instruction can be extracted from the
@@ -186,7 +187,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  */
             continue;
             }
-            if (((ptr_int_t)instr_get_note(instr)) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP)) {
+            if (((ptr_int_t)instr_get_note(instr)) ==
+                    get_emul_note_val(DRMGR_NOTE_EMUL_STOP)) {
                 is_emulation = false;
                 continue;
             }
