@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,6 +40,8 @@
 #include "../globals.h"
 #include "instrlist.h"
 #include "instr.h"
+#include "decode.h"
+#include "arch.h"
 #include <string.h>
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)
@@ -556,4 +558,100 @@ instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
                  bool has_instr_jmp_targets)
 {
     return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction into ilist prior to "where" */
+void
+instrlist_meta_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_preinsert(ilist, where, inst);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction into ilist after "where" */
+void
+instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_postinsert(ilist, where, inst);
+}
+
+DR_API
+/* Inserts inst as a non-application instruction onto the end of ilist */
+void
+instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
+{
+    instr_set_meta(inst);
+    instrlist_append(ilist, inst);
+}
+
+DR_API
+/* Create instructions for storing pointer-size integer val to dst,
+ * and then insert them into ilist prior to where.
+ * The "first" and "last" created instructions are returned.
+ */
+void
+instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
+                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
+                                 OUT instr_t **last)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    insert_mov_immed_ptrsz((dcontext_t *)drcontext, val, dst, ilist, where, first, last);
+}
+
+DR_API
+/* Create instructions for pushing pointer-size integer val on the stack,
+ * and then insert them into ilist prior to where.
+ * The "first" and "last" created instructions are returned.
+ */
+void
+instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val, instrlist_t *ilist,
+                                  instr_t *where, OUT instr_t **first, OUT instr_t **last)
+{
+    insert_push_immed_ptrsz((dcontext_t *)drcontext, val, ilist, where, first, last);
+}
+
+DR_API
+void
+instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                opnd_t dst, instrlist_t *ilist, instr_t *where,
+                                OUT instr_t **first, OUT instr_t **last)
+{
+    CLIENT_ASSERT(opnd_get_size(dst) == OPSZ_PTR, "wrong dst size");
+    if (encode_pc == NULL) {
+#ifdef STANDALONE_DECODER
+        /* Maybe we should fail? */
+#else
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+#endif
+    }
+    insert_mov_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, dst, ilist, where,
+                          first, last);
+}
+
+DR_API
+void
+instrlist_insert_push_instr_addr(void *drcontext, instr_t *src_inst, byte *encode_pc,
+                                 instrlist_t *ilist, instr_t *where, OUT instr_t **first,
+                                 OUT instr_t **last)
+{
+    if (encode_pc == NULL) {
+#ifdef STANDALONE_DECODER
+        /* Maybe we should fail? */
+#else
+        /* Pass highest code cache address.
+         * XXX: unless we're beyond the reservation!  Would still be reachable
+         * from rest of vmcode, but might be higher than vmcode_get_end()!
+         */
+        encode_pc = vmcode_get_end();
+#endif
+    }
+    insert_push_instr_addr((dcontext_t *)drcontext, src_inst, encode_pc, ilist, where,
+                           first, last);
 }
