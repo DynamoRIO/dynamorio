@@ -218,6 +218,9 @@ drmgr_bb_init(void);
 static void
 drmgr_bb_exit(void);
 
+static void
+drmgr_emulation_init(void);
+
 /* Size of tls/cls arrays.  In order to support slot access from the
  * code cache, this number cannot be changed dynamically.  We could
  * make it a runtime parameter, but that would add another level of
@@ -384,6 +387,7 @@ drmgr_init(void)
 
     drmgr_bb_init();
     drmgr_event_init();
+    drmgr_emulation_init();
 
     our_tls_idx = drmgr_register_tls_field();
     if (!drmgr_register_thread_init_event(our_thread_init_event) ||
@@ -2496,4 +2500,56 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
         return false;
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     return true;
+}
+
+/* Reserve space for emulation specific note values */
+static ptr_uint_t note_base;
+void drmgr_emulation_init(void)
+{
+    note_base = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
+    DR_ASSERT(note_base != DRMGR_NOTE_NONE);
+}
+
+/* Set note values based on emulation specific enums. Typically set by an
+ * emulation client.
+ */
+DR_EXPORT
+void *
+set_emul_note_val(int enote_val)
+{
+    return (void *)(ptr_int_t)(note_base + enote_val);
+}
+
+/* Get note values based on emulation specific enums. Typically used by an
+ * instrumentation client running in conjunction with an emulation client.
+ */
+DR_EXPORT
+ptr_int_t
+get_emul_note_val(int enote_val)
+{
+    return (ptr_int_t)(note_base + enote_val);
+}
+
+/* Write emulation data to a label's data area. Typically set by an emulation
+ * client.
+ */
+DR_EXPORT
+void
+set_emul_label_data(instr_t *label, int type, ptr_uint_t data)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    DR_ASSERT(label_data != NULL);
+    label_data->data[type] = data;
+}
+
+/* Read emulation data from a label's data area. Typically read by an
+ * instrumentation client running in conjunction with an emulation client.
+ */
+DR_EXPORT
+ptr_uint_t
+get_emul_label_data(instr_t *label, int type)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
+    DR_ASSERT(label_data != NULL);
+    return label_data->data[type];
 }

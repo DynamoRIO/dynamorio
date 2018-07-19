@@ -711,6 +711,58 @@ enum {
     DRMGR_NOTE_NONE = 0, /* == DRX_NOTE_NONE */
 };
 
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+enum {
+    DRMGR_NOTE_EMUL_START,
+    DRMGR_NOTE_EMUL_STOP,
+    DRMGR_NOTE_EMUL_COUNT,
+};
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+enum {
+    DRMGR_EMUL_INSTR_PC,
+    DRMGR_EMUL_INSTR,
+    DRMGR_EMUL_ISA_VERSION,
+};
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+void *
+set_emul_note_val(int enote_val);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+ptr_int_t
+get_emul_note_val(int enote_val);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+void
+set_emul_label_data(instr_t *label, int type, ptr_uint_t data);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+ptr_uint_t
+get_emul_label_data(instr_t *label, int type);
+
 DR_EXPORT
 /**
  * Reserves \p size values in the namespace for use in the \p note

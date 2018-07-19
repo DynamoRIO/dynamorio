@@ -427,45 +427,6 @@ struct _instr_t {
 };     /* instr_t */
 #endif /* DR_FAST_IR */
 
-/**
- * This note is used to hold emulation specific data which can be set by an
- * emulation client and read by an instrumentation client. An example of its use
- * is provided in api/samples/inscount.cpp
- */
-enum note_type_id {
-    EMULATION_STATE = 1, /* Instruction used to emulate, contains emulation data */
-    EMULATION_HELPER = 2 /* Instruction used to emulate */
-};
-
-/**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
- */
-typedef struct _note_t {
-    enum note_type_id type_id;
-    struct _note_t *next;
-} note_t;
-
-/**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
- */
-typedef struct _emulation_state_t {
-    note_t header;
-    app_pc pc;
-    uint raw_instr_bits;
-    unsigned int version;
-} emulation_state_t;
-
-/**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
- */
-typedef struct _emulation_helper_t {
-    note_t header;
-    emulation_state_t *instr_being_emulated;
-} emulation_helper_t;
-
 /****************************************************************************
  * INSTR ROUTINES
  */
@@ -619,27 +580,9 @@ instr_get_note(instr_t *instr);
 
 DR_API
 INSTR_INLINE
-/**
- * Finds the value of a user-controlled note field in \p instr.
- * \note Important: is also used when emitting for targets that are other
- * instructions.  Thus it will be overwritten when calling instrlist_encode()
- * or instrlist_encode_to_copy() with \p has_instr_jmp_targets set to true.
- * \note The note field is copied (shallowly) by instr_clone().
- */
-note_t *
-instr_find_note(instr_t *instr, enum note_type_id type);
-
-DR_API
-INSTR_INLINE
 /** Sets the user-controlled note field in \p instr to \p value. */
 void
 instr_set_note(instr_t *instr, void *value);
-
-DR_API
-INSTR_INLINE
-/** Adds a note to the user-controlled note list in \p instr to \p value. */
-void
-instr_add_note(instr_t *instr, note_t *value);
 
 DR_API
 /** Return the taken target pc of the (direct branch) instruction. */
