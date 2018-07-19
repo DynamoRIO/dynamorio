@@ -2504,7 +2504,8 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
 
 /* Reserve space for emulation specific note values */
 static ptr_uint_t note_base;
-void drmgr_emulation_init(void)
+void
+drmgr_emulation_init(void)
 {
     note_base = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
     DR_ASSERT(note_base != DRMGR_NOTE_NONE);

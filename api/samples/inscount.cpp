@@ -172,12 +172,11 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * emulation client to place the start/stop labels correctly.
      */
     bool is_emulation = false;
-    for (instr = instrlist_first_app(bb), num_instrs = 0;
-         instr != NULL;
+    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next(instr)) {
         if (instr_is_label(instr)) {
             if (((ptr_int_t)instr_get_note(instr)) ==
-                    get_emul_note_val(DRMGR_NOTE_EMUL_START)) {
+                get_emul_note_val(DRMGR_NOTE_EMUL_START)) {
                 num_instrs++;
                 is_emulation = true;
                 /* Data about the emulated instruction can be extracted from the
@@ -185,10 +184,10 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  * get_emul_label_data(instr, DRMGR_EMUL_INSTR_PC)
                  * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
                  */
-            continue;
+                continue;
             }
             if (((ptr_int_t)instr_get_note(instr)) ==
-                    get_emul_note_val(DRMGR_NOTE_EMUL_STOP)) {
+                get_emul_note_val(DRMGR_NOTE_EMUL_STOP)) {
                 is_emulation = false;
                 continue;
             }
