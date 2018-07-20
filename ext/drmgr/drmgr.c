@@ -2572,9 +2572,13 @@ drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
     instr_set_note(start_emul_label, set_emul_note_val(DRMGR_NOTE_EMUL_START));
+
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)instr->pc);
-    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)instr->raw_instr_bits);
-    set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION, (ptr_uint_t)instr->version);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR,
+                        (ptr_uint_t)instr->raw_instr_bits);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION,
+                        (ptr_uint_t)instr->version);
+
     instrlist_meta_preinsert(ilist, where, start_emul_label);
 }
 
@@ -2593,8 +2597,8 @@ DR_EXPORT
 bool
 drmgr_is_emulation_start(instr_t *instr)
 {
-    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
-        get_emul_note_val(DRMGR_NOTE_EMUL_START)))
+    if (instr_is_label(instr) &&
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START)))
         return true;
     return false;
 }
@@ -2603,8 +2607,8 @@ DR_EXPORT
 bool
 drmgr_is_emulation_end(instr_t *instr)
 {
-    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
-        get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
+    if (instr_is_label(instr) &&
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
         return true;
     return false;
 }

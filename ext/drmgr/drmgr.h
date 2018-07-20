@@ -740,9 +740,9 @@ enum {
  *       when code has been reviewed.
  */
 typedef struct _emulated_instr_t {
-  app_pc       pc;
-  unsigned int raw_instr_bits;
-  unsigned int version;
+    app_pc pc;
+    unsigned int raw_instr_bits;
+    unsigned int version;
 } emulated_instr_t;
 
 /**

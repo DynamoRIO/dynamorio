@@ -170,8 +170,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
      * but NOT the native instructions used for emulation.
      */
     bool is_emulation = false;
-    for (instr = instrlist_first(bb), num_instrs = 0;
-         instr != NULL;
+    for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next(instr)) {
         if (drmgr_is_emulation_start(instr)) {
             /* Each emulated intruction is replaced by a series of native
@@ -179,15 +178,15 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              * sequence begins and ends. It is the responsibility of the
              * emulation client to place the start/stop labels correctly.
              */
-             num_instrs++;
-             is_emulation = true;
-             /* Data about the emulated instruction can be extracted from the
-              * start label using accessor functions, e.g.
-              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR_PC)
-              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR)
-              * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
-              */
-             continue;
+            num_instrs++;
+            is_emulation = true;
+            /* Data about the emulated instruction can be extracted from the
+             * start label using accessor functions, e.g.
+             * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR_PC)
+             * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR)
+             * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
+             */
+            continue;
         }
         if (drmgr_is_emulation_end(instr)) {
             is_emulation = false;
