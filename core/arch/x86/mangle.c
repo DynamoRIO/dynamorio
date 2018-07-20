@@ -2794,8 +2794,9 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
             ASSERT(instr_operands_valid(instr)); /* ensure will encode w/o raw bits */
             instr_set_prefixes(instr, prefixes);
         }
-    } else if (instr_get_opcode(instr) == OP_jmp &&
-               instr_length(dcontext, instr) != JMP_LONG_LENGTH) {
+    } else if ((instr_get_opcode(instr) == OP_jmp &&
+                instr_length(dcontext, instr) > JMP_LONG_LENGTH) ||
+               (instr_is_cbr(instr) && instr_length(dcontext, instr) > CBR_LONG_LENGTH)) {
         /* i#1988: remove MPX prefixes as they mess up our nop padding.
          * i#1312 covers marking as actual prefixes, and we should keep them.
          */
