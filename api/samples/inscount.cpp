@@ -164,33 +164,34 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             }
         }
     }
-    /* Count instructions. If this client is being run with a client which
-     * emulates instructions, then both native and emulated instructions will be
-     * counted. Each emulated intruction is replaced by a series of native
-     * instructions delimited by labels with note values indicating when the
-     * emulation sequence begins and ends. It is the responsibility of the
-     * emulation client to place the start/stop labels correctly.
+
+    /* Count instructions. If an emulation client is running with this client,
+     * we want to count all the native instructions and the emulated instruction
+     * but NOT the native instructions used for emulation.
      */
     bool is_emulation = false;
-    for (instr = instrlist_first_app(bb), num_instrs = 0; instr != NULL;
+    for (instr = instrlist_first(bb), num_instrs = 0;
+         instr != NULL;
          instr = instr_get_next(instr)) {
-        if (instr_is_label(instr)) {
-            if (((ptr_int_t)instr_get_note(instr)) ==
-                get_emul_note_val(DRMGR_NOTE_EMUL_START)) {
-                num_instrs++;
-                is_emulation = true;
-                /* Data about the emulated instruction can be extracted from the
-                 * start label using accessor functions, e.g.
-                 * get_emul_label_data(instr, DRMGR_EMUL_INSTR_PC)
-                 * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
-                 */
-                continue;
-            }
-            if (((ptr_int_t)instr_get_note(instr)) ==
-                get_emul_note_val(DRMGR_NOTE_EMUL_STOP)) {
-                is_emulation = false;
-                continue;
-            }
+        if (drmgr_is_emulation_start(instr)) {
+            /* Each emulated intruction is replaced by a series of native
+             * instructions delimited by labels indicating when the emulation
+             * sequence begins and ends. It is the responsibility of the
+             * emulation client to place the start/stop labels correctly.
+             */
+             num_instrs++;
+             is_emulation = true;
+             /* Data about the emulated instruction can be extracted from the
+              * start label using accessor functions, e.g.
+              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR_PC)
+              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR)
+              * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
+              */
+             continue;
+        }
+        if (drmgr_is_emulation_end(instr)) {
+            is_emulation = false;
+            continue;
         }
         if (is_emulation)
             continue;

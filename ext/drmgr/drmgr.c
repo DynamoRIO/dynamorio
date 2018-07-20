@@ -180,6 +180,13 @@ typedef struct _per_thread_t {
     instr_t *last_app;
 } per_thread_t;
 
+/* Emulation note types */
+enum {
+    DRMGR_NOTE_EMUL_START,
+    DRMGR_NOTE_EMUL_STOP,
+    DRMGR_NOTE_EMUL_COUNT,
+};
+
 /***************************************************************************
  * GLOBALS
  */
@@ -218,6 +225,8 @@ drmgr_bb_init(void);
 static void
 drmgr_bb_exit(void);
 
+/* Reserve space for emulation specific note values */
+static ptr_uint_t note_base;
 static void
 drmgr_emulation_init(void);
 
@@ -2502,20 +2511,22 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
     return true;
 }
 
-/* Reserve space for emulation specific note values */
-static ptr_uint_t note_base;
-void
+/***************************************************************************
+ * EMULATION
+ */
+
+/* Reserve space for emulation note values */
+static void
 drmgr_emulation_init(void)
 {
     note_base = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
-    DR_ASSERT(note_base != DRMGR_NOTE_NONE);
+    ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
 }
 
 /* Set note values based on emulation specific enums. Typically set by an
  * emulation client.
  */
-DR_EXPORT
-void *
+static void *
 set_emul_note_val(int enote_val)
 {
     return (void *)(ptr_int_t)(note_base + enote_val);
@@ -2524,8 +2535,7 @@ set_emul_note_val(int enote_val)
 /* Get note values based on emulation specific enums. Typically used by an
  * instrumentation client running in conjunction with an emulation client.
  */
-DR_EXPORT
-ptr_int_t
+static ptr_int_t
 get_emul_note_val(int enote_val)
 {
     return (ptr_int_t)(note_base + enote_val);
@@ -2534,23 +2544,76 @@ get_emul_note_val(int enote_val)
 /* Write emulation data to a label's data area. Typically set by an emulation
  * client.
  */
-DR_EXPORT
-void
+static void
 set_emul_label_data(instr_t *label, int type, ptr_uint_t data)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
-    DR_ASSERT(label_data != NULL);
+    ASSERT(label_data != NULL, "failed to find label's data area");
     label_data->data[type] = data;
 }
 
 /* Read emulation data from a label's data area. Typically read by an
  * instrumentation client running in conjunction with an emulation client.
  */
-DR_EXPORT
-ptr_uint_t
+static ptr_uint_t
 get_emul_label_data(instr_t *label, int type)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
-    DR_ASSERT(label_data != NULL);
+    ASSERT(label_data != NULL, "failed to find label's data area");
     return label_data->data[type];
+}
+
+/* Set the start emulation label and emulated instruction data */
+DR_EXPORT
+void
+drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             emulated_instr_t *instr)
+{
+    instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
+    instr_set_meta(start_emul_label);
+    instr_set_note(start_emul_label, set_emul_note_val(DRMGR_NOTE_EMUL_START));
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)instr->pc);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)instr->raw_instr_bits);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION, (ptr_uint_t)instr->version);
+    instrlist_meta_preinsert(ilist, where, start_emul_label);
+}
+
+/* Set the end emulation label */
+DR_EXPORT
+void
+drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where)
+{
+    instr_t *stop_emul_label = INSTR_CREATE_label(drcontext);
+    instr_set_meta(stop_emul_label);
+    instr_set_note(stop_emul_label, set_emul_note_val(DRMGR_NOTE_EMUL_STOP));
+    instrlist_meta_preinsert(ilist, where, stop_emul_label);
+}
+
+DR_EXPORT
+bool
+drmgr_is_emulation_start(instr_t *instr)
+{
+    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
+        get_emul_note_val(DRMGR_NOTE_EMUL_START)))
+        return true;
+    return false;
+}
+
+DR_EXPORT
+bool
+drmgr_is_emulation_end(instr_t *instr)
+{
+    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
+        get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
+        return true;
+    return false;
+}
+
+DR_EXPORT
+ptr_uint_t
+drmgr_get_emulation_instr_data(instr_t *instr, int type)
+{
+    ASSERT(instr_is_label(instr), "emulation instruction does not have a label");
+    ASSERT(drmgr_is_emulation_start(instr), "instruction is not a start emulation label");
+    return get_emul_label_data(instr, type);
 }

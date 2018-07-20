@@ -711,15 +711,19 @@ enum {
     DRMGR_NOTE_NONE = 0, /* == DRX_NOTE_NONE */
 };
 
+DR_EXPORT
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Reserves \p size values in the namespace for use in the \p note
+ * field of instructions.  The reserved range starts at the return
+ * value and is contiguous.  Returns DRMGR_NOTE_NONE on failure.
+ * Un-reserving is not supported.
  */
-enum {
-    DRMGR_NOTE_EMUL_START,
-    DRMGR_NOTE_EMUL_STOP,
-    DRMGR_NOTE_EMUL_COUNT,
-};
+ptr_uint_t
+drmgr_reserve_note_range(size_t size);
+
+/***************************************************************************
+ * EMULATION
+ */
 
 /**
  * TODO: Full doxygen comments will be done as part of upstream pull request,
@@ -735,17 +739,11 @@ enum {
  * TODO: Full doxygen comments will be done as part of upstream pull request,
  *       when code has been reviewed.
  */
-DR_EXPORT
-void *
-set_emul_note_val(int enote_val);
-
-/**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
- */
-DR_EXPORT
-ptr_int_t
-get_emul_note_val(int enote_val);
+typedef struct _emulated_instr_t {
+  app_pc       pc;
+  unsigned int raw_instr_bits;
+  unsigned int version;
+} emulated_instr_t;
 
 /**
  * TODO: Full doxygen comments will be done as part of upstream pull request,
@@ -753,7 +751,32 @@ get_emul_note_val(int enote_val);
  */
 DR_EXPORT
 void
-set_emul_label_data(instr_t *label, int type, ptr_uint_t data);
+drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             emulated_instr_t *instr);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+void
+drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+bool
+drmgr_is_emulation_start(instr_t *instr);
+
+/**
+ * TODO: Full doxygen comments will be done as part of upstream pull request,
+ *       when code has been reviewed.
+ */
+DR_EXPORT
+bool
+drmgr_is_emulation_end(instr_t *instr);
 
 /**
  * TODO: Full doxygen comments will be done as part of upstream pull request,
@@ -761,17 +784,7 @@ set_emul_label_data(instr_t *label, int type, ptr_uint_t data);
  */
 DR_EXPORT
 ptr_uint_t
-get_emul_label_data(instr_t *label, int type);
-
-DR_EXPORT
-/**
- * Reserves \p size values in the namespace for use in the \p note
- * field of instructions.  The reserved range starts at the return
- * value and is contiguous.  Returns DRMGR_NOTE_NONE on failure.
- * Un-reserving is not supported.
- */
-ptr_uint_t
-drmgr_reserve_note_range(size_t size);
+drmgr_get_emulation_instr_data(instr_t *instr, int type);
 
 /***************************************************************************
  * UTILITIES
