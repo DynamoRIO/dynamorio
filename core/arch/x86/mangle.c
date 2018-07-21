@@ -1019,6 +1019,9 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  *   M A N G L I N G   R O U T I N E S
  */
 
+#endif /* !STANDALONE_DECODER */
+/* We export these mov/push utilities to drdecode */
+
 /* If src_inst != NULL, uses it (and assumes it will be encoded at
  * encode_estimate to determine whether > 32 bits or not: so if unsure where
  * it will be encoded, pass a high address) as the immediate; else
@@ -1032,7 +1035,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
         val = (ptr_int_t)encode_estimate;
-#    ifdef X64
+#ifdef X64
     if (X64_MODE_DC(dcontext) && !opnd_is_reg(dst)) {
         if (val <= INT_MAX && val >= INT_MIN) {
             /* mov is sign-extended, so we can use one move if it is all
@@ -1075,16 +1078,16 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
             PRE(ilist, instr, mov2);
         }
     } else {
-#    endif
+#endif
         mov1 = INSTR_CREATE_mov_imm(dcontext, dst,
                                     (src_inst == NULL)
                                         ? OPND_CREATE_INTPTR(val)
                                         : opnd_create_instr_ex(src_inst, OPSZ_PTR, 0));
         PRE(ilist, instr, mov1);
         mov2 = NULL;
-#    ifdef X64
+#ifdef X64
     }
-#    endif
+#endif
     if (first != NULL)
         *first = mov1;
     if (last != NULL)
@@ -1104,7 +1107,7 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
     instr_t *push, *mov;
     if (src_inst != NULL)
         val = (ptr_int_t)encode_estimate;
-#    ifdef X64
+#ifdef X64
     if (X64_MODE_DC(dcontext)) {
         /* do push-64-bit-immed in two pieces.  tiny corner-case risk of racy
          * access to TOS if this thread is suspended in between or another
@@ -1129,21 +1132,23 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
             PRE(ilist, instr, mov);
         }
     } else {
-#    endif
+#endif
         push = INSTR_CREATE_push_imm(dcontext,
                                      (src_inst == NULL)
                                          ? OPND_CREATE_INT32(val)
                                          : opnd_create_instr_ex(src_inst, OPSZ_4, 0));
         PRE(ilist, instr, push);
         mov = NULL;
-#    ifdef X64
+#ifdef X64
     }
-#    endif
+#endif
     if (first != NULL)
         *first = push;
     if (last != NULL)
         *last = mov;
 }
+
+#ifndef STANDALONE_DECODER /* back for rest of file */
 
 /* Far calls and rets have double total size */
 static opnd_size_t

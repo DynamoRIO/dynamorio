@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -1315,12 +1315,15 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
 
 #    endif /* !AARCH64 */
 
+#endif /* !STANDALONE_DECODER */
+/* We export these mov/push utilities to drdecode */
+
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last)
 {
-#    ifdef AARCH64
+#ifdef AARCH64
     instr_t *mov;
     int i;
 
@@ -1358,7 +1361,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
     }
     if (last != NULL)
         *last = mov;
-#    else
+#else
     instr_t *mov1, *mov2;
     if (src_inst != NULL)
         val = (ptr_int_t)encode_estimate;
@@ -1397,7 +1400,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         *first = mov1;
     if (last != NULL)
         *last = mov2;
-#    endif
+#endif
 }
 
 void
@@ -1407,6 +1410,8 @@ insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
 }
+
+#ifndef STANDALONE_DECODER /* back for rest of file */
 
 /* Used for fault translation */
 bool
