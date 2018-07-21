@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -258,7 +258,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
      * whose fall-through hits our hook.  We avoid interpreting our own hook
      * by shifting it to the displaced pc.
      */
-    if (start_pc == vsyscall_sysenter_return_pc)
+    if (DYNAMO_OPTION(hook_vsyscall) && start_pc == vsyscall_sysenter_return_pc)
         start_pc = vsyscall_sysenter_displaced_pc;
 #endif
     bb->check_vm_area = true;
