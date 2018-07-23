@@ -427,8 +427,8 @@ DR_EMIT_PERSISTABLE flag in its return value.  See \ref sec_pcache for more
 information.
 
 To iterate over instructions in an \c instrlist_t, use the \ref
-instrlist_first(), \ref instrlist_last(), and \ref instr_get_next()
-routines.  For example:
+instrlist_first(), \ref instrlist_last() (if necessary), and \ref
+instr_get_next() routines. For example:
 
 \code
 dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
@@ -436,7 +436,7 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 {
   instr_t *instr, *next;
   for (instr = instrlist_first(bb);
-       instr != instrlist_last(bb);
+       instr != NULL;
        instr = next) {
     next = instr_get_next(instr);
     /* do some processing on instr */
