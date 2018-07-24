@@ -743,7 +743,7 @@ typedef struct _emulated_instr_t {
     app_pc pc;            /**< TODO: doxygen comment */
     instr_t *instr;       /**< TODO: doxygen comment */
     unsigned int version; /**< TODO: doxygen comment */
-    unsigned int fields;  /**< Data in this struct (must not exceed label's data[] area) */
+    unsigned int fields; /**< Data in this struct (must not exceed label's data[] area) */
 } emulated_instr_t;
 
 /**
