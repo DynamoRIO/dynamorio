@@ -166,8 +166,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
 
     /* Count instructions. If an emulation client is running with this client,
-     * we want to count all the native instructions and the emulated instruction
-     * but NOT the native instructions used for emulation.
+     * we want to count all the original native instructions and the emulated
+     * instruction but NOT the introduced native instructions used for emulation.
      */
     bool is_emulation = false;
     for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
@@ -184,7 +184,6 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              * start label using accessor functions, e.g.
              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR_PC)
              * drmgr_get_emulation_instr_data(instr, DRMGR_EMUL_INSTR)
-             * get_emul_label_data(instr, DRMGR_EMUL_INSTR)
              */
             continue;
         }

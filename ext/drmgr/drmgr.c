@@ -226,7 +226,7 @@ static void
 drmgr_bb_exit(void);
 
 /* Reserve space for emulation specific note values */
-static ptr_uint_t note_base;
+static ptr_uint_t note_base_emul;
 static void
 drmgr_emulation_init(void);
 
@@ -2519,17 +2519,8 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
 static void
 drmgr_emulation_init(void)
 {
-    note_base = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
-    ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
-}
-
-/* Set note values based on emulation specific enums. Typically set by an
- * emulation client.
- */
-static void *
-set_emul_note_val(int enote_val)
-{
-    return (void *)(ptr_int_t)(note_base + enote_val);
+    note_base_emul = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
+    ASSERT(note_base_emul != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
 }
 
 /* Get note values based on emulation specific enums. Typically used by an
@@ -2538,7 +2529,7 @@ set_emul_note_val(int enote_val)
 static ptr_int_t
 get_emul_note_val(int enote_val)
 {
-    return (ptr_int_t)(note_base + enote_val);
+    return (ptr_int_t)(note_base_emul + enote_val);
 }
 
 /* Write emulation data to a label's data area. Typically set by an emulation
@@ -2567,17 +2558,18 @@ get_emul_label_data(instr_t *label, int type)
 DR_EXPORT
 void
 drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
-                             emulated_instr_t *instr)
+                             emulated_instr_t *einstr)
 {
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
-    instr_set_note(start_emul_label, set_emul_note_val(DRMGR_NOTE_EMUL_START));
+    instr_set_note(start_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_START));
 
-    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)instr->pc);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)einstr->pc);
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR,
-                        (ptr_uint_t)instr->raw_instr_bits);
+                        (ptr_uint_t)einstr->instr);
     set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION,
-                        (ptr_uint_t)instr->version);
+                        (ptr_uint_t)einstr->version);
+    einstr->fields = 3; /* fields <= data array size in dr_instr_label_data_t */
 
     instrlist_meta_preinsert(ilist, where, start_emul_label);
 }
@@ -2589,7 +2581,7 @@ drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     instr_t *stop_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(stop_emul_label);
-    instr_set_note(stop_emul_label, set_emul_note_val(DRMGR_NOTE_EMUL_STOP));
+    instr_set_note(stop_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
     instrlist_meta_preinsert(ilist, where, stop_emul_label);
 }
 
@@ -2597,8 +2589,8 @@ DR_EXPORT
 bool
 drmgr_is_emulation_start(instr_t *instr)
 {
-    if (instr_is_label(instr) &&
-        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START)))
+    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
+        get_emul_note_val(DRMGR_NOTE_EMUL_START)))
         return true;
     return false;
 }
@@ -2607,8 +2599,8 @@ DR_EXPORT
 bool
 drmgr_is_emulation_end(instr_t *instr)
 {
-    if (instr_is_label(instr) &&
-        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
+    if (instr_is_label(instr) && ((ptr_int_t)instr_get_note(instr) ==
+        get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
         return true;
     return false;
 }

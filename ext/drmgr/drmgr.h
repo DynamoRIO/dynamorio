@@ -730,9 +730,9 @@ drmgr_reserve_note_range(size_t size);
  *       when code has been reviewed.
  */
 enum {
-    DRMGR_EMUL_INSTR_PC,
-    DRMGR_EMUL_INSTR,
-    DRMGR_EMUL_ISA_VERSION,
+    DRMGR_EMUL_INSTR_PC,    /**< TODO: doxygen comment */
+    DRMGR_EMUL_INSTR,       /**< TODO: doxygen comment */
+    DRMGR_EMUL_ISA_VERSION, /**< TODO: doxygen comment */
 };
 
 /**
@@ -740,9 +740,10 @@ enum {
  *       when code has been reviewed.
  */
 typedef struct _emulated_instr_t {
-    app_pc pc;
-    unsigned int raw_instr_bits;
-    unsigned int version;
+    app_pc pc;            /**< TODO: doxygen comment */
+    instr_t *instr;       /**< TODO: doxygen comment */
+    unsigned int version; /**< TODO: doxygen comment */
+    unsigned int fields;  /**< Data in this struct (must not exceed label's data[] area) */
 } emulated_instr_t;
 
 /**
