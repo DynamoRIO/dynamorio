@@ -741,10 +741,10 @@ typedef enum {
  * client and read by an observational client.
  */
 typedef struct _emulated_instr_t {
-  app_pc pc;            /**< The PC address of the emulated instruction. */
-  instr_t *instr;       /**< The emulated instruction. */
-  unsigned int version; /**< The version of the ISA the instruction belongs to. */
-  unsigned int fields;  /**< Number of data fields in this struct. */
+    app_pc pc;            /**< The PC address of the emulated instruction. */
+    instr_t *instr;       /**< The emulated instruction. */
+    unsigned int version; /**< The version of the ISA the instruction belongs to. */
+    unsigned int fields;  /**< Number of data fields in this struct. */
 } emulated_instr_t;
 
 /**
