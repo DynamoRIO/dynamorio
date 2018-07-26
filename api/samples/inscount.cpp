@@ -173,7 +173,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     for (instr = instrlist_first(bb), num_instrs = 0; instr != NULL;
          instr = instr_get_next(instr)) {
         if (drmgr_is_emulation_start(instr)) {
-            /* Each emulated intruction is replaced by a series of native
+            /* Each emulated instruction is replaced by a series of native
              * instructions delimited by labels indicating when the emulation
              * sequence begins and ends. It is the responsibility of the
              * emulation client to place the start/stop labels correctly.

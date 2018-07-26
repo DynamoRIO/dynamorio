@@ -197,7 +197,7 @@ typedef struct _drmgr_priority_t {
 typedef enum {
     DRMGR_PHASE_NONE,          /**< Not currently in a bb building event. */
     DRMGR_PHASE_APP2APP,       /**< Currently in the app2app phase. */
-    DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase.. */
+    DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase. */
     DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
     DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
 } drmgr_bb_phase_t;
@@ -726,29 +726,42 @@ drmgr_reserve_note_range(size_t size);
  */
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Constants used when accessing emulated instruction data with the
+ * `drmgr_get_emulation_instr_data()` function. Each constant refers to an element
+ * of the \p emulated_instr_t struct.
  */
-enum {
-    DRMGR_EMUL_INSTR_PC,    /**< TODO: doxygen comment */
-    DRMGR_EMUL_INSTR,       /**< TODO: doxygen comment */
-    DRMGR_EMUL_ISA_VERSION, /**< TODO: doxygen comment */
-};
+typedef enum {
+    DRMGR_EMUL_INSTR_PC,    /**< The PC address of the emulated instruction. */
+    DRMGR_EMUL_INSTR,       /**< The emulated instruction. */
+    DRMGR_EMUL_ISA_VERSION, /**< The version of the ISA the instruction belongs to. */
+} emulated_instr_data_t;
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Holds data about an emulated instruction, typically populated by an emulation
+ * client and read by an observational client.
  */
 typedef struct _emulated_instr_t {
-    app_pc pc;            /**< TODO: doxygen comment */
-    instr_t *instr;       /**< TODO: doxygen comment */
-    unsigned int version; /**< TODO: doxygen comment */
-    unsigned int fields; /**< Data in this struct (must not exceed label's data[] area) */
+  app_pc pc;            /**< The PC address of the emulated instruction. */
+  instr_t *instr;       /**< The emulated instruction. */
+  unsigned int version; /**< The version of the ISA the instruction belongs to. */
+  unsigned int fields;  /**< Number of data fields in this struct. */
 } emulated_instr_t;
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Inserts a label into \p ilist prior to \p where to indicate the start of a
+ * sequence of instructions emulating an instruction \p instr which does not
+ * exist on the hardware. The label has data attached which describes the
+ * instruction being emulated.
+ *
+ * A label will also appear at the end of the sequence, added using
+ * `drmgr_create_emulation_end()`. These start and stop labels can be detected
+ * by an observational client using `drmgr_is_emulation_start()` and
+ * `drmgr_is_emulation_end()` allowing the client to distinguish between native
+ * app instructions and instructions used for emulation.
+ *
+ * Information about the instruction being emulated can be read from the label using
+ * `drmgr_get_emulation_instr_data()`.
+ *
  */
 DR_EXPORT
 void
@@ -756,32 +769,40 @@ drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
                              emulated_instr_t *instr);
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Inserts a label into \p ilist prior to \p where to indicate the end of a
+ * sequence of instructions emulating an instruction, preceeded by a label created
+ * with `drmgr_create_emulation_start()`. 
  */
 DR_EXPORT
 void
 drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where);
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Checks the instruction \p instr to see if it is an emulation start label
+ * created by `drmgr_create_emulation_start()`. Typically used in an
+ * instrumentation client running with an emulation client.
+ *
+ * \return true if \p instr is an emulation start label, false otherwise. 
  */
 DR_EXPORT
 bool
 drmgr_is_emulation_start(instr_t *instr);
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Checks the instruction \p instr to see if it is an emulation end label
+ * created by `drmgr_create_emulation_end()`. Typically used in an
+ * instrumentation client running with an emulation client.
+ *
+ * \return true if \p instr is an emulation end label, false otherwise. 
  */
 DR_EXPORT
 bool
 drmgr_is_emulation_end(instr_t *instr);
 
 /**
- * TODO: Full doxygen comments will be done as part of upstream pull request,
- *       when code has been reviewed.
+ * Returns the emulated instruction data in \p instr set by
+ * `drmgr_create_emulation_start()`, with the \p type defined by constants in
+ * \p emulated_instr_data_t.
  */
 DR_EXPORT
 ptr_uint_t
