@@ -771,7 +771,7 @@ drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 /**
  * Inserts a label into \p ilist prior to \p where to indicate the end of a
  * sequence of instructions emulating an instruction, preceeded by a label created
- * with `drmgr_create_emulation_start()`. 
+ * with `drmgr_create_emulation_start()`.
  */
 DR_EXPORT
 void
@@ -782,7 +782,7 @@ drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where);
  * created by `drmgr_create_emulation_start()`. Typically used in an
  * instrumentation client running with an emulation client.
  *
- * \return true if \p instr is an emulation start label, false otherwise. 
+ * \return true if \p instr is an emulation start label, false otherwise.
  */
 DR_EXPORT
 bool
@@ -793,7 +793,7 @@ drmgr_is_emulation_start(instr_t *instr);
  * created by `drmgr_create_emulation_end()`. Typically used in an
  * instrumentation client running with an emulation client.
  *
- * \return true if \p instr is an emulation end label, false otherwise. 
+ * \return true if \p instr is an emulation end label, false otherwise.
  */
 DR_EXPORT
 bool
