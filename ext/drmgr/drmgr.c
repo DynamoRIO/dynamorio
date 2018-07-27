@@ -2515,6 +2515,17 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
  * EMULATION
  */
 
+/*
+ * Constants used when accessing emulated instruction data with the
+ * drmgr_get_emulatd_instr_data() function. Each constant refers to an element
+ * of the emulated_instr_t struct.
+ */
+typedef enum {
+    DRMGR_EMUL_INSTR_PC,    /* The PC address of the emulated instruction. */
+    DRMGR_EMUL_INSTR,       /* The emulated instruction. */
+    DRMGR_EMUL_ISA_VERSION, /* The version of the ISA the instruction belongs to. */
+} emulated_instr_data_t;
+
 /* Reserve space for emulation note values */
 static void
 drmgr_emulation_init(void)
@@ -2523,52 +2534,55 @@ drmgr_emulation_init(void)
     ASSERT(note_base_emul != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
 }
 
-/* Get note values based on emulation specific enums. Typically used by an
- * instrumentation client running in conjunction with an emulation client.
- */
+/* Get note values based on emulation specific enums. */
 static ptr_int_t
 get_emul_note_val(int enote_val)
 {
     return (ptr_int_t)(note_base_emul + enote_val);
 }
 
-/* Write emulation data to a label's data area. Typically set by an emulation
- * client.
- */
+/* Write emulation data to a label's data area. */
 static void
 set_emul_label_data(instr_t *label, int type, ptr_uint_t data)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
     ASSERT(label_data != NULL, "failed to find label's data area");
+
+    ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_ISA_VERSION,
+        "type is invalid, should be an emulated_instr_data_t");
     label_data->data[type] = data;
 }
 
-/* Read emulation data from a label's data area. Typically read by an
- * instrumentation client running in conjunction with an emulation client.
- */
+/* Read emulation data from a label's data area. */
 static ptr_uint_t
 get_emul_label_data(instr_t *label, int type)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
     ASSERT(label_data != NULL, "failed to find label's data area");
+
+    ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_ISA_VERSION,
+        "type is invalid, should be an emulated_instr_data_t");
     return label_data->data[type];
 }
 
 /* Set the start emulation label and emulated instruction data */
 DR_EXPORT
 void
-drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
+drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
                              emulated_instr_t *einstr)
 {
+    ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
+        "label data area is not large enough to store emulation data");
+
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
     instr_set_note(start_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_START));
 
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)einstr->pc);
-    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)einstr->instr);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR,
+                        (ptr_uint_t)einstr->instr);
     set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION,
                         (ptr_uint_t)einstr->version);
-    einstr->fields = 3; /* fields <= data array size in dr_instr_label_data_t */
 
     instrlist_meta_preinsert(ilist, where, start_emul_label);
 }
@@ -2576,7 +2590,7 @@ drmgr_create_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 /* Set the end emulation label */
 DR_EXPORT
 void
-drmgr_create_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where)
+drmgr_insert_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     instr_t *stop_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(stop_emul_label);
@@ -2605,10 +2619,13 @@ drmgr_is_emulation_end(instr_t *instr)
 }
 
 DR_EXPORT
-ptr_uint_t
-drmgr_get_emulation_instr_data(instr_t *instr, int type)
+void
+drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
 {
     ASSERT(instr_is_label(instr), "emulation instruction does not have a label");
     ASSERT(drmgr_is_emulation_start(instr), "instruction is not a start emulation label");
-    return get_emul_label_data(instr, type);
+
+    emulated->pc = (app_pc)get_emul_label_data(instr, DRMGR_EMUL_INSTR_PC);
+    emulated->instr = (instr_t *)get_emul_label_data(instr, DRMGR_EMUL_INSTR);
+    emulated->version = (unsigned int)get_emul_label_data(instr, DRMGR_EMUL_ISA_VERSION);
 }
