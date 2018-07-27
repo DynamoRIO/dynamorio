@@ -2549,7 +2549,7 @@ set_emul_label_data(instr_t *label, int type, ptr_uint_t data)
     ASSERT(label_data != NULL, "failed to find label's data area");
 
     ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_ISA_VERSION,
-        "type is invalid, should be an emulated_instr_data_t");
+           "type is invalid, should be an emulated_instr_data_t");
     label_data->data[type] = data;
 }
 
@@ -2561,7 +2561,7 @@ get_emul_label_data(instr_t *label, int type)
     ASSERT(label_data != NULL, "failed to find label's data area");
 
     ASSERT(type >= DRMGR_EMUL_INSTR_PC && type <= DRMGR_EMUL_ISA_VERSION,
-        "type is invalid, should be an emulated_instr_data_t");
+           "type is invalid, should be an emulated_instr_data_t");
     return label_data->data[type];
 }
 
@@ -2572,15 +2572,14 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
                              emulated_instr_t *einstr)
 {
     ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
-        "label data area is not large enough to store emulation data");
+           "label data area is not large enough to store emulation data");
 
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
     instr_set_note(start_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_START));
 
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)einstr->pc);
-    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR,
-                        (ptr_uint_t)einstr->instr);
+    set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)einstr->instr);
     set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION,
                         (ptr_uint_t)einstr->version);
 
