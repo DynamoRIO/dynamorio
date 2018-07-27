@@ -758,7 +758,7 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 /**
  * Inserts a label into \p ilist prior to \p where to indicate the end of a
  * sequence of instructions emulating an instruction, preceeded by a label created
- * with drmgr_insert_emulation_start(). 
+ * with drmgr_insert_emulation_start().
  */
 DR_EXPORT
 void
