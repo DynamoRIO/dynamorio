@@ -2370,6 +2370,8 @@ check_dynamic_option_compatibility()
     return false; /* nothing to check for yet */
 }
 
+int dr_fprintf(int, const char*, ...);
+
 /* initialize dynamo options */
 int
 options_init()
@@ -2379,8 +2381,8 @@ options_init()
     /* .lspdata pages start out writable so no unprotect needed here */
     write_lock(&options_lock);
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
-    /* get dynamo options */
-    adjust_defaults_for_page_size(&dynamo_options);
+    /* reset options to the defaults and get current dynamo options */
+    set_dynamo_options_defaults(&dynamo_options);
     retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
                            sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
