@@ -624,7 +624,7 @@ void
 config_init(void)
 {
     // Zero out myvals in case of reattach so that we re-load the config:
-    myvals = (const config_vals_t){0};
+    memset(&myvals, 0, sizeof(myvals));
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
