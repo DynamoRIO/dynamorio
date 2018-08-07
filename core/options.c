@@ -2370,8 +2370,6 @@ check_dynamic_option_compatibility()
     return false; /* nothing to check for yet */
 }
 
-int dr_fprintf(int, const char*, ...);
-
 /* initialize dynamo options */
 int
 options_init()
