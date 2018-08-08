@@ -261,10 +261,17 @@ int
 options_init(void);
 
 /* only frees a lock, does not destroy any options info other exit
- * routines might need
+ * routines might need. See options_detach for resetting options
+ * back to defaults for static re-attach.
  */
 void
 options_exit(void);
+
+/* resets options to default values for the purpose of a full cleanup
+ * during static detach.
+ */
+void
+options_detach(void);
 
 int
 synchronize_dynamic_options(void);

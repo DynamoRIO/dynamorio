@@ -43,7 +43,7 @@
 
 // last_argv is updated in dr_client_main with a copy of the 1st argv passed to
 // that function.
-static const char last_argv[256];
+static char last_argv[256];
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -81,12 +81,12 @@ int
 main(int argc, const char *argv[])
 {
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
-        my_setenv("DYNAMORIO_OPTIONS", test_args[i].input_dynamorio_options, 1);
+        my_setenv("DYNAMORIO_OPTIONS", test_args[i].input_dynamorio_options);
         dr_app_setup();
         dr_app_start();
         dr_app_stop_and_cleanup();
 
-        if (last_argv == NULL) {
+        if (last_argv[0] == '\0') {
             print("ERROR: last_argv not set by dr_client_main");
             return 1;
         }
@@ -98,8 +98,7 @@ main(int argc, const char *argv[])
             return 1;
         }
         print("Found the appropriate argv\n");
-        free((void *)last_argv);
-        last_argv = NULL;
+        memset(last_argv, 0, sizeof last_argv);
     }
 
     print("all done\n");
