@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,15 +34,16 @@
 #include "dr_api.h"
 #include "tools.h"
 #include <math.h>
+#include <stdlib.h>
 
 /* A test to verify that flags are appropriately piped through to client
  * libraries for static reattach, verifying that the lazy-loading logic is
  * correctly reset for reattach.
  */
 
-// last_argv is updated in dr_client_main with a copy of the 1th argv passed to
+// last_argv is updated in dr_client_main with a copy of the 1st argv passed to
 // that function.
-static const char *last_argv;
+static const char last_argv[256];
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -52,13 +53,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         print("ERROR: want only 2 argc!\n");
         return;
     };
-    last_argv = strdup(argv[1]);
+    strncpy(last_argv, argv[1], sizeof(last_argv));
 }
 
 typedef struct {
-    const char* input_dynamorio_options;
-
-    const char* want_argv;
+    const char *input_dynamorio_options;
+    const char *want_argv;
 } test_arg_t;
 
 #define TEST_ARG_COUNT 3
@@ -66,10 +66,12 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
     {
         .input_dynamorio_options = "-client_lib ';;a'",
         .want_argv = "a",
-    }, {
+    },
+    {
         .input_dynamorio_options = "-client_lib ';;b'",
         .want_argv = "b",
-    }, {
+    },
+    {
         .input_dynamorio_options = "-client_lib ';;c'",
         .want_argv = "c",
     },
@@ -79,7 +81,7 @@ int
 main(int argc, const char *argv[])
 {
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
-        setenv("DYNAMORIO_OPTIONS", test_args[i].input_dynamorio_options, 1);
+        my_setenv("DYNAMORIO_OPTIONS", test_args[i].input_dynamorio_options, 1);
         dr_app_setup();
         dr_app_start();
         dr_app_stop_and_cleanup();
@@ -88,14 +90,15 @@ main(int argc, const char *argv[])
             print("ERROR: last_argv not set by dr_client_main");
             return 1;
         }
-        const char* want_argv = test_args[i].want_argv;
-        if (0 != strcmp(last_argv, want_argv)) {
+        const char *want_argv = test_args[i].want_argv;
+        if (strncmp(last_argv, want_argv, sizeof(last_argv)) != 0) {
             print("ERROR: last_argv doesn't match want_argv: "
-                  "got |%s|, want |%s|", last_argv, want_argv);
+                  "got |%s|, want |%s|",
+                  last_argv, want_argv);
             return 1;
         }
         print("Found the appropriate argv\n");
-        free((void*)last_argv);
+        free((void *)last_argv);
         last_argv = NULL;
     }
 

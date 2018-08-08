@@ -623,8 +623,6 @@ get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_sp
 void
 config_init(void)
 {
-    // Zero out myvals in case of reattach so that we re-load the config:
-    memset(&myvals, 0, sizeof(myvals));
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
@@ -679,8 +677,11 @@ void
 config_exit(void)
 {
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-    if (doing_detach)
-        memset(&config, 0, sizeof config); /* for possible re-attach */
+    if (doing_detach) {
+        /* Zero out globals for possible re-attach */
+        memset(&config, 0, sizeof config);
+        memset(&myvals, 0, sizeof myvals);
+    }
 #    endif
     /* nothing -- so not called on fast exit (is called on detach) */
 }
