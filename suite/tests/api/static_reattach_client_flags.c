@@ -81,7 +81,7 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
 int
 main(int argc, const char *argv[])
 {
-    #define BUF_LEN 256
+#define BUF_LEN 256
     char original_options[BUF_LEN];
     my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN);
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
