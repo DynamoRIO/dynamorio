@@ -778,4 +778,20 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
+static inline bool
+my_getenv(const char *var, char *dest, size_t size)
+{
+#ifdef UNIX
+    const char *value = getenv(var);
+    if (value == NULL)
+      return false;
+    strncpy(dest, value, size);
+    dest[size-1] = 0;
+    return true;
+#else
+    int ret = GetEnvironmentVariable(var, dest, size);
+    return ret > 0 && ret <= size;
+#endif
+}
+
 #endif /* TOOLS_H */

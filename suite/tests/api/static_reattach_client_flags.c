@@ -53,6 +53,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         print("ERROR: want only 2 argc!\n");
         return;
     };
+
     strncpy(last_argv, argv[1], sizeof(last_argv));
 }
 
@@ -64,15 +65,15 @@ typedef struct {
 #define TEST_ARG_COUNT 3
 const test_arg_t test_args[TEST_ARG_COUNT] = {
     {
-        .input_dynamorio_options = "-client_lib ';;a'",
+        .input_dynamorio_options = " -client_lib ';;a'",
         .want_argv = "a",
     },
     {
-        .input_dynamorio_options = "-client_lib ';;b'",
+        .input_dynamorio_options = " -client_lib ';;b'",
         .want_argv = "b",
     },
     {
-        .input_dynamorio_options = "-client_lib ';;c'",
+        .input_dynamorio_options = " -client_lib ';;c'",
         .want_argv = "c",
     },
 };
@@ -80,8 +81,15 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
 int
 main(int argc, const char *argv[])
 {
+    #define BUF_LEN 256
+    char original_options[BUF_LEN];
+    my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN);
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
-        my_setenv("DYNAMORIO_OPTIONS", test_args[i].input_dynamorio_options);
+        char option_buffer[BUF_LEN];
+        strncpy(option_buffer, original_options, BUF_LEN);
+        strncat(option_buffer, test_args[i].input_dynamorio_options, BUF_LEN);
+        my_setenv("DYNAMORIO_OPTIONS", option_buffer);
+
         dr_app_setup();
         dr_app_start();
         dr_app_stop_and_cleanup();
