@@ -50,6 +50,9 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     print("in dr_client_main with argc=%d\n", argc);
+    for (int i = 0; i < argc; i++) {
+        print("\tArg %d: |%s|\n", i, argv[i]);
+    }
     if (argc != 2) {
         print("ERROR: want only 2 argc!\n");
         return;
@@ -82,6 +85,7 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
 int
 main(int argc, const char *argv[])
 {
+    int failed = 0;
 #define BUF_LEN 256
     char original_options[BUF_LEN];
     my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN);
@@ -97,19 +101,21 @@ main(int argc, const char *argv[])
 
         if (last_argv[0] == '\0') {
             print("ERROR: last_argv not set by dr_client_main");
-            return 1;
+            failed = 1;
+            continue;
         }
         const char *want_argv = test_args[i].want_argv;
         if (strncmp(last_argv, want_argv, sizeof(last_argv)) != 0) {
             print("ERROR: last_argv doesn't match want_argv: "
                   "got |%s|, want |%s|",
                   last_argv, want_argv);
-            return 1;
+            failed = 1;
+            continue;
         }
         print("Found the appropriate argv\n");
         memset(last_argv, 0, sizeof last_argv);
     }
 
     print("all done\n");
-    return 0;
+    return failed;
 }
