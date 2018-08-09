@@ -789,7 +789,7 @@ my_getenv(const char *var, char *dest, size_t size)
     dest[size - 1] = 0;
     return true;
 #else
-    int ret = GetEnvironmentVariable(var, dest, size);
+    unsigned int ret = GetEnvironmentVariable(var, dest, size);
     return ret > 0 && ret <= size;
 #endif
 }

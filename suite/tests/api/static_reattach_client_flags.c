@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
