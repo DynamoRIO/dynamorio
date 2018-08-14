@@ -125,24 +125,52 @@ func_post_hook(void *wrapcxt, void *user_data)
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
 }
 
+static app_pc
+get_pc_by_symbol(const module_data_t *mod, const char* symbol) {
+    app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
+    // Try to find the symbol in the dynamic symbol table.
+    if (pc != NULL) {
+        dr_fprintf(STDERR, "dr_get_proc_address found symbol %s at pc=%p\n", symbol, pc);
+        return pc;
+    } else {
+        // If failed to find the symbol in the dynamic symbol table, then we try to find
+        // it in the module loaded by reading the module file in mod->full_path.
+        // NOTE: mod->full_path could be invalid in the case where the original
+        // module file is remapped and deleted (e.g. hugepage_text).
+        // FIXME: find a way to find the PC of the symbol even if the original module file
+        // is deleted.
+        size_t offset;
+        drsym_error_t err =
+            drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
+        if (err == DRSYM_SUCCESS) {
+            pc = mod->start + offset;
+            dr_fprintf(STDERR, "drsym_lookup_symbol found symbol %s at pc=%p\n",
+                       symbol, pc);
+            return pc;
+        } else {
+            dr_fprintf(STDERR, "Failed to find symbol %s, drsym_error_t=%d\n",
+                       symbol, err);
+            return NULL;
+        }
+    }
+}
+
 static void
 instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
 {
     if (drcontext == NULL || mod == NULL)
         return;
-    dr_log(NULL, DR_LOG_ALL, 1, "instru_funcs_module_load start=%p, mod->full_path=%s\n",
-           mod->start, mod->full_path);
 
+    dr_fprintf(STDERR, "instru_funcs_module_load, mod->full_path=%s\n", mod->full_path);
     for (size_t i = 0; i < funcs.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)i);
-        size_t offset;
-        if (drsym_lookup_symbol(mod->full_path, f->name, &offset, DRSYM_DEMANGLE) ==
-            DRSYM_SUCCESS) {
-            dr_log(NULL, DR_LOG_ALL, 1,
-                   "Found and trace func name=%s, id=%d, arg_num=%d\n", f->name, f->id,
-                   f->arg_num);
-            app_pc f_pc = mod->start + offset;
-            drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)i, 0);
+        app_pc f_pc = get_pc_by_symbol(mod, f->name);
+        if (f_pc != NULL) {
+            if (drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)i, 0)) {
+                dr_fprintf(STDERR, "Inserted hooks for function %s\n", f->name);
+            } else {
+                dr_fprintf(STDERR, "Failed to insert hooks for function %s\n", f->name);
+            }
         }
     }
 }
