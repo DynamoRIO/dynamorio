@@ -89,18 +89,20 @@ main(int argc, const char *argv[])
 #define BUF_LEN 256
     char original_options[BUF_LEN];
     my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN);
+    print("Got DYNAMORIO_OPTIONS: %s\n", original_options);
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
         char option_buffer[BUF_LEN];
         strncpy(option_buffer, original_options, BUF_LEN);
         strncat(option_buffer, test_args[i].input_dynamorio_options, BUF_LEN);
         my_setenv("DYNAMORIO_OPTIONS", option_buffer);
+        print("Set DYNAMORIO_OPTIONS: %s\n", option_buffer);
 
         dr_app_setup();
         dr_app_start();
         dr_app_stop_and_cleanup();
 
         if (last_argv[0] == '\0') {
-            print("ERROR: last_argv not set by dr_client_main");
+            print("ERROR: last_argv not set by dr_client_main\n");
             failed = 1;
             continue;
         }
