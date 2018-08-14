@@ -451,7 +451,7 @@ public:
                 return "Failed to read header from input file";
         }
         DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
-        header->timestamp = in_entry->tid.tid;
+        header->tid = in_entry->tid.tid;
         if (!(in_entry = impl()->get_next_entry()))
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
