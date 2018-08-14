@@ -88,7 +88,10 @@ main(int argc, const char *argv[])
     int failed = 0;
 #define BUF_LEN 256
     char original_options[BUF_LEN];
-    my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN);
+    if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
+        print("Couldn't read DYNAMORIO_OPTIONS!\n");
+        return 1;
+    }
     print("Got DYNAMORIO_OPTIONS: %s\n", original_options);
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
         char option_buffer[BUF_LEN];
