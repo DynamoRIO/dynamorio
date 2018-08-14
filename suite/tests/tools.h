@@ -778,6 +778,8 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
+extern void dr_fprintf(int, const char*, ...);
+
 static inline bool
 my_getenv(const char *var, char *dest, size_t size)
 {
@@ -791,9 +793,9 @@ my_getenv(const char *var, char *dest, size_t size)
 #else
     unsigned int ret = GetEnvironmentVariable(var, dest, size);
     if (ret == 0) {
-      dr_fprintf(STDERR, "Env variable %s returned 0 (not found?)\n", var);
+      dr_fprintf(2, "Env variable %s returned 0 (not found?)\n", var);
     } else if (ret > size) {
-      dr_fprintf(STDERR, "Env variable %s needs %u bytes of space!\n", var, ret);
+      dr_fprintf(2, "Env variable %s needs %u bytes of space!\n", var, ret);
     }
     return ret > 0 && ret <= size;
 #endif
