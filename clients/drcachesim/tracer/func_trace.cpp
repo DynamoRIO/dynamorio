@@ -126,7 +126,8 @@ func_post_hook(void *wrapcxt, void *user_data)
 }
 
 static app_pc
-get_pc_by_symbol(const module_data_t *mod, const char *symbol) {
+get_pc_by_symbol(const module_data_t *mod, const char *symbol)
+{
     // Try to find the symbol in the dynamic symbol table.
     app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
     if (pc != NULL) {
