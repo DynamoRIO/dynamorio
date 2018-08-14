@@ -71,24 +71,31 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
 #    error "Test only supports Linux"
 #endif
 
+#define RETURN_IF_ERROR(expr)                \
+    do {                                     \
+        auto error = expr;                   \
+        if (!error.empty()) {                \
+            std::cerr << error << std::endl; \
+            return 1;                        \
+        }                                    \
+    } while (0)
+
+#define EXPECT(expr, msg)                               \
+    do {                                                \
+        if (!(expr)) {                                  \
+            std::cerr << "Error: " << msg << std::endl; \
+            return 1;                                   \
+        }                                               \
+    } while (0)
+
+#define REPORT(msg)                    \
+    do {                               \
+        std::cerr << msg << std::endl; \
+    } while (0)
+
 int
-main(int argc, const char *argv[])
+test_raw2trace(raw2trace_directory_t *dir)
 {
-    std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
-                                       &parse_err, NULL) ||
-        op_indir.get_value().empty() || op_out.get_value().empty()) {
-        std::cerr << "Usage error: " << parse_err << "\nUsage:\n"
-                  << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
-        return 1;
-    }
-
-    /* Open input/output files outside of traced region. And explicitly don't destroy dir,
-     * so they never get closed.
-     */
-    raw2trace_directory_t *dir =
-        new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
-
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "Fork failed\n";
@@ -159,8 +166,55 @@ main(int argc, const char *argv[])
             std::cerr << "raw2trace failed " << error << "\n";
             return 1;
         }
+        int status = 0;
+        wait(&status);
+        EXPECT(status > 0, "Child exited incorrectly");
         std::cerr << "Processed\n";
         return 0;
     }
+}
+
+int
+test_module_mapper(raw2trace_directory_t *dir)
+{
+    std::unique_ptr<module_mapper_t> mapper =
+        module_mapper_t::get_or_fail(dir->modfile_bytes);
+    EXPECT(mapper, "Mapper should be avalable");
+    EXPECT(mapper->get_loaded_modules().empty(), "Invalid module mapper state");
+    REPORT("About to load modules");
+    RETURN_IF_ERROR(mapper->read_and_map_modules());
+    EXPECT(!mapper->get_loaded_modules().empty(), "Expected module entries");
+    REPORT("Loaded modules successfully");
+    bool found_simple_app = false;
+    for (const module_t &m : mapper->get_loaded_modules()) {
+        std::string path = m.path;
+        if (path.rfind("simple_app") != std::string::npos) {
+            found_simple_app = true;
+            break;
+        }
+    }
+    EXPECT(found_simple_app, "Expected app entry not found in module map");
+    REPORT("Successfully found app entry");
     return 0;
+}
+
+int
+main(int argc, const char *argv[])
+{
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
+                                       &parse_err, NULL) ||
+        op_indir.get_value().empty() || op_out.get_value().empty()) {
+        std::cerr << "Usage error: " << parse_err << "\nUsage:\n"
+                  << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
+        return 1;
+    }
+
+    /* Open input/output files outside of traced region. And explicitly don't destroy dir,
+     * so they never get closed.
+     */
+    raw2trace_directory_t *dir =
+        new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
+
+    return test_raw2trace(dir) + test_module_mapper(dir);
 }
