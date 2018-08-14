@@ -126,9 +126,9 @@ func_post_hook(void *wrapcxt, void *user_data)
 }
 
 static app_pc
-get_pc_by_symbol(const module_data_t *mod, const char* symbol) {
-    app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
+get_pc_by_symbol(const module_data_t *mod, const char *symbol) {
     // Try to find the symbol in the dynamic symbol table.
+    app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
     if (pc != NULL) {
         dr_fprintf(STDERR, "dr_get_proc_address found symbol %s at pc=%p\n", symbol, pc);
         return pc;
@@ -144,12 +144,12 @@ get_pc_by_symbol(const module_data_t *mod, const char* symbol) {
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;
-            dr_fprintf(STDERR, "drsym_lookup_symbol found symbol %s at pc=%p\n",
-                       symbol, pc);
+            dr_fprintf(STDERR, "drsym_lookup_symbol found symbol %s at pc=%p\n", symbol,
+                       pc);
             return pc;
         } else {
-            dr_fprintf(STDERR, "Failed to find symbol %s, drsym_error_t=%d\n",
-                       symbol, err);
+            dr_fprintf(STDERR, "Failed to find symbol %s, drsym_error_t=%d\n", symbol,
+                       err);
             return NULL;
         }
     }
