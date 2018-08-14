@@ -170,7 +170,7 @@ test_raw2trace(raw2trace_directory_t *dir)
         wait(&status);
         EXPECT(WIFEXITED(status), "Child process exited abnormally");
         std::cerr << "Processed\n";
-        return 0;
+        exit(0);
     }
 }
 
