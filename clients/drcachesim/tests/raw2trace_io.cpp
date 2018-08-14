@@ -170,23 +170,21 @@ test_raw2trace(raw2trace_directory_t *dir)
         wait(&status);
         EXPECT(WIFEXITED(status), "Child process exited abnormally");
         std::cerr << "Processed\n";
-        return 0;
+        exit(0);
     }
 }
 
 int
 test_module_mapper(raw2trace_directory_t *dir)
 {
-    std::unique_ptr<module_mapper_t> mapper =
-        module_mapper_t::get_or_fail(dir->modfile_bytes);
-    EXPECT(mapper, "Mapper should be avalable");
-    EXPECT(mapper->get_loaded_modules().empty(), "Invalid module mapper state");
+    module_mapper_t mapper(dir->modfile_bytes);
+    EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
     REPORT("About to load modules");
-    RETURN_IF_ERROR(mapper->read_and_map_modules());
-    EXPECT(!mapper->get_loaded_modules().empty(), "Expected module entries");
+    EXPECT(!mapper.get_loaded_modules().empty(), "Expected module entries");
+    EXPECT(mapper.get_last_error().empty(), "Module loading failed");
     REPORT("Loaded modules successfully");
     bool found_simple_app = false;
-    for (const module_t &m : mapper->get_loaded_modules()) {
+    for (const module_t &m : mapper.get_loaded_modules()) {
         std::string path = m.path;
         if (path.rfind("simple_app") != std::string::npos) {
             found_simple_app = true;

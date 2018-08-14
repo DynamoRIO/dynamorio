@@ -44,8 +44,8 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
-#include "trace_entry.h"
 #include <memory>
+#include "trace_entry.h"
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
@@ -97,8 +97,8 @@ struct instr_summary_t final {
      * orig_pc and verbosity)
      */
     static bool
-    construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
-              OUT instr_summary_t *desc, uint verbosity = 0);
+    construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc, OUT instr_summary_t *desc,
+              uint verbosity = 0);
 
     /**
      * Get the pc of the instruction after this one.
@@ -220,74 +220,36 @@ struct instruction_converter_t {
 };
 
 /**
- * module_mapper_t is a delay-constructed singleton that maps and unloads application
- * modules. None of the members of this type are thread-safe.
+ * module_mapper_t maps and unloads application modules.
  */
 class module_mapper_t final {
 public:
     /**
-     * Returns a module_mapper_t instance, guaranteed to be unique. All subsequent calls
-     * will return nullptr, until the instance is released. modmap_in's lifetime is
-     * controlled by the caller.
+     *
      */
-    static std::unique_ptr<module_mapper_t>
-    get_or_fail(const char *modmap_in, uint verbosity = 0);
+    module_mapper_t(const char *module_map_in,
+                    const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
+                    std::string (*process_cb)(drmodtrack_info_t *info, void *data,
+                                              void *user_data) = nullptr,
+                    void *process_cb_user_data = nullptr,
+                    void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
 
-    /**
-     * Maps application modules. After this call, get_loaded_modules() will contain valid
-     * data.
-     */
     std::string
-    read_and_map_modules();
-
-    /**
-     * module_t vector corresponding to the application modules loaded with
-     * read_and_map_modules.
-     */
-    const std::vector<module_t> &
-    get_loaded_modules() const
+    get_last_error(void)
     {
-        return modvec;
+        return last_error;
     }
 
     /**
-     * Performs the first step of do_conversion() without further action: parses and
-     * iterates over the list of modules.  This is provided to give the user a method
-     * for iterating modules in the presence of the custom field used by drmemtrace
-     * that prevents direct use of drmodtrack_offline_read().
-     * On success, calls the \p process_cb function passed to handle_custom_data()
-     * for every module in the list, and returns an empty string at the end.
-     * Returns a non-empty error message on failure.
+     * module_t vector corresponding to the application modules.
      */
-    std::string
-    do_module_parsing();
-
-    /**
-     * Adds handling for custom data fields that were stored with each module via
-     * drmemtrace_custom_module_data() during trace generation.  When do_conversion()
-     * or do_module_parsing() is subsequently called, its parsing of the module data
-     * will invoke \p parse_cb, which should advance the module data pointer passed
-     * in \p src and return it as its return value (or nullptr on error), returning
-     * the resulting parsed data in \p data.  The \p data pointer will later be
-     * passed to both \p process_cb, which can update the module path inside \p info
-     * (and return a non-empty string on error), and \b free_cb, which can perform
-     * cleanup.
-     *
-     * A custom callback value \p process_cb_user_data can be passed to \p
-     * process_cb.  The same is not provided for the other callbacks as they end up
-     * using the drmodtrack_add_custom_data() framework where there is no support for
-     * custom callback parameters.
-     *
-     * Returns a non-empty error message on failure.
-     *
-     * Only one value for each callback is supported, globally.  Calling this routine
-     * again with a different value will replace the existing callbacks.
-     */
-    std::string
-    handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
-                       std::string (*process_cb)(drmodtrack_info_t *info, void *data,
-                                                 void *user_data),
-                       void *process_cb_user_data, void (*free_cb)(void *data));
+    const std::vector<module_t> &
+    get_loaded_modules()
+    {
+      if (modvec.empty())
+        read_and_map_modules();
+      return modvec;
+    }
 
     /**
      * This interface is meant to be used with a final trace rather than a raw
@@ -308,8 +270,6 @@ public:
     ~module_mapper_t();
 
 private:
-    module_mapper_t(const char *module_map_in, uint verbosity_in = 0);
-
     // We store this in drmodtrack_info_t.custom to combine our binary contents
     // data with any user-added module data from drmemtrace_custom_module_data.
     struct custom_module_data_t {
@@ -317,6 +277,20 @@ private:
         const char *contents;
         void *user_data;
     };
+
+  void read_and_map_modules(void);
+
+    /**
+     * Performs the first step of do_conversion() without further action: parses and
+     * iterates over the list of modules.  This is provided to give the user a method
+     * for iterating modules in the presence of the custom field used by drmemtrace
+     * that prevents direct use of drmodtrack_offline_read().
+     * On success, calls the \p process_cb function passed to handle_custom_data()
+     * for every module in the list, and returns an empty string at the end.
+     * Returns a non-empty error message on failure.
+     */
+    std::string
+    do_module_parsing();
 
     const char *modmap = nullptr;
     void *modhandle = nullptr;
@@ -341,8 +315,7 @@ private:
     byte *last_map_base = nullptr;
 
     uint verbosity;
-
-    static bool constructed;
+    std::string last_error;
 };
 
 /**
@@ -783,6 +756,8 @@ private:
     bool
     write(const trace_entry_t *start, const trace_entry_t *end);
     std::string
+    read_and_map_modules();
+    std::string
     write_delayed_branches(const trace_entry_t *start, const trace_entry_t *end);
     std::string
     on_thread_end();
@@ -807,6 +782,7 @@ private:
     thread_file_at_eof(uint tidx);
     std::vector<std::vector<offline_entry_t>> pre_read;
 
+    const char *modmap;
     std::vector<std::istream *> thread_files;
     std::ostream *out_file;
     bool prev_instr_was_rep_string;
@@ -822,6 +798,12 @@ private:
 
     // Used to delay thread-buffer-final branch to keep it next to its target.
     std::vector<std::vector<char>> delayed_branch;
+
+    const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
+    void (*user_free)(void *data) = nullptr;
+    std::string (*user_process)(drmodtrack_info_t *info, void *data,
+                                void *user_data) = nullptr;
+    void *user_process_data = nullptr;
 
     offline_entry_t last_entry;
     uint tidx;

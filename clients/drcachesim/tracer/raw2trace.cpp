@@ -91,7 +91,6 @@
 const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data);
 void (*module_mapper_t::user_free)(void *data);
 bool module_mapper_t::has_custom_data = true;
-bool module_mapper_t::constructed = false;
 
 int
 instruction_converter_t::write_thread_exit(byte *buffer, pid_t tid)
@@ -137,30 +136,18 @@ instruction_converter_t::write_timestamp(byte *buffer, uint64 timestamp)
                                 (uintptr_t)timestamp);
 }
 
-std::string
-raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
-                                std::string (*process_cb)(drmodtrack_info_t *info,
-                                                          void *data, void *user_data),
-                                void *process_cb_user_data, void (*free_cb)(void *data))
-{
-    return module_mapper->handle_custom_data(parse_cb, process_cb, process_cb_user_data,
-                                             free_cb);
-}
-
-module_mapper_t::module_mapper_t(const char *module_map_in, uint verbosity_in)
+module_mapper_t::module_mapper_t(
+    const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
+    std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity_in)
     : modmap(module_map_in)
     , verbosity(verbosity_in)
 {
-}
-
-std::unique_ptr<module_mapper_t>
-module_mapper_t::get_or_fail(const char *modmap_in, uint verbosity_in)
-{
-    if (constructed)
-        return nullptr;
-    std::unique_ptr<module_mapper_t> ret(new module_mapper_t(modmap_in, verbosity_in));
-    constructed = true;
-    return std::move(ret);
+    user_parse = parse_cb;
+    user_process = process_cb;
+    user_process_data = process_cb_user_data;
+    user_free = free_cb;
+    do_module_parsing();
 }
 
 module_mapper_t::~module_mapper_t()
@@ -180,14 +167,13 @@ module_mapper_t::~module_mapper_t()
     }
     modhandle = nullptr;
     modvec.clear();
-    constructed = false;
 }
 
 std::string
-module_mapper_t::handle_custom_data(
-    const char *(*parse_cb)(const char *src, OUT void **data),
-    std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data))
+raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
+                                std::string (*process_cb)(drmodtrack_info_t *info,
+                                                          void *data, void *user_data),
+                                void *process_cb_user_data, void (*free_cb)(void *data))
 {
     user_parse = parse_cb;
     user_process = process_cb;
@@ -270,7 +256,10 @@ module_mapper_t::free_custom_module_data(void *data)
 std::string
 raw2trace_t::do_module_parsing()
 {
-    return module_mapper->do_module_parsing();
+    if (!module_mapper)
+        module_mapper.reset(new module_mapper_t(modmap, user_parse, user_process,
+                                                user_process_data, user_free, verbosity));
+    return module_mapper->get_last_error();
 }
 
 std::string
@@ -302,13 +291,20 @@ module_mapper_t::do_module_parsing()
 }
 
 std::string
+raw2trace_t::read_and_map_modules()
+{
+    if (!module_mapper)
+        RETURN_IF_ERROR(do_module_parsing());
+
+    set_modvec(&module_mapper->get_loaded_modules());
+    return module_mapper->get_last_error();
+}
+
+void
 module_mapper_t::read_and_map_modules()
 {
-    std::string err;
-    if (modlist.empty())
-        err = do_module_parsing(); // May have already been called, since public.
-    if (!err.empty())
-        return err;
+    if (!last_error.empty())
+        return;
     for (auto it = modlist.begin(); it != modlist.end(); ++it) {
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
@@ -347,8 +343,10 @@ module_mapper_t::read_and_map_modules()
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
                     modvec.push_back(module_t(info.path, info.start, NULL, 0));
-                else
-                    return "Failed to map module " + std::string(info.path);
+                else {
+                    last_error = "Failed to map module " + std::string(info.path);
+                    return;
+                }
             } else {
                 VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
                        (ptr_uint_t)base_pc, info.path);
@@ -357,13 +355,12 @@ module_mapper_t::read_and_map_modules()
         }
     }
     VPRINT(1, "Successfully read %zu modules\n", modlist.size());
-    return "";
 }
 
 std::string
 raw2trace_t::do_module_parsing_and_mapping()
 {
-    std::string error = module_mapper->read_and_map_modules();
+    std::string error = read_and_map_modules();
     if (!error.empty())
         return error;
     return "";
@@ -729,7 +726,7 @@ raw2trace_t::check_thread_file(std::istream *f)
 std::string
 raw2trace_t::do_conversion()
 {
-    std::string error = module_mapper->read_and_map_modules();
+    std::string error = read_and_map_modules();
     if (!error.empty())
         return error;
     trace_entry_t entry;
@@ -757,15 +754,13 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          std::ostream *out_file_in, void *dcontext_in,
                          unsigned int verbosity_in)
     : trace_converter_t(dcontext_in == NULL ? dr_standalone_init() : dcontext_in)
+    , modmap(module_map_in)
     , thread_files(thread_files_in)
     , out_file(out_file_in)
     , prev_instr_was_rep_string(false)
     , instrs_are_separate(false)
     , verbosity(verbosity_in)
-    , module_mapper(module_mapper_t::get_or_fail(module_map_in, verbosity_in))
-
 {
-    set_modvec(&module_mapper->get_loaded_modules());
     if (dcontext == NULL) {
 #ifdef ARM
         // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
