@@ -72,6 +72,9 @@ struct module_t {
 
 const uint MAX_COMBINED_ENTRIES = 64;
 
+/**
+ * Header of raw trace.
+ */
 struct trace_header_t {
     pid_t pid;
     pid_t tid;
@@ -83,12 +86,22 @@ struct trace_header_t {
  * from decoded instructions.
  */
 struct instr_summary_t final {
-    // We need a default ctor so we may pre-allocate Cell vectors.
     instr_summary_t()
     {
     }
+
+    /**
+     * Populates a pre-allocated instr_summary_t desc, from the instruction found at pc.
+     * Updates pc to the next instruction. Optionally logs translation details (using
+     * orig_pc and verbosity)
+     */
     static bool
-    construct(void *dcontext, app_pc *pc, instr_summary_t *desc);
+    construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
+              OUT instr_summary_t *desc, uint verbosity = 0);
+
+    /**
+     * Get the pc of the instruction after this one.
+     */
     app_pc
     next_pc() const
     {
@@ -186,7 +199,9 @@ private:
 };
 
 /**
- * Functions for encoding memtrace data headers.
+ * Functions for encoding memtrace data headers. Each function returns the number of bytes
+ * the write operation required: sizeof(trace_entry_t). The buffer is assumed to be
+ * sufficiently large.
  */
 struct instruction_converter_t {
     static int
@@ -344,8 +359,8 @@ template <typename T> class trace_converter_t {
 #define INVALID_THREAD_ID 0
 
 public:
-  trace_converter_t(void *context)
-      : dcontext(context)
+    trace_converter_t(void *context)
+        : dcontext(context)
     {
     }
 
@@ -475,8 +490,16 @@ public:
 
 protected:
     void *const dcontext;
-    const std::vector<module_t>& get_modvec() const { return *modvec; }
-    void set_modvec(const std::vector<module_t>* modvec_in) { modvec = modvec_in; }
+    const std::vector<module_t> &
+    get_modvec() const
+    {
+        return *modvec;
+    }
+    void
+    set_modvec(const std::vector<module_t> *modvec_in)
+    {
+        modvec = modvec_in;
+    }
 
 private:
 #define FAULT_INTERRUPTED_BB "INTERRUPTED"
@@ -575,7 +598,8 @@ private:
         const instr_summary_t *instr = nullptr;
         bool prev_instr_was_rep_string = false;
 
-        app_pc start_pc = get_modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
+        app_pc start_pc =
+            get_modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
         app_pc decode_pc = start_pc;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
             get_modvec()[in_entry->pc.modidx].map_base == NULL) {
@@ -607,7 +631,7 @@ private:
             trace_entry_t *buf_start = impl()->get_write_buffer();
             trace_entry_t *buf = buf_start;
             app_pc orig_pc = decode_pc - get_modvec()[in_entry->pc.modidx].map_base +
-                             get_modvec()[in_entry->pc.modidx].orig_base;
+                get_modvec()[in_entry->pc.modidx].orig_base;
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             auto current_pc = decode_pc;
@@ -683,7 +707,7 @@ private:
     }
 
     bool instrs_are_separate = false;
-    const std::vector<module_t>* modvec = nullptr;
+    const std::vector<module_t> *modvec = nullptr;
 
 #undef RETURN_IF_FALSE
 };

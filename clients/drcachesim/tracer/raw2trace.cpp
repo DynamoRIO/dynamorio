@@ -72,7 +72,7 @@
 
 #define DO_VERBOSE(level, x)              \
     do {                                  \
-        if (this->verbosity >= (level)) { \
+        if (verbosity >= (level)) {       \
             x; /* ; makes vera++ happy */ \
         }                                 \
     } while (0)
@@ -508,7 +508,8 @@ raw2trace_t::on_thread_end()
 }
 
 bool
-instr_summary_t::construct(void *dcontext, app_pc *pc, instr_summary_t *desc)
+instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
+                           OUT instr_summary_t *desc, uint verbosity)
 {
     instr_t *instr = instr_create(dcontext);
     *pc = decode(dcontext, *pc, instr);
@@ -516,11 +517,10 @@ instr_summary_t::construct(void *dcontext, app_pc *pc, instr_summary_t *desc)
         instr_destroy(dcontext, instr);
         return false;
     }
-    // TODO(mtrofin): re-enable logging
-    // DO_VERBOSE(3, {
-    //      instr_set_translation(instr, orig_pc);
-    //      dr_print_instr(dcontext, STDOUT, instr, "");
-    // });
+    DO_VERBOSE(3, {
+        instr_set_translation(instr, orig_pc);
+        dr_print_instr(dcontext, STDOUT, instr, "");
+    });
     desc->next_pc_ = *pc;
     desc->packed_ = 0;
 
@@ -583,9 +583,9 @@ raw2trace_t::get_instr_summary(int modidx, uint modoffs, app_pc *decode_pc,
         (const instr_summary_t *)hashtable_lookup(&decode_cache, *decode_pc);
     if (ret == NULL) {
         instr_summary_t *desc = new instr_summary_t();
-        if (!instr_summary_t::construct(dcontext, decode_pc, desc)) {
-          WARN("Encountered invalid/undecodable instr @ %s+" PFX, get_modvec()[modidx].path,
-                 (ptr_uint_t)modoffs);
+        if (!instr_summary_t::construct(dcontext, decode_pc, orig_pc, desc, verbosity)) {
+            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
+                 get_modvec()[modidx].path, (ptr_uint_t)modoffs);
             return nullptr;
         }
         hashtable_add(&decode_cache, decode_pc, desc);
