@@ -778,8 +778,6 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
-extern void dr_fprintf(int, const char*, ...);
-
 static inline bool
 my_getenv(const char *var, char *dest, size_t size)
 {
