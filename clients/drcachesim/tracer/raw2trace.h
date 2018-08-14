@@ -45,6 +45,7 @@
 #include "drmemtrace.h"
 #include "drcovlib.h"
 #include "trace_entry.h"
+#include <memory>
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
