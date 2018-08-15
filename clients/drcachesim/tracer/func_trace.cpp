@@ -49,8 +49,6 @@
 // where function_name can contain spaces (for instance, C++ namespace prefix)
 #define PATTERN_SEPARATOR "|"
 
-#define EMPTY_IF_NULL(str) ((str) == NULL ? "" : (str))
-
 #define NOTIFY(level, ...)                     \
     do {                                       \
         if (op_verbose.get_value() >= (level)) \
@@ -130,11 +128,13 @@ func_post_hook(void *wrapcxt, void *user_data)
 static app_pc
 get_pc_by_symbol(const module_data_t *mod, const char *symbol)
 {
+    if (mod == NULL || symbol == NULL)
+        return NULL;
+
     // Try to find the symbol in the dynamic symbol table.
     app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
     if (pc != NULL) {
-        NOTIFY(1, "dr_get_proc_address found symbol %s at pc=%p\n", EMPTY_IF_NULL(symbol),
-               pc);
+        NOTIFY(1, "dr_get_proc_address found symbol %s at pc=%p\n", symbol, pc);
         return pc;
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
@@ -148,12 +148,10 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;
-            NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=%p\n",
-                   EMPTY_IF_NULL(symbol), pc);
+            NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=%p\n", symbol, pc);
             return pc;
         } else {
-            NOTIFY(1, "Failed to find symbol %s, drsym_error_t=%d\n",
-                   EMPTY_IF_NULL(symbol), err);
+            NOTIFY(1, "Failed to find symbol %s, drsym_error_t=%d\n", symbol, err);
             return NULL;
         }
     }
@@ -166,16 +164,15 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         return;
 
     NOTIFY(1, "instru_funcs_module_load, mod->full_path=%s\n",
-           EMPTY_IF_NULL(mod->full_path));
+           mod->full_path == NULL ? "" : mod->full_path);
     for (size_t i = 0; i < funcs.entries; i++) {
         func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)i);
         app_pc f_pc = get_pc_by_symbol(mod, f->name);
         if (f_pc != NULL) {
             if (drwrap_wrap_ex(f_pc, func_pre_hook, func_post_hook, (void *)i, 0)) {
-                NOTIFY(1, "Inserted hooks for function %s\n", EMPTY_IF_NULL(f->name));
+                NOTIFY(1, "Inserted hooks for function %s\n", f->name);
             } else {
-                NOTIFY(1, "Failed to insert hooks for function %s\n",
-                       EMPTY_IF_NULL(f->name));
+                NOTIFY(1, "Failed to insert hooks for function %s\n", f->name);
             }
         }
     }
@@ -241,6 +238,10 @@ func_trace_init(func_trace_append_entry_t append_entry_)
         std::string name = items[0];
         int id = atoi(items[1].c_str());
         int arg_num = atoi(items[2].c_str());
+        if (name.empty()) {
+            NOTIFY(0, "Warning: -record_function name should not be empty");
+            continue;
+        }
         if (existing_ids.find(id) != existing_ids.end()) {
             NOTIFY(0,
                    "Warning: duplicated function id in -record_function or"
@@ -248,6 +249,7 @@ func_trace_init(func_trace_append_entry_t append_entry_)
                    funcs_str.c_str());
             continue;
         }
+
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
                name.c_str(), id, arg_num);
         existing_ids.insert(id);
