@@ -88,9 +88,9 @@
  * Module list
  */
 
-const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data);
-void (*module_mapper_t::user_free)(void *data);
-bool module_mapper_t::has_custom_data = true;
+const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = nullptr;
+void (*module_mapper_t::user_free)(void *data) = nullptr;
+bool module_mapper_t::has_custom_data_global = true;
 
 int
 instruction_converter_t::write_thread_exit(byte *buffer, pid_t tid)
@@ -143,11 +143,27 @@ module_mapper_t::module_mapper_t(
     : modmap(module_map_in)
     , verbosity(verbosity_in)
 {
+    // We mutate global state because do_module_parsing() uses drmodtrack, which
+    // wants global functions. The state isn't needed past do_module_parsing(), so
+    // we make sure to reset it afterwards.
+    DR_ASSERT(user_parse == nullptr);
+    DR_ASSERT(user_free == nullptr);
+
     user_parse = parse_cb;
     user_process = process_cb;
     user_process_data = process_cb_user_data;
     user_free = free_cb;
-    do_module_parsing();
+    // has_custom_data_global is potentially mutated in parse_custom_module_data.
+    // It is assumed to be set to 'true' initially.
+    has_custom_data_global = true;
+
+    last_error = do_module_parsing();
+
+    // capture has_custom_data_global's value for this instance.
+    has_custom_data = has_custom_data_global;
+
+    user_parse = nullptr;
+    user_free = nullptr;
 }
 
 module_mapper_t::~module_mapper_t()
@@ -193,7 +209,7 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         version != CUSTOM_MODULE_VERSION) {
         // It's not what we expect.  We try to handle legacy formats before bailing.
         static bool warned_once;
-        has_custom_data = false;
+        has_custom_data_global = false;
         if (!warned_once) { // Race is fine: modtrack parsing is global already.
             WARN("Incorrect module field version %d: attempting to handle legacy format",
                  version);
@@ -757,8 +773,6 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     , modmap(module_map_in)
     , thread_files(thread_files_in)
     , out_file(out_file_in)
-    , prev_instr_was_rep_string(false)
-    , instrs_are_separate(false)
     , verbosity(verbosity_in)
 {
     if (dcontext == NULL) {

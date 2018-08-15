@@ -101,7 +101,7 @@ struct instr_summary_t final {
               uint verbosity = 0);
 
     /**
-     * Get the pc of the instruction after this one.
+     * Get the pc after the instruction that was used to produce this instr_summary_t.
      */
     app_pc
     next_pc() const
@@ -225,7 +225,11 @@ struct instruction_converter_t {
 class module_mapper_t final {
 public:
     /**
-     *
+     * Parses and iterates over the list of modules.  This is provided to give the user a
+     * method for iterating modules in the presence of the custom field used by drmemtrace
+     * that prevents direct use of drmodtrack_offline_read().
+     * On success, calls the \p process_cb function for every module in the list, and
+     * returns an empty string at the end. Returns a non-empty error message on failure.
      */
     module_mapper_t(const char *module_map_in,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
@@ -234,38 +238,43 @@ public:
                     void *process_cb_user_data = nullptr,
                     void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
 
+    /**
+     * All APIs on this type, including constructor, may fail. get_last_error() returns
+     * the last error message. The object should be considered unusable if
+     * !get_last_error().empty()
+     */
     std::string
-    get_last_error(void)
+    get_last_error(void) const
     {
         return last_error;
     }
 
     /**
-     * module_t vector corresponding to the application modules.
+     * module_t vector corresponding to the application modules. Lazily loads and caches
+     * modules. If the object is invalid, returns an empty vector.
      */
     const std::vector<module_t> &
     get_loaded_modules()
     {
-      if (modvec.empty())
-        read_and_map_modules();
-      return modvec;
+        if (last_error.empty() && modvec.empty())
+            read_and_map_modules();
+        return modvec;
     }
 
     /**
      * This interface is meant to be used with a final trace rather than a raw
      * trace, using the module log file saved from the raw2trace conversion.
-     * When do_module_parsing_and_mapping() has been called, this routine can be used
+     * After the a call to get_loaded_modules(), this routine may be used
      * to convert an instruction program counter in a trace into an address in the
      * current process where the instruction bytes for that instruction are mapped,
      * allowing decoding for obtaining further information than is stored in the trace.
-     * Returns a non-empty error message on failure.
+     * Returns a non-empty error message on failure, or if the object is invalid.
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
 
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
-     * get_or_fail() may be called again afterwards.
      */
     ~module_mapper_t();
 
@@ -278,17 +287,9 @@ private:
         void *user_data;
     };
 
-  void read_and_map_modules(void);
+    void
+    read_and_map_modules(void);
 
-    /**
-     * Performs the first step of do_conversion() without further action: parses and
-     * iterates over the list of modules.  This is provided to give the user a method
-     * for iterating modules in the presence of the custom field used by drmemtrace
-     * that prevents direct use of drmodtrack_offline_read().
-     * On success, calls the \p process_cb function passed to handle_custom_data()
-     * for every module in the list, and returns an empty string at the end.
-     * Returns a non-empty error message on failure.
-     */
     std::string
     do_module_parsing();
 
@@ -303,7 +304,9 @@ private:
     parse_custom_module_data(const char *src, OUT void **data);
     static void
     free_custom_module_data(void *data);
-    static bool has_custom_data;
+    static bool has_custom_data_global;
+
+    bool has_custom_data = false;
 
     // We store module info for do_module_parsing.
     std::vector<drmodtrack_info_t> modlist;
@@ -314,7 +317,7 @@ private:
     size_t last_map_size = 0;
     byte *last_map_base = nullptr;
 
-    uint verbosity;
+    uint verbosity = 0;
     std::string last_error;
 };
 
@@ -338,6 +341,11 @@ public:
     {
     }
 
+    /**
+     * Process one offline_entry_t, known to belong to the specified thread. All the
+     * resulting trace_entry_t objects due to the processing of {in_entry} will be written
+     * through the user's {write} callback.
+     */
     std::string
     process_offline_entry(const offline_entry_t *in_entry, pid_t tid,
                           OUT bool *end_of_record, OUT bool *last_bb_handled)
@@ -351,6 +359,10 @@ public:
                 impl()->log(2, "Thread %d exit\n", (uint)tid);
                 buf += instruction_converter_t::write_thread_exit(buf, tid);
                 *end_of_record = true;
+                if (!impl()->write(buf_base, reinterpret_cast<trace_entry_t *>(buf)))
+                    return "Failed to write to output file";
+                // Let the user determine what other actions to take, e.g. account for
+                // the ending of the current thread, etc.
                 return impl()->on_thread_end();
             } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
                 buf += instruction_converter_t::write_marker(
@@ -411,6 +423,9 @@ public:
         return "";
     }
 
+    /**
+     * Read the succession of offline_entry_t's corresponding to a thread header.
+     */
     std::string
     read_header(OUT trace_header_t *header)
     {
@@ -432,6 +447,10 @@ public:
         return "";
     }
 
+    /**
+     * Validates that entry is a thread's start. read_header may be called immediatly
+     * afterwards.
+     */
     static std::string
     check_entry_thread_start(const offline_entry_t *entry)
     {
@@ -444,6 +463,9 @@ public:
         return error;
     }
 
+    /**
+     * Checks whether entry is a thread start. If it is, it checks it is well-formed.
+     */
     static bool
     is_thread_start(const offline_entry_t *entry, std::string *error)
     {
@@ -680,6 +702,8 @@ private:
         return "";
     }
 
+    // This indicates that each memref has its own PC entry and that each
+    // icache entry does not need to be considered a memref PC entry as well.
     bool instrs_are_separate = false;
     const std::vector<module_t> *modvec = nullptr;
 
@@ -701,7 +725,8 @@ public:
     ~raw2trace_t();
 
     /**
-     * Delegates to module_mapper::handle_custom_data()
+     * Sets up the parameters that will be used to construct a module_mapper_t for this
+     * object.
      */
     std::string
     handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
@@ -710,7 +735,7 @@ public:
                        void *process_cb_user_data, void (*free_cb)(void *data));
 
     /**
-     * Delegates to module_mapper_t::do_module_parsing()
+     * Constructs a module_mapper_t.
      */
     std::string
     do_module_parsing();
@@ -782,14 +807,11 @@ private:
     thread_file_at_eof(uint tidx);
     std::vector<std::vector<offline_entry_t>> pre_read;
 
-    const char *modmap;
+    const char *modmap = nullptr;
     std::vector<std::istream *> thread_files;
-    std::ostream *out_file;
-    bool prev_instr_was_rep_string;
-    // This indicates that each memref has its own PC entry and that each
-    // icache entry does not need to be considered a memref PC entry as well.
-    bool instrs_are_separate;
-    unsigned int verbosity;
+    std::ostream *out_file = nullptr;
+    unsigned int verbosity = 0;
+
     // We use a hashtable to cache decodings.  We compared the performance of
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
@@ -799,16 +821,19 @@ private:
     // Used to delay thread-buffer-final branch to keep it next to its target.
     std::vector<std::vector<char>> delayed_branch;
 
+    // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
     void (*user_free)(void *data) = nullptr;
     std::string (*user_process)(drmodtrack_info_t *info, void *data,
                                 void *user_data) = nullptr;
     void *user_process_data = nullptr;
 
+    // Current conversion state, used by the implementation of APIs required by
+    // trace_converter_t
     offline_entry_t last_entry;
-    uint tidx;
+    uint tidx = 0;
     trace_entry_t out_buf[MAX_COMBINED_ENTRIES];
-    uint thread_count;
+    uint thread_count = 0;
     std::unique_ptr<module_mapper_t> module_mapper;
 
     friend class trace_converter_t<raw2trace_t>;
