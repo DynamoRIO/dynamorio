@@ -175,11 +175,11 @@ private:
         return dests_;
     }
 
-    static constexpr int kReadsMemPos = 0;
-    static constexpr int kWritesMemPos = 1;
-    static constexpr int kIsPrefetchPos = 2;
-    static constexpr int kIsFlushPos = 3;
-    static constexpr int kIsCtiPos = 4;
+    static const int kReadsMemPos = 0;
+    static const int kWritesMemPos = 1;
+    static const int kIsPrefetchPos = 2;
+    static const int kIsFlushPos = 3;
+    static const int kIsCtiPos = 4;
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
