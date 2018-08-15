@@ -395,7 +395,9 @@ droption_t<std::string> op_record_heap_value(
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1",
+    "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1" OP_RECORD_FUNC_ITEM_SEP
+    "operator new|10|1" OP_RECORD_FUNC_ITEM_SEP
+    "operator delete|11|1" OP_RECORD_FUNC_ITEM_SEP "calloc|6|2",
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
