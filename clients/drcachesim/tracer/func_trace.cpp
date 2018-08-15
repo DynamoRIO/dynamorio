@@ -134,7 +134,7 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
     // Try to find the symbol in the dynamic symbol table.
     app_pc pc = (app_pc)dr_get_proc_address(mod->handle, symbol);
     if (pc != NULL) {
-        NOTIFY(1, "dr_get_proc_address found symbol %s at pc=%p\n", symbol, pc);
+        NOTIFY(1, "dr_get_proc_address found symbol %s at pc=" PFX "\n", symbol, pc);
         return pc;
     } else {
         // If failed to find the symbol in the dynamic symbol table, then we try to find
@@ -148,7 +148,7 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;
-            NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=%p\n", symbol, pc);
+            NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=" PFX "\n", symbol, pc);
             return pc;
         } else {
             NOTIFY(1, "Failed to find symbol %s, drsym_error_t=%d\n", symbol, err);
