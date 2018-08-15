@@ -58,21 +58,25 @@ static int
 do_some_work(int arg)
 {
     static const int iters = 1000;
-    static double *vals[iters];
+    double **vals = (double **)calloc(iters, sizeof(double *));
+    double *val = new double; // "malloc" is called inside "operator new"
+    *val = arg;
 
-    double val = (double)arg;
     for (int i = 0; i < iters; ++i) {
         vals[i] = (double *)malloc(sizeof(double));
-        *vals[i] = sin(val);
-        val += *vals[i];
+        *vals[i] = sin(*val);
+        *val += *vals[i];
     }
     for (int i = 0; i < iters; i++) {
-        val += *vals[i];
+        *val += *vals[i];
     }
     for (int i = 0; i < iters; i++) {
         free(vals[i]);
     }
-    return (val > 0);
+    free(vals);
+    double temp = *val;
+    delete val; // "free" is not called inside "operator delete"
+    return (temp > 0);
 }
 
 int
