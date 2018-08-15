@@ -77,8 +77,8 @@ const uint MAX_COMBINED_ENTRIES = 64;
  * Header of raw trace.
  */
 struct trace_header_t {
-    pid_t pid;
-    pid_t tid;
+    thread_id_t pid;
+    process_id_t tid;
     uint64 timestamp;
 };
 
@@ -206,15 +206,15 @@ private:
  */
 struct instruction_converter_t {
     static int
-    write_thread_exit(byte *buffer, pid_t tid);
+    write_thread_exit(byte *buffer, thread_id_t tid);
     static int
     write_marker(byte *buffer, trace_marker_type_t type, uintptr_t val);
     static int
     write_iflush(byte *buffer, addr_t start, size_t size);
     static int
-    write_pid(byte *buffer, pid_t pid);
+    write_pid(byte *buffer, process_id_t pid);
     static int
-    write_tid(byte *buffer, pid_t tid);
+    write_tid(byte *buffer, thread_id_t tid);
     static int
     write_timestamp(byte *buffer, uint64 timestamp);
 };
@@ -347,7 +347,7 @@ public:
      * through the user's {write} callback.
      */
     std::string
-    process_offline_entry(const offline_entry_t *in_entry, pid_t tid,
+    process_offline_entry(const offline_entry_t *in_entry, thread_id_t tid,
                           OUT bool *end_of_record, OUT bool *last_bb_handled)
     {
         trace_entry_t *buf_base = impl()->get_write_buffer();

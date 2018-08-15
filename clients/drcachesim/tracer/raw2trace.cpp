@@ -93,7 +93,7 @@ void (*module_mapper_t::user_free)(void *data) = nullptr;
 bool module_mapper_t::has_custom_data_global = true;
 
 int
-instruction_converter_t::write_thread_exit(byte *buffer, pid_t tid)
+instruction_converter_t::write_thread_exit(byte *buffer, thread_id_t tid)
 {
     online_instru_t instru(NULL, false, NULL);
     return instru.append_thread_exit(buffer, tid);
@@ -115,13 +115,13 @@ instruction_converter_t::write_iflush(byte *buffer, addr_t start, size_t size)
 }
 
 int
-instruction_converter_t::write_pid(byte *buffer, pid_t pid)
+instruction_converter_t::write_pid(byte *buffer, process_id_t pid)
 {
     online_instru_t instru(NULL, false, NULL);
     return instru.append_pid(buffer, pid);
 }
 int
-instruction_converter_t::write_tid(byte *buffer, pid_t tid)
+instruction_converter_t::write_tid(byte *buffer, thread_id_t tid)
 {
     online_instru_t instru(NULL, false, NULL);
     return instru.append_tid(buffer, tid);
