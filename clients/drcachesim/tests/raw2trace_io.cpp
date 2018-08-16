@@ -162,6 +162,7 @@ test_raw2trace(raw2trace_directory_t *dir)
         EXPECT(WIFEXITED(status), "Child process exited abnormally");
         std::cerr << "Processed\n";
         exit(0);
+        return 0;
     }
 }
 
@@ -205,5 +206,5 @@ main(int argc, const char *argv[])
     raw2trace_directory_t *dir =
         new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
 
-    return test_raw2trace(dir) + test_module_mapper(dir);
+    return !(test_raw2trace(dir) == 0 && test_module_mapper(dir) == 0);
 }

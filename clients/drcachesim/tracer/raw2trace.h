@@ -93,7 +93,7 @@ public:
     /**
      * All APIs on this type, including constructor, may fail. get_last_error() returns
      * the last error message. The object should be considered unusable if
-     * !get_last_error().empty()
+     * !get_last_error().empty().
      */
     std::string
     get_last_error(void) const
@@ -188,7 +188,7 @@ public:
     ~raw2trace_t();
 
     /**
-     * Sets up the parameters that will be used to construct a module_mapper_t for this
+     * Sets up the parameters that will be used to construct a #module_mapper_t for this
      * object.
      */
     std::string
@@ -198,7 +198,7 @@ public:
                        void *process_cb_user_data, void (*free_cb)(void *data));
 
     /**
-     * Constructs a module_mapper_t.
+     * Constructs a #module_mapper_t.
      */
     std::string
     do_module_parsing();
@@ -218,7 +218,8 @@ public:
     do_module_parsing_and_mapping();
 
     /**
-     * Delegates to module_mapper_t::find_mapped_trace_address()
+     * Delegates to module_mapper_t::find_mapped_trace_address(). The user is expected to first
+     * call do_module_parsing_and_mapping().
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
@@ -263,6 +264,7 @@ private:
     unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
     bool
     thread_file_at_eof(uint tidx);
+
     const std::vector<module_t> &
     modvec() const
     {
