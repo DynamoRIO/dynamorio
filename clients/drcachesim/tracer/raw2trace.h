@@ -73,6 +73,7 @@ struct module_t {
 
 /**
  * module_mapper_t maps and unloads application modules.
+ * Using it assumes a dr_context has already been setup.
  */
 class module_mapper_t final {
 public:

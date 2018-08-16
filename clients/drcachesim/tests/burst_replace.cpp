@@ -182,6 +182,7 @@ post_process()
     assert(mem_res == DRMEMTRACE_SUCCESS);
     std::string output_trace(std::string(output_path) + std::string(DIRSEP) + ".." +
                              std::string(DIRSEP) + TRACE_FILENAME);
+    void *dr_context = dr_standalone_init();
     {
         /* First, test just the module parsing w/o writing a final trace, in a separate
          * scope to delete the drmodtrack state afterward.
@@ -195,7 +196,7 @@ post_process()
      * run by the outer test harness will find (TRACE_FILENAME).
      */
     raw2trace_directory_t dir(output_path, output_trace);
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL, 0);
+    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, dr_context, 0);
     std::string error =
         raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
     assert(error.empty());
