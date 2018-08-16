@@ -43,8 +43,7 @@ class raw2trace_directory_t {
 public:
     raw2trace_directory_t(const std::string &indir, const std::string &outname,
                           unsigned int verbosity = 0);
-    // This version is for raw2trace_t::do_module_parsing() or
-    // raw2trace_t::do_module_parsing_and_mapping().
+    // This version is for constructing module_mapper_t.
     raw2trace_directory_t(const std::string &module_file_path,
                           unsigned int verbosity = 0);
     ~raw2trace_directory_t();

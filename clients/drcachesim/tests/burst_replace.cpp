@@ -187,12 +187,9 @@ post_process()
          * scope to delete the drmodtrack state afterward.
          */
         raw2trace_directory_t dir(output_path, output_trace);
-        raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, NULL, NULL);
-        std::string error =
-            raw2trace.handle_custom_data(parse_cb, process_cb, MAGIC_VALUE, free_cb);
-        assert(error.empty());
-        error = raw2trace.do_module_parsing();
-        assert(error.empty());
+        module_mapper_t module_mapper(dir.modfile_bytes, parse_cb, process_cb,
+                                      MAGIC_VALUE, free_cb);
+        assert(module_mapper.get_last_error().empty());
     }
     /* Now write a final trace to a location that the drcachesim -indir step
      * run by the outer test harness will find (TRACE_FILENAME).
