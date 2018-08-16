@@ -218,8 +218,8 @@ public:
     do_module_parsing_and_mapping();
 
     /**
-     * Delegates to module_mapper_t::find_mapped_trace_address(). The user is expected to first
-     * call do_module_parsing_and_mapping().
+     * Delegates to module_mapper_t::find_mapped_trace_address(). The user is expected to
+     * first call do_module_parsing_and_mapping().
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
