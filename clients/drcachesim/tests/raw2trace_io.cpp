@@ -71,15 +71,6 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
 #    error "Test only supports Linux"
 #endif
 
-#define RETURN_IF_ERROR(expr)                \
-    do {                                     \
-        auto error = expr;                   \
-        if (!error.empty()) {                \
-            std::cerr << error << std::endl; \
-            return 1;                        \
-        }                                    \
-    } while (0)
-
 #define EXPECT(expr, msg)                               \
     do {                                                \
         if (!(expr)) {                                  \
