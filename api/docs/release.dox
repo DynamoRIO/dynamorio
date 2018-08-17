@@ -238,6 +238,8 @@ Further non-compatibility-affecting changes include:
    setting up the code cache prior to execution.
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
+ - Added module_mapper_t, which factors out of raw2trace_t the module mapping
+   functionality.
 
 **************************************************
 <hr>
