@@ -75,7 +75,7 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
     do {                                                \
         if (!(expr)) {                                  \
             std::cerr << "Error: " << msg << std::endl; \
-            return 1;                                   \
+            return false;                               \
         }                                               \
     } while (0)
 
@@ -84,13 +84,13 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
         std::cerr << msg << std::endl; \
     } while (0)
 
-int
+bool
 test_raw2trace(raw2trace_directory_t *dir)
 {
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "Fork failed\n";
-        return 1;
+        return false;
     }
     if (pid != 0) {
         /* parent */
@@ -102,7 +102,7 @@ test_raw2trace(raw2trace_directory_t *dir)
                 if (errno == EINTR)
                     continue;
                 perror("Failed waiting");
-                return 1;
+                return false;
             }
             if (WIFEXITED(status))
                 break;
@@ -124,25 +124,25 @@ test_raw2trace(raw2trace_directory_t *dir)
             res = ptrace(PTRACE_SYSCALL, pid, NULL, 0);
             if (res < 0) {
                 perror("ptrace failed");
-                return 1;
+                return false;
             }
         }
         if (WIFEXITED(status)) {
-            return 0;
+            return true;
         }
         res = ptrace(PTRACE_DETACH, pid, NULL, NULL);
         if (res < 0) {
             perror("ptrace failed");
-            return 1;
+            return false;
         }
         std::cerr << "Detached\n";
-        return 0;
+        return true;
     } else {
         /* child */
         long res = ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         if (res < 0) {
             perror("ptrace me failed");
-            return 1;
+            return false;
         }
         /* Force a wait until parent attaches, so we don't race on the fork. */
         raise(SIGSTOP);
@@ -155,24 +155,23 @@ test_raw2trace(raw2trace_directory_t *dir)
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed " << error << "\n";
-            return 1;
+            return false;
         }
-        int status = 0;
-        wait(&status);
-        EXPECT(WIFEXITED(status), "Child process exited abnormally");
         std::cerr << "Processed\n";
         exit(0);
-        return 0;
+        // Unreachable
+        return false;
     }
 }
 
-int
+bool
 test_module_mapper(raw2trace_directory_t *dir)
 {
     module_mapper_t mapper(dir->modfile_bytes);
     EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
     REPORT("About to load modules");
-    EXPECT(!mapper.get_loaded_modules().empty(), "Expected module entries");
+    const auto &loaded_modules = mapper.get_loaded_modules();
+    EXPECT(!loaded_modules.empty(), "Expected module entries");
     EXPECT(mapper.get_last_error().empty(), "Module loading failed");
     REPORT("Loaded modules successfully");
     bool found_simple_app = false;
@@ -185,7 +184,7 @@ test_module_mapper(raw2trace_directory_t *dir)
     }
     EXPECT(found_simple_app, "Expected app entry not found in module map");
     REPORT("Successfully found app entry");
-    return 0;
+    return true;
 }
 
 int
@@ -206,5 +205,7 @@ main(int argc, const char *argv[])
     raw2trace_directory_t *dir =
         new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
 
-    return !(test_raw2trace(dir) == 0 && test_module_mapper(dir) == 0);
+    bool test1_ret = test_raw2trace(dir);
+    bool test2_ret = test_module_mapper(dir);
+    return !(test1_ret && test2_ret);
 }

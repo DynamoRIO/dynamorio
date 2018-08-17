@@ -80,9 +80,18 @@ public:
     /**
      * Parses and iterates over the list of modules.  This is provided to give the user a
      * method for iterating modules in the presence of the custom field used by drmemtrace
-     * that prevents direct use of drmodtrack_offline_read().
-     * On success, calls the \p process_cb function for every module in the list, and
-     * returns an empty string at the end. Returns a non-empty error message on failure.
+     * that prevents direct use of drmodtrack_offline_read(). Its parsing of the module
+     * data will invoke \p parse_cb, which should advance the module data pointer passed
+     * in \p src and return it as its return value (or nullptr on error), returning
+     * the resulting parsed data in \p data.  The \p data pointer will afterwards be
+     * passed to both \p process_cb, which can update the module path inside \p info
+     * (and return a non-empty string on error), and \b free_cb, which can perform
+     * cleanup.
+     *
+     * The callbacks will only be called during object construction.
+     *
+     * On success, calls the \p process_cb function for every module in the list.
+     * On failure, get_last_error() is non-empty, and indicates the cause.
      */
     module_mapper_t(const char *module_map_in,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
@@ -104,7 +113,9 @@ public:
 
     /**
      * module_t vector corresponding to the application modules. Lazily loads and caches
-     * modules. If the object is invalid, returns an empty vector.
+     * modules. If the object is invalid, returns an empty vector. The user may check
+     * get_last_error() to ensure no error has occurred, or get the applicable error
+     * message.
      */
     const std::vector<module_t> &
     get_loaded_modules()
@@ -121,10 +132,10 @@ public:
      * to convert an instruction program counter in a trace into an address in the
      * current process where the instruction bytes for that instruction are mapped,
      * allowing decoding for obtaining further information than is stored in the trace.
-     * Returns a non-empty error message on failure, or if the object is invalid.
+     * Returns the mapped address. Check get_last_error() if an error occurred.
      */
-    std::string
-    find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
+    app_pc
+    find_mapped_trace_address(app_pc trace_address);
 
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
@@ -189,8 +200,22 @@ public:
     ~raw2trace_t();
 
     /**
-     * Sets up the parameters that will be used to construct a #module_mapper_t for this
-     * object.
+     * Adds handling for custom data fields that were stored with each module via
+     * drmemtrace_custom_module_data() during trace generation.  When do_conversion()
+     * or do_module_parsing() is subsequently called, its parsing of the module data
+     * will invoke \p parse_cb, which should advance the module data pointer passed
+     * in \p src and return it as its return value (or nullptr on error), returning
+     * the resulting parsed data in \p data.  The \p data pointer will later be
+     * passed to both \p process_cb, which can update the module path inside \p info
+     * (and return a non-empty string on error), and \b free_cb, which can perform
+     * cleanup.
+     *
+     * A custom callback value \p process_cb_user_data can be passed to \p
+     * process_cb.  The same is not provided for the other callbacks as they end up
+     * using the drmodtrack_add_custom_data() framework where there is no support for
+     * custom callback parameters.
+     *
+     * Returns a non-empty error message on failure.
      */
     std::string
     handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
@@ -199,7 +224,15 @@ public:
                        void *process_cb_user_data, void (*free_cb)(void *data));
 
     /**
-     * Constructs a #module_mapper_t.
+     * Performs the first step of do_conversion() without further action: parses and
+     * iterates over the list of modules.  This is provided to give the user a method
+     * for iterating modules in the presence of the custom field used by drmemtrace
+     * that prevents direct use of drmodtrack_offline_read().
+     * On success, calls the \p process_cb function passed to handle_custom_data()
+     * for every module in the list, and returns an empty string at the end.
+     * Returns a non-empty error message on failure.
+     *
+     * \deprecated #module_mapper_t should be used instead.
      */
     std::string
     do_module_parsing();
@@ -214,13 +247,22 @@ public:
      * to convert from memref_t.instr.addr to the corresponding mapped address in
      * the current process.
      * Returns a non-empty error message on failure.
+     *
+     * \deprecated #module_mapper_t::get_loaded_modules() should be used instead.
      */
     std::string
     do_module_parsing_and_mapping();
 
     /**
-     * Delegates to module_mapper_t::find_mapped_trace_address(). The user is expected to
-     * first call do_module_parsing_and_mapping().
+     * This interface is meant to be used with a final trace rather than a raw
+     * trace, using the module log file saved from the raw2trace conversion.
+     * When do_module_parsing_and_mapping() has been called, this routine can be used
+     * to convert an instruction program counter in a trace into an address in the
+     * current process where the instruction bytes for that instruction are mapped,
+     * allowing decoding for obtaining further information than is stored in the trace.
+     * Returns a non-empty error message on failure.
+     *
+     * \deprecated #module_mapper_t::find_mapped_trace_address() should be used instead.
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);

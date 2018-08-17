@@ -239,7 +239,7 @@ Further non-compatibility-affecting changes include:
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
  - Added module_mapper_t, which factors out of raw2trace_t the module mapping
-   functionality.
+   functionality. (Issue #3129)
 
 **************************************************
 <hr>

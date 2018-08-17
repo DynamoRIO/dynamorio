@@ -338,35 +338,36 @@ raw2trace_t::do_module_parsing_and_mapping()
 std::string
 raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
 {
-    return module_mapper->find_mapped_trace_address(trace_address, mapped_address);
+    *mapped_address = module_mapper->find_mapped_trace_address(trace_address);
+    return module_mapper->get_last_error();
 }
 
-std::string
-module_mapper_t::find_mapped_trace_address(app_pc trace_address,
-                                           OUT app_pc *mapped_address)
+app_pc
+module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 {
-    if (modhandle == nullptr || modlist.empty())
-        return "Failed to call do_module_parsing_and_mapping() first";
-    if (mapped_address == nullptr)
-        return "Invalid parameter";
+    if (modhandle == nullptr || modlist.empty()) {
+        last_error = "Failed to call get_module_list() first";
+        return nullptr;
+    }
+
     // For simplicity we do a linear search, caching the prior hit.
     if (trace_address >= last_orig_base &&
         trace_address < last_orig_base + last_map_size) {
-        *mapped_address = trace_address - last_orig_base + last_map_base;
-        return "";
+        return trace_address - last_orig_base + last_map_base;
     }
     for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
          ++mvi) {
         if (trace_address >= mvi->orig_base &&
             trace_address < mvi->orig_base + mvi->map_size) {
-            *mapped_address = trace_address - mvi->orig_base + mvi->map_base;
+            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
             last_orig_base = mvi->orig_base;
             last_map_size = mvi->map_size;
             last_map_base = mvi->map_base;
-            return "";
+            return mapped_address;
         }
     }
-    return "Trace address not found";
+    last_error = "Trace address not found";
+    return nullptr;
 }
 
 /***************************************************************************

@@ -83,11 +83,10 @@ opcode_mix_t::process_memref(const memref_t &memref)
         return "";
     ++instr_count;
     app_pc mapped_pc;
-    std::string err =
-        module_mapper->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
-    if (!err.empty()) {
+    mapped_pc = module_mapper->find_mapped_trace_address((app_pc)memref.instr.addr);
+    if (!module_mapper->get_last_error().empty()) {
         error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + err;
+            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
         return false;
     }
     int opcode;

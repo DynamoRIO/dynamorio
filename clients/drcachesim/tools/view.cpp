@@ -105,10 +105,10 @@ view_t::process_memref(const memref_t &memref)
 
     app_pc mapped_pc;
     app_pc orig_pc = (app_pc)memref.instr.addr;
-    std::string err = module_mapper->find_mapped_trace_address(orig_pc, &mapped_pc);
-    if (!err.empty()) {
+    mapped_pc = module_mapper->find_mapped_trace_address(orig_pc);
+    if (!module_mapper->get_last_error().empty()) {
         error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + err;
+            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
         return false;
     }
 
