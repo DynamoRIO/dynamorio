@@ -239,7 +239,9 @@ Further non-compatibility-affecting changes include:
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
  - Added module_mapper_t, which factors out of raw2trace_t the module mapping
-   functionality. (Issue #3129)
+   functionality. (Issue #3129). #module_mapper_t replaces the following
+   #raw2trace_t APIs: handle_custom_data(), do_module_parsing(),
+   do_module_parsing_and_mapping(), and find_mapped_trace_address().
 
 **************************************************
 <hr>

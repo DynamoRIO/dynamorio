@@ -207,5 +207,7 @@ main(int argc, const char *argv[])
 
     bool test1_ret = test_raw2trace(dir);
     bool test2_ret = test_module_mapper(dir);
-    return !(test1_ret && test2_ret);
+    if (!(test1_ret && test2_ret))
+        return 1;
+    return 0;
 }

@@ -803,7 +803,7 @@ The tracer also supports storing custom data with each module (i.e.,
 library or executable) such as a build identifier via
 drmemtrace_custom_module_data().  The custom data may be retrieved by
 creating a custom offline trace post-processor and using the #module_mapper_t
-class
+class.
 
 ****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools
