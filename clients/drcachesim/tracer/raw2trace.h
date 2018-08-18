@@ -183,6 +183,15 @@ private:
 
     uint verbosity = 0;
     std::string last_error;
+
+    // since the dtor frees resources, disable copy constructor but allow
+    // move semantics
+    module_mapper_t(const module_mapper_t &) = delete;
+    module_mapper_t &
+    operator=(const module_mapper_t &) = delete;
+    module_mapper_t(module_mapper_t &&) = default;
+    module_mapper_t &
+    operator=(module_mapper_t &&) = default;
 };
 
 /**
