@@ -186,11 +186,11 @@ private:
 
     // since the dtor frees resources, disable copy constructor but allow
     // move semantics
-    // VS2013 does not support defaulted move ctors/assign operators
-#ifdef WINDOWS
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
+    // VS2013 does not support defaulted move ctors/assign operators
+#ifndef WINDOWS
     module_mapper_t(module_mapper_t &&) = default;
     module_mapper_t &
     operator=(module_mapper_t &&) = default;
