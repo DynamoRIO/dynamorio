@@ -81,9 +81,58 @@
  * Module list
  */
 
-const char *(*raw2trace_t::user_parse)(const char *src, OUT void **data);
-void (*raw2trace_t::user_free)(void *data);
-bool raw2trace_t::has_custom_data = true;
+const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = nullptr;
+void (*module_mapper_t::user_free)(void *data) = nullptr;
+bool module_mapper_t::has_custom_data_global = true;
+
+module_mapper_t::module_mapper_t(
+    const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
+    std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity_in)
+    : modmap(module_map_in)
+    , verbosity(verbosity_in)
+{
+    // We mutate global state because do_module_parsing() uses drmodtrack, which
+    // wants global functions. The state isn't needed past do_module_parsing(), so
+    // we make sure to reset it afterwards.
+    DR_ASSERT(user_parse == nullptr);
+    DR_ASSERT(user_free == nullptr);
+
+    user_parse = parse_cb;
+    user_process = process_cb;
+    user_process_data = process_cb_user_data;
+    user_free = free_cb;
+    // has_custom_data_global is potentially mutated in parse_custom_module_data.
+    // It is assumed to be set to 'true' initially.
+    has_custom_data_global = true;
+
+    last_error = do_module_parsing();
+
+    // capture has_custom_data_global's value for this instance.
+    has_custom_data = has_custom_data_global;
+
+    user_parse = nullptr;
+    user_free = nullptr;
+}
+
+module_mapper_t::~module_mapper_t()
+{
+    // drmodtrack_offline_exit requires the parameter to be non-null, but we
+    // may not have even initialized the modhandle yet.
+    if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
+        WARN("Failed to clean up module table data");
+    }
+    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
+         ++mvi) {
+        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
+            bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
+            if (!ok)
+                WARN("Failed to unmap module %s", mvi->path);
+        }
+    }
+    modhandle = nullptr;
+    modvec.clear();
+}
 
 std::string
 raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT void **data),
@@ -99,7 +148,7 @@ raw2trace_t::handle_custom_data(const char *(*parse_cb)(const char *src, OUT voi
 }
 
 const char *
-raw2trace_t::parse_custom_module_data(const char *src, OUT void **data)
+module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
 {
     const char *buf = src;
     const char *skip_comma = strchr(buf, ',');
@@ -109,7 +158,7 @@ raw2trace_t::parse_custom_module_data(const char *src, OUT void **data)
         version != CUSTOM_MODULE_VERSION) {
         // It's not what we expect.  We try to handle legacy formats before bailing.
         static bool warned_once;
-        has_custom_data = false;
+        has_custom_data_global = false;
         if (!warned_once) { // Race is fine: modtrack parsing is global already.
             WARN("Incorrect module field version %d: attempting to handle legacy format",
                  version);
@@ -161,7 +210,7 @@ raw2trace_t::parse_custom_module_data(const char *src, OUT void **data)
 }
 
 void
-raw2trace_t::free_custom_module_data(void *data)
+module_mapper_t::free_custom_module_data(void *data)
 {
     custom_module_data_t *custom_data = (custom_module_data_t *)data;
     if (user_free != nullptr)
@@ -171,6 +220,16 @@ raw2trace_t::free_custom_module_data(void *data)
 
 std::string
 raw2trace_t::do_module_parsing()
+{
+    if (!module_mapper) {
+        module_mapper.reset(new module_mapper_t(modmap, user_parse, user_process,
+                                                user_process_data, user_free, verbosity));
+    }
+    return module_mapper->get_last_error();
+}
+
+std::string
+module_mapper_t::do_module_parsing()
 {
     uint num_mods;
     VPRINT(1, "Reading module file from memory\n");
@@ -200,11 +259,21 @@ raw2trace_t::do_module_parsing()
 std::string
 raw2trace_t::read_and_map_modules()
 {
-    std::string err;
-    if (modlist.empty())
-        err = do_module_parsing(); // May have already been called, since public.
-    if (!err.empty())
-        return err;
+    if (!module_mapper) {
+        auto err = do_module_parsing();
+        if (!err.empty())
+            return err;
+    }
+
+    modvec_ptr = &module_mapper->get_loaded_modules();
+    return module_mapper->get_last_error();
+}
+
+void
+module_mapper_t::read_and_map_modules()
+{
+    if (!last_error.empty())
+        return;
     for (auto it = modlist.begin(); it != modlist.end(); ++it) {
         drmodtrack_info_t &info = *it;
         custom_module_data_t *custom_data = (custom_module_data_t *)info.custom;
@@ -243,8 +312,10 @@ raw2trace_t::read_and_map_modules()
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
                     modvec.push_back(module_t(info.path, info.start, NULL, 0));
-                else
-                    return "Failed to map module " + std::string(info.path);
+                else {
+                    last_error = "Failed to map module " + std::string(info.path);
+                    return;
+                }
             } else {
                 VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec.size(),
                        (ptr_uint_t)base_pc, info.path);
@@ -253,26 +324,6 @@ raw2trace_t::read_and_map_modules()
         }
     }
     VPRINT(1, "Successfully read %zu modules\n", modlist.size());
-    return "";
-}
-
-std::string
-raw2trace_t::unmap_modules(void)
-{
-    // drmodtrack_offline_exit requires the parameter to be non-null, but we
-    // may not have even initialized the modhandle yet.
-    if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
-        return "Failed to clean up module table data";
-    }
-    for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
-         ++mvi) {
-        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
-            bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
-            if (!ok)
-                WARN("Failed to unmap module %s", mvi->path);
-        }
-    }
-    return "";
 }
 
 std::string
@@ -287,28 +338,36 @@ raw2trace_t::do_module_parsing_and_mapping()
 std::string
 raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address)
 {
-    if (modhandle == nullptr || modlist.empty())
-        return "Failed to call do_module_parsing_and_mapping() first";
-    if (mapped_address == nullptr)
-        return "Invalid parameter";
+    *mapped_address = module_mapper->find_mapped_trace_address(trace_address);
+    return module_mapper->get_last_error();
+}
+
+app_pc
+module_mapper_t::find_mapped_trace_address(app_pc trace_address)
+{
+    if (modhandle == nullptr || modlist.empty()) {
+        last_error = "Failed to call get_module_list() first";
+        return nullptr;
+    }
+
     // For simplicity we do a linear search, caching the prior hit.
     if (trace_address >= last_orig_base &&
         trace_address < last_orig_base + last_map_size) {
-        *mapped_address = trace_address - last_orig_base + last_map_base;
-        return "";
+        return trace_address - last_orig_base + last_map_base;
     }
     for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
          ++mvi) {
         if (trace_address >= mvi->orig_base &&
             trace_address < mvi->orig_base + mvi->map_size) {
-            *mapped_address = trace_address - mvi->orig_base + mvi->map_base;
+            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
             last_orig_base = mvi->orig_base;
             last_map_size = mvi->map_size;
             last_map_base = mvi->map_base;
-            return "";
+            return mapped_address;
         }
     }
-    return "Trace address not found";
+    last_error = "Trace address not found";
+    return nullptr;
 }
 
 /***************************************************************************
@@ -447,10 +506,10 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
     uint instr_count = in_entry->pc.instr_count;
     instr_t *instr;
     trace_entry_t buf_start[MAX_COMBINED_ENTRIES];
-    app_pc start_pc = modvec[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
+    app_pc start_pc = modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
     app_pc pc, decode_pc = start_pc;
     if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-        modvec[in_entry->pc.modidx].map_base == NULL) {
+        modvec()[in_entry->pc.modidx].map_base == NULL) {
         // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
         // Once that support is in we can remove the bool return value and handle
         // the memrefs up here.
@@ -460,7 +519,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
     } else {
         VPRINT(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
                instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
-               (ptr_uint_t)in_entry->pc.modoffs, modvec[in_entry->pc.modidx].path);
+               (ptr_uint_t)in_entry->pc.modoffs, modvec()[in_entry->pc.modidx].path);
     }
     bool skip_icache = false;
     bool truncated = false; // Whether a fault ended the bb early.
@@ -475,8 +534,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
     CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
     for (uint i = 0; !truncated && i < instr_count; ++i) {
         trace_entry_t *buf = buf_start;
-        app_pc orig_pc = decode_pc - modvec[in_entry->pc.modidx].map_base +
-            modvec[in_entry->pc.modidx].orig_base;
+        app_pc orig_pc = decode_pc - modvec()[in_entry->pc.modidx].map_base +
+            modvec()[in_entry->pc.modidx].orig_base;
         // To avoid repeatedly decoding the same instruction on every one of its
         // dynamic executions, we cache the decoding in a hashtable.
         instr = (instr_t *)hashtable_lookup(&decode_cache, decode_pc);
@@ -487,7 +546,8 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             pc = decode(dcontext, decode_pc, instr);
             if (pc == NULL || !instr_valid(instr)) {
                 WARN("Encountered invalid/undecodable instr @ %s+" PFX,
-                     modvec[in_entry->pc.modidx].path, (ptr_uint_t)in_entry->pc.modoffs);
+                     modvec()[in_entry->pc.modidx].path,
+                     (ptr_uint_t)in_entry->pc.modoffs);
                 break;
             }
             hashtable_add(&decode_cache, decode_pc, instr);
@@ -823,7 +883,7 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          std::ostream *out_file_in, void *dcontext_in,
                          unsigned int verbosity_in)
     : modmap(module_map_in)
-    , modhandle(NULL)
+    , modvec_ptr(nullptr)
     , thread_files(thread_files_in)
     , out_file(out_file_in)
     , dcontext(dcontext_in)
@@ -832,9 +892,6 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
     , verbosity(verbosity_in)
     , user_process(nullptr)
     , user_process_data(nullptr)
-    , last_orig_base(nullptr)
-    , last_map_size(0)
-    , last_map_base(nullptr)
 {
     if (dcontext == NULL) {
         dcontext = dr_standalone_init();
@@ -857,7 +914,7 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
 
 raw2trace_t::~raw2trace_t()
 {
-    unmap_modules();
+    module_mapper.reset();
     // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
     // so we have to explicitly free the payloads.
     for (uint i = 0; i < HASHTABLE_SIZE(decode_cache.table_bits); i++) {

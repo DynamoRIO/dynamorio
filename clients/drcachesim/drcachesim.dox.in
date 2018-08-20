@@ -759,8 +759,8 @@ Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
 
 A final feature that aids core simulators is the pair of interfaces
-raw2trace_t::do_module_parsing_and_mapping() and
-raw2trace_t::find_mapped_trace_address(), which facilitate reading the raw
+module_mapper_t::get_loaded_modules() and
+module_mapper_t::find_mapped_trace_address(), which facilitate reading the raw
 bytes for each instruction in order to obtain the opcode and full operand
 information.
 
@@ -801,9 +801,9 @@ drmemtrace_client_main().
 
 The tracer also supports storing custom data with each module (i.e.,
 library or executable) such as a build identifier via
-drmemtrace_custom_module_data().  The custom data can be retrieved via
-raw2trace_t::handle_custom_data() by creating a custom offline trace
-post-processor using the #raw2trace_t class.
+drmemtrace_custom_module_data().  The custom data may be retrieved by
+creating a custom offline trace post-processor and using the #module_mapper_t
+class.
 
 ****************************************************************************
 \section sec_drcachesim_newtool Creating New Analysis Tools

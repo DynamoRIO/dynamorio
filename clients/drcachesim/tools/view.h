@@ -44,7 +44,9 @@ class view_t : public analysis_tool_t {
 public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
            const std::string &syntax, unsigned int verbose);
-    virtual ~view_t();
+    virtual ~view_t()
+    {
+    }
     virtual bool
     process_memref(const memref_t &memref);
     virtual bool
@@ -52,7 +54,7 @@ public:
 
 protected:
     void *dcontext;
-    raw2trace_t *raw2trace;
+    std::unique_ptr<module_mapper_t> module_mapper;
     raw2trace_directory_t directory;
     unsigned int knob_verbose;
     uint64_t instr_count;
