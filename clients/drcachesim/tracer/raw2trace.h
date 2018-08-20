@@ -120,27 +120,27 @@ private:
     bool
     reads_memory() const
     {
-        return (1 << kReadsMemPos) & packed_;
+        return TESTANY(kReadsMemMask, packed_);
     }
     bool
     writes_memory() const
     {
-        return (1 << kWritesMemPos) & packed_;
+        return TESTANY(kWritesMemMask, packed_);
     }
     bool
     is_prefetch() const
     {
-        return (1 << kIsPrefetchPos) & packed_;
+        return TESTANY(kIsPrefetchMask, packed_);
     }
     bool
     is_flush() const
     {
-        return (1 << kIsFlushPos) & packed_;
+        return TESTANY(kIsFlushMask, packed_);
     }
     bool
     is_cti() const
     {
-        return (1 << kIsCtiPos) & packed_;
+        return TESTANY(kIsCtiMask, packed_);
     }
 
     const opnd_t &
@@ -164,11 +164,16 @@ private:
         return dests_;
     }
 
-    static const int kReadsMemPos = 0;
-    static const int kWritesMemPos = 1;
-    static const int kIsPrefetchPos = 2;
-    static const int kIsFlushPos = 3;
-    static const int kIsCtiPos = 4;
+#define FIELD(NAME, POS)                 \
+    static const int k##NAME##Pos = POS; \
+    static const int k##NAME##Mask = 1 << POS;
+
+    FIELD(ReadsMem, 0)
+    FIELD(WritesMem, 1)
+    FIELD(IsPrefetch, 2)
+    FIELD(IsFlush, 3)
+    FIELD(IsCti, 4)
+#undef FIELD
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
