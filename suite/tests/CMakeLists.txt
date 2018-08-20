@@ -1141,7 +1141,9 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     endif (WIN32)
     if (standalone_dr OR NOT native)
       # add dr_ops last to avoid needing extra \ on ;
-      set(${outcmd} ${cmd} ${dr_ops} "--" PARENT_SCOPE)
+      string(REPLACE ";" " " dr_ops_string "${dr_ops}")
+      set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" "--" PARENT_SCOPE)
+      # set(${outcmd} ${cmd} ${dr_ops} "--" PARENT_SCOPE)
     else (standalone_dr OR NOT native)
       # the test is pure native, so we rely on ctest for job control
       set(${outcmd} "" PARENT_SCOPE)

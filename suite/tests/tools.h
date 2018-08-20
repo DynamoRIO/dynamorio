@@ -68,7 +68,6 @@
 #    include "../../core/win32/os_public.h"
 #    define NTSTATUS DWORD
 #    define NT_SUCCESS(status) (status >= 0)
-#    include "../../core/win32/ntdll.h"
 #endif
 
 #if defined(AARCH64) && SIGSTKSZ < 16384
@@ -790,15 +789,13 @@ my_getenv(const char *var, char *dest, size_t size)
     dest[size - 1] = 0;
     return true;
 #else
-    wchar_t wbuf[1024];
-    if (env_get_value(var, wbuf, BUFFER_SIZE_BYTES(wbuf))) {
-        NULL_TERMINATE_BUFFER(wbuf);
-        snprintf(dest, size, "%ls", wbuf);
-        buf[bufsz - 1] = '\0';
-        return true;
+    unsigned int ret = GetEnvironmentVariable(var, dest, size);
+    if (ret == 0) {
+      fprintf(stderr, "Env variable %s returned 0 (not found?)\n", var);
+    } else if (ret > size) {
+      fprintf(stderr, "Env variable %s needs %u bytes of space!\n", var, ret);
     }
-    fprintf(stderr, "Env variable %s returned false (not found?)\n", var);
-    return false;
+    return ret > 0 && ret <= size;
 #endif
 }
 

@@ -37,6 +37,10 @@
 #include <math.h>
 #include <stdlib.h>
 
+#define VERBOSE 1
+
+#define vprint(...) if (VERBOSE) print(__VA_ARGS__)
+
 /* A test to verify that flags are appropriately piped through to client
  * libraries for static reattach, verifying that the lazy-loading logic is
  * correctly reset for reattach.
@@ -51,10 +55,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     print("in dr_client_main with argc=%d\n", argc);
     for (int i = 0; i < argc; i++) {
-        print("\tArg %d: |%s|\n", i, argv[i]);
+        vprint("\tArg %d: |%s|\n", i, argv[i]);
     }
-    if (argc != 2) {
-        print("ERROR: want only 2 argc!\n");
+    if (argc == 1) {
+        print("Received no client arguments\n");
+        return;
+    } else if (argc != 2) {
+        print("ERROR: only argc counts of 1 and 2 are expected!\n");
         return;
     };
 
@@ -69,8 +76,9 @@ typedef struct {
 #define TEST_ARG_COUNT 3
 const test_arg_t test_args[TEST_ARG_COUNT] = {
     {
-        .input_dynamorio_options = " -client_lib ';;a'",
-        .want_argv = "a",
+        // For the first attach we intentionally pass no extra arguments.
+        .input_dynamorio_options = "",
+        .want_argv = "",
     },
     {
         .input_dynamorio_options = " -client_lib ';;b'",
@@ -85,30 +93,44 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
 int
 main(int argc, const char *argv[])
 {
-    int failed = 0;
-#define BUF_LEN 256
-    char original_options[BUF_LEN];
+//    const char *process_name = "api.static_reattach_client_flags"
+//#ifdef WINDOWS
+//            ".exe"
+//#endif
+//            ;
+//    process_id_t pid = (process_id_t)
+//#ifdef WINDOWS
+//            GetCurrentProcess();
+//#else
+//            getpid();
+//#endif
+
+#define BUF_LEN (DR_MAX_OPTIONS_LENGTH + 100)
+    char original_options[BUF_LEN] = {0,};
     if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
-        print("Couldn't read DYNAMORIO_OPTIONS!\n");
+        print("Failed to get DYNAMORIO_OPTIONS\n");
         return 1;
     }
-    print("Got DYNAMORIO_OPTIONS: %s\n", original_options);
+    //if (!dr_process_is_registered(process_name, pid, false, DR_PLATFORM_DEFAULT,
+    //                              NULL, NULL, NULL, original_options)) {
+    //    print("dr_process_is_registered returned false!\n");
+    //    return 1;
+    //}
+    vprint("Got DYNAMORIO_OPTIONS: %s\n", original_options);
+
+    int failed = 0;
     for (int i = 0; i < TEST_ARG_COUNT; i++) {
         char option_buffer[BUF_LEN];
         strncpy(option_buffer, original_options, BUF_LEN);
         strncat(option_buffer, test_args[i].input_dynamorio_options, BUF_LEN);
+
         my_setenv("DYNAMORIO_OPTIONS", option_buffer);
-        print("Set DYNAMORIO_OPTIONS: %s\n", option_buffer);
+        vprint("Set DYNAMORIO_OPTIONS: %s\n", option_buffer);
 
         dr_app_setup();
         dr_app_start();
         dr_app_stop_and_cleanup();
 
-        if (last_argv[0] == '\0') {
-            print("ERROR: last_argv not set by dr_client_main\n");
-            failed = 1;
-            continue;
-        }
         const char *want_argv = test_args[i].want_argv;
         if (strncmp(last_argv, want_argv, sizeof(last_argv)) != 0) {
             print("ERROR: last_argv doesn't match want_argv: "
