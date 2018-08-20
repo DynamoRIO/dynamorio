@@ -878,7 +878,8 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
         hashtable_add(&decode_cache, decode_pc, desc);
         ret = desc;
     } else {
-        // TODO(mtrofin): log some rendering of the instruction summary that will be returned
+        // TODO(mtrofin): log some rendering of the instruction summary that will be
+        // returned
         *pc = ret->next_pc();
     }
     return ret;
