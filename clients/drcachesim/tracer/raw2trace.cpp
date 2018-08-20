@@ -871,8 +871,8 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
     if (ret == nullptr) {
         instr_summary_t *desc = new instr_summary_t();
         if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
-            WARN("Encountered invalid/undecodable instr @ %s+" PFX, modvec()[modidx].path,
-                 (ptr_uint_t)modoffs);
+            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
+                 modvec()[static_cast<size_t>(modidx)].path, (ptr_uint_t)modoffs);
             return nullptr;
         }
         hashtable_add(&decode_cache, decode_pc, desc);
@@ -890,8 +890,13 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
                            OUT instr_summary_t *desc, uint verbosity)
 {
     struct instr_destroy_t {
-        instr_t *instr;
+        instr_destroy_t(void *dcontext_in, instr_t *instr_in)
+            : dcontext(dcontext_in)
+            , instr(instr_in)
+        {
+        }
         void *dcontext;
+        instr_t *instr;
         ~instr_destroy_t()
         {
             instr_destroy(dcontext, instr);
@@ -899,7 +904,7 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     };
 
     instr_t *instr = instr_create(dcontext);
-    instr_destroy_t instr_collector = { instr, dcontext };
+    instr_destroy_t instr_collector(dcontext, instr);
 
     *pc = decode(dcontext, *pc, instr);
     if (*pc == nullptr || !instr_valid(instr)) {
@@ -924,7 +929,7 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
 
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
-    desc->length_ = instr_length(dcontext, instr);
+    desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {
 #define TRAVERSE_SRCS(WHAT_TO_DO)                            \
