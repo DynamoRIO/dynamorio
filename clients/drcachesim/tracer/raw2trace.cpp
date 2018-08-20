@@ -72,7 +72,7 @@
 
 #define DO_VERBOSE(level, x)              \
     do {                                  \
-        if (this->verbosity >= (level)) { \
+        if (verbosity >= (level)) {       \
             x; /* ; makes vera++ happy */ \
         }                                 \
     } while (0)
@@ -422,8 +422,8 @@ raw2trace_t::thread_file_at_eof(uint tidx)
 // Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
 // Any other non-empty string is a fatal error.
 std::string
-raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
-                           opnd_t ref, bool write)
+raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
+                           const instr_summary_t *instr, opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
     offline_entry_t in_entry;
@@ -458,10 +458,10 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         return "";
     }
     if (!have_type) {
-        if (instr_is_prefetch(instr)) {
-            buf->type = instru_t::instr_to_prefetch_type(instr);
+        if (instr->is_prefetch()) {
+            buf->type = instr->prefetch_type();
             buf->size = 1;
-        } else if (instru_t::instr_is_flush(instr)) {
+        } else if (instr->is_flush()) {
             buf->type = TRACE_TYPE_DATA_FLUSH;
             buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
         } else {
@@ -504,7 +504,7 @@ std::string
 raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
-    instr_t *instr;
+    const instr_summary_t *instr;
     trace_entry_t buf_start[MAX_COMBINED_ENTRIES];
     app_pc start_pc = modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
     app_pc pc, decode_pc = start_pc;
@@ -538,29 +538,16 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             modvec()[in_entry->pc.modidx].orig_base;
         // To avoid repeatedly decoding the same instruction on every one of its
         // dynamic executions, we cache the decoding in a hashtable.
-        instr = (instr_t *)hashtable_lookup(&decode_cache, decode_pc);
-        if (instr == NULL) {
-            instr = instr_create(dcontext);
-            // We assume the default ISA mode and currently require the 32-bit
-            // postprocessor for 32-bit applications.
-            pc = decode(dcontext, decode_pc, instr);
-            if (pc == NULL || !instr_valid(instr)) {
-                WARN("Encountered invalid/undecodable instr @ %s+" PFX,
-                     modvec()[in_entry->pc.modidx].path,
-                     (ptr_uint_t)in_entry->pc.modoffs);
-                break;
-            }
-            hashtable_add(&decode_cache, decode_pc, instr);
-        } else {
-            pc = instr_get_raw_bits(instr) + instr_length(dcontext, instr);
+        pc = decode_pc;
+        instr =
+            get_instr_summary(in_entry->pc.modidx, in_entry->pc.modoffs, &pc, orig_pc);
+        if (instr == nullptr) {
+            // We hit some error somewhere, and already reported it. Just exit the loop.
+            break;
         }
-        DO_VERBOSE(3, {
-            instr_set_translation(instr, orig_pc);
-            dr_print_instr(dcontext, STDOUT, instr, "");
-        });
-        CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
+        CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
         // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        buf->type = instru_t::instr_to_instr_type(instr);
+        buf->type = instr->type();
         if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
             // We want it to look like the original rep string, with just one instr
             // fetch for the whole loop, instead of the drutil-expanded loop.
@@ -577,7 +564,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             }
         } else
             prev_instr_was_rep_string = false;
-        buf->size = (ushort)(skip_icache ? 0 : instr_length(dcontext, instr));
+        buf->size = (ushort)(skip_icache ? 0 : instr->length());
         buf->addr = (addr_t)orig_pc;
         ++buf;
         decode_pc = pc;
@@ -585,32 +572,28 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         // There is no following memref for (instrs_are_separate && !skip_icache).
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
-            (instr_reads_memory(instr) || instr_writes_memory(instr))) {
-            for (int j = 0; j < instr_num_srcs(instr); j++) {
-                if (opnd_is_memory_reference(instr_get_src(instr, j))) {
-                    std::string error =
-                        append_memref(&buf, tidx, instr, instr_get_src(instr, j), false);
-                    if (error == FAULT_INTERRUPTED_BB) {
-                        truncated = true;
-                        break;
-                    } else if (!error.empty())
-                        return error;
-                }
+            (instr->reads_memory() || instr->writes_memory())) {
+            for (uint j = 0; j < instr->srcs(); j++) {
+                std::string error =
+                    append_memref(&buf, tidx, instr, instr->src_at(j), false);
+                if (error == FAULT_INTERRUPTED_BB) {
+                    truncated = true;
+                    break;
+                } else if (!error.empty())
+                    return error;
             }
-            for (int j = 0; !truncated && j < instr_num_dsts(instr); j++) {
-                if (opnd_is_memory_reference(instr_get_dst(instr, j))) {
-                    std::string error =
-                        append_memref(&buf, tidx, instr, instr_get_dst(instr, j), true);
-                    if (error == FAULT_INTERRUPTED_BB) {
-                        truncated = true;
-                        break;
-                    } else if (!error.empty())
-                        return error;
-                }
+            for (uint j = 0; !truncated && j < instr->dests(); j++) {
+                std::string error =
+                    append_memref(&buf, tidx, instr, instr->dest_at(j), true);
+                if (error == FAULT_INTERRUPTED_BB) {
+                    truncated = true;
+                    break;
+                } else if (!error.empty())
+                    return error;
             }
         }
         CHECK((size_t)(buf - buf_start) < MAX_COMBINED_ENTRIES, "Too many entries");
-        if (instr_is_cti(instr)) {
+        if (instr->is_cti()) {
             CHECK(delayed_branch[tidx].empty(), "Failed to flush delayed branch");
             // In case this is the last branch prior to a thread switch, buffer it.  We
             // avoid swapping threads immediately after a branch so that analyzers can
@@ -878,6 +861,97 @@ raw2trace_t::do_conversion()
     return "";
 }
 
+const instr_summary_t *
+raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
+                               app_pc orig)
+{
+    const app_pc decode_pc = *pc;
+    const instr_summary_t *ret =
+        static_cast<const instr_summary_t *>(hashtable_lookup(&decode_cache, decode_pc));
+    if (ret == nullptr) {
+        instr_summary_t *desc = new instr_summary_t();
+        if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
+            WARN("Encountered invalid/undecodable instr @ %s+" PFX, modvec()[modidx].path,
+                 (ptr_uint_t)modoffs);
+            return nullptr;
+        }
+        hashtable_add(&decode_cache, decode_pc, desc);
+        ret = desc;
+    } else {
+        // TODO(mtrofin): log some rendering of the instruction summary that will be returned
+        *pc = ret->next_pc();
+    }
+    return ret;
+}
+
+bool
+instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
+                           OUT instr_summary_t *desc, uint verbosity)
+{
+    struct instr_destroy_t {
+        instr_t *instr;
+        void *dcontext;
+        ~instr_destroy_t()
+        {
+            instr_destroy(dcontext, instr);
+        }
+    };
+
+    instr_t *instr = instr_create(dcontext);
+    instr_destroy_t instr_collector = { instr, dcontext };
+
+    *pc = decode(dcontext, *pc, instr);
+    if (*pc == nullptr || !instr_valid(instr)) {
+        return false;
+    }
+    DO_VERBOSE(3, {
+        instr_set_translation(instr, orig_pc);
+        dr_print_instr(dcontext, STDOUT, instr, "");
+    });
+    desc->next_pc_ = *pc;
+    desc->packed_ = 0;
+
+    bool is_prefetch = instr_is_prefetch(instr);
+    bool reads_memory = instr_reads_memory(instr);
+    bool writes_memory = instr_writes_memory(instr);
+
+    desc->packed_ |= reads_memory << kReadsMemPos;
+    desc->packed_ |= writes_memory << kWritesMemPos;
+    desc->packed_ |= is_prefetch << kIsPrefetchPos;
+    desc->packed_ |= instru_t::instr_is_flush(instr) << kIsFlushPos;
+    desc->packed_ |= instr_is_cti(instr) << kIsCtiPos;
+
+    desc->type_ = instru_t::instr_to_instr_type(instr);
+    desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
+    desc->length_ = instr_length(dcontext, instr);
+
+    if (reads_memory || writes_memory) {
+#define TRAVERSE_SRCS(WHAT_TO_DO)                            \
+    for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) { \
+        opnd_t op = instr_get_src(instr, i);                 \
+        if (opnd_is_memory_reference(op)) {                  \
+            WHAT_TO_DO;                                      \
+        }                                                    \
+    }
+
+#define TRAVERSE_DSTS(WHAT_TO_DO)                            \
+    for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) { \
+        opnd_t op = instr_get_dst(instr, i);                 \
+        if (opnd_is_memory_reference(op)) {                  \
+            WHAT_TO_DO;                                      \
+        }                                                    \
+    }
+
+        TRAVERSE_SRCS(++desc->srcs_)
+        TRAVERSE_DSTS(++desc->dests_)
+        desc->srcs_and_dests_.resize(desc->srcs_ + desc->dests_);
+        int pos = 0;
+        TRAVERSE_SRCS(desc->srcs_and_dests_[pos++] = op)
+        TRAVERSE_DSTS(desc->srcs_and_dests_[pos++] = op)
+    }
+    return true;
+}
+
 raw2trace_t::raw2trace_t(const char *module_map_in,
                          const std::vector<std::istream *> &thread_files_in,
                          std::ostream *out_file_in, void *dcontext_in,
@@ -919,7 +993,7 @@ raw2trace_t::~raw2trace_t()
     // so we have to explicitly free the payloads.
     for (uint i = 0; i < HASHTABLE_SIZE(decode_cache.table_bits); i++) {
         for (hash_entry_t *e = decode_cache.table[i]; e != NULL; e = e->next) {
-            instr_destroy(dcontext, (instr_t *)e->payload);
+            delete (static_cast<instr_summary_t *>(e->payload));
         }
     }
     hashtable_delete(&decode_cache);
