@@ -44,7 +44,10 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
-#ifndef UNIX
+#ifdef UNIX
+#    include <signal.h>
+#    include <ucontext.h>
+#else
 #    include <process.h>
 #endif
 #include "../../../suite/tests/condvar.h"
@@ -89,6 +92,17 @@ void *
     static const int iter_start = outer_iters / 3;
     static const int iter_stop = iter_start + 4;
 
+#ifdef UNIX
+    /* We test sigaltstack with attach+detach to avoid bugs like i#3116 */
+    stack_t sigstack;
+#    define ALT_STACK_SIZE (SIGSTKSZ * 2)
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    int res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+#endif
+
     /* We use an outer loop to test re-attaching (i#2157). */
     for (int j = 0; j < reattach_iters; ++j) {
         if (idx == burst_owner) {
@@ -115,6 +129,18 @@ void *
             }
         }
     }
+
+#ifdef UNIX
+    stack_t check_stack;
+    res = sigaltstack(NULL, &check_stack);
+    assert(res == 0 && check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size);
+    sigstack.ss_flags = SS_DISABLE;
+    res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+    free(sigstack.ss_sp);
+#endif
+
     if (idx == burst_owner) {
         signal_cond_var(burst_owner_finished);
     } else {
