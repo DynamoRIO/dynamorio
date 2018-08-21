@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,8 +51,15 @@
 /* to avoid changing all our internal REG_ constants we define this for DR itself */
 #define DR_REG_ENUM_COMPATIBILITY 1
 
-/* to avoid duplicating code we use our own exported macros */
-#define DR_FAST_IR 1
+/* To avoid duplicating code we use our own exported macros, unless an includer
+ * needs to avoid it.
+ */
+#ifdef DR_NO_FAST_IR
+#    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
+#endif
 
 /* drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
  * functions.  We want to use our inline functions for the standalone decoder
