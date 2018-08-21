@@ -105,9 +105,13 @@ add_exported_library(drmemtrace_simulator STATIC
 add_exported_library(drmemtrace_raw2trace STATIC
   tracer/raw2trace.cpp
   tracer/raw2trace_directory.cpp
+  tracer/instru.cpp
+  tracer/instru_online.cpp
+  tracer/instru_offline.cpp
   )
 configure_DynamoRIO_standalone(drmemtrace_raw2trace)
 target_link_libraries(drmemtrace_raw2trace drfrontendlib)
+use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
 
 set(drcachesim_srcs
   launcher.cpp
@@ -192,9 +196,29 @@ set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir
   "${CMAKE_CURRENT_BINARY_DIR}/tests")
 
+# We have one more example of a standalone launcher that uses raw2trace to catch
+# link errors (xref i#1409).  We just build it to test the linking; no test.
+add_executable(opcode_mix_launcher
+  tools/opcode_mix_launcher.cpp
+  )
+# We hit dup symbol errors on Windows so we need libc earlier before DR:
+if (WIN32)
+  if (DEBUG)
+    set(static_libc libcmtd)
+  else ()
+    set(static_libc libcmt)
+  endif ()
+endif ()
+target_link_libraries(opcode_mix_launcher drmemtrace_analyzer drmemtrace_opcode_mix
+  drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc})
+use_DynamoRIO_extension(opcode_mix_launcher droption)
+add_dependencies(opcode_mix_launcher api_headers)
+configure_DynamoRIO_static(opcode_mix_launcher)
+
 if (ZLIB_FOUND)
   target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
   target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
+  target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
 endif ()
 
 macro(add_drmemtrace name type)
@@ -269,6 +293,7 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
+restore_nonclient_flags(opcode_mix_launcher)
 restore_nonclient_flags(drmemtrace_simulator)
 restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
@@ -304,6 +329,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(opcode_mix_launcher)
 add_win32_flags(drmemtrace_simulator)
 add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
