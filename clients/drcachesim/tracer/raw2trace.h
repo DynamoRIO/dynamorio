@@ -83,7 +83,7 @@ struct instr_summary_t final {
     /**
      * Populates a pre-allocated instr_summary_t description, from the instruction found
      * at pc. Updates pc to the next instruction. Optionally logs translation details
-     * (using orig_pc and verbosity)
+     * (using orig_pc and verbosity).
      */
     static bool
     construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc, OUT instr_summary_t *desc,
@@ -182,6 +182,10 @@ private:
     byte length_ = 0;
     app_pc next_pc_ = 0;
 
+    // Squash srcs and dests to save memory usage. We may want to
+    // bulk-allocate pages of instr_summary_t objects, instead
+    // of piece-meal allocating them on the heap one at a time.
+    // One vector and a byte is smaller than 2 vectors.
     std::vector<opnd_t> mem_srcs_and_dests_;
     uint8_t num_mem_srcs_ = 0;
     byte packed_ = 0;
