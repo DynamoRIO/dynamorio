@@ -540,6 +540,8 @@ append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t va
         return; /* This thread was filtered out. */
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker, value);
+    if (file_ops_func.handoff_buf == NULL)
+        memtrace(drcontext, false);
 }
 
 static void
