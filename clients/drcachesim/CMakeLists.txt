@@ -134,8 +134,8 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace)
-# To avoid dup symbol errors between drinjectlib and the drdecode brought in
-# by drfrontendlib we have to explicitly list drdecode up front:
+# To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
+# to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
 use_DynamoRIO_extension(drcachesim droption)
 # These are also for raw2trace:

@@ -47,15 +47,14 @@
 #include "opcode.h"
 #include "opnd.h"
 
-/* to avoid duplicating code we use our own exported macros */
-#define DR_FAST_IR 1
-
-/* drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
- * functions.  We want to use our inline functions for the standalone decoder
- * and everything else, so we single out drpreinject.
+/* To avoid duplicating code we use our own exported macros, unless an includer
+ * needs to avoid it.
  */
-#ifdef RC_IS_PRELOAD
+#ifdef DR_NO_FAST_IR
 #    undef DR_FAST_IR
+#    undef INSTR_INLINE
+#else
+#    define DR_FAST_IR 1
 #endif
 
 /* can't include decode.h, it includes us, just declare struct */
