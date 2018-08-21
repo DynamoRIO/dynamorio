@@ -37,6 +37,9 @@
  * rather than putting this into say asm_shared.asm).
  */
 
+/* Avoid pulling in deps from instr_inline.h included from globals.h */
+#define DR_NO_FAST_IR
+
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 WEAK void

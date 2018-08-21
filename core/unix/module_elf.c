@@ -1945,12 +1945,14 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
+#ifndef NOT_DYNAMORIO_CORE_PROPER
     if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, flags)) {
         /* place an extra no-access page after .bss */
         /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
         /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
         initial_map_size += PAGE_SIZE;
     }
+#endif
     lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,
                            MEMPROT_NONE, /* so the separating page is no-access */
                            MAP_FILE_COPY_ON_WRITE | MAP_FILE_IMAGE |
@@ -1960,9 +1962,11 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
                                (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
+#ifndef NOT_DYNAMORIO_CORE_PROPER
     if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else
+#endif
         elf->image_size = initial_map_size;
     lib_end = lib_base + elf->image_size;
     elf->load_base = lib_base;
