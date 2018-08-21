@@ -70,13 +70,6 @@
         }                                      \
     } while (0)
 
-#define DO_VERBOSE(level, x, verbosity)   \
-    do {                                  \
-        if ((verbosity) >= (level)) {     \
-            x; /* ; makes vera++ happy */ \
-        }                                 \
-    } while (0)
-
 /***************************************************************************
  * Module list
  */
@@ -878,7 +871,8 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
         hashtable_add(&decode_cache, decode_pc, desc);
         ret = desc;
     } else {
-        /* XXX i#3129 Log some rendering of the instruction summary that will be returned.
+        /* XXX i#3129: Log some rendering of the instruction summary that will be
+         * returned.
          */
         *pc = ret->next_pc();
     }
@@ -910,12 +904,10 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     if (*pc == nullptr || !instr_valid(instr)) {
         return false;
     }
-    DO_VERBOSE(3,
-               {
-                   instr_set_translation(instr, orig_pc);
-                   dr_print_instr(dcontext, STDOUT, instr, "");
-               },
-               verbosity);
+    if (verbosity > 3) {
+        instr_set_translation(instr, orig_pc);
+        dr_print_instr(dcontext, STDOUT, instr, "");
+    }
     desc->next_pc_ = *pc;
     desc->packed_ = 0;
 
