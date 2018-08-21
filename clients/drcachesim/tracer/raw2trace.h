@@ -72,8 +72,8 @@ struct module_t {
 };
 
 /**
- * instr_summary is a compact encapsulation of the information needed by trace conversion
- * from decoded instructions.
+ * instr_summary_t is a compact encapsulation of the information needed by trace
+ * conversion from decoded instructions.
  */
 struct instr_summary_t final {
     instr_summary_t()
@@ -81,9 +81,9 @@ struct instr_summary_t final {
     }
 
     /**
-     * Populates a pre-allocated instr_summary_t desc, from the instruction found at pc.
-     * Updates pc to the next instruction. Optionally logs translation details (using
-     * orig_pc and verbosity)
+     * Populates a pre-allocated instr_summary_t description, from the instruction found
+     * at pc. Updates pc to the next instruction. Optionally logs translation details
+     * (using orig_pc and verbosity)
      */
     static bool
     construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc, OUT instr_summary_t *desc,
@@ -144,36 +144,31 @@ private:
     }
 
     const opnd_t &
-    src_at(size_t pos) const
+    mem_src_at(size_t pos) const
     {
-        return srcs_and_dests_[pos];
+        return mem_srcs_and_dests_[pos];
     }
     const opnd_t &
-    dest_at(size_t pos) const
+    mem_dest_at(size_t pos) const
     {
-        return srcs_and_dests_[srcs_ + pos];
+        return mem_srcs_and_dests_[num_mem_srcs_ + pos];
     }
     size_t
-    srcs() const
+    num_mem_srcs() const
     {
-        return srcs_;
+        return num_mem_srcs_;
     }
     size_t
-    dests() const
+    num_mem_dests() const
     {
-        return dests_;
+        return mem_srcs_and_dests_.size() - num_mem_srcs_;
     }
 
-#define FIELD(NAME, POS)                 \
-    static const int k##NAME##Pos = POS; \
-    static const int k##NAME##Mask = 1 << POS;
-
-    FIELD(ReadsMem, 0)
-    FIELD(WritesMem, 1)
-    FIELD(IsPrefetch, 2)
-    FIELD(IsFlush, 3)
-    FIELD(IsCti, 4)
-#undef FIELD
+    static const int kReadsMemMask = 0x0001;
+    static const int kWritesMemMask = 0x0002;
+    static const int kIsPrefetchMask = 0x0004;
+    static const int kIsFlushMask = 0x0008;
+    static const int kIsCtiMask = 0x0010;
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
@@ -187,9 +182,8 @@ private:
     byte length_ = 0;
     app_pc next_pc_ = 0;
 
-    std::vector<opnd_t> srcs_and_dests_;
-    uint8_t srcs_ = 0;
-    uint8_t dests_ = 0;
+    std::vector<opnd_t> mem_srcs_and_dests_;
+    uint8_t num_mem_srcs_ = 0;
     byte packed_ = 0;
 };
 

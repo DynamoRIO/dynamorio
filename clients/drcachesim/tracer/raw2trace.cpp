@@ -573,18 +573,18 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
             (instr->reads_memory() || instr->writes_memory())) {
-            for (uint j = 0; j < instr->srcs(); j++) {
+            for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                 std::string error =
-                    append_memref(&buf, tidx, instr, instr->src_at(j), false);
+                    append_memref(&buf, tidx, instr, instr->mem_src_at(j), false);
                 if (error == FAULT_INTERRUPTED_BB) {
                     truncated = true;
                     break;
                 } else if (!error.empty())
                     return error;
             }
-            for (uint j = 0; !truncated && j < instr->dests(); j++) {
+            for (uint j = 0; !truncated && j < instr->num_mem_dests(); j++) {
                 std::string error =
-                    append_memref(&buf, tidx, instr, instr->dest_at(j), true);
+                    append_memref(&buf, tidx, instr, instr->mem_dest_at(j), true);
                 if (error == FAULT_INTERRUPTED_BB) {
                     truncated = true;
                     break;
@@ -878,8 +878,7 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
         hashtable_add(&decode_cache, decode_pc, desc);
         ret = desc;
     } else {
-        // TODO(mtrofin): log some rendering of the instruction summary that will be
-        // returned
+        // Log some rendering of the instruction summary that will be returned. i#3129
         *pc = ret->next_pc();
     }
     return ret;
@@ -921,39 +920,34 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
     bool reads_memory = instr_reads_memory(instr);
     bool writes_memory = instr_writes_memory(instr);
 
-    desc->packed_ |= reads_memory << kReadsMemPos;
-    desc->packed_ |= writes_memory << kWritesMemPos;
-    desc->packed_ |= is_prefetch << kIsPrefetchPos;
-    desc->packed_ |= instru_t::instr_is_flush(instr) << kIsFlushPos;
-    desc->packed_ |= instr_is_cti(instr) << kIsCtiPos;
+    if (reads_memory)
+        desc->packed_ |= kReadsMemMask;
+    if (writes_memory)
+        desc->packed_ |= kWritesMemMask;
+    if (is_prefetch)
+        desc->packed_ |= kIsPrefetchMask;
+    if (instru_t::instr_is_flush(instr))
+        desc->packed_ |= kIsFlushMask;
+    if (instr_is_cti(instr))
+        desc->packed_ |= kIsCtiMask;
 
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
     desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {
-#define TRAVERSE_SRCS(WHAT_TO_DO)                            \
-    for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) { \
-        opnd_t op = instr_get_src(instr, i);                 \
-        if (opnd_is_memory_reference(op)) {                  \
-            WHAT_TO_DO;                                      \
-        }                                                    \
-    }
+        for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
+            opnd_t op = instr_get_src(instr, i);
+            if (opnd_is_memory_reference(op))
+                desc->mem_srcs_and_dests_.push_back(op);
+        }
+        desc->num_mem_srcs_ = static_cast<uint8_t>(desc->mem_srcs_and_dests_.size());
 
-#define TRAVERSE_DSTS(WHAT_TO_DO)                            \
-    for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) { \
-        opnd_t op = instr_get_dst(instr, i);                 \
-        if (opnd_is_memory_reference(op)) {                  \
-            WHAT_TO_DO;                                      \
-        }                                                    \
-    }
-
-        TRAVERSE_SRCS(++desc->srcs_)
-        TRAVERSE_DSTS(++desc->dests_)
-        desc->srcs_and_dests_.resize(desc->srcs_ + desc->dests_);
-        int pos = 0;
-        TRAVERSE_SRCS(desc->srcs_and_dests_[pos++] = op)
-        TRAVERSE_DSTS(desc->srcs_and_dests_[pos++] = op)
+        for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) {
+            opnd_t op = instr_get_dst(instr, i);
+            if (opnd_is_memory_reference(op))
+                desc->mem_srcs_and_dests_.push_back(op);
+        }
     }
     return true;
 }
