@@ -540,8 +540,13 @@ append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t va
         return; /* This thread was filtered out. */
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker, value);
-    if (file_ops_func.handoff_buf == NULL)
-        memtrace(drcontext, false);
+    if (file_ops_func.handoff_buf == NULL) {
+        byte *buf_ptr = BUF_PTR(data->seg_base);
+        byte *redzone = data->buf_base + trace_buf_size;
+        if (buf_ptr > redzone) {
+            memtrace(drcontext, false);
+        }
+    }
 }
 
 static void
