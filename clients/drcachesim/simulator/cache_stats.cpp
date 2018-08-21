@@ -51,7 +51,7 @@ cache_stats_t::access(const memref_t &memref, bool hit)
             num_prefetch_hits++;
         else {
             num_prefetch_misses++;
-            if (dump_misses)
+            if (dump_misses && memref.data.type != TRACE_TYPE_HARDWARE_PREFETCH)
                 dump_miss(memref);
         }
     } else { // handle regular memory accesses
