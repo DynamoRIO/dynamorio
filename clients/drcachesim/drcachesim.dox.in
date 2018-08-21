@@ -718,6 +718,8 @@ Software and hardware prefetches are combined in the prefetch hit and miss
 statistics, which are reported separately from regular loads and stores.
 To isolate software prefetch statistics, disable the hardware prefetcher by
 running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
+While misses from software prefetches are included in miss files,
+misses from hardware prefetches are not.
 
 ****************************************************************************
 \section sec_drcachesim_phys Physical Addresses
