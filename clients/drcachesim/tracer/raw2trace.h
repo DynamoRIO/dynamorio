@@ -72,6 +72,126 @@ struct module_t {
 };
 
 /**
+ * instr_summary_t is a compact encapsulation of the information needed by trace
+ * conversion from decoded instructions.
+ */
+struct instr_summary_t final {
+    instr_summary_t()
+    {
+    }
+
+    /**
+     * Populates a pre-allocated instr_summary_t description, from the instruction found
+     * at pc. Updates pc to the next instruction. Optionally logs translation details
+     * (using orig_pc and verbosity).
+     */
+    static bool
+    construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc, OUT instr_summary_t *desc,
+              uint verbosity = 0);
+
+    /**
+     * Get the pc after the instruction that was used to produce this instr_summary_t.
+     */
+    app_pc
+    next_pc() const
+    {
+        return next_pc_;
+    }
+
+private:
+    friend class raw2trace_t;
+
+    byte
+    length() const
+    {
+        return length_;
+    }
+    uint16_t
+    type() const
+    {
+        return type_;
+    }
+    uint16_t
+    prefetch_type() const
+    {
+        return prefetch_type_;
+    }
+
+    bool
+    reads_memory() const
+    {
+        return TESTANY(kReadsMemMask, packed_);
+    }
+    bool
+    writes_memory() const
+    {
+        return TESTANY(kWritesMemMask, packed_);
+    }
+    bool
+    is_prefetch() const
+    {
+        return TESTANY(kIsPrefetchMask, packed_);
+    }
+    bool
+    is_flush() const
+    {
+        return TESTANY(kIsFlushMask, packed_);
+    }
+    bool
+    is_cti() const
+    {
+        return TESTANY(kIsCtiMask, packed_);
+    }
+
+    const opnd_t &
+    mem_src_at(size_t pos) const
+    {
+        return mem_srcs_and_dests_[pos];
+    }
+    const opnd_t &
+    mem_dest_at(size_t pos) const
+    {
+        return mem_srcs_and_dests_[num_mem_srcs_ + pos];
+    }
+    size_t
+    num_mem_srcs() const
+    {
+        return num_mem_srcs_;
+    }
+    size_t
+    num_mem_dests() const
+    {
+        return mem_srcs_and_dests_.size() - num_mem_srcs_;
+    }
+
+    static const int kReadsMemMask = 0x0001;
+    static const int kWritesMemMask = 0x0002;
+    static const int kIsPrefetchMask = 0x0004;
+    static const int kIsFlushMask = 0x0008;
+    static const int kIsCtiMask = 0x0010;
+
+    instr_summary_t(const instr_summary_t &other) = delete;
+    instr_summary_t &
+    operator=(const instr_summary_t &) = delete;
+    instr_summary_t(instr_summary_t &&other) = delete;
+    instr_summary_t &
+    operator=(instr_summary_t &&) = delete;
+
+    uint16_t type_ = 0;
+    uint16_t prefetch_type_ = 0;
+    byte length_ = 0;
+    app_pc next_pc_ = 0;
+
+    // Squash srcs and dests to save memory usage. We may want to
+    // bulk-allocate pages of instr_summary_t objects, instead
+    // of piece-meal allocating them on the heap one at a time.
+    // One vector and a byte is smaller than 2 vectors.
+    std::vector<opnd_t> mem_srcs_and_dests_;
+    uint8_t num_mem_srcs_ = 0;
+    byte packed_ = 0;
+};
+
+/**
  * module_mapper_t maps and unloads application modules.
  * Using it assumes a dr_context has already been setup.
  */
@@ -298,6 +418,8 @@ private:
         void *user_data;
     };
 
+    const instr_summary_t *
+    get_instr_summary(uint64 modx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
     std::string
     read_and_map_modules();
     std::string
@@ -305,8 +427,8 @@ private:
     std::string
     append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled);
     std::string
-    append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr, opnd_t ref,
-                  bool write);
+    append_memref(INOUT trace_entry_t **buf_in, uint tidx, const instr_summary_t *instr,
+                  opnd_t ref, bool write);
     std::string
     append_delayed_branch(uint tidx);
 
