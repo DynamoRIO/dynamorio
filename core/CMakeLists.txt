@@ -784,6 +784,7 @@ if (NOT APPLE)
         --globalize-symbol=__x86.get_pc_thunk.dx
         --globalize-symbol=__x86.get_pc_thunk.di
         --globalize-symbol=__x86.get_pc_thunk.si
+        --globalize-symbol=__x86.get_pc_thunk.bp
         "${dynamorio_dot_o}" &&
         )
     endif ()
