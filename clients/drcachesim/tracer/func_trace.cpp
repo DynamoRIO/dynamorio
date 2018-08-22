@@ -58,6 +58,9 @@
 static int func_trace_init_count;
 
 static func_trace_append_entry_t append_entry;
+// Should always be called after appending a consecutive number of entries
+// in case if the buffer met the redzone after appending entries.
+static func_trace_memtrace_if_redzone_t memtrace_if_redzone;
 static drvector_t funcs;
 static std::string funcs_str, funcs_str_sep;
 
@@ -107,6 +110,7 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
         append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
+    memtrace_if_redzone(drcontext);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -123,6 +127,7 @@ func_post_hook(void *wrapcxt, void *user_data)
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    memtrace_if_redzone(drcontext);
 }
 
 static app_pc
@@ -207,7 +212,8 @@ init_funcs_str_and_sep()
 }
 
 bool
-func_trace_init(func_trace_append_entry_t append_entry_)
+func_trace_init(func_trace_append_entry_t append_entry_,
+                func_trace_memtrace_if_redzone_t memtrace_if_redzone_)
 {
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
@@ -225,6 +231,7 @@ func_trace_init(func_trace_append_entry_t append_entry_)
         goto failed;
     }
     append_entry = append_entry_;
+    memtrace_if_redzone = memtrace_if_redzone_;
 
     for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
