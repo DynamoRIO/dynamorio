@@ -848,17 +848,7 @@ raw2trace_t::check_thread_file(std::istream *f)
     if (!f->read((char *)&ver_entry, sizeof(ver_entry))) {
         return "Unable to read thread log file";
     }
-    if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
-        ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER) {
-        return "Thread log file is corrupted: missing version entry";
-    }
-    if (ver_entry.extended.valueA != OFFLINE_FILE_VERSION) {
-        std::stringstream ss;
-        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
-           << (int)ver_entry.extended.valueA;
-        return ss.str();
-    }
-    return "";
+    return trace_metadata_reader_t::check_entry_thread_start(&ver_entry);
 }
 
 std::string
@@ -1025,4 +1015,65 @@ raw2trace_t::~raw2trace_t()
         }
     }
     hashtable_delete(&decode_cache);
+}
+
+bool
+trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry, std::string *error)
+{
+    *error = "";
+    if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
+        entry->extended.ext != OFFLINE_EXT_TYPE_HEADER) {
+        return false;
+    }
+    if (entry->extended.valueA != OFFLINE_FILE_VERSION) {
+        std::stringstream ss;
+        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
+           << (int)entry->extended.valueA;
+        *error = ss.str();
+        return false;
+    }
+    return true;
+}
+
+std::string
+trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
+{
+    std::string error;
+    if (is_thread_start(entry, &error))
+        return "";
+    if (error.empty())
+        return "Thread log file is corrupted: missing version entry";
+    return error;
+}
+
+drmemtrace_status_t
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
+                                            OUT uint64 *timestamp)
+{
+    if (trace == nullptr || timestamp == nullptr)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    const offline_entry_t *offline_entries =
+        reinterpret_cast<const offline_entry_t *>(trace);
+    size_t size = trace_size / sizeof(offline_entry_t);
+    if (size < 1)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    size_t timestamp_pos = 0;
+    std::string error;
+    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error) &&
+        error.empty()) {
+        if (size < 4)
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
+            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID)
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        ++timestamp_pos;
+    }
+
+    if (offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    *timestamp = offline_entries[timestamp_pos].timestamp.usec;
+    return DRMEMTRACE_SUCCESS;
 }
