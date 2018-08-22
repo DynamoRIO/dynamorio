@@ -230,6 +230,16 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     if (timestamp != timestamp2)
         return false;
     REPORT("Verified boundary conditions");
+
+    offline_entry_t invalid_buffer[4];
+    memset(invalid_buffer, 0, 4 * sizeof(offline_entry_t));
+    if (drmemtrace_get_timestamp_from_offline_trace(invalid_buffer,
+                                                    4 * sizeof(offline_entry_t),
+                                                    &timestamp2) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Verified invalid buffer");
     return true;
 }
 
