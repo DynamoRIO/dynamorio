@@ -192,6 +192,26 @@ private:
 };
 
 /**
+ * Functions for encoding memtrace data headers. Each function returns the number of bytes
+ * the write operation required: sizeof(trace_entry_t). The buffer is assumed to be
+ * sufficiently large.
+ */
+struct instruction_converter_t {
+    static int
+    write_thread_exit(byte *buffer, thread_id_t tid);
+    static int
+    write_marker(byte *buffer, trace_marker_type_t type, uintptr_t val);
+    static int
+    write_iflush(byte *buffer, addr_t start, size_t size);
+    static int
+    write_pid(byte *buffer, process_id_t pid);
+    static int
+    write_tid(byte *buffer, thread_id_t tid);
+    static int
+    write_timestamp(byte *buffer, uint64 timestamp);
+};
+
+/**
  * module_mapper_t maps and unloads application modules.
  * Using it assumes a dr_context has already been setup.
  */
