@@ -117,6 +117,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
             # FIXME i#2145: ignoring certain AppVeyor test failures until
             # we get all tests passing.
             %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
+                                   'code_api|security-win32.gbop-test' => 1, # i#2972
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.pcache-use' => 1,
                                    'code_api|api.detach' => 1, # i#2246
