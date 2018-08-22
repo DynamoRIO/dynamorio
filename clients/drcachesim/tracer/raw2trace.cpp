@@ -70,6 +70,42 @@
         }                                      \
     } while (0)
 
+static online_instru_t instru(NULL, false, NULL);
+
+int
+trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
+{
+    return instru.append_thread_exit(buffer, tid);
+}
+int
+trace_metadata_writer_t::write_marker(byte *buffer, trace_marker_type_t type,
+                                      uintptr_t val)
+{
+    return instru.append_marker(buffer, type, val);
+}
+int
+trace_metadata_writer_t::write_iflush(byte *buffer, addr_t start, size_t size)
+{
+    return instru.append_iflush(buffer, start, size);
+}
+int
+trace_metadata_writer_t::write_pid(byte *buffer, process_id_t pid)
+{
+    return instru.append_pid(buffer, pid);
+}
+int
+trace_metadata_writer_t::write_tid(byte *buffer, thread_id_t tid)
+{
+    return instru.append_tid(buffer, tid);
+}
+int
+trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
+{
+    return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
+                                // Truncated for 32-bit, as documented.
+                                (uintptr_t)timestamp);
+}
+
 /***************************************************************************
  * Module list
  */
@@ -634,7 +670,6 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL, false, NULL);
     bool last_bb_handled = true;
     size_t size;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
@@ -698,15 +733,13 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = next_tidx;
             // Write out the tid (and pid for the first entry).
             DR_ASSERT(tids[tidx] != INVALID_THREAD_ID);
-            buf += instru.append_tid(buf, tids[tidx]);
+            buf += trace_metadata_writer_t::write_tid(buf, tids[tidx]);
             if (!wrote_pid[tidx]) {
                 DR_ASSERT(pids[tidx] != (process_id_t)INVALID_PROCESS_ID);
-                buf += instru.append_pid(buf, pids[tidx]);
+                buf += trace_metadata_writer_t::write_pid(buf, pids[tidx]);
                 wrote_pid[tidx] = true;
             }
-            buf += instru.append_marker(buf, TRACE_MARKER_TYPE_TIMESTAMP,
-                                        // Truncated for 32-bit, as documented.
-                                        (uintptr_t)times[tidx]);
+            buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)times[tidx]);
             // We have to write this now before we append any bb entries.
             size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
@@ -748,13 +781,13 @@ raw2trace_t::merge_and_process_thread_files()
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
-                buf += instru.append_thread_exit(buf, tids[tidx]);
+                buf += trace_metadata_writer_t::write_thread_exit(buf, tids[tidx]);
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
             } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER) {
-                buf += instru.append_marker(buf,
-                                            (trace_marker_type_t)in_entry.extended.valueB,
-                                            (uintptr_t)in_entry.extended.valueA);
+                buf += trace_metadata_writer_t::write_marker(
+                    buf, (trace_marker_type_t)in_entry.extended.valueB,
+                    (uintptr_t)in_entry.extended.valueA);
                 VPRINT(3, "Appended marker type %u value %zu\n",
                        (trace_marker_type_t)in_entry.extended.valueB,
                        (uintptr_t)in_entry.extended.valueA);
@@ -790,8 +823,8 @@ raw2trace_t::merge_and_process_thread_files()
                 return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
-            buf += instru.append_iflush(buf, in_entry.addr.addr,
-                                        (size_t)(entry.addr.addr - in_entry.addr.addr));
+            buf += trace_metadata_writer_t::write_iflush(
+                buf, in_entry.addr.addr, (size_t)(entry.addr.addr - in_entry.addr.addr));
         } else {
             std::stringstream ss;
             ss << "Unknown trace type " << (int)in_entry.timestamp.type;
