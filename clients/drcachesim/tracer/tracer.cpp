@@ -557,7 +557,6 @@ memtrace_if_redzone(void *drcontext)
     }
 }
 
-
 static void
 insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr)
 {
