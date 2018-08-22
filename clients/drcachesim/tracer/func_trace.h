@@ -39,11 +39,13 @@
 
 typedef void (*func_trace_append_entry_t)(void *drcontext, trace_marker_type_t marker,
                                           uintptr_t value);
+typedef void (*func_trace_memtrace_if_redzone_t)(void *drcontext);
 
 // Initializes the func_trace module. Each call must be paired with a
 // corresponding call to func_trace_exit().
 bool
-func_trace_init(func_trace_append_entry_t append_entry_);
+func_trace_init(func_trace_append_entry_t append_entry_,
+                func_trace_memtrace_if_redzone_t memtrace_if_redzone_);
 
 // Cleans up the func_trace module
 void
