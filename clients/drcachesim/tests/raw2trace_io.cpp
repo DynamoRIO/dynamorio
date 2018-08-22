@@ -165,7 +165,7 @@ test_raw2trace(raw2trace_directory_t *dir)
 }
 
 bool
-test_module_mapper(raw2trace_directory_t *dir)
+test_module_mapper(const raw2trace_directory_t *dir)
 {
     module_mapper_t mapper(dir->modfile_bytes);
     EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
@@ -184,6 +184,62 @@ test_module_mapper(raw2trace_directory_t *dir)
     }
     EXPECT(found_simple_app, "Expected app entry not found in module map");
     REPORT("Successfully found app entry");
+    return true;
+}
+
+bool
+test_trace_timestamp_reader(const raw2trace_directory_t *dir)
+{
+    std::istream *file = dir->thread_files[0];
+    // Seek back to the beginning to undo raw2trace_directory_t's validation
+    file->seekg(0);
+    offline_entry_t buffer[4];
+    file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
+
+    std::string error;
+    if (!trace_metadata_reader_t::is_thread_start(buffer, &error) && !error.empty())
+        return false;
+    uint64 timestamp = 0;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
+                                                    &timestamp) != DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp == 0)
+        return false;
+    REPORT("Read timestamp from thread header");
+
+    uint64 timestamp2 = 0;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer + 3, sizeof(offline_entry_t),
+                                                    &timestamp2) != DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Read timestamp without thread header");
+
+    if (drmemtrace_get_timestamp_from_offline_trace(nullptr, 0, &timestamp2) ==
+        DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, 0, &timestamp2) ==
+        DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, sizeof(offline_entry_t),
+                                                    &timestamp2) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
+                                                    nullptr) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Verified boundary conditions");
+
+    offline_entry_t invalid_buffer[4];
+    memset(invalid_buffer, 0, BUFFER_SIZE_BYTES(invalid_buffer));
+    if (drmemtrace_get_timestamp_from_offline_trace(invalid_buffer,
+                                                    BUFFER_SIZE_BYTES(invalid_buffer),
+                                                    &timestamp2) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Verified invalid buffer");
     return true;
 }
 
@@ -207,7 +263,8 @@ main(int argc, const char *argv[])
 
     bool test1_ret = test_raw2trace(dir);
     bool test2_ret = test_module_mapper(dir);
-    if (!(test1_ret && test2_ret))
+    bool test3_ret = test_trace_timestamp_reader(dir);
+    if (!(test1_ret && test2_ret && test3_ret))
         return 1;
     return 0;
 }

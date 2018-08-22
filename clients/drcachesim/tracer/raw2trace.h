@@ -212,6 +212,16 @@ struct trace_metadata_writer_t {
 };
 
 /**
+ * Functions for decoding and verifying raw memtrace data headers.
+ */
+struct trace_metadata_reader_t {
+    static bool
+    is_thread_start(const offline_entry_t *entry, OUT std::string *error);
+    static std::string
+    check_entry_thread_start(const offline_entry_t *entry);
+};
+
+/**
  * module_mapper_t maps and unloads application modules.
  * Using it assumes a dr_context has already been setup.
  */
