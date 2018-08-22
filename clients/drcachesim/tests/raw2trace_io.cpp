@@ -194,13 +194,13 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
     offline_entry_t buffer[4];
-    file->read((char *)buffer, 4 * sizeof(offline_entry_t));
+    file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 
     std::string error;
     if (!trace_metadata_reader_t::is_thread_start(buffer, &error) && !error.empty())
         return false;
     uint64 timestamp = 0;
-    if (drmemtrace_get_timestamp_from_offline_trace(buffer, 4 * sizeof(offline_entry_t),
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
                                                     &timestamp) != DRMEMTRACE_SUCCESS)
         return false;
     if (timestamp == 0)
@@ -224,7 +224,7 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     if (drmemtrace_get_timestamp_from_offline_trace(buffer, sizeof(offline_entry_t),
                                                     &timestamp2) == DRMEMTRACE_SUCCESS)
         return false;
-    if (drmemtrace_get_timestamp_from_offline_trace(buffer, 4 * sizeof(offline_entry_t),
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
                                                     nullptr) == DRMEMTRACE_SUCCESS)
         return false;
     if (timestamp != timestamp2)
@@ -232,9 +232,9 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     REPORT("Verified boundary conditions");
 
     offline_entry_t invalid_buffer[4];
-    memset(invalid_buffer, 0, 4 * sizeof(offline_entry_t));
+    memset(invalid_buffer, 0, BUFFER_SIZE_BYTES(invalid_buffer));
     if (drmemtrace_get_timestamp_from_offline_trace(invalid_buffer,
-                                                    4 * sizeof(offline_entry_t),
+                                                    BUFFER_SIZE_BYTES(invalid_buffer),
                                                     &timestamp2) == DRMEMTRACE_SUCCESS)
         return false;
     if (timestamp != timestamp2)

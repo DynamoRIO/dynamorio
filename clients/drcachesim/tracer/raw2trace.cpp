@@ -1043,12 +1043,11 @@ trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
         return "";
     if (error.empty())
         return "Thread log file is corrupted: missing version entry";
-    ;
     return error;
 }
 
 drmemtrace_status_t
-drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t size,
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
                                             OUT uint64 *timestamp)
 {
     if (trace == nullptr || timestamp == nullptr)
@@ -1056,7 +1055,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t size,
 
     const offline_entry_t *offline_entries =
         reinterpret_cast<const offline_entry_t *>(trace);
-    size = size / sizeof(offline_entry_t);
+    size_t size = trace_size / sizeof(offline_entry_t);
     if (size < 1)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 

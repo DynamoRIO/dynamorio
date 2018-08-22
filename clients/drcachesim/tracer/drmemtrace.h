@@ -277,7 +277,7 @@ DR_EXPORT
  * null or if the trace is too short.
  */
 drmemtrace_status_t
-drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t size,
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
                                             OUT uint64 *timestamp);
 
 #ifdef __cplusplus
