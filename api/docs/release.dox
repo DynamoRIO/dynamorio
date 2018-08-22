@@ -238,14 +238,13 @@ Further non-compatibility-affecting changes include:
    setting up the code cache prior to execution.
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
- - Added module_mapper_t, which factors out of raw2trace_t the module mapping
-   functionality. (Issue #3129). #module_mapper_t replaces the following
-   #raw2trace_t APIs: handle_custom_data(), do_module_parsing(),
-   do_module_parsing_and_mapping(), and find_mapped_trace_address().
- - Added trace_metadata_writer_t, a set of utility functions for writing trace
-   metadata, such as process/thread ids, timestamps, etc. This unblocks moving
-   some raw2trace_t functionality into the header file (in an upcoming reusable
-   template) without requiring pulling unwated dependencies in the header file.
+ - Generalization of the drcachesim #raw2trace_t API (Issue #3129):
+   - Added #module_mapper_t, which factors out the module mapping functionality
+     out of raw2trace_t, replacing the following #raw2trace_t APIs:
+     handle_custom_data(), do_module_parsing(), do_module_parsing_and_mapping(),
+     and find_mapped_trace_address().
+   - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
+     #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
 
 **************************************************
 <hr>
