@@ -104,13 +104,17 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+    if (append_entry != NULL) {
+        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+    }
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
+        if (append_entry != NULL)
+            append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    memtrace_if_redzone(drcontext);
+    if (memtrace_if_redzone != NULL)
+        memtrace_if_redzone(drcontext);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -125,9 +129,13 @@ func_post_hook(void *wrapcxt, void *user_data)
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
-    memtrace_if_redzone(drcontext);
+    if (append_entry != NULL) {
+        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    }
+    if (memtrace_if_redzone != NULL) {
+        memtrace_if_redzone(drcontext);
+    }
 }
 
 static app_pc
@@ -271,6 +279,12 @@ func_trace_init(func_trace_append_entry_t append_entry_,
         DR_ASSERT(false);
         goto failed;
     }
+
+    drwrap_set_global_flags(DRWRAP_NO_FRILLS);
+    drwrap_set_global_flags(DRWRAP_FAST_CLEANCALLS);
+    drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
+    drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS);
+
     if (!drmgr_register_module_load_event(instru_funcs_module_load)) {
         DR_ASSERT(false);
         goto failed;
