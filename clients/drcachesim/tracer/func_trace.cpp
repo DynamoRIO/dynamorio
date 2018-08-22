@@ -104,17 +104,13 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-    if (append_entry != NULL) {
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
-    }
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        if (append_entry != NULL)
-            append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
+        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    if (memtrace_if_redzone != NULL)
-        memtrace_if_redzone(drcontext);
+    memtrace_if_redzone(drcontext);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -129,13 +125,9 @@ func_post_hook(void *wrapcxt, void *user_data)
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    if (append_entry != NULL) {
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
-    }
-    if (memtrace_if_redzone != NULL) {
-        memtrace_if_redzone(drcontext);
-    }
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    memtrace_if_redzone(drcontext);
 }
 
 static app_pc
@@ -223,6 +215,9 @@ bool
 func_trace_init(func_trace_append_entry_t append_entry_,
                 func_trace_memtrace_if_redzone_t memtrace_if_redzone_)
 {
+    if (append_entry_ == NULL || memtrace_if_redzone_ == NULL)
+        return false;
+
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
 
