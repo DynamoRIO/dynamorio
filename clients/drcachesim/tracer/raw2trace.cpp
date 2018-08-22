@@ -70,41 +70,37 @@
         }                                      \
     } while (0)
 
+static online_instru_t instru(NULL, false, NULL);
+
 int
-instruction_converter_t::write_thread_exit(byte *buffer, thread_id_t tid)
+trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_thread_exit(buffer, tid);
 }
 int
-instruction_converter_t::write_marker(byte *buffer, trace_marker_type_t type,
+trace_metadata_writer_t::write_marker(byte *buffer, trace_marker_type_t type,
                                       uintptr_t val)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_marker(buffer, type, val);
 }
 int
-instruction_converter_t::write_iflush(byte *buffer, addr_t start, size_t size)
+trace_metadata_writer_t::write_iflush(byte *buffer, addr_t start, size_t size)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_iflush(buffer, start, size);
 }
 int
-instruction_converter_t::write_pid(byte *buffer, process_id_t pid)
+trace_metadata_writer_t::write_pid(byte *buffer, process_id_t pid)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_pid(buffer, pid);
 }
 int
-instruction_converter_t::write_tid(byte *buffer, thread_id_t tid)
+trace_metadata_writer_t::write_tid(byte *buffer, thread_id_t tid)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_tid(buffer, tid);
 }
 int
-instruction_converter_t::write_timestamp(byte *buffer, uint64 timestamp)
+trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 {
-    online_instru_t instru(NULL, false, NULL);
     return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
                                 // Truncated for 32-bit, as documented.
                                 (uintptr_t)timestamp);
@@ -737,13 +733,13 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = next_tidx;
             // Write out the tid (and pid for the first entry).
             DR_ASSERT(tids[tidx] != INVALID_THREAD_ID);
-            buf += instruction_converter_t::write_tid(buf, tids[tidx]);
+            buf += trace_metadata_writer_t::write_tid(buf, tids[tidx]);
             if (!wrote_pid[tidx]) {
                 DR_ASSERT(pids[tidx] != (process_id_t)INVALID_PROCESS_ID);
-                buf += instruction_converter_t::write_pid(buf, pids[tidx]);
+                buf += trace_metadata_writer_t::write_pid(buf, pids[tidx]);
                 wrote_pid[tidx] = true;
             }
-            buf += instruction_converter_t::write_timestamp(buf, (uintptr_t)times[tidx]);
+            buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)times[tidx]);
             // We have to write this now before we append any bb entries.
             size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
@@ -785,11 +781,11 @@ raw2trace_t::merge_and_process_thread_files()
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
-                buf += instruction_converter_t::write_thread_exit(buf, tids[tidx]);
+                buf += trace_metadata_writer_t::write_thread_exit(buf, tids[tidx]);
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
             } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER) {
-                buf += instruction_converter_t::write_marker(
+                buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry.extended.valueB,
                     (uintptr_t)in_entry.extended.valueA);
                 VPRINT(3, "Appended marker type %u value %zu\n",
@@ -827,7 +823,7 @@ raw2trace_t::merge_and_process_thread_files()
                 return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
-            buf += instruction_converter_t::write_iflush(
+            buf += trace_metadata_writer_t::write_iflush(
                 buf, in_entry.addr.addr, (size_t)(entry.addr.addr - in_entry.addr.addr));
         } else {
             std::stringstream ss;

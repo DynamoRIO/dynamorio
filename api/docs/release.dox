@@ -242,6 +242,10 @@ Further non-compatibility-affecting changes include:
    functionality. (Issue #3129). #module_mapper_t replaces the following
    #raw2trace_t APIs: handle_custom_data(), do_module_parsing(),
    do_module_parsing_and_mapping(), and find_mapped_trace_address().
+ - Added trace_metadata_writer_t, a set of utility functions for writing trace
+   metadata, such as process/thread ids, timestamps, etc. This unblocks moving
+   some raw2trace_t functionality into the header file (in an upcoming reusable
+   template) without requiring pulling unwated dependencies in the header file.
 
 **************************************************
 <hr>

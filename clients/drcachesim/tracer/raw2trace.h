@@ -196,7 +196,7 @@ private:
  * the write operation required: sizeof(trace_entry_t). The buffer is assumed to be
  * sufficiently large.
  */
-struct instruction_converter_t {
+struct trace_metadata_writer_t {
     static int
     write_thread_exit(byte *buffer, thread_id_t tid);
     static int
