@@ -245,6 +245,11 @@ Further non-compatibility-affecting changes include:
      and find_mapped_trace_address().
    - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
      #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
+   - Added #trace_metadata_reader_t, a set of utilities for checking and validating
+     thread start successions of offline entries in a raw data file.
+ - Added drmemtrace_get_timestamp_from_offline_trace, an API for fetching the timestamp
+   from the beginning of a raw trace bundle (regardless of whether it is a thread start
+   or just a subsequent bundle)
 
 **************************************************
 <hr>
