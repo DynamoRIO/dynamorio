@@ -856,18 +856,20 @@ raw2trace_t::process_offline_entry(const offline_entry_t *in_entry, thread_id_t 
 std::string
 raw2trace_t::read_header(OUT trace_header_t *header)
 {
-    const offline_entry_t *in_entry;
-    if (!(in_entry = impl()->get_next_entry()))
+    const offline_entry_t *in_entry = impl()->get_next_entry();
+    if (in_entry == nullptr)
         return "Failed to read header from input file";
     // Handle legacy traces which have the timestamp first.
     if (in_entry->tid.type == OFFLINE_TYPE_TIMESTAMP) {
         header->timestamp = in_entry->timestamp.usec;
-        if (!(in_entry = impl()->get_next_entry()))
+        in_entry = impl()->get_next_entry();
+        if (in_entry == nullptr)
             return "Failed to read header from input file";
     }
     DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
     header->tid = in_entry->tid.tid;
-    if (!(in_entry = impl()->get_next_entry()))
+    in_entry = impl()->get_next_entry();
+    if (in_entry == nullptr)
         return "Failed to read header from input file";
     DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
     header->pid = in_entry->pid.pid;
