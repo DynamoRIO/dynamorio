@@ -375,7 +375,7 @@ droption_t<std::string> op_record_function(
     " return value. The trace is labeled with the function_id via an ID entry"
     " prior to each set of value entries."
     " If the target function is in the dynamic symbol table, then the function_name"
-    " should be a mangled name (i.e. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
+    " should be a mangled name (e.g. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
     " \"operator delete\"). Otherwise, the function_name should be a demangled name."
     " Recording multiple functions can be achieved by using the separator"
     " \"" OP_RECORD_FUNC_ITEM_SEP
