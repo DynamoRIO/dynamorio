@@ -770,7 +770,7 @@ raw2trace_t::merge_and_process_thread_files()
                  .empty())
             return result;
         if (end_of_record)
-            tidx = thread_files.size();
+            tidx = static_cast<uint>(thread_files.size());
 
     } while (thread_count > 0);
     return "";
