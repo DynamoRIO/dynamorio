@@ -57,7 +57,7 @@ my_setenv(const char *var, const char *value)
 static int
 do_some_work(int arg)
 {
-    static const int iters = 10;
+    static const int iters = 1000;
     double **vals = (double **)calloc(iters, sizeof(double *));
     double *val = new double;  // libc malloc is called inside new
     *val = arg;
