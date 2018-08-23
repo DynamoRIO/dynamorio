@@ -784,6 +784,7 @@ if (NOT APPLE)
         --globalize-symbol=__x86.get_pc_thunk.dx
         --globalize-symbol=__x86.get_pc_thunk.di
         --globalize-symbol=__x86.get_pc_thunk.si
+        --globalize-symbol=__x86.get_pc_thunk.bp
         "${dynamorio_dot_o}" &&
         )
     endif ()
@@ -852,8 +853,10 @@ endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
 copy_target_to_device(${PRELOAD_NAME})
 
+# drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
+# functions.
 set_target_properties(${PRELOAD_NAME} PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD -DDR_NO_FAST_IR")
 
 if (UNIX)
   # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)

@@ -70,12 +70,41 @@
         }                                      \
     } while (0)
 
-#define DO_VERBOSE(level, x)              \
-    do {                                  \
-        if (this->verbosity >= (level)) { \
-            x; /* ; makes vera++ happy */ \
-        }                                 \
-    } while (0)
+static online_instru_t instru(NULL, false, NULL);
+
+int
+trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
+{
+    return instru.append_thread_exit(buffer, tid);
+}
+int
+trace_metadata_writer_t::write_marker(byte *buffer, trace_marker_type_t type,
+                                      uintptr_t val)
+{
+    return instru.append_marker(buffer, type, val);
+}
+int
+trace_metadata_writer_t::write_iflush(byte *buffer, addr_t start, size_t size)
+{
+    return instru.append_iflush(buffer, start, size);
+}
+int
+trace_metadata_writer_t::write_pid(byte *buffer, process_id_t pid)
+{
+    return instru.append_pid(buffer, pid);
+}
+int
+trace_metadata_writer_t::write_tid(byte *buffer, thread_id_t tid)
+{
+    return instru.append_tid(buffer, tid);
+}
+int
+trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
+{
+    return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
+                                // Truncated for 32-bit, as documented.
+                                (uintptr_t)timestamp);
+}
 
 /***************************************************************************
  * Module list
@@ -422,8 +451,8 @@ raw2trace_t::thread_file_at_eof(uint tidx)
 // Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
 // Any other non-empty string is a fatal error.
 std::string
-raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *instr,
-                           opnd_t ref, bool write)
+raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
+                           const instr_summary_t *instr, opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
     offline_entry_t in_entry;
@@ -458,10 +487,10 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx, instr_t *ins
         return "";
     }
     if (!have_type) {
-        if (instr_is_prefetch(instr)) {
-            buf->type = instru_t::instr_to_prefetch_type(instr);
+        if (instr->is_prefetch()) {
+            buf->type = instr->prefetch_type();
             buf->size = 1;
-        } else if (instru_t::instr_is_flush(instr)) {
+        } else if (instr->is_flush()) {
             buf->type = TRACE_TYPE_DATA_FLUSH;
             buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
         } else {
@@ -504,7 +533,7 @@ std::string
 raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled)
 {
     uint instr_count = in_entry->pc.instr_count;
-    instr_t *instr;
+    const instr_summary_t *instr;
     trace_entry_t buf_start[MAX_COMBINED_ENTRIES];
     app_pc start_pc = modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
     app_pc pc, decode_pc = start_pc;
@@ -538,29 +567,16 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             modvec()[in_entry->pc.modidx].orig_base;
         // To avoid repeatedly decoding the same instruction on every one of its
         // dynamic executions, we cache the decoding in a hashtable.
-        instr = (instr_t *)hashtable_lookup(&decode_cache, decode_pc);
-        if (instr == NULL) {
-            instr = instr_create(dcontext);
-            // We assume the default ISA mode and currently require the 32-bit
-            // postprocessor for 32-bit applications.
-            pc = decode(dcontext, decode_pc, instr);
-            if (pc == NULL || !instr_valid(instr)) {
-                WARN("Encountered invalid/undecodable instr @ %s+" PFX,
-                     modvec()[in_entry->pc.modidx].path,
-                     (ptr_uint_t)in_entry->pc.modoffs);
-                break;
-            }
-            hashtable_add(&decode_cache, decode_pc, instr);
-        } else {
-            pc = instr_get_raw_bits(instr) + instr_length(dcontext, instr);
+        pc = decode_pc;
+        instr =
+            get_instr_summary(in_entry->pc.modidx, in_entry->pc.modoffs, &pc, orig_pc);
+        if (instr == nullptr) {
+            // We hit some error somewhere, and already reported it. Just exit the loop.
+            break;
         }
-        DO_VERBOSE(3, {
-            instr_set_translation(instr, orig_pc);
-            dr_print_instr(dcontext, STDOUT, instr, "");
-        });
-        CHECK(!instr_is_cti(instr) || i == instr_count - 1, "invalid cti");
+        CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
         // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        buf->type = instru_t::instr_to_instr_type(instr);
+        buf->type = instr->type();
         if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
             // We want it to look like the original rep string, with just one instr
             // fetch for the whole loop, instead of the drutil-expanded loop.
@@ -577,7 +593,7 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
             }
         } else
             prev_instr_was_rep_string = false;
-        buf->size = (ushort)(skip_icache ? 0 : instr_length(dcontext, instr));
+        buf->size = (ushort)(skip_icache ? 0 : instr->length());
         buf->addr = (addr_t)orig_pc;
         ++buf;
         decode_pc = pc;
@@ -585,32 +601,28 @@ raw2trace_t::append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *h
         // There is no following memref for (instrs_are_separate && !skip_icache).
         if ((!instrs_are_separate || skip_icache) &&
             // Rule out OP_lea.
-            (instr_reads_memory(instr) || instr_writes_memory(instr))) {
-            for (int j = 0; j < instr_num_srcs(instr); j++) {
-                if (opnd_is_memory_reference(instr_get_src(instr, j))) {
-                    std::string error =
-                        append_memref(&buf, tidx, instr, instr_get_src(instr, j), false);
-                    if (error == FAULT_INTERRUPTED_BB) {
-                        truncated = true;
-                        break;
-                    } else if (!error.empty())
-                        return error;
-                }
+            (instr->reads_memory() || instr->writes_memory())) {
+            for (uint j = 0; j < instr->num_mem_srcs(); j++) {
+                std::string error =
+                    append_memref(&buf, tidx, instr, instr->mem_src_at(j), false);
+                if (error == FAULT_INTERRUPTED_BB) {
+                    truncated = true;
+                    break;
+                } else if (!error.empty())
+                    return error;
             }
-            for (int j = 0; !truncated && j < instr_num_dsts(instr); j++) {
-                if (opnd_is_memory_reference(instr_get_dst(instr, j))) {
-                    std::string error =
-                        append_memref(&buf, tidx, instr, instr_get_dst(instr, j), true);
-                    if (error == FAULT_INTERRUPTED_BB) {
-                        truncated = true;
-                        break;
-                    } else if (!error.empty())
-                        return error;
-                }
+            for (uint j = 0; !truncated && j < instr->num_mem_dests(); j++) {
+                std::string error =
+                    append_memref(&buf, tidx, instr, instr->mem_dest_at(j), true);
+                if (error == FAULT_INTERRUPTED_BB) {
+                    truncated = true;
+                    break;
+                } else if (!error.empty())
+                    return error;
             }
         }
         CHECK((size_t)(buf - buf_start) < MAX_COMBINED_ENTRIES, "Too many entries");
-        if (instr_is_cti(instr)) {
+        if (instr->is_cti()) {
             CHECK(delayed_branch[tidx].empty(), "Failed to flush delayed branch");
             // In case this is the last branch prior to a thread switch, buffer it.  We
             // avoid swapping threads immediately after a branch so that analyzers can
@@ -658,7 +670,6 @@ raw2trace_t::merge_and_process_thread_files()
     uint tidx = (uint)thread_files.size();
     uint thread_count = (uint)thread_files.size();
     offline_entry_t in_entry;
-    online_instru_t instru(NULL, false, NULL);
     bool last_bb_handled = true;
     size_t size;
     std::vector<thread_id_t> tids(thread_files.size(), INVALID_THREAD_ID);
@@ -722,15 +733,13 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = next_tidx;
             // Write out the tid (and pid for the first entry).
             DR_ASSERT(tids[tidx] != INVALID_THREAD_ID);
-            buf += instru.append_tid(buf, tids[tidx]);
+            buf += trace_metadata_writer_t::write_tid(buf, tids[tidx]);
             if (!wrote_pid[tidx]) {
                 DR_ASSERT(pids[tidx] != (process_id_t)INVALID_PROCESS_ID);
-                buf += instru.append_pid(buf, pids[tidx]);
+                buf += trace_metadata_writer_t::write_pid(buf, pids[tidx]);
                 wrote_pid[tidx] = true;
             }
-            buf += instru.append_marker(buf, TRACE_MARKER_TYPE_TIMESTAMP,
-                                        // Truncated for 32-bit, as documented.
-                                        (uintptr_t)times[tidx]);
+            buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)times[tidx]);
             // We have to write this now before we append any bb entries.
             size = buf - buf_base;
             CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
@@ -772,13 +781,13 @@ raw2trace_t::merge_and_process_thread_files()
                     return "Footer is not the final entry";
                 CHECK(tids[tidx] != INVALID_THREAD_ID, "Missing thread id");
                 VPRINT(2, "Thread %d exit\n", (uint)tids[tidx]);
-                buf += instru.append_thread_exit(buf, tids[tidx]);
+                buf += trace_metadata_writer_t::write_thread_exit(buf, tids[tidx]);
                 --thread_count;
                 tidx = (uint)thread_files.size(); // Request thread scan.
             } else if (in_entry.extended.ext == OFFLINE_EXT_TYPE_MARKER) {
-                buf += instru.append_marker(buf,
-                                            (trace_marker_type_t)in_entry.extended.valueB,
-                                            (uintptr_t)in_entry.extended.valueA);
+                buf += trace_metadata_writer_t::write_marker(
+                    buf, (trace_marker_type_t)in_entry.extended.valueB,
+                    (uintptr_t)in_entry.extended.valueA);
                 VPRINT(3, "Appended marker type %u value %zu\n",
                        (trace_marker_type_t)in_entry.extended.valueB,
                        (uintptr_t)in_entry.extended.valueA);
@@ -814,8 +823,8 @@ raw2trace_t::merge_and_process_thread_files()
                 return "Flush missing 2nd entry";
             VPRINT(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry.addr.addr,
                    (ptr_uint_t)entry.addr.addr);
-            buf += instru.append_iflush(buf, in_entry.addr.addr,
-                                        (size_t)(entry.addr.addr - in_entry.addr.addr));
+            buf += trace_metadata_writer_t::write_iflush(
+                buf, in_entry.addr.addr, (size_t)(entry.addr.addr - in_entry.addr.addr));
         } else {
             std::stringstream ss;
             ss << "Unknown trace type " << (int)in_entry.timestamp.type;
@@ -839,17 +848,7 @@ raw2trace_t::check_thread_file(std::istream *f)
     if (!f->read((char *)&ver_entry, sizeof(ver_entry))) {
         return "Unable to read thread log file";
     }
-    if (ver_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
-        ver_entry.extended.ext != OFFLINE_EXT_TYPE_HEADER) {
-        return "Thread log file is corrupted: missing version entry";
-    }
-    if (ver_entry.extended.valueA != OFFLINE_FILE_VERSION) {
-        std::stringstream ss;
-        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
-           << (int)ver_entry.extended.valueA;
-        return ss.str();
-    }
-    return "";
+    return trace_metadata_reader_t::check_entry_thread_start(&ver_entry);
 }
 
 std::string
@@ -876,6 +875,99 @@ raw2trace_t::do_conversion()
         return "Failed to write footer to output file";
     VPRINT(1, "Successfully converted %zu thread files\n", thread_files.size());
     return "";
+}
+
+const instr_summary_t *
+raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
+                               app_pc orig)
+{
+    const app_pc decode_pc = *pc;
+    const instr_summary_t *ret =
+        static_cast<const instr_summary_t *>(hashtable_lookup(&decode_cache, decode_pc));
+    if (ret == nullptr) {
+        instr_summary_t *desc = new instr_summary_t();
+        if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
+            WARN("Encountered invalid/undecodable instr @ %s+" PFX,
+                 modvec()[static_cast<size_t>(modidx)].path, (ptr_uint_t)modoffs);
+            return nullptr;
+        }
+        hashtable_add(&decode_cache, decode_pc, desc);
+        ret = desc;
+    } else {
+        /* XXX i#3129: Log some rendering of the instruction summary that will be
+         * returned.
+         */
+        *pc = ret->next_pc();
+    }
+    return ret;
+}
+
+bool
+instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
+                           OUT instr_summary_t *desc, uint verbosity)
+{
+    struct instr_destroy_t {
+        instr_destroy_t(void *dcontext_in, instr_t *instr_in)
+            : dcontext(dcontext_in)
+            , instr(instr_in)
+        {
+        }
+        void *dcontext;
+        instr_t *instr;
+        ~instr_destroy_t()
+        {
+            instr_destroy(dcontext, instr);
+        }
+    };
+
+    instr_t *instr = instr_create(dcontext);
+    instr_destroy_t instr_collector(dcontext, instr);
+
+    *pc = decode(dcontext, *pc, instr);
+    if (*pc == nullptr || !instr_valid(instr)) {
+        return false;
+    }
+    if (verbosity > 3) {
+        instr_set_translation(instr, orig_pc);
+        dr_print_instr(dcontext, STDOUT, instr, "");
+    }
+    desc->next_pc_ = *pc;
+    desc->packed_ = 0;
+
+    bool is_prefetch = instr_is_prefetch(instr);
+    bool reads_memory = instr_reads_memory(instr);
+    bool writes_memory = instr_writes_memory(instr);
+
+    if (reads_memory)
+        desc->packed_ |= kReadsMemMask;
+    if (writes_memory)
+        desc->packed_ |= kWritesMemMask;
+    if (is_prefetch)
+        desc->packed_ |= kIsPrefetchMask;
+    if (instru_t::instr_is_flush(instr))
+        desc->packed_ |= kIsFlushMask;
+    if (instr_is_cti(instr))
+        desc->packed_ |= kIsCtiMask;
+
+    desc->type_ = instru_t::instr_to_instr_type(instr);
+    desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
+    desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
+
+    if (reads_memory || writes_memory) {
+        for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
+            opnd_t op = instr_get_src(instr, i);
+            if (opnd_is_memory_reference(op))
+                desc->mem_srcs_and_dests_.push_back(op);
+        }
+        desc->num_mem_srcs_ = static_cast<uint8_t>(desc->mem_srcs_and_dests_.size());
+
+        for (int i = 0, e = instr_num_dsts(instr); i < e; ++i) {
+            opnd_t op = instr_get_dst(instr, i);
+            if (opnd_is_memory_reference(op))
+                desc->mem_srcs_and_dests_.push_back(op);
+        }
+    }
+    return true;
 }
 
 raw2trace_t::raw2trace_t(const char *module_map_in,
@@ -919,8 +1011,69 @@ raw2trace_t::~raw2trace_t()
     // so we have to explicitly free the payloads.
     for (uint i = 0; i < HASHTABLE_SIZE(decode_cache.table_bits); i++) {
         for (hash_entry_t *e = decode_cache.table[i]; e != NULL; e = e->next) {
-            instr_destroy(dcontext, (instr_t *)e->payload);
+            delete (static_cast<instr_summary_t *>(e->payload));
         }
     }
     hashtable_delete(&decode_cache);
+}
+
+bool
+trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry, std::string *error)
+{
+    *error = "";
+    if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
+        entry->extended.ext != OFFLINE_EXT_TYPE_HEADER) {
+        return false;
+    }
+    if (entry->extended.valueA != OFFLINE_FILE_VERSION) {
+        std::stringstream ss;
+        ss << "Version mismatch: expect " << OFFLINE_FILE_VERSION << " vs "
+           << (int)entry->extended.valueA;
+        *error = ss.str();
+        return false;
+    }
+    return true;
+}
+
+std::string
+trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
+{
+    std::string error;
+    if (is_thread_start(entry, &error))
+        return "";
+    if (error.empty())
+        return "Thread log file is corrupted: missing version entry";
+    return error;
+}
+
+drmemtrace_status_t
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
+                                            OUT uint64 *timestamp)
+{
+    if (trace == nullptr || timestamp == nullptr)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    const offline_entry_t *offline_entries =
+        reinterpret_cast<const offline_entry_t *>(trace);
+    size_t size = trace_size / sizeof(offline_entry_t);
+    if (size < 1)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    size_t timestamp_pos = 0;
+    std::string error;
+    if (trace_metadata_reader_t::is_thread_start(offline_entries, &error) &&
+        error.empty()) {
+        if (size < 4)
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
+            offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID)
+            return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+        ++timestamp_pos;
+    }
+
+    if (offline_entries[timestamp_pos].timestamp.type != OFFLINE_TYPE_TIMESTAMP)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+    *timestamp = offline_entries[timestamp_pos].timestamp.usec;
+    return DRMEMTRACE_SUCCESS;
 }
