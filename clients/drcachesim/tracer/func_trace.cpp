@@ -57,10 +57,7 @@
 
 static int func_trace_init_count;
 
-static func_trace_append_entry_t append_entry;
-// Should always be called after appending a consecutive number of entries
-// in case if the buffer met the redzone after appending entries.
-static func_trace_memtrace_if_redzone_t memtrace_if_redzone;
+static func_trace_append_entry_vec_t append_entry_vec;
 static drvector_t funcs;
 static std::string funcs_str, funcs_str_sep;
 
@@ -92,6 +89,17 @@ free_func_entry(void *entry)
     delete_func_metadata((func_metadata_t *)entry);
 }
 
+static inline bool add_to_vector(func_trace_entry_vector_t *vec,
+                                 trace_marker_type_t marker_type, uintptr_t marker_value)
+{
+    if (vec->size >= MAX_FUNC_TRACE_ENTRY_VEC_CAP)
+        return false;
+    vec->marker_types[vec->size] = marker_type;
+    vec->marker_values[vec->size] = marker_value;
+    vec->size++;
+    return true;
+}
+
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
 //       (e.g., STL, libc, etc.)
 static void
@@ -101,16 +109,19 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     if (drcontext == NULL)
         return;
 
+    func_trace_entry_vector_t vec;
+    vec.size = 0;
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+
+    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
+        add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    memtrace_if_redzone(drcontext);
+    append_entry_vec(drcontext, &vec);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -122,12 +133,14 @@ func_post_hook(void *wrapcxt, void *user_data)
     if (drcontext == NULL)
         return;
 
+    func_trace_entry_vector_t vec;
+    vec.size = 0;
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
-    memtrace_if_redzone(drcontext);
+    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    append_entry_vec(drcontext, &vec);
 }
 
 static app_pc
@@ -212,10 +225,9 @@ init_funcs_str_and_sep()
 }
 
 bool
-func_trace_init(func_trace_append_entry_t append_entry_,
-                func_trace_memtrace_if_redzone_t memtrace_if_redzone_)
+func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
 {
-    if (append_entry_ == NULL || memtrace_if_redzone_ == NULL)
+    if (append_entry_vec_ == NULL)
         return false;
 
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
@@ -233,8 +245,7 @@ func_trace_init(func_trace_append_entry_t append_entry_,
         DR_ASSERT(false);
         goto failed;
     }
-    append_entry = append_entry_;
-    memtrace_if_redzone = memtrace_if_redzone_;
+    append_entry_vec = append_entry_vec_;
 
     for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
@@ -257,6 +268,11 @@ func_trace_init(func_trace_append_entry_t append_entry_,
                    "Warning: duplicated function id in -record_function or"
                    " -record_heap_value, input=%s\n",
                    funcs_str.c_str());
+            continue;
+        }
+        if (arg_num > MAX_FUNC_TRACE_ENTRY_VEC_CAP - 2) {
+            NOTIFY(0, "arg_num of the function %s should not be larger than %d\n",
+                   funcs_str.c_str(), MAX_FUNC_TRACE_ENTRY_VEC_CAP - 2);
             continue;
         }
 

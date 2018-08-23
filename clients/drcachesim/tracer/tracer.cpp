@@ -533,21 +533,15 @@ clean_call(void)
  */
 
 static void
-append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t value)
+append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (data->seg_base == NULL)
         return; /* This thread was filtered out. */
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker, value);
-}
-
-static void
-memtrace_if_redzone(void *drcontext)
-{
-    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (data->seg_base == NULL)
-        return; /* This thread was filtered out. */
+    for (int i = 0; i < vec->size; i++) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), vec->marker_types[i], vec->marker_values[i]);
+    }
     if (file_ops_func.handoff_buf == NULL) {
         byte *buf_ptr = BUF_PTR(data->seg_base);
         byte *redzone = data->buf_base + trace_buf_size;
@@ -1724,7 +1718,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
 
-    if (!func_trace_init(append_marker_seg_base, memtrace_if_redzone))
+    if (!func_trace_init(append_marker_seg_base))
         DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);

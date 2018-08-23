@@ -37,15 +37,20 @@
 
 #include "trace_entry.h"
 
-typedef void (*func_trace_append_entry_t)(void *drcontext, trace_marker_type_t marker,
-                                          uintptr_t value);
-typedef void (*func_trace_memtrace_if_redzone_t)(void *drcontext);
+#define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
+
+typedef struct {
+    int size;
+    trace_marker_type_t marker_types[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
+    uintptr_t marker_values[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
+} func_trace_entry_vector_t;
+
+typedef void (*func_trace_append_entry_vec_t)(void *, func_trace_entry_vector_t *);
 
 // Initializes the func_trace module. Each call must be paired with a
 // corresponding call to func_trace_exit().
 bool
-func_trace_init(func_trace_append_entry_t append_entry_,
-                func_trace_memtrace_if_redzone_t memtrace_if_redzone_);
+func_trace_init(func_trace_append_entry_vec_t append_entry_vec_);
 
 // Cleans up the func_trace module
 void
