@@ -228,7 +228,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
 
         if (!cache->init((int)cache_config.assoc, (int)knobs.line_size,
                          (int)cache_config.size, parent,
-                         new cache_stats_t("", warmup_enabled),
+                         new cache_stats_t(cache_config.miss_file, warmup_enabled),
                          cache_config.prefetcher == PREFETCH_POLICY_NEXTLINE
                              ? new prefetcher_t((int)knobs.line_size)
                              : nullptr,
