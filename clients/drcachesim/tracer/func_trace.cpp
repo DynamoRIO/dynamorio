@@ -160,8 +160,8 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
         drsym_error_t err =
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
         if (err != DRSYM_SUCCESS) {
-            err =
-                drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_LEAVE_MANGLED);
+            err = drsym_lookup_symbol(mod->full_path, symbol, &offset,
+                                      DRSYM_LEAVE_MANGLED);
         }
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;

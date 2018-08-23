@@ -100,9 +100,9 @@ basic_counts_t::process_memref(const memref_t &memref)
         } else {
             switch (memref.marker.marker_type) {
             case TRACE_MARKER_TYPE_FUNC_ID:
+                std::cout << "id = " << memref.marker.marker_value << std::endl;
                 ++total_func_id_markers;
                 ++thread_func_id_markers[memref.data.tid];
-                ++func_id_count[memref.marker.marker_value];
                 break;
             case TRACE_MARKER_TYPE_FUNC_RETADDR:
                 ++total_func_retaddr_markers;
@@ -157,14 +157,6 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total_func_retval_markers
               << " total function return value markers\n";
     std::cerr << std::setw(12) << total_other_markers << " total other markers\n";
-
-    if (!func_id_count.empty()) {
-        std::cerr << std::setw(12) << "func id count\n";
-        for (const auto &keyvals : func_id_count) {
-            std::cerr << std::setw(14) << "id " << keyvals.first << " count "
-                      << keyvals.second << "\n";
-        }
-    }
 
     // Print the threads sorted by instrs.
     std::vector<std::pair<memref_tid_t, int_least64_t>> sorted(thread_instrs.begin(),

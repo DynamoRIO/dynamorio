@@ -34,7 +34,6 @@
 #define _BASIC_COUNTS_H_ 1
 
 #include <unordered_map>
-#include <map>
 #include <string>
 
 #include "analysis_tool.h"
@@ -62,7 +61,6 @@ protected:
     int_least64_t total_func_arg_markers;
     int_least64_t total_func_retval_markers;
     int_least64_t total_other_markers;
-    std::map<int_least64_t, int_least64_t> func_id_count;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
     std::unordered_map<memref_tid_t, int_least64_t> thread_instrs_nofetch;
     std::unordered_map<memref_tid_t, int_least64_t> thread_prefetches;

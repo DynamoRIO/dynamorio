@@ -54,34 +54,30 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
-class ValueHolder {
-public:
-    ValueHolder(double v) : value(v) {}
-    double value;
-};
-
 static int
 do_some_work(int arg)
 {
-    static const int iters = 1000;
+    static const int iters = 10;
     double **vals = (double **)calloc(iters, sizeof(double *));
-    // "__libc_malloc" is called inside "operator new"
-    ValueHolder *holder = new ValueHolder(arg);
+    double *val = new double;  // libc malloc is called inside new
+    *val = arg;
+
+    delete new double;
 
     for (int i = 0; i < iters; ++i) {
         vals[i] = (double *)malloc(sizeof(double));
-        *vals[i] = sin(holder->value );
-        holder->value  += *vals[i];
+        *vals[i] = sin(*val);
+        *val += *vals[i];
     }
     for (int i = 0; i < iters; i++) {
-        holder->value += *vals[i];
+        *val += *vals[i];
     }
     for (int i = 0; i < iters; i++) {
         free(vals[i]);
     }
     free(vals);
-    double temp = holder->value;
-    delete holder; // "__libc_free" is called inside "operator delete"
+    double temp = *val;
+    delete val;  // libc free is called inside delete
     return (temp > 0);
 }
 

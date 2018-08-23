@@ -542,13 +542,6 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), vec->marker_types[i], vec->marker_values[i]);
     }
-    if (file_ops_func.handoff_buf == NULL) {
-        byte *buf_ptr = BUF_PTR(data->seg_base);
-        byte *redzone = data->buf_base + trace_buf_size;
-        if (buf_ptr > redzone) {
-            memtrace(drcontext, false);
-        }
-    }
 }
 
 static void

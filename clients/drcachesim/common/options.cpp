@@ -375,7 +375,8 @@ droption_t<std::string> op_record_function(
     " return value. The trace is labeled with the function_id via an ID entry"
     " prior to each set of value entries."
     " If the target function is in the dynamic symbol table, then the function_name"
-    " should be a mangled name. Otherwise, the function_name should be a demangled name."
+    " should be a mangled name (i.e. \"_Znwm\" for \"operator new\", \"_ZdlPv\" for"
+    " \"operator delete\"). Otherwise, the function_name should be a demangled name."
     " Recording multiple functions can be achieved by using the separator"
     " \"" OP_RECORD_FUNC_ITEM_SEP
     "\" (e.g., -record_function \"memset|10|3" OP_RECORD_FUNC_ITEM_SEP
@@ -392,15 +393,12 @@ droption_t<bool> op_record_heap(
     " functions in -record_heap_value. Specifying this option is equivalent to"
     " -record_function [heap_functions], where [heap_functions] is"
     " the value in -record_heap_value.");
-// Note: "_Znwm" and "_ZdlPv" are the mangled names for "operator new" and
-//       "operator delete"
 droption_t<std::string> op_record_heap_value(
     DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|0|1" OP_RECORD_FUNC_ITEM_SEP "free|1|1" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|2|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|3|1" OP_RECORD_FUNC_ITEM_SEP
     "__libc_malloc|4|1" OP_RECORD_FUNC_ITEM_SEP "__libc_free|5|1" OP_RECORD_FUNC_ITEM_SEP
-    "_Znwm|10|1" OP_RECORD_FUNC_ITEM_SEP "_ZdlPv|11|1" OP_RECORD_FUNC_ITEM_SEP
     "calloc|6|2",
     "Functions recorded by -record_heap",
     "Functions recorded by -record_heap. The option value should fit the same"
