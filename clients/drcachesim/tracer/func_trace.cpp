@@ -89,16 +89,11 @@ free_func_entry(void *entry)
     delete_func_metadata((func_metadata_t *)entry);
 }
 
-static inline bool add_to_vector(func_trace_entry_vector_t *vec,
-                                 trace_marker_type_t marker_type, uintptr_t marker_value)
-{
-    if (vec->size >= MAX_FUNC_TRACE_ENTRY_VEC_CAP)
-        return false;
-    vec->marker_types[vec->size] = marker_type;
-    vec->marker_values[vec->size] = marker_value;
-    vec->size++;
-    return true;
-}
+#define ADD_TO_VEC(vec, marker_type, marker_value)    \
+    do {                                              \
+        vec.marker_types[vec.size] = marker_type;     \
+        vec.marker_values[vec.size++] = marker_value; \
+    } while (0)
 
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
 //       (e.g., STL, libc, etc.)
@@ -115,11 +110,11 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
 
-    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+    ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
+        ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
     append_entry_vec(drcontext, &vec);
 }
@@ -138,8 +133,8 @@ func_post_hook(void *wrapcxt, void *user_data)
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    add_to_vector(&vec, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
+    ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
     append_entry_vec(drcontext, &vec);
 }
 
@@ -164,6 +159,10 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
         size_t offset;
         drsym_error_t err =
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
+        if (err != DRSYM_SUCCESS) {
+            err = drsym_lookup_symbol(mod->full_path, symbol, &offset,
+                                      DRSYM_LEAVE_MANGLED);
+        }
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;
             NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=" PFX "\n", symbol, pc);
