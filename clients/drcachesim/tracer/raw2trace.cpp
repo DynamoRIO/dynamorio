@@ -455,9 +455,9 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
                            const instr_summary_t *instr, opnd_t ref, bool write)
 {
     trace_entry_t *buf = *buf_in;
-    const offline_entry_t *in_entry = nullptr;
+    const offline_entry_t *in_entry = impl()->get_next_entry();
     bool have_type = false;
-    if ((in_entry = impl()->get_next_entry()) == nullptr)
+    if (in_entry == nullptr)
         return "Trace ends mid-block";
     if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
@@ -468,7 +468,8 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
         buf->type = in_entry->extended.valueB;
         buf->size = in_entry->extended.valueA;
         impl()->log(4, "Found type entry type %d size %d\n", buf->type, buf->size);
-        if ((in_entry = impl()->get_next_entry()) == nullptr)
+        in_entry = impl()->get_next_entry();
+        if (in_entry == nullptr)
             return "Trace ends mid-block";
     }
     if (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
@@ -515,7 +516,8 @@ raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
     *buf_in = ++buf;
     // To avoid having to backtrack later, we read ahead to see whether this memref
     // faulted.  There's a footer so this should always succeed.
-    if ((in_entry = impl()->get_next_entry()) == nullptr)
+    in_entry = impl()->get_next_entry();
+    if (in_entry == nullptr)
         return "Trace ends mid-block";
     // Put it back.
     impl()->unread_last_entry();
@@ -829,9 +831,8 @@ raw2trace_t::process_offline_entry(const offline_entry_t *in_entry, thread_id_t 
         if (!result.empty())
             return result;
     } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
-        const offline_entry_t *entry = nullptr;
-        if (!(entry = impl()->get_next_entry()) ||
-            entry->addr.type != OFFLINE_TYPE_IFLUSH)
+        const offline_entry_t *entry = impl()->get_next_entry();
+        if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH)
             return "Flush missing 2nd entry";
         impl()->log(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry->addr.addr,
                     (ptr_uint_t)entry->addr.addr);
