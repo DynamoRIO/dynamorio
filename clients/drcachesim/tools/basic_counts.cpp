@@ -159,10 +159,10 @@ basic_counts_t::print_results()
     std::cerr << std::setw(12) << total_other_markers << " total other markers\n";
 
     if (!func_id_count.empty()) {
-        std::cerr << "func id count\n";
+        std::cerr << std::setw(12) << "func id count\n";
         for (const auto &keyvals : func_id_count) {
-            std::cerr << std::setw(14) << "id " << keyvals.first <<
-                                          " count " << keyvals.second << "\n";
+            std::cerr << std::setw(14) << "id " << keyvals.first << " count "
+                      << keyvals.second << "\n";
         }
     }
 
