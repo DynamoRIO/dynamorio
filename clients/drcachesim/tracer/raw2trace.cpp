@@ -1037,8 +1037,8 @@ raw2trace_t::write_delayed_branches(const trace_entry_t *start, const trace_entr
 {
     CHECK(delayed_branch[tidx].empty(), "Failed to flush delayed branch");
     delayed_branch[tidx].insert(delayed_branch[tidx].begin(),
-                                reinterpret_cast<char *>(start),
-                                reinterpret_cast<char *>(end));
+                                reinterpret_cast<const char *>(start),
+                                reinterpret_cast<const char *>(end));
     return "";
 }
 
