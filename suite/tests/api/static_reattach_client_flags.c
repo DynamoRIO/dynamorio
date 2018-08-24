@@ -106,13 +106,6 @@ main(int argc, const char *argv[])
 //#endif
 
 #define BUF_LEN (DR_MAX_OPTIONS_LENGTH + 100)
-    char tmp_buf[BUF_LEN] = {0,};
-    if (!my_getenv("CHOWSKI_TEST", tmp_buf, BUF_LEN)) {
-        print("failed to getenvn\n");
-        return 1;
-    }
-    print("CHOWSKI_TEST=%s\n", tmp_buf);
-
     char original_options[BUF_LEN] = {0,};
     if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
         print("Failed to get DYNAMORIO_OPTIONS\n");

@@ -1428,7 +1428,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
   endif ()
 
-  set_tests_properties(${test} PROPERTIES ENVIRONMENT "CHOWSKI_TEST=123")
+  string(REPLACE ";" " " runops_string "${runops}")
+  set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
 
   if (WIN32)
     # With i#265/PR 486139 we use local one-time config files instead of
