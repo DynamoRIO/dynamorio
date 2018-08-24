@@ -39,7 +39,7 @@
 
 #define VERBOSE 1
 
-#define vprint(...) if (VERBOSE) print(__VA_ARGS__)
+#define vprint(...) if (VERBOSE) { print(__VA_ARGS__); }
 
 /* A test to verify that flags are appropriately piped through to client
  * libraries for static reattach, verifying that the lazy-loading logic is
@@ -106,6 +106,13 @@ main(int argc, const char *argv[])
 //#endif
 
 #define BUF_LEN (DR_MAX_OPTIONS_LENGTH + 100)
+    char tmp_buf[BUF_LEN] = {0,};
+    if (!my_getenv("CHOWSKI_TEST", tmp_buf, BUF_LEN)) {
+        print("failed to getenvn\n");
+        return 1;
+    }
+    print("CHOWSKI_TEST=%s\n", tmp_buf);
+
     char original_options[BUF_LEN] = {0,};
     if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
         print("Failed to get DYNAMORIO_OPTIONS\n");
@@ -127,9 +134,13 @@ main(int argc, const char *argv[])
         my_setenv("DYNAMORIO_OPTIONS", option_buffer);
         vprint("Set DYNAMORIO_OPTIONS: %s\n", option_buffer);
 
+        vprint("dr_app_setup()\n");
         dr_app_setup();
+        vprint("dr_app_start()\n");
         dr_app_start();
+        vprint("dr_app_stop_and_cleanup()\n");
         dr_app_stop_and_cleanup();
+        vprint("dr_app_stop_and_cleanup() done!\n");
 
         const char *want_argv = test_args[i].want_argv;
         if (strncmp(last_argv, want_argv, sizeof(last_argv)) != 0) {

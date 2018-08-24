@@ -1141,9 +1141,9 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     endif (WIN32)
     if (standalone_dr OR NOT native)
       # add dr_ops last to avoid needing extra \ on ;
-      string(REPLACE ";" " " dr_ops_string "${dr_ops}")
-      set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" "--" PARENT_SCOPE)
-      # set(${outcmd} ${cmd} ${dr_ops} "--" PARENT_SCOPE)
+      #string(REPLACE ";" " " dr_ops_string "${dr_ops}")
+      #set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" "--" PARENT_SCOPE)
+      set(${outcmd} ${cmd} ${dr_ops} "--" PARENT_SCOPE)
     else (standalone_dr OR NOT native)
       # the test is pure native, so we rely on ctest for job control
       set(${outcmd} "" PARENT_SCOPE)
@@ -1152,6 +1152,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
   elseif (UNIX AND native)
     get_target_path_for_execution(runstats_path runstats)
     set(cmd ${runstats_path} -s ${timeout} -killpg -silent)
+
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
@@ -1426,6 +1427,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
   endif ()
+
+  set_tests_properties(${test} PROPERTIES ENVIRONMENT "CHOWSKI_TEST=123")
 
   if (WIN32)
     # With i#265/PR 486139 we use local one-time config files instead of
