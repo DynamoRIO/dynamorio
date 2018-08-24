@@ -316,6 +316,7 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit)) {
         DR_ASSERT(false);
+        goto failed;
     }
 
     if ((tls_idx = drmgr_register_tls_field()) == -1) {
