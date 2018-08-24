@@ -62,12 +62,17 @@
         fflush(stderr);                                       \
     } while (0)
 
-#define VPRINT(level, ...)                     \
-    do {                                       \
-        if (this->verbosity >= (level)) {      \
-            fprintf(stderr, "[drmemtrace]: "); \
-            fprintf(stderr, __VA_ARGS__);      \
-        }                                      \
+#define VPRINT_HEADER()                    \
+    do {                                   \
+        fprintf(stderr, "[drmemtrace: ]"); \
+    } while (0)
+
+#define VPRINT(level, ...)                \
+    do {                                  \
+        if (this->verbosity >= (level)) { \
+            VPRINT_HEADER();              \
+            fprintf(stderr, __VA_ARGS__); \
+        }                                 \
     } while (0)
 
 static online_instru_t instru(NULL, false, NULL);
@@ -632,7 +637,8 @@ raw2trace_t::append_bb_entries(const offline_entry_t *in_entry, OUT bool *handle
             // handle it in post-processing by delaying a thread-block-final branch (and
             // its memrefs) to that thread's next block.  This changes the timestamp
             // of the branch, which we live with.
-            if (!(error = impl()->write_delayed_branches(buf_start, buf)).empty())
+            error = impl()->write_delayed_branches(buf_start, buf);
+            if (!error.empty())
                 return error;
         } else {
             if (!impl()->write(buf_start, buf))
@@ -682,8 +688,8 @@ raw2trace_t::merge_and_process_thread_files()
     for (tidx = 0; tidx < thread_files.size(); ++tidx) {
         trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
                                   INVALID_THREAD_ID, 0 };
-        std::string err;
-        if (!(err = read_header(&header)).empty())
+        std::string err = read_header(&header);
+        if (!err.empty())
             return err;
         times[tidx] = header.timestamp;
         tids[tidx] = header.tid;
@@ -767,9 +773,9 @@ raw2trace_t::merge_and_process_thread_files()
         if (!result.empty())
             return result;
         bool end_of_record = false;
-        if (!(result = process_offline_entry(&in_entry, tids[tidx], &end_of_record,
-                                             &last_bb_handled))
-                 .empty())
+        result = process_offline_entry(&in_entry, tids[tidx], &end_of_record,
+                                       &last_bb_handled);
+        if (!result.empty())
             return result;
         if (end_of_record)
             tidx = static_cast<uint>(thread_files.size());
@@ -827,7 +833,7 @@ raw2trace_t::process_offline_entry(const offline_entry_t *in_entry, thread_id_t 
         CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
               "We shouldn't have buffered anything before calling "
               "append_bb_entries");
-        auto result = append_bb_entries(in_entry, last_bb_handled);
+        std::string result = append_bb_entries(in_entry, last_bb_handled);
         if (!result.empty())
             return result;
     } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
@@ -851,9 +857,7 @@ raw2trace_t::process_offline_entry(const offline_entry_t *in_entry, thread_id_t 
     }
     return "";
 }
-/**
- * Read the succession of offline_entry_t's corresponding to a thread header.
- */
+
 std::string
 raw2trace_t::read_header(OUT trace_header_t *header)
 {
@@ -1060,7 +1064,10 @@ raw2trace_t::log(uint level, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    VPRINT(level, fmt, args);
+    if (verbosity >= level) {
+        VPRINT_HEADER();
+        vfprintf(stderr, fmt, args);
+    }
     va_end(args);
 }
 
