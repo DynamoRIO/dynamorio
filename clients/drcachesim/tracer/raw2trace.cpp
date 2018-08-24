@@ -64,7 +64,7 @@
 
 #define VPRINT_HEADER()                    \
     do {                                   \
-        fprintf(stderr, "[drmemtrace: ]"); \
+        fprintf(stderr, "[drmemtrace]: "); \
     } while (0)
 
 #define VPRINT(level, ...)                \
