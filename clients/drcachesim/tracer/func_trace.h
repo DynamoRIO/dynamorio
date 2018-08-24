@@ -39,15 +39,21 @@
 
 #define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
 
-typedef struct {
+struct func_trace_entry_t {
+    func_trace_entry_t() {}
+    func_trace_entry_t(trace_marker_type_t type, uintptr_t value)
+        : marker_type(type), marker_value(value) {}
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
-} func_trace_entry_t;
+};
 
-typedef struct {
+// XXX: replace it with a drvector_t. But note that we need to care about the overhead
+// when doing so, since the existence of this vector is to reduce the overhead to
+// under a threshold for some large application.
+struct func_trace_entry_vector_t {
     int size;
     func_trace_entry_t entries[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
-} func_trace_entry_vector_t;
+};
 
 typedef void (*func_trace_append_entry_vec_t)(void *, func_trace_entry_vector_t *);
 
