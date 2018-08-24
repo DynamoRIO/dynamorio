@@ -348,6 +348,15 @@ private:
 };
 
 /**
+ * Header of raw trace.
+ */
+struct trace_header_t {
+    process_id_t pid;
+    thread_id_t tid;
+    uint64 timestamp;
+};
+
+/**
  * The raw2trace class converts the raw offline trace format to the format
  * expected by analysis tools.  It requires access to the binary files for the
  * libraries and executable that were present during tracing.
@@ -448,6 +457,31 @@ private:
         void *user_data;
     };
 
+    raw2trace_t *
+    impl()
+    {
+        return this;
+    }
+    std::string
+    process_offline_entry(const offline_entry_t *in_entry, thread_id_t tid,
+                          OUT bool *end_of_record, OUT bool *last_bb_handled);
+    std::string
+    read_header(OUT trace_header_t *header);
+    const offline_entry_t *
+    get_next_entry();
+    void
+    unread_last_entry();
+    trace_entry_t *
+    get_write_buffer();
+    bool
+    write(const trace_entry_t *start, const trace_entry_t *end);
+    std::string
+    write_delayed_branches(const trace_entry_t *start, const trace_entry_t *end);
+    std::string
+    on_thread_end();
+    void
+    log(uint level, const char *fmt, ...);
+
     const instr_summary_t *
     get_instr_summary(uint64 modx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
     std::string
@@ -455,7 +489,7 @@ private:
     std::string
     merge_and_process_thread_files();
     std::string
-    append_bb_entries(uint tidx, offline_entry_t *in_entry, OUT bool *handled);
+    append_bb_entries(const offline_entry_t *in_entry, OUT bool *handled);
     std::string
     append_memref(INOUT trace_entry_t **buf_in, uint tidx, const instr_summary_t *instr,
                   opnd_t ref, bool write);
@@ -507,6 +541,12 @@ private:
     void *user_process_data = nullptr;
 
     std::unique_ptr<module_mapper_t> module_mapper;
+
+    // Current trace conversion state.
+    offline_entry_t last_entry;
+    uint tidx = 0;
+    trace_entry_t out_buf[MAX_COMBINED_ENTRIES];
+    uint thread_count = 0;
 };
 
 #endif /* _RAW2TRACE_H_ */
