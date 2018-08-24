@@ -100,22 +100,20 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
         return;
 
     void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
-    func_trace_entry_vector_t *vec = (func_trace_entry_vector_t *)pt_data;
-    vec->size = 0;
+    func_trace_entry_vector_t *v = (func_trace_entry_vector_t *)pt_data;
+    v->size = 0;
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
-    app_pc retaddr = drwrap_get_retaddr(wrapcxt);
+    uintptr_t retaddr = (uintptr_t)drwrap_get_retaddr(wrapcxt);
+    uintptr_t f_id = (uintptr_t)f->id;
 
-    vec->entries[vec->size++] =
-        func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    vec->entries[vec->size++] =
-        func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, f_id);
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETADDR, retaddr);
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        vec->entries[vec->size++] =
-            func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ARG, (uintptr_t)arg_i);
+        v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    append_entry_vec(drcontext, vec);
+    append_entry_vec(drcontext, v);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -128,16 +126,16 @@ func_post_hook(void *wrapcxt, void *user_data)
         return;
 
     void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
-    func_trace_entry_vector_t *vec = (func_trace_entry_vector_t *)pt_data;
-    vec->size = 0;
+    func_trace_entry_vector_t *v = (func_trace_entry_vector_t *)pt_data;
+    v->size = 0;
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    vec->entries[vec->size++] =
-        func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    vec->entries[vec->size++] =
-        func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETVAL, (uintptr_t)retval);
-    append_entry_vec(drcontext, vec);
+    uintptr_t f_id = (uintptr_t)f->id;
+
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, f_id);
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    append_entry_vec(drcontext, v);
 }
 
 static app_pc
@@ -230,7 +228,7 @@ init_funcs_str_and_sep()
 // because we want to reduce the overhead of pre/post function hook by grouping several
 // calls to append_entry into one. This makes the code less cleaner, but for now it is
 // needed to put down the overhead of instrumenting function under certain threshold for
-// some large application. This overhead would become negligible when we have a better
+// some large application. This optimization would become negligible when we have a better
 // way to improve the overall performance. At that time, we can remove this code and
 // get back to the way of calling append_entry for each function trace entry.
 static void
