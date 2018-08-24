@@ -223,7 +223,6 @@ init_funcs_str_and_sep()
     funcs_str += op_value;
 }
 
-
 // XXX: The reason we reserve a buffer/vector here for later append_entry_vec use is
 // because we want to reduce the overhead of pre/post function hook by grouping several
 // calls to append_entry into one. This makes the code less cleaner, but for now it is

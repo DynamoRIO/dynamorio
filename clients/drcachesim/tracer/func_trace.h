@@ -40,9 +40,14 @@
 #define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
 
 struct func_trace_entry_t {
-    func_trace_entry_t() {}
+    func_trace_entry_t()
+    {
+    }
     func_trace_entry_t(trace_marker_type_t type, uintptr_t value)
-        : marker_type(type), marker_value(value) {}
+        : marker_type(type)
+        , marker_value(value)
+    {
+    }
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
 };
