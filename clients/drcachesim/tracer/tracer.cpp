@@ -539,10 +539,9 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
     if (data->seg_base == NULL)
         return; /* This thread was filtered out. */
     for (int i = 0; i < vec->size; i++) {
-        BUF_PTR(data->seg_base) += instru->append_marker(
-            BUF_PTR(data->seg_base),
-            vec->entries[i].marker_type,
-            vec->entries[i].marker_value);
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
+                                  vec->entries[i].marker_value);
     }
 }
 
