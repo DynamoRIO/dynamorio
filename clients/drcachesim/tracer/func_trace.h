@@ -40,9 +40,13 @@
 #define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
 
 typedef struct {
+    trace_marker_type_t marker_type;
+    uintptr_t marker_value;
+} func_trace_entry_t;
+
+typedef struct {
     int size;
-    trace_marker_type_t marker_types[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
-    uintptr_t marker_values[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
+    func_trace_entry_t entries[MAX_FUNC_TRACE_ENTRY_VEC_CAP];
 } func_trace_entry_vector_t;
 
 typedef void (*func_trace_append_entry_vec_t)(void *, func_trace_entry_vector_t *);

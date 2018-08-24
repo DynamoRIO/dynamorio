@@ -56,6 +56,7 @@
     } while (0)
 
 static int func_trace_init_count;
+static int tls_idx;
 
 static func_trace_append_entry_vec_t append_entry_vec;
 static drvector_t funcs;
@@ -89,10 +90,10 @@ free_func_entry(void *entry)
     delete_func_metadata((func_metadata_t *)entry);
 }
 
-#define ADD_TO_VEC(vec, marker_type, marker_value)    \
-    do {                                              \
-        vec.marker_types[vec.size] = marker_type;     \
-        vec.marker_values[vec.size++] = marker_value; \
+#define ADD_TO_VEC(vec, type, value)                    \
+    do {                                                \
+        vec->entries[vec->size].marker_type = type;     \
+        vec->entries[vec->size++].marker_value = value; \
     } while (0)
 
 // NOTE: try to avoid invoking any code that could be traced by func_pre_hook
@@ -104,8 +105,9 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     if (drcontext == NULL)
         return;
 
-    func_trace_entry_vector_t vec;
-    vec.size = 0;
+    void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
+    func_trace_entry_vector_t *vec = (func_trace_entry_vector_t *)pt_data;
+    vec->size = 0;
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     app_pc retaddr = drwrap_get_retaddr(wrapcxt);
@@ -116,7 +118,7 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
         ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    append_entry_vec(drcontext, &vec);
+    append_entry_vec(drcontext, vec);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -128,14 +130,15 @@ func_post_hook(void *wrapcxt, void *user_data)
     if (drcontext == NULL)
         return;
 
-    func_trace_entry_vector_t vec;
-    vec.size = 0;
+    void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
+    func_trace_entry_vector_t *vec = (func_trace_entry_vector_t *)pt_data;
+    vec->size = 0;
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
     ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
     ADD_TO_VEC(vec, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
-    append_entry_vec(drcontext, &vec);
+    append_entry_vec(drcontext, vec);
 }
 
 static app_pc
@@ -223,6 +226,21 @@ init_funcs_str_and_sep()
     funcs_str += op_value;
 }
 
+static void
+event_thread_init(void *drcontext)
+{
+    void *data = dr_thread_alloc(drcontext, sizeof(func_trace_entry_vector_t));
+    DR_ASSERT(data != NULL);
+    drmgr_set_tls_field(drcontext, tls_idx, data);
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    void *data = drmgr_get_tls_field(drcontext, tls_idx);
+    dr_thread_free(drcontext, data, sizeof(func_trace_entry_vector_t));
+}
+
 bool
 func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
 {
@@ -295,6 +313,16 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
     drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
     drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS);
 
+    if (!drmgr_register_thread_init_event(event_thread_init) ||
+        !drmgr_register_thread_exit_event(event_thread_exit)) {
+        DR_ASSERT(false);
+    }
+
+    if ((tls_idx = drmgr_register_tls_field()) == -1) {
+        DR_ASSERT(tls_idx != -1);
+        goto failed;
+    }
+
     if (!drmgr_register_module_load_event(instru_funcs_module_load)) {
         DR_ASSERT(false);
         goto failed;
@@ -317,6 +345,8 @@ func_trace_exit()
     if (!drvector_delete(&funcs))
         DR_ASSERT(false);
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
+        !drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         !(drsym_exit() == DRSYM_SUCCESS))
         DR_ASSERT(false);
     drwrap_exit();
