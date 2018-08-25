@@ -56,11 +56,9 @@
     } while (0)
 
 static int func_trace_init_count;
+static int tls_idx;
 
-static func_trace_append_entry_t append_entry;
-// Should always be called after appending a consecutive number of entries
-// in case if the buffer met the redzone after appending entries.
-static func_trace_memtrace_if_redzone_t memtrace_if_redzone;
+static func_trace_append_entry_vec_t append_entry_vec;
 static drvector_t funcs;
 static std::string funcs_str, funcs_str_sep;
 
@@ -101,16 +99,21 @@ func_pre_hook(void *wrapcxt, INOUT void **user_data)
     if (drcontext == NULL)
         return;
 
+    void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
+    func_trace_entry_vector_t *v = (func_trace_entry_vector_t *)pt_data;
+    v->size = 0;
     size_t idx = (size_t)*user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
-    app_pc retaddr = drwrap_get_retaddr(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETADDR, (uintptr_t)retaddr);
+    uintptr_t retaddr = (uintptr_t)drwrap_get_retaddr(wrapcxt);
+    uintptr_t f_id = (uintptr_t)f->id;
+
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, f_id);
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETADDR, retaddr);
     for (int i = 0; i < f->arg_num; i++) {
         uintptr_t arg_i = (uintptr_t)drwrap_get_arg(wrapcxt, i);
-        append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
+        v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ARG, arg_i);
     }
-    memtrace_if_redzone(drcontext);
+    append_entry_vec(drcontext, v);
 }
 
 // NOTE: try to avoid invoking any code that could be traced by func_post_hook
@@ -122,12 +125,17 @@ func_post_hook(void *wrapcxt, void *user_data)
     if (drcontext == NULL)
         return;
 
+    void *pt_data = drmgr_get_tls_field(drcontext, tls_idx);
+    func_trace_entry_vector_t *v = (func_trace_entry_vector_t *)pt_data;
+    v->size = 0;
     size_t idx = (size_t)user_data;
     func_metadata_t *f = (func_metadata_t *)drvector_get_entry(&funcs, (uint)idx);
     uintptr_t retval = (uintptr_t)drwrap_get_retval(wrapcxt);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_ID, (uintptr_t)f->id);
-    append_entry(drcontext, TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
-    memtrace_if_redzone(drcontext);
+    uintptr_t f_id = (uintptr_t)f->id;
+
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_ID, f_id);
+    v->entries[v->size++] = func_trace_entry_t(TRACE_MARKER_TYPE_FUNC_RETVAL, retval);
+    append_entry_vec(drcontext, v);
 }
 
 static app_pc
@@ -151,6 +159,10 @@ get_pc_by_symbol(const module_data_t *mod, const char *symbol)
         size_t offset;
         drsym_error_t err =
             drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_DEMANGLE);
+        if (err != DRSYM_SUCCESS) {
+            err =
+                drsym_lookup_symbol(mod->full_path, symbol, &offset, DRSYM_LEAVE_MANGLED);
+        }
         if (err == DRSYM_SUCCESS) {
             pc = mod->start + offset;
             NOTIFY(1, "drsym_lookup_symbol found symbol %s at pc=" PFX "\n", symbol, pc);
@@ -211,10 +223,34 @@ init_funcs_str_and_sep()
     funcs_str += op_value;
 }
 
-bool
-func_trace_init(func_trace_append_entry_t append_entry_,
-                func_trace_memtrace_if_redzone_t memtrace_if_redzone_)
+// XXX: The reason we reserve a buffer/vector here for later append_entry_vec use is
+// because we want to reduce the overhead of pre/post function hook by grouping several
+// calls to append_entry into one. This makes the code less cleaner, but for now it is
+// needed to put down the overhead of instrumenting function under certain threshold for
+// some large application. This optimization would become negligible when we have a better
+// way to improve the overall performance. At that time, we can remove this code and
+// get back to the way of calling append_entry for each function trace entry.
+static void
+event_thread_init(void *drcontext)
 {
+    void *data = dr_thread_alloc(drcontext, sizeof(func_trace_entry_vector_t));
+    DR_ASSERT(data != NULL);
+    drmgr_set_tls_field(drcontext, tls_idx, data);
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    void *data = drmgr_get_tls_field(drcontext, tls_idx);
+    dr_thread_free(drcontext, data, sizeof(func_trace_entry_vector_t));
+}
+
+bool
+func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
+{
+    if (append_entry_vec_ == NULL)
+        return false;
+
     if (dr_atomic_add32_return_sum(&func_trace_init_count, 1) > 1)
         return true;
 
@@ -230,8 +266,7 @@ func_trace_init(func_trace_append_entry_t append_entry_,
         DR_ASSERT(false);
         goto failed;
     }
-    append_entry = append_entry_;
-    memtrace_if_redzone = memtrace_if_redzone_;
+    append_entry_vec = append_entry_vec_;
 
     for (auto &single_op_value : op_values) {
         auto items = split_by(single_op_value, PATTERN_SEPARATOR);
@@ -256,6 +291,11 @@ func_trace_init(func_trace_append_entry_t append_entry_,
                    funcs_str.c_str());
             continue;
         }
+        if (arg_num > MAX_FUNC_TRACE_ENTRY_VEC_CAP - 2) {
+            NOTIFY(0, "arg_num of the function %s should not be larger than %d\n",
+                   funcs_str.c_str(), MAX_FUNC_TRACE_ENTRY_VEC_CAP - 2);
+            continue;
+        }
 
         dr_log(NULL, DR_LOG_ALL, 1, "Trace func name=%s, id=%d, arg_num=%d\n",
                name.c_str(), id, arg_num);
@@ -271,6 +311,24 @@ func_trace_init(func_trace_append_entry_t append_entry_,
         DR_ASSERT(false);
         goto failed;
     }
+
+    drwrap_set_global_flags(DRWRAP_NO_FRILLS);
+    drwrap_set_global_flags(DRWRAP_FAST_CLEANCALLS);
+    drwrap_set_global_flags(DRWRAP_SAFE_READ_RETADDR);
+    drwrap_set_global_flags(DRWRAP_SAFE_READ_ARGS);
+
+    if (!drmgr_register_thread_init_event(event_thread_init) ||
+        !drmgr_register_thread_exit_event(event_thread_exit)) {
+        DR_ASSERT(false);
+        goto failed;
+    }
+
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1) {
+        DR_ASSERT(false);
+        goto failed;
+    }
+
     if (!drmgr_register_module_load_event(instru_funcs_module_load)) {
         DR_ASSERT(false);
         goto failed;
@@ -293,6 +351,8 @@ func_trace_exit()
     if (!drvector_delete(&funcs))
         DR_ASSERT(false);
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
+        !drmgr_unregister_thread_init_event(event_thread_init) ||
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         !(drsym_exit() == DRSYM_SUCCESS))
         DR_ASSERT(false);
     drwrap_exit();

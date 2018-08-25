@@ -58,8 +58,8 @@ static int
 do_some_work(int arg)
 {
     static const int iters = 1000;
+    double *val = new double; // libc malloc is called inside new
     double **vals = (double **)calloc(iters, sizeof(double *));
-    double *val = new double; // "malloc" is called inside "operator new"
     *val = arg;
 
     for (int i = 0; i < iters; ++i) {
@@ -75,7 +75,7 @@ do_some_work(int arg)
     }
     free(vals);
     double temp = *val;
-    delete val; // "free" is not called inside "operator delete"
+    delete val; // libc free is called inside delete
     return (temp > 0);
 }
 
