@@ -46,9 +46,6 @@
 #include <sstream>
 #include <vector>
 
-// XXX: DR should export this
-#define INVALID_THREAD_ID 0
-
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
     do {                \
@@ -118,6 +115,9 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = nullptr;
 void (*module_mapper_t::user_free)(void *data) = nullptr;
 bool module_mapper_t::has_custom_data_global = true;
+
+const char *raw2trace_t::FAULT_INTERRUPTED_BB = "INTERRUPTED";
+const thread_id_t raw2trace_t::INVALID_THREAD_ID = 0;
 
 module_mapper_t::module_mapper_t(
     const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
@@ -408,8 +408,6 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
  * Disassembly to fill in instr and memref entries
  */
 
-#define FAULT_INTERRUPTED_BB "INTERRUPTED"
-
 // We do our own buffering to avoid performance problems for some istreams where
 // seekg is slow.  We expect just 1 entry peeked and put back the vast majority of the
 // time, but we use a vector for generality.  We expect our overall performance to
@@ -451,202 +449,6 @@ bool
 raw2trace_t::thread_file_at_eof(uint tidx)
 {
     return pre_read[tidx].empty() && thread_files[tidx]->eof();
-}
-
-// Returns FAULT_INTERRUPTED_BB if a fault occurred on this memref.
-// Any other non-empty string is a fatal error.
-std::string
-raw2trace_t::append_memref(INOUT trace_entry_t **buf_in, uint tidx,
-                           const instr_summary_t *instr, opnd_t ref, bool write)
-{
-    trace_entry_t *buf = *buf_in;
-    const offline_entry_t *in_entry = impl()->get_next_entry();
-    bool have_type = false;
-    if (in_entry == nullptr)
-        return "Trace ends mid-block";
-    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-        in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
-        // For -L0_filter we have to store the type for multi-memref instrs where
-        // we can't tell which memref it is (we'll still come here for the subsequent
-        // memref operands but we'll exit early in the check below).
-        have_type = true;
-        buf->type = in_entry->extended.valueB;
-        buf->size = in_entry->extended.valueA;
-        impl()->log(4, "Found type entry type %d size %d\n", buf->type, buf->size);
-        in_entry = impl()->get_next_entry();
-        if (in_entry == nullptr)
-            return "Trace ends mid-block";
-    }
-    if (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
-        in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
-        // This happens when there are predicated memrefs in the bb, or for a
-        // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
-        // For predicated memrefs, they could be earlier, so "instr"
-        // may not itself be predicated.
-        // XXX i#2015: if there are multiple predicated memrefs, our instr vs
-        // data stream may not be in the correct order here.
-        impl()->log(4,
-                    "Missing memref from predication, 0-iter repstr, or filter "
-                    "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-                    in_entry->combined_value);
-        impl()->unread_last_entry();
-        return "";
-    }
-    if (!have_type) {
-        if (instr->is_prefetch()) {
-            buf->type = instr->prefetch_type();
-            buf->size = 1;
-        } else if (instr->is_flush()) {
-            buf->type = TRACE_TYPE_DATA_FLUSH;
-            buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
-        } else {
-            if (write)
-                buf->type = TRACE_TYPE_WRITE;
-            else
-                buf->type = TRACE_TYPE_READ;
-            buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(ref));
-        }
-    }
-    // We take the full value, to handle low or high.
-    buf->addr = (addr_t)in_entry->combined_value;
-#ifdef X86
-    if (opnd_is_near_base_disp(ref) && opnd_get_base(ref) != DR_REG_NULL &&
-        opnd_get_index(ref) == DR_REG_NULL) {
-        // We stored only the base reg, as an optimization.
-        buf->addr += opnd_get_disp(ref);
-    }
-#endif
-    impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type, buf->size,
-                (ptr_uint_t)buf->addr);
-    *buf_in = ++buf;
-    // To avoid having to backtrack later, we read ahead to see whether this memref
-    // faulted.  There's a footer so this should always succeed.
-    in_entry = impl()->get_next_entry();
-    if (in_entry == nullptr)
-        return "Trace ends mid-block";
-    // Put it back.
-    impl()->unread_last_entry();
-    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-        in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        // A signal/exception interrupted the bb after the memref.
-        impl()->log(4, "Signal/exception interrupted the bb\n");
-        return FAULT_INTERRUPTED_BB;
-    }
-    return "";
-}
-
-std::string
-raw2trace_t::append_bb_entries(const offline_entry_t *in_entry, OUT bool *handled)
-{
-    std::string error = "";
-    uint instr_count = in_entry->pc.instr_count;
-    const instr_summary_t *instr = nullptr;
-    app_pc start_pc = modvec()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
-    app_pc pc, decode_pc = start_pc;
-    if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-        modvec()[in_entry->pc.modidx].map_base == NULL) {
-        // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
-        // Once that support is in we can remove the bool return value and handle
-        // the memrefs up here.
-        impl()->log(3, "Skipping ifetch for %u instrs not in a module\n", instr_count);
-        *handled = false;
-        return "";
-    } else {
-        impl()->log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
-                    instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
-                    (ptr_uint_t)in_entry->pc.modoffs, modvec()[in_entry->pc.modidx].path);
-    }
-    bool skip_icache = false;
-    bool truncated = false; // Whether a fault ended the bb early.
-    if (instr_count == 0) {
-        // L0 filtering adds a PC entry with a count of 0 prior to each memref.
-        skip_icache = true;
-        instr_count = 1;
-        // We set a flag to avoid peeking forward on instr entries.
-        instrs_are_separate = true;
-    }
-    CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
-    for (uint i = 0; !truncated && i < instr_count; ++i) {
-        trace_entry_t *buf_start = impl()->get_write_buffer();
-        trace_entry_t *buf = buf_start;
-        app_pc orig_pc = decode_pc - modvec()[in_entry->pc.modidx].map_base +
-            modvec()[in_entry->pc.modidx].orig_base;
-        // To avoid repeatedly decoding the same instruction on every one of its
-        // dynamic executions, we cache the decoding in a hashtable.
-        pc = decode_pc;
-        instr =
-            get_instr_summary(in_entry->pc.modidx, in_entry->pc.modoffs, &pc, orig_pc);
-        if (instr == nullptr) {
-            // We hit some error somewhere, and already reported it. Just exit the loop.
-            break;
-        }
-        CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
-        // FIXME i#1729: make bundles via lazy accum until hit memref/end.
-        buf->type = instr->type();
-        if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
-            // We want it to look like the original rep string, with just one instr
-            // fetch for the whole loop, instead of the drutil-expanded loop.
-            // We fix up the maybe-fetch here so our offline file doesn't have to
-            // rely on our own reader.
-            if (!prev_instr_was_rep_string) {
-                prev_instr_was_rep_string = true;
-                buf->type = TRACE_TYPE_INSTR;
-            } else {
-                impl()->log(3, "Skipping instr fetch for " PFX "\n",
-                            (ptr_uint_t)decode_pc);
-                // We still include the instr to make it easier for core simulators
-                // (i#2051).
-                buf->type = TRACE_TYPE_INSTR_NO_FETCH;
-            }
-        } else
-            prev_instr_was_rep_string = false;
-        buf->size = (ushort)(skip_icache ? 0 : instr->length());
-        buf->addr = (addr_t)orig_pc;
-        ++buf;
-        decode_pc = pc;
-        // We need to interleave instrs with memrefs.
-        // There is no following memref for (instrs_are_separate && !skip_icache).
-        if ((!instrs_are_separate || skip_icache) &&
-            // Rule out OP_lea.
-            (instr->reads_memory() || instr->writes_memory())) {
-            for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                error = append_memref(&buf, tidx, instr, instr->mem_src_at(j), false);
-                if (error == FAULT_INTERRUPTED_BB) {
-                    truncated = true;
-                    break;
-                } else if (!error.empty())
-                    return error;
-            }
-            for (uint j = 0; !truncated && j < instr->num_mem_dests(); j++) {
-                error = append_memref(&buf, tidx, instr, instr->mem_dest_at(j), true);
-                if (error == FAULT_INTERRUPTED_BB) {
-                    truncated = true;
-                    break;
-                } else if (!error.empty())
-                    return error;
-            }
-        }
-        CHECK((size_t)(buf - buf_start) < MAX_COMBINED_ENTRIES, "Too many entries");
-        if (instr->is_cti()) {
-            // In case this is the last branch prior to a thread switch, buffer it.  We
-            // avoid swapping threads immediately after a branch so that analyzers can
-            // more easily find the branch target.  Doing this in the tracer would incur
-            // extra overhead, and in the reader would be more complex and messy than
-            // here (and we are ok bailing on doing this for online traces), so we
-            // handle it in post-processing by delaying a thread-block-final branch (and
-            // its memrefs) to that thread's next block.  This changes the timestamp
-            // of the branch, which we live with.
-            error = impl()->write_delayed_branches(buf_start, buf);
-            if (!error.empty())
-                return error;
-        } else {
-            if (!impl()->write(buf_start, buf))
-                return "Failed to write to output file";
-        }
-    }
-    *handled = true;
-    return "";
 }
 
 std::string
@@ -781,103 +583,6 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = static_cast<uint>(thread_files.size());
 
     } while (thread_count > 0);
-    return "";
-}
-
-std::string
-raw2trace_t::process_offline_entry(const offline_entry_t *in_entry, thread_id_t tid,
-                                   OUT bool *end_of_record, OUT bool *last_bb_handled)
-{
-    trace_entry_t *buf_base = impl()->get_write_buffer();
-    byte *buf = reinterpret_cast<byte *>(buf_base);
-    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED) {
-        if (in_entry->extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
-            CHECK(tid != INVALID_THREAD_ID, "Missing thread id");
-            impl()->log(2, "Thread %d exit\n", (uint)tid);
-            buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
-            *end_of_record = true;
-            if (!impl()->write(buf_base, reinterpret_cast<trace_entry_t *>(buf)))
-                return "Failed to write to output file";
-            // Let the user determine what other actions to take, e.g. account for
-            // the ending of the current thread, etc.
-            return impl()->on_thread_end();
-        } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
-            buf += trace_metadata_writer_t::write_marker(
-                buf, (trace_marker_type_t)in_entry->extended.valueB,
-                (uintptr_t)in_entry->extended.valueA);
-            impl()->log(3, "Appended marker type %u value %zu\n",
-                        (trace_marker_type_t)in_entry->extended.valueB,
-                        (uintptr_t)in_entry->extended.valueA);
-        } else {
-            std::stringstream ss;
-            ss << "Invalid extension type " << (int)in_entry->extended.ext;
-            return ss.str();
-        }
-    } else if (in_entry->addr.type == OFFLINE_TYPE_MEMREF ||
-               in_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
-        if (!*last_bb_handled) {
-            // For currently-unhandled non-module code, memrefs are handled here
-            // where we can easily handle the transition out of the bb.
-            trace_entry_t *entry = reinterpret_cast<trace_entry_t *>(buf);
-            entry->type = TRACE_TYPE_READ; // Guess.
-            entry->size = 1;               // Guess.
-            entry->addr = (addr_t)in_entry->combined_value;
-            impl()->log(4, "Appended non-module memref to " PFX "\n",
-                        (ptr_uint_t)entry->addr);
-            buf += sizeof(*entry);
-        } else {
-            // We should see an instr entry first
-            return "memref entry found outside of bb";
-        }
-    } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
-        CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
-              "We shouldn't have buffered anything before calling "
-              "append_bb_entries");
-        std::string result = append_bb_entries(in_entry, last_bb_handled);
-        if (!result.empty())
-            return result;
-    } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
-        const offline_entry_t *entry = impl()->get_next_entry();
-        if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH)
-            return "Flush missing 2nd entry";
-        impl()->log(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry->addr.addr,
-                    (ptr_uint_t)entry->addr.addr);
-        buf += trace_metadata_writer_t::write_iflush(
-            buf, in_entry->addr.addr, (size_t)(entry->addr.addr - in_entry->addr.addr));
-    } else {
-        std::stringstream ss;
-        ss << "Unknown trace type " << (int)in_entry->timestamp.type;
-        return ss.str();
-    }
-    size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
-    CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
-    if (size > 0) {
-        if (!impl()->write(buf_base, reinterpret_cast<trace_entry_t *>(buf)))
-            return "Failed to write to output file";
-    }
-    return "";
-}
-
-std::string
-raw2trace_t::read_header(OUT trace_header_t *header)
-{
-    const offline_entry_t *in_entry = impl()->get_next_entry();
-    if (in_entry == nullptr)
-        return "Failed to read header from input file";
-    // Handle legacy traces which have the timestamp first.
-    if (in_entry->tid.type == OFFLINE_TYPE_TIMESTAMP) {
-        header->timestamp = in_entry->timestamp.usec;
-        in_entry = impl()->get_next_entry();
-        if (in_entry == nullptr)
-            return "Failed to read header from input file";
-    }
-    DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
-    header->tid = in_entry->tid.tid;
-    in_entry = impl()->get_next_entry();
-    if (in_entry == nullptr)
-        return "Failed to read header from input file";
-    DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
-    header->pid = in_entry->pid.pid;
     return "";
 }
 
