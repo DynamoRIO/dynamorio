@@ -323,7 +323,8 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_)
         goto failed;
     }
 
-    if ((tls_idx = drmgr_register_tls_field()) == -1) {
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1) {
         DR_ASSERT(false);
         goto failed;
     }
