@@ -37,7 +37,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-#define VERBOSE 1
+#define VERBOSE 0
 
 #define vprint(...) if (VERBOSE) { print(__VA_ARGS__); }
 
@@ -93,29 +93,12 @@ const test_arg_t test_args[TEST_ARG_COUNT] = {
 int
 main(int argc, const char *argv[])
 {
-//    const char *process_name = "api.static_reattach_client_flags"
-//#ifdef WINDOWS
-//            ".exe"
-//#endif
-//            ;
-//    process_id_t pid = (process_id_t)
-//#ifdef WINDOWS
-//            GetCurrentProcess();
-//#else
-//            getpid();
-//#endif
-
 #define BUF_LEN (DR_MAX_OPTIONS_LENGTH + 100)
     char original_options[BUF_LEN] = {0,};
     if (!my_getenv("DYNAMORIO_OPTIONS", original_options, BUF_LEN)) {
         print("Failed to get DYNAMORIO_OPTIONS\n");
         return 1;
     }
-    //if (!dr_process_is_registered(process_name, pid, false, DR_PLATFORM_DEFAULT,
-    //                              NULL, NULL, NULL, original_options)) {
-    //    print("dr_process_is_registered returned false!\n");
-    //    return 1;
-    //}
     vprint("Got DYNAMORIO_OPTIONS: %s\n", original_options);
 
     int failed = 0;

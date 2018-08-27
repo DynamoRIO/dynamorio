@@ -1172,7 +1172,9 @@ endfunction(runtest_cmd)
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
 # and ${key}_postcmd, which points to the post-processing executable if necessary.
-function(torun test key source native standalone_dr dr_ops exe_ops added_out)
+# If pass_opts_using_env is ON, we pass the computed DynamoRIO options as the
+# DYNAMORIO_OPTIONS environment variable for the test run.
+function(torun test key source native standalone_dr dr_ops exe_ops added_out pass_opts_using_env)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
@@ -1428,8 +1430,10 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
   endif ()
 
-  string(REPLACE ";" " " runops_string "${runops}")
-  set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
+  if (pass_opts_using_env)
+    string(REPLACE ";" " " runops_string "${runops}")
+    set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
+  endif (pass_opts_using_env)
 
   if (WIN32)
     # With i#265/PR 486139 we use local one-time config files instead of
@@ -1460,7 +1464,7 @@ endmacro()
 function(torun_normal name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops};${ops}"
-    "${${test}_exe_ops}" added)
+    "${${test}_exe_ops}" added OFF)
   if (DEFINED ${test}_depends)
     ops2testprefix(prefix "${ops}")
     set_property(TEST ${name} APPEND PROPERTY DEPENDS "${prefix}${${test}_depends}")
@@ -1489,12 +1493,12 @@ function(torun_ci name test ops)
     # end-user tool
     torun("${name}" ${test} ${${test}_source} OFF OFF
       "${${test}_dr_ops};${ops};-t;${${test}_toolname};${cli_ops}"
-      "${${test}_exe_ops}" added)
+      "${${test}_exe_ops}" added OFF)
   else ()
     # simple client
     torun("${name}" ${test} ${${test}_source} OFF OFF
       "${${test}_dr_ops};${ops};-c;${${test}_client_path};${cli_ops}"
-      "${${test}_exe_ops}" added)
+      "${${test}_exe_ops}" added OFF)
   endif ()
   if (added)
     if (DEFINED ${test}_depends)
@@ -1511,14 +1515,14 @@ endfunction(torun_ci)
 function(torun_api name test ops)
   strings2lists(${test} ops)
   torun("${name}" ${test} ${${test}_source} ON ${${test}_standalone_dr}
-    "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added)
+    "${${test}_dr_ops};${ops}" "${${test}_exe_ops}" added ON)
 endfunction(torun_api)
 
 function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
-  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added)
+  torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
 function(torun_runall name test ops)
