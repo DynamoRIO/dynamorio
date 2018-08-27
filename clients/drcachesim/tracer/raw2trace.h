@@ -790,6 +790,15 @@ private:
     // This indicates that each memref has its own PC entry and that each
     // icache entry does not need to be considered a memref PC entry as well.
     bool instrs_are_separate = false;
+
+    trace_converter_t(const trace_converter_t &) = delete;
+    trace_converter_t &
+    operator=(const trace_converter_t &) = delete;
+#ifndef WINDOWS
+    trace_converter_t(trace_converter_t &&) = default;
+    trace_converter_t &
+    operator=(trace_converter_t &&) = default;
+#endif
 #undef DR_CHECK
 };
 
