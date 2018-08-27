@@ -76,7 +76,12 @@ typedef struct {
 #define TEST_ARG_COUNT 3
 const test_arg_t test_args[TEST_ARG_COUNT] = {
     {
-        // For the first attach we intentionally pass no extra arguments.
+        // For the first attach we intentionally pass no extra arguments: for
+        // Windows the test rig passes arguments via a config file and
+        // environment variable, but for the first attach the config file takes
+        // precedence. After the first attach the config file is deleted,
+        // so setting the environment variable takes effect for every subsequent
+        // re-attach.
         .input_dynamorio_options = "",
         .want_argv = "",
     },
