@@ -1951,6 +1951,19 @@ dr_abort(void);
 
 DR_API
 /**
+ * Aborts the process immediately without any cleanup (i.e., the exit event
+ * will not be called) with the exit code \p exit_code.
+ *
+ * On Linux, only the bottom 8 bits of \p exit_code will be honored
+ * for a normal exit.  If bits 9..16 are not all zero, DR will send an
+ * unhandled signal of that signal number instead of performing a normal
+ * exit.
+ */
+void
+dr_abort_with_code(int exit_code);
+
+DR_API
+/**
  * Exits the process, first performing a full cleanup that will
  * trigger the exit event (dr_register_exit_event()).  The process
  * exit code is set to \p exit_code.
@@ -1963,7 +1976,7 @@ DR_API
  * \note Calling this from \p dr_client_main or from the primary thread's
  * initialization event is not guaranteed to always work, as DR may
  * invoke a thread exit event where a thread init event was never
- * called.  We recommend using dr_abort() or waiting for full
+ * called.  We recommend using dr_abort_ex() or waiting for full
  * initialization prior to use of this routine.
  */
 void

@@ -761,7 +761,7 @@ dr_inject_process_exit(void *data, bool terminate)
          * wait on it again or try to kill it, or we might target some new
          * process with the same pid.
          */
-        status = info->exitcode;
+        status = WEXITSTATUS(info->exitcode);
     } else if (info->exec_self) {
         status = -1; /* We never injected, must have been some other error. */
     } else if (terminate) {

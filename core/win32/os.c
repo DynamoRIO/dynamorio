@@ -1468,7 +1468,8 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
             terminate_type = TERMINATE_THREAD;
         } else {
             config_exit(); /* delete .1config file */
-            nt_terminate_process(currentThreadOrProcess, KILL_PROC_EXIT_STATUS);
+            nt_terminate_process(currentThreadOrProcess,
+                                 custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         }
     }
@@ -1525,7 +1526,8 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
         /* may have decided to terminate process */
         if (exit_process) {
             config_exit(); /* delete .1config file */
-            nt_terminate_process(currentThreadOrProcess, KILL_PROC_EXIT_STATUS);
+            nt_terminate_process(currentThreadOrProcess,
+                                 custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         } else {
             /* FIXME: this is now very dangerous - we even leave our own state */

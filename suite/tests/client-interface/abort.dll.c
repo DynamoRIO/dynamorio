@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,7 +53,7 @@ my_abort(
     if (var0 != arg0 || var1 != arg1 || var2 != arg2)
         dr_fprintf(STDERR, "Error on mov_imm\n");
     dr_fprintf(STDERR, "aborting now\n");
-    dr_abort();
+    dr_abort_with_code(8);
 }
 
 #define MINSERT instrlist_meta_preinsert
