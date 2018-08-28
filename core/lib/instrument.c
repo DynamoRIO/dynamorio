@@ -2451,6 +2451,15 @@ dr_abort(void)
 
 DR_API
 void
+dr_abort_with_code(int exit_code)
+{
+    if (TEST(DUMPCORE_DR_ABORT, dynamo_options.dumpcore_mask))
+        os_dump_core("dr_abort");
+    os_terminate_with_code(NULL, TERMINATE_PROCESS, exit_code);
+}
+
+DR_API
+void
 dr_exit_process(int exit_code)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
