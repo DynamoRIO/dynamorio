@@ -520,7 +520,7 @@ protected:
 
     /**
      * Read the header of a thread, by calling T's get_next_entry() successively to
-     * populate the header values. The #trace_header_t::timestamp field is populated only
+     * populate the header values. The timestamp field is populated only
      * for legacy traces.
      */
     std::string
