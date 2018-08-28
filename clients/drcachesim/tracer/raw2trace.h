@@ -366,7 +366,7 @@ struct trace_header_t {
  * assumption about how thread buffers are organized. We do assume the internal
  * composition of thread buffers is "as written" by the thread. For example, all thread
  * buffers belonging to different threads may be in a separate files; or buffers may be
- * co-located in one large file, or spread accross multiple, mix-thread files.
+ * co-located in one large file, or spread accross multiple, mixed-thread files.
  *
  * #trace_converter_t expects to be instantiated with its type template T which should
  * provide the following APIs:
