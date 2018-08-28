@@ -251,6 +251,7 @@ Further non-compatibility-affecting changes include:
  - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp
    from the beginning of a raw trace bundle (regardless of whether it is a thread start
    or just a subsequent bundle).
+ - Added dr_abort_with_code().
 
 **************************************************
 <hr>
