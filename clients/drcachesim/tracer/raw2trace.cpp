@@ -116,9 +116,6 @@ const char *(*module_mapper_t::user_parse)(const char *src, OUT void **data) = n
 void (*module_mapper_t::user_free)(void *data) = nullptr;
 bool module_mapper_t::has_custom_data_global = true;
 
-const char *raw2trace_t::FAULT_INTERRUPTED_BB = "INTERRUPTED";
-const thread_id_t raw2trace_t::INVALID_THREAD_ID = 0;
-
 module_mapper_t::module_mapper_t(
     const char *module_map_in, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
@@ -299,7 +296,7 @@ raw2trace_t::read_and_map_modules()
             return err;
     }
 
-    modvec_ptr = &module_mapper->get_loaded_modules();
+    set_modvec(&module_mapper->get_loaded_modules());
     return module_mapper->get_last_error();
 }
 
@@ -543,7 +540,7 @@ raw2trace_t::merge_and_process_thread_files()
             buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)times[tidx]);
             // We have to write this now before we append any bb entries.
             size = buf - buf_base;
-            CHECK((uint)size < MAX_COMBINED_ENTRIES, "Too many entries");
+            CHECK((uint)size < WRITE_BUFFER_SIZE, "Too many entries");
             if (!out_file->write((char *)buf_base, size))
                 return "Failed to write to output file";
             buf = buf_base;
@@ -780,19 +777,15 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
                          const std::vector<std::istream *> &thread_files_in,
                          std::ostream *out_file_in, void *dcontext_in,
                          unsigned int verbosity_in)
-    : modmap(module_map_in)
-    , modvec_ptr(nullptr)
+    : trace_converter_t(dcontext_in)
+    , modmap(module_map_in)
     , thread_files(thread_files_in)
     , out_file(out_file_in)
-    , dcontext(dcontext_in)
-    , prev_instr_was_rep_string(false)
-    , instrs_are_separate(false)
     , verbosity(verbosity_in)
     , user_process(nullptr)
     , user_process_data(nullptr)
 {
     if (dcontext == NULL) {
-        dcontext = dr_standalone_init();
 #ifdef ARM
         // We keep the mode at ARM and rely on LSB=1 offsets in the modoffs fields
         // to trigger Thumb decoding.
