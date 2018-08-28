@@ -1336,6 +1336,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       -D postcmd2=${${key}_postcmd2}
       -D postcmd3=${${key}_postcmd3}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
+      -D code=${${key}_code}
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
@@ -1705,6 +1706,8 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
+    set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
+    set(client.abort_code "8")
     tobuild_ci(client.abort client-interface/abort.c "" "" "")
   endif (X86)
   tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
