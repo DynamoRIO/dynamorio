@@ -360,21 +360,21 @@ struct trace_header_t {
 #define INVALID_THREAD_ID 0
 
 /**
- * trace_converter_t is a reusable component that encapsulates raw trace conversion.
+ * #trace_converter_t is a reusable component that encapsulates raw trace conversion.
  *
- * Conversion happens from a data source abstracted by the type parameter T. We assume
- * trace entry records belonging to a thread follow together, however, the way such
- * records are obtained is left for implementers to decide. For example, all thread
- * records of a thread may be in the same file; or records from multiple threads  might be
- * interleaved accross multiple files.
+ * Conversion happens from a data source abstracted by the type parameter T. We make no
+ * assumption about how thread buffers are organized. We do assume the internal
+ * composition of thread buffers is "as written" by the thread. For example, all thread
+ * buffers belonging to different threads may be in a separate files; or buffers may be
+ * co-located in one large file, or spread accross multiple, mix-thread files.
  *
- * trace_converter_t expects to be derived by its type template T which should provide the
- * following APIs:
+ * #trace_converter_t expects to be instantiated with its type template T which should
+ * provide the following APIs:
  *
  * <UL> <LI>const offline_entry_t *get_next_entry()
  *
- * Point to the next offline entry_t. There is no assumption of the underlying source
- * of the data, and trace_converter_t will not attempt to dereference past the provided
+ * Point to the next offline entry_t. There is no assumption about the underlying source
+ * of the data, and #trace_converter_t will not attempt to dereference past the provided
  * pointer.</LI>
  *
  * <LI>void unread_last_entry()
@@ -383,9 +383,9 @@ struct trace_header_t {
  *
  * <LI>trace_entry_t *get_write_buffer()
  *
- * Return a writable buffer guaranteed to be at least WRITE_BUFFER_SIZE large.
- *  get_write_buffer() may reuse the same buffer after write or write_delayed_branches is
- * called.</LI>
+ * Return a writable buffer guaranteed to be at least #WRITE_BUFFER_SIZE large.
+ *  get_write_buffer() may reuse the same buffer after write() or write_delayed_branches()
+ * is called.</LI>
  *
  * <LI>bool write(const trace_entry_t *start, const trace_entry_t *end)
  *
@@ -396,27 +396,27 @@ struct trace_header_t {
  * <LI>std::string write_delayed_branches(const trace_entry_t *start, const trace_entry_t
  * *end)
  *
- * Simliar to write(), but treat the provided traces as delayed branches: if they
+ * Similar to write(), but treat the provided traces as delayed branches: if they
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
  *
  * <LI>std::string on_thread_end()
  *
- * Callback notifying the currently-processed thread has exited. trace_converter_t
- * extenders are expected to track record metadata themselves. trace_converter_t offers
+ * Callback notifying the currently-processed thread has exited. #trace_converter_t
+ * extenders are expected to track record metadata themselves. #trace_converter_t offers
  * APIs for extracting that metadata.</LI>
  *
  * <LI>void log(uint level, const char *fmt, ...)
  *
  * Implementers are given the opportunity to implement their own logging. The level
- * parameter represents severity, the lower the level, the higher the severity.</LI>
+ * parameter represents severity: the lower the level, the higher the severity.</LI>
  *
  * <LI>const instr_summary_t *get_instr_summary(uint64 modx, uint64 modoffs, INOUT app_pc
  * *pc, app_pc orig)
  *
  * Return the #instr_summary_t representation of the instruction at *pc,
  * updating the value at pc to the PC of the next instruction. It is assumed the app
- * binaries have allready been loaded using #module_mapper_t, and the values at *pc point
+ * binaries have already been loaded using #module_mapper_t, and the values at *pc point
  * within memory mapped by the module mapper. This API provides an opportunity to cache
  * decoded instructions.</LI>
  * </UL>
@@ -430,8 +430,8 @@ template <typename T> class trace_converter_t {
 
 protected:
     /**
-     * Construct a new trace_converter_t object. If a nullptr dcontext_in is passed,
-     * creates a new DR context va dr_standalone_init()
+     * Construct a new #trace_converter_t object. If a nullptr dcontext_in is passed,
+     * creates a new DR context va dr_standalone_init().
      */
     trace_converter_t(void *dcontext_in)
         : dcontext(dcontext_in == nullptr ? dr_standalone_init() : dcontext_in)
@@ -440,7 +440,7 @@ protected:
 
     /**
      * Convert starting from in_entry, and reading more entries as required.
-     * sets end_of_record to true if processing hit the end of a record.
+     * Sets end_of_record to true if processing hit the end of a record.
      * set_modvec() must have been called by the implementation before calling this API.
      */
     std::string
@@ -520,8 +520,8 @@ protected:
 
     /**
      * Read the header of a thread, by calling T's get_next_entry() successively to
-     * populate the header values. The timestamp field is populated only for legacy
-     * traces.
+     * populate the header values. The #trace_header_t::timestamp field is populated only
+     * for legacy traces.
      */
     std::string
     read_header(OUT trace_header_t *header)
@@ -548,7 +548,7 @@ protected:
 
     /**
      * The trace_entry_t buffer returned by get_write_buffer() is assumed to be at least
-     * WRITE_BUFFER_SIZE large.
+     * #WRITE_BUFFER_SIZE large.
      */
     static const uint WRITE_BUFFER_SIZE = 64;
 
