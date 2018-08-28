@@ -4395,20 +4395,21 @@ dr_write_forensics_report(void *dcontext, file_t file,
 DR_API void
 dr_messagebox(const char *fmt, ...)
 {
-    dcontext_t *dcontext = get_thread_private_dcontext();
+    dcontext_t *dcontext = NULL;
+    if (!standalone_library)
+        dcontext = get_thread_private_dcontext();
     char msg[MAX_LOG_LENGTH];
     wchar_t wmsg[MAX_LOG_LENGTH];
     va_list ap;
-    CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     va_start(ap, fmt);
     vsnprintf(msg, BUFFER_SIZE_ELEMENTS(msg), fmt, ap);
     NULL_TERMINATE_BUFFER(msg);
     snwprintf(wmsg, BUFFER_SIZE_ELEMENTS(wmsg), L"%S", msg);
     NULL_TERMINATE_BUFFER(wmsg);
-    if (IS_CLIENT_THREAD(dcontext))
+    if (!standalone_library && IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
     nt_messagebox(wmsg, debugbox_get_title());
-    if (IS_CLIENT_THREAD(dcontext))
+    if (!standalone_library && IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
     va_end(ap);
 }
