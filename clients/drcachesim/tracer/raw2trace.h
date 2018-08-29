@@ -310,6 +310,7 @@ private:
     const char *modmap = nullptr;
     void *modhandle = nullptr;
     std::vector<module_t> modvec;
+    void (*const cached_user_free)(void *data) = nullptr;
 
     // Custom module fields that use drmodtrack are global.
     static const char *(*user_parse)(const char *src, OUT void **data);
@@ -411,8 +412,8 @@ struct trace_header_t {
  * Implementers are given the opportunity to implement their own logging. The level
  * parameter represents severity: the lower the level, the higher the severity.</LI>
  *
- * <LI>const instr_summary_t *get_instr_summary(uint64 modx, uint64 modoffs, INOUT app_pc
- * *pc, app_pc orig)
+ * <LI>const instr_summary_t *get_instr_summary(uint64 modidx, uint64 modoffs, INOUT
+ * app_pc *pc, app_pc orig)
  *
  * Return the #instr_summary_t representation of the instruction at *pc,
  * updating the value at pc to the PC of the next instruction. It is assumed the app
@@ -921,7 +922,7 @@ private:
     void
     log(uint level, const char *fmt, ...);
     const instr_summary_t *
-    get_instr_summary(uint64 modx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
+    get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
 
     std::string
     read_and_map_modules();

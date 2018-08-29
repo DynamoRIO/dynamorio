@@ -121,6 +121,7 @@ module_mapper_t::module_mapper_t(
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
     void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity_in)
     : modmap(module_map_in)
+    , cached_user_free(free_cb)
     , verbosity(verbosity_in)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
@@ -148,11 +149,14 @@ module_mapper_t::module_mapper_t(
 
 module_mapper_t::~module_mapper_t()
 {
+    // update user_free
+    user_free = cached_user_free;
     // drmodtrack_offline_exit requires the parameter to be non-null, but we
     // may not have even initialized the modhandle yet.
     if (modhandle != nullptr && drmodtrack_offline_exit(modhandle) != DRCOVLIB_SUCCESS) {
         WARN("Failed to clean up module table data");
     }
+    user_free = nullptr;
     for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
          ++mvi) {
         if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
