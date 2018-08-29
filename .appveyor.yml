@@ -84,8 +84,8 @@ install:
   # we're disabling to get the initial AppVeyor to be green.
   #- set PATH=C:\Program Files\gs\gs9.20\bin;%PATH%
   # Install fig2dev.
-  - appveyor DownloadFile http://www.winfig.com/WinFIG-Dateien/WinFIG62.zip || true
-  - 7z x WinFIG62.zip > nul || true
+  - appveyor DownloadFile http://www.winfig.com/WinFIG-Dateien/WinFIG75.zip || true
+  - 7z x WinFIG75.zip > nul || true
   - set PATH=c:\projects\install\WinFig;%PATH%
 
   ##################################################
