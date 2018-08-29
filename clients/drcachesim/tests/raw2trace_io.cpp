@@ -164,10 +164,16 @@ test_raw2trace(raw2trace_directory_t *dir)
     }
 }
 
+void
+my_user_free(void *data)
+{
+    REPORT("Custom user_free was called");
+}
+
 bool
 test_module_mapper(const raw2trace_directory_t *dir)
 {
-    module_mapper_t mapper(dir->modfile_bytes);
+    module_mapper_t mapper(dir->modfile_bytes, nullptr, nullptr, nullptr, &my_user_free);
     EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
     REPORT("About to load modules");
     const auto &loaded_modules = mapper.get_loaded_modules();
