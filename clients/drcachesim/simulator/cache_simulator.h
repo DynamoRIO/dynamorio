@@ -36,11 +36,13 @@
 #ifndef _CACHE_SIMULATOR_H_
 #define _CACHE_SIMULATOR_H_ 1
 
+#include <map>
 #include <unordered_map>
-#include "simulator.h"
+#include "../reader/config_reader.h"
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
 #include "cache.h"
+#include "simulator.h"
 
 class cache_simulator_t : public simulator_t {
 public:
@@ -65,6 +67,10 @@ public:
     uint64_t
     remaining_sim_refs() const;
 
+    // Expose to allow clients to use cache configuration.
+    cache_params_t *
+    get_cache_params(const std::string &cache_name);
+
 protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *
@@ -81,6 +87,9 @@ protected:
     std::unordered_map<std::string, cache_t *> llcaches;     // LLC(s)
     std::unordered_map<std::string, cache_t *> other_caches; // Non-L1, non-LLC caches
     std::unordered_map<std::string, cache_t *> all_caches;   // All caches.
+
+    // The following map maps a cache's name to its configuration.
+    std::map<std::string, cache_params_t> cache_params;
 
 private:
     bool is_warmed_up;

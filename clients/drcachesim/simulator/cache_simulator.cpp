@@ -144,7 +144,6 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     , l1_dcaches(NULL)
     , is_warmed_up(false)
 {
-    std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs, cache_params)) {
         error_string =
@@ -490,4 +489,14 @@ cache_simulator_t::create_cache(const std::string &policy)
     ERRMSG("Usage error: undefined replacement policy. "
            "Please choose " REPLACE_POLICY_LRU " or " REPLACE_POLICY_LFU ".\n");
     return NULL;
+}
+
+cache_params_t *
+cache_simulator_t::get_cache_params(const std::string &cache_name) {
+    const auto &cache_config_it = cache_params.find(cache_name);
+    if (cache_config_it != cache_params.end()) {
+        return &cache_config_it->second;
+    } else {
+        return NULL;
+    }
 }
