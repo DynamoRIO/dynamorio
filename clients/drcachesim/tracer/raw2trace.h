@@ -343,8 +343,6 @@ private:
     // VS2013 does not support defaulted move ctors/assign operators
 #ifndef WINDOWS
     module_mapper_t(module_mapper_t &&) = default;
-    module_mapper_t &
-    operator=(module_mapper_t &&) = default;
 #endif
 };
 
