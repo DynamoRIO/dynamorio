@@ -71,28 +71,26 @@ static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
 #    error "Test only supports Linux"
 #endif
 
-int
-main(int argc, const char *argv[])
+#define EXPECT(expr, msg)                               \
+    do {                                                \
+        if (!(expr)) {                                  \
+            std::cerr << "Error: " << msg << std::endl; \
+            return false;                               \
+        }                                               \
+    } while (0)
+
+#define REPORT(msg)                    \
+    do {                               \
+        std::cerr << msg << std::endl; \
+    } while (0)
+
+bool
+test_raw2trace(raw2trace_directory_t *dir)
 {
-    std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
-                                       &parse_err, NULL) ||
-        op_indir.get_value().empty() || op_out.get_value().empty()) {
-        std::cerr << "Usage error: " << parse_err << "\nUsage:\n"
-                  << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
-        return 1;
-    }
-
-    /* Open input/output files outside of traced region. And explicitly don't destroy dir,
-     * so they never get closed.
-     */
-    raw2trace_directory_t *dir =
-        new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
-
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "Fork failed\n";
-        return 1;
+        return false;
     }
     if (pid != 0) {
         /* parent */
@@ -104,7 +102,7 @@ main(int argc, const char *argv[])
                 if (errno == EINTR)
                     continue;
                 perror("Failed waiting");
-                return 1;
+                return false;
             }
             if (WIFEXITED(status))
                 break;
@@ -126,25 +124,25 @@ main(int argc, const char *argv[])
             res = ptrace(PTRACE_SYSCALL, pid, NULL, 0);
             if (res < 0) {
                 perror("ptrace failed");
-                return 1;
+                return false;
             }
         }
         if (WIFEXITED(status)) {
-            return 0;
+            return true;
         }
         res = ptrace(PTRACE_DETACH, pid, NULL, NULL);
         if (res < 0) {
             perror("ptrace failed");
-            return 1;
+            return false;
         }
         std::cerr << "Detached\n";
-        return 0;
+        return true;
     } else {
         /* child */
         long res = ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         if (res < 0) {
             perror("ptrace me failed");
-            return 1;
+            return false;
         }
         /* Force a wait until parent attaches, so we don't race on the fork. */
         raise(SIGSTOP);
@@ -157,10 +155,122 @@ main(int argc, const char *argv[])
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
             std::cerr << "raw2trace failed " << error << "\n";
-            return 1;
+            return false;
         }
         std::cerr << "Processed\n";
-        return 0;
+        exit(0);
+        // Unreachable
+        return false;
     }
+}
+
+void
+my_user_free(void *data)
+{
+    REPORT("Custom user_free was called");
+}
+
+bool
+test_module_mapper(const raw2trace_directory_t *dir)
+{
+    module_mapper_t mapper(dir->modfile_bytes, nullptr, nullptr, nullptr, &my_user_free);
+    EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
+    REPORT("About to load modules");
+    const auto &loaded_modules = mapper.get_loaded_modules();
+    EXPECT(!loaded_modules.empty(), "Expected module entries");
+    EXPECT(mapper.get_last_error().empty(), "Module loading failed");
+    REPORT("Loaded modules successfully");
+    bool found_simple_app = false;
+    for (const module_t &m : mapper.get_loaded_modules()) {
+        std::string path = m.path;
+        if (path.rfind("simple_app") != std::string::npos) {
+            found_simple_app = true;
+            break;
+        }
+    }
+    EXPECT(found_simple_app, "Expected app entry not found in module map");
+    REPORT("Successfully found app entry");
+    return true;
+}
+
+bool
+test_trace_timestamp_reader(const raw2trace_directory_t *dir)
+{
+    std::istream *file = dir->thread_files[0];
+    // Seek back to the beginning to undo raw2trace_directory_t's validation
+    file->seekg(0);
+    offline_entry_t buffer[4];
+    file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
+
+    std::string error;
+    if (!trace_metadata_reader_t::is_thread_start(buffer, &error) && !error.empty())
+        return false;
+    uint64 timestamp = 0;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
+                                                    &timestamp) != DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp == 0)
+        return false;
+    REPORT("Read timestamp from thread header");
+
+    uint64 timestamp2 = 0;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer + 3, sizeof(offline_entry_t),
+                                                    &timestamp2) != DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Read timestamp without thread header");
+
+    if (drmemtrace_get_timestamp_from_offline_trace(nullptr, 0, &timestamp2) ==
+        DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, 0, &timestamp2) ==
+        DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, sizeof(offline_entry_t),
+                                                    &timestamp2) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
+                                                    nullptr) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Verified boundary conditions");
+
+    offline_entry_t invalid_buffer[4];
+    memset(invalid_buffer, 0, BUFFER_SIZE_BYTES(invalid_buffer));
+    if (drmemtrace_get_timestamp_from_offline_trace(invalid_buffer,
+                                                    BUFFER_SIZE_BYTES(invalid_buffer),
+                                                    &timestamp2) == DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != timestamp2)
+        return false;
+    REPORT("Verified invalid buffer");
+    return true;
+}
+
+int
+main(int argc, const char *argv[])
+{
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
+                                       &parse_err, NULL) ||
+        op_indir.get_value().empty() || op_out.get_value().empty()) {
+        std::cerr << "Usage error: " << parse_err << "\nUsage:\n"
+                  << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
+        return 1;
+    }
+
+    /* Open input/output files outside of traced region. And explicitly don't destroy dir,
+     * so they never get closed.
+     */
+    raw2trace_directory_t *dir =
+        new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
+
+    bool test1_ret = test_raw2trace(dir);
+    bool test2_ret = test_module_mapper(dir);
+    bool test3_ret = test_trace_timestamp_reader(dir);
+    if (!(test1_ret && test2_ret && test3_ret))
+        return 1;
     return 0;
 }

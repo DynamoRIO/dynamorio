@@ -533,13 +533,16 @@ clean_call(void)
  */
 
 static void
-append_marker_seg_base(void *drcontext, trace_marker_type_t marker, uintptr_t value)
+append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (data->seg_base == NULL)
         return; /* This thread was filtered out. */
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker, value);
+    for (int i = 0; i < vec->size; i++) {
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
+                                  vec->entries[i].marker_value);
+    }
 }
 
 static void

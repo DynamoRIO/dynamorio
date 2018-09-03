@@ -238,6 +238,20 @@ Further non-compatibility-affecting changes include:
    setting up the code cache prior to execution.
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
+ - Generalization of the drcachesim #raw2trace_t API (Issue #3129):
+   - Added #module_mapper_t, which factors out the module mapping functionality
+     out of #raw2trace_t, replacing the following #raw2trace_t APIs:
+     #raw2trace_t::handle_custom_data(), #raw2trace_t::do_module_parsing(),
+     #raw2trace_t::do_module_parsing_and_mapping(), and #raw2trace_t::find_mapped_trace_address().
+   - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
+     #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
+   - Added #trace_metadata_reader_t, a set of utilities for checking and validating
+     thread start successions of offline entries in a raw data file.
+   - Added #trace_converter_t, an extensibility mechanism for raw trace conversion.
+ - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp
+   from the beginning of a raw trace bundle (regardless of whether it is a thread start
+   or just a subsequent bundle).
+ - Added dr_abort_with_code().
  - Added support for interoperability between emulation clients and observational
    clients: #emulated_instr_t, drmgr_insert_emulation_start(),
    drmgr_insert_emulation_end(), drmgr_is_emulation_start(), drmgr_is_emulation_end()

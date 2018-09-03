@@ -54,7 +54,6 @@ opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose
 
 opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
     : dcontext(nullptr)
-    , raw2trace(nullptr)
     , directory(module_file_path)
     , knob_verbose(verbose)
     , instr_count(0)
@@ -65,19 +64,15 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream *>(),
-                                nullptr, dcontext, verbose);
-    std::string error = raw2trace->do_module_parsing_and_mapping();
+    module_mapper.reset(new module_mapper_t(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, verbose));
+    module_mapper->get_loaded_modules();
+    std::string error = module_mapper->get_last_error();
     if (!error.empty()) {
         error_string = "Failed to load binaries: " + error;
         success = false;
         return;
     }
-}
-
-opcode_mix_t::~opcode_mix_t()
-{
-    delete raw2trace;
 }
 
 bool
@@ -88,11 +83,10 @@ opcode_mix_t::process_memref(const memref_t &memref)
         return "";
     ++instr_count;
     app_pc mapped_pc;
-    std::string err =
-        raw2trace->find_mapped_trace_address((app_pc)memref.instr.addr, &mapped_pc);
-    if (!err.empty()) {
+    mapped_pc = module_mapper->find_mapped_trace_address((app_pc)memref.instr.addr);
+    if (!module_mapper->get_last_error().empty()) {
         error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + err;
+            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
         return false;
     }
     int opcode;

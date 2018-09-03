@@ -1540,6 +1540,12 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     } else if (str_case_prefix(name, "API-MS-Win-CRT-")) {
         /* We've seen CRT-{String,Runtime,Private} */
         return "ucrtbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-COM-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-WinRT-String-L1-1")) {
+        return "combase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Private-L1-1")) {
+        return "kernel32.dll";
     } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */

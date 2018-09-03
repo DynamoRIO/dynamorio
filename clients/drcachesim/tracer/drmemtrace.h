@@ -268,6 +268,18 @@ drmemtrace_filter_threads(bool (*should_trace_thread_cb)(thread_id_t tid,
                                                          void *user_data),
                           void *user_value);
 
+DR_EXPORT
+/**
+ * Fetch the timestamp from a raw trace bundle. The API checks if the bundle
+ * is a thread start or not, and fetches the timestamp from the appropriate
+ * location.
+ * Returns DRMEMTRACE_ERROR_INVALID_PARAMETER if the pointer parameters are
+ * null or if the trace is too short.
+ */
+drmemtrace_status_t
+drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
+                                            OUT uint64 *timestamp);
+
 #ifdef __cplusplus
 }
 #endif

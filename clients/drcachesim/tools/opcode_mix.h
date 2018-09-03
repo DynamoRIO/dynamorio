@@ -43,7 +43,9 @@
 class opcode_mix_t : public analysis_tool_t {
 public:
     opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
-    virtual ~opcode_mix_t();
+    virtual ~opcode_mix_t()
+    {
+    }
     virtual bool
     process_memref(const memref_t &memref);
     virtual bool
@@ -51,7 +53,7 @@ public:
 
 protected:
     void *dcontext;
-    raw2trace_t *raw2trace;
+    std::unique_ptr<module_mapper_t> module_mapper;
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
     raw2trace_directory_t directory;

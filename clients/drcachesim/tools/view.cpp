@@ -55,7 +55,6 @@ view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
 view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
                const std::string &syntax, unsigned int verbose)
     : dcontext(nullptr)
-    , raw2trace(nullptr)
     , directory(module_file_path)
     , knob_verbose(verbose)
     , instr_count(0)
@@ -69,9 +68,10 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
         return;
     }
     dcontext = dr_standalone_init();
-    raw2trace = new raw2trace_t(directory.modfile_bytes, std::vector<std::istream *>(),
-                                nullptr, dcontext, verbose);
-    std::string error = raw2trace->do_module_parsing_and_mapping();
+    module_mapper.reset(new module_mapper_t(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, verbose));
+    module_mapper->get_loaded_modules();
+    std::string error = module_mapper->get_last_error();
     if (!error.empty()) {
         error_string = "Failed to load binaries: " + error;
         success = false;
@@ -87,11 +87,6 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
         flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
-}
-
-view_t::~view_t()
-{
-    delete raw2trace;
 }
 
 bool
@@ -110,10 +105,10 @@ view_t::process_memref(const memref_t &memref)
 
     app_pc mapped_pc;
     app_pc orig_pc = (app_pc)memref.instr.addr;
-    std::string err = raw2trace->find_mapped_trace_address(orig_pc, &mapped_pc);
-    if (!err.empty()) {
+    mapped_pc = module_mapper->find_mapped_trace_address(orig_pc);
+    if (!module_mapper->get_last_error().empty()) {
         error_string = "Failed to find mapped address for " +
-            to_hex_string(memref.instr.addr) + ": " + err;
+            to_hex_string(memref.instr.addr) + ": " + module_mapper->get_last_error();
         return false;
     }
 

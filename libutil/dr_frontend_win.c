@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -431,9 +431,9 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
     HANDLE proc_handle = GetCurrentProcess();
     TCHAR wdbghelp_path[MAX_PATH];
     TCHAR wsymsrv_path[MAX_SYMSRV_PATH];
-    /* check that it's first call */
+    /* Only initialize once. */
     if (hlib != NULL)
-        return DRFRONT_ERROR;
+        return DRFRONT_SUCCESS;
     if (dbghelp_path == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
     drfront_char_to_tchar(dbghelp_path, wdbghelp_path,
