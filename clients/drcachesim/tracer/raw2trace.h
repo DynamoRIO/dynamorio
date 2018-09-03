@@ -292,6 +292,16 @@ public:
      */
     ~module_mapper_t();
 
+    // since the dtor frees resources, disable copy constructor but allow
+    // move semantics
+    module_mapper_t(const module_mapper_t &) = delete;
+    module_mapper_t &
+    operator=(const module_mapper_t &) = delete;
+    // VS2013 does not support defaulted move ctors/assign operators
+#ifndef WINDOWS
+    module_mapper_t(module_mapper_t &&) = default;
+#endif
+
 private:
     // We store this in drmodtrack_info_t.custom to combine our binary contents
     // data with any user-added module data from drmemtrace_custom_module_data.
@@ -334,16 +344,6 @@ private:
 
     uint verbosity = 0;
     std::string last_error;
-
-    // since the dtor frees resources, disable copy constructor but allow
-    // move semantics
-    module_mapper_t(const module_mapper_t &) = delete;
-    module_mapper_t &
-    operator=(const module_mapper_t &) = delete;
-    // VS2013 does not support defaulted move ctors/assign operators
-#ifndef WINDOWS
-    module_mapper_t(module_mapper_t &&) = default;
-#endif
 };
 
 /**
@@ -426,6 +426,15 @@ template <typename T> class trace_converter_t {
         if (!(val))        \
             return msg;    \
     } while (0)
+public:
+    trace_converter_t(const trace_converter_t &) = delete;
+    trace_converter_t &
+    operator=(const trace_converter_t &) = delete;
+#ifndef WINDOWS
+    trace_converter_t(trace_converter_t &&) = default;
+    trace_converter_t &
+    operator=(trace_converter_t &&) = default;
+#endif
 
 protected:
     /**
@@ -790,14 +799,6 @@ private:
     // icache entry does not need to be considered a memref PC entry as well.
     bool instrs_are_separate = false;
 
-    trace_converter_t(const trace_converter_t &) = delete;
-    trace_converter_t &
-    operator=(const trace_converter_t &) = delete;
-#ifndef WINDOWS
-    trace_converter_t(trace_converter_t &&) = default;
-    trace_converter_t &
-    operator=(trace_converter_t &&) = default;
-#endif
 #undef DR_CHECK
 };
 
