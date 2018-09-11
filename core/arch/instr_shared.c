@@ -1120,8 +1120,7 @@ instr_set_label_callback(instr_label_callback cb, instr_t *instr)
 {
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
-    CLIENT_ASSERT(instr->label_cb == NULL,
-                  "label callback function is already set");
+    CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
     instr->label_cb = cb;
 }
 

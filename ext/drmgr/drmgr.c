@@ -2568,7 +2568,8 @@ get_emul_label_data(instr_t *label, int type)
 /* A callback function to free the emulated instruction represented by the label.
  * This will be called when the label is freed.
  */
-static void free_einstr(void *drcontext, instr_t *label)
+static void
+free_einstr(void *drcontext, instr_t *label)
 {
     instr_t *einstr = (instr_t *)get_emul_label_data(label, DRMGR_EMUL_INSTR);
     instr_destroy(drcontext, einstr);
