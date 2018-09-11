@@ -2565,6 +2565,15 @@ get_emul_label_data(instr_t *label, int type)
     return label_data->data[type];
 }
 
+/* A callback function to free the emulated instruction represented by the label.
+ * This will be called when the label is freed.
+ */
+static void free_einstr(void *drcontext, instr_t *label)
+{
+    instr_t *einstr = (instr_t *)get_emul_label_data(label, DRMGR_EMUL_INSTR);
+    instr_destroy(drcontext, einstr);
+}
+
 /* Set the start emulation label and emulated instruction data */
 DR_EXPORT
 void
@@ -2583,6 +2592,7 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
     set_emul_label_data(start_emul_label, DRMGR_EMUL_ISA_VERSION,
                         (ptr_uint_t)einstr->version);
 
+    instr_set_label_callback(free_einstr, start_emul_label);
     instrlist_meta_preinsert(ilist, where, start_emul_label);
 }
 

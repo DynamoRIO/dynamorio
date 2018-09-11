@@ -182,7 +182,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             is_emulation = true;
             /* Data about the emulated instruction can be extracted from the
              * start label using the accessor function:
-             * drmgr_get_emulation_instr_data()
+             * drmgr_get_emulated_instr_data()
              */
             continue;
         }

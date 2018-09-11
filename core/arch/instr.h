@@ -319,6 +319,13 @@ typedef struct _dr_instr_label_data_t {
 } dr_instr_label_data_t;
 
 /**
+ * Label instruction callback function. Set by instr_set_label_callback() and
+ * called when the label is freed. \p instr is typically an instruction related
+ * to the label which can be freed at the same time as the label.
+ */
+typedef void (*instr_label_callback)(void *drcontext, instr_t *instr);
+
+/**
  * Bitmask values passed as flags to routines that ask about whether operands
  * and condition codes are read or written.  These flags determine how to treat
  * conditionally executed instructions.
@@ -374,9 +381,15 @@ struct _instr_t {
     /* flags contains the constants defined above */
     uint flags;
 
-    /* raw bits of length length are pointed to by the bytes field */
+    /* raw bits of length length are pointed to by the bytes field
+     * label_cb stores a callback function pointer used by label instructions
+     * and called when the label is freed
+     */
     uint length;
-    byte *bytes;
+    union {
+        byte *bytes;
+        instr_label_callback label_cb;
+    };
 
     /* translation target for this instr */
     app_pc translation;
@@ -1910,6 +1923,19 @@ DR_API
  */
 dr_instr_label_data_t *
 instr_get_label_data_area(instr_t *instr);
+
+DR_API
+/**
+ * Set a function \p func which is called when the label instruction is freed.
+ * \p instr is typically an instruction related to the label which can be freed
+ * at the same time as the label.
+ */
+void
+instr_set_label_callback(instr_label_callback func, instr_t *instr);
+
+/* Get a label instructions callback function */
+instr_label_callback
+instr_get_label_callback(instr_t *instr);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

@@ -98,10 +98,12 @@ instr_create(dcontext_t *dcontext)
     return instr;
 }
 
-/* deletes the instr_t object with handle "inst" and frees its storage */
+/* deletes the instr_t object with handle "instr" and frees its storage */
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
+    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
+        (*instr->label_cb)(dcontext, instr);
     instr_free(dcontext, instr);
 
     /* CAUTION: assumes that instr is not part of any instrlist */
@@ -297,6 +299,8 @@ instr_build(dcontext_t *dcontext, int opcode, int instr_num_dsts, int instr_num_
 {
     instr_t *instr = instr_create(dcontext);
     instr_set_opcode(instr, opcode);
+    if (instr_is_label(instr))
+        instr_set_label_callback(NULL, instr);
     instr_set_num_opnds(dcontext, instr, instr_num_dsts, instr_num_srcs);
     return instr;
 }
@@ -1109,6 +1113,24 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
+}
+
+void
+instr_set_label_callback(instr_label_callback cb, instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb == NULL,
+                  "label callback function is already set");
+    instr->label_cb = cb;
+}
+
+instr_label_callback
+instr_get_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only label instructions have a callback function");
+    return instr->label_cb;
 }
 
 instr_t *
