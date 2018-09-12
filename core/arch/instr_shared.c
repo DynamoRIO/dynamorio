@@ -1116,7 +1116,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 }
 
 void
-instr_set_label_callback(instr_label_callback cb, instr_t *instr)
+instr_set_label_callback(instr_label_callback_t cb, instr_t *instr)
 {
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
@@ -1124,7 +1124,7 @@ instr_set_label_callback(instr_label_callback cb, instr_t *instr)
     instr->label_cb = cb;
 }
 
-instr_label_callback
+instr_label_callback_t
 instr_get_label_callback(instr_t *instr)
 {
     CLIENT_ASSERT(instr_is_label(instr),

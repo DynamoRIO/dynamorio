@@ -323,7 +323,7 @@ typedef struct _dr_instr_label_data_t {
  * called when the label is freed. \p instr is typically an instruction related
  * to the label which can be freed at the same time as the label.
  */
-typedef void (*instr_label_callback)(void *drcontext, instr_t *instr);
+typedef void (*instr_label_callback_t)(void *drcontext, instr_t *instr);
 
 /**
  * Bitmask values passed as flags to routines that ask about whether operands
@@ -388,7 +388,7 @@ struct _instr_t {
     uint length;
     union {
         byte *bytes;
-        instr_label_callback label_cb;
+        instr_label_callback_t label_cb;
     };
 
     /* translation target for this instr */
@@ -1931,10 +1931,10 @@ DR_API
  * at the same time as the label.
  */
 void
-instr_set_label_callback(instr_label_callback func, instr_t *instr);
+instr_set_label_callback(instr_label_callback_t func, instr_t *instr);
 
 /* Get a label instructions callback function */
-instr_label_callback
+instr_label_callback_t
 instr_get_label_callback(instr_t *instr);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
