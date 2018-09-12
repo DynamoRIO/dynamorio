@@ -777,10 +777,10 @@ private:
                     buf->size, (ptr_uint_t)buf->addr);
         *buf_in = ++buf;
         // To avoid having to backtrack later, we read ahead to see whether this memref
-        // faulted.  There's a footer so this should always succeed.
+        // faulted.
         in_entry = impl()->get_next_entry();
         if (in_entry == nullptr)
-            return "Trace ends mid-block";
+            return "";
         // Put it back.
         impl()->unread_last_entry();
         if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
