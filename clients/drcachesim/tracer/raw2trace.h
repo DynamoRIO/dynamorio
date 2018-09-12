@@ -778,23 +778,17 @@ private:
         *buf_in = ++buf;
         // To avoid having to backtrack later, we read ahead to see whether this memref
         // faulted.
-        // It is possible that this is the last entry in a thread buffer. In that case:
-        // 1) There's at least one more thread buffer. That thread buffer would start
-        //    with a timestamp, which means the check for interrupted bb would be false.
-        // 2) There's no other thread buffer. This is the last one. In that case, we
-        //    should have had a footer, and if we don't, we have a malformed trace,
-        //    which we can detect irrespective of this test.
         in_entry = impl()->get_next_entry();
-        if (in_entry != nullptr) {
-            // Put it back.
-            impl()->unread_last_entry();
-            if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                // A signal/exception interrupted the bb after the memref.
-                impl()->log(4, "Signal/exception interrupted the bb\n");
-                *interrupted = true;
-            }
+        if (in_entry == nullptr)
+            return "";
+        // Put it back.
+        impl()->unread_last_entry();
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            // A signal/exception interrupted the bb after the memref.
+            impl()->log(4, "Signal/exception interrupted the bb\n");
+            *interrupted = true;
         }
         return "";
     }
