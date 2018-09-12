@@ -2618,7 +2618,7 @@ bool
 drmgr_is_emulation_start(instr_t *instr)
 {
     return instr_is_label(instr) &&
-         ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START));
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START));
 }
 
 DR_EXPORT
@@ -2626,7 +2626,7 @@ bool
 drmgr_is_emulation_end(instr_t *instr)
 {
     return instr_is_label(instr) &&
-          ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
+        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
 }
 
 DR_EXPORT
