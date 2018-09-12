@@ -2577,12 +2577,15 @@ free_einstr(void *drcontext, instr_t *label)
 
 /* Set the start emulation label and emulated instruction data */
 DR_EXPORT
-void
+bool
 drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
                              emulated_instr_t *einstr)
 {
     ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
            "label data area is not large enough to store emulation data");
+
+    if (einstr->size < sizeof(emulated_instr_t))
+        return false;
 
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
@@ -2595,6 +2598,8 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 
     instr_set_label_callback(free_einstr, start_emul_label);
     instrlist_meta_preinsert(ilist, where, start_emul_label);
+
+    return true;
 }
 
 /* Set the end emulation label */
@@ -2612,30 +2617,31 @@ DR_EXPORT
 bool
 drmgr_is_emulation_start(instr_t *instr)
 {
-    if (instr_is_label(instr) &&
-        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START)))
-        return true;
-    return false;
+    return instr_is_label(instr) &&
+         ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_START));
 }
 
 DR_EXPORT
 bool
 drmgr_is_emulation_end(instr_t *instr)
 {
-    if (instr_is_label(instr) &&
-        ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP)))
-        return true;
-    return false;
+    return instr_is_label(instr) &&
+          ((ptr_int_t)instr_get_note(instr) == get_emul_note_val(DRMGR_NOTE_EMUL_STOP));
 }
 
 DR_EXPORT
-void
+bool
 drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
 {
     ASSERT(instr_is_label(instr), "emulation instruction does not have a label");
     ASSERT(drmgr_is_emulation_start(instr), "instruction is not a start emulation label");
 
+    if (emulated->size < sizeof(emulated_instr_t))
+        return false;
+
     emulated->pc = (app_pc)get_emul_label_data(instr, DRMGR_EMUL_INSTR_PC);
     emulated->instr = (instr_t *)get_emul_label_data(instr, DRMGR_EMUL_INSTR);
     emulated->version = (unsigned int)get_emul_label_data(instr, DRMGR_EMUL_ISA_VERSION);
+
+    return true;
 }

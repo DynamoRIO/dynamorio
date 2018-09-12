@@ -730,6 +730,7 @@ drmgr_reserve_note_range(size_t size);
  * client and read by an observational client.
  */
 typedef struct _emulated_instr_t {
+    size_t size;          /**< Size of this struct, used for API compatibility checks */
     app_pc pc;            /**< The PC address of the emulated instruction. */
     instr_t *instr;       /**< The emulated instruction. */
     unsigned int version; /**< The version of the ISA the instruction belongs to. */
@@ -746,12 +747,17 @@ typedef struct _emulated_instr_t {
  * drmgr_is_emulation_end() allowing the client to distinguish between native
  * app instructions and instructions used for emulation.
  *
+ * When calling this function, the \p size field of \p instr should be set using
+ * sizeof(). This allows the API to check for compatibility.
+ *
  * Information about the instruction being emulated can be read from the label using
  * drmgr_get_emulated_instr_data().
+ * 
+ * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
  *
  */
 DR_EXPORT
-void
+bool
 drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
                              emulated_instr_t *instr);
 
@@ -787,14 +793,19 @@ bool
 drmgr_is_emulation_end(instr_t *instr);
 
 /**
- * Returns the emulated instruction data from \p instr set by
+ * Loads \p emulated with the emulated instruction data from \p instr set by
  * drmgr_insert_emulation_start().
+ *
+ * When calling this function, the \p size field of \p emulated should be set using
+ * sizeof(). This allows the API to check for compatibility.
  *
  * @param[in]  instr       The label instruction which specifies start of emulation.
  * @param[out] emulated    The emulated instruction data.
+ *
+ * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
  */
 DR_EXPORT
-void
+bool
 drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated);
 
 /***************************************************************************
