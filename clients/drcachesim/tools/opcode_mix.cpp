@@ -64,8 +64,8 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int ver
         return;
     }
     dcontext = dr_standalone_init();
-    module_mapper.reset(new module_mapper_t(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, verbose));
+    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, verbose);
     module_mapper->get_loaded_modules();
     std::string error = module_mapper->get_last_error();
     if (!error.empty()) {
