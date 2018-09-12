@@ -305,7 +305,14 @@ private:
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
                     void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
-
+    module_mapper_t(const module_mapper_t &) = delete;
+    module_mapper_t &
+    operator=(const module_mapper_t &) = delete;
+#ifndef WINDOWS
+    module_mapper_t(module_mapper_t &&) = delete;
+    module_mapper_t &
+    operator=(module_mapper_t &&) = delete;
+#endif
     // We store this in drmodtrack_info_t.custom to combine our binary contents
     // data with any user-added module data from drmemtrace_custom_module_data.
     struct custom_module_data_t {
