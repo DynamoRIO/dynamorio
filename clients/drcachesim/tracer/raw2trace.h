@@ -243,12 +243,18 @@ public:
      * On success, calls the \p process_cb function for every module in the list.
      * On failure, get_last_error() is non-empty, and indicates the cause.
      */
-    module_mapper_t(const char *module_map_in,
-                    const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
-                    std::string (*process_cb)(drmodtrack_info_t *info, void *data,
-                                              void *user_data) = nullptr,
-                    void *process_cb_user_data = nullptr,
-                    void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
+    static std::unique_ptr<module_mapper_t>
+    create(const char *module_map_in,
+           const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
+           std::string (*process_cb)(drmodtrack_info_t *info, void *data,
+                                     void *user_data) = nullptr,
+           void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
+           uint verbosity_in = 0)
+    {
+        return std::unique_ptr<module_mapper_t>(
+            new module_mapper_t(module_map_in, parse_cb, process_cb, process_cb_user_data,
+                                free_cb, verbosity_in));
+    }
 
     /**
      * All APIs on this type, including constructor, may fail. get_last_error() returns
@@ -292,17 +298,21 @@ public:
      */
     ~module_mapper_t();
 
-    // since the dtor frees resources, disable copy constructor but allow
-    // move semantics
+private:
+    module_mapper_t(const char *module_map_in,
+                    const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
+                    std::string (*process_cb)(drmodtrack_info_t *info, void *data,
+                                              void *user_data) = nullptr,
+                    void *process_cb_user_data = nullptr,
+                    void (*free_cb)(void *data) = nullptr, uint verbosity_in = 0);
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
-    // VS2013 does not support defaulted move ctors/assign operators
 #ifndef WINDOWS
-    module_mapper_t(module_mapper_t &&) = default;
+    module_mapper_t(module_mapper_t &&) = delete;
+    module_mapper_t &
+    operator=(module_mapper_t &&) = delete;
 #endif
-
-private:
     // We store this in drmodtrack_info_t.custom to combine our binary contents
     // data with any user-added module data from drmemtrace_custom_module_data.
     struct custom_module_data_t {

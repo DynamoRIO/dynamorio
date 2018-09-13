@@ -257,8 +257,8 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper) {
-        module_mapper.reset(new module_mapper_t(modmap, user_parse, user_process,
-                                                user_process_data, user_free, verbosity));
+        module_mapper = module_mapper_t::create(modmap, user_parse, user_process,
+                                                user_process_data, user_free, verbosity);
     }
     return module_mapper->get_last_error();
 }
