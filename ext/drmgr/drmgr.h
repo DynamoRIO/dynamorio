@@ -730,9 +730,9 @@ drmgr_reserve_note_range(size_t size);
  * client and read by an observational client.
  */
 typedef struct _emulated_instr_t {
-    size_t size;          /**< Size of this struct, used for API compatibility checks */
-    app_pc pc;            /**< The PC address of the emulated instruction. */
-    instr_t *instr;       /**< The emulated instruction. */
+    size_t size;    /**< Size of this struct, used for API compatibility checks */
+    app_pc pc;      /**< The PC address of the emulated instruction. */
+    instr_t *instr; /**< The emulated instruction. */
 } emulated_instr_t;
 
 /**

@@ -2521,8 +2521,8 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
  * of the emulated_instr_t struct.
  */
 typedef enum {
-    DRMGR_EMUL_INSTR_PC,    /* The PC address of the emulated instruction. */
-    DRMGR_EMUL_INSTR,       /* The emulated instruction. */
+    DRMGR_EMUL_INSTR_PC, /* The PC address of the emulated instruction. */
+    DRMGR_EMUL_INSTR,    /* The emulated instruction. */
 } emulated_instr_data_t;
 
 /* Reserve space for emulation note values */
