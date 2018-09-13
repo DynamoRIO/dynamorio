@@ -733,7 +733,6 @@ typedef struct _emulated_instr_t {
     size_t size;          /**< Size of this struct, used for API compatibility checks */
     app_pc pc;            /**< The PC address of the emulated instruction. */
     instr_t *instr;       /**< The emulated instruction. */
-    unsigned int version; /**< The version of the ISA the instruction belongs to. */
 } emulated_instr_t;
 
 /**
