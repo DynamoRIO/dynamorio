@@ -200,7 +200,8 @@ set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir
 # link errors (xref i#1409).  We just build it to test the linking; no test.
 # XXX i#2007: a binutils error causes static dynamorio to fail to link on AArch64.
 # We'll enable this once Travis and others have a fixed binutils.
-if (NOT AARCH64)
+# XXX i#1997: static DR is not fully supported on Mac yet.
+if (NOT AARCH64 AND NOT APPLE)
   add_executable(opcode_mix_launcher
     tools/opcode_mix_launcher.cpp
     )
@@ -222,7 +223,7 @@ endif ()
 if (ZLIB_FOUND)
   target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
   target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
-  if (NOT AARCH64)
+  if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
   endif ()
 endif ()
@@ -299,7 +300,7 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
-if (NOT AARCH64)
+if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
 restore_nonclient_flags(drmemtrace_simulator)
@@ -337,7 +338,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
-if (NOT AARCH64)
+if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
 add_win32_flags(drmemtrace_simulator)
