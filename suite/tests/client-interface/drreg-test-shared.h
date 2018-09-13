@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,15 +51,15 @@
 #endif
 
 #define TEST_FLAGS_SIG SC_XFLAGS
+#define MAKE_HEX_ASM(n) HEX(n)
+#define MAKE_HEX(n) 0x##n
+#define MAKE_HEX_C(n) MAKE_HEX(n)
 
 /* Immediates that we look for in the app code to identify places for
  * specific tests in the client.
  * We limit to 16 bits to work on ARM.
  */
 #define DRREG_TEST_CONST(num) f1f##num
-#define MAKE_HEX_ASM(n) HEX(n)
-#define MAKE_HEX(n) 0x##n
-#define MAKE_HEX_C(n) MAKE_HEX(n)
 
 #ifdef X86
 /* Set SF,ZF,AF,PF,CF, and bit 1 is always 1 => 0xd7 */

@@ -137,9 +137,10 @@ sideline_spinner(void *arg)
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
 
-    /* XXX: ideally we'd have a better test that our state after the detach is
-     * not perturbed at all, though if the PC is correct that's generally half
-     * the battle.
+    /* Ideally we'd have a better test that our state after the detach is not
+     * perturbed at all (i#3160), though if the PC is correct that's generally
+     * half the battle.  The detach_state.c test adds such checks for us in a
+     * more controlled threading context.
      */
 
     VPRINT("%d waiting for native\n", idx);
