@@ -728,11 +728,15 @@ drmgr_reserve_note_range(size_t size);
 /**
  * Holds data about an emulated instruction, typically populated by an emulation
  * client and read by an observational client.
+ *
+ * \note The emulated \p instr is part of the label represented by
+ * \p emulated_instr_t and as such it will be freed when the label created by
+ * drmgr_insert_emulation_start() is freed.
  */
 typedef struct _emulated_instr_t {
-    size_t size;    /**< Size of this struct, used for API compatibility checks */
+    size_t size;    /**< Size of this struct, used for API compatibility checks. */
     app_pc pc;      /**< The PC address of the emulated instruction. */
-    instr_t *instr; /**< The emulated instruction. */
+    instr_t *instr; /**< The emulated instruction. See __Note__ above. */
 } emulated_instr_t;
 
 /**
@@ -762,7 +766,7 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 
 /**
  * Inserts a label into \p ilist prior to \p where to indicate the end of a
- * sequence of instructions emulating an instruction, preceeded by a label created
+ * sequence of instructions emulating an instruction, preceded by a label created
  * with drmgr_insert_emulation_start().
  */
 DR_EXPORT
@@ -805,7 +809,7 @@ drmgr_is_emulation_end(instr_t *instr);
  */
 DR_EXPORT
 bool
-drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated);
+drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
 
 /***************************************************************************
  * UTILITIES

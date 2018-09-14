@@ -2517,7 +2517,7 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
 
 /*
  * Constants used when accessing emulated instruction data with the
- * drmgr_get_emulatd_instr_data() function. Each constant refers to an element
+ * drmgr_get_emulated_instr_data() function. Each constant refers to an element
  * of the emulated_instr_t struct.
  */
 typedef enum {
@@ -2529,6 +2529,9 @@ typedef enum {
 static void
 drmgr_emulation_init(void)
 {
+    ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
+           "label data area is not large enough to store emulation data");
+
     note_base_emul = drmgr_reserve_note_range(DRMGR_NOTE_EMUL_COUNT);
     ASSERT(note_base_emul != DRMGR_NOTE_NONE, "failed to reserve emulation note space");
 }
@@ -2580,9 +2583,6 @@ bool
 drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
                              emulated_instr_t *einstr)
 {
-    ASSERT(sizeof(emulated_instr_t) <= sizeof(dr_instr_label_data_t),
-           "label data area is not large enough to store emulation data");
-
     if (einstr->size < sizeof(emulated_instr_t))
         return false;
 
@@ -2593,7 +2593,7 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR_PC, (ptr_uint_t)einstr->pc);
     set_emul_label_data(start_emul_label, DRMGR_EMUL_INSTR, (ptr_uint_t)einstr->instr);
 
-    instr_set_label_callback(free_einstr, start_emul_label);
+    instr_set_label_callback(start_emul_label, free_einstr);
     instrlist_meta_preinsert(ilist, where, start_emul_label);
 
     return true;

@@ -102,8 +102,6 @@ instr_create(dcontext_t *dcontext)
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
-    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
-        (*instr->label_cb)(dcontext, instr);
     instr_free(dcontext, instr);
 
     /* CAUTION: assumes that instr is not part of any instrlist */
@@ -170,6 +168,8 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
+    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
+        (*instr->label_cb)(dcontext, instr);
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
         instr->bytes = NULL;
@@ -299,8 +299,6 @@ instr_build(dcontext_t *dcontext, int opcode, int instr_num_dsts, int instr_num_
 {
     instr_t *instr = instr_create(dcontext);
     instr_set_opcode(instr, opcode);
-    if (instr_is_label(instr))
-        instr_set_label_callback(NULL, instr);
     instr_set_num_opnds(dcontext, instr, instr_num_dsts, instr_num_srcs);
     return instr;
 }
@@ -1116,7 +1114,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 }
 
 void
-instr_set_label_callback(instr_label_callback_t cb, instr_t *instr)
+instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
 {
     CLIENT_ASSERT(instr_is_label(instr),
                   "only set callback functions for label instructions");
