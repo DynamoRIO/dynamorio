@@ -188,9 +188,9 @@ post_process()
          * scope to delete the drmodtrack state afterward.
          */
         raw2trace_directory_t dir(output_path, output_trace);
-        module_mapper_t module_mapper(dir.modfile_bytes, parse_cb, process_cb,
-                                      MAGIC_VALUE, free_cb);
-        assert(module_mapper.get_last_error().empty());
+        std::unique_ptr<module_mapper_t> module_mapper = module_mapper_t::create(
+            dir.modfile_bytes, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(module_mapper->get_last_error().empty());
         // Test back-compat of deprecated APIs.
         raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, NULL, NULL);
         std::string error =
