@@ -173,15 +173,16 @@ my_user_free(void *data)
 bool
 test_module_mapper(const raw2trace_directory_t *dir)
 {
-    module_mapper_t mapper(dir->modfile_bytes, nullptr, nullptr, nullptr, &my_user_free);
-    EXPECT(mapper.get_last_error().empty(), "Module mapper construction failed");
+    std::unique_ptr<module_mapper_t> mapper = module_mapper_t::create(
+        dir->modfile_bytes, nullptr, nullptr, nullptr, &my_user_free);
+    EXPECT(mapper->get_last_error().empty(), "Module mapper construction failed");
     REPORT("About to load modules");
-    const auto &loaded_modules = mapper.get_loaded_modules();
+    const auto &loaded_modules = mapper->get_loaded_modules();
     EXPECT(!loaded_modules.empty(), "Expected module entries");
-    EXPECT(mapper.get_last_error().empty(), "Module loading failed");
+    EXPECT(mapper->get_last_error().empty(), "Module loading failed");
     REPORT("Loaded modules successfully");
     bool found_simple_app = false;
-    for (const module_t &m : mapper.get_loaded_modules()) {
+    for (const module_t &m : mapper->get_loaded_modules()) {
         std::string path = m.path;
         if (path.rfind("simple_app") != std::string::npos) {
             found_simple_app = true;

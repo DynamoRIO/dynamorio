@@ -68,8 +68,8 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
         return;
     }
     dcontext = dr_standalone_init();
-    module_mapper.reset(new module_mapper_t(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, verbose));
+    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, verbose);
     module_mapper->get_loaded_modules();
     std::string error = module_mapper->get_last_error();
     if (!error.empty()) {
