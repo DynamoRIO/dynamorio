@@ -257,7 +257,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
  */
 static bool
 execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
-                           sigcontext_t *sc_orig);
+                           sigcontext_t *sc_orig, bool forged);
 
 static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame);
@@ -650,6 +650,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
          * Note: it's glibc who sets up the arg to the thread start function;
          * the kernel just does a fork + stack swap, so we can get away w/ our
          * own stack swap if we restore before the glibc asm code takes over.
+         * We restore this parameter to the app value in new_thread_setup().
          */
         /* i#754: set stack to be XSTATE aligned for saving YMM registers */
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
@@ -3393,7 +3394,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
         LOG(THREAD, LOG_ASYNCH, 2, "%s: executing default action\n",
             (action == DR_SIGNAL_BYPASS) ? "client forcing default"
                                          : "app signal handler is SIG_DFL");
-        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig)) {
+        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig, false)) {
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              */
@@ -4214,16 +4215,20 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 #endif
 
         /* i#196/PR 453847: avoid infinite loop of signals if try to re-execute */
-        if (blocked && !forged && !can_always_delay[sig] &&
+        if (blocked && !can_always_delay[sig] &&
             !is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info)) {
             ASSERT(default_action[sig] == DEFAULT_TERMINATE ||
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
             sc_orig = *sc;
-            translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, NULL);
+            /* If forged we're likely couldbelinking, and we don't need to xl8. */
+            if (forged)
+                ASSERT(is_couldbelinking(dcontext));
+            else
+                translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, NULL);
             /* the process should be terminated */
-            execute_default_from_cache(dcontext, sig, frame, &sc_orig);
+            execute_default_from_cache(dcontext, sig, frame, &sc_orig, forged);
             ASSERT_NOT_REACHED();
         }
 
@@ -5112,7 +5117,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     if (info->app_sigaction[sig] == NULL ||
         info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
         LOG(THREAD, LOG_ASYNCH, 3, "\taction is SIG_DFL\n");
-        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig)) {
+        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig, false)) {
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              * XXX i#1615: this doesn't restore SIMD regs, if client translated them!
@@ -5435,10 +5440,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 }
 
 /* The arg to SYS_kill, i.e., the signal number, should be in dcontext->sys_param0 */
+/* This routine unblocks signals, but the caller must set the handler to default. */
 static void
 terminate_via_kill(dcontext_t *dcontext)
 {
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(dcontext == get_thread_private_dcontext());
+    unblock_all_signals(NULL);
+    /* Enure signal_thread_exit() will not re-block */
+    memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
 
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
@@ -5538,7 +5548,7 @@ os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
 
 static bool
 execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
-                       sigcontext_t *sc_orig, bool from_dispatch)
+                       sigcontext_t *sc_orig, bool from_dispatch, bool forged)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
@@ -5611,7 +5621,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
             /* N.B.: we don't have to restore our handler because the
              * default action is for the process (entire thread group for NPTL) to die!
              */
-            if (from_dispatch || can_always_delay[sig] ||
+            if (from_dispatch || can_always_delay[sig] || forged ||
                 is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info)) {
                 /* This must have come from SYS_kill rather than raised by
                  * a faulting instruction.  Thus we can't go re-execute the
@@ -5625,7 +5635,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * FIXME: should have app make the syscall to get a more
                  * transparent core dump!
                  */
-                if (!from_dispatch)
+                LOG(THREAD, LOG_ASYNCH, 1, "Terminating via kill\n");
+                if (!from_dispatch && !forged)
                     KSTOP_NOT_MATCHING_NOT_PROPAGATED(fcache_default);
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
                 if (is_couldbelinking(dcontext)) /* won't be for SYS_kill (i#1159) */
@@ -5638,7 +5649,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * re-raise the fault.  We could easily be wrong:
                  * xref PR 363811 infinite loop due to memory we
                  * thought was unreadable and thus thought would raise
-                 * a signal; xref PR 368277 to improve is_sys_kill().
+                 * a signal; xref PR 368277 to improve is_sys_kill(), and the
+                 * "forged" parameter that puts us in the if() above.
                  * FIXME PR 205310: we should check whether we come out of
                  * the cache when we expected to terminate!
                  *
@@ -5649,7 +5661,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * signal death, but we do for asynch.
                  */
                 /* i#552: cleanup and raise client exit event */
-                int instr_sz;
+                int instr_sz = 0;
                 thread_sig_info_t *info;
                 /* We are on the sigstack now, so assign it to NULL to avoid being
                  * freed during process exit cleanup
@@ -5666,6 +5678,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * raise the signal, so we first check if the app instr is the
                  * same as instr in the cache, and raise the signal (by return).
                  * Otherwise, we kill the process instead.
+                 * XXX: if the PC is unreadable we'll just crash here...should check
+                 * for readability safely.
                  */
                 ASSERT(sc_orig != NULL);
                 instr_sz = decode_sizeof(dcontext, (byte *)sc_orig->SC_XIP,
@@ -5677,12 +5691,14 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                     /* the app instr matches the cache instr; cleanup and raise the
                      * the signal in the app context
                      */
+                    LOG(THREAD, LOG_ASYNCH, 1, "Raising signal by re-executing\n");
                     dynamo_process_exit();
                     /* we cannot re-enter the cache, which is freed by now */
                     ASSERT(!from_dispatch);
                     return false;
                 } else {
                     /* mismatch, cleanup and terminate */
+                    LOG(THREAD, LOG_ASYNCH, 1, "Terminating via kill\n");
                     dcontext->sys_param0 = sig;
                     terminate_via_kill(dcontext);
                     ASSERT_NOT_REACHED();
@@ -5727,15 +5743,15 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
 
 static bool
 execute_default_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
-                           sigcontext_t *sc_orig)
+                           sigcontext_t *sc_orig, bool forged)
 {
-    return execute_default_action(dcontext, sig, frame, sc_orig, false);
+    return execute_default_action(dcontext, sig, frame, sc_orig, false, forged);
 }
 
 static void
 execute_default_from_dispatch(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
 {
-    execute_default_action(dcontext, sig, frame, NULL, true);
+    execute_default_action(dcontext, sig, frame, NULL, true, false);
 }
 
 void
@@ -6132,11 +6148,17 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 
     LOG(GLOBAL, LOG_ASYNCH, 1, "os_forge_exception sig=%d\n", sig);
 
-    /* since we always delay delivery, we always want an rt frame.  we'll convert
+    /* Since we always delay delivery, we always want an rt frame.  we'll convert
      * to a plain frame on delivery.
      */
     memset(frame, 0, sizeof(*frame));
     frame->info.si_signo = sig;
+    /* Set si_code to match what would happen natively.  We also need this to
+     * avoid the !is_sys_kill() check in record_pending_signal() to avoid an
+     * infinite loop (i#3171).
+     */
+    frame->info.si_code = SI_KERNEL;
+    frame->info.si_addr = target_pc;
 #ifdef X86_32
     frame->sig = sig;
     frame->pinfo = &frame->info;

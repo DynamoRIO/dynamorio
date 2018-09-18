@@ -1122,7 +1122,6 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
 #ifdef KSTATS
     kstat_exit();
 #endif
-
     DELETE_LOCK(all_threads_lock);
     DELETE_LOCK(thread_initexit_lock);
 

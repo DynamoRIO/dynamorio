@@ -114,6 +114,8 @@
 #    error NYI
 #endif
 
+#define SYSCALL_PARAM_CLONE_STACK 1
+
 #ifdef AARCHXX
 #    ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's
@@ -338,6 +340,8 @@ bool
 was_sigreturn_syscall(dcontext_t *dcontext);
 bool
 ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
+void
+set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
 
 bool
 kernel_is_64bit(void);
