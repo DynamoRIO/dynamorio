@@ -168,6 +168,9 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
