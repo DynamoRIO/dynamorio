@@ -307,10 +307,11 @@ new_thread_setup(priv_mcontext_t *mc)
 #    ifdef ARM
     dr_set_isa_mode(dcontext, get_clone_record_isa_mode(crec), NULL);
 #    endif
+
     /* Restore the original stack parameter to the syscall, which we clobbered
      * in create_clone_record().  Some apps examine it post-syscall (i#3171).
      */
-    set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, mc->xsp);
+    restore_clone_param_from_clone_record(dcontext, crec);
 
     thread_starting(dcontext);
 

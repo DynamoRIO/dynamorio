@@ -106,6 +106,8 @@
     (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM | \
      CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID)
 
+#define SYSCALL_PARAM_CLONE_STACK 1
+
 /* On Mac, we use the _nocancel variant to defer app-initiated thread termination */
 #ifdef MACOS
 #    define SYSNUM_NO_CANCEL(num) num##_nocancel
@@ -223,6 +225,9 @@ bool
 os_files_same(const char *path1, const char *path2);
 
 extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
+
+void
+set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
 
 file_t
 fd_priv_dup(file_t curfd);

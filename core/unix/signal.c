@@ -650,7 +650,8 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
          * Note: it's glibc who sets up the arg to the thread start function;
          * the kernel just does a fork + stack swap, so we can get away w/ our
          * own stack swap if we restore before the glibc asm code takes over.
-         * We restore this parameter to the app value in new_thread_setup().
+         * We restore this parameter to the app value in
+         * restore_clone_param_from_clone_record().
          */
         /* i#754: set stack to be XSTATE aligned for saving YMM registers */
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
@@ -776,6 +777,20 @@ set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record)
     }
 }
 #endif
+
+void
+restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
+{
+    ASSERT(record != NULL);
+    clone_record_t *crec = (clone_record_t *)record;
+    if (crec->clone_sysnum == SYS_clone && TEST(CLONE_VM, crec->clone_flags)) {
+        /* Restore the original stack parameter to the syscall, which we clobbered
+         * in create_clone_record().  Some apps examine it post-syscall (i#3171).
+         */
+        set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK,
+                          get_mcontext(dcontext)->xsp);
+    }
+}
 
 /* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
 static void

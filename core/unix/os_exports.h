@@ -114,8 +114,6 @@
 #    error NYI
 #endif
 
-#define SYSCALL_PARAM_CLONE_STACK 1
-
 #ifdef AARCHXX
 #    ifdef ANDROID
 /* We have our own slot at the end of our instance of Android's
@@ -340,8 +338,6 @@ bool
 was_sigreturn_syscall(dcontext_t *dcontext);
 bool
 ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
-void
-set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
 
 bool
 kernel_is_64bit(void);
@@ -474,6 +470,9 @@ set_thread_register_from_clone_record(void *record);
 void
 set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
+
+void
+restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record);
 
 void
 os_clone_post(dcontext_t *dcontext);
