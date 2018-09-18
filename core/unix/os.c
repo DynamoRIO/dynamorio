@@ -7041,7 +7041,8 @@ pre_system_call(dcontext_t *dcontext)
          * Note: This must be done after sys_param0 is set.
          */
         if (is_thread_create_syscall(dcontext)) {
-            create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
+            create_clone_record(dcontext,
+                                sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK));
             os_clone_pre(dcontext);
             os_new_thread_pre();
         } else /* This is really a fork. */
