@@ -1120,7 +1120,7 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
                   "only set callback functions for label instructions");
     CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
     CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
-                   "instruction's raw bits occupying label callback memory");
+                  "instruction's raw bits occupying label callback memory");
     instr->label_cb = cb;
 }
 
