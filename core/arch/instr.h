@@ -321,7 +321,7 @@ typedef struct _dr_instr_label_data_t {
 /**
  * Label instruction callback function. Set by instr_set_label_callback() and
  * called when the label is freed. \p instr is the label instruction allowing
- * the caller to free the label's auxilliary data.
+ * the caller to free the label's auxiliary data.
  */
 typedef void (*instr_label_callback_t)(void *drcontext, instr_t *instr);
 
@@ -1928,7 +1928,7 @@ DR_API
 /**
  * Set a function \p func which is called when the label instruction is freed.
  * \p instr is the label instruction allowing \p func to free the label's
- * auxilliary data.
+ * auxiliary data.
  */
 void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
