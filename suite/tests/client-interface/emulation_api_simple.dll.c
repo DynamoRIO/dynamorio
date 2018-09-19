@@ -92,8 +92,7 @@ event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         opnd_t src0 = instr_get_src(instr, 0);
         opnd_t src1 = instr_get_src(instr, 1);
 
-        if (!opnd_is_reg(src0) || instr_num_srcs(instr) != 4 ||
-            opnd_get_size(src0) != OPSZ_8 ||
+        if (instr_num_srcs(instr) != 4 || opnd_get_size(src0) != OPSZ_8 ||
             opnd_get_immed_int(instr_get_src(instr, 3)) != 0)
             continue;
 
@@ -116,8 +115,6 @@ event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         opnd_t scratch1 = opnd_create_reg(DR_REG_X27);
 
         /* scratch0 = !src0
-         * ORN <Xd>, <Xn>, <Xm>{, <shift> #<imm>}
-         * Xd = Xn OR NOT(shift(Xm, imm))
          * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orn)
          */
         instr_t *not0 = instr_create_1dst_4src(drcontext, OP_orn, scratch0,
@@ -134,8 +131,6 @@ event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         instrlist_preinsert(bb, instr, instr_set_translation(not1, raw_instr_pc));
 
         /* scratch0 = scratch0 | scratch1
-         * ORR <Xd>, <Xn>, <Xm>{, <shift> #<imm>}
-         * Xd = Xn OR shift(Xm, imm)
          * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orr)
          */
         instr_t *or_i =
