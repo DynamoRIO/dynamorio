@@ -197,7 +197,7 @@ typedef struct _drmgr_priority_t {
 typedef enum {
     DRMGR_PHASE_NONE,          /**< Not currently in a bb building event. */
     DRMGR_PHASE_APP2APP,       /**< Currently in the app2app phase. */
-    DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase.. */
+    DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase. */
     DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
     DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
 } drmgr_bb_phase_t;
@@ -720,6 +720,96 @@ DR_EXPORT
  */
 ptr_uint_t
 drmgr_reserve_note_range(size_t size);
+
+/***************************************************************************
+ * EMULATION
+ */
+
+/**
+ * Holds data about an emulated instruction, typically populated by an emulation
+ * client and read by an observational client.
+ *
+ * \note The emulated \p instr is part of the label represented by
+ * \p emulated_instr_t and as such it will be freed when the label created by
+ * drmgr_insert_emulation_start() is freed.
+ */
+typedef struct _emulated_instr_t {
+    size_t size;    /**< Size of this struct, used for API compatibility checks. */
+    app_pc pc;      /**< The PC address of the emulated instruction. */
+    instr_t *instr; /**< The emulated instruction. See __Note__ above. */
+} emulated_instr_t;
+
+/**
+ * Inserts a label into \p ilist prior to \p where to indicate the start of a
+ * sequence of instructions emulating an instruction \p instr. The label has data
+ * attached which describes the instruction being emulated.
+ *
+ * A label will also appear at the end of the sequence, added using
+ * drmgr_insert_emulation_end(). These start and stop labels can be detected
+ * by an observational client using drmgr_is_emulation_start() and
+ * drmgr_is_emulation_end() allowing the client to distinguish between native
+ * app instructions and instructions used for emulation.
+ *
+ * When calling this function, the \p size field of \p instr should be set using
+ * sizeof(). This allows the API to check for compatibility.
+ *
+ * Information about the instruction being emulated can be read from the label using
+ * drmgr_get_emulated_instr_data().
+ *
+ * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
+ *
+ */
+DR_EXPORT
+bool
+drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             emulated_instr_t *instr);
+
+/**
+ * Inserts a label into \p ilist prior to \p where to indicate the end of a
+ * sequence of instructions emulating an instruction, preceded by a label created
+ * with drmgr_insert_emulation_start().
+ */
+DR_EXPORT
+void
+drmgr_insert_emulation_end(void *drcontext, instrlist_t *ilist, instr_t *where);
+
+/**
+ * Checks the instruction \p instr to see if it is an emulation start label
+ * created by drmgr_insert_emulation_start(). Typically used in an
+ * instrumentation client running with an emulation client.
+ *
+ * \return true if \p instr is an emulation start label, false otherwise.
+ */
+DR_EXPORT
+bool
+drmgr_is_emulation_start(instr_t *instr);
+
+/**
+ * Checks the instruction \p instr to see if it is an emulation end label
+ * created by drmgr_insert_emulation_end(). Typically used in an
+ * instrumentation client running with an emulation client.
+ *
+ * \return true if \p instr is an emulation end label, false otherwise.
+ */
+DR_EXPORT
+bool
+drmgr_is_emulation_end(instr_t *instr);
+
+/**
+ * Loads \p emulated with the emulated instruction data from \p instr set by
+ * drmgr_insert_emulation_start().
+ *
+ * When calling this function, the \p size field of \p emulated should be set using
+ * sizeof(). This allows the API to check for compatibility.
+ *
+ * @param[in]  instr       The label instruction which specifies start of emulation.
+ * @param[out] emulated    The emulated instruction data.
+ *
+ * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
+ */
+DR_EXPORT
+bool
+drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
 
 /***************************************************************************
  * UTILITIES
