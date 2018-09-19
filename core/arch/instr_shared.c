@@ -98,7 +98,7 @@ instr_create(dcontext_t *dcontext)
     return instr;
 }
 
-/* deletes the instr_t object with handle "inst" and frees its storage */
+/* deletes the instr_t object with handle "instr" and frees its storage */
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
@@ -168,6 +168,8 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
+    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
+        (*instr->label_cb)(dcontext, instr);
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
         instr->bytes = NULL;
@@ -1109,6 +1111,27 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
+}
+
+void
+instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = cb;
+}
+
+instr_label_callback_t
+instr_get_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only label instructions have a callback function");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    return instr->label_cb;
 }
 
 instr_t *
