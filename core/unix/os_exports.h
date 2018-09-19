@@ -472,6 +472,9 @@ set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record);
 #endif
 
 void
+restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record);
+
+void
 os_clone_post(dcontext_t *dcontext);
 
 void
