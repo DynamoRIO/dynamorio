@@ -3135,7 +3135,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #ifdef X64
         ASSERT_NOT_REACHED();
 #endif
-#ifdef LINUX
+#if defined(LINUX) && !defined(X64)
         sigframe_plain_t *f_new = (sigframe_plain_t *)sp;
 #    ifdef X86
 #        ifndef VMX86_SERVER
@@ -3173,7 +3173,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #    endif /* X86 */
         /* Store the prior mask, for restoring in sigreturn. */
         convert_rt_mask_to_nonrt(f_new, &info->app_sigblocked);
-#endif /* LINUX */
+#endif /* LINUX && !X64 */
     }
 
 #ifdef MACOS
