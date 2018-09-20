@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@ typedef void (*handler_t)(int, siginfo_t *, void *);
 
 #if USE_LONGJMP
 #    include <setjmp.h>
-static jmp_buf env;
+static sigjmp_buf env;
 #endif
 
 #if USE_SIGSTACK
@@ -107,25 +107,13 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     case SIGSEGV: {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *)sc->SC_XIP;
-#if USE_LONGJMP && BLOCK_IN_HANDLER
-        sigset_t set;
-        int rc;
-#endif
 #if VERBOSE
         print("Got SIGSEGV @ 0x%08x\n", pc);
 #else
         print("Got SIGSEGV\n");
 #endif
 #if USE_LONGJMP
-#    if BLOCK_IN_HANDLER
-        /* longjmp will bypass sigreturn, and sigreturn is what resets
-         * the set of blocked signals, so we have to unblock them here
-         */
-        rc = sigemptyset(&set); /* reset blocked signals */
-        ASSERT_NOERR(rc);
-        sigprocmask(SIG_SETMASK, &set, NULL);
-#    endif
-        longjmp(env, 1);
+        siglongjmp(env, 1);
 #endif
         break;
     }
@@ -206,6 +194,16 @@ main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
+    /* Block a few signals */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGURG);
+    sigaddset(&mask, SIGALRM);
+    rc = sigprocmask(SIG_SETMASK, &mask, NULL);
+    ASSERT_NOERR(rc);
+
 #if USE_TIMER
     custom_intercept_signal(SIGVTALRM, (handler_t)signal_handler);
     t.it_interval.tv_sec = 0;
@@ -255,7 +253,7 @@ main(int argc, char *argv[])
 
     print("Generating SIGSEGV\n");
 #if USE_LONGJMP
-    res = setjmp(env);
+    res = sigsetjmp(env, 1);
     if (res == 0) {
         *((volatile int *)0) = 4;
     }
@@ -273,6 +271,13 @@ main(int argc, char *argv[])
         a[i] += j;
     }
     print("%f\n", res);
+
+    sigset_t check_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+    ASSERT_NOERR(rc);
+    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));

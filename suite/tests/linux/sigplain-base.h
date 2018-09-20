@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,6 +125,16 @@ main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
+    /* Block a few signals */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGURG);
+    sigaddset(&mask, SIGALRM);
+    rc = sigprocmask(SIG_SETMASK, &mask, NULL);
+    ASSERT_NOERR(rc);
+
 #if USE_TIMER
     custom_intercept_signal(SIGVTALRM, signal_handler);
     t.it_interval.tv_sec = 0;
@@ -169,6 +179,13 @@ main(int argc, char *argv[])
         a[i] += j;
     }
     print("%f\n", res);
+
+    sigset_t check_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    rc = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+    ASSERT_NOERR(rc);
+    assert(memcmp(&mask, &check_mask, sizeof(mask)) == 0);
 
 #if USE_TIMER
     memset(&t, 0, sizeof(t));
