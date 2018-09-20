@@ -1952,9 +1952,8 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
         LOG(THREAD, LOG_ASYNCH, 2, "app set up signal stack " PFX " - " PFX " %s\n",
             stack->ss_sp, stack->ss_sp + stack->ss_size - 1,
             (APP_HAS_SIGSTACK(info)) ? "enabled" : "disabled");
-        return false; /* always cancel syscall */
     }
-    return true;
+    return false; /* always cancel syscall */
 }
 
 /* Blocked signals:
@@ -3128,6 +3127,14 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     if (rtframe) {
         sigframe_rt_t *f_new = (sigframe_rt_t *)sp;
         fixup_rtframe_pointers(dcontext, sig, frame, f_new, true /*for app*/);
+#ifdef HAVE_SIGALTSTACK
+        /* Make sure the frame's sigstack reflects the app stack, both for transparency
+         * of the app examining it and for correctness if we detach mid-handler.
+         */
+        LOG(THREAD, LOG_ASYNCH, 3, "updated uc_stack @" PFX " to " PFX "\n",
+            &f_new->uc.uc_stack, info->app_sigstack.ss_sp);
+        f_new->uc.uc_stack = info->app_sigstack;
+#endif
         /* Store the prior mask, for restoring in sigreturn. */
         memcpy(&f_new->uc.uc_sigmask, &info->app_sigblocked,
                sizeof(info->app_sigblocked));
@@ -3167,6 +3174,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         ASSERT(f_new->sc.fpstate != &f_new->fpstate);
         /* 32-bit kernel copies to aligned buf so no assert on fpstate alignment */
         LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = " PFX "\n", f_new->pretcode);
+        /* There is no stored alt stack in a plain frame to update. */
 #        ifdef RETURN_AFTER_CALL
         info->signal_restorer_retaddr = (app_pc)f_new->pretcode;
 #        endif
@@ -3298,7 +3306,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         next_pc);
     LOG(THREAD, LOG_ASYNCH, 3, "transfer_from_sig_handler_to_fcache_return\n");
     DOLOG(3, LOG_ASYNCH, {
-        LOG(THREAD, LOG_ASYNCH, 3, "sigcontext:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "sigcontext @" PFX ":\n", sc);
         dump_sigcontext(dcontext, sc);
     });
 }
@@ -4818,8 +4826,8 @@ master_signal_handler_C(byte *xsp)
            sig == SUSPEND_SIGNAL);
 
     LOG(THREAD, LOG_ASYNCH, level,
-        "\nmaster_signal_handler: thread=%d, sig=%d, retaddr=" PFX "\n",
-        get_sys_thread_id(), sig, *((byte **)xsp));
+        "\nmaster_signal_handler: thread=%d, sig=%d, xsp=" PFX ", retaddr=" PFX "\n",
+        get_sys_thread_id(), sig, xsp, *((byte **)xsp));
     LOG(THREAD, LOG_ASYNCH, level + 1,
         "siginfo: sig = %d, pid = %d, status = %d, errno = %d, si_code = %d\n",
         siginfo->si_signo, siginfo->si_pid, siginfo->si_status, siginfo->si_errno,
@@ -5113,6 +5121,11 @@ master_signal_handler_C(byte *xsp)
 
     LOG(THREAD, LOG_ASYNCH, level,
         "\tmaster_signal_handler %d returning now to " PFX "\n\n", sig, sc->SC_XIP);
+
+    /* Ensure we didn't get the app's sigstack into our frame. */
+    ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+           frame->uc.uc_stack.ss_sp ==
+               ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp);
 
     /* restore protections */
     if (local)
@@ -5893,6 +5906,14 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      */
 #endif
 
+    /* The easiest way to set all the non-GPR state that DR does not separately
+     * preserve is to actually execute the sigreturn syscall, so we set up to do
+     * that.  We do not want to change DR's signal state, however, so we set it
+     * back to DR's values after processing the state for the app.
+     */
+    kernel_sigset_t our_mask;
+    sigprocmask_syscall(SIG_SETMASK, NULL, &our_mask, sizeof(our_mask));
+
     /* get sigframe: it's the top thing on the stack, except the ret
      * popped off pretcode.
      * WARNING: handler for tcsh's window_change (SIGWINCH) clobbers its
@@ -5912,6 +5933,14 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         ucxt = &frame->uc;
+        /* Re-set sigstack from the value stored in the frame. */
+        /* FIXME i#3178: have a routine to set it that fails when the kernel fails */
+        LOG(THREAD, LOG_ASYNCH, 3, "Restoring app signal stack to " PFX "-" PFX " %d\n",
+            frame->uc.uc_stack.ss_sp, frame->uc.uc_stack.ss_sp +
+            frame->uc.uc_stack.ss_size, frame->uc.uc_stack.ss_flags);
+        info->app_sigstack = frame->uc.uc_stack;
+        /* Restore DR's so sigreturn syscall won't change it. */
+        frame->uc.uc_stack = info->sigstack;
 #elif defined(MACOS)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
@@ -5938,10 +5967,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
          * when itself was non-rt?
          */
 
-        /* discard blocked signals, re-set from prev mask stored in frame */
+        /* Discard blocked signals, re-set from prev mask stored in frame. */
         set_blocked(dcontext, SIGMASK_FROM_UCXT(ucxt), true /*absolute*/);
+        /* Restore DR's so sigreturn syscall won't change it. */
+        *SIGMASK_FROM_UCXT(ucxt) = our_mask;
     }
-#ifdef LINUX
+#if defined(LINUX) && !defined(X64)
     else {
         /* FIXME: libc's restorer pops prior to calling sigreturn, I have
          * no idea why, but kernel asks for xsp-8 not xsp-4...weird!
@@ -5965,35 +5996,23 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-#    ifdef AARCH64
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-        /* Avoid build failure with GCC 7 due to uninitialized value */
-        prevset.sig[0] = 0;
-#    else
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
                    sizeof(prevset.sig[1]));
         }
-#        ifdef ARM
+#    ifdef ARM
         ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
-#        endif
 #    endif
         set_blocked(dcontext, &prevset, true /*absolute*/);
+        /* Restore DR's so sigreturn syscall won't change it. */
+        convert_rt_mask_to_nonrt(frame, &our_mask);
     }
 #endif /* LINUX */
 
     /* Make sure we deliver pending signals that are now unblocked.
      */
     check_signals_pending(dcontext, info);
-
-    /* We abandoned the previous context, so we need to start
-     * interpreting anew.  Regardless of whether we handled the signal
-     * from dispatch or the fcache, we want to go to the context
-     * stored in the frame.  So we have the kernel send us to
-     * fcache_return and set up for dispatch to use the frame's
-     * context.
-     */
 
     /* if we were building a trace, kill it */
     if (is_building_trace(dcontext)) {
@@ -7011,9 +7030,10 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
     copy_frame_to_stack(dcontext, SUSPEND_SIGNAL, frame, xsp, false /*!pending*/);
 
 #ifdef HAVE_SIGALTSTACK
-    /* Make sure the frame's sigstack reflects the app stack. */
-    frame = (sigframe_rt_t *)xsp;
-    frame->uc.uc_stack = info->app_sigstack;
+    /* Make sure the frame's sigstack reflects the app stack.
+     * copy_frame_to_stack() should have done this for us.
+     */
+    ASSERT(((sigframe_rt_t *)xsp)->uc.uc_stack.ss_sp == info->app_sigstack.ss_sp);
 #endif
 
     /* Restore app segment registers. */
