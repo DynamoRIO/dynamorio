@@ -2868,6 +2868,20 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
 
 #if defined(LINUX) && !defined(X64)
 static void
+convert_rt_mask_to_nonrt(sigframe_plain_t *f_plain, kernel_sigset_t *sigmask)
+{
+#    ifdef X86
+    f_plain->sc.oldmask = sigmask->sig[0];
+    memcpy(&f_plain->extramask, &sigmask->sig[1], (_NSIG_WORDS - 1) * sizeof(uint));
+#    elif defined(ARM)
+    f_plain->uc.uc_mcontext.oldmask = sigmask->sig[0];
+    memcpy(&f_plain->uc.sigset_ex, &sigmask->sig[1], (_NSIG_WORDS - 1) * sizeof(uint));
+#    else
+#        error NYI
+#    endif
+}
+
+static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                        sigframe_plain_t *f_new)
 {
@@ -2883,9 +2897,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
         f_new->sc.fpstate = (kernel_fpstate_t *)new_fpstate;
     }
-    f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
-    memcpy(&f_new->extramask, &f_old->uc.uc_sigmask.sig[1],
-           (_NSIG_WORDS - 1) * sizeof(uint));
+    convert_rt_mask_to_nonrt(f_new, &f_old->uc.uc_sigmask);
     memcpy(&f_new->retcode, &f_old->retcode, RETCODE_SIZE);
     /* now fill in our extra field */
     f_new->sig_noclobber = f_new->sig;
@@ -3114,15 +3126,18 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 
     /* fix up pretcode, pinfo, puc, fpstate */
     if (rtframe) {
-        fixup_rtframe_pointers(dcontext, sig, frame, (sigframe_rt_t *)sp,
-                               true /*for app*/);
-    }
-#if defined(X86) && defined(LINUX)
-    else {
-#    ifdef X64
+        sigframe_rt_t *f_new = (sigframe_rt_t *)sp;
+        fixup_rtframe_pointers(dcontext, sig, frame, f_new, true /*for app*/);
+        /* Store the prior mask, for restoring in sigreturn. */
+        memcpy(&f_new->uc.uc_sigmask, &info->app_sigblocked,
+               sizeof(info->app_sigblocked));
+    } else {
+#ifdef X64
         ASSERT_NOT_REACHED();
-#    else
+#endif
+#if defined(LINUX) && !defined(X64)
         sigframe_plain_t *f_new = (sigframe_plain_t *)sp;
+#    ifdef X86
 #        ifndef VMX86_SERVER
         sigframe_plain_t *f_old = (sigframe_plain_t *)frame;
 #        endif
@@ -3150,14 +3165,16 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
          * as well on older kernels.
          */
         ASSERT(f_new->sc.fpstate != &f_new->fpstate);
+        /* 32-bit kernel copies to aligned buf so no assert on fpstate alignment */
         LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = " PFX "\n", f_new->pretcode);
 #        ifdef RETURN_AFTER_CALL
         info->signal_restorer_retaddr = (app_pc)f_new->pretcode;
 #        endif
-        /* 32-bit kernel copies to aligned buf so no assert on fpstate alignment */
-#    endif /* X64 */
+#    endif /* X86 */
+        /* Store the prior mask, for restoring in sigreturn. */
+        convert_rt_mask_to_nonrt(f_new, &info->app_sigblocked);
+#endif /* LINUX && !X64 */
     }
-#endif /* X86 && LINUX */
 
 #ifdef MACOS
     /* Update handler field, which is passed to the libc trampoline, to app */
