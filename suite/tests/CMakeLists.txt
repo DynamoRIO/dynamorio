@@ -1750,6 +1750,8 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
     endif ()
   endif ()
+  tobuild_ci(client.app_emulation client-interface/app_emulation_api.c "" "" "")
+  use_DynamoRIO_extension(client.app_emulation.dll drmgr)
 
   # FIXME i#1799: clang does not support "asm goto"
   if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
