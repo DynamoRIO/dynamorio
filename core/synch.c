@@ -2157,12 +2157,11 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
             DEBUG_DECLARE(ok =)
             thread_get_mcontext(threads[i], &mc);
             ASSERT(ok);
-            /* FIXME i#95: this will xl8 to a post-syscall point for a thread at
-             * a syscall, and we rely on the app itself to retry a syscall interrupted
-             * by our suspend signal.  This is not good enough, as this is an
-             * artifical signal that the app has not planned for with SA_RESTART or
-             * a loop.  We want something like adjust_syscall_for_restart().
-             * Xref i#1145.
+            /* For a thread at a syscall, we use SA_RESTART for our suspend signal,
+             * so the kernel will adjust the restart point back to the syscall for us
+             * where expected.  This is an artifical signal we're introducing, so an
+             * app that assumes no signals and assumes its non-auto-restart syscalls
+             * don't need loops could be broken.
              */
             DEBUG_DECLARE(ok =)
             translate_mcontext(threads[i], &mc, true /*restore mem*/, NULL /*f*/);

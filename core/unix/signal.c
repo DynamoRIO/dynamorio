@@ -624,6 +624,11 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->caller_id = dcontext->owning_thread;
     record->clone_sysnum = dcontext->sys_num;
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
+    /* Sigstack is not inherited so clear it now to avoid having to figure out
+     * where it got its value in signal_thread_inherit (i#3116).
+     */
+    memset(&record->info.app_sigstack, 0, sizeof(record->info.app_sigstack));
+    record->info.app_sigstack.ss_flags = SS_DISABLE;
     record->parent_info = (thread_sig_info_t *)dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
 #ifdef AARCHXX
@@ -954,14 +959,6 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             init_itimer(dcontext, false /*!first thread*/);
         }
 
-        if (APP_HAS_SIGSTACK(info)) {
-            /* parent was under our control, so the real sigstack we see is just
-             * the parent's being inherited -- clear it now
-             */
-            memset(&info->app_sigstack, 0, sizeof(stack_t));
-            info->app_sigstack.ss_flags |= SS_DISABLE;
-        }
-
         /* rest of state is never shared.
          * app_sigstack should already be in place, when we set up our sigstack
          * we asked for old sigstack.
@@ -1267,7 +1264,8 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         }
         info->num_pending = 0;
     }
-    signal_swap_mask(dcontext, true /*to_app*/);
+    if (!other_thread)
+        signal_swap_mask(dcontext, true /*to_app*/);
 #ifdef HAVE_SIGALTSTACK
     /* Remove our sigstack and restore the app sigstack if it had one.  */
     if (!other_thread) {
@@ -6992,7 +6990,9 @@ sig_detach_go_native(sig_detach_info_t *info)
     byte *xsp = info->sigframe_xsp;
 
 #ifdef HAVE_SIGALTSTACK
-    /* Restore the app signal stack. */
+    /* Restore the app signal stack, though sigreturn will overwrite this with the
+     * uc_stack in the frame's ucontext anyway (which we already set for the app).
+     */
     DEBUG_DECLARE(int rc =)
     sigaltstack_syscall(info->app_sigstack, NULL);
     ASSERT(rc == 0);
