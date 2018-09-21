@@ -2271,7 +2271,7 @@ if (CLIENT_INTERFACE)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.detach ${libpthread})
     endif ()
-    if (X64) # Will take extra work to port to 32-bit.
+    if (LINUX AND X64) # Will take extra work to port to 32-bit.
       tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
       target_include_directories(api.detach_state PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api)
