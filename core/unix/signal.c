@@ -104,6 +104,12 @@
 #ifndef SA_ONESHOT
 #    define SA_ONESHOT SA_RESETHAND
 #endif
+#ifndef SS_AUTODISARM
+#    define SS_AUTODISARM (1U << 31)
+#endif
+#ifndef SS_FLAG_BITS
+#    define SS_FLAG_BITS SS_AUTODISARM
+#endif
 
 /**** data structures ***************************************************/
 
@@ -1646,6 +1652,7 @@ handle_clone(dcontext_t *dcontext, uint flags)
 
 /* Returns false if should NOT issue syscall.
  * In such a case, the result is in "result".
+ * If *result is non-zero, the syscall should fail.
  * We could instead issue the syscall and expect it to fail, which would have a more
  * accurate error code, but that risks missing a failure (e.g., RT on Android
  * which in some cases returns success on bugus params).
@@ -1937,20 +1944,57 @@ handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
 }
 #endif /* LINUX */
 
-/* Returns false if should NOT issue syscall */
+/* Returns false and sets *result if should NOT issue syscall.
+ * If *result is non-zero, the syscall should fail.
+ */
 bool
-handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack)
+handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
+                   reg_t cur_xsp, OUT uint *result)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    stack_t local_stack;
     if (old_stack != NULL) {
-        *old_stack = info->app_sigstack;
+        if (!safe_write_ex(old_stack, sizeof(*old_stack), &info->app_sigstack, NULL)) {
+            *result = EFAULT;
+            return false;
+        }
     }
     if (stack != NULL) {
-        info->app_sigstack = *stack;
-        LOG(THREAD, LOG_ASYNCH, 2, "app set up signal stack " PFX " - " PFX " %s\n",
-            stack->ss_sp, stack->ss_sp + stack->ss_size - 1,
-            (APP_HAS_SIGSTACK(info)) ? "enabled" : "disabled");
+        /* Fail in the same way the kernel does. */
+        if (!safe_read(stack, sizeof(local_stack), &local_stack)) {
+            *result = EFAULT;
+            return false;
+        }
+        if (APP_HAS_SIGSTACK(info)) {
+            /* The app is not allowed to set a new altstack while on the current one. */
+            reg_t cur_sigstk = (reg_t)info->app_sigstack.ss_sp;
+            if (cur_xsp >= cur_sigstk &&
+                cur_xsp < cur_sigstk + info->app_sigstack.ss_size) {
+                *result = EPERM;
+                return false;
+            }
+        }
+        uint key_flag = local_stack.ss_flags & ~SS_FLAG_BITS;
+        if (key_flag != SS_DISABLE && key_flag != SS_ONSTACK && key_flag != 0) {
+            *result = EINVAL;
+            return false;
+        }
+        if (key_flag == SS_DISABLE) {
+            /* Zero the other params and don't even check them. */
+            local_stack.ss_sp = NULL;
+            local_stack.ss_size = 0;
+        } else {
+            if (local_stack.ss_size < MINSIGSTKSZ) {
+                *result = ENOMEM;
+                return false;
+            }
+        }
+        info->app_sigstack = local_stack;
+        LOG(THREAD, LOG_ASYNCH, 2, "Setting app signal stack to " PFX "-" PFX " %d=%s\n",
+            local_stack.ss_sp, local_stack.ss_sp + local_stack.ss_size - 1,
+            local_stack.ss_flags, (APP_HAS_SIGSTACK(info)) ? "enabled" : "disabled");
     }
+    *result = 0;
     return false; /* always cancel syscall */
 }
 
@@ -5931,13 +5975,14 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         ucxt = &frame->uc;
-        /* Re-set sigstack from the value stored in the frame. */
-        /* FIXME i#3178: have a routine to set it that fails when the kernel fails */
-        LOG(THREAD, LOG_ASYNCH, 3, "Restoring app signal stack to " PFX "-" PFX " %d\n",
-            frame->uc.uc_stack.ss_sp,
-            frame->uc.uc_stack.ss_sp + frame->uc.uc_stack.ss_size,
-            frame->uc.uc_stack.ss_flags);
-        info->app_sigstack = frame->uc.uc_stack;
+        /* Re-set sigstack from the value stored in the frame.  Silently ignore failure,
+         * just like the kernel does.
+         */
+        uint ignored;
+        /* The kernel checks for being on the stack *after* swapping stacks, so pass
+         * sc->SC_XSP as the current stack.
+         */
+        handle_sigaltstack(dcontext, &frame->uc.uc_stack, NULL, sc->SC_XSP, &ignored);
         /* Restore DR's so sigreturn syscall won't change it. */
         frame->uc.uc_stack = info->sigstack;
 #elif defined(MACOS)
