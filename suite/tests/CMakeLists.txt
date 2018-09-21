@@ -409,6 +409,7 @@ set(asm_deps
 set(asm_defs
   -I "${CMAKE_CURRENT_SOURCE_DIR}" # tools.h
   -I "${CMAKE_CURRENT_SOURCE_DIR}/client-interface" # for drreg-test-shared.h
+  -I "${CMAKE_CURRENT_SOURCE_DIR}/api" # for detach_state_shared.h
   -I "${PROJECT_SOURCE_DIR}/core/arch") # asm_defines.asm
 
 # some tests need to link with tools.c and its embedded asm code
@@ -2269,6 +2270,14 @@ if (CLIENT_INTERFACE)
     tobuild_api(api.detach api/detach.c "" "" OFF OFF)
     if (NOT ANDROID) # pthreads is inside Bionic on Android
       target_link_libraries(api.detach ${libpthread})
+    endif ()
+    if (LINUX AND X64) # Will take extra work to port to 32-bit.
+      tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
+      target_include_directories(api.detach_state PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/api)
+      if (NOT ANDROID) # pthreads is inside Bionic on Android
+        target_link_libraries(api.detach_state ${libpthread})
+      endif ()
     endif ()
     if (NOT WIN32) # XXX i#2611: fix for Windows
       if (X64)
