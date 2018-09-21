@@ -217,7 +217,7 @@ main(int argc, char *argv[])
 #if USE_SIGSTACK
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
-    sigstack.ss_flags = SS_ONSTACK;
+    sigstack.ss_flags = 0;
     rc = sigaltstack(&sigstack, NULL);
     ASSERT_NOERR(rc);
 #    if VERBOSE
@@ -291,6 +291,12 @@ main(int argc, char *argv[])
 #endif
 
 #if USE_SIGSTACK
+    stack_t check_stack;
+    rc = sigaltstack(NULL, &check_stack);
+    ASSERT_NOERR(rc);
+    assert(check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size &&
+           check_stack.ss_flags == sigstack.ss_flags);
     free(sigstack.ss_sp);
 #endif
     return 0;
