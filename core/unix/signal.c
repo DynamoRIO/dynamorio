@@ -5936,8 +5936,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         /* Re-set sigstack from the value stored in the frame. */
         /* FIXME i#3178: have a routine to set it that fails when the kernel fails */
         LOG(THREAD, LOG_ASYNCH, 3, "Restoring app signal stack to " PFX "-" PFX " %d\n",
-            frame->uc.uc_stack.ss_sp, frame->uc.uc_stack.ss_sp +
-            frame->uc.uc_stack.ss_size, frame->uc.uc_stack.ss_flags);
+            frame->uc.uc_stack.ss_sp,
+            frame->uc.uc_stack.ss_sp + frame->uc.uc_stack.ss_size,
+            frame->uc.uc_stack.ss_flags);
         info->app_sigstack = frame->uc.uc_stack;
         /* Restore DR's so sigreturn syscall won't change it. */
         frame->uc.uc_stack = info->sigstack;
