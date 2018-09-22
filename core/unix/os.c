@@ -7222,9 +7222,16 @@ pre_system_call(dcontext_t *dcontext)
         */
         const stack_t *uss = (const stack_t *)sys_param(dcontext, 0);
         stack_t *uoss = (stack_t *)sys_param(dcontext, 1);
-        execute_syscall = handle_sigaltstack(dcontext, uss, uoss);
+        uint res;
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: sigaltstack " PFX " " PFX "\n", uss, uoss);
+        execute_syscall =
+            handle_sigaltstack(dcontext, uss, uoss, get_mcontext(dcontext)->xsp, &res);
         if (!execute_syscall) {
-            set_success_return_val(dcontext, 0);
+            LOG(THREAD, LOG_SYSCALLS, 2, "sigaltstack emulation => %d\n", -res);
+            if (res == 0)
+                set_success_return_val(dcontext, res);
+            else
+                set_failure_return_val(dcontext, res);
         }
         break;
     }
