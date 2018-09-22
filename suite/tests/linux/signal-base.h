@@ -102,6 +102,16 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         print("in signal handler\n");
 #endif
 
+#if USE_SIGSTACK
+    /* Ensure setting a new stack while on the current one fails with EPERM. */
+    stack_t sigstack;
+    sigstack.ss_sp = siginfo; /* will fail: just need sthg */
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    int rc = sigaltstack(&sigstack, NULL);
+    assert(rc == -1 && errno == EPERM);
+#endif
+
     switch (sig) {
 
     case SIGSEGV: {
@@ -204,16 +214,6 @@ main(int argc, char *argv[])
     rc = sigprocmask(SIG_SETMASK, &mask, NULL);
     ASSERT_NOERR(rc);
 
-#if USE_TIMER
-    custom_intercept_signal(SIGVTALRM, (handler_t)signal_handler);
-    t.it_interval.tv_sec = 0;
-    t.it_interval.tv_usec = 10000;
-    t.it_value.tv_sec = 0;
-    t.it_value.tv_usec = 10000;
-    rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
-    ASSERT_NOERR(rc);
-#endif
-
 #if USE_SIGSTACK
     sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
@@ -224,6 +224,16 @@ main(int argc, char *argv[])
     print("Set up sigstack: 0x%08x - 0x%08x\n", sigstack.ss_sp,
           sigstack.ss_sp + sigstack.ss_size);
 #    endif
+#endif
+
+#if USE_TIMER
+    custom_intercept_signal(SIGVTALRM, (handler_t)signal_handler);
+    t.it_interval.tv_sec = 0;
+    t.it_interval.tv_usec = 10000;
+    t.it_value.tv_sec = 0;
+    t.it_value.tv_usec = 10000;
+    rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
+    ASSERT_NOERR(rc);
 #endif
 
     custom_intercept_signal(SIGSEGV, (handler_t)signal_handler);
@@ -290,7 +300,10 @@ main(int argc, char *argv[])
         print("Got some timer hits!\n");
 #endif
 
-#if USE_SIGSTACK
+        /* We leave the sigstack in place for the timer so any racy alarm arriving
+         * after we disabled the itimer will be on the alt stack.
+         */
+#if USE_SIGSTACK && !USE_TIMER
     stack_t check_stack;
     rc = sigaltstack(NULL, &check_stack);
     ASSERT_NOERR(rc);

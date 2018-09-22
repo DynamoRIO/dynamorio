@@ -308,7 +308,8 @@ bool
 handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 #endif
 bool
-handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack);
+handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
+                   reg_t cur_xsp, OUT uint *result);
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                    kernel_sigset_t *oset, size_t sigsetsize);
