@@ -182,11 +182,11 @@ foreach (deploytgt drconfig drrun drinject)
     target_link_libraries(${deploytgt} drinjectlib)
   endif ()
   if (LINUX) # No checks for MacOS
-    get_target_property(check_path ${deploytgt} LOCATION)
-    add_custom_command(TARGET ${deploytgt}
-      POST_BUILD
+    set(locvar_name ${deploytgt}loc)
+    file(GENERATE OUTPUT ${locvar_name}.cmake CONTENT "set(${locvar_name} \"$<TARGET_FILE:${deploytgt}>\")\n")
+    add_custom_command(TARGET ${deploytgt} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
-      ARGS -D lib=${check_path}
+      ARGS -D lib_fileloc=${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON

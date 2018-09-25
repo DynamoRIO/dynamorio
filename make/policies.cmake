@@ -34,11 +34,12 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "3.3" OR
   cmake_policy(SET CMP0058 OLD)
 endif ()
 
-# XXX i#1557: update our code to satisfy the changes in 3.x
+# XXX i#1718: update our code to satisfy the changes in 3.x
 cmake_policy(SET CMP0054 OLD)
 
 # XXX i#1557: update our code to satisfy the changes in 3.x
 cmake_policy(SET CMP0026 OLD)
+
 # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
 # Mac stuff and this policy, right?
 cmake_policy(SET CMP0042 OLD)
@@ -46,7 +47,7 @@ cmake_policy(SET CMP0042 OLD)
 # XXX DrMem-i#1481: update to cmake 2.8.12's better handling of interface imports
 cmake_policy(SET CMP0022 OLD)
 
-# XXX i#1418: update to cmake 2.8.12's better handling of interface imports, for Qt
+# XXX i#1418: update to cmake 2.8.12's better handling of interface imports, for Qt/Win
 cmake_policy(SET CMP0020 OLD)
 
 # Recognize literals in if statements

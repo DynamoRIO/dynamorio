@@ -80,14 +80,20 @@ function (DynamoRIO_add_rel_rpaths target)
   if (UNIX AND NOT ANDROID) # No DT_RPATH support on Android
     # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
+
     foreach (lib ${ARGN})
       # Compute the relative path between the directory of the target and the
       # library it is linked against.
-      get_target_property(tgt_path ${target} LOCATION)
-      get_target_property(lib_path ${lib} LOCATION)
-      _DR_dirname(tgt_path "${tgt_path}")
-      _DR_dirname(lib_path "${lib_path}")
-      file(RELATIVE_PATH relpath "${tgt_path}" "${lib_path}")
+
+      # TODO is this here somehow needed for win at all? / shouldn't, no rpath
+      get_target_property(target_type ${target} TYPE)
+      if (target_type STREQUAL "EXECUTABLE")
+        get_target_property(target_loc ${target} RUNTIME_OUTPUT_DIRECTORY)
+      else ()
+        get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
+      endif()
+      get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)
+      file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
       # Append the new rpath element if it isn't there already.
       if (APPLE)
@@ -138,6 +144,10 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
+  # TODO: various caller functions depends on abspath of target at configure time.
+  # If we want to eliminate LOCATION, We need to re-factor all the calls for all
+  # the platforms and move them into .cmake files and call them w/ add_custom_commands
+  # that can pass generator expressions to the callee.
   get_target_property(abspath ${target} LOCATION${location_suffix})
   if (NOT ${device_base_dir} STREQUAL "")
     get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
