@@ -6064,7 +6064,11 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         trace_abort(dcontext);
     }
 
-    if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
+    /* Defensively check for NULL.
+     * XXX i#3182: It did happen but it is not clear how.
+     */
+    if (info->app_sigaction[sig] != NULL &&
+        TEST(SA_ONESHOT, info->app_sigaction[sig]->flags)) {
         ASSERT(info->app_sigaction[sig]->handler == (handler_t)SIG_DFL);
         if (!info->we_intercept[sig]) {
             /* let kernel do default independent of us */
