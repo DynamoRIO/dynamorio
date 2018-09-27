@@ -252,11 +252,11 @@ typedef int ssize_t;
 #endif
 
 #ifdef DR_DEFINE_FOR_uint64
-#undef DR_DO_NOT_DEFINE_uint64
+#    undef DR_DO_NOT_DEFINE_uint64
 #endif
 
 #ifdef DR_DEFINE_FOR_int64
-#undef DR_DO_NOT_DEFINE_int64
+#    undef DR_DO_NOT_DEFINE_int64
 #endif
 
 #ifndef DR_DO_NOT_DEFINE_int64
