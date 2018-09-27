@@ -212,11 +212,11 @@ typedef byte *app_pc;
 typedef void (*generic_func_t)();
 
 #ifdef WINDOWS
-#    ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned __int64 uint64;
+#    ifndef DR_DEF_FOR_uint64
+#        define DR_DEF_FOR_uint64 unsigned __int64
 #    endif
-#    ifndef DR_DO_NOT_DEFINE_int64
-typedef __int64 int64;
+#    ifndef DR_DEF_FOR_int64
+#        define DR_DEF_FOR_int64 __int64
 #    endif
 #    ifdef X64
 typedef __int64 ssize_t;
@@ -224,26 +224,40 @@ typedef __int64 ssize_t;
 typedef int ssize_t;
 #    endif
 #    define _SSIZE_T_DEFINED
-#    define INT64_FORMAT "I64"
+#    ifndef INT64_FORMAT
+#        define INT64_FORMAT "I64"
+#    endif
 #else /* Linux */
 #    ifdef X64
-#        ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned long int uint64;
+#        ifndef DR_DEF_FOR_uint64
+#            define DR_DEF_FOR_uint64 unsigned long int
 #        endif
-#        ifndef DR_DO_NOT_DEFINE_int64
-typedef long int int64;
+#        ifndef DR_DEF_FOR_int64
+#            define DR_DEF_FOR_int64 long int
 #        endif
-#        define INT64_FORMAT "l"
+#        ifndef INT64_FORMAT
+#            define INT64_FORMAT "l"
+#        endif
 #    else
-#        ifndef DR_DO_NOT_DEFINE_uint64
-typedef unsigned long long int uint64;
+#        ifndef DR_DEF_FOR_uint64
+#            define DR_DEF_FOR_uint64 unsigned long long int
 #        endif
-#        ifndef DR_DO_NOT_DEFINE_int64
-typedef long long int int64;
+#        ifndef DR_DEF_FOR_int64
+#            define DR_DEF_FOR_int64 long long int
 #        endif
-#        define INT64_FORMAT "ll"
+#        ifndef INT64_FORMAT
+#            define INT64_FORMAT "ll"
+#        endif
 #    endif
 #endif
+
+#ifndef DR_DO_NOT_DEFINE_int64
+typedef DR_DEF_FOR_int64 int64;
+#endif
+#ifndef DR_DO_NOT_DEFINE_uint64
+typedef DR_DEF_FOR_uint64 uint64;
+#endif
+
 /* DR_API EXPORT END */
 /* DR_API EXPORT BEGIN */
 
