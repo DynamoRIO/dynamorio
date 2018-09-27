@@ -5920,7 +5920,7 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
      *   sahf
      */
     /* do an add such that OF will be set only if seto set
-     * the MSB of saveto to 1
+     * the LSB of AL to 1
      */
     MINSERT(ilist, where,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
