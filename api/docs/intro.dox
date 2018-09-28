@@ -1921,7 +1921,9 @@ DynamoRIO, rebooting in safe mode will allow recovery.
 
  - The DynamoRIO header files have typedefs that may conflict with other
    header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
-   easier to work around such conflicts.
+   easier to work around such conflicts. Alternatively, use
+   DR_DEFINE_FOR_<type>, in which case you may need to also specify
+   "<type>_FORMAT", for printf formatting.
 
 \ifnot vmsafe
 \subsection sec_using_debugger Using Debuggers
