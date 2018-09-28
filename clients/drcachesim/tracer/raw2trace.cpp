@@ -572,9 +572,15 @@ raw2trace_t::merge_and_process_thread_files()
             tidx = (uint)thread_files.size(); // Request thread scan.
             continue;
         }
-        std::string result = append_delayed_branch(tidx);
-        if (!result.empty())
-            return result;
+        std::string result;
+        // Append any delayed branch, but not until we output all markers to
+        // ensure we group them all with the timestamp for this thread segment.
+        if (in_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
+            in_entry.extended.ext != OFFLINE_EXT_TYPE_MARKER) {
+            result = append_delayed_branch(tidx);
+            if (!result.empty())
+                return result;
+        }
         bool end_of_record = false;
         result = process_offline_entry(&in_entry, tids[tidx], &end_of_record,
                                        &last_bb_handled);
