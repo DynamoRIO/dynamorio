@@ -1,3 +1,10 @@
+/* ******************************************************************************
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011 Massachusetts Institute of Technology  All rights
+ *reserved. Copyright (c) 2008 VMware, Inc.  All rights reserved. 2018
+ *University of Regensburg, Germany (QPACE 4, SFB TRR-55)
+ *******************************************************************************/
+
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +36,6 @@
 /*
  * Counter for NEON/SIMD-instructions on AARCH64, based on the inscount.cpp
  * sample
- * University of Regensburg, Germany (QPACE 4, SFB TRR-55)
  */
 
 #include "dr_api.h"
@@ -38,20 +44,6 @@
 
 #include "string.h"
 #include <stdio.h>
-
-FILE *result_file;
-
-// Count only instructions in the application itself, ignoring instructions in shared
-// libraries.
-static bool app_only = false;
-// application module
-static app_pc exe_start;
-
-// saves the name of the executed app
-static const char *executable;
-
-// saves the name of the used client library
-const char *library;
 
 // ARM-Architecture Reference Book p. 185ff
 // Arithmetic instructions:
@@ -71,39 +63,36 @@ int OP_arithmetic[] = {
 };
 
 struct counts_t {
-    uint all;
-    uint arith;
-    uint neon;
-    uint neon_arith;
-    uint neon_load;
-    uint neon_store;
-    uint branching;
-    uint load;
-    uint load_linear;
-    uint load_structured;
-    uint store;
-    uint store_linear;
-    uint store_structured;
+    uint64 all;
+    uint64 arith;
+    uint64 neon;
+    uint64 neon_arith;
+    uint64 neon_load;
+    uint64 neon_store;
+    uint64 branching;
+    uint64 taken_branches;
+    uint64 load;
+    uint64 load_linear;
+    uint64 load_structured;
+    uint64 store;
+    uint64 store_linear;
+    uint64 store_structured;
 };
 
 // Save counts
-static uint64 count_all = 0;
-static uint64 count_arith = 0;
+struct counts_t global_counts = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static uint64 count_simd = 0;
-static uint64 count_simd_arith = 0;
-static uint64 count_simd_load = 0;
-static uint64 count_simd_store = 0;
-static uint64 count_branching = 0;
-static uint64 count_taken_branches = 0;
+// If this file is not empty all new data is added at the end
+FILE *result_file;
 
-static uint64 count_load = 0;
-static uint64 count_load_linear = 0;
-static uint64 count_load_structured = 0;
+// Count only instructions in the application itself, ignoring instructions in
+// shared libraries.
+static bool app_only = false;
+// application module
+static app_pc exe_start;
 
-static uint64 count_store = 0;
-static uint64 count_store_linear = 0;
-static uint64 count_store_structured = 0;
+// saves the name of the executed app
+static const char *executable;
 
 // use this function for clean calls
 static void
@@ -112,25 +101,25 @@ inscount(uint num_instrs, uint num_arith, uint num_simd, uint num_simd_arith,
          uint num_load_linear, uint num_load_structured, uint num_store,
          uint num_store_linear, uint num_store_structured)
 {
-    count_all += (uint64)num_instrs;
-    count_arith += (uint64)num_arith;
-    count_simd += (uint64)num_simd;
-    count_simd_arith += (uint64)num_simd_arith;
-    count_simd_load += (uint64)num_simd_load;
-    count_simd_store += (uint64)num_simd_store;
-    count_branching += (uint64)num_branching;
-    count_load += (uint64)num_load;
-    count_load_linear += (uint64)num_load_linear;
-    count_load_structured += (uint64)num_load_structured;
-    count_store += (uint64)num_store;
-    count_store_linear += (uint64)num_store_linear;
-    count_store_structured += (uint64)num_store_structured;
+    global_counts.all += (uint64)num_instrs;
+    global_counts.arith += (uint64)num_arith;
+    global_counts.neon += (uint64)num_simd;
+    global_counts.neon_arith += (uint64)num_simd_arith;
+    global_counts.neon_load += (uint64)num_simd_load;
+    global_counts.neon_store += (uint64)num_simd_store;
+    global_counts.branching += (uint64)num_branching;
+    global_counts.load += (uint64)num_load;
+    global_counts.load_linear += (uint64)num_load_linear;
+    global_counts.load_structured += (uint64)num_load_structured;
+    global_counts.store += (uint64)num_store;
+    global_counts.store_linear += (uint64)num_store_linear;
+    global_counts.store_structured += (uint64)num_store_structured;
 }
 
 /*
  * check for NEON Instructions
- * SIMD-Registers: Q0-Q31, D0-D31, S0-S31, H0-H31, B0-B31 (dr_ir_opnd.h); SVE: Z0-Z31
- * returns true if ins is a NEON instruction
+ * SIMD-Registers: Q0-Q31, D0-D31, S0-S31, H0-H31, B0-B31 (dr_ir_opnd.h); SVE:
+ * Z0-Z31 returns true if ins is a NEON instruction
  */
 bool
 instr_is_neon(instr_t *ins, bool is_load, bool is_store)
@@ -278,20 +267,8 @@ analyze_instr(instr_t *instr, void **user_data)
 {
     // save counts for all instr. types
     struct counts_t *counts = malloc(sizeof(struct counts_t));
-
-    counts->all = 0;
-    counts->arith = 0;
-    counts->neon = 0;
-    counts->neon_arith = 0;
-    counts->neon_load = 0;
-    counts->neon_store = 0;
-    counts->branching = 0;
-    counts->load = 0;
-    counts->load_linear = 0;
-    counts->load_structured = 0;
-    counts->store = 0;
-    counts->store_linear = 0;
-    counts->store_structured = 0;
+    // set all counters to zero
+    memset(counts, 0, sizeof(struct counts_t));
 
     int op_code;
     // is load/store instruction
@@ -379,7 +356,7 @@ at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken, void *bb
 {
     // count taken branches
     if (taken != 0) {
-        count_taken_branches++;
+        global_counts.taken_branches++;
     }
 }
 
@@ -456,74 +433,88 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 event_exit(void)
 {
-    printf("\n=== RESULTS "
-           "===========================================================\n");
+    fprintf(stderr,
+            "\n=== RESULTS "
+            "===========================================================\n");
 
-    printf("library: %s\n", library);
-    printf("executable: %s\n\n", executable);
+    fprintf(stderr, "executable: %s\n\n", executable);
 
-    printf("  libraries that may have been used are:");
+    fprintf(stderr, "  libraries that may have been used are:");
     if (app_only) {
-        printf(" EXCLUDED \n");
+        fprintf(stderr, " EXCLUDED \n");
     } else {
-        printf(" INCLUDED \n");
+        fprintf(stderr, " INCLUDED \n");
     }
 
-    printf("  Number of ALL instructions:       %lu  \n", count_all);
-    printf("__Instr. type____________Count / "
-           "Ratio_________________________________\n");
-    printf("  NEON/SIMD              %lu / %Lf  \n", count_simd,
-           (count_simd / (long double)count_all));
-    printf("      |___ ARITHMETIC        %lu / %Lf  \n", count_simd_arith,
-           (count_simd_arith / (long double)count_simd));
-    printf("      |___ LOADING           %lu / %Lf  \n", count_simd_load,
-           (count_simd_load / (long double)count_simd));
-    printf("      |___ STORING           %lu / %Lf  \n", count_simd_store,
-           (count_simd_store / (long double)count_simd));
-    printf("  ARITHMETIC             %lu / %Lf  \n", count_arith,
-           (count_arith / (long double)count_all));
-    printf("  BRANCHING              %lu / %Lf  \n", count_branching,
-           (count_branching / (long double)count_all));
-    printf("      |___ TAKEN             %lu / %Lf  \n", count_taken_branches,
-           (count_taken_branches / (long double)count_branching));
-    printf("  LOADING                %lu / %Lf  \n", count_load,
-           (count_load / (long double)count_all));
-    printf("      |___ LINEAR            %lu / %Lf  \n", count_load_linear,
-           (count_load_linear / (long double)count_load));
-    printf("      |___ STRUCTURED        %lu / %Lf  \n", count_load_structured,
-           (count_load_structured / (long double)count_load));
-    printf("  STORING                %lu / %Lf  \n", count_store,
-           (count_store / (long double)count_all));
-    printf("      |___ LINEAR            %lu / %Lf  \n", count_store_linear,
-           (count_store_linear / (long double)count_store));
-    printf("      |___ STRUCTURED        %lu / %Lf  \n", count_store_structured,
-           (count_store_structured / (long double)count_store));
-    printf("  OTHER                  %lu / %Lf  \n",
-           count_all - (count_arith + count_load + count_store + count_branching),
-           ((count_all - (count_arith + count_load + count_store + count_branching)) /
-            (long double)count_all));
+    fprintf(stderr, "  Number of ALL instructions:       %lu  \n", global_counts.all);
+    fprintf(stderr,
+            "__Instr. type____________Count / "
+            "Ratio_________________________________\n");
+    fprintf(stderr, "  NEON/SIMD              %lu / %Lf  \n", global_counts.neon,
+            (global_counts.neon / (long double)global_counts.all));
+    fprintf(stderr, "      |___ ARITHMETIC        %lu / %Lf  \n",
+            global_counts.neon_arith,
+            (global_counts.neon_arith / (long double)global_counts.neon));
+    fprintf(stderr, "      |___ LOADING           %lu / %Lf  \n", global_counts.neon_load,
+            (global_counts.neon_load / (long double)global_counts.neon));
+    fprintf(stderr, "      |___ STORING           %lu / %Lf  \n",
+            global_counts.neon_store,
+            (global_counts.neon_store / (long double)global_counts.neon));
+    fprintf(stderr, "  ARITHMETIC             %lu / %Lf  \n", global_counts.arith,
+            (global_counts.arith / (long double)global_counts.all));
+    fprintf(stderr, "  BRANCHING              %lu / %Lf  \n", global_counts.branching,
+            (global_counts.branching / (long double)global_counts.all));
+    fprintf(stderr, "      |___ TAKEN             %lu / %Lf  \n",
+            global_counts.taken_branches,
+            (global_counts.taken_branches / (long double)global_counts.branching));
+    fprintf(stderr, "  LOADING                %lu / %Lf  \n", global_counts.load,
+            (global_counts.load / (long double)global_counts.all));
+    fprintf(stderr, "      |___ LINEAR            %lu / %Lf  \n",
+            global_counts.load_linear,
+            (global_counts.load_linear / (long double)global_counts.load));
+    fprintf(stderr, "      |___ STRUCTURED        %lu / %Lf  \n",
+            global_counts.load_structured,
+            (global_counts.load_structured / (long double)global_counts.load));
+    fprintf(stderr, "  STORING                %lu / %Lf  \n", global_counts.store,
+            (global_counts.store / (long double)global_counts.all));
+    fprintf(stderr, "      |___ LINEAR            %lu / %Lf  \n",
+            global_counts.store_linear,
+            (global_counts.store_linear / (long double)global_counts.store));
+    fprintf(stderr, "      |___ STRUCTURED        %lu / %Lf  \n",
+            global_counts.store_structured,
+            (global_counts.store_structured / (long double)global_counts.store));
+    fprintf(stderr, "  OTHER                  %lu / %Lf  \n",
+            global_counts.all -
+                (global_counts.arith + global_counts.load + global_counts.store +
+                 global_counts.branching),
+            ((global_counts.all -
+              (global_counts.arith + global_counts.load + global_counts.store +
+               global_counts.branching)) /
+             (long double)global_counts.all));
 
-    printf("=========================================================== RESULTS "
-           "===\n");
+    fprintf(stderr,
+            "=========================================================== RESULTS "
+            "===\n");
 
     // print results in file
     fprintf(result_file, "%s ", executable);
-    fprintf(result_file, "%lu ", count_all);
-    fprintf(result_file, "%lu ", count_simd);
-    fprintf(result_file, "%lu ", count_simd_arith);
-    fprintf(result_file, "%lu ", count_simd_load);
-    fprintf(result_file, "%lu ", count_simd_store);
-    fprintf(result_file, "%lu ", count_arith);
-    fprintf(result_file, "%lu ", count_branching);
-    fprintf(result_file, "%lu ", count_taken_branches);
-    fprintf(result_file, "%lu ", count_load);
-    fprintf(result_file, "%lu ", count_load_structured);
-    fprintf(result_file, "%lu ", count_load_linear);
-    fprintf(result_file, "%lu ", count_store);
-    fprintf(result_file, "%lu ", count_store_linear);
-    fprintf(result_file, "%lu ", count_store_structured);
+    fprintf(result_file, "%lu ", global_counts.all);
+    fprintf(result_file, "%lu ", global_counts.neon);
+    fprintf(result_file, "%lu ", global_counts.neon_arith);
+    fprintf(result_file, "%lu ", global_counts.neon_load);
+    fprintf(result_file, "%lu ", global_counts.neon_store);
+    fprintf(result_file, "%lu ", global_counts.arith);
+    fprintf(result_file, "%lu ", global_counts.branching);
+    fprintf(result_file, "%lu ", global_counts.taken_branches);
+    fprintf(result_file, "%lu ", global_counts.load);
+    fprintf(result_file, "%lu ", global_counts.load_structured);
+    fprintf(result_file, "%lu ", global_counts.load_linear);
+    fprintf(result_file, "%lu ", global_counts.store);
+    fprintf(result_file, "%lu ", global_counts.store_linear);
+    fprintf(result_file, "%lu ", global_counts.store_structured);
     fprintf(result_file, "%lu\n",
-            count_all - count_arith - count_load - count_store - count_branching);
+            global_counts.all - global_counts.arith - global_counts.load -
+                global_counts.store - global_counts.branching);
 
     fclose(result_file);
 
@@ -542,24 +533,15 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     disassemble_set_syntax(DR_DISASM_ARM);
 
-    result_file = fopen("nc_output.txt", "a");
-    // Test if file is empty and write a header into empty files
-    fseek(result_file, 0, SEEK_END);
-    if (ftell(result_file) == 0) {
-        fprintf(result_file,
-                "exe all-instr simd-instr simd-arith simd-load simd-store "
-                " arith-instr branch-instr branch-taken load-instr load-struct "
-                "load-lin store-instr store-lin store-struct other\n");
-    }
-
     // initialize
     if (!drmgr_init()) {
         DR_ASSERT(false);
     }
 
     // Remember the used library
-    library = argv[0];
     executable = dr_module_preferred_name(dr_get_main_module());
+    // Open the output file at the default location. All new data is added at the end
+    result_file = fopen("nc_output.txt", "a");
 
     // argv[0] is the name of the used library
     for (int args = 1; args < argc; args++) {
@@ -568,9 +550,18 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             printf("\x1b[32m\nUsage:\tdrrun -c /path/to/libneoncounter.so [OPTIONS] "
                    "-- [APP Command]\n");
             printf("Options:\n\t--help         :\tdisplay "
-                   "help\n\t-count-app-only:\tcount only instructions "
+                   "help\n\t-output /path/to/file\n\t-count-app-only:\tcount only "
+                   "instructions "
                    "that are part of the\n\t\t                app itself, not those "
                    "of shared libraries etc.\x1b[0m\n\n");
+        } else if (strncmp(argv[args], "-output", 7) == 0) {
+            if (args + 1 < argc) {
+                result_file = fopen(argv[args + 1], "a");
+                args++;
+            } else {
+                printf("Please enter a path to the output file. Choosing default path "
+                       "./nc_output.txt\n");
+            }
         } else if (strcmp(argv[args], "-count-app-only") == 0) {
             app_only = true;
             // get main module address
@@ -586,7 +577,16 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         }
     }
 
-    // register Event:
+    // Test if file is empty and write a header into empty files
+    fseek(result_file, 0, SEEK_END);
+    if (ftell(result_file) == 0) {
+        fprintf(result_file,
+                "exe all-instr simd-instr simd-arith simd-load simd-store "
+                " arith-instr branch-instr branch-taken load-instr load-struct "
+                "load-lin store-instr store-lin store-struct other\n");
+    }
+
+    // register event:
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL)) {
         DR_ASSERT(false);
@@ -595,5 +595,5 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                                             NULL);
 
     // tell which client is running
-    dr_log(NULL, __WALL, 1, "Client 'NEONCOUNTER' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'NEONCOUNTER' initializing\n");
 }
