@@ -1,9 +1,3 @@
-/* ******************************************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights
- * reserved. Copyright (c) 2008 VMware, Inc.  All rights reserved.
- * ******************************************************************************/
-
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,14 +39,7 @@
 #include "string.h"
 #include <stdio.h>
 
-#ifdef DEBUG
-#    define IS_DEBUG true
-#else
-#    define IS_DEBUG false
-#endif
-
-// in DEBUG mode all processed instructions are written in this file
-FILE *debug;
+FILE *result_file;
 
 // Count only instructions in the application itself, ignoring instructions in shared
 // libraries.
@@ -83,72 +70,6 @@ int OP_arithmetic[] = {
     OP_clz,
 };
 
-// ARM-Architecture Reference Book p. 170ff
-// Load SIMD-Registers: ldr, ldur, ldp, ldnp
-int OP_loading[] = { OP_ldr,    OP_ldrb,   OP_ldrsb,  OP_ldrh,  OP_ldrsh,  OP_ldrsw,
-                     OP_ldur,   OP_ldurb,  OP_ldursb, OP_ldurh, OP_ldursh, OP_ldursw,
-                     OP_ldp,    OP_ldpsw,  OP_ldnp,   OP_ldtr,  OP_ldtrb,  OP_ldtrsb,
-                     OP_ldtrsh, OP_ldtrsw, OP_ldxr,   OP_ldxrb, OP_ldxrh,  OP_ldxp,
-                     OP_ldar,   OP_ldarb,  OP_ldarh,  OP_ldaxr, OP_ldaxrb, OP_ldaxrh,
-                     OP_ldaxp,
-                     OP_ld1, // linear   -> NEON
-                     OP_ld2, // structured
-                     OP_ld3,    OP_ld4,
-                     OP_ld1r,              // linear
-                     OP_ld2r,              // structured
-                     OP_ld3r,   OP_ld4r }; //---      NEON <-
-
-// Store SIMD-Registers: str, stur, stp, stnp
-int OP_storing[] = { OP_str,   OP_strb,   OP_strh,   OP_stur,  OP_sturb, OP_sturh,
-                     OP_stp,   OP_stnp,   OP_sttr,   OP_sttrb, OP_sttrh, OP_stxr,
-                     OP_stxrb, OP_stxrh,  OP_stxp,   OP_stlr,  OP_stlrb, OP_stlrh,
-                     OP_stlxr, OP_stlxrb, OP_stlxrh, OP_stlxp,
-                     OP_st1,             // linear  -> NEON
-                     OP_st2,             // structured
-                     OP_st3,   OP_st4 }; //---       NEON <-
-
-// Save counts
-static long long unsigned int count_all = 0;
-static long long unsigned int count_arith = 0;
-
-static long long unsigned int count_simd = 0;
-static long long unsigned int count_simd_arith = 0;
-static long long unsigned int count_simd_load = 0;
-static long long unsigned int count_simd_store = 0;
-static long long unsigned int count_branching = 0;
-static long long unsigned int count_taken_branches = 0;
-
-static long long unsigned int count_load = 0;
-static long long unsigned int count_load_linear = 0;
-static long long unsigned int count_load_structured = 0;
-
-static long long unsigned int count_store = 0;
-static long long unsigned int count_store_linear = 0;
-static long long unsigned int count_store_structured = 0;
-
-// use this function for clean calls
-static void
-inscount(uint num_instrs, uint num_arith, uint num_simd, uint num_simd_arith,
-         uint num_simd_load, uint num_simd_store, uint num_branching, uint num_load,
-         uint num_load_linear, uint num_load_structured, uint num_store,
-         uint num_store_linear, uint num_store_structured)
-{
-
-    count_all += num_instrs;
-    count_arith += num_arith;
-    count_simd += num_simd;
-    count_simd_arith += num_simd_arith;
-    count_simd_load += num_simd_load;
-    count_simd_store += num_simd_store;
-    count_branching += num_branching;
-    count_load += num_load;
-    count_load_linear += num_load_linear;
-    count_load_structured += num_load_structured;
-    count_store += num_store;
-    count_store_linear += num_store_linear;
-    count_store_structured += num_store_structured;
-}
-
 struct counts_t {
     uint all;
     uint arith;
@@ -164,6 +85,190 @@ struct counts_t {
     uint store_linear;
     uint store_structured;
 };
+
+// Save counts
+static uint64 count_all = 0;
+static uint64 count_arith = 0;
+
+static uint64 count_simd = 0;
+static uint64 count_simd_arith = 0;
+static uint64 count_simd_load = 0;
+static uint64 count_simd_store = 0;
+static uint64 count_branching = 0;
+static uint64 count_taken_branches = 0;
+
+static uint64 count_load = 0;
+static uint64 count_load_linear = 0;
+static uint64 count_load_structured = 0;
+
+static uint64 count_store = 0;
+static uint64 count_store_linear = 0;
+static uint64 count_store_structured = 0;
+
+// use this function for clean calls
+static void
+inscount(uint num_instrs, uint num_arith, uint num_simd, uint num_simd_arith,
+         uint num_simd_load, uint num_simd_store, uint num_branching, uint num_load,
+         uint num_load_linear, uint num_load_structured, uint num_store,
+         uint num_store_linear, uint num_store_structured)
+{
+    count_all += (uint64)num_instrs;
+    count_arith += (uint64)num_arith;
+    count_simd += (uint64)num_simd;
+    count_simd_arith += (uint64)num_simd_arith;
+    count_simd_load += (uint64)num_simd_load;
+    count_simd_store += (uint64)num_simd_store;
+    count_branching += (uint64)num_branching;
+    count_load += (uint64)num_load;
+    count_load_linear += (uint64)num_load_linear;
+    count_load_structured += (uint64)num_load_structured;
+    count_store += (uint64)num_store;
+    count_store_linear += (uint64)num_store_linear;
+    count_store_structured += (uint64)num_store_structured;
+}
+
+/*
+ * check for NEON Instructions
+ * SIMD-Registers: Q0-Q31, D0-D31, S0-S31, H0-H31, B0-B31 (dr_ir_opnd.h); SVE: Z0-Z31
+ * returns true if ins is a NEON instruction
+ */
+bool
+instr_is_neon(instr_t *ins, bool is_load, bool is_store)
+{
+    bool is_neon = false;
+    reg_id_t reg;
+    int op_code = instr_get_opcode(ins);
+
+    /* NEON and FP use the same registers
+     * arithmetic NEON Instr. store their width in an additional src-slot
+     * this variable holds the number of src slots that acutally point to a
+     * register
+     */
+    int num_src = 0;
+
+    if (is_load || is_store) {
+        num_src = instr_num_srcs(ins);
+    } else {
+        switch (op_code) {
+        case OP_fnmadd:
+        case OP_fnmsub:
+        case OP_fmadd:
+        case OP_fmsub:
+        case OP_fmla:
+        case OP_mla:
+            // these instructions have three sources when scalar
+            if (!(instr_num_srcs(ins) == 4)) {
+                return false;
+            } else {
+                num_src = 3;
+            }
+            break;
+        case OP_fmlal:
+        case OP_fmlal2:
+        case OP_fmlsl:
+        case OP_fmlsl2:
+            // these are always vector instructions
+            num_src = 3;
+            break;
+        case OP_shadd:
+        case OP_sqadd:
+        case OP_srhadd:
+        case OP_shsub:
+        case OP_sqsub:
+        case OP_cmgt:
+        case OP_cmge:
+        case OP_sshl:
+        case OP_sqshl:
+        case OP_srshl:
+        case OP_sqrshl:
+        case OP_smax:
+        case OP_smin:
+        case OP_sabd:
+        case OP_saba:
+        case OP_add:
+        case OP_cmtst:
+        case OP_mul:
+        case OP_smaxp:
+        case OP_sminp:
+        case OP_sqdmulh:
+        case OP_addp:
+        case OP_fmaxnm:
+        case OP_fadd:
+        case OP_fmulx:
+        case OP_fcmeq:
+        case OP_fmax:
+        case OP_frecps:
+        case OP_fminnm:
+        case OP_fsub:
+        case OP_fmin:
+        case OP_frsqrts:
+        case OP_uhadd:
+        case OP_uqadd:
+        case OP_urhadd:
+        case OP_uhsub:
+        case OP_uqsub:
+        case OP_cmhi:
+        case OP_cmhs:
+        case OP_ushl:
+        case OP_uqshl:
+        case OP_urshl:
+        case OP_uqrshl:
+        case OP_umax:
+        case OP_umin:
+        case OP_uabd:
+        case OP_uaba:
+        case OP_sub:
+        case OP_cmeq:
+        case OP_pmul:
+        case OP_umaxp:
+        case OP_uminp:
+        case OP_sqrdmulh:
+        case OP_fmaxnmp:
+        case OP_faddp:
+        case OP_fmul:
+        case OP_fcmge:
+        case OP_facge:
+        case OP_fmaxp:
+        case OP_fdiv:
+        case OP_fminnmp:
+        case OP_fabd:
+        case OP_fcmgt:
+        case OP_facgt:
+        case OP_fminp:
+            // all other non-load/store instructions use two source registers when
+            // scalar, the vector versions use three
+            if (!(instr_num_srcs(ins) == 3)) {
+                return false;
+            } else {
+                num_src = 2;
+            }
+            break;
+        default:
+            // instruction is not neon
+            return false;
+        }
+    }
+
+    // num_src contains the number of src slot that acutally hold a register
+    for (int i = 0; i < num_src; i++) {
+        reg = opnd_get_reg(instr_get_src(ins, i));
+        if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
+            is_neon = true;
+            break;
+        }
+    }
+    if (!is_neon) {
+        for (int i = 0; i < instr_num_dsts(ins); i++) {
+            reg = opnd_get_reg(instr_get_dst(ins, i));
+            if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
+                is_neon = true;
+                break;
+            }
+        }
+    }
+
+    return is_neon;
+}
 
 /*
  * analyzes an instruction list
@@ -188,14 +293,12 @@ analyze_instr(instr_t *instr, void **user_data)
     counts->store_linear = 0;
     counts->store_structured = 0;
 
-    const char *op_name;
     int op_code;
     // is load/store instruction
     bool is_load = false;
     bool is_store = false;
     // is arithmetic instruction
     bool is_arith = false;
-    bool is_neon = false;
 
     instr_t *ins;
 
@@ -204,7 +307,6 @@ analyze_instr(instr_t *instr, void **user_data)
         is_load = false;
         is_store = false;
         is_arith = false;
-        is_neon = false;
 
         // count all instructions
         counts->all++;
@@ -214,16 +316,6 @@ analyze_instr(instr_t *instr, void **user_data)
         }
 
         op_code = instr_get_opcode(ins);
-        op_name = decode_opcode_name(op_code);
-
-        if (IS_DEBUG) {
-            fprintf(debug, "%s", op_name);
-        }
-
-        // assure that string is not null
-        if (strlen(op_name) < 1) {
-            continue;
-        }
 
         // count taken branches
         if (instr_is_cbr(ins)) {
@@ -231,221 +323,41 @@ analyze_instr(instr_t *instr, void **user_data)
             counts->branching++;
             // branching instructions are not simd or load/store instructions, so we
             // skip the rest
-            if (IS_DEBUG) {
-                fprintf(debug, "\n");
-            }
             continue;
         }
 
         // load instructions
-        if (op_name[0] == 'l') {
-            for (int i = 0; i < 45; i++) {
-                if (op_code == OP_loading[i]) {
-                    is_load = true;
-                    counts->load++;
-                    if (i == 37 || i == 41) { // ld1, ld1r
-                        counts->load_linear++;
-                    } else if ((i > 37 && i < 41) ||
-                               (i > 41 && i < 45)) { // ld2, ld3, ld4, ld2r, ld3r, ld4r
-                        counts->load_structured++;
-                    }
+        if (instr_reads_memory(ins)) {
+            is_load = true;
+            counts->load++;
+            if (op_code == OP_ld1 || op_code == OP_ld1r) {
+                counts->load_linear++;
+            } else if (op_code == OP_ld2 || op_code == OP_ld3 || op_code == OP_ld4 ||
+                       op_code == OP_ld2r || op_code == OP_ld3r || op_code == OP_ld4r) {
+                counts->load_structured++;
+            }
+        } else if (instr_writes_memory(ins)) { // store instructions
+            is_store = true;
+            counts->store++;
+            if (op_code == OP_st1) {
+                counts->store_linear++;
+            } else if (op_code == OP_st2 || op_code == OP_st3 || op_code == OP_st4) {
+                counts->store_structured++;
+            }
+        } else
+            for (int i = 0; i < 204; i++) { // arithmetic instructions
+                if (op_code == OP_arithmetic[i]) {
+                    is_arith = true;
+                    counts->arith++;
                     break;
                 }
             }
-        }
 
-        // store instructions
-        if (op_name[0] == 's') {
-            for (int i = 0; i < 28; i++) {
-                if (op_code == OP_storing[i]) {
-                    is_store = true;
-                    counts->store++;
-                    if (i == 24) { // st1
-                        counts->store_linear++;
-                    } else if (i > 24) { // st2, st3, st4
-                        counts->store_structured++;
-                    }
-                    break;
-                }
-            }
-        }
-
-        // arithmetic instructions
-        for (int i = 0; i < 204; i++) {
-            if (op_code == OP_arithmetic[i]) {
-                is_arith = true;
-                counts->arith++;
-                break;
-            }
-        }
-
-        // check for VECTOR Instructions
-        // -------------------------------------------------- SIMD-Registers: Q0-Q31,
-        // D0-D31, S0-S31, H0-H31, B0-B31 (dr_ir_opnd.h); SVE: Z0-Z31
-        reg_id_t reg;
-
-        // NEON and FP use the same registers
-        // arithmetic NEON Instr. store their width in an additional src-slot
-        // this variable holds the number of src slots that acutally point to a
-        // register
-        int num_src = 0;
-
-        // potential neon load/store instructions should reference a memory block
-        // larger than four doubles (this is an estimate)
-        if (is_load || is_store) {
-            if (instr_memory_reference_size(ins) < sizeof(double) * 4) {
-                if (IS_DEBUG) {
-                    fprintf(debug, "\n");
-                }
-                continue;
-            } else {
-                num_src = instr_num_srcs(ins);
-            }
-        } else {
-            switch (op_code) {
-            case OP_fnmadd:
-            case OP_fnmsub:
-            case OP_fmadd:
-            case OP_fmsub:
-            case OP_fmla:
-            case OP_mla:
-                // these instructions have three sources when scalar
-                if (!(instr_num_srcs(ins) == 4)) {
-                    if (IS_DEBUG) {
-                        fprintf(debug, "\n");
-                    }
-                    continue;
-                } else {
-                    num_src = 3;
-                }
-                break;
-            case OP_fmlal:
-            case OP_fmlal2:
-            case OP_fmlsl:
-            case OP_fmlsl2:
-                // these are always vector instructions
-                num_src = 3;
-                break;
-            case OP_shadd:
-            case OP_sqadd:
-            case OP_srhadd:
-            case OP_shsub:
-            case OP_sqsub:
-            case OP_cmgt:
-            case OP_cmge:
-            case OP_sshl:
-            case OP_sqshl:
-            case OP_srshl:
-            case OP_sqrshl:
-            case OP_smax:
-            case OP_smin:
-            case OP_sabd:
-            case OP_saba:
-            case OP_add:
-            case OP_cmtst:
-            case OP_mul:
-            case OP_smaxp:
-            case OP_sminp:
-            case OP_sqdmulh:
-            case OP_addp:
-            case OP_fmaxnm:
-            case OP_fadd:
-            case OP_fmulx:
-            case OP_fcmeq:
-            case OP_fmax:
-            case OP_frecps:
-            case OP_fminnm:
-            case OP_fsub:
-            case OP_fmin:
-            case OP_frsqrts:
-            case OP_uhadd:
-            case OP_uqadd:
-            case OP_urhadd:
-            case OP_uhsub:
-            case OP_uqsub:
-            case OP_cmhi:
-            case OP_cmhs:
-            case OP_ushl:
-            case OP_uqshl:
-            case OP_urshl:
-            case OP_uqrshl:
-            case OP_umax:
-            case OP_umin:
-            case OP_uabd:
-            case OP_uaba:
-            case OP_sub:
-            case OP_cmeq:
-            case OP_pmul:
-            case OP_umaxp:
-            case OP_uminp:
-            case OP_sqrdmulh:
-            case OP_fmaxnmp:
-            case OP_faddp:
-            case OP_fmul:
-            case OP_fcmge:
-            case OP_facge:
-            case OP_fmaxp:
-            case OP_fdiv:
-            case OP_fminnmp:
-            case OP_fabd:
-            case OP_fcmgt:
-            case OP_facgt:
-            case OP_fminp:
-                // all other non-load/store instructions use two source registers when
-                // scalar, the vector versions use three
-                if (!(instr_num_srcs(ins) == 3)) {
-                    if (IS_DEBUG) {
-                        fprintf(debug, "\n");
-                    }
-                    continue;
-                } else {
-                    num_src = 2;
-                }
-                break;
-            default:
-                // instruction is not neon
-                if (IS_DEBUG) {
-                    fprintf(debug, "\n");
-                }
-                continue;
-            }
-        }
-
-        // potential neon load/store instructions should reference a memory block
-        // larger than four doubles (this is an estimate)
-        if ((is_load || is_store) &&
-            instr_memory_reference_size(ins) < sizeof(double) * 4) {
-            if (IS_DEBUG) {
-                fprintf(debug, "\n");
-            }
-            continue;
-        } else {
-            num_src = instr_num_srcs(ins);
-        }
-
-        // num_src contains the number of src slot that acutally hold a register
-        for (int i = 0; i < num_src; i++) {
-            reg = opnd_get_reg(instr_get_src(ins, i));
-            if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
-                is_neon = true;
-                break;
-            }
-        }
-        if (!is_neon) {
-            for (int i = 0; i < instr_num_dsts(ins); i++) {
-                reg = opnd_get_reg(instr_get_dst(ins, i));
-                if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
-                    is_neon = true;
-                    break;
-                }
-            }
-        }
-
-        if (is_neon) {
+        // neon instructions
+        if (instr_is_neon(ins, is_load, is_store)) {
             // all NEON instructions
             counts->neon++;
 
-            // arithmetic NEON instruction
             if (is_arith) {
                 counts->neon_arith++;
             } else if (is_load) {
@@ -453,14 +365,6 @@ analyze_instr(instr_t *instr, void **user_data)
             } else if (is_store) {
                 counts->neon_store++;
             }
-
-            if (IS_DEBUG) {
-                fprintf(debug, " <------------------------ NEON/SIMD");
-            }
-        }
-
-        if (IS_DEBUG) {
-            fprintf(debug, "\n");
         }
     }
 
@@ -565,67 +469,63 @@ event_exit(void)
         printf(" INCLUDED \n");
     }
 
-    printf("  Number of ALL instructions:       %llu  \n", count_all);
+    printf("  Number of ALL instructions:       %lu  \n", count_all);
     printf("__Instr. type____________Count / "
            "Ratio_________________________________\n");
-    printf("  NEON/SIMD              %llu / %f  \n", count_simd,
-           (count_simd / (float)count_all));
-    printf("      |___ ARITHMETIC        %llu / %f  \n", count_simd_arith,
-           (count_simd_arith / (float)count_simd));
-    printf("      |___ LOADING           %llu / %f  \n", count_simd_load,
-           (count_simd_load / (float)count_simd));
-    printf("      |___ STORING           %llu / %f  \n", count_simd_store,
-           (count_simd_store / (float)count_simd));
-    printf("  ARITHMETIC             %llu / %f  \n", count_arith,
-           (count_arith / (float)count_all));
-    printf("  BRANCHING              %llu / %f  \n", count_branching,
-           (count_branching / (float)count_all));
-    printf("      |___ TAKEN             %llu / %f  \n", count_taken_branches,
-           (count_taken_branches / (float)count_branching));
-    printf("  LOADING                %llu / %f  \n", count_load,
-           (count_load / (float)count_all));
-    printf("      |___ LINEAR            %llu / %f  \n", count_load_linear,
-           (count_load_linear / (float)count_load));
-    printf("      |___ STRUCTURED        %llu / %f  \n", count_load_structured,
-           (count_load_structured / (float)count_load));
-    printf("  STORING                %llu / %f  \n", count_store,
-           (count_store / (float)count_all));
-    printf("      |___ LINEAR            %llu / %f  \n", count_store_linear,
-           (count_store_linear / (float)count_store));
-    printf("      |___ STRUCTURED        %llu / %f  \n", count_store_structured,
-           (count_store_structured / (float)count_store));
-    printf("  OTHER                  %llu / %f  \n",
-           count_all - count_arith - count_load - count_store - count_branching,
-           ((count_all - count_arith - count_load - count_store - count_branching) /
-            (float)count_all));
+    printf("  NEON/SIMD              %lu / %Lf  \n", count_simd,
+           (count_simd / (long double)count_all));
+    printf("      |___ ARITHMETIC        %lu / %Lf  \n", count_simd_arith,
+           (count_simd_arith / (long double)count_simd));
+    printf("      |___ LOADING           %lu / %Lf  \n", count_simd_load,
+           (count_simd_load / (long double)count_simd));
+    printf("      |___ STORING           %lu / %Lf  \n", count_simd_store,
+           (count_simd_store / (long double)count_simd));
+    printf("  ARITHMETIC             %lu / %Lf  \n", count_arith,
+           (count_arith / (long double)count_all));
+    printf("  BRANCHING              %lu / %Lf  \n", count_branching,
+           (count_branching / (long double)count_all));
+    printf("      |___ TAKEN             %lu / %Lf  \n", count_taken_branches,
+           (count_taken_branches / (long double)count_branching));
+    printf("  LOADING                %lu / %Lf  \n", count_load,
+           (count_load / (long double)count_all));
+    printf("      |___ LINEAR            %lu / %Lf  \n", count_load_linear,
+           (count_load_linear / (long double)count_load));
+    printf("      |___ STRUCTURED        %lu / %Lf  \n", count_load_structured,
+           (count_load_structured / (long double)count_load));
+    printf("  STORING                %lu / %Lf  \n", count_store,
+           (count_store / (long double)count_all));
+    printf("      |___ LINEAR            %lu / %Lf  \n", count_store_linear,
+           (count_store_linear / (long double)count_store));
+    printf("      |___ STRUCTURED        %lu / %Lf  \n", count_store_structured,
+           (count_store_structured / (long double)count_store));
+    printf("  OTHER                  %lu / %Lf  \n",
+           count_all - (count_arith + count_load + count_store + count_branching),
+           ((count_all - (count_arith + count_load + count_store + count_branching)) /
+            (long double)count_all));
 
     printf("=========================================================== RESULTS "
            "===\n");
 
-    if (IS_DEBUG) {
-        fclose(debug);
-    } else {
-        // print results in file
-        fprintf(debug, "%s ", executable);
-        fprintf(debug, "%llu ", count_all);
-        fprintf(debug, "%llu ", count_simd);
-        fprintf(debug, "%llu ", count_simd_arith);
-        fprintf(debug, "%llu ", count_simd_load);
-        fprintf(debug, "%llu ", count_simd_store);
-        fprintf(debug, "%llu ", count_arith);
-        fprintf(debug, "%llu ", count_branching);
-        fprintf(debug, "%llu ", count_taken_branches);
-        fprintf(debug, "%llu ", count_load);
-        fprintf(debug, "%llu ", count_load_structured);
-        fprintf(debug, "%llu ", count_load_linear);
-        fprintf(debug, "%llu ", count_store);
-        fprintf(debug, "%llu ", count_store_linear);
-        fprintf(debug, "%llu ", count_store_structured);
-        fprintf(debug, "%llu\n",
-                count_all - count_arith - count_load - count_store - count_branching);
+    // print results in file
+    fprintf(result_file, "%s ", executable);
+    fprintf(result_file, "%lu ", count_all);
+    fprintf(result_file, "%lu ", count_simd);
+    fprintf(result_file, "%lu ", count_simd_arith);
+    fprintf(result_file, "%lu ", count_simd_load);
+    fprintf(result_file, "%lu ", count_simd_store);
+    fprintf(result_file, "%lu ", count_arith);
+    fprintf(result_file, "%lu ", count_branching);
+    fprintf(result_file, "%lu ", count_taken_branches);
+    fprintf(result_file, "%lu ", count_load);
+    fprintf(result_file, "%lu ", count_load_structured);
+    fprintf(result_file, "%lu ", count_load_linear);
+    fprintf(result_file, "%lu ", count_store);
+    fprintf(result_file, "%lu ", count_store_linear);
+    fprintf(result_file, "%lu ", count_store_structured);
+    fprintf(result_file, "%lu\n",
+            count_all - count_arith - count_load - count_store - count_branching);
 
-        fclose(debug);
-    }
+    fclose(result_file);
 
     // Unregister event
     if (!drmgr_unregister_bb_insertion_event(event_app_instruction)) {
@@ -642,18 +542,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     disassemble_set_syntax(DR_DISASM_ARM);
 
-    if (IS_DEBUG) {
-        debug = fopen("debug.txt", "w");
-    } else {
-        debug = fopen("nc_output.txt", "a");
-        // Test if file is empty and write a header into empty files
-        fseek(debug, 0, SEEK_END);
-        if (ftell(debug) == 0) {
-            fprintf(debug,
-                    "exe all-instr simd-instr simd-arith simd-load simd-store "
-                    " arith-instr branch-instr branch-taken load-instr load-struct "
-                    "load-lin store-instr store-lin store-struct other\n");
-        }
+    result_file = fopen("nc_output.txt", "a");
+    // Test if file is empty and write a header into empty files
+    fseek(result_file, 0, SEEK_END);
+    if (ftell(result_file) == 0) {
+        fprintf(result_file,
+                "exe all-instr simd-instr simd-arith simd-load simd-store "
+                " arith-instr branch-instr branch-taken load-instr load-struct "
+                "load-lin store-instr store-lin store-struct other\n");
     }
 
     // initialize
