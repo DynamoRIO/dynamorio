@@ -49,7 +49,6 @@
 #include <string.h>
 
 #include "ntdll.h"      /* for get/set context etc. */
-#include "os_private.h" /* for load_dynamo */
 
 #include "instr.h"
 #include "instr_create.h"
@@ -60,7 +59,7 @@
  * to the inject lib itself, which won't be there in the child, it's best
  * to use DR's get_proc_address().  We're already linking w/ the files we need.
  */
-#include "os_private.h" /* for get_proc_address() */
+#include "os_private.h" /* for get_proc_address() and load_dynamo */
 #define GET_PROC_ADDR get_proc_address
 
 /* this entry point is hardcoded, FIXME : abstract */
