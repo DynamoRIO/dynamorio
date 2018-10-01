@@ -80,7 +80,6 @@ opcode_mix_t::process_memref(const memref_t &memref)
 {
     if (!type_is_instr(memref.instr.type) &&
         memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
-        error_string = "";
         return true;
     }
     ++instr_count;
