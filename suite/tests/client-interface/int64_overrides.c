@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include <stdio.h>
+
 typedef char uint64;
 #define DR_DO_NOT_DEFINE_uint64
 #include "dr_api.h"
