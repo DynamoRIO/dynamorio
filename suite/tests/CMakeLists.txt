@@ -1687,8 +1687,6 @@ if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
-tobuild_api(int64_overrides client-interface/int64_overrides.c "" "" OFF OFF)
-
 if (CLIENT_INTERFACE)
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(
@@ -1708,6 +1706,7 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
+  tobuild_ci(int64_overrides client-interface/int64_overrides.c "" "" "")
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
     set(client.abort_code "8")

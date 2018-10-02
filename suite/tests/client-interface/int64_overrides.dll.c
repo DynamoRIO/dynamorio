@@ -30,15 +30,14 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-
 typedef char uint64;
 #define DR_DO_NOT_DEFINE_uint64
 #include "dr_api.h"
 
-int
-main()
+DR_EXPORT
+void
+dr_init(client_id_t id)
 {
     uint64 value = 0;
-    printf("%zu", sizeof(value));
+    dr_fprintf(STDERR, "%zu\n", sizeof(value));
 }
