@@ -38,5 +38,5 @@ int
 main()
 {
   uint64 value = 0;
-  printf("%d", sizeof(value));
+  printf("%zu", sizeof(value));
 }
