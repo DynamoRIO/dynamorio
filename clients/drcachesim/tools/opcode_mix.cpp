@@ -79,8 +79,9 @@ bool
 opcode_mix_t::process_memref(const memref_t &memref)
 {
     if (!type_is_instr(memref.instr.type) &&
-        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
-        return "";
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
+        return true;
+    }
     ++instr_count;
     app_pc mapped_pc;
     mapped_pc = module_mapper->find_mapped_trace_address((app_pc)memref.instr.addr);
