@@ -211,6 +211,14 @@ typedef byte *app_pc;
 
 typedef void (*generic_func_t)();
 
+#ifdef DR_DEFINE_FOR_uint64
+#    undef DR_DO_NOT_DEFINE_uint64
+#endif
+
+#ifdef DR_DEFINE_FOR_int64
+#    undef DR_DO_NOT_DEFINE_int64
+#endif
+
 #ifdef WINDOWS
 #    ifndef DR_DEFINE_FOR_uint64
 #        define DR_DEFINE_FOR_uint64 unsigned __int64
@@ -249,14 +257,6 @@ typedef int ssize_t;
 #            define INT64_FORMAT "ll"
 #        endif
 #    endif
-#endif
-
-#ifdef DR_DEFINE_FOR_uint64
-#    undef DR_DO_NOT_DEFINE_uint64
-#endif
-
-#ifdef DR_DEFINE_FOR_int64
-#    undef DR_DO_NOT_DEFINE_int64
 #endif
 
 #ifndef DR_DO_NOT_DEFINE_int64
