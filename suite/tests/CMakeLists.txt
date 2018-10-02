@@ -1687,6 +1687,8 @@ if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
+tobuild_api(int64_overrides client-interface/int64_overrides.c "" "" OFF OFF)
+
 if (CLIENT_INTERFACE)
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(
