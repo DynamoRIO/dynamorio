@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+// Define uint64 as something easily detectable - e.g. char.
+// The subsequent define should block redefining uint64 to something realistic,
+// meaning that we should be seeing the number "1" when printing out in dr_init.
 typedef char uint64;
 #define DR_DO_NOT_DEFINE_uint64
 #include "dr_api.h"
