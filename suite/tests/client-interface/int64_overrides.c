@@ -37,6 +37,6 @@ typedef char uint64;
 int
 main()
 {
-  uint64 value = 0;
-  printf("%zu", sizeof(value));
+    uint64 value = 0;
+    printf("%zu", sizeof(value));
 }
