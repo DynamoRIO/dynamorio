@@ -55,7 +55,7 @@
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                                     app_pc *end /*OUT*/, char *fullpath /*OPTIONAL OUT*/,
-                                    size_t path_size, char *filename,
+                                    size_t path_size, char *filename /*OPTIONAL OUT*/,
                                     size_t filename_size)
 {
     int count = 0;
@@ -145,9 +145,10 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         /* we keep the last '/' at end */
                         ++slash;
                         strncpy(dst, src, MIN(dstsz, (slash - src)));
-                        if (filename != NULL) {
+                        if (filename != NULL && slash != NULL) {
                             /* slash is filename */
                             strncpy(filename, slash, MIN(strlen(slash), filename_size));
+                            filename[filename_size - 1] = '\0';
                         }
                     } else
                         strncpy(dst, src, dstsz);
