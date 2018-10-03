@@ -3966,7 +3966,7 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
         }
         release_recursive_lock(&privload_lock);
     }
-    return (memquery_library_bounds(name, start, end, NULL, 0) > 0);
+    return (memquery_library_bounds(name, start, end, NULL, 0, NULL, 0) > 0);
 }
 #    endif /* defined(CLIENT_INTERFACE) */
 
@@ -8765,11 +8765,24 @@ get_dynamo_library_bounds(void)
     check_start = dynamo_dll_start;
     dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, DYNAMORIO_LIBRARY_NAME);
 #    endif /* STATIC_LIBRARY */
+
+#    if !defined(STATIC_LIBRARY) && defined(LINUX)
+    static char dynamorio_libname_buf[MAXIMUM_PATH];
+    res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
+                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
+                                  dynamorio_libname_buf,
+                                  BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+#    else
     res = memquery_library_bounds(dynamorio_libname, &check_start, &check_end,
                                   dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path), NULL, 0);
+#    endif
+
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
         dynamorio_library_path);
+    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
+        dynamorio_library_filepath);
     snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
              "%s%s", dynamorio_library_path, dynamorio_libname);
     NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
@@ -8869,7 +8882,8 @@ get_application_base(void)
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
             DEBUG_DECLARE(int count =)
-            memquery_library_bounds(name, &executable_start, &executable_end, NULL, 0);
+            memquery_library_bounds(name, &executable_start, &executable_end, NULL, 0,
+                                    NULL, 0);
             ASSERT(count > 0 && executable_start != NULL);
         }
 #    else

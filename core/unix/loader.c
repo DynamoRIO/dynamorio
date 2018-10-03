@@ -1574,7 +1574,7 @@ dynamorio_lib_gap_empty(void)
         while (memquery_iterator_next(&iter) && iter.vm_start < dr_end) {
             if (iter.vm_start >= dr_start && iter.vm_end <= dr_end &&
                 iter.comment[0] != '\0' &&
-                strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
+                strstr(iter.comment, get_dynamorio_library_path()) == NULL) {
                 /* There's a non-anon mapping inside: probably vvar and/or vdso. */
                 res = false;
                 break;
@@ -1778,7 +1778,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                     (iter.comment[0] == '\0' /* .bss */ ||
                      /* The kernel sometimes mis-labels our .bss as "[heap]". */
                      strcmp(iter.comment, "[heap]") == 0 ||
-                     strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)) {
+                     strstr(iter.comment, get_dynamorio_library_path()) != NULL)) {
                     os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
                 }
                 if (iter.vm_start >= old_libdr_base + old_libdr_size)
