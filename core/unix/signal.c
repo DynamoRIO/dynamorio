@@ -5171,7 +5171,7 @@ master_signal_handler_C(byte *xsp)
      */
     IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
                     frame->uc.uc_stack.ss_sp ==
-                    ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));
+                        ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));
 
     /* restore protections */
     if (local)
