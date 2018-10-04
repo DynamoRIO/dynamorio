@@ -792,6 +792,7 @@ set_app_lib_tls_base_from_clone_record(dcontext_t *dcontext, void *record)
 void
 restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
 {
+#ifdef LINUX
     ASSERT(record != NULL);
     clone_record_t *crec = (clone_record_t *)record;
     if (crec->clone_sysnum == SYS_clone && TEST(CLONE_VM, crec->clone_flags)) {
@@ -801,6 +802,7 @@ restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
         set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK,
                           get_mcontext(dcontext)->xsp);
     }
+#endif
 }
 
 /* Initializes info's app_sigaction, restorer_valid, and we_intercept fields */
@@ -4427,7 +4429,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 static bool
 is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info)
 {
-#ifndef VMX86_SERVER /* does not properly set si_code */
+#if !defined(VMX86_SERVER) && !defined(MACOS) /* does not use SI_KERNEL */
     /* i#133: use si_code to distinguish user-sent signals.
      * Even 2.2 Linux kernel supports <=0 meaning user-sent (except
      * SIGIO) so we assume we can rely on it.
@@ -5164,10 +5166,12 @@ master_signal_handler_C(byte *xsp)
     LOG(THREAD, LOG_ASYNCH, level,
         "\tmaster_signal_handler %d returning now to " PFX "\n\n", sig, sc->SC_XIP);
 
-    /* Ensure we didn't get the app's sigstack into our frame. */
-    ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
-           frame->uc.uc_stack.ss_sp ==
-               ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp);
+    /* Ensure we didn't get the app's sigstack into our frame.  On Mac, the kernel
+     * doesn't use the frame's uc_stack, so we limit this to Linux.
+     */
+    IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+                    frame->uc.uc_stack.ss_sp ==
+                    ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));
 
     /* restore protections */
     if (local)
@@ -5975,16 +5979,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
         ucxt = &frame->uc;
-        /* Re-set sigstack from the value stored in the frame.  Silently ignore failure,
-         * just like the kernel does.
-         */
-        uint ignored;
-        /* The kernel checks for being on the stack *after* swapping stacks, so pass
-         * sc->SC_XSP as the current stack.
-         */
-        handle_sigaltstack(dcontext, &frame->uc.uc_stack, NULL, sc->SC_XSP, &ignored);
-        /* Restore DR's so sigreturn syscall won't change it. */
-        frame->uc.uc_stack = info->sigstack;
 #elif defined(MACOS)
         /* The initial frame fields on the stack are messed up due to
          * params to handler from tramp, so use params to syscall.
@@ -6006,6 +6000,16 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
         sc = SIGCXT_FROM_UCXT(ucxt);
 #endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
+        /* Re-set sigstack from the value stored in the frame.  Silently ignore failure,
+         * just like the kernel does.
+         */
+        uint ignored;
+        /* The kernel checks for being on the stack *after* swapping stacks, so pass
+         * sc->SC_XSP as the current stack.
+         */
+        handle_sigaltstack(dcontext, &ucxt->uc_stack, NULL, sc->SC_XSP, &ignored);
+        /* Restore DR's so sigreturn syscall won't change it. */
+        ucxt->uc_stack = info->sigstack;
 
         /* FIXME: what if handler called sigaction and requested rt
          * when itself was non-rt?
@@ -6256,7 +6260,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * avoid the !is_sys_kill() check in record_pending_signal() to avoid an
      * infinite loop (i#3171).
      */
-    frame->info.si_code = SI_KERNEL;
+    frame->info.si_code = IF_LINUX_ELSE(SI_KERNEL, 0);
     frame->info.si_addr = target_pc;
 #ifdef X86_32
     frame->sig = sig;
