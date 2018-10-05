@@ -272,6 +272,8 @@ Further non-compatibility-affecting changes include:
    in a hashtable with user data also available.
  - Added cmake function DynamoRIO_get_full_path that shall be used instead of reading
    the LOCATION target property.
+ - Added support for Windows 10 1809. We provide an artificial version
+   identifier #DR_WINDOWS_VERSION_10_1809 to distinguish this major update.
 
 **************************************************
 <hr>
