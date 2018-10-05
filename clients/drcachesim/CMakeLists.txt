@@ -93,6 +93,7 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/cache.cpp
   simulator/cache_lru.cpp
   simulator/cache_fifo.cpp
+  simulator/cache_miss_analyzer.cpp
   simulator/caching_device.cpp
   simulator/caching_device_stats.cpp
   simulator/cache_stats.cpp
@@ -532,6 +533,7 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
   endif ()
+  add_executable(tool.drcachesim.unit_tests tests/cache_miss_analyzer_tests.cpp)
 endif ()
 
 ##################################################
