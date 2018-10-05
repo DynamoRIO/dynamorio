@@ -54,7 +54,7 @@
  */
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
-                                    app_pc *end /*OUT*/, char *fullpath /*OPTIONAL OUT*/,
+                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
                                     size_t path_size, char *filename /*OPTIONAL OUT*/,
                                     size_t filename_size)
 {
@@ -131,13 +131,13 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                 /* Wait for the next entry which should have a file backing. */
                 target = iter.vm_end;
             } else if (!found_library) {
-                char *dst = (fullpath != NULL) ? fullpath : libname;
+                char *dst = (fulldir != NULL) ? fulldir : libname;
                 const char *src = (iter.comment[0] == '\0') ? libname : iter.comment;
                 size_t dstsz =
-                    (fullpath != NULL) ? path_size : BUFFER_SIZE_ELEMENTS(libname);
+                    (fulldir != NULL) ? path_size : BUFFER_SIZE_ELEMENTS(libname);
                 size_t mod_readable_sz;
                 if (src != dst) {
-                    if (dst == fullpath) {
+                    if (dst == fulldir) {
                         /* Just the path.  We use strstr for name_cmp. */
                         char *slash = strrchr(src, '/');
                         ASSERT_CURIOSITY(slash != NULL);
@@ -148,7 +148,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         if (filename != NULL && slash != NULL) {
                             /* slash is filename */
                             strncpy(filename, slash, MIN(strlen(slash), filename_size));
-                            filename[filename_size - 1] = '\0';
+                            filename[MIN(strlen(slash), filename_size - 1)] = '\0';
                         }
                     } else
                         strncpy(dst, src, dstsz);

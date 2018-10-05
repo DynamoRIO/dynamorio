@@ -8782,6 +8782,7 @@ get_dynamo_library_bounds(void)
         dynamorio_library_path);
     snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
              "%s%s", dynamorio_library_path, dynamorio_libname);
+    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
         dynamorio_library_filepath);
     NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
