@@ -1,8 +1,8 @@
 /* ******************************************************************************
  * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights
- *reserved. Copyright (c) 2008 VMware, Inc.  All rights reserved. 2018
- *University of Regensburg, Germany (QPACE 4, SFB TRR-55)
+ * reserved. Copyright (c) 2008 VMware, Inc.  All rights reserved. 2018
+ * University of Regensburg, Germany (QPACE 4, SFB TRR-55)
  *******************************************************************************/
 
 /*
@@ -239,7 +239,7 @@ instr_is_neon(instr_t *ins, bool is_load, bool is_store)
     }
 
     // num_src contains the number of src slot that acutally hold a register
-    for (int i = 0; i < num_src; i++) {
+    for (int i = 0; i < num_src; ++i) {
         reg = opnd_get_reg(instr_get_src(ins, i));
         if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
             is_neon = true;
@@ -247,7 +247,7 @@ instr_is_neon(instr_t *ins, bool is_load, bool is_store)
         }
     }
     if (!is_neon) {
-        for (int i = 0; i < instr_num_dsts(ins); i++) {
+        for (int i = 0; i < instr_num_dsts(ins); ++i) {
             reg = opnd_get_reg(instr_get_dst(ins, i));
             if (reg >= DR_REG_Q0 && reg <= DR_REG_B31) {
                 is_neon = true;
@@ -286,7 +286,7 @@ analyze_instr(instr_t *instr, void **user_data)
         is_arith = false;
 
         // count all instructions
-        counts->all++;
+        ++counts->all;
 
         if (!instr_valid(ins) || instr_is_undefined(ins)) {
             continue;
@@ -297,7 +297,7 @@ analyze_instr(instr_t *instr, void **user_data)
         // count taken branches
         if (instr_is_cbr(ins)) {
             // count all branching instructions
-            counts->branching++;
+            ++counts->branching;
             // branching instructions are not simd or load/store instructions, so we
             // skip the rest
             continue;
@@ -306,26 +306,26 @@ analyze_instr(instr_t *instr, void **user_data)
         // load instructions
         if (instr_reads_memory(ins)) {
             is_load = true;
-            counts->load++;
+            ++counts->load;
             if (op_code == OP_ld1 || op_code == OP_ld1r) {
-                counts->load_linear++;
+                ++counts->load_linear;
             } else if (op_code == OP_ld2 || op_code == OP_ld3 || op_code == OP_ld4 ||
                        op_code == OP_ld2r || op_code == OP_ld3r || op_code == OP_ld4r) {
-                counts->load_structured++;
+                ++counts->load_structured;
             }
         } else if (instr_writes_memory(ins)) { // store instructions
             is_store = true;
-            counts->store++;
+            ++counts->store;
             if (op_code == OP_st1) {
-                counts->store_linear++;
+                ++counts->store_linear;
             } else if (op_code == OP_st2 || op_code == OP_st3 || op_code == OP_st4) {
-                counts->store_structured++;
+                ++counts->store_structured;
             }
         } else
-            for (int i = 0; i < 204; i++) { // arithmetic instructions
+            for (int i = 0; i < 204; ++i) { // arithmetic instructions
                 if (op_code == OP_arithmetic[i]) {
                     is_arith = true;
-                    counts->arith++;
+                    ++counts->arith;
                     break;
                 }
             }
@@ -333,14 +333,14 @@ analyze_instr(instr_t *instr, void **user_data)
         // neon instructions
         if (instr_is_neon(ins, is_load, is_store)) {
             // all NEON instructions
-            counts->neon++;
+            ++counts->neon;
 
             if (is_arith) {
-                counts->neon_arith++;
+                ++counts->neon_arith;
             } else if (is_load) {
-                counts->neon_load++;
+                ++counts->neon_load;
             } else if (is_store) {
-                counts->neon_store++;
+                ++counts->neon_store;
             }
         }
     }
@@ -356,7 +356,7 @@ at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken, void *bb
 {
     // count taken branches
     if (taken != 0) {
-        global_counts.taken_branches++;
+        ++global_counts.taken_branches;
     }
 }
 
@@ -544,7 +544,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     result_file = fopen("nc_output.txt", "a");
 
     // argv[0] is the name of the used library
-    for (int args = 1; args < argc; args++) {
+    for (int args = 1; args < argc; ++args) {
         if (strcmp(argv[args], "--help") == 0) {
             // print help
             printf("\x1b[32m\nUsage:\tdrrun -c /path/to/libneoncounter.so [OPTIONS] "
@@ -557,7 +557,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         } else if (strncmp(argv[args], "-output", 7) == 0) {
             if (args + 1 < argc) {
                 result_file = fopen(argv[args + 1], "a");
-                args++;
+                ++args;
             } else {
                 printf("Please enter a path to the output file. Choosing default path "
                        "./nc_output.txt\n");
