@@ -350,49 +350,11 @@ reboot_system()
 
 #    endif /* WINDOWS */
 
-/* this sucks.
- * i can't believe this is best way to implement this in Win32...
- *  but i can't seem to find a better way.
- * msdn suggests using CreateFile() with CREATE_NEW or OPEN_EXISTING,
- *   and then checking error codes; but the problem there is that C:\\
- *   returns PATH_NOT_FOUND regardless. */
 bool
 file_exists(const TCHAR *fn)
 {
 #    ifdef WINDOWS
-    WIN32_FIND_DATA fd;
-    HANDLE search;
-
-    DO_ASSERT(fn != NULL);
-
-    search = FindFirstFile(fn, &fd);
-
-    if (search == INVALID_HANDLE_VALUE) {
-
-        /* special handling for e.g. C:\\ */
-        if (LAST_WCHAR(fn) == L'\\' || LAST_WCHAR(fn) == L':') {
-            WCHAR buf[MAX_PATH];
-            _snwprintf(buf, MAX_PATH, L"%S%S*", fn,
-                       LAST_WCHAR(fn) == L'\\' ? L"" : L"\\");
-            NULL_TERMINATE_BUFFER(buf);
-            search = FindFirstFile(buf, &fd);
-            if (search != INVALID_HANDLE_VALUE) {
-                FindClose(search);
-                return TRUE;
-            } else {
-                DO_DEBUG(
-                    DL_VERB,
-                    printf("%S: even though we tried hard, %d\n", buf, GetLastError()););
-            }
-        }
-
-        DO_DEBUG(DL_VERB,
-                 printf("%S doesn't exist because of: %d\n", fn, GetLastError()););
-        return FALSE;
-    } else {
-        FindClose(search);
-        return TRUE;
-    }
+    return GetFileAttributes(fn) != INVALID_FILE_ATTRIBUTES;
 #    else
     struct stat st;
     return stat(fn, &st) == 0;
