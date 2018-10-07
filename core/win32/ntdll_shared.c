@@ -54,7 +54,9 @@
 #    pragma warning(disable : 4204) // nonstd extension: non-constant aggregate
                                     // initializer
 #    define INVALID_FILE INVALID_HANDLE_VALUE
-#    define snprintf _snprintf
+#    if defined(_MSC_VER) && _MSC_VER < 1900
+#        define snprintf _snprintf
+#    endif
 #    include <stdio.h> /* _snprintf */
 #    define STATUS_NOT_IMPLEMENTED ((NTSTATUS)0xC0000002L)
 #else
