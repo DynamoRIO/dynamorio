@@ -5647,7 +5647,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
                 strstr(envp[idx], "LD_PRELOAD=") == envp[idx]) {
                 preload = idx;
                 if (strstr(envp[idx], DYNAMORIO_PRELOAD_NAME) != NULL &&
-                    strstr(envp[idx], DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    strstr(envp[idx], get_dynamorio_library_path()) != NULL) {
                     preload_us = true;
                 }
             }
@@ -5684,20 +5684,22 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
         if (preload >= 0) {
             /* replace the existing preload */
+            char *dynamorio_library_path = get_dynamorio_library_path();
             sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME) +
-                strlen(DYNAMORIO_LIBRARY_NAME) + 3;
+                strlen(dynamorio_library_path) + 3;
             var = heap_alloc(dcontext, sizeof(char) * sz HEAPACCT(ACCT_OTHER));
             old = envp[preload] + strlen("LD_PRELOAD=");
             snprintf(var, sz, "LD_PRELOAD=%s %s %s", DYNAMORIO_PRELOAD_NAME,
-                     DYNAMORIO_LIBRARY_NAME, old);
+                     dynamorio_library_path, old);
             idx_preload = preload;
         } else {
             /* add new preload */
+            char *dynamorio_library_path = get_dynamorio_library_path();
             sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) +
-                strlen(DYNAMORIO_LIBRARY_NAME) + 2;
+                strlen(dynamorio_library_path) + 2;
             var = heap_alloc(dcontext, sizeof(char) * sz HEAPACCT(ACCT_OTHER));
             snprintf(var, sz, "LD_PRELOAD=%s %s", DYNAMORIO_PRELOAD_NAME,
-                     DYNAMORIO_LIBRARY_NAME);
+                     dynamorio_library_path);
             idx_preload = idx++;
         }
         *(var + sz - 1) = '\0'; /* null terminate */
