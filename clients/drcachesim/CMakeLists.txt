@@ -175,6 +175,7 @@ install_client_nonDR_header(drmemtrace tools/histogram_create.h)
 install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
 install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
+install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -533,7 +534,15 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
   endif ()
-  add_executable(tool.drcachesim.unit_tests tests/cache_miss_analyzer_tests.cpp)
+
+  # Tests for the cache miss analyzer.
+  add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
+  target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+    drmemtrace_static drmemtrace_analyzer)
+  add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
+  add_test(NAME tool.drcachesim.miss_analyzer_unit_test
+           COMMAND tool.drcachesim.miss_analyzer_unit_test)
+
 endif ()
 
 ##################################################

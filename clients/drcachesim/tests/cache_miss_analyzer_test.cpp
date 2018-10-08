@@ -33,7 +33,7 @@
 #include<iostream>
 
 #include "../simulator/cache_miss_analyzer.h"
-#include "cache_simulator.h"
+#include "../simulator/cache_simulator.h"
 #include "../common/memref.h"
 
 static memref_t

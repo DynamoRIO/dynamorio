@@ -34,6 +34,19 @@
 
 #include <stdint.h>
 
+const char* cache_miss_stats_t::kNTA = "nta";
+const char* cache_miss_stats_t::kT0 = "t0";
+
+analysis_tool_t *
+cache_miss_analyzer_create(const cache_simulator_knobs_t& knobs,
+                           uint64_t miss_count_threshold,
+                           double miss_frac_threshold,
+                           double confidence_threshold)
+{
+    return new cache_miss_analyzer_t(knobs, miss_count_threshold,
+                                     miss_frac_threshold, confidence_threshold);
+}
+
 cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled,
                                        uint64_t line_size,
                                        uint64_t miss_count_threshold,

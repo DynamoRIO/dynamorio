@@ -88,8 +88,8 @@ protected:
 
 private:
     // Two locality levels for prefetching are supported: nta and t0.
-    static constexpr const char* kNTA = "nta";
-    static constexpr const char* kT0 = "t0";
+    static const char* kNTA;
+    static const char* kT0;
 
     // Cache line size.
     const uint64_t kLineSize;
