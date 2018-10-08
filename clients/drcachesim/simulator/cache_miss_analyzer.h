@@ -50,9 +50,9 @@
 
 // Represents the SW prefetching recommendation passed to the compiler.
 struct prefetching_recommendation_t {
-    uint64_t pc;           // Load instruction's address.
-    int64_t stride;        // Prefetching stride/delta distance.
-    std::string locality;  // Prefetching locality: one of "nta" or "t0".
+    uint64_t pc;          // Load instruction's address.
+    int64_t stride;       // Prefetching stride/delta distance.
+    std::string locality; // Prefetching locality: one of "nta" or "t0".
 };
 
 class cache_miss_stats_t : public cache_stats_t {
@@ -70,8 +70,7 @@ public:
     // Confidence in a discovered pattern for a load instruction is calculated
     // as the fraction of the load's misses with the discovered pattern over
     // all the load's misses.
-    cache_miss_stats_t(bool warmup_enabled = false,
-                       uint64_t line_size = 64,
+    cache_miss_stats_t(bool warmup_enabled = false, uint64_t line_size = 64,
                        uint64_t miss_count_threshold = 50000,
                        double miss_frac_threshold = 0.005,
                        double confidence_threshold = 0.75);
@@ -79,24 +78,24 @@ public:
     virtual void
     reset();
 
-    std::vector<prefetching_recommendation_t*>
+    std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
 protected:
     virtual void
-    dump_miss(const memref_t& memref);
+    dump_miss(const memref_t &memref);
 
 private:
     // Two locality levels for prefetching are supported: nta and t0.
-    static const char* kNTA;
-    static const char* kT0;
+    static const char *kNTA;
+    static const char *kT0;
 
     // Cache line size.
     const uint64_t kLineSize;
 
     // A load instruction should be analyzed if its total number/fraction of LLC
     // misses is equal to or larger than one of the two threshold values below:
-    const uint64_t kMissCountThreshold;  // Absolute count.
+    const uint64_t kMissCountThreshold; // Absolute count.
     const double kMissFracThreshold;    // Fraction of all LLC misses.
 
     // Confidence threshold for recording a cache misses stride.
@@ -109,7 +108,7 @@ private:
     // The function returns a nonzero stride value if it finds one that
     // satisfies the confidence threshold and returns 0 otherwise.
     int64_t
-    check_for_constant_stride(const std::vector<addr_t>& cache_misses) const;
+    check_for_constant_stride(const std::vector<addr_t> &cache_misses) const;
 
     // A hash map storing the data cache line addresses accessed by load
     // instructions that miss in the LLC.
@@ -134,16 +133,16 @@ public:
     // Confidence in a discovered pattern for a load instruction is calculated
     // as the fraction of the load's misses with the discovered pattern over
     // all the load's misses.
-    cache_miss_analyzer_t(const cache_simulator_knobs_t& knobs,
+    cache_miss_analyzer_t(const cache_simulator_knobs_t &knobs,
                           uint64_t miss_count_threshold = 50000,
                           double miss_frac_threshold = 0.005,
                           double confidence_threshold = 0.75);
 
-    std::vector<prefetching_recommendation_t*>
+    std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
  private:
-    cache_miss_stats_t* ll_stats;
+    cache_miss_stats_t *ll_stats;
 };
 
-#endif  /* _CACHE_MISS_ANALYZER_H_ */
+#endif /* _CACHE_MISS_ANALYZER_H_ */

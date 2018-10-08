@@ -30,14 +30,15 @@
  * DAMAGE.
  */
 
-#include<iostream>
+#include <iostream>
 
 #include "../simulator/cache_miss_analyzer.h"
 #include "../simulator/cache_simulator.h"
 #include "../common/memref.h"
 
 static memref_t
-generate_mem_ref(const addr_t addr, const addr_t pc) {
+generate_mem_ref(const addr_t addr, const addr_t pc)
+{
     memref_t memref;
     memref.data.type = TRACE_TYPE_READ;
     memref.data.pid = 11111;
@@ -79,12 +80,12 @@ no_dominant_stride()
     }
 
     // Generate the analyzer's result and check it.
-    std::vector<prefetching_recommendation_t*> recommendations =
+    std::vector<prefetching_recommendation_t *> recommendations =
         analyzer.generate_recommendations();
     if (recommendations.empty()) {
-      std::cout << "no_dominant_stride test passed." << std::endl;
+        std::cout << "no_dominant_stride test passed." << std::endl;
     } else {
-      std::cerr << "no_dominant_stride test failed." << std::endl;
+        std::cerr << "no_dominant_stride test failed." << std::endl;
     }
 }
 
@@ -120,21 +121,20 @@ one_dominant_stride()
     }
 
     // Generate the analyzer's result and check it.
-    std::vector<prefetching_recommendation_t*> recommendations =
+    std::vector<prefetching_recommendation_t *> recommendations =
         analyzer.generate_recommendations();
     if (recommendations.size() == 1) {
-      if (recommendations[0]->pc == 0xAAAA &&
-          recommendations[0]->stride == kStride) {
-          std::cout << "one_dominant_stride test passed." << std::endl;
-      } else {
-          std::cerr << "one_dominant_stride test failed: wrong recommendation: "
-                    << "pc=" << recommendations[0]->pc
-                    << ", stride=" << recommendations[0]->stride << std::endl;
-      }
+        if (recommendations[0]->pc == 0xAAAA && recommendations[0]->stride == kStride) {
+            std::cout << "one_dominant_stride test passed." << std::endl;
+        } else {
+            std::cerr << "one_dominant_stride test failed: wrong recommendation: "
+                      << "pc=" << recommendations[0]->pc
+                      << ", stride=" << recommendations[0]->stride << std::endl;
+        }
     } else {
-      std::cerr << "one_dominant_stride test failed: number of recommendations "
-                << "should be exactly 1, but was " << recommendations.size()
-                << std::endl;
+        std::cerr << "one_dominant_stride test failed: number of recommendations "
+                  << "should be exactly 1, but was " << recommendations.size()
+                  << std::endl;
     }
 }
 
@@ -174,26 +174,24 @@ two_dominant_strides()
     }
 
     // Generate the analyzer's result and check it.
-    std::vector<prefetching_recommendation_t*> recommendations =
+    std::vector<prefetching_recommendation_t *> recommendations =
         analyzer.generate_recommendations();
     if (recommendations.size() == 2) {
-        if ((recommendations[0]->pc == 0xAAAA &&
-             recommendations[0]->stride == kStride1 &&
+        if ((recommendations[0]->pc == 0xAAAA && recommendations[0]->stride == kStride1 &&
              recommendations[1]->pc == 0xBBBB &&
              recommendations[1]->stride == kStride2) ||
-            (recommendations[1]->pc == 0xAAAA &&
-             recommendations[1]->stride == kStride1 &&
+            (recommendations[1]->pc == 0xAAAA && recommendations[1]->stride == kStride1 &&
              recommendations[0]->pc == 0xBBBB &&
              recommendations[0]->stride == kStride2)) {
-          std::cout << "two_dominant_strides test passed." << std::endl;
-      } else {
-          std::cerr << "two_dominant_strides test failed: wrong recommendations."
-                    << std::endl;
-      }
+            std::cout << "two_dominant_strides test passed." << std::endl;
+        } else {
+            std::cerr << "two_dominant_strides test failed: wrong recommendations."
+                      << std::endl;
+        }
     } else {
-      std::cerr << "two_dominant_strides test failed: number of recommendations "
-                << "should be exactly 2, but was " << recommendations.size()
-                << std::endl;
+        std::cerr << "two_dominant_strides test failed: number of recommendations "
+                  << "should be exactly 2, but was " << recommendations.size()
+                  << std::endl;
     }
 }
 

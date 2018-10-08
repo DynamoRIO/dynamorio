@@ -34,21 +34,19 @@
 
 #include <stdint.h>
 
-const char* cache_miss_stats_t::kNTA = "nta";
-const char* cache_miss_stats_t::kT0 = "t0";
+const char *cache_miss_stats_t::kNTA = "nta";
+const char *cache_miss_stats_t::kT0 = "t0";
 
 analysis_tool_t *
 cache_miss_analyzer_create(const cache_simulator_knobs_t& knobs,
-                           uint64_t miss_count_threshold,
-                           double miss_frac_threshold,
+                           uint64_t miss_count_threshold, double miss_frac_threshold,
                            double confidence_threshold)
 {
-    return new cache_miss_analyzer_t(knobs, miss_count_threshold,
-                                     miss_frac_threshold, confidence_threshold);
+    return new cache_miss_analyzer_t(knobs, miss_count_threshold, miss_frac_threshold,
+                                     confidence_threshold);
 }
 
-cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled,
-                                       uint64_t line_size,
+cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, uint64_t line_size,
                                        uint64_t miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
@@ -72,12 +70,14 @@ cache_miss_stats_t::reset()
 }
 
 void
-cache_miss_stats_t::dump_miss(const memref_t& memref)
+cache_miss_stats_t::dump_miss(const memref_t &memref)
 {
     // If the operation causing the LLC miss is a memory read (load), insert
     // the miss into the pc_cache_misses hash map and update
     // the total_misses counter.
-    if (memref.data.type != TRACE_TYPE_READ) return;
+    if (memref.data.type != TRACE_TYPE_READ) {
+        return;
+    }
 
     const addr_t pc = memref.data.pc;
     const addr_t addr = memref.data.addr / kLineSize;
@@ -85,7 +85,7 @@ cache_miss_stats_t::dump_miss(const memref_t& memref)
     total_misses++;
 }
 
-std::vector<prefetching_recommendation_t*>
+std::vector<prefetching_recommendation_t *>
 cache_miss_stats_t::generate_recommendations()
 {
     uint64_t miss_count_threshold =
@@ -95,9 +95,9 @@ cache_miss_stats_t::generate_recommendations()
     }
 
     // Find loads that should be analyzed and analyze them.
-    std::vector<prefetching_recommendation_t*> recommendations;
-    for (auto& pc_cache_misses_it : pc_cache_misses) {
-        std::vector<addr_t>& cache_misses = pc_cache_misses_it.second;
+    std::vector<prefetching_recommendation_t *> recommendations;
+    for (auto &pc_cache_misses_it : pc_cache_misses) {
+        std::vector<addr_t> &cache_misses = pc_cache_misses_it.second;
 
         if (cache_misses.size() >= miss_count_threshold) {
             const int64_t stride = check_for_constant_stride(cache_misses);
@@ -117,7 +117,7 @@ cache_miss_stats_t::generate_recommendations()
 
 int64_t
 cache_miss_stats_t::check_for_constant_stride(
-    const std::vector<addr_t>& cache_misses) const
+    const std::vector<addr_t> &cache_misses) const
 {
     std::unordered_map<int64_t, int64_t> stride_counts;
 
@@ -125,14 +125,14 @@ cache_miss_stats_t::check_for_constant_stride(
     for (uint64_t i = 1; i < cache_misses.size(); ++i) {
         int64_t stride = cache_misses[i] - cache_misses[i - 1];
         if (stride != 0) {
-          stride_counts[stride]++;
+            stride_counts[stride]++;
         }
     }
 
     // Find the most occurring stride.
     int64_t max_count = 0;
     int64_t max_count_stride = 0;
-    for (auto& stride_count : stride_counts) {
+    for (auto &stride_count : stride_counts) {
         if (stride_count.second > max_count) {
             max_count = stride_count.second;
             max_count_stride = stride_count.first;
@@ -141,15 +141,14 @@ cache_miss_stats_t::check_for_constant_stride(
 
     // Return the most occurring stride if it meets the confidence threshold.
     stride_counts.clear();
-    if (max_count >= static_cast<int64_t>(
-        kConfidenceThreshold * cache_misses.size())) {
+    if (max_count >= static_cast<int64_t>(kConfidenceThreshold * cache_misses.size())) {
         return max_count_stride;
     } else {
         return 0;
     }
 }
 
-cache_miss_analyzer_t::cache_miss_analyzer_t(const cache_simulator_knobs_t& knobs,
+cache_miss_analyzer_t::cache_miss_analyzer_t(const cache_simulator_knobs_t &knobs,
                                              uint64_t miss_count_threshold,
                                              double miss_frac_threshold,
                                              double confidence_threshold)
@@ -158,18 +157,16 @@ cache_miss_analyzer_t::cache_miss_analyzer_t(const cache_simulator_knobs_t& knob
     if (!success) {
         return;
     }
-    bool warmup_enabled = (knobs.warmup_refs > 0 ||
-                           knobs.warmup_fraction > 0.0);
+    bool warmup_enabled = (knobs.warmup_refs > 0 || knobs.warmup_fraction > 0.0);
 
     delete llcaches["LL"]->get_stats();
-    ll_stats = new cache_miss_stats_t(warmup_enabled, knobs.line_size,
-                                      miss_count_threshold,
-                                      miss_frac_threshold,
-                                      confidence_threshold);
+    ll_stats =
+        new cache_miss_stats_t(warmup_enabled, knobs.line_size, miss_count_threshold,
+                               miss_frac_threshold, confidence_threshold);
     llcaches["LL"]->set_stats(ll_stats);
 }
 
-std::vector<prefetching_recommendation_t*>
+std::vector<prefetching_recommendation_t *>
 cache_miss_analyzer_t::generate_recommendations()
 {
     return ll_stats->generate_recommendations();
