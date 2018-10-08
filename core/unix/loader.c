@@ -1773,7 +1773,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
          * in the text-data gap.
          */
         char *dynamorio_library_path = get_dynamorio_library_path();
-        if (memquery_iterator_start(&iter, NULL, false /*no heap*/)) {\
+        if (memquery_iterator_start(&iter, NULL, false /*no heap*/)) {
             while (memquery_iterator_next(&iter)) {
                 if (iter.vm_start >= old_libdr_base &&
                     iter.vm_end <= old_libdr_base + old_libdr_size &&
