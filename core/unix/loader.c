@@ -1772,8 +1772,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         /* i#2641: we can't blindly unload the whole region as vvar+vdso may be
          * in the text-data gap.
          */
-        if (memquery_iterator_start(&iter, NULL, false /*no heap*/)) {
-            char *dynamorio_library_path = get_dynamorio_library_path();
+        char *dynamorio_library_path = get_dynamorio_library_path();
+        if (memquery_iterator_start(&iter, NULL, false /*no heap*/)) {\
             while (memquery_iterator_next(&iter)) {
                 if (iter.vm_start >= old_libdr_base &&
                     iter.vm_end <= old_libdr_base + old_libdr_size &&
