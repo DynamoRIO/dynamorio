@@ -38,7 +38,7 @@ const char *cache_miss_stats_t::kNTA = "nta";
 const char *cache_miss_stats_t::kT0 = "t0";
 
 analysis_tool_t *
-cache_miss_analyzer_create(const cache_simulator_knobs_t& knobs,
+cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
                            uint64_t miss_count_threshold, double miss_frac_threshold,
                            double confidence_threshold)
 {

@@ -141,7 +141,7 @@ public:
     std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
- private:
+private:
     cache_miss_stats_t *ll_stats;
 };
 
