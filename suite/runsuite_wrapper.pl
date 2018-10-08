@@ -159,6 +159,18 @@ for (my $i = 0; $i < $#lines; ++$i) {
             } else {
                 $issue_no = "#2417";
             }
+        } elsif ($^O eq 'darwin') {
+            %ignore_failures_32 = ('code_api|common.decode-bad' => 1, # i#3127
+                                   'code_api|linux.signal0000' => 1, # i#3127
+                                   'code_api|linux.signal0010' => 1, # i#3127
+                                   'code_api|linux.signal0100' => 1, # i#3127
+                                   'code_api|linux.signal0110' => 1, # i#3127
+                                   'code_api|linux.sigaction' => 1, # i#3127
+                                   'code_api|security-common.codemod' => 1, # i#3127
+                                   'code_api|client.crashmsg' => 1, # i#3127
+                                   'code_api|client.exception' => 1, # i#3127
+                                   'code_api|client.timer' => 1, # i#3127
+                                   'code_api|sample.signal' => 1); # i#3127
         } else {
             # FIXME i#2921: fix flaky ptsig test
             %ignore_failures_32 = ('code_api|pthreads.ptsig' => 1);
