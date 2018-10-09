@@ -55,7 +55,7 @@
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                                     app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
-                                    size_t path_size, char *filename /*OPTIONAL OUT*/,
+                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
                                     size_t filename_size)
 {
     int count = 0;
@@ -134,7 +134,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                 char *dst = (fulldir != NULL) ? fulldir : libname;
                 const char *src = (iter.comment[0] == '\0') ? libname : iter.comment;
                 size_t dstsz =
-                    (fulldir != NULL) ? path_size : BUFFER_SIZE_ELEMENTS(libname);
+                    (fulldir != NULL) ? fulldir_size : BUFFER_SIZE_ELEMENTS(libname);
                 size_t mod_readable_sz;
                 if (src != dst) {
                     if (dst == fulldir) {
@@ -149,7 +149,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                             /* slash is filename */
                             strncpy(filename, slash, MIN(strlen(slash), filename_size));
                             filename[MIN(strlen(slash), filename_size - 1)] = '\0';
-                        }
+                        } else
+                            filename[0] = '\0';
                     } else
                         strncpy(dst, src, dstsz);
                     /* if max no null */
