@@ -390,7 +390,7 @@ main(int argc, char **argv)
     if (outf) {
         fp = fopen(outf, "w");
         if (fp == NULL) {
-            fprintf(stderr, "Error opening %s for output.\n");
+            fprintf(stderr, "Error opening %s for output.\n", outf);
             exit(-1);
         }
     } else
@@ -574,7 +574,7 @@ pw_callback(process_info_t *pi, void **param)
                 if (res == ERROR_SUCCESS) {
                     uint j;
                     hotp_policy_status_t *cur;
-                    fprintf(fp, "\tHotpatching:\n", res);
+                    fprintf(fp, "\tHotpatching:\n");
                     for (j = 0; j < status_tbl->num_policies; j++) {
                         char status_buf[MAX_PATH];
                         cur = &(status_tbl->policy_status_array[j]);
@@ -583,7 +583,7 @@ pw_callback(process_info_t *pi, void **param)
                             fprintf(fp, "\t  Patch %s: %s\n", cur->policy_id, status_buf);
                     }
                 } else if (res == ERROR_DRMARKER_ERROR) {
-                    fprintf(fp, "\tHot Patching Not Enabled\n", res);
+                    fprintf(fp, "\tHot Patching Not Enabled\n");
                 } else {
                     fprintf(fp, "\t<Hotpatch Query Error %d>\n", res);
                 }

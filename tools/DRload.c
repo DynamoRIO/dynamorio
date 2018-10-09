@@ -264,7 +264,7 @@ main(int argc, char *argv[])
             if (map_file(line, NULL, 1 /*image*/))
                 count++;
             else
-                fprintf(stderr, "  => FAILED\n", line);
+                fprintf(stderr, "  => FAILED\n");
         }
         fprintf(stderr, "loaded %d images successfully\n", count);
         fflush(stderr);
