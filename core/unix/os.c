@@ -8767,16 +8767,12 @@ get_dynamo_library_bounds(void)
     check_start = dynamo_dll_start;
 #    endif /* STATIC_LIBRARY */
 
-#    ifdef STATIC_LIBRARY
-    res = memquery_library_bounds(dynamorio_libname, &check_start, &check_end,
-                                  dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path), NULL, 0);
-#    else  /* !STATIC_LIBRARY */
     static char dynamorio_libname_buf[MAXIMUM_PATH];
     res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
                                   BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
                                   dynamorio_libname_buf,
                                   BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+#    ifndef STATIC_LIBRARY
     dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
 #    endif /* STATIC_LIBRARY */
 
