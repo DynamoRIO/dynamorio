@@ -326,8 +326,8 @@ memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end 
                         char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
                         char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
-    return memquery_library_bounds_by_iterator(name, start, end, fulldir, path_size,
-                                               fullfilepath, filepath_size);
+    return memquery_library_bounds_by_iterator(name, start, end, fulldir, fulldir_size,
+                                               filename, filename_size);
 }
 
 /***************************************************************************
