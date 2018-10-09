@@ -54,8 +54,9 @@
  */
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
-                                    app_pc *end /*OUT*/, char *fullpath /*OPTIONAL OUT*/,
-                                    size_t path_size)
+                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
+                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+                                    size_t filename_size)
 {
     int count = 0;
     bool found_library = false;
@@ -130,13 +131,13 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                 /* Wait for the next entry which should have a file backing. */
                 target = iter.vm_end;
             } else if (!found_library) {
-                char *dst = (fullpath != NULL) ? fullpath : libname;
+                char *dst = (fulldir != NULL) ? fulldir : libname;
                 const char *src = (iter.comment[0] == '\0') ? libname : iter.comment;
                 size_t dstsz =
-                    (fullpath != NULL) ? path_size : BUFFER_SIZE_ELEMENTS(libname);
+                    (fulldir != NULL) ? fulldir_size : BUFFER_SIZE_ELEMENTS(libname);
                 size_t mod_readable_sz;
                 if (src != dst) {
-                    if (dst == fullpath) {
+                    if (dst == fulldir) {
                         /* Just the path.  We use strstr for name_cmp. */
                         char *slash = strrchr(src, '/');
                         ASSERT_CURIOSITY(slash != NULL);
@@ -144,6 +145,12 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         /* we keep the last '/' at end */
                         ++slash;
                         strncpy(dst, src, MIN(dstsz, (slash - src)));
+                        if (filename != NULL && slash != NULL) {
+                            /* slash is filename */
+                            strncpy(filename, slash, MIN(strlen(slash), filename_size));
+                            filename[MIN(strlen(slash), filename_size - 1)] = '\0';
+                        } else
+                            filename[0] = '\0';
                     } else
                         strncpy(dst, src, dstsz);
                     /* if max no null */

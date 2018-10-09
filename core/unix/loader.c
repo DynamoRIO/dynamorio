@@ -1571,10 +1571,11 @@ dynamorio_lib_gap_empty(void)
         byte *dr_start = get_dynamorio_dll_start();
         byte *dr_end = get_dynamorio_dll_end();
         byte *gap_start = dr_start;
+        const char *dynamorio_library_path = get_dynamorio_library_path();
         while (memquery_iterator_next(&iter) && iter.vm_start < dr_end) {
             if (iter.vm_start >= dr_start && iter.vm_end <= dr_end &&
                 iter.comment[0] != '\0' &&
-                strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) == NULL) {
+                strcmp(iter.comment, dynamorio_library_path) != 0) {
                 /* There's a non-anon mapping inside: probably vvar and/or vdso. */
                 res = false;
                 break;
@@ -1771,6 +1772,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         /* i#2641: we can't blindly unload the whole region as vvar+vdso may be
          * in the text-data gap.
          */
+        const char *dynamorio_library_path = get_dynamorio_library_path();
         if (memquery_iterator_start(&iter, NULL, false /*no heap*/)) {
             while (memquery_iterator_next(&iter)) {
                 if (iter.vm_start >= old_libdr_base &&
@@ -1778,7 +1780,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                     (iter.comment[0] == '\0' /* .bss */ ||
                      /* The kernel sometimes mis-labels our .bss as "[heap]". */
                      strcmp(iter.comment, "[heap]") == 0 ||
-                     strstr(iter.comment, DYNAMORIO_LIBRARY_NAME) != NULL)) {
+                     strcmp(iter.comment, dynamorio_library_path) == 0)) {
                     os_unmap_file(iter.vm_start, iter.vm_end - iter.vm_start);
                 }
                 if (iter.vm_start >= old_libdr_base + old_libdr_size)
