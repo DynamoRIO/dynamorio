@@ -452,8 +452,13 @@ if (BUILD_TESTS)
   if (NOT AARCH64 AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
-    target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
-      drmemtrace_static drmemtrace_analyzer)
+    if (ZLIB_FOUND)
+      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+        drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
+    else ()
+      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+        drmemtrace_static drmemtrace_analyzer)
+    endif ()
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
