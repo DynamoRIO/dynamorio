@@ -50,8 +50,8 @@
 
 // Represents the SW prefetching recommendation passed to the compiler.
 struct prefetching_recommendation_t {
-    addr_t pc;          // Load instruction's address.
-    int stride;       // Prefetching stride/delta distance.
+    addr_t pc;            // Load instruction's address.
+    int stride;           // Prefetching stride/delta distance.
     std::string locality; // Prefetching locality: one of "nta" or "t0".
 };
 
@@ -75,7 +75,11 @@ public:
                        double miss_frac_threshold = 0.005,
                        double confidence_threshold = 0.75);
 
-    cache_miss_stats_t &operator=(const cache_miss_stats_t &) { return *this; }
+    cache_miss_stats_t &
+    operator=(const cache_miss_stats_t &)
+    {
+        return *this;
+    }
 
     virtual void
     reset();
