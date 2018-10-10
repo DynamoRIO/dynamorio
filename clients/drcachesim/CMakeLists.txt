@@ -459,6 +459,7 @@ if (BUILD_TESTS)
       target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
         drmemtrace_static drmemtrace_analyzer)
     endif ()
+    add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
