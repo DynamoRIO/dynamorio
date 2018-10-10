@@ -75,6 +75,8 @@ public:
                        double miss_frac_threshold = 0.005,
                        double confidence_threshold = 0.75);
 
+    cache_miss_stats_t &operator=(const cache_miss_stats_t &) { return *this; }
+
     virtual void
     reset();
 

@@ -39,16 +39,14 @@ const char *cache_miss_stats_t::kT0 = "t0";
 
 analysis_tool_t *
 cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
-                           unsigned int miss_count_threshold,
-                           double miss_frac_threshold,
+                           unsigned int miss_count_threshold, double miss_frac_threshold,
                            double confidence_threshold)
 {
     return new cache_miss_analyzer_t(knobs, miss_count_threshold, miss_frac_threshold,
                                      confidence_threshold);
 }
 
-cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled,
-                                       unsigned int line_size,
+cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, unsigned int line_size,
                                        unsigned int miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
@@ -125,7 +123,7 @@ cache_miss_stats_t::check_for_constant_stride(
 
     // Find and count all strides in the misses stream.
     for (unsigned int i = 1; i < cache_misses.size(); ++i) {
-        int stride = cache_misses[i] - cache_misses[i - 1];
+        int stride = static_cast<int>(cache_misses[i] - cache_misses[i - 1]);
         if (stride != 0) {
             stride_counts[stride]++;
         }
