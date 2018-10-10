@@ -183,7 +183,8 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
 /* See memquery.h for full interface specs */
 int
 memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
-                        char *fullpath /*OPTIONAL OUT*/, size_t path_size)
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
     int count = 0;
     dl_iterate_data_t iter_data;
@@ -198,8 +199,8 @@ memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end 
      */
     iter_data.target_addr = (start == NULL) ? NULL : *start;
     iter_data.target_path = name;
-    iter_data.path_out = fullpath;
-    iter_data.path_size = (fullpath == NULL) ? 0 : path_size;
+    iter_data.path_out = fulldir;
+    iter_data.path_size = (fulldir == NULL) ? 0 : fulldir_size;
     DEBUG_DECLARE(int res =)
     dl_iterate_phdr(dl_iterate_get_path_cb, &iter_data);
     ASSERT(res == 1);
@@ -208,7 +209,7 @@ memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end 
     count = 1;
     LOG(GLOBAL, LOG_VMAREAS, 2, "get_library_bounds %s => " PFX "-" PFX " %s\n",
         name == NULL ? "<null>" : name, mod_start, cur_end,
-        fullpath == NULL ? "<no path requested>" : fullpath);
+        fulldir == NULL ? "<no path requested>" : fulldir);
 
     if (start != NULL)
         *start = mod_start;
