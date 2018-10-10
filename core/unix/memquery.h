@@ -104,15 +104,17 @@ memquery_iterator_next(memquery_iter_t *iter);
  */
 int
 memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
-                        char *fullpath /*OPTIONAL OUT*/, size_t path_size);
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size);
 
 /* Interface is identical to memquery_library_bounds().  This is an iterator-based
  * impl shared among Linux and Mac.
  */
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
-                                    app_pc *end /*OUT*/, char *fullpath /*OPTIONAL OUT*/,
-                                    size_t path_size);
+                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
+                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+                                    size_t filename_size);
 
 /* XXX i#1270: ideally we could have os.c use generic memquery iterator code,
  * but the probe + dl_iterate_phdr approach is difficult to fit into that mold

@@ -3966,7 +3966,7 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
         }
         release_recursive_lock(&privload_lock);
     }
-    return (memquery_library_bounds(name, start, end, NULL, 0) > 0);
+    return (memquery_library_bounds(name, start, end, NULL, 0, NULL, 0) > 0);
 }
 #    endif /* defined(CLIENT_INTERFACE) */
 
@@ -5647,7 +5647,7 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
                 strstr(envp[idx], "LD_PRELOAD=") == envp[idx]) {
                 preload = idx;
                 if (strstr(envp[idx], DYNAMORIO_PRELOAD_NAME) != NULL &&
-                    strstr(envp[idx], DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    strstr(envp[idx], get_dynamorio_library_path()) != NULL) {
                     preload_us = true;
                 }
             }
@@ -5684,20 +5684,21 @@ add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path, const char *app
             "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
         if (preload >= 0) {
             /* replace the existing preload */
+            const char *dr_lib_path = get_dynamorio_library_path();
             sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME) +
-                strlen(DYNAMORIO_LIBRARY_NAME) + 3;
+                strlen(dr_lib_path) + 3;
             var = heap_alloc(dcontext, sizeof(char) * sz HEAPACCT(ACCT_OTHER));
             old = envp[preload] + strlen("LD_PRELOAD=");
-            snprintf(var, sz, "LD_PRELOAD=%s %s %s", DYNAMORIO_PRELOAD_NAME,
-                     DYNAMORIO_LIBRARY_NAME, old);
+            snprintf(var, sz, "LD_PRELOAD=%s %s %s", DYNAMORIO_PRELOAD_NAME, dr_lib_path,
+                     old);
             idx_preload = preload;
         } else {
             /* add new preload */
+            const char *dr_lib_path = get_dynamorio_library_path();
             sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) +
-                strlen(DYNAMORIO_LIBRARY_NAME) + 2;
+                strlen(dr_lib_path) + 2;
             var = heap_alloc(dcontext, sizeof(char) * sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "LD_PRELOAD=%s %s", DYNAMORIO_PRELOAD_NAME,
-                     DYNAMORIO_LIBRARY_NAME);
+            snprintf(var, sz, "LD_PRELOAD=%s %s", DYNAMORIO_PRELOAD_NAME, dr_lib_path);
             idx_preload = idx++;
         }
         *(var + sz - 1) = '\0'; /* null terminate */
@@ -8763,15 +8764,24 @@ get_dynamo_library_bounds(void)
     dynamo_dll_start = module_dynamorio_lib_base();
 #        endif
     check_start = dynamo_dll_start;
-    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, DYNAMORIO_LIBRARY_NAME);
 #    endif /* STATIC_LIBRARY */
-    res = memquery_library_bounds(dynamorio_libname, &check_start, &check_end,
-                                  dynamorio_library_path,
-                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
+
+    static char dynamorio_libname_buf[MAXIMUM_PATH];
+    res = memquery_library_bounds(NULL, &check_start, &check_end, dynamorio_library_path,
+                                  BUFFER_SIZE_ELEMENTS(dynamorio_library_path),
+                                  dynamorio_libname_buf,
+                                  BUFFER_SIZE_ELEMENTS(dynamorio_libname_buf));
+#    ifndef STATIC_LIBRARY
+    dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME, dynamorio_libname_buf);
+#    endif /* STATIC_LIBRARY */
+
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library path: %s\n",
         dynamorio_library_path);
     snprintf(dynamorio_library_filepath, BUFFER_SIZE_ELEMENTS(dynamorio_library_filepath),
              "%s%s", dynamorio_library_path, dynamorio_libname);
+    NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
+    LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME " library file path: %s\n",
+        dynamorio_library_filepath);
     NULL_TERMINATE_BUFFER(dynamorio_library_filepath);
 #    if !defined(STATIC_LIBRARY) && defined(LINUX)
     ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
@@ -8869,7 +8879,8 @@ get_application_base(void)
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
             DEBUG_DECLARE(int count =)
-            memquery_library_bounds(name, &executable_start, &executable_end, NULL, 0);
+            memquery_library_bounds(name, &executable_start, &executable_end, NULL, 0,
+                                    NULL, 0);
             ASSERT(count > 0 && executable_start != NULL);
         }
 #    else
