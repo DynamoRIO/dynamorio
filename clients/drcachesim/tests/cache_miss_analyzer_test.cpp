@@ -53,7 +53,7 @@ generate_mem_ref(const addr_t addr, const addr_t pc)
 void
 no_dominant_stride()
 {
-    const uint64_t kLineSize = 64;
+    const unsigned int kLineSize = 64;
 
     // Create the cache simulator knobs object.
     cache_simulator_knobs_t knobs;
@@ -93,8 +93,8 @@ no_dominant_stride()
 void
 one_dominant_stride()
 {
-    const int64_t kStride = 7;
-    const uint64_t kLineSize = 64;
+    const int kStride = 7;
+    const unsigned int kLineSize = 64;
 
     // Create the cache simulator knobs object.
     cache_simulator_knobs_t knobs;
@@ -142,9 +142,9 @@ one_dominant_stride()
 void
 two_dominant_strides()
 {
-    const int64_t kStride1 = 3;
-    const int64_t kStride2 = 11;
-    const uint64_t kLineSize = 64;
+    const int kStride1 = 3;
+    const int kStride2 = 11;
+    const unsigned int kLineSize = 64;
 
     // Create the cache simulator knobs object.
     cache_simulator_knobs_t knobs;

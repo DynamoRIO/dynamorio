@@ -39,15 +39,17 @@ const char *cache_miss_stats_t::kT0 = "t0";
 
 analysis_tool_t *
 cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
-                           uint64_t miss_count_threshold, double miss_frac_threshold,
+                           unsigned int miss_count_threshold,
+                           double miss_frac_threshold,
                            double confidence_threshold)
 {
     return new cache_miss_analyzer_t(knobs, miss_count_threshold, miss_frac_threshold,
                                      confidence_threshold);
 }
 
-cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled, uint64_t line_size,
-                                       uint64_t miss_count_threshold,
+cache_miss_stats_t::cache_miss_stats_t(bool warmup_enabled,
+                                       unsigned int line_size,
+                                       unsigned int miss_count_threshold,
                                        double miss_frac_threshold,
                                        double confidence_threshold)
     : cache_stats_t("", warmup_enabled)
@@ -88,8 +90,8 @@ cache_miss_stats_t::dump_miss(const memref_t &memref)
 std::vector<prefetching_recommendation_t *>
 cache_miss_stats_t::generate_recommendations()
 {
-    uint64_t miss_count_threshold =
-        static_cast<uint64_t>(kMissFracThreshold * total_misses);
+    unsigned int miss_count_threshold =
+        static_cast<unsigned int>(kMissFracThreshold * total_misses);
     if (miss_count_threshold > kMissCountThreshold) {
         miss_count_threshold = kMissCountThreshold;
     }
@@ -100,7 +102,7 @@ cache_miss_stats_t::generate_recommendations()
         std::vector<addr_t> &cache_misses = pc_cache_misses_it.second;
 
         if (cache_misses.size() >= miss_count_threshold) {
-            const int64_t stride = check_for_constant_stride(cache_misses);
+            const int stride = check_for_constant_stride(cache_misses);
             if (stride != 0) {
                 prefetching_recommendation_t *recommendation =
                     new prefetching_recommendation_t;
@@ -115,23 +117,23 @@ cache_miss_stats_t::generate_recommendations()
     return recommendations;
 }
 
-int64_t
+int
 cache_miss_stats_t::check_for_constant_stride(
     const std::vector<addr_t> &cache_misses) const
 {
-    std::unordered_map<int64_t, int64_t> stride_counts;
+    std::unordered_map<int, int> stride_counts;
 
     // Find and count all strides in the misses stream.
-    for (uint64_t i = 1; i < cache_misses.size(); ++i) {
-        int64_t stride = cache_misses[i] - cache_misses[i - 1];
+    for (int i = 1; i < cache_misses.size(); ++i) {
+        int stride = cache_misses[i] - cache_misses[i - 1];
         if (stride != 0) {
             stride_counts[stride]++;
         }
     }
 
     // Find the most occurring stride.
-    int64_t max_count = 0;
-    int64_t max_count_stride = 0;
+    int max_count = 0;
+    int max_count_stride = 0;
     for (auto &stride_count : stride_counts) {
         if (stride_count.second > max_count) {
             max_count = stride_count.second;
@@ -141,7 +143,7 @@ cache_miss_stats_t::check_for_constant_stride(
 
     // Return the most occurring stride if it meets the confidence threshold.
     stride_counts.clear();
-    if (max_count >= static_cast<int64_t>(kConfidenceThreshold * cache_misses.size())) {
+    if (max_count >= static_cast<int>(kConfidenceThreshold * cache_misses.size())) {
         return max_count_stride;
     } else {
         return 0;
@@ -149,7 +151,7 @@ cache_miss_stats_t::check_for_constant_stride(
 }
 
 cache_miss_analyzer_t::cache_miss_analyzer_t(const cache_simulator_knobs_t &knobs,
-                                             uint64_t miss_count_threshold,
+                                             unsigned int miss_count_threshold,
                                              double miss_frac_threshold,
                                              double confidence_threshold)
     : cache_simulator_t(knobs)
