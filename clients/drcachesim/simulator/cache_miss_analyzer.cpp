@@ -124,7 +124,7 @@ cache_miss_stats_t::check_for_constant_stride(
     std::unordered_map<int, int> stride_counts;
 
     // Find and count all strides in the misses stream.
-    for (int i = 1; i < cache_misses.size(); ++i) {
+    for (unsigned int i = 1; i < cache_misses.size(); ++i) {
         int stride = cache_misses[i] - cache_misses[i - 1];
         if (stride != 0) {
             stride_counts[stride]++;
