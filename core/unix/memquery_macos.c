@@ -127,9 +127,11 @@ memquery_file_backing(struct proc_regionwithpathinfo *info, app_pc addr)
 
 int
 memquery_library_bounds(const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
-                        char *fullpath /*OPTIONAL OUT*/, size_t path_size)
+                        char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size,
+                        char *filename /*OPTIONAL OUT*/, size_t filename_size)
 {
-    return memquery_library_bounds_by_iterator(name, start, end, fullpath, path_size);
+    return memquery_library_bounds_by_iterator(name, start, end, fulldir, fulldir_size,
+                                               filename, filename_size);
 }
 
 bool
