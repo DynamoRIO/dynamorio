@@ -93,6 +93,7 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/cache.cpp
   simulator/cache_lru.cpp
   simulator/cache_fifo.cpp
+  simulator/cache_miss_analyzer.cpp
   simulator/caching_device.cpp
   simulator/caching_device_stats.cpp
   simulator/cache_stats.cpp
@@ -174,6 +175,7 @@ install_client_nonDR_header(drmemtrace tools/histogram_create.h)
 install_client_nonDR_header(drmemtrace tools/reuse_time_create.h)
 install_client_nonDR_header(drmemtrace tools/basic_counts_create.h)
 install_client_nonDR_header(drmemtrace tools/opcode_mix_create.h)
+install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
@@ -443,10 +445,24 @@ if (BUILD_TESTS)
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
+
   # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
   if (NOT AARCH64 AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
+    # Tests for the cache miss analyzer.
+    add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
+    if (ZLIB_FOUND)
+      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+        drmemtrace_static drmemtrace_analyzer ${ZLIB_LIBRARIES})
+    else ()
+      target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
+        drmemtrace_static drmemtrace_analyzer)
+    endif ()
+    add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
+    add_test(NAME tool.drcachesim.miss_analyzer_unit_test
+             COMMAND tool.drcachesim.miss_analyzer_unit_test)
+
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
