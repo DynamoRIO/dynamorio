@@ -142,8 +142,8 @@ typedef struct _generic_event_entry_t {
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
         union {
-        	dr_signal_action_t (*cb_no_user_data)(void *, dr_siginfo_t *);
-        	dr_signal_action_t (*cb_user_data)(void *, dr_siginfo_t *, void *);
+            dr_signal_action_t (*cb_no_user_data)(void *, dr_siginfo_t *);
+            dr_signal_action_t (*cb_user_data)(void *, dr_siginfo_t *, void *);
         } signal_cb;
 #endif
 #ifdef WINDOWS
@@ -1770,8 +1770,8 @@ drmgr_unregister_signal_event(dr_signal_action_t (*func)
 DR_EXPORT
 bool
 drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
-                              (void *drcontext, dr_siginfo_t *siginfo,
-                               void *user_data))
+                                        (void *drcontext, dr_siginfo_t *siginfo,
+                                         void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
                                       (void (*)(void)) func);
