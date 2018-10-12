@@ -2117,7 +2117,7 @@ drmgr_insert_read_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_
 >>>>>>> Removed bad code in dynamorio
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
-	    return false;
+        return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
     instrlist_meta_preinsert(
         ilist, where,
