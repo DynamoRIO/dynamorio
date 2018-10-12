@@ -88,7 +88,6 @@ static bool checked_cls_from_cache;
 static bool checked_tls_write_from_cache;
 static bool checked_cls_write_from_cache;
 
-<<<<<<< HEAD
 static void
 event_exit(void);
 static void
@@ -139,22 +138,6 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data);
-=======
-static void event_exit(void);
-static void event_thread_init(void *drcontext);
-static void event_thread_exit(void *drcontext);
-static void event_thread_init_ex(void *drcontext);
-static void event_thread_exit_ex(void *drcontext);
-static void event_thread_init_user_data(void *drcontext, void *user_data);
-static void event_thread_exit_user_data(void *drcontext, void *user_data);
-static void event_thread_init_null_user_data(void *drcontext, void *user_data);
-static void event_thread_exit_null_user_data(void *drcontext, void *user_data);
-static void event_thread_context_init(void *drcontext, bool new_depth);
-static void event_thread_context_exit(void *drcontext, bool process_exit);
-static void event_mod_load(void *drcontext, const module_data_t *mod,
-                           bool loaded, void *user_data);
-static void event_mod_unload(void *drcontext, const module_data_t *mod,
-                             void *user_data);
 
 #ifdef UNIX
 static dr_signal_action_t event_signal(void *drcontext,
@@ -164,23 +147,6 @@ static dr_signal_action_t event_null_signal(void *drcontext,
                                             dr_siginfo_t *siginfo,
                                             void *user_data);
 #endif
-
-static bool event_filter_syscall(void *drcontext, int sysnum);
-static bool event_pre_sys_A(void *drcontext, int sysnum);
-static bool event_pre_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
-static bool event_pre_sys_B(void *drcontext, int sysnum);
-static bool event_pre_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
-static void event_post_sys_A(void *drcontext, int sysnum);
-static void event_post_sys_A_user_data(void *drcontext, int sysnum, void *user_data);
-static void event_post_sys_B(void *drcontext, int sysnum);
-static void event_post_sys_B_user_data(void *drcontext, int sysnum, void *user_data);
-static dr_emit_flags_t event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating,
-                                         OUT void **user_data);
-static dr_emit_flags_t event_bb_insert(void *drcontext, void *tag, instrlist_t *bb,
-                                       instr_t *inst, bool for_trace, bool translating,
-                                       void *user_data);
->>>>>>> 0d279b715fb672f2ae37536c5d5b3d0a54e57815
 
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
@@ -265,15 +231,6 @@ dr_init(client_id_t id)
                                               NULL, NULL, 3};
 #endif
 
-#ifdef UNIX
-    drmgr_priority_t signal_user_data = {sizeof(priority),
-                                         "drmgr-signal-usr-data-test",
-                                         NULL, NULL, 2};
-    drmgr_priority_t signal_null_user_data = {sizeof(priority),
-                                              "drmgr-signal-null-usr-data-test",
-                                              NULL, NULL, 3};
-#endif
-
     bool ok;
 
     drmgr_init();
@@ -292,18 +249,6 @@ dr_init(client_id_t id)
                                                &thread_init_null_user_data_pri, NULL);
     drmgr_register_thread_exit_event_user_data(event_thread_exit_null_user_data,
                                                &thread_exit_null_user_data_pri, NULL);
-
-#ifdef UNIX
-    ok = drmgr_register_signal_event_user_data(event_signal,
-                                               &signal_user_data,
-                                               (void *) signal_user_data_test);
-    CHECK(ok, "drmgr_register_signal_event_user_data failed");
-
-    ok = drmgr_register_signal_event_user_data(event_null_signal,
-                                               &signal_null_user_data,
-                                               NULL);
-    CHECK(ok, "drmgr_register_signal_event_user_data (null) failed");
-#endif
 
 #ifdef UNIX
     ok = drmgr_register_signal_event_user_data(event_signal,

@@ -1,4 +1,4 @@
-	/* **********************************************************
+/* **********************************************************
  * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
@@ -1759,34 +1759,12 @@ drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
 DR_EXPORT
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 bool
-drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
-                                      (void *drcontext, dr_siginfo_t *siginfo,
-                                       void *user_data),
-                                      drmgr_priority_t *priority,
-                                      void *user_data)
-{
-    return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
-                                   (void (*)(void)) func, priority, true, user_data);
-}
-
-DR_EXPORT
-bool
 drmgr_unregister_signal_event(dr_signal_action_t (*func)
                               (void *drcontext, dr_siginfo_t *siginfo))
 /* clang-format on */
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
                                       (void (*)(void))func);
-}
-
-DR_EXPORT
-bool
-drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
-                                        (void *drcontext, dr_siginfo_t *siginfo,
-                                         void *user_data))
-{
-    return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
-                                      (void (*)(void)) func);
 }
 
 DR_EXPORT
@@ -2128,7 +2106,7 @@ bool
 drmgr_insert_read_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
                             reg_id_t reg)
 {
-    tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
+    tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
     if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
