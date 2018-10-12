@@ -227,12 +227,12 @@ dr_init(client_id_t id)
 #ifdef UNIX
     ok = drmgr_register_signal_event_user_data(event_signal,
                                                &signal_user_data,
-                                               signal_user_data_test);
+											   (void *) signal_user_data_test);
     CHECK(ok, "drmgr_register_signal_event_user_data failed");
 
-    drmgr_register_signal_event_user_data(event_null_signal,
-                                          &signal_null_user_data,
-                                          NULL);
+    ok = drmgr_register_signal_event_user_data(event_null_signal,
+                                               &signal_null_user_data,
+                                               NULL);
     CHECK(ok, "drmgr_register_signal_event_user_data (null) failed");
 #endif
 
@@ -664,22 +664,22 @@ static dr_signal_action_t event_signal(void *drcontext,
                                        dr_siginfo_t *siginfo,
                                        void *user_data)
 {
-    CHECK(siginfo == SIGUSR1, "signal not correct");
+    CHECK(siginfo->sig == SIGUSR1, "signal not correct");
     CHECK(user_data == (void *) signal_user_data_test, "user data of signal not valid");
     dr_fprintf(STDERR, "in signal_A_user_data\n");
 
-	return DR_SIGNAL_SUPPRESS;
+    return DR_SIGNAL_DELIVER;
 }
 
 static dr_signal_action_t event_null_signal(void *drcontext,
                                             dr_siginfo_t *siginfo,
                                             void *user_data)
 {
-    CHECK(siginfo == SIGUSR1, "signal not correct");
+    CHECK(siginfo->sig == SIGUSR1, "signal not correct");
     CHECK(user_data == NULL, "user data of signal not valid");
     dr_fprintf(STDERR, "in signal_B_user_data\n");
 
-	return DR_SIGNAL_SUPPRESS;
+    return DR_SIGNAL_SUPPRESS;
 }
 #endif
 
