@@ -2109,7 +2109,7 @@ drmgr_insert_read_tls_field(void *drcontext, int idx,
     if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
-	    return false;
+        return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
     instrlist_meta_preinsert(ilist, where, XINST_CREATE_load
                              (drcontext, opnd_create_reg(reg),
