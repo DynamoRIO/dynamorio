@@ -351,7 +351,7 @@ event_exit(void)
 #ifdef UNIX
     if (!drmgr_unregister_signal_event_user_data(event_signal))
         CHECK(false, "drmgr unregister signal event user_data failed");
-    if (!drmgr_unregister_signal_event_user_data(event_n))
+    if (!drmgr_unregister_signal_event_user_data(event_null_signal))
         CHECK(false, "drmgr unregister null signal event user_data failed");
 #endif
 
