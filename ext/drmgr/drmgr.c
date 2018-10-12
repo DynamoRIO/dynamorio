@@ -1797,10 +1797,10 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
         void *user_data = iter.cbs.generic[i].user_data;
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
         if (is_using_user_data == false)
-        	res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
                                                                       siginfo);
         else {
-        	res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
                                                                    siginfo,
                                                                    user_data);
         }
