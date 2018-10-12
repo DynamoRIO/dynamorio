@@ -244,7 +244,7 @@ dr_init(client_id_t id)
 #ifdef UNIX
     ok = drmgr_register_signal_event_user_data(event_signal,
                                                &signal_user_data,
-											   (void *) signal_user_data_test);
+                                               (void *) signal_user_data_test);
     CHECK(ok, "drmgr_register_signal_event_user_data failed");
 
     ok = drmgr_register_signal_event_user_data(event_null_signal,
