@@ -142,7 +142,10 @@ typedef struct _generic_event_entry_t {
         } modunload_cb;
         void (*kernel_xfer_cb)(void *, const dr_kernel_xfer_info_t *);
 #ifdef UNIX
-        dr_signal_action_t (*signal_cb)(void *, dr_siginfo_t *);
+        union {
+        	dr_signal_action_t (*cb_no_user_data)(void *, dr_siginfo_t *);
+        	dr_signal_action_t (*cb_user_data)(void *, dr_siginfo_t *, void *);
+        } signal_cb;
 #endif
 #ifdef WINDOWS
         bool (*exception_cb)(void *, dr_exception_t *);
@@ -1745,8 +1748,29 @@ drmgr_register_signal_event_ex(dr_signal_action_t (*func)
 
 DR_EXPORT
 bool
+drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
+                               (void *drcontext, dr_siginfo_t *siginfo,
+                                void *user_data), drmgr_priority_t *priority,
+								void *user_data)
+{
+    return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
+                                   (void (*)(void)) func, priority, true, user_data);
+}
+
+DR_EXPORT
+bool
 drmgr_unregister_signal_event(dr_signal_action_t (*func)
                               (void *drcontext, dr_siginfo_t *siginfo))
+{
+    return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
+                                      (void (*)(void)) func);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
+                              (void *drcontext, dr_siginfo_t *siginfo,
+                               void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
                                       (void (*)(void)) func);
@@ -1767,8 +1791,18 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
     for (i = 0; i < iter.num_def; i++) {
         if (!iter.cbs.generic[i].pri.valid)
             continue;
+
+        bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
+        void *user_data = iter.cbs.generic[i].user_data;
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
-        res = (*iter.cbs.generic[i].cb.signal_cb)(drcontext, siginfo);
+        if (is_using_user_data == false)
+        	res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
+        			                                                  siginfo);
+        else {
+        	res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
+        			                                               siginfo,
+                                                                   user_data);
+        }
         if (res != DR_SIGNAL_DELIVER)
             break;
     }
@@ -2070,11 +2104,16 @@ bool
 drmgr_insert_read_tls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg)
 {
-    tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx]){
+         dr_fprintf(STDERR, "check 1 failed!\n");
+         return false;
+    }
+    
+    if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg)){
+        dr_fprintf(STDERR, "check 2 failed!\n");
         return false;
-    if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
-        return false;
+    }
+
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
     instrlist_meta_preinsert(ilist, where, XINST_CREATE_load
                              (drcontext, opnd_create_reg(reg),
