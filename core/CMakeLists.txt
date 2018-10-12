@@ -776,7 +776,7 @@ if (NOT APPLE)
     set(locvar_name dynamoriosloc)
     file(GENERATE OUTPUT ${locvar_name}.cmake CONTENT "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
 
-    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
+    string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
 
     set(disable_pie_flag)
     # Older versions of GCC do not understand "-no-pie". See i#2083.

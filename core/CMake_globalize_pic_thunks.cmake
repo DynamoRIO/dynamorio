@@ -32,7 +32,7 @@
 # Caller must set:
 # + "lib_fileloc" to point to
 # + CMAKE_C_COMPILER to point to CC compiler
-# + partial_link_flags to -m32/-m64
+# + partial_link_flags to linker flags incl. -m32/-m64
 # + disable_pie_flag to -no-pie or ""
 # + CMAKE_OBJCOPY to point to objcopy
 # + CMAKE_AR to point to ar
