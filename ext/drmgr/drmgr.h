@@ -1159,8 +1159,8 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
-                              (void *drcontext, dr_siginfo_t *siginfo,
-                               void *user_data));
+                                        (void *drcontext, dr_siginfo_t *siginfo,
+                                         void *user_data));
 #endif /* UNIX */
 
 #ifdef WINDOWS
