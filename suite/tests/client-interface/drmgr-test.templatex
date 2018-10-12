@@ -11,6 +11,8 @@ in post_sys_B_user_data
 in post_sys_B
 in post_sys_A_user_data
 in post_sys_A
+in signal_A_user_data
+in signal_B_user_data
 #ifdef UNIX
 B
 #endif
