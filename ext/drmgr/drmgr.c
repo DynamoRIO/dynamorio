@@ -1751,8 +1751,8 @@ bool
 drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
                                       (void *drcontext, dr_siginfo_t *siginfo,
                                        void *user_data),
-									  drmgr_priority_t *priority,
-								      void *user_data)
+                                      drmgr_priority_t *priority,
+                                      void *user_data)
 {
     return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
                                    (void (*)(void)) func, priority, true, user_data);
@@ -1798,10 +1798,10 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
         if (is_using_user_data == false)
         	res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
-        			                                                  siginfo);
+                                                                      siginfo);
         else {
         	res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
-        			                                               siginfo,
+                                                                   siginfo,
                                                                    user_data);
         }
         if (res != DR_SIGNAL_DELIVER)
@@ -2105,16 +2105,11 @@ bool
 drmgr_insert_read_tls_field(void *drcontext, int idx,
                             instrlist_t *ilist, instr_t *where, reg_id_t reg)
 {
-    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx]){
-         dr_fprintf(STDERR, "check 1 failed!\n");
-         return false;
-    }
-    
-    if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg)){
-        dr_fprintf(STDERR, "check 2 failed!\n");
+    tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
+    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
-    }
-
+    if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
+	    return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
     instrlist_meta_preinsert(ilist, where, XINST_CREATE_load
                              (drcontext, opnd_create_reg(reg),
