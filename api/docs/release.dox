@@ -234,6 +234,8 @@ Further non-compatibility-affecting changes include:
  - drmodtrack now allocates an entry per segment for each loaded module.
    Added a file offset field to module_segment_data_t for UNIX platforms.
    drcachesim saves file offset information in modules.log on UNIX platforms.
+ - Added drmgr_register_signal_event_user_data() and
+   drmgr_unregister_signal_event_user_data() to enable passing of user data.
 
 **************************************************
 <hr>
