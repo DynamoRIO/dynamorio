@@ -1,4 +1,4 @@
-/* **********************************************************
+	/* **********************************************************
  * Copyright (c) 2010-2018 Google, Inc.   All rights reserved.
  * **********************************************************/
 
@@ -1798,10 +1798,10 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
         if (is_using_user_data == false)
         	res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
-        			                                                  siginfo);
+                                                                      siginfo);
         else {
         	res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
-        			                                               siginfo,
+                                                                   siginfo,
                                                                    user_data);
         }
         if (res != DR_SIGNAL_DELIVER)
@@ -2106,13 +2106,18 @@ bool
 drmgr_insert_read_tls_field(void *drcontext, int idx, instrlist_t *ilist, instr_t *where,
                             reg_id_t reg)
 {
+<<<<<<< 361056194724683e556712f480c4417c484e36e9
     tls_array_t *tls = (tls_array_t *)dr_get_tls_field(drcontext);
     if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
         return false;
     if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
+=======
+    tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
+    if (idx < 0 || idx > MAX_NUM_TLS || !tls_taken[idx] || tls == NULL)
+>>>>>>> Removed bad code in dynamorio
         return false;
-    }
-
+    if (!reg_is_gpr(reg) || !reg_is_pointer_sized(reg))
+	    return false;
     dr_insert_read_tls_field(drcontext, ilist, where, reg);
     instrlist_meta_preinsert(
         ilist, where,
