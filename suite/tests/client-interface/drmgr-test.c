@@ -249,10 +249,18 @@ main(int argc, char **argv)
 #else
 /* based on suite/tests/pthreads/pthreads.c */
 
+<<<<<<< b67573c50d152bb664875e749636190a0fc1dd93
 #    include <stdio.h>
 #    include <stdlib.h>
 #    include <pthread.h>
 #    include <dlfcn.h>
+=======
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+# include <dlfcn.h>
+#include <signal.h>
+>>>>>>> Added test
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -340,6 +348,9 @@ main(int argc, char **argv)
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
+
+    /* Let's raise a signal */
+    raise(SIGUSR1);
     return 0;
 }
 #endif /* !WINDOWS */
