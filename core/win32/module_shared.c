@@ -371,17 +371,35 @@ get_proc_address_common(module_base_t lib, const char *name,
 
     exports = get_module_exports_directory_check_common(module_base, &exports_size,
                                                         true _IF_NOT_X64(ldr64));
-    if (exports == NULL || exports_size == 0 || exports->NumberOfNames == 0 ||
-        /* just extra sanity check */ exports->AddressOfNames == 0)
-        return NULL;
 
-        /* avoid preinject issues: doesn't have module_size */
+    /* NB: There are some DLLs (like System32\profapi.dll) that have no named
+     * exported functions names, only ordinals. As a result, the only correct
+     * checks we can do here are on the presence and size of the export table
+     * + presenence and count of the function export list.
+     */
+    if (exports == NULL || exports_size == 0 || exports->AddressOfFunctions == 0 ||
+        exports->NumberOfFunctions == 0) {
+        LOG(GLOBAL, LOG_INTERP, 1, "%s: module 0x%08x doesn't have any exports\n",
+            __FUNCTION__, module_base);
+        return NULL;
+    }
+
+    /* avoid preinject issues: doesn't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-    /* sanity check */
-    ASSERT(exports->AddressOfFunctions < module_size && exports->AddressOfFunctions > 0 &&
-           exports->AddressOfNameOrdinals < module_size &&
-           exports->AddressOfNameOrdinals > 0 && exports->AddressOfNames < module_size &&
-           exports->AddressOfNames > 0);
+    /* sanity checks, split up for readability */
+
+    /* The DLL either exports nothing or has a sane combination of export
+     *  table address and function count.
+     */
+    ASSERT(exports->AddressOfFunctions == 0 ||
+           (exports->AddressOfFunctions < module_size && exports->NumberOfFunctions > 0));
+
+    /* The DLL either exports no names for its functions or has a sane combination
+     * of name and ordinal table addresses and counts.
+     */
+    ASSERT((exports->AddressOfNames == 0 && exports->AddressOfNameOrdinals == 0) ||
+           (exports->AddressOfNames < module_size &&
+            exports->AddressOfNameOrdinals < module_size && exports->NumberOfNames > 0));
 #endif
 
     functions = (PULONG)(module_base + exports->AddressOfFunctions);
@@ -393,6 +411,31 @@ get_proc_address_common(module_base_t lib, const char *name,
          * support ordinals starting at 1 (i#1866).
          */
         ord = ordinal - exports->Base;
+    } else if (name[0] == '#') {
+        /* Ordinal forwarders are formatted as #XXX, when XXX is a positive
+         * base-10 integer.
+         */
+        const char *digit = name + 1;
+        ord = 0;
+
+        while (*digit) {
+            if (digit[0] < '0' || digit[0] > '9') {
+                /* Having a non-numeric ordinal forwarder doesn't make any sense,
+                 * but who knows?
+                 */
+                ASSERT_CURIOSITY(false && "non-numeric ordinal forwarder");
+                return NULL;
+            }
+
+            ord *= 10;
+            ord += (digit[0] - '0');
+
+            digit += 1;
+        }
+
+        /* Like raw ordinals, these are offset from the export base.
+         */
+        ord -= exports->Base;
     } else {
         /* FIXME - linear walk, if this routine becomes performance critical we
          * we should use a binary search. */
