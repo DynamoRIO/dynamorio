@@ -139,15 +139,6 @@ static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data);
 
-#ifdef UNIX
-static dr_signal_action_t event_signal(void *drcontext,
-                                       dr_siginfo_t *siginfo,
-                                       void *user_data);
-static dr_signal_action_t event_null_signal(void *drcontext,
-                                            dr_siginfo_t *siginfo,
-                                            void *user_data);
-#endif
-
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data);
@@ -171,12 +162,12 @@ static void
 event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
 #ifdef UNIX
-static dr_signal_action_t event_signal(void *drcontext,
-                                       dr_siginfo_t *siginfo,
-                                       void *user_data);
-static dr_signal_action_t event_null_signal(void *drcontext,
-                                            dr_siginfo_t *siginfo,
-                                            void *user_data);
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *siginfo,
+             void *user_data);
+static dr_signal_action_t
+event_null_signal(void *drcontext, dr_siginfo_t *siginfo,
+                  void *user_data);
 #endif
 
 
