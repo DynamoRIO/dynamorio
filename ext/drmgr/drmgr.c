@@ -1747,13 +1747,13 @@ drmgr_register_signal_event_ex(dr_signal_action_t (*func)(void *drcontext,
 
 DR_EXPORT
 bool
-drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
-                                      (void *drcontext, dr_siginfo_t *siginfo,
-                                       void *user_data), drmgr_priority_t *priority,
-                                      void *user_data)
+drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+                                                                 dr_siginfo_t *siginfo,
+                                                                 void *user_data),
+                                      drmgr_priority_t *priority, void *user_data)
 {
     return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
-                                   (void (*)(void)) func, priority, true, user_data);
+                                   (void (*)(void))func, priority, true, user_data);
 }
 
 DR_EXPORT
@@ -1768,13 +1768,11 @@ drmgr_unregister_signal_event(dr_signal_action_t (*func)
 }
 
 DR_EXPORT
-bool
-drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
-                                        (void *drcontext, dr_siginfo_t *siginfo,
-                                         void *user_data))
+bool drmgr_unregister_signal_event_user_data(
+    dr_signal_action_t (*func)(void *drcontext, dr_siginfo_t *siginfo, void *user_data))
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
-                                      (void (*)(void)) func);
+                                      (void (*)(void))func);
 }
 
 static dr_signal_action_t
@@ -1796,13 +1794,10 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
         bool is_using_user_data = iter.cbs.generic[i].is_using_user_data;
         void *user_data = iter.cbs.generic[i].user_data;
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
-        if (is_using_user_data == false)
-        {
-            res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext,
-                                                                      siginfo);
+        if (is_using_user_data == false) {
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_no_user_data)(drcontext, siginfo);
         } else {
-            res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext,
-                                                                   siginfo,
+            res = (*iter.cbs.generic[i].cb.signal_cb.cb_user_data)(drcontext, siginfo,
                                                                    user_data);
         }
         if (res != DR_SIGNAL_DELIVER)
