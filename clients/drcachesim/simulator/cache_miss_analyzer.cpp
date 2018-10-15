@@ -196,7 +196,7 @@ cache_miss_analyzer_t::print_results()
                   << ", locality=" << recommendation->locality << std::endl;
 
         if (write_to_file) {
-            fprintf(file, "0x%lx,%d,%s\n", static_cast<unsigned long>recommendation->pc,
+            fprintf(file, "0x%lx,%d,%s\n", static_cast<unsigned long>(recommendation->pc),
                     recommendation->stride, recommendation->locality.c_str());
         }
     }
