@@ -247,15 +247,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string>
-    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", or "
-                      BASIC_COUNTS ").",
-                      "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM "or "
-                      BASIC_COUNTS ".");
+droption_t<std::string> op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type",
+                                          CPU_CACHE,
+                                          "Simulator type (" CPU_CACHE ", " MISS_ANALYZER
+                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME\
+                                          ", " HISTOGRAM ", or " BASIC_COUNTS ").",
+                                          "Specifies the type of the simulator. "
+                                          "Supported types: " CPU_CACHE ", " MISS_ANALYZER
+                                          ", " TLB ", " REUSE_DIST ", " REUSE_TIME
+                                          ", " HISTOGRAM "or " BASIC_COUNTS ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -413,12 +413,15 @@ droption_t<unsigned int> op_miss_count_threshold(
     "analysis in search of patterns in the miss address stream.");
 droption_t<double> op_miss_frac_threshold(
     DROPTION_SCOPE_FRONTEND, "miss_frac_threshold", 0.005,
-    "For cache miss analysis: minimum miss fraction for a load to be eligible for analysis.",
-    "Specifies the minimum fraction of LLC misses of a load (from all misses) for it to be "
-    "eligible for analysis in search of patterns in the miss address stream.");
+    "For cache miss analysis: minimum miss fraction for a load to be eligible for "
+    "analysis.",
+    "Specifies the minimum fraction of LLC misses of a load (from all misses) for it to "
+    "be eligible for analysis in search of patterns in the miss address stream.");
 droption_t<double> op_confidence_threshold(
     DROPTION_SCOPE_FRONTEND, "confidence_threshold", 0.75,
-    "For cache miss analysis: minimum confidence threshold of a pattern to be printed out.",
-    "Specifies the minimum confidence to include a discovered pattern in the output results. "
-    "Confidence in a discovered pattern for a load instruction is calculated as the fraction "
-    "of the load's misses with the discovered pattern over all the load's misses.");
+    "For cache miss analysis: minimum confidence threshold of a pattern to be printed "
+    "out.",
+    "Specifies the minimum confidence to include a discovered pattern in the output "
+    "results. Confidence in a discovered pattern for a load instruction is calculated "
+    "as the fraction of the load's misses with the discovered pattern over all the "
+    "load's misses.");

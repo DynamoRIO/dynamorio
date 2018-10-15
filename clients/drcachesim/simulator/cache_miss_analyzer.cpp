@@ -186,7 +186,7 @@ cache_miss_analyzer_t::print_results()
     FILE *file = nullptr;
     const bool write_to_file = !recommendation_file.empty();
     if (write_to_file) {
-       file = fopen(recommendation_file.c_str(), "w");
+        file = fopen(recommendation_file.c_str(), "w");
     }
 
     std::cerr << "Cache miss analyzer results:\n";
@@ -196,13 +196,13 @@ cache_miss_analyzer_t::print_results()
                   << ", locality=" << recommendation->locality << std::endl;
 
         if (write_to_file) {
-            fprintf(file, "0x%lx,%d,%s\n", recommendation->pc,
+            fprintf(file, "0x%lx,%d,%s\n", static_cast<unsigned long>recommendation->pc,
                     recommendation->stride, recommendation->locality.c_str());
         }
     }
 
     if (write_to_file) {
-      fclose(file);
+        fclose(file);
     }
 
     return true;

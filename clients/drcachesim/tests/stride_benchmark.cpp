@@ -59,7 +59,7 @@ public:
         for (uint32_t loop = 0; loop < kIterations; ++loop) {
             // This prefetching instruction results in a speedup of ~3.2x
             // on a Skylake machine running Linux.
-            __builtin_prefetch(&buffer[position + (5*kStride*kLineSize)], 0, 0);
+            // __builtin_prefetch(&buffer[position + (5*kStride*kLineSize)], 0, 0);
 
             position += (buffer[position] * kLineSize);
             position &= (kArraySize - 1);
