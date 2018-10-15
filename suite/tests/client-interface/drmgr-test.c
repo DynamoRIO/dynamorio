@@ -249,11 +249,11 @@ main(int argc, char **argv)
 #else
 /* based on suite/tests/pthreads/pthreads.c */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-# include <dlfcn.h>
-#include <signal.h>
+#    include <stdio.h>
+#    include <stdlib.h>
+#    include <pthread.h>
+#    include <dlfcn.h>
+#    include <signal.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */

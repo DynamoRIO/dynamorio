@@ -1222,10 +1222,10 @@ DR_EXPORT
  * user data.
  */
 bool
-drmgr_register_signal_event_user_data(dr_signal_action_t (*func)
-                                     (void *drcontext,
-                                      dr_siginfo_t *siginfo, void *user_data),
-                                     drmgr_priority_t *priority, void *user_data);
+drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+                                                                 dr_siginfo_t *siginfo,
+                                                                 void *user_data),
+                                      drmgr_priority_t *priority, void *user_data);
 
 DR_EXPORT
 /**
@@ -1233,9 +1233,8 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
-bool
-drmgr_unregister_signal_event(dr_signal_action_t (*func)
-                              (void *drcontext, dr_siginfo_t *siginfo));
+bool drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                              dr_siginfo_t *siginfo));
 
 DR_EXPORT
 /**
@@ -1243,10 +1242,8 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
-bool
-drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)
-                                        (void *drcontext, dr_siginfo_t *siginfo,
-                                         void *user_data));
+bool drmgr_unregister_signal_event_user_data(
+    dr_signal_action_t (*func)(void *drcontext, dr_siginfo_t *siginfo, void *user_data));
 #endif /* UNIX */
 
 #ifdef WINDOWS
