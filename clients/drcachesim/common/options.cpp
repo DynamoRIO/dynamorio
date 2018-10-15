@@ -249,11 +249,13 @@ droption_t<std::string>
 
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " TLB ", " REUSE_DIST
-                      ", " REUSE_TIME ", " HISTOGRAM ", or " BASIC_COUNTS ").",
+                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", or "
+                      BASIC_COUNTS ").",
                       "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " TLB ", " REUSE_DIST
-                      ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM "or "
+                      BASIC_COUNTS ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",

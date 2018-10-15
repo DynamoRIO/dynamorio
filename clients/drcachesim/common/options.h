@@ -42,6 +42,7 @@
 #define PREFETCH_POLICY_NEXTLINE "nextline"
 #define PREFETCH_POLICY_NONE "none"
 #define CPU_CACHE "cache"
+#define MISS_ANALYZER "miss_analyzer"
 #define TLB "TLB"
 #define HISTOGRAM "histogram"
 #define REUSE_DIST "reuse_distance"

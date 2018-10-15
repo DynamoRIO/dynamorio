@@ -147,8 +147,14 @@ public:
     std::vector<prefetching_recommendation_t *>
     generate_recommendations();
 
+    virtual bool
+    print_results();
+
 private:
     cache_miss_stats_t *ll_stats;
+
+    // Recommendations are written to this file for use by the LLVM compiler.
+    std::string recommendation_file = "";
 };
 
 #endif /* _CACHE_MISS_ANALYZER_H_ */
