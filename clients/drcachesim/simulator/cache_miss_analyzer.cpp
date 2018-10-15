@@ -32,6 +32,7 @@
 
 #include "cache_miss_analyzer.h"
 
+#include <iostream>
 #include <stdint.h>
 
 const char *cache_miss_stats_t::kNTA = "nta";
@@ -142,7 +143,7 @@ cache_miss_stats_t::check_for_constant_stride(
     // Return the most occurring stride if it meets the confidence threshold.
     stride_counts.clear();
     if (max_count >= static_cast<int>(kConfidenceThreshold * cache_misses.size())) {
-        return max_count_stride;
+        return max_count_stride * kLineSize;
     } else {
         return 0;
     }
@@ -182,20 +183,21 @@ cache_miss_analyzer_t::print_results()
     std::vector<prefetching_recommendation_t *> recommendations =
         ll_stats->generate_recommendations();
 
+    FILE *file = nullptr;
     const bool write_to_file = !recommendation_file.empty();
     if (write_to_file) {
-       FILE *file = fopen(recommendation_file.c_str(), "w");
+       file = fopen(recommendation_file.c_str(), "w");
     }
 
     std::cerr << "Cache miss analyzer results:\n";
     for (auto &recommendation : recommendations) {
-        std::cerr << "pc=" << std::hex << recommendation.pc << std::dec <<
-                  << ", stride=" << recommendation.stride
-                  << ", locality=" << recommendation.locality << std::endl;
+        std::cerr << "pc=0x" << std::hex << recommendation->pc << std::dec
+                  << ", stride=" << recommendation->stride
+                  << ", locality=" << recommendation->locality << std::endl;
 
         if (write_to_file) {
-            fprintf(file, "0x%x,%d,%s\n", recommendation.pc,
-                    recommendation.stride, recommendation.locality);
+            fprintf(file, "0x%lx,%d,%s\n", recommendation->pc,
+                    recommendation->stride, recommendation->locality.c_str());
         }
     }
 

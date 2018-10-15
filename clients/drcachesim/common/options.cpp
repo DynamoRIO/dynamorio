@@ -406,3 +406,19 @@ droption_t<std::string> op_record_heap_value(
     "Functions recorded by -record_heap. The option value should fit the same"
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
+droption_t<unsigned int> op_miss_count_threshold(
+    DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
+    "For cache miss analysis: minimum miss count for a load to be eligible for analysis.",
+    "Specifies the minimum number of LLC misses of a load for it to be eligible for "
+    "analysis in search of patterns in the miss address stream.");
+droption_t<double> op_miss_frac_threshold(
+    DROPTION_SCOPE_FRONTEND, "miss_frac_threshold", 0.005,
+    "For cache miss analysis: minimum miss fraction for a load to be eligible for analysis.",
+    "Specifies the minimum fraction of LLC misses of a load (from all misses) for it to be "
+    "eligible for analysis in search of patterns in the miss address stream.");
+droption_t<double> op_confidence_threshold(
+    DROPTION_SCOPE_FRONTEND, "confidence_threshold", 0.75,
+    "For cache miss analysis: minimum confidence threshold of a pattern to be printed out.",
+    "Specifies the minimum confidence to include a discovered pattern in the output results. "
+    "Confidence in a discovered pattern for a load instruction is calculated as the fraction "
+    "of the load's misses with the discovered pattern over all the load's misses.");

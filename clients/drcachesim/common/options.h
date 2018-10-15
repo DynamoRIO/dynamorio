@@ -117,4 +117,7 @@ extern droption_t<std::string> op_view_syntax;
 extern droption_t<std::string> op_record_function;
 extern droption_t<bool> op_record_heap;
 extern droption_t<std::string> op_record_heap_value;
+extern droption_t<unsigned int> op_miss_count_threshold;
+extern droption_t<double> op_miss_frac_threshold;
+extern droption_t<double> op_confidence_threshold;
 #endif /* _OPTIONS_H_ */

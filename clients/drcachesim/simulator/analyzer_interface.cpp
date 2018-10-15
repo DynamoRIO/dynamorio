@@ -92,23 +92,23 @@ static cache_simulator_knobs_t *
 get_cache_simulator_knobs()
 {
     cache_simulator_knobs_t *knobs = new cache_simulator_knobs_t;
-    knobs.num_cores = op_num_cores.get_value();
-    knobs.line_size = op_line_size.get_value();
-    knobs.L1I_size = op_L1I_size.get_value();
-    knobs.L1D_size = op_L1D_size.get_value();
-    knobs.L1I_assoc = op_L1I_assoc.get_value();
-    knobs.L1D_assoc = op_L1D_assoc.get_value();
-    knobs.LL_size = op_LL_size.get_value();
-    knobs.LL_assoc = op_LL_assoc.get_value();
-    knobs.LL_miss_file = op_LL_miss_file.get_value();
-    knobs.replace_policy = op_replace_policy.get_value();
-    knobs.data_prefetcher = op_data_prefetcher.get_value();
-    knobs.skip_refs = op_skip_refs.get_value();
-    knobs.warmup_refs = op_warmup_refs.get_value();
-    knobs.warmup_fraction = op_warmup_fraction.get_value();
-    knobs.sim_refs = op_sim_refs.get_value();
-    knobs.verbose = op_verbose.get_value();
-    knobs.cpu_scheduling = op_cpu_scheduling.get_value();
+    knobs->num_cores = op_num_cores.get_value();
+    knobs->line_size = op_line_size.get_value();
+    knobs->L1I_size = op_L1I_size.get_value();
+    knobs->L1D_size = op_L1D_size.get_value();
+    knobs->L1I_assoc = op_L1I_assoc.get_value();
+    knobs->L1D_assoc = op_L1D_assoc.get_value();
+    knobs->LL_size = op_LL_size.get_value();
+    knobs->LL_assoc = op_LL_assoc.get_value();
+    knobs->LL_miss_file = op_LL_miss_file.get_value();
+    knobs->replace_policy = op_replace_policy.get_value();
+    knobs->data_prefetcher = op_data_prefetcher.get_value();
+    knobs->skip_refs = op_skip_refs.get_value();
+    knobs->warmup_refs = op_warmup_refs.get_value();
+    knobs->warmup_fraction = op_warmup_fraction.get_value();
+    knobs->sim_refs = op_sim_refs.get_value();
+    knobs->verbose = op_verbose.get_value();
+    knobs->cpu_scheduling = op_cpu_scheduling.get_value();
     return knobs;
 }
 
@@ -125,7 +125,10 @@ drmemtrace_analysis_tool_create()
         }
     } else if (op_simulator_type.get_value() == MISS_ANALYZER) {
         cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
-        return cache_miss_analyzer_create(*knobs);
+        return cache_miss_analyzer_create(*knobs,
+            op_miss_count_threshold.get_value(),
+            op_miss_frac_threshold.get_value(),
+            op_confidence_threshold.get_value());
     } else if (op_simulator_type.get_value() == TLB) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
