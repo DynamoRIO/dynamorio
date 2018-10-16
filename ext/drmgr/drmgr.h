@@ -1112,7 +1112,7 @@ DR_EXPORT
  * for the module load event.  \return true if unregistration is successful
  * and false if it is not (e.g., \p func was not registered).
  *
- * See also #drmgr_unregister_module_load_event().
+ * See also drmgr_unregister_module_load_event().
  */
 bool
 drmgr_unregister_module_load_event_user_data(void (*func)(void *drcontext,
@@ -1242,8 +1242,10 @@ drmgr_register_signal_event_ex(dr_signal_action_t (*func)(void *drcontext,
 
 DR_EXPORT
 /**
- * Registers a callback function for the signal event, with supplied
- * user data.
+ * Registers a callback function for the signal event, which
+ * behaves just like DR's module load event dr_register_signal_event().
+ * Allows for the passing of user input \p user_data, which is available upon
+ * the execution of the callback. \return whether successful.
  *
  * See also drmgr_register_signal_event_ex().
  */
@@ -1264,9 +1266,9 @@ bool drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
 
 DR_EXPORT
 /**
- * Unregister a callback function for the signal event with user data supplied.
- * \return true if unregistration is successful and false if it is not
- * (e.g., \p func was not registered).
+ * Unregister a callback function for the signal event which
+ * also has user data passed to the callback. \return true if unregistration
+ * is successful and false if it is not (e.g., \p func was not registered).
  *
  * See also drmgr_unregister_signal_event().
  */
