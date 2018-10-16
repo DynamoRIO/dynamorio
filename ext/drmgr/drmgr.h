@@ -855,6 +855,8 @@ DR_EXPORT
  * ordered by \p priority. Allows for the passing of user data \p user_data
  * which is available upon the execution of the callback. drmgr calls \p func
  * whenever the application creates a new thread. \return whether successful.
+ *
+ * See also drmgr_register_thread_init_event_ex().
  */
 bool
 drmgr_register_thread_init_event_user_data(void (*func)(void *drcontext, void *user_data),
@@ -874,6 +876,8 @@ DR_EXPORT
  * Unregister a callback function for the thread initialization event which
  * also has user data passed to the callback. \return true if unregistration
  * is successful and false if it is not (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_thread_init_event().
  */
 bool
 drmgr_unregister_thread_init_event_user_data(void (*func)(void *drcontext,
@@ -905,6 +909,8 @@ DR_EXPORT
  * ordered by \p priority. Allows for the passing of user data \p user_data
  * which is available upon the execution of the callback. drmgr calls \p func
  * when an application thread exits. \return whether successful.
+ *
+ * See also drmgr_register_thread_exit_event_ex().
  */
 bool
 drmgr_register_thread_exit_event_user_data(void (*func)(void *drcontext, void *user_data),
@@ -924,6 +930,8 @@ DR_EXPORT
  * Unregister a callback function for the thread exit event which
  * also has user data passed to the callback. \return true if unregistration
  * is successful and false if it is not (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_thread_exit_event().
  */
 bool
 drmgr_unregister_thread_exit_event_user_data(void (*func)(void *drcontext,
@@ -961,6 +969,8 @@ DR_EXPORT
  * ordered by \p priority. Allows for the passing of user data \p user_data
  * which is available upon the execution of the callback.
  * \return whether successful.
+ *
+ * See also drmgr_register_pre_syscall_event_ex().
  */
 bool
 drmgr_register_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
@@ -981,6 +991,8 @@ DR_EXPORT
  * Unregister a callback function, which takes user data, for the pre-syscall event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_pre_syscall_event().
  */
 bool
 drmgr_unregister_pre_syscall_event_user_data(bool (*func)(void *drcontext, int sysnum,
@@ -1015,6 +1027,8 @@ DR_EXPORT
  * ordered by \p priority. Allows for the passing of user data \p user_data
  * which is available upon the execution of the callback.
  * \return whether successful.
+ *
+ * See also drmgr_register_post_syscall_event_ex().
  */
 bool
 drmgr_register_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
@@ -1035,6 +1049,8 @@ DR_EXPORT
  * Unregister a callback function, which takes user data, for the post-syscall event.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_post_syscall_event().
  */
 bool
 drmgr_unregister_post_syscall_event_user_data(void (*func)(void *drcontext, int sysnum,
@@ -1071,6 +1087,8 @@ DR_EXPORT
  * behaves just like DR's module load event dr_register_module_load_event().
  * Allows for the passing of user input \p user_data, which is available upon
  * the execution of the callback. \return whether successful.
+ *
+ * See also drmgr_register_module_load_event_ex().
  */
 bool
 drmgr_register_module_load_event_user_data(void (*func)(void *drcontext,
@@ -1093,6 +1111,8 @@ DR_EXPORT
  * Unregister a callback function, which takes user data as a parameter
  * for the module load event.  \return true if unregistration is successful
  * and false if it is not (e.g., \p func was not registered).
+ *
+ * See also #drmgr_unregister_module_load_event().
  */
 bool
 drmgr_unregister_module_load_event_user_data(void (*func)(void *drcontext,
@@ -1130,6 +1150,8 @@ DR_EXPORT
  * behaves just like DR's module unload event dr_register_module_unload_event().
  * Allows for the passing of user data, \p user_data, which is available upon the
  * execution of the callback. \return whether successful.
+ *
+ * See also drmgr_register_module_unload_event_ex().
  */
 bool
 drmgr_register_module_unload_event_user_data(void (*func)(void *drcontext,
@@ -1151,6 +1173,8 @@ DR_EXPORT
  * Unregister a callback function, that takes user data as a parameter,
  * for the module unload event. \return true if unregistration is
  * successful and false if it is not (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_module_unload_event().
  */
 bool
 drmgr_unregister_module_unload_event_user_data(void (*func)(void *drcontext,
@@ -1220,6 +1244,8 @@ DR_EXPORT
 /**
  * Registers a callback function for the signal event, with supplied
  * user data.
+ *
+ * See also drmgr_register_signal_event_ex().
  */
 bool
 drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
@@ -1241,6 +1267,8 @@ DR_EXPORT
  * Unregister a callback function for the signal event with user data supplied.
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
+ *
+ * See also drmgr_unregister_signal_event().
  */
 bool drmgr_unregister_signal_event_user_data(
     dr_signal_action_t (*func)(void *drcontext, dr_siginfo_t *siginfo, void *user_data));
