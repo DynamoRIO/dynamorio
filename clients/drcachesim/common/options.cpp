@@ -114,8 +114,9 @@ droption_t<unsigned int>
                 "Must be a power of 2.");
 
 droption_t<std::string> op_LL_miss_file(
-    DROPTION_SCOPE_FRONTEND, "LL_miss_file", "", "Path for dumping LLC misses or "
-    "prefetching hints", "If non-empty, when running the cache simulator, requests that "
+    DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",
+    "Path for dumping LLC misses or prefetching hints",
+    "If non-empty, when running the cache simulator, requests that "
     "every last-level cache miss be written to a file at the specified path. Each miss "
     "is written in text format as a <program counter, address> pair. If this tool is "
     "linked with zlib, the file is written in gzip-compressed format. If non-empty, when "
