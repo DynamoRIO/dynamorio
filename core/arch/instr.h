@@ -989,7 +989,7 @@ instr_set_target(instr_t *cti_instr, opnd_t target);
 INSTR_INLINE /* hot internally */
 #endif
     DR_API
-    /** Returns true iff \p instr's operands are up to date. */
+    /** Returns true if \p instr's operands are up to date. */
     bool
     instr_operands_valid(instr_t *instr);
 
