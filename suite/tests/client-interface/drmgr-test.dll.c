@@ -39,7 +39,7 @@
 #include <stdint.h> /* uintptr_t */
 
 #ifdef UNIX
-#include <signal.h>
+#    include <signal.h>
 #endif
 
 #define CHECK(x, msg)                                                                \
@@ -163,13 +163,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info);
 
 #ifdef UNIX
 static dr_signal_action_t
-event_signal(void *drcontext, dr_siginfo_t *siginfo,
-             void *user_data);
+event_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 static dr_signal_action_t
-event_null_signal(void *drcontext, dr_siginfo_t *siginfo,
-                  void *user_data);
+event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data);
 #endif
-
 
 /* The following test values are arbitrary */
 
@@ -214,12 +211,11 @@ dr_init(client_id_t id)
                                                         NULL, NULL, 3 };
 
 #ifdef UNIX
-    drmgr_priority_t signal_user_data = {sizeof(priority),
-                                         "drmgr-signal-usr-data-test",
-                                         NULL, NULL, 2};
-    drmgr_priority_t signal_null_user_data = {sizeof(priority),
-                                              "drmgr-signal-null-usr-data-test",
-                                              NULL, NULL, 3};
+    drmgr_priority_t signal_user_data = { sizeof(priority), "drmgr-signal-usr-data-test",
+                                          NULL, NULL, 2 };
+    drmgr_priority_t signal_null_user_data = { sizeof(priority),
+                                               "drmgr-signal-null-usr-data-test", NULL,
+                                               NULL, 3 };
 #endif
 
     bool ok;
@@ -242,22 +238,18 @@ dr_init(client_id_t id)
                                                &thread_exit_null_user_data_pri, NULL);
 
 #ifdef UNIX
-    ok = drmgr_register_signal_event_user_data(event_signal,
-                                               &signal_user_data,
-                                               (void *) signal_user_data_test);
+    ok = drmgr_register_signal_event_user_data(event_signal, &signal_user_data,
+                                               (void *)signal_user_data_test);
     CHECK(ok, "drmgr_register_signal_event_user_data failed");
 
-    ok = drmgr_register_signal_event_user_data(event_null_signal,
-                                               &signal_null_user_data,
+    ok = drmgr_register_signal_event_user_data(event_null_signal, &signal_null_user_data,
                                                NULL);
     CHECK(ok, "drmgr_register_signal_event_user_data (null) failed");
 #endif
 
-    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis,
-                                                 event_bb_insert,
+    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
                                                  &priority);
     CHECK(ok, "drmgr register bb failed");
-
 
     /* check register/unregister instrumentation_ex */
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
@@ -355,10 +347,9 @@ event_exit(void)
         CHECK(false, "drmgr unregister null signal event user_data failed");
 #endif
 
-    if (!drmgr_unregister_bb_instrumentation_ex_event(event_bb4_app2app,
-                                                      event_bb4_analysis,
-                                                      event_bb4_insert,
-                                                      event_bb4_instru2instru))
+    if (!drmgr_unregister_bb_instrumentation_ex_event(
+            event_bb4_app2app, event_bb4_analysis, event_bb4_insert,
+            event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
     if (!drmgr_unregister_module_load_event_user_data(event_mod_load))
@@ -667,20 +658,18 @@ event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 }
 
 #ifdef UNIX
-static dr_signal_action_t event_signal(void *drcontext,
-                                       dr_siginfo_t *siginfo,
-                                       void *user_data)
+static dr_signal_action_t
+event_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data)
 {
     CHECK(siginfo->sig == SIGUSR1, "signal not correct");
-    CHECK(user_data == (void *) signal_user_data_test, "user data of signal not valid");
+    CHECK(user_data == (void *)signal_user_data_test, "user data of signal not valid");
     dr_fprintf(STDERR, "in signal_A_user_data\n");
 
     return DR_SIGNAL_DELIVER;
 }
 
-static dr_signal_action_t event_null_signal(void *drcontext,
-                                            dr_siginfo_t *siginfo,
-                                            void *user_data)
+static dr_signal_action_t
+event_null_signal(void *drcontext, dr_siginfo_t *siginfo, void *user_data)
 {
     CHECK(siginfo->sig == SIGUSR1, "signal not correct");
     CHECK(user_data == NULL, "user data of signal not valid");
