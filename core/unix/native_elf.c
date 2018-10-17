@@ -142,6 +142,8 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
                 "%s: found _dl_fixup call at " PFX ", _dl_fixup is " PFX ":\n",
                 __FUNCTION__, pc, fixup);
             break;
+        } else if (instr_is_return(&instr)) {
+            break;
         }
         instr_reset(dcontext, &instr);
     }
