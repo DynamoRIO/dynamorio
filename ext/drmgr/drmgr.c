@@ -1768,8 +1768,12 @@ drmgr_unregister_signal_event(dr_signal_action_t (*func)
 }
 
 DR_EXPORT
-bool drmgr_unregister_signal_event_user_data(
-    dr_signal_action_t (*func)(void *drcontext, dr_siginfo_t *siginfo, void *user_data))
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
+bool
+drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+                                                                   dr_siginfo_t *siginfo,
+                                                                   void *user_data))
+/* clang-format on */
 {
     return drmgr_generic_event_remove(&cblist_signal, signal_event_lock,
                                       (void (*)(void))func);
