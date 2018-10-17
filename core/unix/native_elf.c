@@ -125,7 +125,7 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
 {
 #ifdef X86
     instr_t instr;
-    int max_decodes = 225;
+    const int max_decodes = 225;
     int i = 0;
     app_pc pc = resolver;
     app_pc fixup = NULL;
