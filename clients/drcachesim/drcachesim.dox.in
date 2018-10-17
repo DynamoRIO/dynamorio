@@ -50,6 +50,7 @@ online and offline.
  - \ref sec_drcachesim_offline
  - \ref sec_drcachesim_partial
  - \ref sec_drcachesim_sim
+ - \ref sec_drcachesim_analyzer
  - \ref sec_drcachesim_phys
  - \ref sec_drcachesim_core
  - \ref sec_drcachesim_extend
@@ -720,6 +721,19 @@ To isolate software prefetch statistics, disable the hardware prefetcher by
 running with "-data_prefetcher none" (see \ref sec_drcachesim_ops).
 While misses from software prefetches are included in cache miss files,
 misses from hardware prefetches are not.
+
+
+****************************************************************************
+\section sec_drcachesim_analyzer Cache Miss Analyzer
+
+The cache simulator can be used to analyze the stream of last-level cache (LLC)
+miss addresses. This can be useful when looking for patterns that can be utilized
+in software prefetching. The current analyzer can only identify simple stride
+patterns, but it can be extended to search for more complex patterns.
+To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
+parameter. To write the prefetching hints to a file use the \p -LL_miss_file
+parameter to specify the file's path and name.
+
 
 ****************************************************************************
 \section sec_drcachesim_phys Physical Addresses
