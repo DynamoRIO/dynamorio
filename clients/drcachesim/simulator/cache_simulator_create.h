@@ -102,7 +102,7 @@ cache_simulator_create(const std::string &config_file);
 /** Creates an instance of a cache miss analyzer. */
 analysis_tool_t *
 cache_miss_analyzer_create(const cache_simulator_knobs_t &knobs,
-                           uint64_t miss_count_threshold, double miss_frac_threshold,
+                           unsigned int miss_count_threshold, double miss_frac_threshold,
                            double confidence_threshold);
 
 #endif /* _CACHE_SIMULATOR_CREATE_H_ */
