@@ -1221,8 +1221,9 @@ DR_EXPORT
  * behaves just like DR's signal event dr_register_signal_event().
  * \return whether successful.
  */
-bool drmgr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                            dr_siginfo_t *siginfo));
+bool
+drmgr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                       dr_siginfo_t *siginfo));
 
 DR_EXPORT
 /**
@@ -1261,8 +1262,9 @@ DR_EXPORT
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  */
-bool drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
-                                                              dr_siginfo_t *siginfo));
+bool
+drmgr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
+                                                         dr_siginfo_t *siginfo));
 
 DR_EXPORT
 /**
@@ -1273,8 +1275,10 @@ DR_EXPORT
  * See also drmgr_unregister_signal_event().
  */
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
-bool drmgr_unregister_signal_event_user_data(
-    dr_signal_action_t (*func)(void *drcontext, dr_siginfo_t *siginfo, void *user_data));
+bool
+drmgr_unregister_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
+		                                                           dr_siginfo_t *siginfo,
+																   void *user_data));
 /* clang-format on */
 #endif /* UNIX */
 
