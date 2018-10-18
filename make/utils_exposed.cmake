@@ -85,7 +85,7 @@ function (DynamoRIO_add_rel_rpaths target)
       # Compute the relative path between the directory of the target and the
       # library it is linked against.
 
-      # TODO is this here somehow needed for win at all? / shouldn't, no rpath
+      # XXX: is this here needed for win at all? It shouldn't, no rpath
       get_target_property(target_type ${target} TYPE)
       if (target_type STREQUAL "EXECUTABLE")
         get_target_property(target_loc ${target} RUNTIME_OUTPUT_DIRECTORY)
