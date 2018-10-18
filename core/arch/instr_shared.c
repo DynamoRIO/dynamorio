@@ -1300,6 +1300,8 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         return instr;
 
     DOLOG(5, LOG_ALL, {
+        /* disassembling might change the instruction object, we're cloning it
+         * for the logger */
         instr_t *log_instr = instr_clone(dcontext, instr);
         loginst(dcontext, 4, log_instr, "instr_expand");
         instr_free(dcontext, log_instr);
