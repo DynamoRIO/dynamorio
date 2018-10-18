@@ -183,7 +183,7 @@ foreach (deploytgt drconfig drrun drinject)
   endif ()
   if (LINUX) # No checks for MacOS
     set(locvar_name ${deploytgt}loc)
-    file(GENERATE OUTPUT ${locvar_name}.cmake CONTENT "set(${locvar_name} \"$<TARGET_FILE:${deploytgt}>\")\n")
+    file(GENERATE OUTPUT ../${locvar_name}.cmake CONTENT "set(${locvar_name} \"$<TARGET_FILE:${deploytgt}>\")\n")
     add_custom_command(TARGET ${deploytgt} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       ARGS -D lib_fileloc=${locvar_name}
