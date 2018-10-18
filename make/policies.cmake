@@ -52,3 +52,6 @@ cmake_policy(SET CMP0020 OLD)
 
 # Recognize literals in if statements
 cmake_policy(SET CMP0012 NEW)
+
+# Recognize literals in if statements
+cmake_policy(SET CMP0070 NEW)
