@@ -34,10 +34,9 @@
  * (LLC) misses. SW prefetching can significantly improve its performance.
  */
 
+#include <stdint.h>
 #include <string.h>
-#include <cstdint>
 #include <iostream>
-#include <vector>
 
 #define MEM_BARRIER() __asm__ __volatile__("" ::: "memory")
 
@@ -52,9 +51,9 @@ main(int argc, const char *argv[])
     // (200+ MiB to guarantee the array doesn't fit in Skylake caches)
     const size_t kArraySize = 512 * 1024 * 1024;
     // Number of iterations in the main loop.
-    const int kIterations = 3000000;
+    const int kIterations = 1000000;
     // The main vector/array used for emulating pointer chasing.
-    uint8_t *buffer = new uint8_t[kArraySize];
+    unsigned char *buffer = new unsigned char[kArraySize];
     memset(buffer, kStride, kArraySize);
 
     // Add a memory barrier so the call doesn't get optimized away or
@@ -67,7 +66,7 @@ main(int argc, const char *argv[])
     // kStride cache lines at a time. Since kStride is an odd number, the main
     // loop will touch different cache lines as it wraps around.
     for (int loop = 0; loop < kIterations; ++loop) {
-        // This prefetching instruction results in a speedup of ~3x
+        // This prefetching instruction results in a speedup of >2x
         // on a Skylake machine running Linux when compiled with g++ -O3.
         // const int prefetch_distance = 5 * kStride * kLineSize;
         // __builtin_prefetch(&buffer[position + prefetch_distance], 0, 0);
