@@ -549,7 +549,7 @@ function(add_exe test source)
   if (UNIX)
     # For common.nativeexec takeover tests, we do not support PIE. Newer (unix-) distri-
     # butions with toolchains may enable PIE by default. In order to be able take over the
-    # "PLT style" dll call (test with excutablee in native exec list), we expect the call
+    # "PLT style" dll call (test with executable in native exec list), we expect the call
     # to jump to a PLT stub first. However with PIe enabled, the compiler will generate a
     # rip-relative gotplt table call instead.
     CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
