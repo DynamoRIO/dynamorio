@@ -125,24 +125,24 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
 {
 #ifdef X86
     instr_t instr;
-    int max_decodes = 30;
+    const int max_decodes = 225;
     int i = 0;
     app_pc pc = resolver;
     app_pc fixup = NULL;
 
-    LOG(THREAD, 5, LOG_LOADER, "%s: scanning for _dl_fixup call:\n", __FUNCTION__);
+    LOG(THREAD, LOG_LOADER, 5, "%s: scanning for _dl_fixup call:\n", __FUNCTION__);
     instr_init(dcontext, &instr);
-    while (pc != NULL && i < max_decodes) {
+    while (pc != NULL && i++ < max_decodes) {
         DOLOG(5, LOG_LOADER, { disassemble(dcontext, pc, THREAD); });
         pc = decode(dcontext, pc, &instr);
         if (instr_get_opcode(&instr) == OP_call) {
             opnd_t tgt = instr_get_target(&instr);
             fixup = opnd_get_pc(tgt);
-            LOG(THREAD, 1, LOG_LOADER,
+            LOG(THREAD, LOG_LOADER, 1,
                 "%s: found _dl_fixup call at " PFX ", _dl_fixup is " PFX ":\n",
                 __FUNCTION__, pc, fixup);
             break;
-        } else if (instr_is_cti(&instr)) {
+        } else if (instr_is_return(&instr)) {
             break;
         }
         instr_reset(dcontext, &instr);
