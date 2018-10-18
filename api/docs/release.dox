@@ -103,6 +103,7 @@ The following are part of the DynamoRIO release distribution:
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
    page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
+   a last-level cache miss analyzer (see \ref page_drcachesim),
    and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
