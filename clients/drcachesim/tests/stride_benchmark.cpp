@@ -37,7 +37,7 @@
 #include <iostream>
 #include <vector>
 
-#define MEM_BARRIER __asm__ __volatile__("" ::: "memory");
+#define MEM_BARRIER() __asm__ __volatile__("" ::: "memory")
 
 int
 main(int argc, const char *argv[])
@@ -56,9 +56,9 @@ main(int argc, const char *argv[])
 
     // Add a memory barrier so the call doesn't get optimized away or
     // reordered with respect to callers.
-    MEM_BARRIER
+    MEM_BARRIER();
 
-    int64_t position = 0;
+    int position = 0;
 
     // Here the code will pointer chase through the array skipping forward
     // kStride cache lines at a time. Since kStride is an odd number, the main
@@ -75,7 +75,7 @@ main(int argc, const char *argv[])
 
     // Add a memory barrier so the call doesn't get optimized away or
     // reordered with respect to callers.
-    MEM_BARRIER
+    MEM_BARRIER();
 
     std::cerr << "Value = " << position << std::endl;
 
