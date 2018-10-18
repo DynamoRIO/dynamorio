@@ -553,10 +553,13 @@ function(add_exe test source)
     # native, exe in native list), we expect the call to jump to a PLT stub first. however with
     # pie/pic, the compiler will generate a rip-relative gotplt table call instead. we do not have
     # support to takeover such calls AFAIK
-    set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fno-pie")
-    if ("${test}" MATCHES "common.nativeexec")
-      get_target_property(cur_ldflags ${test} LINK_FLAGS)
-      set_target_properties(common.nativeexec PROPERTIES LINK_FLAGS "-no-pie ${cur_ldflags}")
+    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+    if (no_pie_avail)
+      set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fno-pie")
+      if ("${test}" MATCHES "common.nativeexec")
+        get_target_property(cur_ldflags ${test} LINK_FLAGS)
+        set_target_properties(common.nativeexec PROPERTIES LINK_FLAGS "-no-pie ${cur_ldflags}")
+      endif()
     endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
