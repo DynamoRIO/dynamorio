@@ -418,10 +418,10 @@ register_tool_file("drcachesim")
 
 if (WIN32)
   # drcachesim needs these dlls (i#1737 would eliminate this)
-  # TODO, replace w/ generator expression, CMP0026
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(injectlib_loc drinjectlib LOCATION${location_suffix})
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  # TODO, replace w/ generator expression, CMP0026
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(configlib_loc drconfiglib LOCATION${location_suffix})
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD

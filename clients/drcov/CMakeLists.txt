@@ -99,7 +99,7 @@ install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 
 # On Linux we rely on the rpath
 if (WIN32)
-  # TODO, replace w/ generator expression, CMP0026
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(DR_TARGET_LOCATION dynamorio LOCATION${location_suffix})
   DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
