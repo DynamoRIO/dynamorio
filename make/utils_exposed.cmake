@@ -144,10 +144,10 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
-  # TODO: various caller functions depends on abspath of target at configure time.
-  # If we want to eliminate LOCATION, We need to re-factor all the calls for all
+  # XXX: various caller functions depend on abspath of target at configure time.
+  # If we want to eliminate LOCATION, we need to re-factor all the calls for all
   # the platforms and move them into .cmake files and call them w/ add_custom_commands
-  # that can pass generator expressions to the callee.
+  # that can pass generator expressions to the callee. Fix CMP0026.
   get_target_property(abspath ${target} LOCATION${location_suffix})
   if (NOT ${device_base_dir} STREQUAL "")
     get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
