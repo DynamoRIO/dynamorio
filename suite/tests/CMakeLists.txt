@@ -536,6 +536,7 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
+
   if (DEFINED ${test}_outname)
     set_target_properties(${test} PROPERTIES OUTPUT_NAME "${${test}_outname}")
   endif ()
@@ -547,6 +548,16 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
+    # for common.nativeexec takeover tests, we do not support -pie/pic. newer (unix-) distributions
+    # with toolchains that enabled pie/pic by default. to takeover the "PLT style" dll call (dll not
+    # native, exe in native list), we expect the call to jump to a PLT stub first. however with
+    # pie/pic, the compiler will generate a rip-relative gotplt table call instead. we do not have
+    # support to takeover such calls AFAIK
+    set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fno-pie")
+    if ("${test}" MATCHES "common.nativeexec")
+      get_target_property(cur_ldflags ${test} LINK_FLAGS)
+      set_target_properties(common.nativeexec PROPERTIES LINK_FLAGS "-no-pie ${cur_ldflags}")
+    endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
         AND NOT ${test} MATCHES "drdecode")
