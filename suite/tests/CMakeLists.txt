@@ -536,7 +536,6 @@ function(add_exe test source)
   endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
-
   if (DEFINED ${test}_outname)
     set_target_properties(${test} PROPERTIES OUTPUT_NAME "${${test}_outname}")
   endif ()
@@ -558,9 +557,7 @@ function(add_exe test source)
       set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS
         "${CMAKE_C_FLAGS} -fno-pie")
       if ("${test}" MATCHES "common.nativeexec")
-        get_target_property(cur_ldflags ${test} LINK_FLAGS)
-        set_target_properties(common.nativeexec PROPERTIES LINK_FLAGS
-          "-no-pie ${cur_ldflags}")
+        append_link_flags(${test} "-no-pie")
       endif()
     endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
