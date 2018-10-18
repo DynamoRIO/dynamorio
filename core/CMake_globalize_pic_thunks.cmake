@@ -52,18 +52,18 @@ execute_process(COMMAND
   ERROR_VARIABLE cmd_error
   )
 
-if (cmd_error)
-  message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed: ***\n${cmd_error}")
-endif (cmd_error)
+if (cmd_error OR cmd_result)
+  message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed (${cmd_result}): ***\n${cmd_error}")
+endif ()
 
 execute_process(COMMAND
   ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}"
   ERROR_VARIABLE cmd_error
   )
 
-if (cmd_error)
-  message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed: ***\n${cmd_error}")
-endif (cmd_error)
+if (cmd_error OR cmd_result)
+  message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed (${cmd_result}): ***\n${cmd_error}")
+endif ()
 
 # Localizing PIC thunks on ia32 creates references to discarded sections.
 # XXX: Hardcoding this list of symbols is fragile.  It is known to work
@@ -83,9 +83,9 @@ execute_process(COMMAND
   ERROR_VARIABLE cmd_error
   )
 
-if (cmd_error)
-  message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed: ***\n${cmd_error}")
-endif (cmd_error)
+if (cmd_error OR cmd_result)
+  message(FATAL_ERROR "*** ${CMAKE_OBJCOPY} failed (${cmd_result}): ***\n${cmd_error}")
+endif ()
 
 execute_process(COMMAND
   rm -f "${dynamorio_dot_a}"
@@ -96,15 +96,15 @@ execute_process(COMMAND
   ERROR_VARIABLE cmd_error
   )
 
-if (cmd_error)
-  message(FATAL_ERROR "*** ${CMAKE_AR} failed: ***\n${cmd_error}")
-endif (cmd_error)
+if (cmd_error OR cmd_result)
+  message(FATAL_ERROR "*** ${CMAKE_AR} failed (${cmd_result}): ***\n${cmd_error}")
+endif ()
 
 execute_process(COMMAND
   ${CMAKE_RANLIB} "${dynamorio_dot_a}"
   ERROR_VARIABLE cmd_error
   )
 
-if (cmd_error)
-  message(FATAL_ERROR "*** ${CMAKE_RANLIB} failed: ***\n${cmd_error}")
-endif (cmd_error)
+if (cmd_error OR cmd_result)
+  message(FATAL_ERROR "*** ${CMAKE_RANLIB} failed (${cmd_result}): ***\n${cmd_error}")
+endif ()
