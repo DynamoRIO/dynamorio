@@ -548,11 +548,11 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
-    # For common.nativeexec takeover tests, we do not support -pie/pic. newer (unix-)
-    # distributions with toolchains that enabled pie/pic by default. To takeover the "PLT
-    # style" dll call (dll not native, exe in native list), we expect the call to jump to
-    # a PLT stub first. However with pie/pic, the compiler will generate a rip-relative
-    # gotplt table call instead. We do not have support to takeover such calls AFAIK.
+    # For common.nativeexec takeover tests, we do not support PIE. Newer (unix-) distri-
+    # butions with toolchains may enable PIE by default. In order to be able take over the
+    # "PLT style" dll call (test with excutablee in native exec list), we expect the call
+    # to jump to a PLT stub first. However with PIe enabled, the compiler will generate a
+    # rip-relative gotplt table call instead.
     CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
     if (no_pie_avail)
       set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS
