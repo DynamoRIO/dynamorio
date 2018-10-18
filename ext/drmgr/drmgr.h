@@ -1221,9 +1221,11 @@ DR_EXPORT
  * behaves just like DR's signal event dr_register_signal_event().
  * \return whether successful.
  */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 bool
 drmgr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
                                                        dr_siginfo_t *siginfo));
+/* clang-format on */
 
 DR_EXPORT
 /**
@@ -1250,11 +1252,13 @@ DR_EXPORT
  *
  * See also drmgr_register_signal_event_ex().
  */
+/* clang-format off */ /* (work around clang-format newline-after-type bug) */
 bool
 drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext,
                                                                  dr_siginfo_t *siginfo,
                                                                  void *user_data),
                                       drmgr_priority_t *priority, void *user_data);
+/* clang-format on */
 
 DR_EXPORT
 /**
