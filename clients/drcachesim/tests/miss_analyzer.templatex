@@ -1,0 +1,2 @@
+Cache miss analyzer results:
+pc=0x[0-9a-f]+, stride=448, locality=nta

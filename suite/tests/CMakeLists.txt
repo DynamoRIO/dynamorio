@@ -2539,6 +2539,12 @@ endif ()
       # Test that warmup was enabled but not triggered.
       torunonly_drcachesim(warmup-zeros ${ci_shared_app} "-warmup_refs 1000000000" "")
 
+      # Test the cache miss analyzer
+      add_exe(stride_benchmark
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
+      # get_target_path_for_execution(tool.stride_benchmark_path tool.stride_benchmark)
+      torunonly_drcachesim(miss_analyzer stride_benchmark "-simulator_type miss_analyzer" "")
+
       # FIXME i#1799: clang does not support "asm goto" used in annotation
       # FIXME i#1551, i#1569: get working on ARM/AArch64
       if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
