@@ -34,6 +34,8 @@
  * (LLC) misses. SW prefetching can significantly improve its performance.
  */
 
+#include <string.h>
+#include <cstdint>
 #include <iostream>
 #include <vector>
 
@@ -43,16 +45,17 @@ int
 main(int argc, const char *argv[])
 {
     // Cache line size in bytes.
-    static constexpr int kLineSize = 64;
+    const int kLineSize = 64;
     // Number of cache lines skipped by the stream every iteration.
-    static constexpr int kStride = 7;
+    const int kStride = 7;
     // Number of 1-byte elements in the array.
     // (200+ MiB to guarantee the array doesn't fit in Skylake caches)
-    static constexpr size_t kArraySize = 512 * 1024 * 1024;
+    const size_t kArraySize = 512 * 1024 * 1024;
     // Number of iterations in the main loop.
-    static constexpr int kIterations = 5000000;
+    const int kIterations = 3000000;
     // The main vector/array used for emulating pointer chasing.
-    std::vector<uint8_t> buffer(kArraySize, kStride);
+    uint8_t *buffer = new uint8_t[kArraySize];
+    memset(buffer, kStride, kArraySize);
 
     // Add a memory barrier so the call doesn't get optimized away or
     // reordered with respect to callers.
@@ -66,7 +69,7 @@ main(int argc, const char *argv[])
     for (int loop = 0; loop < kIterations; ++loop) {
         // This prefetching instruction results in a speedup of ~3x
         // on a Skylake machine running Linux when compiled with g++ -O3.
-        // constexpr int prefetch_distance = 5 * kStride * kLineSize;
+        // const int prefetch_distance = 5 * kStride * kLineSize;
         // __builtin_prefetch(&buffer[position + prefetch_distance], 0, 0);
 
         position += (buffer[position] * kLineSize);

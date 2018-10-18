@@ -2585,11 +2585,12 @@ endif ()
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
         get_target_path_for_execution(tool.multiproc_path tool.multiproc)
         torunonly_drcachesim(multiproc tool.multiproc "" "${tool.multiproc_path}")
+      endif ()
 
-        # Test the cache miss analyzer
+      # Test the cache miss analyzer.
+      if (UNIX)
         add_exe(stride_benchmark
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
-        # get_target_path_for_execution(stride_benchmark_path stride_benchmark)
         torunonly_drcachesim(miss_analyzer stride_benchmark "-simulator_type miss_analyzer" "")
       endif ()
 
