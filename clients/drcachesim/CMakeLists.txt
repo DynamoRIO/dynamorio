@@ -381,7 +381,12 @@ install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
-function (write_config_file dst bindir libdir debugopt)
+function (write_config_file dst bindir libdir)
+  if (DEBUG)
+    set(debugopt "TOOL_OP=-dr_debug")
+  else ()
+    set(debugopt "")
+  endif ()
   file(GENERATE OUTPUT ${dst} CONTENT
 "# drcachesim tool config file\n\
 FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drcachesim>\n\
@@ -404,14 +409,8 @@ endif (X64)
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
 set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
 
-if (DEBUG)
-  set(debugopt "TOOL_OP=-dr_debug")
-else ()
-  set(debugopt "")
-endif ()
-
-write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB} "${debugopt}")
-write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB} "${debugopt}")
+write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
+write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
 register_tool_file("drcachesim")
