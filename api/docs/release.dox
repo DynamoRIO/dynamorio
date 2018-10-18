@@ -257,6 +257,8 @@ Further non-compatibility-affecting changes include:
    clients: #emulated_instr_t, drmgr_insert_emulation_start(),
    drmgr_insert_emulation_end(), drmgr_is_emulation_start(), drmgr_is_emulation_end()
    and drmgr_get_emulated_instr_data().
+ - Added drmgr_register_signal_event_user_data() and
+   drmgr_unregister_signal_event_user_data() to enable passing of user data.
 
 **************************************************
 <hr>
