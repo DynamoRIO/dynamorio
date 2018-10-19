@@ -547,6 +547,19 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
+    # For common.nativeexec takeover tests, we do not support PIE. Newer (unix-) distri-
+    # butions with toolchains may enable PIE by default. In order to be able take over the
+    # "PLT style" dll call (test with executable in native exec list), we expect the call
+    # to jump to a PLT stub first. However with PIe enabled, the compiler will generate a
+    # rip-relative gotplt table call instead.
+    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+    if (no_pie_avail)
+      set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS
+        "${CMAKE_C_FLAGS} -fno-pie")
+      if ("${test}" MATCHES "common.nativeexec")
+        append_link_flags(${test} "-no-pie")
+      endif()
+    endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
         AND NOT ${test} MATCHES "drdecode")
