@@ -30,7 +30,6 @@
 # DAMAGE.
 
 # Caller must set:
-# + "lib_fileloc" to point to
 # + CMAKE_C_COMPILER to point to CC compiler
 # + partial_link_flags to linker flags incl. -m32/-m64
 # + disable_pie_flag to -no-pie or ""
@@ -40,7 +39,7 @@
 
 include(../../dynamoriosloc.cmake)
 
-set(dynamorio_dot_a "${${lib_fileloc}}")
+set(dynamorio_dot_a "${dynamoriosloc}")
 string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
 
 execute_process(COMMAND

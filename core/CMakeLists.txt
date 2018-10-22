@@ -612,8 +612,8 @@ if (UNIX)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       set(locvar_name dynamorioloc)
-      file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name}
-        \"$<TARGET_FILE:dynamorio>\")\n")
+      file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT
+        "set(${locvar_name} \"$<TARGET_FILE:dynamorio>\")\n")
       set(check_deps OFF)
       if (NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
@@ -781,7 +781,7 @@ if (NOT APPLE)
     endif ()
 
     set(locvar_name dynamoriosloc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name}
+    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
       \"$<TARGET_FILE:dynamorio_static>\")\n")
 
     string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
@@ -871,7 +871,7 @@ if (UNIX)
   endif (APPLE)
   if (LINUX AND READELF_EXECUTABLE)
     set(locvar_name drpreloadloc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name}
+    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
       \"$<TARGET_FILE:${PRELOAD_NAME}>\")\n")
     add_custom_command(TARGET ${PRELOAD_NAME}
       POST_BUILD

@@ -188,7 +188,7 @@ foreach (deploytgt drconfig drrun drinject)
       set(locvar_rel "../")
     endif()
     set(locvar_name ${deploytgt}loc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name}
+    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
       \"$<TARGET_FILE:${deploytgt}>\")\n")
     add_custom_command(TARGET ${deploytgt} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
