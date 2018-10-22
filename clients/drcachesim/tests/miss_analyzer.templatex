@@ -1,0 +1,4 @@
+Value = [0-9]+
+---- <application exited with code 0> ----
+Cache miss analyzer results:
+pc=0x[0-9a-f]+, stride=448, locality=nta

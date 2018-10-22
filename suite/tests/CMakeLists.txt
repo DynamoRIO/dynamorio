@@ -2605,6 +2605,13 @@ endif ()
         torunonly_drcachesim(multiproc tool.multiproc "" "${tool.multiproc_path}")
       endif ()
 
+      # Test the cache miss analyzer.
+      if (UNIX)
+        add_exe(stride_benchmark
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/stride_benchmark.cpp)
+        torunonly_drcachesim(miss_analyzer stride_benchmark "-simulator_type miss_analyzer" "")
+      endif ()
+
       # Test other analysis tools
       macro (torunonly_simtool testname exetgt sim_ops app_args)
         torunonly_ci(tool.${testname} ${exetgt} drcachesim
