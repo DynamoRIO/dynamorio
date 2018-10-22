@@ -691,7 +691,6 @@ else (UNIX)
   else (X64)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
-
   set(dynamorio_link_flags
     "${LD_FLAGS} ${ntimp_flags} ${dynamorio_link_flags} /dll /incremental:no")
   set(dynamorio_link_flags
