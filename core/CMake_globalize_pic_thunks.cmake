@@ -37,9 +37,9 @@
 # + CMAKE_AR to point to ar
 # + CMAKE_RANLIB to point to ranlib
 
-include(../../dynamoriosloc.cmake)
+include(../../dynamoriostaticloc.cmake)
 
-set(dynamorio_dot_a "${dynamoriosloc}")
+set(dynamorio_dot_a "${dynamoriostaticloc}")
 string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
 
 execute_process(COMMAND

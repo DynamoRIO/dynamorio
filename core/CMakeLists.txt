@@ -779,7 +779,7 @@ if (NOT APPLE)
       message( "dynamorio_static requires objcopy")
     endif ()
 
-    set(locvar_name dynamoriosloc)
+    set(locvar_name dynamoriostaticloc)
     file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
       \"$<TARGET_FILE:dynamorio_static>\")\n")
 
