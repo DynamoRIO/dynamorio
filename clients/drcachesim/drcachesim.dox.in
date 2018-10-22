@@ -734,11 +734,13 @@ To invoke the miss analyzer, pass \p miss_analyzer to the \p -simulator_type
 parameter. To write the prefetching hints to a file use the \p -LL_miss_file
 parameter to specify the file's path and name.
 
-For example, to run the analyzer on a benchmark called "my_benchmark" and store
-the prefetching recommendations in a file called "rec.csv", run the following:
+For example, to run the analyzer on the benchmark
+\p clients/drcachesim/tests/stride_benchmark.cpp and store the prefetching
+recommendations in a text file called "rec.csv", compile the benchmark and run
+the following command:
 
 \code
-$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- my_benchmark
+$ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- stride_benchmark
 \endcode
 
 
