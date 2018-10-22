@@ -68,6 +68,8 @@ if (AARCH64)
 endif ()
 
 set(locvar_rel "")
+# Version 3.10 changed behavior of file(GENERATE to assume relative path, see
+# cmake --help-policy CMP0070. We keep CMP0070 policy set to "NEW" behavior.
 if ("${CMAKE_VERSION}" VERSION_EQUAL "3.10" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.10")
   set(locvar_rel "../")
