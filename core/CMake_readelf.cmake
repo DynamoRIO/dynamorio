@@ -41,11 +41,7 @@
 # looking for dynamic section tag:
 #   0x00000016 (TEXTREL)                    0x0
 
-include(../drpreloadloc.cmake)
-include(../drconfigloc.cmake)
-include(../drinjectloc.cmake)
-include(../drrunloc.cmake)
-include(../dynamorioloc.cmake)
+include(../${lib_fileloc}.cmake)
 
 if (check_textrel)
   execute_process(COMMAND
