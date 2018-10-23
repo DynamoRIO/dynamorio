@@ -203,6 +203,19 @@ void
 hashtable_apply_to_all_payloads(hashtable_t *table, void (*apply_func)(void *payload));
 
 /**
+ * Calls the \p apply_func for each payload with user data. Similar to 
+ * hashtable_apply_to_all_payloads().
+ * @param table The hashtable to apply the function.
+ * @param apply_func A pointer to a function that is called for all payloads
+ * stored in the map. It also takes user data as a parameter. 
+ */
+void
+hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
+                                          void (*apply_func)(void *payload,
+                                                             void *user_data),
+                                          void *user_data);
+
+/**
  * Removes all entries from the table.  If free_payload_func was specified
  * calls it for each payload.
  */
