@@ -250,6 +250,12 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 bool
 is_sigreturn_syscall_number(int sysnum);
 
+int
+convert_to_non_prace_syscall_number(int sysnum);
+
+bool
+is_prace_syscall_number(int sysnum);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
@@ -307,9 +313,19 @@ handle_sigreturn(dcontext_t *dcontext, bool rt);
 bool
 handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 #endif
+
+#ifdef LINUX
+void
+handle_pre_prace_sigmasks(dcontext_t *dcontext, const sigset_t *mask);
+
+void
+handle_post_prace_sigmasks(dcontext_t *dcontext, bool success);
+#endif
+
 bool
 handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stack,
                    reg_t cur_xsp, OUT uint *result);
+
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                    kernel_sigset_t *oset, size_t sigsetsize);

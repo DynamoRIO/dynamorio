@@ -5139,6 +5139,12 @@ ignorable_system_call_normalized(int num)
     case SYS_set_tls:
     case SYS_cacheflush:
 #    endif
+#    if defined(LINUX)
+    /* syscalls change procsigmask */
+    case SYS_pselect6:
+    case SYS_ppoll:
+    case SYS_epoll_pwait:
+#    endif
         return false;
 #    ifdef LINUX
 #        ifdef SYS_readlink
@@ -5518,6 +5524,45 @@ bool
 was_sigreturn_syscall(dcontext_t *dcontext)
 {
     return is_sigreturn_syscall_number(dcontext->sys_num);
+}
+
+int
+convert_to_non_prace_syscall_number(int sysnum)
+{
+#    if defined(LINUX)
+    if (sysnum == SYS_ppoll)
+        return SYS_poll;
+    if (sysnum == SYS_pselect6)
+        return SYS_select;
+    if (sysnum == SYS_epoll_pwait)
+        return SYS_epoll_wait;
+#    endif
+    ASSERT_NOT_REACHED();
+    return -1;
+}
+
+int
+convert_to_non_prace_syscall(dcontext_t *dcontext)
+{
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    return convert_to_non_prace_syscall_number(MCXT_SYSNUM_REG(mc));
+}
+
+bool
+is_prace_syscall_number(int sysnum)
+{
+#    ifdef LINUX
+    return sysnum == SYS_ppoll || sysnum == SYS_pselect6 || sysnum == SYS_epoll_pwait;
+#    else
+    return false;
+#    endif
+}
+
+bool
+is_prace_syscall(dcontext_t *dcontext)
+{
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    return is_prace_syscall_number(MCXT_SYSNUM_REG(mc));
 }
 
 /* process a signal this process/thread is sending to itself */
@@ -7690,6 +7735,21 @@ pre_system_call(dcontext_t *dcontext)
 #        endif
 #    endif
 
+#    if defined(LINUX)
+    case SYS_ppoll: {
+        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 3));
+        break;
+    }
+    case SYS_pselect6: {
+        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 5));
+        break;
+    }
+    case SYS_epoll_pwait: {
+        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 4));
+        break;
+    }
+#    endif
+
     default: {
 #    ifdef LINUX
         execute_syscall = handle_restartable_region_syscall_pre(dcontext);
@@ -8680,6 +8740,12 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
+#    endif
+
+#    ifdef LINUX
+    case SYS_pselect6:
+    case SYS_ppoll:
+    case SYS_epoll_pwait: handle_post_prace_sigmasks(dcontext, success);
 #    endif
 
     default:

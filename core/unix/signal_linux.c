@@ -349,6 +349,27 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
     TABLE_RWLOCK(sigfd_table, write, unlock);
 }
 
+void
+handle_pre_prace_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    kernel_sigset_t set;
+    sigset_t safe_set;
+    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
+
+    if (mask != NULL && safe_read(mask, sizeof(safe_set), &safe_set)) {
+        copy_sigset_to_kernel_sigset((sigset_t *)&safe_set, &set);
+        signal_set_mask(dcontext, &set);
+    }
+}
+
+void
+handle_post_prace_sigmasks(dcontext_t *dcontext, bool success)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
+}
+
 ptr_int_t
 handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask, size_t sizemask,
                     int flags)

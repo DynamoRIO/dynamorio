@@ -430,7 +430,8 @@ typedef struct _thread_sig_info_t {
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
-    /* for preserving the app memory (xref i#1187) */
+    /* for preserving the app memory (xref i#1187), and for preserving app
+     * mask supporting ppoll, epoll_pwait and pselect */
     kernel_sigset_t pre_syscall_app_sigprocmask;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)
@@ -563,7 +564,7 @@ libc_sigismember(const sigset_t *set, int _sig)
 
 /* XXX: how does libc do this? */
 static inline void
-copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
+copy_sigset_to_kernel_sigset(const sigset_t *uset, kernel_sigset_t *kset)
 {
     int sig;
     kernel_sigemptyset(kset);
