@@ -37,9 +37,6 @@ main(int argc, char *argv[])
     sigprocmask(SIG_BLOCK, &new_set, NULL);
     print("signal blocked: %d\n", SIGUSR1);
 
-    int epollFD = epoll_create1(02000000);
-    struct epoll_event events;
-
     int pid = fork();
     if (pid < 0) {
         perror("fork error");
@@ -52,6 +49,9 @@ main(int argc, char *argv[])
         kill(getppid(), SIGUSR1);
         return 0;
     }
+
+    int epollFD = epoll_create1(02000000);
+    struct epoll_event events;
 
     int count = 0;
     while (1) {
