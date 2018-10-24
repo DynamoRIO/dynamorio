@@ -41,7 +41,8 @@
  * * Compile the microbenchmark. Assuming g++ is the compiler being used:
  *   $ g++ -O3 -o stride_benchmark stride_benchmark.cpp
  * * Run the the analyzer:
- *   $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- stride_benchmark
+ *   $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- \
+ *     stride_benchmark
  *
  */
 
