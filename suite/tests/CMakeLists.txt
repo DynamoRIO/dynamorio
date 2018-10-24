@@ -559,6 +559,11 @@ function(add_exe test source)
       if ("${test}" MATCHES "common.nativeexec")
         append_link_flags(${test} "-no-pie")
       endif()
+      set_source_files_properties(client-interface/pcache.c PROPERTIES COMPILE_FLAGS
+        "${CMAKE_C_FLAGS} -fno-pie")
+      if ("${test}" MATCHES "client.pcache" OR "${test}" MATCHES "client.pcache-use")
+        append_link_flags(${test} "-no-pie")
+      endif()
     endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
