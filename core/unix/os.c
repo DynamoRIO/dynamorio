@@ -5544,7 +5544,7 @@ convert_to_non_prace_syscall_number(int sysnum)
 #        else
         /* XXX: AArch64, no poll, check bionic header for syscall
          * TEMPORARY, will prob. get removed before commit */
-        return SYS_pselect;
+        return SYS_pselect6;
 #        endif
     if (sysnum == SYS_epoll_pwait)
 #        if defined(X86) || defined(ARM)
