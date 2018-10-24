@@ -5530,7 +5530,7 @@ int
 convert_to_non_prace_syscall_number(int sysnum)
 {
 #    if defined(LINUX)
-    if (sysnum == SYS_ppoll)
+    if (sysnum == SYS_ppoll) {
 #        if defined(X86) || defined(ARM)
         return SYS_poll;
 #        else
@@ -5538,7 +5538,8 @@ convert_to_non_prace_syscall_number(int sysnum)
          * TEMPORARY, will prob. get removed before commit */
         return SYS_ppoll;
 #        endif
-    if (sysnum == SYS_pselect6)
+    }
+    if (sysnum == SYS_pselect6) {
 #        if defined(X86) || defined(ARM)
         return SYS_select;
 #        else
@@ -5546,7 +5547,8 @@ convert_to_non_prace_syscall_number(int sysnum)
          * TEMPORARY, will prob. get removed before commit */
         return SYS_pselect6;
 #        endif
-    if (sysnum == SYS_epoll_pwait)
+    }
+    if (sysnum == SYS_epoll_pwait) {
 #        if defined(X86) || defined(ARM)
         return SYS_epoll_wait;
 #        else
@@ -5554,6 +5556,7 @@ convert_to_non_prace_syscall_number(int sysnum)
          * TEMPORARY, will prob. get removed before commit */
         return SYS_epoll_pwait;
 #        endif
+    }
 #    endif
     ASSERT_NOT_REACHED();
     return -1;
