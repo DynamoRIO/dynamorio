@@ -8766,7 +8766,7 @@ post_system_call(dcontext_t *dcontext)
 #    ifdef LINUX
     case SYS_pselect6:
     case SYS_ppoll:
-    case SYS_epoll_pwait: handle_post_prace_sigmasks(dcontext, success);
+    case SYS_epoll_pwait: handle_post_prace_sigmasks(dcontext, success); break;
 #    endif
 
     default:
