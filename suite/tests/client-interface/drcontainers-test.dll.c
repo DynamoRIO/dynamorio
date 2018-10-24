@@ -162,20 +162,18 @@ test_hashtable_apply_all_user_data(void)
     hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, (void *)1);
     CHECK(c == hash_table.entries,
           "hashtable_apply_to_all_payloads_user_data (count test) failed");
-    CHECK(total == (6+hash_table.entries),
+    CHECK(total == (6 + hash_table.entries),
           "hashtable_apply_to_all_payloads_user_data (sum test) failed");
 
     /* Begin NULL Tests */
     c = 0;
     total = 0;
 
-    hashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data,
-                                              NULL);
+    hashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data, NULL);
     hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, NULL);
     CHECK(c == hash_table.entries,
           "hashtable_apply_to_all_payloads_user_data (count null test) failed");
-    CHECK(total == 6,
-          "hashtable_apply_to_all_payloads_user_data (sum null test) failed");
+    CHECK(total == 6, "hashtable_apply_to_all_payloads_user_data (sum null test) failed");
 
     hashtable_delete(&hash_table);
 }

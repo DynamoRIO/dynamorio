@@ -476,7 +476,7 @@ void
 hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
                                           void (*apply_func)(void *payload,
                                                              void *user_data),
-				          void *user_data)
+                                          void *user_data)
 {
     DR_ASSERT_MSG(apply_func != NULL, "The apply_func ptr cannot be NULL.");
     uint i;
@@ -489,7 +489,6 @@ hashtable_apply_to_all_payloads_user_data(hashtable_t *table,
         }
     }
 }
-
 
 static void
 hashtable_clear_internal(hashtable_t *table)
