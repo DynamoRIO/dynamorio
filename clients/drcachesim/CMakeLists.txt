@@ -585,7 +585,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=$<TARGET_FILE:drcachesim_ops>${location_suffix}
+       -D prog=$<TARGET_FILE:drcachesim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)
 
