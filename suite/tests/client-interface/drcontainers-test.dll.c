@@ -98,7 +98,7 @@ static void
 count_user_data(void *payload, void *user_data)
 {
     c++;
-    CHECK(user_data == apply_payload_user_data_test, "user data not correct");
+    CHECK(user_data == (void *)apply_payload_user_data_test, "user data not correct");
 }
 
 static void
@@ -158,7 +158,7 @@ test_hashtable_apply_all_user_data(void)
     hashtable_add_replace(&hash_table, (void *)3, (void *)3);
 
     hashtable_apply_to_all_payloads_user_data(&hash_table, count_user_data,
-                                              apply_payload_user_data_test);
+                                              (void *)apply_payload_user_data_test);
     hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, (void *)1);
     CHECK(c == hash_table.entries,
           "hashtable_apply_to_all_payloads_user_data (count test) failed");
@@ -171,7 +171,7 @@ test_hashtable_apply_all_user_data(void)
 
     hashtable_apply_to_all_payloads_user_data(&hash_table, count_null_user_data,
                                               NULL);
-    hashtable_apply_to_all_payloads_user_data(&hash_table, sum, NULL);
+    hashtable_apply_to_all_payloads_user_data(&hash_table, sum_user_data, NULL);
     CHECK(c == hash_table.entries,
           "hashtable_apply_to_all_payloads_user_data (count null test) failed");
     CHECK(total == 6,
@@ -185,6 +185,7 @@ dr_init(client_id_t id)
 {
     test_vector();
     test_hashtable_apply_all();
+    test_hashtable_apply_all_user_data();
 
-    /* XXX: test other data structures */`
+    /* XXX: test other data structures */
 }
