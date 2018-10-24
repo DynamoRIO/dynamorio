@@ -5540,10 +5540,12 @@ convert_to_non_prace_syscall_number(int sysnum)
 #        endif
     }
     if (sysnum == SYS_pselect6) {
-#        if defined(X86) || defined(ARM)
+#        if defined(X86)
         return SYS_select;
 #        else
         /* XXX: AArch64, no poll, check bionic header for syscall
+         * TEMPORARY, will prob. get removed before commit */
+        /* XXX: ARM, no select, check syscall
          * TEMPORARY, will prob. get removed before commit */
         return SYS_pselect6;
 #        endif
