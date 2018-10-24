@@ -2689,6 +2689,16 @@ dr_get_application_cl_args(OUT int **argc, OUT char ***argv)
 #endif
 }
 
+DR_API bool
+dr_get_application_cl_args(OUT int **argc, OUT char ***argv)
+{
+#ifdef UNIX
+    return get_application_cl_args(argc, argv);
+#else
+    return false;
+#endif
+}
+
 DR_API process_id_t
 dr_get_process_id(void)
 {
