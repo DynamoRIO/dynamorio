@@ -361,6 +361,15 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
         copy_sigset_to_kernel_sigset((sigset_t *)&safe_set, &set);
         signal_set_mask(dcontext, &set);
     }
+    /* Convert to system call that does not change the signal mask (poll, select,
+     * epoll_wait), as we've already emulated that. XXX i#2311: we may currently
+     * deliver incorrect signals, because the native sigprocmask the system call
+     * may get interrupted by may not be the same as the native app expects. In
+     * addition to this, the p* variants of above syscalls are not properly emu-
+     * lated w.r.t. their atomicity setting the sigprocmask and executing the
+     * syscall. */
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    MCXT_SYSNUM_REG(mc) = convert_to_non_sigmask_extended_syscall(dcontext);
 }
 
 void

@@ -251,6 +251,9 @@ bool
 is_sigreturn_syscall_number(int sysnum);
 
 int
+convert_to_non_sigmask_extended_syscall(dcontext_t *dcontext);
+
+int
 convert_to_non_sigmask_extended_syscall_number(int sysnum);
 
 bool
