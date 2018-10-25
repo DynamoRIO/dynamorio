@@ -85,7 +85,7 @@ main(int argc, char *argv[])
         return 0;
     }
 
-    int epollFD = epoll_create1(02000000);
+    int epoll_fd = epoll_create1(02000000);
     struct epoll_event events;
 
     int count = 0;
@@ -94,7 +94,7 @@ main(int argc, char *argv[])
         sigemptyset(&empty_set);
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test. */
-        epoll_pwait(epollFD, &events, 24, -1, &empty_set);
+        epoll_pwait(epoll_fd, &events, 24, -1, &empty_set);
     };
     return 0;
 }
