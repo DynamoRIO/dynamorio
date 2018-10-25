@@ -34,6 +34,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
 #include "drcovlib.h"
@@ -49,6 +50,19 @@ static const ptr_uint_t MAX_INSTR_COUNT = 64 * 1024;
 void *(*offline_instru_t::user_load)(module_data_t *module);
 int (*offline_instru_t::user_print)(void *data, char *dst, size_t max_len);
 void (*offline_instru_t::user_free)(void *data);
+
+// This constructor is for use in post-processing when we just need the
+// elision utility functions.
+offline_instru_t::offline_instru_t()
+    : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
+    , write_file_func(nullptr)
+    , modfile(INVALID_FILE)
+{
+    // We can't use drmgr in standalone mode, but for post-processing it's just us,
+    // so we just pick a note value.
+    elide_memref_note = 1;
+    standalone = true;
+}
 
 offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *,
                                                            instr_t *, reg_id_t),
@@ -69,10 +83,17 @@ offline_instru_t::offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *
     res = drmodtrack_add_custom_data(load_custom_module_data, print_custom_module_data,
                                      NULL, free_custom_module_data);
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
+
+    if (!drmgr_init())
+        DR_ASSERT(false);
+    elide_memref_note = drmgr_reserve_note_range(1);
+    DR_ASSERT(elide_memref_note != DRMGR_NOTE_NONE);
 }
 
 offline_instru_t::~offline_instru_t()
 {
+    if (standalone)
+        return;
     drcovlib_status_t res;
     size_t size = 8192;
     char *buf;
@@ -89,6 +110,7 @@ offline_instru_t::~offline_instru_t()
     } while (res == DRCOVLIB_ERROR_BUF_TOO_SMALL);
     res = drmodtrack_exit();
     DR_ASSERT(res == DRCOVLIB_SUCCESS);
+    drmgr_exit();
 }
 
 void *
@@ -181,6 +203,7 @@ offline_instru_t::get_entry_type(byte *buf_ptr) const
     case OFFLINE_TYPE_PID: return TRACE_TYPE_PID;
     case OFFLINE_TYPE_TIMESTAMP: return TRACE_TYPE_THREAD; // Closest.
     case OFFLINE_TYPE_IFLUSH: return TRACE_TYPE_INSTR_FLUSH;
+    case OFFLINE_TYPE_EXTENDED: return TRACE_TYPE_MARKER; // Closest.
     }
     DR_ASSERT(false);
     return TRACE_TYPE_THREAD_EXIT; // Unknown: returning rarest entry.
@@ -262,18 +285,25 @@ offline_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
+                                       offline_file_type_t file_type)
 {
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_HEADER;
     entry->extended.valueA = OFFLINE_FILE_VERSION;
-    entry->extended.valueB = 0;
+    entry->extended.valueB = file_type;
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
     return (int)(new_buf - buf_ptr);
+}
+
+int
+offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    return append_thread_header(buf_ptr, tid, OFFLINE_FILE_TYPE_DEFAULT);
 }
 
 int
@@ -459,8 +489,20 @@ offline_instru_t::instr_has_multiple_different_memrefs(instr_t *instr)
 int
 offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_ptr, int adjust, instr_t *app,
-                                    opnd_t ref, bool write, dr_pred_type_t pred)
+                                    opnd_t ref, int ref_index, bool write,
+                                    dr_pred_type_t pred)
 {
+    // Check whether we can elide this address.
+    for (instr_t *prev = instr_get_prev(where); prev != nullptr && !instr_is_app(prev);
+         prev = instr_get_prev(prev)) {
+        int elided_index;
+        bool elided_is_store;
+        if (label_marks_elidable(prev, &elided_index, nullptr, &elided_is_store,
+                                 nullptr) &&
+            elided_index == ref_index && elided_is_store == write) {
+            return adjust;
+        }
+    }
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
     if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
@@ -550,4 +592,124 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
         }
     }
     *bb_field = (void *)count;
+
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
+}
+
+bool
+offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version)
+{
+    if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
+        return false;
+    // When adding new elision cases, be sure to check "version" to keep backward
+    // compatibility.  For OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE we elide a
+    // base register that has not changed since a prior stored address (with no
+    // index register).  We include rip-relative in this category.
+    // Here we look for rip-relative and no-index operands: opnd_check_elidable()
+    // checks for an unchanged prior instance.
+    if (IF_X64(opnd_is_near_rel_addr(memop) ||) opnd_is_near_abs_addr(memop)) {
+        base = DR_REG_NULL;
+        return true;
+    }
+    if (!opnd_is_near_base_disp(memop) ||
+        (opnd_get_base(memop) != DR_REG_NULL && opnd_get_index(memop) != DR_REG_NULL))
+        return false;
+    base = opnd_get_base(memop);
+    if (base == DR_REG_NULL)
+        base = opnd_get_index(memop);
+    return true;
+}
+
+void
+offline_instru_t::opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                                      opnd_t memop, int op_index, int memop_index,
+                                      bool write, int version, reg_id_set_t &saw_base)
+{
+    // We elide single-register (base or index) operands that only differ in
+    // displacement, as well as rip-relative or absolute-address operands.
+    reg_id_t base;
+    if (!opnd_is_elidable(memop, base, version))
+        return;
+    // When adding new elision cases, be sure to check "version" to keep backward
+    // compatibility.  See the opnd_is_elidable() notes.  Here we insert a label if
+    // we find a base that has not changed or a rip-relative operand.
+    if (base == DR_REG_NULL || saw_base.find(base) != saw_base.end()) {
+        instr_t *note = INSTR_CREATE_label(drcontext);
+        instr_set_note(note, (void *)elide_memref_note);
+        dr_instr_label_data_t *data = instr_get_label_data_area(note);
+        data->data[LABEL_DATA_ELIDED_INDEX] = op_index;
+        data->data[LABEL_DATA_ELIDED_MEMOP_INDEX] = memop_index;
+        data->data[LABEL_DATA_ELIDED_IS_WRITE] = write;
+        data->data[LABEL_DATA_ELIDED_NEEDS_BASE] = (base != DR_REG_NULL);
+        MINSERT(ilist, instr, note);
+    } else
+        saw_base.insert(base);
+}
+
+bool
+offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
+                                       OUT int *memopnd_index, OUT bool *is_write,
+                                       OUT bool *needs_base)
+{
+    if (!instr_is_label(instr))
+        return false;
+    if (instr_get_note(instr) != (void *)elide_memref_note)
+        return false;
+    dr_instr_label_data_t *data = instr_get_label_data_area(instr);
+    if (opnd_index != nullptr)
+        *opnd_index = data->data[LABEL_DATA_ELIDED_INDEX];
+    if (memopnd_index != nullptr)
+        *memopnd_index = data->data[LABEL_DATA_ELIDED_MEMOP_INDEX];
+    if (is_write != nullptr)
+        *is_write = data->data[LABEL_DATA_ELIDED_IS_WRITE];
+    if (needs_base != nullptr)
+        *needs_base = data->data[LABEL_DATA_ELIDED_NEEDS_BASE];
+    return true;
+}
+
+void
+offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
+                                              int version)
+{
+    // Analysis for eliding redundant addresses we can reconstruct during
+    // post-processing.
+    // We can't elide when doing filtering.
+    if (memref_needs_full_info)
+        return;
+    instr_t *instr;
+    reg_id_set_t saw_base;
+    for (instr = instrlist_first_app(ilist); instr != NULL;
+         instr = instr_get_next_app(instr)) {
+        // For now we bail at predication.
+        if (instr_get_predicate(instr) != DR_PRED_NONE) {
+            saw_base.clear();
+            continue;
+        }
+        // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
+        if (!instr_reads_memory(instr) && !instr_writes_memory(instr))
+            continue;
+        int mem_count = 0;
+        for (int i = 0; i < instr_num_srcs(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                opnd_check_elidable(drcontext, ilist, instr, instr_get_src(instr, i), i,
+                                    mem_count, false, version, saw_base);
+                ++mem_count;
+            }
+        }
+        auto reg_it = saw_base.begin();
+        while (reg_it != saw_base.end()) {
+            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
+                reg_it = saw_base.erase(reg_it);
+            else
+                ++reg_it;
+        }
+        mem_count = 0;
+        for (int i = 0; i < instr_num_dsts(instr); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                opnd_check_elidable(drcontext, ilist, instr, instr_get_dst(instr, i), i,
+                                    mem_count, true, version, saw_base);
+                ++mem_count;
+            }
+        }
+    }
 }

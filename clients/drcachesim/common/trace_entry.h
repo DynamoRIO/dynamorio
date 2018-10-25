@@ -318,7 +318,9 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version.
+    // The initial entry in the file.  The valueA field holds the version
+    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // (OFFLINE_FILE_TYPE*).
     OFFLINE_EXT_TYPE_HEADER,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
@@ -338,7 +340,15 @@ typedef enum {
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
-#define OFFLINE_FILE_VERSION 2
+#define OFFLINE_FILE_VERSION_NO_ELISION 2
+#define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
+#define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+
+typedef enum {
+    OFFLINE_FILE_TYPE_DEFAULT,
+    OFFLINE_FILE_TYPE_FILTERED,
+} offline_file_type_t;
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
