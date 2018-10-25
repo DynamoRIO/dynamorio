@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <unistd.h>
+#include <time.h>
 
 static void
 signalHandler(int sig, siginfo_t *siginfo, void *context)
@@ -41,11 +42,17 @@ main(int argc, char *argv[])
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        system("sleep 1");
+        struct timespec sleeptime;
+        sleeptime.tv_sec = 1;
+        sleeptime.tv_nsec = 0;
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR2);
-        system("sleep 1");
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR1);
-        system("sleep 1");
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR1);
         return 0;
     }
@@ -54,13 +61,12 @@ main(int argc, char *argv[])
     struct epoll_event events;
 
     int count = 0;
-    while (1) {
+    while (count++ < 3) {
         sigset_t empty_set;
         sigemptyset(&empty_set);
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
+         * call. Once it does, please include this in this test or add a new test. */
         epoll_pwait(epollFD, &events, 24, -1, &empty_set);
-        ++count;
-        if (count == 3)
-            break;
     };
     return 0;
 }

@@ -5531,7 +5531,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 {
 #    if defined(LINUX)
     if (sysnum == SYS_ppoll) {
-#        if defined(X86) || defined(ARM)
+#        ifdef SYS_poll
         return SYS_poll;
 #        else
         /* AArch64, no poll */
@@ -5539,7 +5539,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 #        endif
     }
     if (sysnum == SYS_pselect6) {
-#        if defined(X86)
+#        ifdef SYS_select
         return SYS_select;
 #        else
         /* AArch64, no select */
@@ -5547,7 +5547,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 #        endif
     }
     if (sysnum == SYS_epoll_pwait) {
-#        if defined(X86) || defined(ARM)
+#        ifdef SYS_epoll_wait
         return SYS_epoll_wait;
 #        else
         /* AArch64, no epoll_wait */
@@ -7482,7 +7482,23 @@ pre_system_call(dcontext_t *dcontext)
                                      dcontext->sys_num);
         break;
     }
-
+#    ifdef LINUX
+    case SYS_ppoll: {
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 3));
+        break;
+    }
+    case SYS_pselect6: {
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 5));
+        break;
+    }
+    case SYS_epoll_pwait: {
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 4));
+        break;
+    }
+#    endif
     /****************************************************************************/
     /* FILES */
     /* prevent app from closing our files or opening a new file in our fd space.
@@ -7751,24 +7767,6 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #        endif
-#    endif
-
-#    if defined(LINUX)
-    case SYS_ppoll: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 3));
-        break;
-    }
-    case SYS_pselect6: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 5));
-        break;
-    }
-    case SYS_epoll_pwait: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 4));
-        break;
-    }
 #    endif
 
     default: {
