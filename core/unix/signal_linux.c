@@ -350,7 +350,7 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
 }
 
 void
-handle_pre_prace_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     kernel_sigset_t set;
@@ -364,7 +364,7 @@ handle_pre_prace_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
 }
 
 void
-handle_post_prace_sigmasks(dcontext_t *dcontext, bool success)
+handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);

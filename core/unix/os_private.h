@@ -251,10 +251,10 @@ bool
 is_sigreturn_syscall_number(int sysnum);
 
 int
-convert_to_non_prace_syscall_number(int sysnum);
+convert_to_non_sigmask_extended_syscall_number(int sysnum);
 
 bool
-is_prace_syscall_number(int sysnum);
+is_sigmask_extended_syscall_number(int sysnum);
 
 /* in signal.c */
 struct _kernel_sigaction_t;
@@ -316,10 +316,10 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 
 #ifdef LINUX
 void
-handle_pre_prace_sigmasks(dcontext_t *dcontext, const sigset_t *mask);
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, const sigset_t *mask);
 
 void
-handle_post_prace_sigmasks(dcontext_t *dcontext, bool success);
+handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
 #endif
 
 bool

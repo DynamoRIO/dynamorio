@@ -337,10 +337,10 @@ was_sigreturn_syscall(dcontext_t *dcontext);
 bool
 ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
 bool
-is_prace_syscall(dcontext_t *dcontext);
+is_sigmask_extended_syscall(dcontext_t *dcontext);
 
 int
-convert_to_non_prace_syscall(dcontext_t *dcontext);
+convert_to_non_sigmask_extended_syscall(dcontext_t *dcontext);
 
 bool
 kernel_is_64bit(void);

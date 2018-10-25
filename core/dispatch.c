@@ -1993,7 +1993,7 @@ handle_system_call(dcontext_t *dcontext)
             dcontext->sys_param1 = (reg_t)dcontext->next_tag;
             LOG(THREAD, LOG_SYSCALLS, 3, "for sigreturn, set sys_param1 to " PFX "\n",
                 dcontext->sys_param1);
-        } else if (is_prace_syscall(dcontext)) {
+        } else if (is_sigmask_extended_syscall(dcontext)) {
             /* Convert to system call that does not change the signal mask (poll, select,
              * epoll_wait), as we've already emulated that. XXX i#2311: we may currently
              * deliver incorrect signals, because the native sigprocmask the system call
@@ -2002,7 +2002,7 @@ handle_system_call(dcontext_t *dcontext)
              * lated w.r.t. their atomicity setting the sigprocmask and executing the
              * syscall. */
             priv_mcontext_t *mc = get_mcontext(dcontext);
-            MCXT_SYSNUM_REG(mc) = convert_to_non_prace_syscall(dcontext);
+            MCXT_SYSNUM_REG(mc) = convert_to_non_sigmask_extended_syscall(dcontext);
         }
 
 #else

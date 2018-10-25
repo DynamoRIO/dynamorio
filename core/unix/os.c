@@ -5527,7 +5527,7 @@ was_sigreturn_syscall(dcontext_t *dcontext)
 }
 
 int
-convert_to_non_prace_syscall_number(int sysnum)
+convert_to_non_sigmask_extended_syscall_number(int sysnum)
 {
 #    if defined(LINUX)
     if (sysnum == SYS_ppoll) {
@@ -5565,14 +5565,14 @@ convert_to_non_prace_syscall_number(int sysnum)
 }
 
 int
-convert_to_non_prace_syscall(dcontext_t *dcontext)
+convert_to_non_sigmask_extended_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return convert_to_non_prace_syscall_number(MCXT_SYSNUM_REG(mc));
+    return convert_to_non_sigmask_extended_syscall_number(MCXT_SYSNUM_REG(mc));
 }
 
 bool
-is_prace_syscall_number(int sysnum)
+is_sigmask_extended_syscall_number(int sysnum)
 {
 #    ifdef LINUX
     return sysnum == SYS_ppoll || sysnum == SYS_pselect6 || sysnum == SYS_epoll_pwait;
@@ -5582,10 +5582,10 @@ is_prace_syscall_number(int sysnum)
 }
 
 bool
-is_prace_syscall(dcontext_t *dcontext)
+is_sigmask_extended_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_prace_syscall_number(MCXT_SYSNUM_REG(mc));
+    return is_sigmask_extended_syscall_number(MCXT_SYSNUM_REG(mc));
 }
 
 /* process a signal this process/thread is sending to itself */
@@ -7760,15 +7760,18 @@ pre_system_call(dcontext_t *dcontext)
 
 #    if defined(LINUX)
     case SYS_ppoll: {
-        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 3));
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 3));
         break;
     }
     case SYS_pselect6: {
-        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 5));
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 5));
         break;
     }
     case SYS_epoll_pwait: {
-        handle_pre_prace_sigmasks(dcontext, (const sigset_t *)sys_param(dcontext, 4));
+        handle_pre_extended_syscall_sigmasks(dcontext,
+                                             (const sigset_t *)sys_param(dcontext, 4));
         break;
     }
 #    endif
@@ -8768,7 +8771,7 @@ post_system_call(dcontext_t *dcontext)
 #    ifdef LINUX
     case SYS_pselect6:
     case SYS_ppoll:
-    case SYS_epoll_pwait: handle_post_prace_sigmasks(dcontext, success); break;
+    case SYS_epoll_pwait: handle_post_extended_syscall_sigmasks(dcontext, success); break;
 #    endif
 
     default:
