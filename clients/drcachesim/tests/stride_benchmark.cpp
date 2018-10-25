@@ -32,6 +32,18 @@
 
 /* This microbenchmark suffers from a significant number of last-level cache
  * (LLC) misses. SW prefetching can significantly improve its performance.
+ *
+ * The cache miss analyzer can be used to identify the load instruction that
+ * is suffering from most of the LLC misses in this microbenchmark. The analyzer
+ * can also produce prefetching hints for this microbenchmark. To run the
+ * analyzer on this microbenchmark and write the prefetching hints in a text
+ * file called "rec.csv", perform the following:
+ * * Compile the microbenchmark. Assuming g++ is the compiler being used:
+ *   $ g++ -O3 -o stride_benchmark stride_benchmark.cpp
+ * * Run the the analyzer:
+ *   $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- \
+ *     stride_benchmark
+ *
  */
 
 #include <stdint.h>
