@@ -5534,8 +5534,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 #        if defined(X86) || defined(ARM)
         return SYS_poll;
 #        else
-        /* XXX: AArch64, no poll, check bionic header for syscall
-         * TEMPORARY, will prob. get removed before commit */
+        /* AArch64, no poll */
         return SYS_ppoll;
 #        endif
     }
@@ -5543,10 +5542,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 #        if defined(X86)
         return SYS_select;
 #        else
-        /* XXX: AArch64, no poll, check bionic header for syscall
-         * TEMPORARY, will prob. get removed before commit */
-        /* XXX: ARM, no select, check syscall
-         * TEMPORARY, will prob. get removed before commit */
+        /* AArch64, no select */
         return SYS_pselect6;
 #        endif
     }
@@ -5554,8 +5550,7 @@ convert_to_non_sigmask_extended_syscall_number(int sysnum)
 #        if defined(X86) || defined(ARM)
         return SYS_epoll_wait;
 #        else
-        /* XXX: AArch64, no poll, check bionic header for syscall
-         * TEMPORARY, will prob. get removed before commit */
+        /* AArch64, no epoll_wait */
         return SYS_epoll_pwait;
 #        endif
     }
