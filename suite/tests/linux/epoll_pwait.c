@@ -44,7 +44,7 @@
 #include <time.h>
 
 static void
-signalHandler(int sig, siginfo_t *siginfo, void *context)
+signal_handler(int sig, siginfo_t *siginfo, void *context)
 {
     print("signal received: %d\n", sig);
 }
@@ -58,7 +58,7 @@ main(int argc, char *argv[])
     INIT();
     memset(&act, '\0', sizeof(act));
 
-    act.sa_sigaction = &signalHandler;
+    act.sa_sigaction = &signal_handler;
     act.sa_flags = SA_SIGINFO;
     if (sigaction(SIGUSR1, &act, NULL) < 0) {
         perror("sigaction failed\n");
