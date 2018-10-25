@@ -350,16 +350,16 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
 }
 
 void
-handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, const sigset_t *mask)
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask,
+                                     size_t sizemask)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    kernel_sigset_t set;
-    sigset_t safe_set;
+    kernel_sigset_t safe_set;
+    ASSERT(sizemask == sizeof(kernel_sigset_t));
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
 
     if (mask != NULL && safe_read(mask, sizeof(safe_set), &safe_set)) {
-        copy_sigset_to_kernel_sigset((sigset_t *)&safe_set, &set);
-        signal_set_mask(dcontext, &set);
+        signal_set_mask(dcontext, &safe_set);
     }
     /* Convert to system call that does not change the signal mask (poll, select,
      * epoll_wait), as we've already emulated that. XXX i#2311: we may currently

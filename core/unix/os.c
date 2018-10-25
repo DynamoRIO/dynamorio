@@ -7485,17 +7485,20 @@ pre_system_call(dcontext_t *dcontext)
 #    ifdef LINUX
     case SYS_ppoll: {
         handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 3));
+                                             (kernel_sigset_t *)sys_param(dcontext, 3),
+                                             (size_t)sys_param(dcontext, 4));
         break;
     }
     case SYS_pselect6: {
         handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 5));
+                                             (kernel_sigset_t *)sys_param(dcontext, 5),
+                                             (size_t)sys_param(dcontext, 6));
         break;
     }
     case SYS_epoll_pwait: {
         handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (const sigset_t *)sys_param(dcontext, 4));
+                                             (kernel_sigset_t *)sys_param(dcontext, 4),
+                                             (size_t)sys_param(dcontext, 5));
         break;
     }
 #    endif
