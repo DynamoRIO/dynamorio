@@ -35,6 +35,7 @@
  */
 
 #include "tools.h"
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,18 +57,9 @@ main(int argc, char *argv[])
     sigset_t new_set;
 
     INIT();
-    memset(&act, '\0', sizeof(act));
 
-    act.sa_sigaction = &signal_handler;
-    act.sa_flags = SA_SIGINFO;
-    if (sigaction(SIGUSR1, &act, NULL) < 0) {
-        perror("sigaction failed\n");
-        return 1;
-    }
-    if (sigaction(SIGUSR2, &act, NULL) < 0) {
-        perror("sigaction failed\n");
-        return 1;
-    }
+    intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
+    intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
     print("handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
     sigemptyset(&new_set);
     sigaddset(&new_set, SIGUSR1);
