@@ -1994,7 +1994,6 @@ handle_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 3, "for sigreturn, set sys_param1 to " PFX "\n",
                 dcontext->sys_param1);
         }
-
 #else
         if (use_prev_dcontext) {
             /* get the current, but now swapped out, dcontext */

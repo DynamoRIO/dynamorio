@@ -349,34 +349,31 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
     TABLE_RWLOCK(sigfd_table, write, unlock);
 }
 
-void
+bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask,
                                      size_t sizemask)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    kernel_sigset_t safe_set;
-    ASSERT(sizemask == sizeof(kernel_sigset_t));
-    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
 
-    if (mask != NULL && safe_read(mask, sizeof(safe_set), &safe_set)) {
-        signal_set_mask(dcontext, &safe_set);
-    }
-    /* Convert to system call that does not change the signal mask (poll, select,
-     * epoll_wait), as we've already emulated that. XXX i#2311: we may currently
-     * deliver incorrect signals, because the native sigprocmask the system call
-     * may get interrupted by may not be the same as the native app expects. In
-     * addition to this, the p* variants of above syscalls are not properly emu-
-     * lated w.r.t. their atomicity setting the sigprocmask and executing the
-     * syscall. */
-    priv_mcontext_t *mc = get_mcontext(dcontext);
-    MCXT_SYSNUM_REG(mc) = convert_to_non_sigmask_extended_syscall(dcontext);
+    /* XXX i#2311, #3240: we may currently deliver incorrect signals, because the
+     * native sigprocmask the system call may get interrupted by may not be the same
+     * as the native app expects. In addition to this, the p* variants of above syscalls
+     * are not properly emulated w.r.t. their atomicity setting the sigprocmask and
+     * executing the syscall. */
+    bool expected_to_fail = sizemask != sizeof(kernel_sigset_t);
+    DODEBUG({ dcontext->expect_last_syscall_to_fail = expected_to_fail; });
+    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
+    signal_set_mask(dcontext, mask);
+    return expected_to_fail;
 }
 
-void
+kernel_sigset_t
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    kernel_sigset_t app_sigblocked = info->app_sigblocked;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
+    return app_sigblocked;
 }
 
 ptr_int_t

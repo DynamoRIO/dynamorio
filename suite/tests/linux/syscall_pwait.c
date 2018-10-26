@@ -43,6 +43,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <time.h>
+#include <poll.h>
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
@@ -66,13 +67,19 @@ main(int argc, char *argv[])
     sigprocmask(SIG_BLOCK, &new_set, NULL);
     print("signal blocked: %d\n", SIGUSR1);
 
+    sigset_t test_set;
+    sigfillset(&test_set);
+    sigdelset(&test_set, SIGUSR1);
+    sigdelset(&test_set, SIGUSR2);
+
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 500 * 1000 * 1000;
+
     int pid = fork();
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        struct timespec sleeptime;
-        sleeptime.tv_sec = 1;
-        sleeptime.tv_nsec = 0;
         /* waste some time */
         nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR2);
@@ -87,14 +94,64 @@ main(int argc, char *argv[])
 
     int epoll_fd = epoll_create1(02000000);
     struct epoll_event events;
-
     int count = 0;
     while (count++ < 3) {
-        sigset_t empty_set;
-        sigemptyset(&empty_set);
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test. */
-        epoll_pwait(epoll_fd, &events, 24, -1, &empty_set);
-    };
+        epoll_pwait(epoll_fd, &events, 24, -1, &test_set);
+    }
+
+    /* waste some time */
+    nanosleep(&sleeptime, NULL);
+
+    pid = fork();
+    if (pid < 0) {
+        perror("fork error");
+    } else if (pid == 0) {
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR2);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        return 0;
+    }
+
+    count = 0;
+    while (count++ < 3) {
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
+         * call. Once it does, please include this in this test or add a new test. */
+        pselect(0, NULL, NULL, NULL, NULL, &test_set);
+    }
+
+    /* waste some time */
+    nanosleep(&sleeptime, NULL);
+
+    pid = fork();
+    if (pid < 0) {
+        perror("fork error");
+    } else if (pid == 0) {
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR2);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        return 0;
+    }
+
+    count = 0;
+    while (count++ < 3) {
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
+         * call. Once it does, please include this in this test or add a new test. */
+        ppoll(NULL, 0, NULL, &test_set);
+    }
+
     return 0;
 }

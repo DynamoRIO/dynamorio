@@ -250,15 +250,6 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 bool
 is_sigreturn_syscall_number(int sysnum);
 
-int
-convert_to_non_sigmask_extended_syscall(dcontext_t *dcontext);
-
-int
-convert_to_non_sigmask_extended_syscall_number(int sysnum);
-
-bool
-is_sigmask_extended_syscall_number(int sysnum);
-
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
@@ -318,11 +309,11 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 #endif
 
 #ifdef LINUX
-void
+bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask,
                                      size_t sizemask);
 
-void
+kernel_sigset_t
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
 #endif
 

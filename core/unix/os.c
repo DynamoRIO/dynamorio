@@ -5526,63 +5526,6 @@ was_sigreturn_syscall(dcontext_t *dcontext)
     return is_sigreturn_syscall_number(dcontext->sys_num);
 }
 
-int
-convert_to_non_sigmask_extended_syscall_number(int sysnum)
-{
-#    if defined(LINUX)
-    if (sysnum == SYS_ppoll) {
-#        ifdef SYS_poll
-        return SYS_poll;
-#        else
-        /* AArch64, no poll */
-        return SYS_ppoll;
-#        endif
-    }
-    if (sysnum == SYS_pselect6) {
-#        ifdef SYS_select
-        return SYS_select;
-#        else
-        /* AArch64, no select */
-        return SYS_pselect6;
-#        endif
-    }
-    if (sysnum == SYS_epoll_pwait) {
-#        ifdef SYS_epoll_wait
-        return SYS_epoll_wait;
-#        else
-        /* AArch64, no epoll_wait */
-        return SYS_epoll_pwait;
-#        endif
-    }
-#    endif
-    ASSERT_NOT_REACHED();
-    return -1;
-}
-
-int
-convert_to_non_sigmask_extended_syscall(dcontext_t *dcontext)
-{
-    priv_mcontext_t *mc = get_mcontext(dcontext);
-    return convert_to_non_sigmask_extended_syscall_number(MCXT_SYSNUM_REG(mc));
-}
-
-bool
-is_sigmask_extended_syscall_number(int sysnum)
-{
-#    ifdef LINUX
-    return sysnum == SYS_ppoll || sysnum == SYS_pselect6 || sysnum == SYS_epoll_pwait;
-#    else
-    return false;
-#    endif
-}
-
-bool
-is_sigmask_extended_syscall(dcontext_t *dcontext)
-{
-    priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_sigmask_extended_syscall_number(MCXT_SYSNUM_REG(mc));
-}
-
 /* process a signal this process/thread is sending to itself */
 static void
 handle_self_signal(dcontext_t *dcontext, uint sig)
@@ -7484,24 +7427,51 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    ifdef LINUX
     case SYS_ppoll: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (kernel_sigset_t *)sys_param(dcontext, 3),
-                                             (size_t)sys_param(dcontext, 4));
+        kernel_sigset_t *mask = (kernel_sigset_t *)sys_param(dcontext, 3);
+        size_t sizemask = (size_t)sys_param(dcontext, 4);
+        kernel_sigset_t nullsigmask;
+        memset(&nullsigmask, 0, sizeof(nullsigmask));
+        /* original app's sigmask parameter is now NULL effectively making the syscall
+         * a non p* version, and the mask's semantics are emulated by DR instead. */
+        set_syscall_param(dcontext, 3, *(reg_t *)&nullsigmask);
+        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+            /* in old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
+             * failure. we're already violating app transparency in other places in DR */
+            set_failure_return_val(dcontext, EINTR);
+        }
         break;
     }
     case SYS_pselect6: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (kernel_sigset_t *)sys_param(dcontext, 5),
-                                             (size_t)sys_param(dcontext, 6));
+        typedef const struct {
+            kernel_sigset_t *sigmask;
+            size_t sizemask;
+        } data_t;
+        data_t *data = (data_t *)sys_param(dcontext, 5);
+        kernel_sigset_t *mask = (kernel_sigset_t *)data->sigmask;
+        size_t sizemask = (size_t)data->sizemask;
+        kernel_sigset_t nullsigmask;
+        memset(&nullsigmask, 0, sizeof(nullsigmask));
+        /* syscall ABI, struct is in the  app's stack */
+        safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t),
+                      (const void *)&nullsigmask, NULL);
+        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+            set_failure_return_val(dcontext, EINTR);
+        }
         break;
     }
     case SYS_epoll_pwait: {
-        handle_pre_extended_syscall_sigmasks(dcontext,
-                                             (kernel_sigset_t *)sys_param(dcontext, 4),
-                                             (size_t)sys_param(dcontext, 5));
+        kernel_sigset_t *mask = (kernel_sigset_t *)sys_param(dcontext, 4);
+        size_t sizemask = (size_t)sys_param(dcontext, 5);
+        kernel_sigset_t nullsigmask;
+        memset(&nullsigmask, 0, sizeof(nullsigmask));
+        set_syscall_param(dcontext, 4, *(reg_t *)&nullsigmask);
+        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+            set_failure_return_val(dcontext, EINTR);
+        }
         break;
     }
 #    endif
+
     /****************************************************************************/
     /* FILES */
     /* prevent app from closing our files or opening a new file in our fd space.
@@ -8663,6 +8633,34 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
 #    endif
+#    ifdef LINUX
+    case SYS_ppoll: {
+        kernel_sigset_t app_sigblocked =
+            handle_post_extended_syscall_sigmasks(dcontext, success);
+        /* restore the old syscall parameter's value, which is the emulated sigmask
+         * from DR. */
+        set_syscall_param(dcontext, 3, *(reg_t *)&app_sigblocked);
+        break;
+    }
+    case SYS_pselect6: {
+        typedef const struct {
+            kernel_sigset_t *sigmask;
+            size_t sizemask;
+        } data_t;
+        data_t *data = (data_t *)sys_param(dcontext, 5);
+        kernel_sigset_t app_sigblocked =
+            handle_post_extended_syscall_sigmasks(dcontext, success);
+        safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t),
+                      (const void *)&app_sigblocked, NULL);
+        break;
+    }
+    case SYS_epoll_pwait: {
+        kernel_sigset_t app_sigblocked =
+            handle_post_extended_syscall_sigmasks(dcontext, success);
+        set_syscall_param(dcontext, 4, *(reg_t *)&app_sigblocked);
+        break;
+    }
+#    endif
 
     /****************************************************************************/
     /* FILES */
@@ -8762,12 +8760,6 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
-#    endif
-
-#    ifdef LINUX
-    case SYS_pselect6:
-    case SYS_ppoll:
-    case SYS_epoll_pwait: handle_post_extended_syscall_sigmasks(dcontext, success); break;
 #    endif
 
     default:
