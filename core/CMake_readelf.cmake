@@ -30,6 +30,9 @@
 # DAMAGE.
 
 # Caller must set:
+# + "lib_fileloc" to <name> that represents a file <name>.cmake the contains a
+# set(<name> <path>) where path is a library location. The .cmake file must reside
+# in the root build directory.
 # + READELF_EXECUTABLE so it can be a cache variable
 # + "lib" to point to target library
 # + "check_textrel" to ON or OFF to check to text relocations
