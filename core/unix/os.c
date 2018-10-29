@@ -369,6 +369,7 @@ static byte *app_brk_end;
 #    ifdef MACOS
 /* xref i#1404: we should expose these via the dr_get_os_version() API */
 static int macos_version;
+#        define MACOS_VERSION_HIGH_SIERRA 17
 #        define MACOS_VERSION_SIERRA 16
 #        define MACOS_VERSION_EL_CAPITAN 15
 #        define MACOS_VERSION_YOSEMITE 14
@@ -6538,10 +6539,6 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
     case TLS_TYPE_LDT: {
         uint index;
         uint selector;
-        /* XXX i#1285: added for MacOS private loader, but we don't
-         * have enough other code to test this yet.
-         */
-        ASSERT_NOT_TESTED();
         if (to_app) {
             selector = os_tls->app_lib_tls_reg;
             index = SELECTOR_INDEX(selector);
@@ -7795,7 +7792,13 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * Note, if it is a header of a different module, then we'll not have
                  * an overlap, so we will not hit this case.
                  */
-                ASSERT_CURIOSITY(ma->start + ma->os_data.alignment == base);
+                ASSERT_CURIOSITY(
+                    ma->start + ma->os_data.alignment ==
+                    base
+                        /* On Mac we walk the dyld module list before the
+                         * address space, so we often hit modules we already
+                         * know about. */
+                        IF_MACOS(|| !dynamo_initialized && ma->start == base));
             }
         });
     }
