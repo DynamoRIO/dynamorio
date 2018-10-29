@@ -91,6 +91,9 @@ function (DynamoRIO_add_rel_rpaths target)
       else ()
         get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
       endif()
+      # Reading the target pathes are configure time is no longer supported in
+      # cmake (CMP0026). This code was added to replace reading the LOCATION
+      # property at configure time. It assumes that targets are in standard locations.
       get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)
       file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
@@ -143,7 +146,7 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
-  # XXX: various caller functions depend on abspath of target at configure time.
+  # XXX i#1557: various caller functions depend on abspath of target at configure time.
   # If we want to eliminate LOCATION, we need to re-factor all the calls for all
   # the platforms and move them into .cmake files and call them w/ add_custom_commands
   # that can pass generator expressions to the callee. Fix CMP0026.
