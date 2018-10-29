@@ -67,14 +67,6 @@ if (AARCH64)
   include_directories(BEFORE ${PROJECT_BINARY_DIR})
 endif ()
 
-set(locvar_rel "")
-# Version 3.10 changed behavior of file(GENERATE to assume relative path, see
-# cmake --help-policy CMP0070. We keep CMP0070 policy set to "NEW" behavior.
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.10" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.10")
-  set(locvar_rel "../")
-endif()
-
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
@@ -614,7 +606,7 @@ if (UNIX)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       set(locvar_name dynamorioloc)
-      file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT
+      file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
         "set(${locvar_name} \"$<TARGET_FILE:dynamorio>\")\n")
       set(check_deps OFF)
       if (NOT APPLE)
@@ -782,8 +774,8 @@ if (NOT APPLE)
     endif ()
 
     set(locvar_name dynamorio_static_loc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
-      \"$<TARGET_FILE:dynamorio_static>\")\n")
+    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
 
     string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
 
@@ -872,8 +864,8 @@ if (UNIX)
   endif (APPLE)
   if (LINUX AND READELF_EXECUTABLE)
     set(locvar_name drpreloadloc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
-      \"$<TARGET_FILE:${PRELOAD_NAME}>\")\n")
+    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:${PRELOAD_NAME}>\")\n")
     add_custom_command(TARGET ${PRELOAD_NAME}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}

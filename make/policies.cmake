@@ -52,10 +52,3 @@ cmake_policy(SET CMP0020 OLD)
 
 # Recognize literals in if statements
 cmake_policy(SET CMP0012 NEW)
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.10" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.10")
-  # Starting with 3.10, emacs adds relative pathes to file(GENERATE). Our
-  # makefiles check for 3.10 and support the new behavior.
-  cmake_policy(SET CMP0070 NEW)
-endif()

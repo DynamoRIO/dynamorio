@@ -182,14 +182,9 @@ foreach (deploytgt drconfig drrun drinject)
     target_link_libraries(${deploytgt} drinjectlib)
   endif ()
   if (LINUX) # No checks for MacOS
-    set(locvar_rel "")
-    if ("${CMAKE_VERSION}" VERSION_EQUAL "3.10" OR
-        "${CMAKE_VERSION}" VERSION_GREATER "3.10")
-      set(locvar_rel "../")
-    endif()
     set(locvar_name ${deploytgt}loc)
-    file(GENERATE OUTPUT "${locvar_rel}${locvar_name}.cmake" CONTENT "set(${locvar_name} \
-      \"$<TARGET_FILE:${deploytgt}>\")\n")
+    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:${deploytgt}>\")\n")
     add_custom_command(TARGET ${deploytgt} POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       ARGS -D lib_fileloc=${locvar_name}
