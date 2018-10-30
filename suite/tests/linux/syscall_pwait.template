@@ -1,4 +1,4 @@
-#ifdef X64
+#if defined(X86) && defined(X64)
 handlers for signals: 10, 12
 signal blocked: 10
 Testing epoll_pwait

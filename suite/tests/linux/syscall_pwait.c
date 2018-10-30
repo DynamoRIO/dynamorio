@@ -198,7 +198,7 @@ main(int argc, char *argv[])
         return kick_off_child_signals(&sleeptime);
     }
 
-#if defined(X64)
+#if defined(X86) && defined(X64)
 
     print("Testing epoll_pwait, preserve mask\n");
 
