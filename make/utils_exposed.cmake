@@ -91,7 +91,7 @@ function (DynamoRIO_add_rel_rpaths target)
       else ()
         get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
       endif()
-      # Reading the target pathes are configure time is no longer supported in
+      # Reading the target paths are configure time is no longer supported in
       # cmake (CMP0026). This code was added to replace reading the LOCATION
       # property at configure time. It assumes that targets are in standard locations.
       get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)

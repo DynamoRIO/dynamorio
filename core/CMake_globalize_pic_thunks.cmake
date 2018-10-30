@@ -30,19 +30,20 @@
 # DAMAGE.
 
 # Caller must set:
-# + "lib_fileloc" to <name> that represents a file <name>.cmake the contains a
-# set(<name> <path>) where path is a library location. The .cmake file must reside
-# in the root build directory.
-# + CMAKE_C_COMPILER to point to CC compiler
-# + partial_link_flags to linker flags incl. -m32/-m64
-# + disable_pie_flag to -no-pie or ""
-# + CMAKE_OBJCOPY to point to objcopy
-# + CMAKE_AR to point to ar
-# + CMAKE_RANLIB to point to ranlib
+# + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake the
+#   contains a set(<name> <path>) where path is a library location.
+# + "CMAKE_C_COMPILER" to point to CC compiler
+# + "partial_link_flags" to linker flags incl. -m32/-m64
+# + "disable_pie_flag" to -no-pie or ""
+# + "CMAKE_OBJCOPY" to point to objcopy
+# + "CMAKE_AR" to point to ar
+# + "CMAKE_RANLIB" to point to ranlib
 
-include(../../${lib_fileloc}.cmake)
+include(${lib_fileloc}.cmake)
 
-set(dynamorio_dot_a "${${lib_fileloc}}")
+get_filename_component(lib_file ${lib_fileloc} NAME)
+
+set(dynamorio_dot_a "${${lib_file}}")
 string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
 
 execute_process(COMMAND

@@ -606,7 +606,7 @@ if (UNIX)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
       set(locvar_name dynamorioloc)
-      file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
         "set(${locvar_name} \"$<TARGET_FILE:dynamorio>\")\n")
       set(check_deps OFF)
       if (NOT APPLE)
@@ -627,7 +627,7 @@ if (UNIX)
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
-        ARGS -D lib_fileloc=${locvar_name}
+        ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D check_textrel=${check_textrel}
              -D check_deps=${check_deps}
              -D check_libc=OFF
@@ -774,7 +774,7 @@ if (NOT APPLE)
     endif ()
 
     set(locvar_name dynamorio_static_loc)
-    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
       "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
 
     string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
@@ -791,7 +791,7 @@ if (NOT APPLE)
     add_custom_command(TARGET dynamorio_static
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
-      ARGS -D lib_fileloc=${locvar_name}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D CMAKE_C_COMPILER=${CMAKE_C_COMPILER}
            -D partial_link_flags=${partial_link_flags}
            -D disable_pie_flag=${disable_pie_flag}
@@ -864,13 +864,13 @@ if (UNIX)
   endif (APPLE)
   if (LINUX AND READELF_EXECUTABLE)
     set(locvar_name drpreloadloc)
-    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
       "set(${locvar_name} \"$<TARGET_FILE:${PRELOAD_NAME}>\")\n")
     add_custom_command(TARGET ${PRELOAD_NAME}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       # to work around i#84 be sure to put a space after -D for 1st arg at least
-      ARGS -D lib_fileloc=${locvar_name}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON
