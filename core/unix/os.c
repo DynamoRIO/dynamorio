@@ -7457,7 +7457,10 @@ pre_system_call(dcontext_t *dcontext)
             set_failure_return_val(dcontext, EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         }
-        dcontext->sys_param5 = (reg_t)mask;
+        /* We're using sys_param5 to save the sizemask until post syscall to be
+         * able to restore it.
+         */
+        dcontext->sys_param5 = (reg_t)data->sizemask;
         /* See syscall ABI, struct is in the  app's stack. */
         safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t), (const void *)NULL,
                       NULL);
