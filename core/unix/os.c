@@ -7446,8 +7446,18 @@ pre_system_call(dcontext_t *dcontext)
             size_t sizemask;
         } data_t;
         data_t *data = (data_t *)sys_param(dcontext, 5);
-        kernel_sigset_t *mask = (kernel_sigset_t *)data->sigmask;
-        size_t sizemask = (size_t)data->sizemask;
+        kernel_sigset_t *mask;
+        if (!safe_read(&data->sigmask, sizeof(kernel_sigset_t), &mask)) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
+            set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        }
+        size_t sizemask;
+        if (!safe_read(&data->sizemask, sizeof(size_t), &sizemask)) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
+            set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        }
         kernel_sigset_t nullsigmask;
         memset(&nullsigmask, 0, sizeof(nullsigmask));
         /* See syscall ABI, struct is in the  app's stack. */
@@ -8642,8 +8652,9 @@ post_system_call(dcontext_t *dcontext)
     case SYS_ppoll: {
         kernel_sigset_t app_sigblocked =
             handle_post_extended_syscall_sigmasks(dcontext, success);
-        /* restore the old syscall parameter's value, which is the emulated sigmask
-         * from DR. */
+        /* Restore the old syscall parameter's value, which is the emulated sigmask
+         * from DR.
+         */
         set_syscall_param(dcontext, 3, *(reg_t *)&app_sigblocked);
         break;
     }
