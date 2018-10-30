@@ -7440,31 +7440,26 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
     case SYS_pselect6: {
-        typedef const struct {
+        typedef struct {
             kernel_sigset_t *sigmask;
             size_t sizemask;
         } data_t;
-        data_t *data = (data_t *)sys_param(dcontext, 5);
-        kernel_sigset_t *mask;
-        if (!safe_read(&data->sigmask, sizeof(kernel_sigset_t), &mask)) {
+        data_t *data_param = (data_t *)sys_param(dcontext, 5);
+        data_t data;
+        if (!safe_read(data_param, sizeof(data_t), &data)) {
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
             set_failure_return_val(dcontext, EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         }
-        size_t sizemask;
-        if (!safe_read(&data->sizemask, sizeof(size_t), &sizemask)) {
-            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
-            set_failure_return_val(dcontext, EINVAL);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-        }
-        /* We're using sys_param4 to save the sizemask until post syscall to be
+        /* We're using sys_param4 to save the sigmask until post syscall to be
          * able to restore it.
          */
-        dcontext->sys_param4 = (reg_t)data->sizemask;
-        /* See syscall ABI, struct is in the  app's stack. */
-        safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t), (const void *)NULL,
-                      NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+        ASSERT(data.sigmask == data_param->sigmask);
+        dcontext->sys_param4 = (reg_t)data.sigmask;
+        kernel_sigset_t *nullsigmaskptr = NULL;
+        safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                      &nullsigmaskptr, NULL);
+        if (handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask, data.sizemask)) {
             set_failure_return_val(dcontext, EINVAL);
         }
         break;
@@ -8658,14 +8653,14 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
     case SYS_pselect6: {
-        typedef const struct {
+        typedef struct {
             kernel_sigset_t *sigmask;
             size_t sizemask;
         } data_t;
-        data_t *data = (data_t *)sys_param(dcontext, 5);
+        data_t *data_param = (data_t *)sys_param(dcontext, 5);
         handle_post_extended_syscall_sigmasks(dcontext, success);
-        safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t),
-                      (const void *)dcontext->sys_param4, NULL);
+        safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                      &dcontext->sys_param4, NULL);
         break;
     }
     case SYS_epoll_pwait: {
