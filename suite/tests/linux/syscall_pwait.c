@@ -31,7 +31,7 @@
  */
 
 /*
- * test of epoll_pwait (xref i#2759, i#3240)
+ * Test of ppoll, pselect and epoll_pwait (xref i#2759, i#3240)
  */
 
 #include "tools.h"
@@ -49,6 +49,21 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
 {
     print("signal received: %d\n", sig);
+}
+
+int
+kick_off_child_signals(struct timespec *sleeptime)
+{
+    /* waste some time */
+    nanosleep(sleeptime, NULL);
+    kill(getppid(), SIGUSR2);
+    /* waste some time */
+    nanosleep(sleeptime, NULL);
+    kill(getppid(), SIGUSR1);
+    /* waste some time */
+    nanosleep(sleeptime, NULL);
+    kill(getppid(), SIGUSR1);
+    return 0;
 }
 
 int
@@ -80,25 +95,22 @@ main(int argc, char *argv[])
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR2);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        return 0;
+        return kick_off_child_signals(&sleeptime);
     }
 
-    int epoll_fd = epoll_create1(02000000);
+    int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
     int count = 0;
     while (count++ < 3) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test. */
-        epoll_pwait(epoll_fd, &events, 24, -1, &test_set);
+         * call. Once it does, please include this in this test or add a new test.
+         */
+        if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
+            if (errno != EINTR)
+                perror("expected EINTR");
+        } else {
+            perror("expected interruption of syscall");
+        }
     }
 
     /* waste some time */
@@ -108,23 +120,20 @@ main(int argc, char *argv[])
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR2);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        return 0;
+        return kick_off_child_signals(&sleeptime);
     }
 
     count = 0;
     while (count++ < 3) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test. */
-        pselect(0, NULL, NULL, NULL, NULL, &test_set);
+         * call. Once it does, please include this in this test or add a new test.
+         */
+        if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
+            if (errno != EINTR)
+                perror("expected EINTR");
+        } else {
+            perror("expected interruption of syscall");
+        }
     }
 
     /* waste some time */
@@ -134,23 +143,20 @@ main(int argc, char *argv[])
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR2);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        return 0;
+        return kick_off_child_signals(&sleeptime);
     }
 
     count = 0;
     while (count++ < 3) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test. */
-        ppoll(NULL, 0, NULL, &test_set);
+         * call. Once it does, please include this in this test or add a new test.
+         */
+        if (ppoll(NULL, 0, NULL, &test_set) == -1) {
+            if (errno != EINTR)
+                perror("expected EINTR");
+        } else {
+            perror("expected interruption of syscall");
+        }
     }
 
     return 0;
