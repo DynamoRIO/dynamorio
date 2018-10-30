@@ -7428,13 +7428,15 @@ pre_system_call(dcontext_t *dcontext)
         size_t sizemask = (size_t)sys_param(dcontext, 4);
         kernel_sigset_t nullsigmask;
         memset(&nullsigmask, 0, sizeof(nullsigmask));
-        /* original app's sigmask parameter is now NULL effectively making the syscall
-         * a non p* version, and the mask's semantics are emulated by DR instead. */
+        /* The original app's sigmask parameter is now NULL effectively making the syscall
+         * a non p* version, and the mask's semantics are emulated by DR instead.
+         */
         set_syscall_param(dcontext, 3, *(reg_t *)&nullsigmask);
         if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
-            /* in old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
-             * failure. we're already violating app transparency in other places in DR */
-            set_failure_return_val(dcontext, EINTR);
+            /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
+             * failure. We're already violating app transparency in other places in DR.
+             */
+            set_failure_return_val(dcontext, EINVAL);
         }
         break;
     }
@@ -7448,11 +7450,11 @@ pre_system_call(dcontext_t *dcontext)
         size_t sizemask = (size_t)data->sizemask;
         kernel_sigset_t nullsigmask;
         memset(&nullsigmask, 0, sizeof(nullsigmask));
-        /* syscall ABI, struct is in the  app's stack */
+        /* See syscall ABI, struct is in the  app's stack. */
         safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t),
                       (const void *)&nullsigmask, NULL);
         if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
-            set_failure_return_val(dcontext, EINTR);
+            set_failure_return_val(dcontext, EINVAL);
         }
         break;
     }
@@ -7463,7 +7465,7 @@ pre_system_call(dcontext_t *dcontext)
         memset(&nullsigmask, 0, sizeof(nullsigmask));
         set_syscall_param(dcontext, 4, *(reg_t *)&nullsigmask);
         if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
-            set_failure_return_val(dcontext, EINTR);
+            set_failure_return_val(dcontext, EINVAL);
         }
         break;
     }
