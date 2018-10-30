@@ -7457,10 +7457,10 @@ pre_system_call(dcontext_t *dcontext)
             set_failure_return_val(dcontext, EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         }
-        /* We're using sys_param5 to save the sizemask until post syscall to be
+        /* We're using sys_param4 to save the sizemask until post syscall to be
          * able to restore it.
          */
-        dcontext->sys_param5 = (reg_t)data->sizemask;
+        dcontext->sys_param4 = (reg_t)data->sizemask;
         /* See syscall ABI, struct is in the  app's stack. */
         safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t), (const void *)NULL,
                       NULL);
@@ -8665,7 +8665,7 @@ post_system_call(dcontext_t *dcontext)
         data_t *data = (data_t *)sys_param(dcontext, 5);
         handle_post_extended_syscall_sigmasks(dcontext, success);
         safe_write_ex((void *)&data->sigmask, sizeof(kernel_sigset_t),
-                      (const void *)dcontext->sys_param5, NULL);
+                      (const void *)dcontext->sys_param4, NULL);
         break;
     }
     case SYS_epoll_pwait: {
