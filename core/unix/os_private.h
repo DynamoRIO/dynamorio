@@ -313,7 +313,7 @@ bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask,
                                      size_t sizemask);
 
-kernel_sigset_t
+void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
 #endif
 

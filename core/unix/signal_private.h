@@ -431,7 +431,8 @@ typedef struct _thread_sig_info_t {
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
     /* for preserving the app memory (xref i#1187), and for preserving app
-     * mask supporting ppoll, epoll_pwait and pselect */
+     * mask supporting ppoll, epoll_pwait and pselect
+     */
     kernel_sigset_t pre_syscall_app_sigprocmask;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)

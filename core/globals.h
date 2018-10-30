@@ -887,6 +887,7 @@ struct _dcontext_t {
 #endif
 #ifdef UNIX
     reg_t sys_param4; /* used for post_system_call i#173 */
+    reg_t sys_param5; /* used for post_system_call i#2759 */
     bool sys_was_int; /* was the last system call via do_int_syscall? */
     bool sys_xbp;     /* PR 313715: store orig xbp */
 #    ifdef DEBUG
