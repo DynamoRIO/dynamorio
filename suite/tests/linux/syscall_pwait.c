@@ -109,18 +109,11 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
         if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
         } else {
             perror("expected interruption of syscall");
-        }
-        if (test_set_check != &test_set) {
-            /* This check is almost meaningless. What we really had to check is the
-             * mask register parameter right after the syscall in the glibc wrapper.
-             */
-            perror("different mask pointer");
         }
     }
 
@@ -141,18 +134,11 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
         if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
         } else {
             perror("expected interruption of syscall");
-        }
-        if (test_set_check != &test_set) {
-            /* This check is almost meaningless. What we really had to check is the
-             * mask register parameter right after the syscall in the glibc wrapper.
-             */
-            perror("different mask pointer");
         }
     }
 
@@ -173,18 +159,11 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
         if (ppoll(NULL, 0, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
         } else {
             perror("expected interruption of syscall");
-        }
-        if (test_set_check != &test_set) {
-            /* This check is almost meaningless. What we really had to check is the
-             * mask register parameter right after the syscall in the glibc wrapper.
-             */
-            perror("different mask pointer");
         }
     }
 
@@ -244,8 +223,8 @@ main(int argc, char *argv[])
 
     count = 0;
     while (count++ < 3) {
-        /* syscall preserves all registers but rax, rcx and r11. Note that we're
-         * clobbering rbx which is choosen randomly, in order to save the old mask
+        /* Syscall preserves all registers except rax, rcx and r11. Note that we're
+         * clobbering rbx (which is choosen randomly) in order to save the old mask
          * to perform the check.
          */
         asm goto("movq 0(%6), %%rbx\n\t"
