@@ -242,7 +242,7 @@ main(int argc, char *argv[])
                  "jne %l8\n"
                  :
                  : "r"((int64_t)SYS_pselect6), "r"(0LL), "rm"(NULL), "rm"(NULL),
-                   "rm"(NULL), "rm"(NULL), "rm"(&data)
+                   "rm"(NULL), "rm"(NULL), "r"(&data)
                  : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx"
                  : syscall_no_error, mask_pointer_different);
     }
