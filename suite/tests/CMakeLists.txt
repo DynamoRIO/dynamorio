@@ -879,19 +879,18 @@ function(torunonly test realtest source dr_ops exe_ops)
 endfunction(torunonly)
 
 function(tobind target)
-  get_target_property(binary ${target} LOCATION${location_suffix})
   if (BIND_EXECUTABLE)
     add_custom_command(TARGET ${target}
       POST_BUILD
       COMMAND ${BIND_EXECUTABLE}
-      ARGS -u ${binary}
+      ARGS -u $<TARGET_FILE:${target}>
       VERBATIM # recommended: p260
       )
   else (BIND_EXECUTABLE)
     add_custom_command(TARGET ${target}
       POST_BUILD
       COMMAND ${CMAKE_LINKER}
-      ARGS /edit /bind ${binary}
+      ARGS /edit /bind $<TARGET_FILE:${target}>
       VERBATIM # recommended: p260
       )
   endif (BIND_EXECUTABLE)
@@ -904,11 +903,10 @@ endfunction(tobind)
 # If both are needed, "wine_exec_t" seems to do the trick.
 function(tochcon target type)
   if (UNIX AND SEUNIXFOUND)
-    get_target_property(binary ${target} LOCATION${location_suffix})
     add_custom_command(TARGET ${target}
       POST_BUILD
       COMMAND ${CHCON}
-      ARGS -t ${type} ${binary}
+      ARGS -t ${type} $<TARGET_FILE:${target}>
       VERBATIM # recommended: p260
       )
   endif (UNIX AND SEUNIXFOUND)
@@ -1613,6 +1611,13 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
+
+    # XXX i#1557: replace w/ generator expression to satisfy CMP0026
+    # This LOCATION call depends on configuration time used by either functions or other
+    # (configuration time-) calls. In order to eliminate LOCATION (CMP0026), we need to
+    # re-factor all of this and move all the semantics below into a separate .cmake file
+    # that reads a file w/ the LOCATION substituted by file(GENERATE ..) The .cmake file
+    # then needs to get invoked by add_custom_command(TARGET ..) w/ -P .cmake.
     get_target_property(native_dll_name common.nativeexec.appdll
       LOCATION${location_suffix})
     get_filename_component(native_dll_name "${native_dll_name}" NAME)
@@ -1740,6 +1745,7 @@ if (CLIENT_INTERFACE)
   # FIXME i#2008: fix bugs on Android
   if (NOT MACOS AND NOT ANDROID)
     tobuild_appdll(client.modules client-interface/modules.c)
+    # XXX i#1557: replace w/ generator expression to satisfy CMP0026
     get_target_property(modules_libname client.modules.appdll
       LOCATION${location_suffix})
     tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
@@ -1910,6 +1916,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
+    # XXX i#1557: replace w/ generator expression to satisfy CMP0026
     get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
   endif (NOT ARM)
   if (ANNOTATIONS AND NOT ARM)
@@ -2140,6 +2147,7 @@ if (CLIENT_INTERFACE)
       if (BUILD_SAMPLES)
         get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
         list(GET sample_list 1 sample_one) # 0 is empty
+        # XXX i#1557: replace w/ generator expression to satisfy CMP0026
         get_target_property(sample_loc ${sample_one} LOCATION${location_suffix})
         get_filename_component(sample_dir ${sample_loc} PATH)
         configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
@@ -2339,6 +2347,7 @@ if (CLIENT_INTERFACE)
       # which results in unresolved symbols.
       # The only fix I could come up with is to force dynamorio.lib earlier
       # using the link flags:
+      # XXX i#1557: replace w/ generator expression to satisfy CMP0026
       get_target_property(drpath dynamorio LOCATION${location_suffix})
       get_filename_component(drdir ${drpath} DIRECTORY)
       get_filename_component(drname ${drpath} NAME_WE)
@@ -2489,6 +2498,7 @@ endif ()
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
       set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.fib_expectbase "tool.drcov.fib")
+      # XXX i#1557: replace w/ generator expression to satisfy CMP0026
       get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
     endif ()
 
@@ -3276,6 +3286,7 @@ else (UNIX)
 
   tobuild_dll(win32.multisec win32/multisec.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(multisec_path win32.multisec.dll LOCATION${location_suffix})
   add_custom_command(TARGET win32.multisec.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${multisec_path}
@@ -3294,6 +3305,7 @@ else (UNIX)
 
   tobuild_dll(win32.rebased win32/rebased.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(rebased_path win32.rebased.dll LOCATION${location_suffix})
   add_custom_command(TARGET win32.rebased.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${rebased_path}
