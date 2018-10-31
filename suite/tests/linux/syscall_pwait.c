@@ -52,19 +52,33 @@ signal_handler(int sig, siginfo_t *siginfo, void *context)
     print("signal received: %d\n", sig);
 }
 
-int
-kick_off_child_signals(struct timespec *sleeptime)
+bool
+kick_off_child_signals()
 {
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 500 * 1000 * 1000;
+
     /* waste some time */
-    nanosleep(sleeptime, NULL);
-    kill(getppid(), SIGUSR2);
-    /* waste some time */
-    nanosleep(sleeptime, NULL);
-    kill(getppid(), SIGUSR1);
-    /* waste some time */
-    nanosleep(sleeptime, NULL);
-    kill(getppid(), SIGUSR1);
-    return 0;
+    nanosleep(&sleeptime, NULL);
+
+    int pid = fork();
+    if (pid < 0) {
+        perror("fork error");
+    } else if (pid == 0) {
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR2);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        /* waste some time */
+        nanosleep(&sleeptime, NULL);
+        kill(getppid(), SIGUSR1);
+        return true;
+    }
+
+    return false;
 }
 
 int
@@ -88,16 +102,8 @@ main(int argc, char *argv[])
     sigdelset(&test_set, SIGUSR1);
     sigdelset(&test_set, SIGUSR2);
 
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 500 * 1000 * 1000;
-
-    int pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
+    if (kick_off_child_signals())
+        return 0;
 
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
@@ -117,15 +123,8 @@ main(int argc, char *argv[])
         }
     }
 
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
+    if (kick_off_child_signals())
+        return 0;
 
     print("Testing pselect\n");
 
@@ -142,15 +141,8 @@ main(int argc, char *argv[])
         }
     }
 
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
+    if (kick_off_child_signals())
+        return 0;
 
     print("Testing ppoll\n");
 
@@ -167,43 +159,51 @@ main(int argc, char *argv[])
         }
     }
 
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
-
 #if defined(X86) && defined(X64)
+
+    if (kick_off_child_signals())
+        return 0;
 
     print("Testing epoll_pwait, preserve mask\n");
 
     count = 0;
     while (count++ < 3) {
-        asm goto("movq %0, %%rax\n\t"
-                 "movq %1, %%rdi\n\t"
-                 "movq %2, %%rsi\n\t"
-                 "movq %3, %%rdx\n\t"
-                 "movq %4, %%r10\n\t"
-                 "movq %5, %%r8\n\t"
-                 "movq %6, %%r9\n\t"
-                 "syscall\n\t"
-                 "cmp $-4095, %%rax\n\t"
-                 "jl %l7\n\t"
-                 "cmp %5, %%r8\n\t"
-                 "jne %l8\n"
-                 :
-                 : "r"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd), "rm"(&events),
-                   "r"(24LL), "r"(-1LL), "rm"(&test_set), "r"((int64_t)(_NSIG / 8))
-                 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"
-                 : syscall_no_error, mask_pointer_different);
+        int syscall_error = 0;
+        int mask_error = 0;
+        asm volatile("movq %2, %%rax\n\t"
+                     "movq %3, %%rdi\n\t"
+                     "movq %4, %%rsi\n\t"
+                     "movq %5, %%rdx\n\t"
+                     "movq %6, %%r10\n\t"
+                     "movq %7, %%r8\n\t"
+                     "movq %8, %%r9\n\t"
+                     "syscall\n\t"
+                     "mov $0, %0\n\t"
+                     "cmp $-4095, %%rax\n\t"
+                     "jl no_syscall_error%=\n\t"
+                     "mov $1, %0\n\t"
+                     "no_syscall_error%=:\n\t"
+                     "mov $0, %1\n\t"
+                     "cmp %7, %%r8\n\t"
+                     "je no_mask_error%=\n\t"
+                     "mov $1, %1\n\t"
+                     "no_mask_error%=:\n"
+                     /* early-clobber outputs */
+                     : "=&r"(syscall_error), "=&r"(mask_error)
+                     : "r"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd),
+                       "rm"(&events), "r"(24LL), "r"(-1LL), "r"(&test_set),
+                       "r"((int64_t)(_NSIG / 8))
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9");
+        if (syscall_error == 0)
+            perror("expected syscall error EINTR");
+        if (mask_error == 1) {
+            /* This checks whether DR has properly restored the mask parameter after the
+             * syscall. I.e. internally, DR may choose to change the parameter prior to
+             * the syscall.
+             */
+            perror("expected syscall to preserve mask parameter");
+        }
     }
-
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
 
     typedef const struct {
         sigset_t *sigmask;
@@ -212,83 +212,77 @@ main(int argc, char *argv[])
 
     data_t data = { &test_set, _NSIG / 8 };
 
-    pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
+    if (kick_off_child_signals())
+        return 0;
 
     print("Testing pselect, preserve mask\n");
 
     count = 0;
     while (count++ < 3) {
+        int syscall_error = 0;
+        int mask_error = 0;
         /* Syscall preserves all registers except rax, rcx and r11. Note that we're
          * clobbering rbx (which is choosen randomly) in order to save the old mask
          * to perform the check.
          */
-        asm goto("movq 0(%6), %%rbx\n\t"
-                 "movq %0, %%rax\n\t"
-                 "movq %1, %%rdi\n\t"
-                 "movq %2, %%rsi\n\t"
-                 "movq %3, %%rdx\n\t"
-                 "movq %4, %%r10\n\t"
-                 "movq %5, %%r8\n\t"
-                 "movq %6, %%r9\n\t"
-                 "syscall\n\t"
-                 "cmpq $-4095, %%rax\n\t"
-                 "jl %l7\n\t"
-                 "cmpq 0(%%r9), %%rbx\n\t"
-                 "jne %l8\n"
-                 :
-                 : "r"((int64_t)SYS_pselect6), "r"(0LL), "rm"(NULL), "rm"(NULL),
-                   "rm"(NULL), "rm"(NULL), "r"(&data)
-                 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx"
-                 : syscall_no_error, mask_pointer_different);
+        asm volatile("movq 0(%8), %%rbx\n\t"
+                     "movq %2, %%rax\n\t"
+                     "movq %3, %%rdi\n\t"
+                     "movq %4, %%rsi\n\t"
+                     "movq %5, %%rdx\n\t"
+                     "movq %6, %%r10\n\t"
+                     "movq %7, %%r8\n\t"
+                     "movq %8, %%r9\n\t"
+                     "syscall\n\t"
+                     "mov $0, %0\n\t"
+                     "cmp $-4095, %%rax\n\t"
+                     "jl no_syscall_error%=\n\t"
+                     "mov $1, %0\n\t"
+                     "no_syscall_error%=:\n\t"
+                     "mov $0, %1\n\t"
+                     "cmp 0(%%r9), %%rbx\n\t"
+                     "je no_mask_error%=\n\t"
+                     "mov $1, %1\n\t"
+                     "no_mask_error%=:\n"
+                     /* early-clobber ouputs */
+                     : "=&r"(syscall_error), "=&r"(mask_error)
+                     : "r"((int64_t)SYS_pselect6), "r"(0LL), "rm"(NULL), "rm"(NULL),
+                       "rm"(NULL), "rm"(NULL), "r"(&data)
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx");
     }
 
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
-        return kick_off_child_signals(&sleeptime);
-    }
+    if (kick_off_child_signals())
+        return 0;
 
     print("Testing ppoll, preserve mask\n");
 
     count = 0;
     while (count++ < 3) {
-        asm goto("movq %0, %%rax\n\t"
-                 "movq %1, %%rdi\n\t"
-                 "movq %2, %%rsi\n\t"
-                 "movq %3, %%rdx\n\t"
-                 "movq %4, %%r10\n\t"
-                 "movq %5, %%r8\n\t"
-                 "syscall\n\t"
-                 "cmp $-4095, %%rax\n\t"
-                 "jl %l6\n\t"
-                 "cmp %5, %%r8\n\t"
-                 "jne %l7\n"
-                 :
-                 : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(0LL), "rm"(NULL),
-                   "r"(&test_set), "r"((int64_t)(_NSIG / 8))
-                 : "rax", "rdi", "rsi", "rdx", "r10", "r8"
-                 : syscall_no_error, mask_pointer_different);
+        int syscall_error = 0;
+        int mask_error = 0;
+        asm volatile("movq %2, %%rax\n\t"
+                     "movq %3, %%rdi\n\t"
+                     "movq %4, %%rsi\n\t"
+                     "movq %5, %%rdx\n\t"
+                     "movq %6, %%r10\n\t"
+                     "movq %7, %%r8\n\t"
+                     "syscall\n\t"
+                     "mov $0, %0\n\t"
+                     "cmp $-4095, %%rax\n\t"
+                     "jl no_syscall_error%=\n\t"
+                     "mov $1, %0\n\t"
+                     "no_syscall_error%=:\n\t"
+                     "mov $0, %1\n\t"
+                     "cmp %6, %%r10\n\t"
+                     "je no_mask_error%=\n\t"
+                     "mov $1, %1\n\t"
+                     "no_mask_error%=:\n"
+                     /* early-clobber outputs */
+                     : "=&r"(syscall_error), "=&r"(mask_error)
+                     : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(0LL), "rm"(NULL),
+                       "r"(&test_set), "r"((int64_t)(_NSIG / 8))
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8");
     }
-
-    return 0;
-
-syscall_no_error:
-    perror("expected syscall error EINTR");
-
-mask_pointer_different:
-    /* This checks whether DR has properly restored the mask parameter after the syscall.
-     * I.e. internally, DR may choose to change the parameter prior to the syscall.
-     */
-    perror("expected syscall to preserve mask parameter");
 
 #endif
 
