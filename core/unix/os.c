@@ -7454,7 +7454,6 @@ pre_system_call(dcontext_t *dcontext)
         /* We're using sys_param4 to save the sigmask until post syscall to be
          * able to restore it.
          */
-        ASSERT(data.sigmask == data_param->sigmask);
         dcontext->sys_param4 = (reg_t)data.sigmask;
         kernel_sigset_t *nullsigmaskptr = NULL;
         safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
