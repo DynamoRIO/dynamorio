@@ -7448,7 +7448,7 @@ pre_system_call(dcontext_t *dcontext)
         data_t data;
         if (!safe_read(data_param, sizeof(data_t), &data)) {
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
-            set_failure_return_val(dcontext, EINVAL);
+            set_failure_return_val(dcontext, EFAULT);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         }
         /* We're using sys_param4 to save the sigmask until post syscall to be
