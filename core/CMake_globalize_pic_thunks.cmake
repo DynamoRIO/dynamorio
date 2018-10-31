@@ -30,8 +30,8 @@
 # DAMAGE.
 
 # Caller must set:
-# + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake the
-#   contains a set(<name> <path>) where path is a library location.
+# + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake that
+#   contains a set(<name> <path>) where path is the target binary location.
 # + "CMAKE_C_COMPILER" to point to CC compiler
 # + "partial_link_flags" to linker flags incl. -m32/-m64
 # + "disable_pie_flag" to -no-pie or ""

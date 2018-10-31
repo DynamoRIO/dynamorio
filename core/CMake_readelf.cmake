@@ -30,8 +30,8 @@
 # DAMAGE.
 
 # Caller must set:
-# + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake the
-#   contains a set(<name> <path>) where path is a library location.
+# + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake that
+#   contains a set(<name> <path>) where path is the target binary location.
 # + "READELF_EXECUTABLE" so it can be a cache variable
 # + "lib" to point to target library
 # + "check_textrel" to ON or OFF to check to text relocations
