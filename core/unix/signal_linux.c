@@ -350,7 +350,7 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
 }
 
 bool
-handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask,
+handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
                                      size_t sizemask)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
@@ -364,7 +364,7 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *mask
     bool expected_to_fail = sizemask != sizeof(kernel_sigset_t);
     DODEBUG({ dcontext->expect_last_syscall_to_fail = expected_to_fail; });
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
-    signal_set_mask(dcontext, mask);
+    signal_set_mask(dcontext, sigmask);
     return expected_to_fail;
 }
 
