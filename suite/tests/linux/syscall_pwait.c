@@ -50,19 +50,34 @@
 #include <time.h>
 #include <poll.h>
 
+#define MAX_SIG 32
+
+typedef struct {
+    sigset_t *sigmask;
+    size_t sizemask;
+} data_t;
+
+static struct timespec sleeptime;
+
 static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
 {
     print("signal received: %d\n", sig);
 }
 
+static bool
+compare_sigmasks(sigset_t *sig_a, sigset_t *sig_b)
+{
+    for (int i = 0; i < MAX_SIG; ++i) {
+        if (sigismember(sig_a, i) != sigismember(sig_b, i))
+            return false;
+    }
+    return true;
+}
+
 bool
 kick_off_child_signals()
 {
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 500 * 1000 * 1000;
-
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
@@ -93,6 +108,9 @@ main(int argc, char *argv[])
 
     INIT();
 
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 500 * 1000 * 1000;
+
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
     print("handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
@@ -119,15 +137,18 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
+        sigset_t pre_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
-            if (&test_set != test_set_check)
-                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
+        sigset_t post_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
+        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
+            perror("sigmask mismatch");
     }
 
     if (kick_off_child_signals())
@@ -140,15 +161,18 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
+        sigset_t pre_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
-            if (&test_set != test_set_check)
-                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
+        sigset_t post_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
+        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
+            perror("sigmask mismatch");
     }
 
     if (kick_off_child_signals())
@@ -161,16 +185,49 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t *test_set_check = &test_set;
+        sigset_t pre_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (ppoll(NULL, 0, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
-            if (&test_set != test_set_check)
-                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
+        sigset_t post_syscall_set;
+        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
+        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
+            perror("sigmask mismatch");
     }
+
+    print("Testing epoll_pwait failure\n");
+
+    /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the nature
+     * of the syscall. Maybe change this into something that will rather fail immediately.
+     */
+
+    /* waste some time */
+    nanosleep(&sleeptime, NULL);
+
+    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24LL, -1LL, &test_set, 0) == 0)
+        perror("expected syscall failure");
+
+    print("Testing pselect failure\n");
+
+    /* waste some time */
+    nanosleep(&sleeptime, NULL);
+
+    data_t data_wrong = { &test_set, 0 };
+
+    if (syscall(SYS_pselect6, 0, NULL, NULL, NULL, NULL, &data_wrong) == 0)
+        perror("expected syscall failure");
+
+    print("Testing ppoll failure\n");
+
+    /* waste some time */
+    nanosleep(&sleeptime, NULL);
+
+    if (syscall(SYS_ppoll, NULL, 0, NULL, &test_set, 0) == 0)
+        perror("expected syscall failure");
 
 #if defined(X86) && defined(X64)
 
@@ -224,11 +281,6 @@ main(int argc, char *argv[])
             perror("expected syscall to preserve mask parameter");
         }
     }
-
-    typedef const struct {
-        sigset_t *sigmask;
-        size_t sizemask;
-    } data_t;
 
     data_t data = { &test_set, _NSIG / 8 };
 

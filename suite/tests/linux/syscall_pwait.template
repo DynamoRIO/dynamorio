@@ -12,6 +12,9 @@ Testing ppoll
 signal received: 12
 signal received: 10
 signal received: 10
+Testing epoll_pwait failure
+Testing pselect failure
+Testing ppoll failure
 #if defined(X86) && defined(X64)
 Testing epoll_pwait, preserve mask
 signal received: 12
