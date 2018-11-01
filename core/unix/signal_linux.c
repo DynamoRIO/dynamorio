@@ -361,11 +361,9 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
      * are not properly emulated w.r.t. their atomicity setting the sigprocmask and
      * executing the syscall.
      */
-    bool expected_to_fail = sizemask != sizeof(kernel_sigset_t);
-    DODEBUG({ dcontext->expect_last_syscall_to_fail = expected_to_fail; });
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
     signal_set_mask(dcontext, sigmask);
-    return expected_to_fail;
+    return sizemask == sizeof(kernel_sigset_t);
 }
 
 void

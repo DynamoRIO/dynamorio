@@ -36,6 +36,10 @@
 
 #include "tools.h"
 
+#ifndef LINUX
+#    error Test of Linux-only system calls
+#endif
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,9 +119,12 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
+        sigset_t *test_set_check = &test_set;
         if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
+            if (&test_set != test_set_check)
+                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
@@ -133,9 +140,12 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
+        sigset_t *test_set_check = &test_set;
         if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
+            if (&test_set != test_set_check)
+                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
@@ -151,9 +161,12 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
+        sigset_t *test_set_check = &test_set;
         if (ppoll(NULL, 0, NULL, &test_set) == -1) {
             if (errno != EINTR)
                 perror("expected EINTR");
+            if (&test_set != test_set_check)
+                perror("sigmask mismatch");
         } else {
             perror("expected interruption of syscall");
         }
@@ -174,7 +187,7 @@ main(int argc, char *argv[])
          * clobbering rbx (which is choosen randomly) in order to save the old mask
          * for a mask check. Upon a syscall, DR will modify the sigmask parameter
          * of the call and restore it post syscall. The mask check is making sure
-         * sure that save/restore is done properly.
+         * that save/restore is done properly.
          */
         asm volatile("mov %7, %%rbx\n\t"
                      "movq %2, %%rax\n\t"

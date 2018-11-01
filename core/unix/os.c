@@ -7431,11 +7431,13 @@ pre_system_call(dcontext_t *dcontext)
          */
         dcontext->sys_param3 = (reg_t)sigmask;
         set_syscall_param(dcontext, 3, (reg_t)NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
+        if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
             /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
              * failure. We're already violating app transparency in other places in DR.
              */
             set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }
@@ -7444,23 +7446,30 @@ pre_system_call(dcontext_t *dcontext)
             kernel_sigset_t *sigmask;
             size_t sizemask;
         } data_t;
-        data_t *data_param = (data_t *)sys_param(dcontext, 5);
+        dcontext->sys_param3 = sys_param(dcontext, 5);
+        data_t *data_param = (data_t *)dcontext->sys_param3;
         data_t data;
+        /* Refer to comments in SYS_ppoll above. Taking extra steps here due to struct
+         * argument in pselect6.
+         */
         if (!safe_read(data_param, sizeof(data), &data)) {
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
             set_failure_return_val(dcontext, EFAULT);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         } else {
-            /* We're using sys_param4 to save the sigmask until post syscall to be
-             * able to restore it.
-             */
             dcontext->sys_param4 = (reg_t)data.sigmask;
             kernel_sigset_t *nullsigmaskptr = NULL;
-            safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                          &nullsigmaskptr, NULL);
-            if (handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask,
-                                                     data.sizemask)) {
+            if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                               &nullsigmaskptr, NULL)) {
+                set_failure_return_val(dcontext, EFAULT);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            } else if (!handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask,
+                                                             data.sizemask)) {
                 set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
             }
         }
         break;
@@ -7468,10 +7477,13 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_epoll_pwait: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 4);
         size_t sizemask = (size_t)sys_param(dcontext, 5);
+        /* Refer to comments in SYS_ppoll above. */
         dcontext->sys_param4 = (reg_t)sigmask;
         set_syscall_param(dcontext, 4, (reg_t)NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
+        if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
             set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }
@@ -8655,10 +8667,12 @@ post_system_call(dcontext_t *dcontext)
             kernel_sigset_t *sigmask;
             size_t sizemask;
         } data_t;
-        data_t *data_param = (data_t *)sys_param(dcontext, 5);
+        data_t *data_param = (data_t *)dcontext->sys_param3;
         handle_post_extended_syscall_sigmasks(dcontext, success);
-        safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                      &dcontext->sys_param4, NULL);
+        if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                           &dcontext->sys_param4, NULL)) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\tEFAULT for pselect6 post syscall\n");
+        }
         break;
     }
     case SYS_epoll_pwait: {
