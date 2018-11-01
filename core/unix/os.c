@@ -8647,9 +8647,6 @@ post_system_call(dcontext_t *dcontext)
 #    ifdef LINUX
     case SYS_ppoll: {
         handle_post_extended_syscall_sigmasks(dcontext, success);
-        /* Restore the old syscall parameter's value, which is the emulated sigmask
-         * from DR.
-         */
         set_syscall_param(dcontext, 3, dcontext->sys_param3);
         break;
     }
