@@ -170,7 +170,14 @@ main(int argc, char *argv[])
     while (count++ < 3) {
         int syscall_error = 0;
         int mask_error = 0;
-        asm volatile("movq %2, %%rax\n\t"
+        /* Syscall preserves all registers except rax, rcx and r11. Note that we're
+         * clobbering rbx (which is choosen randomly) in order to save the old mask
+         * for a mask check. Upon a syscall, DR will modify the sigmask parameter
+         * of the call and restore it post syscall. The mask check is making sure
+         * sure that save/restore is done properly.
+         */
+        asm volatile("mov %7, %%rbx\n\t"
+                     "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
                      "movq %4, %%rsi\n\t"
                      "movq %5, %%rdx\n\t"
@@ -184,16 +191,16 @@ main(int argc, char *argv[])
                      "mov $1, %0\n\t"
                      "no_syscall_error%=:\n\t"
                      "mov $0, %1\n\t"
-                     "cmp %7, %%r8\n\t"
+                     "cmp %%rbx, %%r8\n\t"
                      "je no_mask_error%=\n\t"
                      "mov $1, %1\n\t"
                      "no_mask_error%=:\n"
                      /* early-clobber outputs */
                      : "=&r"(syscall_error), "=&r"(mask_error)
                      : "r"((int64_t)SYS_epoll_pwait), "rm"((int64_t)epoll_fd),
-                       "rm"(&events), "r"(24LL), "r"(-1LL), "r"(&test_set),
+                       "rm"(&events), "r"(24LL), "r"(-1LL), "rm"(&test_set),
                        "r"((int64_t)(_NSIG / 8))
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9");
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1) {
@@ -221,10 +228,6 @@ main(int argc, char *argv[])
     while (count++ < 3) {
         int syscall_error = 0;
         int mask_error = 0;
-        /* Syscall preserves all registers except rax, rcx and r11. Note that we're
-         * clobbering rbx (which is choosen randomly) in order to save the old mask
-         * to perform the check.
-         */
         asm volatile("movq 0(%8), %%rbx\n\t"
                      "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
@@ -249,6 +252,10 @@ main(int argc, char *argv[])
                      : "r"((int64_t)SYS_pselect6), "r"(0LL), "rm"(NULL), "rm"(NULL),
                        "rm"(NULL), "rm"(NULL), "r"(&data)
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx");
+        if (syscall_error == 0)
+            perror("expected syscall error EINTR");
+        if (mask_error == 1)
+            perror("expected syscall to preserve mask parameter");
     }
 
     if (kick_off_child_signals())
@@ -260,7 +267,8 @@ main(int argc, char *argv[])
     while (count++ < 3) {
         int syscall_error = 0;
         int mask_error = 0;
-        asm volatile("movq %2, %%rax\n\t"
+        asm volatile("mov %6, %%rbx\n\t"
+                     "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
                      "movq %4, %%rsi\n\t"
                      "movq %5, %%rdx\n\t"
@@ -273,15 +281,19 @@ main(int argc, char *argv[])
                      "mov $1, %0\n\t"
                      "no_syscall_error%=:\n\t"
                      "mov $0, %1\n\t"
-                     "cmp %6, %%r10\n\t"
+                     "cmp %%rbx, %%r10\n\t"
                      "je no_mask_error%=\n\t"
                      "mov $1, %1\n\t"
                      "no_mask_error%=:\n"
                      /* early-clobber outputs */
                      : "=&r"(syscall_error), "=&r"(mask_error)
                      : "r"((int64_t)SYS_ppoll), "rm"(NULL), "r"(0LL), "rm"(NULL),
-                       "r"(&test_set), "r"((int64_t)(_NSIG / 8))
-                     : "rax", "rdi", "rsi", "rdx", "r10", "r8");
+                       "rm"(&test_set), "r"((int64_t)(_NSIG / 8))
+                     : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx");
+        if (syscall_error == 0)
+            perror("expected syscall error EINTR");
+        if (mask_error == 1)
+            perror("expected syscall to preserve mask parameter");
     }
 
 #endif
