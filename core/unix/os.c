@@ -7424,14 +7424,14 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    ifdef LINUX
     case SYS_ppoll: {
-        kernel_sigset_t *mask = (kernel_sigset_t *)sys_param(dcontext, 3);
+        kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 3);
         size_t sizemask = (size_t)sys_param(dcontext, 4);
         /* The original app's sigmask parameter is now NULL effectively making the syscall
          * a non p* version, and the mask's semantics are emulated by DR instead.
          */
-        dcontext->sys_param3 = (reg_t)mask;
+        dcontext->sys_param3 = (reg_t)sigmask;
         set_syscall_param(dcontext, 3, (reg_t)NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+        if (handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
             /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
              * failure. We're already violating app transparency in other places in DR.
              */
@@ -7450,25 +7450,27 @@ pre_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
             set_failure_return_val(dcontext, EFAULT);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-        }
-        /* We're using sys_param4 to save the sigmask until post syscall to be
-         * able to restore it.
-         */
-        dcontext->sys_param4 = (reg_t)data.sigmask;
-        kernel_sigset_t *nullsigmaskptr = NULL;
-        safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                      &nullsigmaskptr, NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask, data.sizemask)) {
-            set_failure_return_val(dcontext, EINVAL);
+        } else {
+            /* We're using sys_param4 to save the sigmask until post syscall to be
+             * able to restore it.
+             */
+            dcontext->sys_param4 = (reg_t)data.sigmask;
+            kernel_sigset_t *nullsigmaskptr = NULL;
+            safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                          &nullsigmaskptr, NULL);
+            if (handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask,
+                                                     data.sizemask)) {
+                set_failure_return_val(dcontext, EINVAL);
+            }
         }
         break;
     }
     case SYS_epoll_pwait: {
-        kernel_sigset_t *mask = (kernel_sigset_t *)sys_param(dcontext, 4);
+        kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 4);
         size_t sizemask = (size_t)sys_param(dcontext, 5);
-        dcontext->sys_param4 = (reg_t)mask;
+        dcontext->sys_param4 = (reg_t)sigmask;
         set_syscall_param(dcontext, 4, (reg_t)NULL);
-        if (handle_pre_extended_syscall_sigmasks(dcontext, mask, sizemask)) {
+        if (handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask)) {
             set_failure_return_val(dcontext, EINVAL);
         }
         break;
