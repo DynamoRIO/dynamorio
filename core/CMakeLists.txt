@@ -269,6 +269,7 @@ if (WIN32)
   add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
   # i#1137: ignore 'specified multiple times' linker warnings
   append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
   string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
   DR_export_target(ntdll_imports)
@@ -604,7 +605,9 @@ if (UNIX)
     if (NOT READELF_EXECUTABLE)
       message("${readelf_name} not found: not checking SElinux or execstack")
     else ()
-      get_target_property(lib_to_check dynamorio LOCATION)
+      set(locvar_name dynamorioloc)
+      file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+        "set(${locvar_name} \"$<TARGET_FILE:dynamorio>\")\n")
       set(check_deps OFF)
       if (NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
@@ -624,7 +627,7 @@ if (UNIX)
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
         # to work around i#84 be sure to put a space after -D for 1st arg at least
-        ARGS -D lib=${lib_to_check}
+        ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D check_textrel=${check_textrel}
              -D check_deps=${check_deps}
              -D check_libc=OFF
@@ -687,6 +690,7 @@ else (UNIX)
   set(dynamorio_link_flags
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
+  # XXX i#1557: replace w/ $<TARGET_FILE:dynamorio> to satisfy CMP0026
   get_target_property(drout dynamorio LOCATION${location_suffix})
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
@@ -732,7 +736,8 @@ else (UNIX)
   # ensure there are no dependencies other than ntdll
   find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
   if (DUMPBIN_EXECUTABLE)
-    add_custom_command(TARGET dynamorio POST_BUILD
+    add_custom_command(TARGET dynamorio
+      POST_BUILD
       COMMAND ${CMAKE_COMMAND}
         ARGS -D lib=${drout}
              -D DUMPBIN_EXECUTABLE=${DUMPBIN_EXECUTABLE}
@@ -767,27 +772,13 @@ if (NOT APPLE)
     if (NOT EXISTS ${CMAKE_OBJCOPY})
       message( "dynamorio_static requires objcopy")
     endif ()
-    get_target_property(dynamorio_dot_a dynamorio_static LOCATION)
-    string(REGEX REPLACE "\\.a$" ".o" dynamorio_dot_o "${dynamorio_dot_a}")
-    string(REPLACE " " ";" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
-    set (globalize_pic_thunks)
-    if (NOT X64)
-      # Localizing PIC thunks on ia32 creates references to discarded sections.
-      # XXX: Hardcoding this list of symbols is fragile.  It is known to work
-      # with gcc 4.4 and 4.6.  gcc 4.7 uses symbols starting with __x86.
-      set (globalize_pic_thunks ${CMAKE_OBJCOPY}
-        --globalize-symbol=__i686.get_pc_thunk.bx
-        --globalize-symbol=__i686.get_pc_thunk.cx
-        --globalize-symbol=__x86.get_pc_thunk.ax
-        --globalize-symbol=__x86.get_pc_thunk.bx
-        --globalize-symbol=__x86.get_pc_thunk.cx
-        --globalize-symbol=__x86.get_pc_thunk.dx
-        --globalize-symbol=__x86.get_pc_thunk.di
-        --globalize-symbol=__x86.get_pc_thunk.si
-        --globalize-symbol=__x86.get_pc_thunk.bp
-        "${dynamorio_dot_o}" &&
-        )
-    endif ()
+
+    set(locvar_name dynamorio_static_loc)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
+
+    string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
+
     set(disable_pie_flag)
     # Older versions of GCC do not understand "-no-pie". See i#2083.
     CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
@@ -796,19 +787,21 @@ if (NOT APPLE)
       # to avoid the error "-r and -pie may not be used together". See i#2083.
       set(disable_pie_flag "-no-pie")
     endif ()
-    add_custom_command(TARGET dynamorio_static POST_BUILD
-      COMMAND
-      ${CMAKE_C_COMPILER} ${partial_link_flags} -fPIC
-        -nostartfiles -nodefaultlibs -Wl,-r ${disable_pie_flag}
-        -Wl,--whole-archive "${dynamorio_dot_a}" -Wl,--no-whole-archive
-        -o "${dynamorio_dot_o}" &&
-      ${CMAKE_OBJCOPY} --localize-hidden "${dynamorio_dot_o}" &&
-      ${globalize_pic_thunks}
-      rm -f "${dynamorio_dot_a}" &&
-      ${CMAKE_AR} cr "${dynamorio_dot_a}" "${dynamorio_dot_o}" &&
-      ${CMAKE_RANLIB} "${dynamorio_dot_a}"
+
+    add_custom_command(TARGET dynamorio_static
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
+           -D CMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+           -D partial_link_flags=${partial_link_flags}
+           -D disable_pie_flag=${disable_pie_flag}
+           -D CMAKE_OBJCOPY=${CMAKE_OBJCOPY}
+           -D CMAKE_AR=${CMAKE_AR}
+           -D CMAKE_RANLIB=${CMAKE_RANLIB}
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_globalize_pic_thunks.cmake
       WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
-      VERBATIM)
+      VERBATIM
+      )
 
   else (UNIX)
 
@@ -870,12 +863,14 @@ if (UNIX)
     append_property_string(TARGET ${PRELOAD_NAME} LINK_FLAGS "-init __init")
   endif (APPLE)
   if (LINUX AND READELF_EXECUTABLE)
-    get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
+    set(locvar_name drpreloadloc)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
+      "set(${locvar_name} \"$<TARGET_FILE:${PRELOAD_NAME}>\")\n")
     add_custom_command(TARGET ${PRELOAD_NAME}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       # to work around i#84 be sure to put a space after -D for 1st arg at least
-      ARGS -D lib=${lib_to_check}
+      ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
            -D check_libc=ON

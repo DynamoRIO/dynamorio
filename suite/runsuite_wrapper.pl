@@ -58,9 +58,6 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
-# We have no way to access the log files, so we can -VV to ensure
-# we can diagnose failures, but it makes for too large of an online
-# result to have on by default.
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
 my $res = '';
@@ -75,14 +72,21 @@ if ($child) {
     }
     close(CHILD);
 } else {
+    # We have no way to access the log files, so we can -VV to ensure
+    # we can diagnose failures, but it makes for a large online result
+    # that has to be manually downloaded.  We thus stick with -V for
+    # Travis.  For Appveyor where many devs have no local Visual
+    # Studio we do use -VV so build warning details are visible.
+    my $verbose = "-V";
     if ($^O eq 'cygwin') {
+        $verbose = "-VV";
         # CMake is native Windows so pass it a Windows path.
         # We use the full path to cygpath as git's cygpath is earlier on
         # the PATH for AppVeyor and it fails.
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest --output-on-failure -V -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    system("ctest --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
     exit 0;
 }
 

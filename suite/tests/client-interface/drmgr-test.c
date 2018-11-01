@@ -253,6 +253,7 @@ main(int argc, char **argv)
 #    include <stdlib.h>
 #    include <pthread.h>
 #    include <dlfcn.h>
+#    include <signal.h>
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -340,6 +341,9 @@ main(int argc, char **argv)
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
+
+    /* Let's raise a signal */
+    raise(SIGUSR1);
     return 0;
 }
 #endif /* !WINDOWS */

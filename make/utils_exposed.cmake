@@ -80,14 +80,22 @@ function (DynamoRIO_add_rel_rpaths target)
   if (UNIX AND NOT ANDROID) # No DT_RPATH support on Android
     # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
+
     foreach (lib ${ARGN})
       # Compute the relative path between the directory of the target and the
       # library it is linked against.
-      get_target_property(tgt_path ${target} LOCATION)
-      get_target_property(lib_path ${lib} LOCATION)
-      _DR_dirname(tgt_path "${tgt_path}")
-      _DR_dirname(lib_path "${lib_path}")
-      file(RELATIVE_PATH relpath "${tgt_path}" "${lib_path}")
+
+      get_target_property(target_type ${target} TYPE)
+      if (target_type STREQUAL "EXECUTABLE")
+        get_target_property(target_loc ${target} RUNTIME_OUTPUT_DIRECTORY)
+      else ()
+        get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
+      endif()
+      # Reading the target paths at configure time is no longer supported in
+      # cmake (CMP0026). This code was added to replace reading the LOCATION
+      # property at configure time. It assumes that targets are in standard locations.
+      get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)
+      file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
       # Append the new rpath element if it isn't there already.
       if (APPLE)
@@ -138,6 +146,10 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
+  # XXX i#1557: various caller functions depend on abspath of target at configure time.
+  # If we want to eliminate LOCATION, we need to re-factor all the calls for all
+  # the platforms and move them into .cmake files and call them w/ add_custom_commands
+  # that can pass generator expressions to the callee. Fix CMP0026.
   get_target_property(abspath ${target} LOCATION${location_suffix})
   if (NOT ${device_base_dir} STREQUAL "")
     get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)

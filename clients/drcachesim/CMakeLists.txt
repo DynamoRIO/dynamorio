@@ -382,18 +382,20 @@ install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
-  get_target_property(simpath drcachesim LOCATION${location_suffix})
-  get_filename_component(simname ${simpath} NAME)
-  file(WRITE  ${dst} "# drcachesim tool config file\n")
-  file(APPEND ${dst} "FRONTEND_REL=${bindir}/${simname}\n")
-  file(APPEND ${dst} "TOOL_OP=-dr\n")
-  file(APPEND ${dst} "TOOL_OP_DR_PATH\n")
-  file(APPEND ${dst} "TOOL_OP_DR_BUNDLE=-dr_ops\n")
-  file(APPEND ${dst} "TOOL_OP=-tracer\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n")
   if (DEBUG)
-    file(APPEND ${dst} "TOOL_OP=-dr_debug\n")
+    set(debugopt "TOOL_OP=-dr_debug")
+  else ()
+    set(debugopt "")
   endif ()
+  file(GENERATE OUTPUT ${dst} CONTENT
+"# drcachesim tool config file\n\
+FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drcachesim>\n\
+TOOL_OP=-dr\n\
+TOOL_OP_DR_PATH\n\
+TOOL_OP_DR_BUNDLE=-dr_ops\n\
+TOOL_OP=-tracer\n\
+CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+${debugopt}")
 endfunction ()
 
 if (X64)
@@ -415,8 +417,10 @@ register_tool_file("drcachesim")
 
 if (WIN32)
   # drcachesim needs these dlls (i#1737 would eliminate this)
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(injectlib_loc drinjectlib LOCATION${location_suffix})
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
+  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
   get_target_property(configlib_loc drconfiglib LOCATION${location_suffix})
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
@@ -561,8 +565,6 @@ set_target_properties(drcachesim_ops PROPERTIES COMPILE_FLAGS "${ORIG_CMAKE_CXX_
 add_win32_flags(drcachesim_ops)
 use_DynamoRIO_extension(drcachesim_ops droption)
 
-get_target_property(ops_path drcachesim_ops LOCATION${location_suffix})
-
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/drcachesim.dox.in)
 set(gendoc ${CMAKE_CURRENT_BINARY_DIR}/drcachesim.dox)
@@ -583,7 +585,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
-       -D prog=${ops_path}
+       -D prog=$<TARGET_FILE:drcachesim_ops>
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake
   VERBATIM)
 

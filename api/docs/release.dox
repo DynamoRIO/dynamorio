@@ -103,6 +103,7 @@ The following are part of the DynamoRIO release distribution:
 \endif
  - A number of end-user tools including a code coverage tool (see \ref
    page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
+   a last-level cache miss analyzer (see \ref page_drcachesim),
    and a legacy CPU testing tool (see \ref page_drcpusim).
    If this is a DynamoRIO public release, it also includes the
    Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
@@ -256,6 +257,10 @@ Further non-compatibility-affecting changes include:
    clients: #emulated_instr_t, drmgr_insert_emulation_start(),
    drmgr_insert_emulation_end(), drmgr_is_emulation_start(), drmgr_is_emulation_end()
    and drmgr_get_emulated_instr_data().
+ - Added drmgr_register_signal_event_user_data() and
+   drmgr_unregister_signal_event_user_data() to enable passing of user data.
+ - Added hashtable_apply_to_all_payloads_user_data() to iterate over all payloads
+   in a hashtable with user data also available.
 
 **************************************************
 <hr>
