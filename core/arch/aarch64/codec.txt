@@ -1134,6 +1134,13 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 00000100xx1xxxxx000111xxxxxxxxxx     uqsub     z0 : z5 z16 bhsd_sz
 
 # Advanced SIMD three different
+
+# For these instructions, the sizes of the inputs and outputs can differ.
+# The width operand is used to show the sizes of the inputs, with the size
+# of the output being implied. For example, in the *L instructions, the
+# input width can by byte, half, and single, which will produce outputs
+# of size half, single, and double, respectively.
+
 00001110xx1xxxxx000000xxxxxxxxxx     saddl     q0 : d5 d16 bhs_sz
 01001110xx1xxxxx000000xxxxxxxxxx     saddl2    q0 : q5 q16 bhs_sz
 00001110xx1xxxxx000100xxxxxxxxxx     saddw     q0 : q5 d16 bhs_sz
