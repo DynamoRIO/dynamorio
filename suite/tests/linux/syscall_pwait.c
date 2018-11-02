@@ -50,8 +50,6 @@
 #include <time.h>
 #include <poll.h>
 
-#define MAX_SIG 64
-
 typedef struct {
     sigset_t *sigmask;
     size_t sizemask;
@@ -206,8 +204,6 @@ main(int argc, char *argv[])
             exit(1);
         }
     }
-
-    // blah
 
     print("Testing epoll_pwait failure\n");
 
