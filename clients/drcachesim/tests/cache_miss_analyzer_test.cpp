@@ -50,14 +50,14 @@ generate_mem_ref(const addr_t addr, const addr_t pc)
 }
 
 // A test with no dominant stride.
-void
+bool
 no_dominant_stride()
 {
     const unsigned int kLineSize = 64;
 
     // Create the cache simulator knobs object.
     cache_simulator_knobs_t knobs;
-    knobs.line_size = 64;
+    knobs.line_size = kLineSize;
     knobs.LL_size = 1024 * 1024;
     knobs.data_prefetcher = "none";
 
@@ -66,7 +66,7 @@ no_dominant_stride()
 
     // Analyze a stream of memory load references with no dominant stride.
     addr_t addr = 0x1000;
-    for (int i = 0; i < 100000; ++i) {
+    for (int i = 0; i < 50000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
         addr += kLineSize;
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
@@ -84,13 +84,15 @@ no_dominant_stride()
         analyzer.generate_recommendations();
     if (recommendations.empty()) {
         std::cout << "no_dominant_stride test passed." << std::endl;
+        return true;
     } else {
         std::cerr << "no_dominant_stride test failed." << std::endl;
+        return false;
     }
 }
 
 // A test with one dominant stride.
-void
+bool
 one_dominant_stride()
 {
     const int kStride = 7;
@@ -107,7 +109,7 @@ one_dominant_stride()
 
     // Analyze a stream of memory load references with one dominant stride.
     addr_t addr = 0x1000;
-    for (int i = 0; i < 100000; ++i) {
+    for (int i = 0; i < 50000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
         addr += (kLineSize * kStride);
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
@@ -124,22 +126,26 @@ one_dominant_stride()
     std::vector<prefetching_recommendation_t *> recommendations =
         analyzer.generate_recommendations();
     if (recommendations.size() == 1) {
-        if (recommendations[0]->pc == 0xAAAA && recommendations[0]->stride == kStride) {
+        if (recommendations[0]->pc == 0xAAAA &&
+            recommendations[0]->stride == (kStride * kLineSize)) {
             std::cout << "one_dominant_stride test passed." << std::endl;
+            return true;
         } else {
             std::cerr << "one_dominant_stride test failed: wrong recommendation: "
                       << "pc=" << recommendations[0]->pc
                       << ", stride=" << recommendations[0]->stride << std::endl;
+            return false;
         }
     } else {
         std::cerr << "one_dominant_stride test failed: number of recommendations "
                   << "should be exactly 1, but was " << recommendations.size()
                   << std::endl;
+        return false;
     }
 }
 
 // A test with two dominant strides.
-void
+bool
 two_dominant_strides()
 {
     const int kStride1 = 3;
@@ -158,7 +164,7 @@ two_dominant_strides()
     // Analyze a stream of memory load references with two dominant strides.
     addr_t addr1 = 0x1000;
     addr_t addr2 = 0x2000;
-    for (int i = 0; i < 100000; ++i) {
+    for (int i = 0; i < 50000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr1, 0xAAAA));
         addr1 += (kLineSize * kStride1);
         analyzer.process_memref(generate_mem_ref(addr1, 0xAAAA));
@@ -177,30 +183,36 @@ two_dominant_strides()
     std::vector<prefetching_recommendation_t *> recommendations =
         analyzer.generate_recommendations();
     if (recommendations.size() == 2) {
-        if ((recommendations[0]->pc == 0xAAAA && recommendations[0]->stride == kStride1 &&
+        if ((recommendations[0]->pc == 0xAAAA &&
+             recommendations[0]->stride == (kStride1 * kLineSize) &&
              recommendations[1]->pc == 0xBBBB &&
-             recommendations[1]->stride == kStride2) ||
-            (recommendations[1]->pc == 0xAAAA && recommendations[1]->stride == kStride1 &&
+             recommendations[1]->stride == (kStride2 * kLineSize)) ||
+            (recommendations[1]->pc == 0xAAAA &&
+             recommendations[1]->stride == (kStride1 * kLineSize) &&
              recommendations[0]->pc == 0xBBBB &&
-             recommendations[0]->stride == kStride2)) {
+             recommendations[0]->stride == (kStride2 * kLineSize))) {
             std::cout << "two_dominant_strides test passed." << std::endl;
+            return true;
         } else {
             std::cerr << "two_dominant_strides test failed: wrong recommendations."
                       << std::endl;
+            return false;
         }
     } else {
         std::cerr << "two_dominant_strides test failed: number of recommendations "
                   << "should be exactly 2, but was " << recommendations.size()
                   << std::endl;
+        return false;
     }
 }
 
 int
 main(int argc, const char *argv[])
 {
-    no_dominant_stride();
-    one_dominant_stride();
-    two_dominant_strides();
-
-    return 0;
+    if (no_dominant_stride() && one_dominant_stride() && two_dominant_strides()) {
+        return 0;
+    } else {
+        std::cerr << "cache_miss_analyzer_test failed" << std::endl;
+        exit(1);
+    }
 }
