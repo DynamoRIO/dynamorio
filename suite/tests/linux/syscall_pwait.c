@@ -50,7 +50,7 @@
 #include <time.h>
 #include <poll.h>
 
-#define MAX_SIG 32
+#define MAX_SIG 64
 
 typedef struct {
     sigset_t *sigmask;
@@ -199,6 +199,8 @@ main(int argc, char *argv[])
             perror("sigmask mismatch");
     }
 
+    // blah
+
     print("Testing epoll_pwait failure\n");
 
     /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the nature
@@ -208,8 +210,13 @@ main(int argc, char *argv[])
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
-    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24LL, -1LL, &test_set, 0) == 0)
-        perror("expected syscall failure");
+    if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24LL, -1LL, &test_set, 0) == 0) {
+        print("expected syscall failure");
+        exit(1);
+    } else if (errno != EINVAL) {
+        print("wrong errno code");
+        exit(1);
+    }
 
     print("Testing pselect failure\n");
 
@@ -218,16 +225,26 @@ main(int argc, char *argv[])
 
     data_t data_wrong = { &test_set, 0 };
 
-    if (syscall(SYS_pselect6, 0, NULL, NULL, NULL, NULL, &data_wrong) == 0)
-        perror("expected syscall failure");
+    if (syscall(SYS_pselect6, 0, NULL, NULL, NULL, NULL, &data_wrong) == 0) {
+        print("expected syscall failure");
+        exit(1);
+    } else if (errno != EINVAL) {
+        print("wrong errno code");
+        exit(1);
+    }
 
     print("Testing ppoll failure\n");
 
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
-    if (syscall(SYS_ppoll, NULL, 0, NULL, &test_set, 0) == 0)
-        perror("expected syscall failure");
+    if (syscall(SYS_ppoll, NULL, 0, NULL, &test_set, 0) == 0) {
+        print("expected syscall failure");
+        exit(1);
+    } else if (errno != EINVAL) {
+        print("wrong errno code");
+        exit(1);
+    }
 
 #if defined(X86) && defined(X64)
 
