@@ -65,16 +65,6 @@ signal_handler(int sig, siginfo_t *siginfo, void *context)
     print("signal received: %d\n", sig);
 }
 
-static bool
-compare_sigmasks(sigset_t *sig_a, sigset_t *sig_b)
-{
-    for (int i = 0; i < MAX_SIG; ++i) {
-        if (sigismember(sig_a, i) != sigismember(sig_b, i))
-            return false;
-    }
-    return true;
-}
-
 bool
 kick_off_child_signals()
 {
@@ -137,7 +127,9 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t pre_syscall_set;
+        sigset_t pre_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
             if (errno != EINTR)
@@ -145,10 +137,14 @@ main(int argc, char *argv[])
         } else {
             perror("expected interruption of syscall");
         }
-        sigset_t post_syscall_set;
+        sigset_t post_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
-            perror("sigmask mismatch");
+        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
+            print("sigmask mismatch");
+            exit(1);
+        }
     }
 
     if (kick_off_child_signals())
@@ -161,7 +157,9 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t pre_syscall_set;
+        sigset_t pre_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
             if (errno != EINTR)
@@ -169,10 +167,14 @@ main(int argc, char *argv[])
         } else {
             perror("expected interruption of syscall");
         }
-        sigset_t post_syscall_set;
+        sigset_t post_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
-            perror("sigmask mismatch");
+        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
+            print("sigmask mismatch");
+            exit(1);
+        }
     }
 
     if (kick_off_child_signals())
@@ -185,7 +187,9 @@ main(int argc, char *argv[])
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
-        sigset_t pre_syscall_set;
+        sigset_t pre_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (ppoll(NULL, 0, NULL, &test_set) == -1) {
             if (errno != EINTR)
@@ -193,10 +197,14 @@ main(int argc, char *argv[])
         } else {
             perror("expected interruption of syscall");
         }
-        sigset_t post_syscall_set;
+        sigset_t post_syscall_set = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
         sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (!compare_sigmasks(&pre_syscall_set, &post_syscall_set))
-            perror("sigmask mismatch");
+        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
+            print("sigmask mismatch");
+            exit(1);
+        }
     }
 
     // blah
