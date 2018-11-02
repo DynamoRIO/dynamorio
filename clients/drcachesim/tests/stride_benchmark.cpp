@@ -63,7 +63,7 @@ main(int argc, const char *argv[])
     // (200+ MiB to guarantee the array doesn't fit in Skylake caches)
     const size_t kArraySize = 256 * 1024 * 1024;
     // Number of iterations in the main loop.
-    const int kIterations = 500000;
+    const int kIterations = 1000000;
     // The main vector/array used for emulating pointer chasing.
     unsigned char *buffer = new unsigned char[kArraySize];
     memset(buffer, kStride, kArraySize);
