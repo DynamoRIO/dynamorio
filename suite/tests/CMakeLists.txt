@@ -2333,11 +2333,15 @@ if (CLIENT_INTERFACE)
   endif ()
 
   if (X86) # Generated code is x86-specific.
+    set(checklevel "")
+    if (DEBUG)
+      set(checklevel "-checklevel 0")
+    endif ()
     tobuild_api(api.ibl-stress api/ibl-stress.c
       # This tests indirect branches between blocks.
       # We use -checklevel 0 to disable the DOCHECK in check_thread_vm_area
       # which makes building 150K bbs very slow.
-      "-disable_traces -shared_bb_ibt_tables -checklevel 0" "" OFF OFF)
+      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     if (UNIX)
       target_link_libraries(api.ibl-stress ${libpthread})
