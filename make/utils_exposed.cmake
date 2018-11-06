@@ -145,12 +145,44 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
+# Takes in a target and returns the expected full target path incl. output name.
+#
+# XXX i#1557: DynamoRIO cmake files used to query the LOCATION target property at
+# configure time. This property has been made obsolete, see CMP0026. The function
+# here can be used to retrieve the default target path instead. However, it only
+# supports the default target directories, as seen at configure time.
+function (DynamoRIO_get_full_path out target)
+  get_target_property(output_name ${target} OUTPUT_NAME)
+  get_target_property(name ${target} NAME)
+  get_target_property(suffix ${target} SUFFIX)
+  get_target_property(prefix ${target} PREFIX)
+  get_target_property(target_type ${target} TYPE)
+  if (NOT prefix)
+    set(prefix ${CMAKE_${target_type}_PREFIX})
+  endif ()
+  if (NOT suffix)
+    set(suffix ${CMAKE_${target_type}_SUFFIX})
+  endif ()
+  set(output_dir "")
+  if (target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+    get_target_property(library_dir ${target} LIBRARY_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${library_dir})
+  elseif (target_type STREQUAL "STATIC_LIBRARY")
+    get_target_property(archive_dir ${target} ARCHIVE_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${archive_dir})
+  elseif (target_type STREQUAL "EXECUTABLE")
+    get_target_property(runtime_dir ${target} RUNTIME_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${runtime_dir})
+  endif ()
+  if (output_name)
+    set(${out} "${output_dir}/${prefix}${output_name}${suffix}" PARENT_SCOPE)
+  else ()
+    set(${out} "${output_dir}/${prefix}${name}${suffix}" PARENT_SCOPE)
+  endif ()
+endfunction (DynamoRIO_get_full_path)
+
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
-  # XXX i#1557: various caller functions depend on abspath of target at configure time.
-  # If we want to eliminate LOCATION, we need to re-factor all the calls for all
-  # the platforms and move them into .cmake files and call them w/ add_custom_commands
-  # that can pass generator expressions to the callee. Fix CMP0026.
-  get_target_property(abspath ${target} LOCATION${location_suffix})
+  DynamoRIO_get_full_path(abspath ${target})
   if (NOT ${device_base_dir} STREQUAL "")
     get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
     file(RELATIVE_PATH relpath "${PROJECT_BINARY_DIR}" "${abspath}")
