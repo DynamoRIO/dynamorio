@@ -161,7 +161,7 @@ function (add_sample_client name source_file_list extension_list)
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-    DynamoRIO_get_full_name(path_test ${name})
+    DynamoRIO_get_full_name(path ${name})
     add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
