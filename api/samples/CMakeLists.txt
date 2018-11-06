@@ -46,7 +46,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # Go w/ debug info (i#1392)
     set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
   endif ()
-  # we want to use the _LOCATION_<config> property
+  # we want to use the <VAR>_<config> variants of config-dependent properties
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
   set(location_suffix "_${upper}")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
@@ -162,8 +162,7 @@ function (add_sample_client name source_file_list extension_list)
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-    # XXX i#1557: replace w/ generator expression to satisfy CMP0026
-    get_target_property(path ${name} LOCATION${location_suffix})
+    DynamoRIO_get_full_path(path ${name})
     add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
