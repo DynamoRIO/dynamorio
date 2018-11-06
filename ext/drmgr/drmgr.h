@@ -896,7 +896,7 @@ DR_EXPORT
 /**
  * Registers a callback function for the thread exit event, ordered by \p priority.
  * drmgr calls \p func whenever DR would, when an application thread exits. All
- * the constraints of dr_register_thread_event_exit() apply. \return whether
+ * the constraints of dr_register_thread_exit_event() apply. \return whether
  * successful.
  */
 bool
