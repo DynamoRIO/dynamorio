@@ -1611,7 +1611,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
-    DynamoRIO_get_full_name(native_dll_name common.nativeexec.appdll)
+    DynamoRIO_get_full_path(native_dll_name common.nativeexec.appdll)
     get_filename_component(native_dll_name "${native_dll_name}" NAME)
     tobuild_ops(common.nativeexec common/nativeexec.c
       "-no_early_inject -native_exec_list ${native_dll_name}" "")
@@ -1737,7 +1737,7 @@ if (CLIENT_INTERFACE)
   # FIXME i#2008: fix bugs on Android
   if (NOT MACOS AND NOT ANDROID)
     tobuild_appdll(client.modules client-interface/modules.c)
-    DynamoRIO_get_full_name(modules_libname client.modules.appdll)
+    DynamoRIO_get_full_path(modules_libname client.modules.appdll)
     tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
   endif ()
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
@@ -1906,7 +1906,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
-    DynamoRIO_get_full_name(events_appdll_path client.events.appdll)
+    DynamoRIO_get_full_path(events_appdll_path client.events.appdll)
   endif (NOT ARM)
   if (ANNOTATIONS AND NOT ARM)
     if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
@@ -2136,7 +2136,7 @@ if (CLIENT_INTERFACE)
       if (BUILD_SAMPLES)
         get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
         list(GET sample_list 1 sample_one) # 0 is empty
-        DynamoRIO_get_full_name(sample_loc ${sample_one})
+        DynamoRIO_get_full_path(sample_loc ${sample_one})
         get_filename_component(sample_dir ${sample_loc} PATH)
         configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
       endif (BUILD_SAMPLES)
@@ -2339,7 +2339,7 @@ if (CLIENT_INTERFACE)
       # which results in unresolved symbols.
       # The only fix I could come up with is to force dynamorio.lib earlier
       # using the link flags:
-      DynamoRIO_get_full_name(drpath dynamorio)
+      DynamoRIO_get_full_path(drpath dynamorio)
       get_filename_component(drdir ${drpath} DIRECTORY)
       get_filename_component(drname ${drpath} NAME_WE)
       append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
@@ -2489,7 +2489,7 @@ endif ()
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
       set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.fib_expectbase "tool.drcov.fib")
-      DynamoRIO_get_full_name(tool.drcov.fib_postcmd drcov2lcov)
+      DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov)
     endif ()
 
     ###########################################################################
@@ -3279,7 +3279,7 @@ else (UNIX)
 
   tobuild_dll(win32.multisec win32/multisec.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
-  DynamoRIO_get_full_name(multisec_path win32.multisec.dll)
+  DynamoRIO_get_full_path(multisec_path win32.multisec.dll)
   add_custom_command(TARGET win32.multisec.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${multisec_path}
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.multisec2.dll.dll VERBATIM)
@@ -3297,7 +3297,7 @@ else (UNIX)
 
   tobuild_dll(win32.rebased win32/rebased.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
-  DynamoRIO_get_full_name(rebased_path win32.rebased.dll)
+  DynamoRIO_get_full_path(rebased_path win32.rebased.dll)
   add_custom_command(TARGET win32.rebased.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${rebased_path}
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.rebased2.dll.dll VERBATIM)

@@ -54,10 +54,10 @@ function (append_property_list type target name value)
   set_property(${type} ${target} PROPERTY ${name} ${value})
 endfunction (append_property_list)
 
-function(get_full_name out target)
-  DynamoRIO_get_full_name(local ${target})
+function(get_full_path out target)
+  DynamoRIO_get_full_path(local ${target})
   set(${out} ${local} PARENT_SCOPE)
-endfunction (get_full_name)
+endfunction (get_full_path)
 
 function (get_target_path_for_execution out target)
   if (ANDROID)
