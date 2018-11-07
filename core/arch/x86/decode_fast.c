@@ -537,6 +537,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
+            case 0x62:
             case 0xc4:
             case 0xc5: {
                 /* If 64-bit mode or mod selects for register, this is vex */
@@ -547,13 +548,20 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                      * - no vex-encoded instr size differs based on prefixes,
                      *   so we don't bother to decode vex.pp
                      */
-                    bool vex3 = (opc == 0xc4);
+                    bool vex3 = opc == 0xc4;
+                    bool evex = opc == 0x62;
                     byte vex_mm = 0;
-                    opc = (uint) * (++pc); /* 2nd vex prefix byte */
+                    opc = (uint) * (++pc); /* 2nd vex/evex prefix byte */
                     sz += 1;
                     if (vex3) {
                         vex_mm = (byte)(opc & 0x1f);
                         opc = (uint) * (++pc); /* 3rd vex prefix byte */
+                        sz += 1;
+                    } else if (evex) {
+                        vex_mm = (byte)(opc & 0x3);
+                        opc = (uint) * (++pc); /* 3rd evex prefix byte */
+                        sz += 1;
+                        opc = (uint) * (++pc); /* 4th evex prefix byte */
                         sz += 1;
                     }
                     opc = (uint) * (++pc); /* 1st opcode byte */
@@ -561,7 +569,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                     if (num_prefixes != NULL)
                         *num_prefixes = sz;
                     /* no prefixes after vex + already did full size, so goto end */
-                    if (!vex3 || (vex3 && (vex_mm == 1))) {
+                    if (!vex3 || ((vex3 || evex) && (vex_mm == 1))) {
                         sz += sizeof_escape(dcontext, pc, addr16 _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     } else if (vex_mm == 2) {
@@ -1276,6 +1284,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     int eflags;
     int i;
     byte modrm = 0; /* used only for EFLAGS_6_SPECIAL */
+    bool vex = false;
 #ifdef X64
     /* PR 251479: we need to know about all rip-relative addresses.
      * Since change/setting raw bits invalidates, we must set this
@@ -1299,12 +1308,16 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with. */
+     * fairly rare to begin with.
+     */
     if (prefixes > 0) {
         for (i = 0; i < prefixes; i++, pc++) {
             switch (*pc) {
             case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
             case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+            case VEX_2BYTE_PREFIX_OPCODE:
+            case VEX_3BYTE_PREFIX_OPCODE:
+            case EVEX_PREFIX_OPCOE: vex = true; break;
             default: break;
             }
         }
@@ -1317,6 +1330,8 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * we do this even if -unsafe_ignore_eflags b/c it doesn't cost that
      * much and we can use the analysis to detect any bb that reads a flag
      * prior to writing it
+     * XXX: I don't think this is working correctly for vex (and definitely
+     * not for evex) instructions
      */
     eflags = eflags_6[byte0];
     if (eflags == EFLAGS_6_ESCAPE) {
@@ -1373,9 +1388,10 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     instr->eflags = eflags;
     instr_set_arith_flags_valid(instr, true);
 
-    if (interesting[byte0] == 0) {
+    if (!vex && interesting[byte0] == 0) {
         /* assumption: opcode already OP_UNDECODED */
         /* assumption: operands are already marked invalid (instr was reset) */
+        /* vex/evex always imply at least an 0x0f opcode byte */
         instr_set_raw_bits(instr, start_pc, sz);
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (start_pc + sz);
