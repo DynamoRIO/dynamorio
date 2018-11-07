@@ -152,6 +152,7 @@ hash_free(void *ptr, size_t size)
 #define HASH_FUNC_BITS(val, num_bits) ((val) & (HASH_MASK(num_bits)))
 #define HASH_FUNC(val, mask) ((val) & (mask))
 
+/* caller must hold lock */
 static uint
 hash_key(hashtable_t *table, void *key)
 {
@@ -269,9 +270,9 @@ hashtable_lookup(hashtable_t *table, void *key)
 {
     void *res = NULL;
     hash_entry_t *e;
-    uint hindex = hash_key(table, key);
     if (table->synch)
         dr_mutex_lock(table->lock);
+    uint hindex = hash_key(table, key);
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
             res = e->payload;
@@ -321,12 +322,12 @@ hashtable_check_for_resize(hashtable_t *table)
 bool
 hashtable_add(hashtable_t *table, void *key, void *payload)
 {
-    uint hindex = hash_key(table, key);
-    hash_entry_t *e;
     /* if payload is null can't tell from lookup miss */
     ASSERT(payload != NULL, "hashtable_add internal error");
     if (table->synch)
         dr_mutex_lock(table->lock);
+    uint hindex = hash_key(table, key);
+    hash_entry_t *e;
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
             /* we have a use where payload != existing entry so we don't assert on that */
@@ -355,11 +356,13 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
 void *
 hashtable_add_replace(hashtable_t *table, void *key, void *payload)
 {
+    /* if payload is null can't tell from lookup miss */
+    ASSERT(payload != NULL, "hashtable_add_replace internal error");
+    if (table->synch)
+        dr_mutex_lock(table->lock);
     void *old_payload = NULL;
     uint hindex = hash_key(table, key);
     hash_entry_t *e, *new_e, *prev_e;
-    /* if payload is null can't tell from lookup miss */
-    ASSERT(payload != NULL, "hashtable_add_replace internal error");
     new_e = (hash_entry_t *)hash_alloc(sizeof(*new_e));
     if (table->str_dup) {
         const char *s = (const char *)key;
@@ -368,8 +371,6 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
     } else
         new_e->key = key;
     new_e->payload = payload;
-    if (table->synch)
-        dr_mutex_lock(table->lock);
     for (e = table->table[hindex], prev_e = NULL; e != NULL; prev_e = e, e = e->next) {
         if (keys_equal(table, e->key, key)) {
             if (prev_e == NULL)
@@ -401,9 +402,9 @@ hashtable_remove(hashtable_t *table, void *key)
 {
     bool res = false;
     hash_entry_t *e, *prev_e;
-    uint hindex = hash_key(table, key);
     if (table->synch)
         dr_mutex_lock(table->lock);
+    uint hindex = hash_key(table, key);
     for (e = table->table[hindex], prev_e = NULL; e != NULL; prev_e = e, e = e->next) {
         if (keys_equal(table, e->key, key)) {
             if (prev_e == NULL)

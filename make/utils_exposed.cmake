@@ -80,14 +80,22 @@ function (DynamoRIO_add_rel_rpaths target)
   if (UNIX AND NOT ANDROID) # No DT_RPATH support on Android
     # Turn off the default CMake rpath setting and add our own LINK_FLAGS.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
+
     foreach (lib ${ARGN})
       # Compute the relative path between the directory of the target and the
       # library it is linked against.
-      get_target_property(tgt_path ${target} LOCATION)
-      get_target_property(lib_path ${lib} LOCATION)
-      _DR_dirname(tgt_path "${tgt_path}")
-      _DR_dirname(lib_path "${lib_path}")
-      file(RELATIVE_PATH relpath "${tgt_path}" "${lib_path}")
+
+      get_target_property(target_type ${target} TYPE)
+      if (target_type STREQUAL "EXECUTABLE")
+        get_target_property(target_loc ${target} RUNTIME_OUTPUT_DIRECTORY)
+      else ()
+        get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
+      endif()
+      # Reading the target paths at configure time is no longer supported in
+      # cmake (CMP0026). This code was added to replace reading the LOCATION
+      # property at configure time. It assumes that targets are in standard locations.
+      get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)
+      file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
       # Append the new rpath element if it isn't there already.
       if (APPLE)
@@ -137,8 +145,44 @@ function (_DR_check_if_linker_is_gnu_gold var_out)
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (_DR_check_if_linker_is_gnu_gold)
 
+# Takes in a target and returns the expected full target path incl. output name.
+#
+# XXX i#1557: DynamoRIO cmake files used to query the LOCATION target property at
+# configure time. This property has been made obsolete, see CMP0026. The function
+# here can be used to retrieve the default target path instead. However, it only
+# supports the default target directories, as seen at configure time.
+function (DynamoRIO_get_full_path out target)
+  get_target_property(output_name ${target} OUTPUT_NAME)
+  get_target_property(name ${target} NAME)
+  get_target_property(suffix ${target} SUFFIX)
+  get_target_property(prefix ${target} PREFIX)
+  get_target_property(target_type ${target} TYPE)
+  if (NOT prefix)
+    set(prefix ${CMAKE_${target_type}_PREFIX})
+  endif ()
+  if (NOT suffix)
+    set(suffix ${CMAKE_${target_type}_SUFFIX})
+  endif ()
+  set(output_dir "")
+  if (target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+    get_target_property(library_dir ${target} LIBRARY_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${library_dir})
+  elseif (target_type STREQUAL "STATIC_LIBRARY")
+    get_target_property(archive_dir ${target} ARCHIVE_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${archive_dir})
+  elseif (target_type STREQUAL "EXECUTABLE")
+    get_target_property(runtime_dir ${target} RUNTIME_OUTPUT_DIRECTORY${location_suffix})
+    set(output_dir ${runtime_dir})
+  endif ()
+  if (output_name)
+    set(${out} "${output_dir}/${prefix}${output_name}${suffix}" PARENT_SCOPE)
+  else ()
+    set(${out} "${output_dir}/${prefix}${name}${suffix}" PARENT_SCOPE)
+  endif ()
+endfunction (DynamoRIO_get_full_path)
+
 function (DynamoRIO_get_target_path_for_execution out target device_base_dir)
-  get_target_property(abspath ${target} LOCATION${location_suffix})
+  DynamoRIO_get_full_path(abspath ${target})
   if (NOT ${device_base_dir} STREQUAL "")
     get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
     file(RELATIVE_PATH relpath "${PROJECT_BINARY_DIR}" "${abspath}")

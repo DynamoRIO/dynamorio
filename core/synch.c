@@ -2060,6 +2060,11 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 #    endif
 #endif
 
+#ifdef UNIX
+    /* i#2270: we ignore alarm signals during detach to reduce races. */
+    signal_remove_alarm_handlers(my_dcontext);
+#endif
+
     /* suspend all DR-controlled threads at safe locations */
     if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT, &threads,
                                 &num_threads,
@@ -2119,9 +2124,6 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     /* Release the APC init lock and let any threads waiting there go native */
     LOG(GLOBAL, LOG_ALL, 1, "Detach : Releasing init_apc_go_native_pause\n");
     init_apc_go_native_pause = false;
-#else
-    /* i#2270: we ignore alarm signals during detach to reduce races. */
-    signal_remove_alarm_handlers(my_dcontext);
 #endif
 
     /* perform exit tasks that require full thread data structs */
