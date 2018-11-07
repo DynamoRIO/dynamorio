@@ -417,11 +417,9 @@ register_tool_file("drcachesim")
 
 if (WIN32)
   # drcachesim needs these dlls (i#1737 would eliminate this)
-  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
-  get_target_property(injectlib_loc drinjectlib LOCATION${location_suffix})
+  DynamoRIO_get_full_path(injectlib_loc drinjectlib )
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
-  get_target_property(configlib_loc drconfiglib LOCATION${location_suffix})
+  DynamoRIO_get_full_path(configlib_loc drconfiglib )
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll

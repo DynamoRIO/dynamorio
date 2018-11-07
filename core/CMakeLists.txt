@@ -269,8 +269,7 @@ if (WIN32)
   add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
   # i#1137: ignore 'specified multiple times' linker warnings
   append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
-  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
-  get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
+  DynamoRIO_get_full_path(ntimp_flags ntdll_imports)
   string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
   DR_export_target(ntdll_imports)
   # We need separate 32-bit and 64-bit versions so we put into lib dir
@@ -691,7 +690,7 @@ else (UNIX)
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
   # XXX i#1557: replace w/ $<TARGET_FILE:dynamorio> to satisfy CMP0026
-  get_target_property(drout dynamorio LOCATION${location_suffix})
+  DynamoRIO_get_full_path(drout dynamorio)
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
   set(dynamorio_link_flags

@@ -205,7 +205,7 @@ function (DynamoRIO_prefix_cmd_if_necessary cmd_out use_ats cmd_in)
 endfunction (DynamoRIO_prefix_cmd_if_necessary)
 
 function (DynamoRIO_copy_target_to_device target device_base_dir)
-  get_target_property(abspath ${target} LOCATION${location_suffix})
+  DynamoRIO_get_full_path(abspath ${target})
   get_filename_component(builddir ${PROJECT_BINARY_DIR} NAME)
   file(RELATIVE_PATH relpath "${PROJECT_BINARY_DIR}" "${abspath}")
   add_custom_command(TARGET ${target} POST_BUILD
