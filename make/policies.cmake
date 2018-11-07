@@ -37,9 +37,6 @@ endif ()
 # XXX i#1718: update our code to satisfy the changes in 3.x
 cmake_policy(SET CMP0054 OLD)
 
-# XXX i#1557: update our code to satisfy the changes in 3.x
-cmake_policy(SET CMP0026 OLD)
-
 # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
 # Mac stuff and this policy, right?
 cmake_policy(SET CMP0042 OLD)
