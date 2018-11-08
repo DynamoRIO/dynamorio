@@ -539,7 +539,7 @@ function(add_exe test source)
   if (DEFINED ${test}_outname)
     set_target_properties(${test} PROPERTIES OUTPUT_NAME "${${test}_outname}")
   endif ()
-  copy_target_to_device(${test})
+  copy_target_to_device(${test} "${location_suffix}")
 
   set_target_properties(${test} PROPERTIES
     LINK_FLAGS "${ARCH_DEBUG}"
@@ -621,7 +621,7 @@ function(tobuild_dll test source dr_ops)
   set_cflags(${dll_source}) # sets srccode var
   add_library(${test}.dll SHARED ${lib_srcs})
   set_target_properties(${test}.dll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
-  copy_target_to_device(${test}.dll)
+  copy_target_to_device(${test}.dll "${location_suffix}")
   target_link_libraries(${test} ${test}.dll)
   if ("${srccode}" MATCHES "include \"tools\\.h\"")
     target_link_libraries(${test}.dll tools)
@@ -633,7 +633,7 @@ function(tobuild_dll test source dr_ops)
 endfunction(tobuild_dll)
 
 function(get_client_path client_path_out realclient realexe)
-  get_target_path_for_execution(client_path ${realclient})
+  get_target_path_for_execution(client_path ${realclient} "${location_suffix}")
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
@@ -682,7 +682,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   configure_DynamoRIO_client(${test}.dll)
   append_property_string(TARGET ${test}.dll LINK_FLAGS "${ARCH_DEBUG}")
   add_dependencies(${test}.dll api_headers)
-  copy_target_to_device(${test}.dll)
+  copy_target_to_device(${test}.dll "${location_suffix}")
   get_client_path(client_path ${test}.dll ${test})
 
   set(testlist_ci ${testlist_ci} ${test} PARENT_SCOPE)
@@ -780,7 +780,7 @@ function(tobuild_appdll test source)
       configure_app_api_build_flags(${test}.appdll OFF OFF)
       add_dependencies(${test}.appdll api_headers)
     endif()
-  copy_target_to_device(${test}.appdll)
+  copy_target_to_device(${test}.appdll "${location_suffix}")
   endif (EXISTS "${dll_srcpath}")
 endfunction(tobuild_appdll)
 
@@ -1123,7 +1123,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
     if (standalone_dr OR NOT native)
-      get_target_path_for_execution(drrun_path drrun)
+      get_target_path_for_execution(drrun_path drrun "${location_suffix}")
     endif (standalone_dr OR NOT native)
     # CMake 3.x seems to put double slashes in there (xref i#1559)
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
@@ -1165,7 +1165,7 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     endif (standalone_dr OR NOT native)
 
   elseif (UNIX AND native)
-    get_target_path_for_execution(runstats_path runstats)
+    get_target_path_for_execution(runstats_path runstats "${location_suffix}")
     set(cmd ${runstats_path} -s ${timeout} -killpg -silent)
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
@@ -1236,7 +1236,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     "${dr_ops}" ${separate_script})
 
   if (TARGET ${exe})
-    get_target_path_for_execution(exepath ${exe})
+    get_target_path_for_execution(exepath ${exe} "${location_suffix}")
   else ()
     # support running binaries that are not targets of this build
     set(exepath ${exe})
@@ -1261,11 +1261,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     file(READ "${testpath}/${srcbase}.runall" runall)
     if (UNIX)
       # We always run infloop.
-      get_target_path_for_execution(app_path linux.infloop)
+      get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
       # It's easier to run our own infloop, which prints so we know when it's up,
       # than to run notepad or sthg.
-      get_target_path_for_execution(app_path win32.infloop)
+      get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
     endif ()
     # Swap from drrun to run_in_bg to run the test in the background and print the pid.
     # XXX i#1874: add support for running on Android
@@ -1310,9 +1310,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix)
+        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
       else ()
-        get_target_path_for_execution(toolbindir drconfig)
+        get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()
     else ()
       set(toolbindir "i#1286-not-implemented-for-Mac")
@@ -1611,7 +1611,7 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
-    DynamoRIO_get_full_path(native_dll_name common.nativeexec.appdll)
+    DynamoRIO_get_full_path(native_dll_name common.nativeexec.appdll "${location_suffix}")
     get_filename_component(native_dll_name "${native_dll_name}" NAME)
     tobuild_ops(common.nativeexec common/nativeexec.c
       "-no_early_inject -native_exec_list ${native_dll_name}" "")
@@ -1737,7 +1737,7 @@ if (CLIENT_INTERFACE)
   # FIXME i#2008: fix bugs on Android
   if (NOT MACOS AND NOT ANDROID)
     tobuild_appdll(client.modules client-interface/modules.c)
-    DynamoRIO_get_full_path(modules_libname client.modules.appdll)
+    DynamoRIO_get_full_path(modules_libname client.modules.appdll "${location_suffix}")
     tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
   endif ()
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
@@ -1906,7 +1906,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
     tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
     tobuild_appdll(client.events client-interface/events.c)
-    DynamoRIO_get_full_path(events_appdll_path client.events.appdll)
+    DynamoRIO_get_full_path(events_appdll_path client.events.appdll "${location_suffix}")
   endif (NOT ARM)
   if (ANNOTATIONS AND NOT ARM)
     if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
@@ -2113,7 +2113,7 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll)
+  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
   use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
   tochcon(client.drwrap-test.appdll textrel_shlib_t)
@@ -2136,7 +2136,7 @@ if (CLIENT_INTERFACE)
       if (BUILD_SAMPLES)
         get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
         list(GET sample_list 1 sample_one) # 0 is empty
-        DynamoRIO_get_full_path(sample_loc ${sample_one})
+        DynamoRIO_get_full_path(sample_loc ${sample_one} "${location_suffix}")
         get_filename_component(sample_dir ${sample_loc} PATH)
         configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
       endif (BUILD_SAMPLES)
@@ -2147,7 +2147,7 @@ if (CLIENT_INTERFACE)
   if (NOT ANDROID)
     # XXX i#1874: get working on Android
     tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
-    get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll)
+    get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
     tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
       "" "${drsyms_libpath}")
     # Disable optimizations for the exe and appdll to allow stack tracing.
@@ -2339,7 +2339,7 @@ if (CLIENT_INTERFACE)
       # which results in unresolved symbols.
       # The only fix I could come up with is to force dynamorio.lib earlier
       # using the link flags:
-      DynamoRIO_get_full_path(drpath dynamorio)
+      DynamoRIO_get_full_path(drpath dynamorio "${location_suffix}")
       get_filename_component(drdir ${drpath} DIRECTORY)
       get_filename_component(drname ${drpath} NAME_WE)
       append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
@@ -2489,7 +2489,7 @@ endif ()
       torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
       set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
       set(tool.drcov.fib_expectbase "tool.drcov.fib")
-      DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov)
+      DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov "${location_suffix}")
     endif ()
 
     ###########################################################################
@@ -2601,7 +2601,7 @@ endif ()
       if (UNIX) # FIXME i#1727: on Windows the child fails to open the pipe.
         add_exe(tool.multiproc
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/multiproc.c)
-        get_target_path_for_execution(tool.multiproc_path tool.multiproc)
+        get_target_path_for_execution(tool.multiproc_path tool.multiproc "${location_suffix}")
         torunonly_drcachesim(multiproc tool.multiproc "" "${tool.multiproc_path}")
       endif ()
 
@@ -2662,7 +2662,7 @@ endif ()
       # Test offline traces.
       # XXX: we could exclude the pipe files and build the offline trace
       # support by itself for Android.
-      get_target_path_for_execution(drcachesim_path drcachesim)
+      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
 
       # The sim_atops should start with @ and be in @-as-space format (hence "atops")
@@ -2763,7 +2763,7 @@ endif ()
 
           if (X86 AND NOT APPPLE) # This test is x86-specific.
             # Test that raw2trace doesn't do more IO than it should.
-            get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io)
+            get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io "${location_suffix}")
             prefix_cmd_if_necessary(raw2trace_io_path ON ${raw2trace_io_path})
             macro (torunonly_raw2trace testname exetgt extra_ops app_args)
               torunonly_ci(tool.raw2trace.${testname} ${exetgt} drcachesim
@@ -2814,7 +2814,7 @@ endif ()
       set(tool.histogram.offline_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.histogram.offline_rawtemp ON) # no preprocessor
-      get_target_path_for_execution(histo_path histogram_launcher)
+      get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
       prefix_cmd_if_necessary(histo_path ON ${histo_path})
       set(tool.histogram.offline_runcmp
         "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -2836,7 +2836,7 @@ endif ()
         set(tool.histogram.gzip_basedir
           "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
         set(tool.histogram.gzip_rawtemp ON) # no preprocessor
-        get_target_path_for_execution(histo_path histogram_launcher)
+        get_target_path_for_execution(histo_path histogram_launcher "${location_suffix}")
         prefix_cmd_if_necessary(histo_path ON ${histo_path})
         set(tool.histogram.gzip_runcmp
           "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
@@ -2982,7 +2982,7 @@ if (UNIX)
           ${32dir}/${INSTALL_LIB_BASE})
         make_symlink(${32dir}/${INSTALL_LIB_X86}
           ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
-        get_target_path_for_execution(drrun_path drrun)
+        get_target_path_for_execution(drrun_path drrun "${location_suffix}")
         if (DEBUG)
           set(config_type -DDEBUG=ON)
         else ()
@@ -3025,7 +3025,7 @@ if (UNIX)
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
-  get_target_path_for_execution(execve-sub-path linux.execve-sub)
+  get_target_path_for_execution(execve-sub-path linux.execve-sub "${location_suffix}")
   tobuild_ops(linux.execve-null linux/execve-null.c "" "${execve-sub-path}")
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
@@ -3036,10 +3036,10 @@ if (UNIX)
     # We want the environment to keep HOME for config dirs (xref i#1679).
     add_exe(linux.execv linux/execv.c)
     set(linux.child-blacklist_expectbase "child-blacklist")
-    get_target_path_for_execution(execve-config-path linux.execve-config)
+    get_target_path_for_execution(execve-config-path linux.execve-config "${location_suffix}")
     torunonly(linux.child-blacklist linux.execv linux/execv.c
       "-follow_children" "${execve-config-path}")
-    get_target_path_for_execution(drconfig_path drconfig)
+    get_target_path_for_execution(drconfig_path drconfig "${location_suffix}")
     prefix_cmd_if_necessary(drconfig_path ON ${drconfig_path})
     set(linux.child-blacklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
     set(linux.child-blacklist_precmd
@@ -3279,7 +3279,7 @@ else (UNIX)
 
   tobuild_dll(win32.multisec win32/multisec.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
-  DynamoRIO_get_full_path(multisec_path win32.multisec.dll)
+  DynamoRIO_get_full_path(multisec_path win32.multisec.dll "${location_suffix}")
   add_custom_command(TARGET win32.multisec.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${multisec_path}
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.multisec2.dll.dll VERBATIM)
@@ -3297,7 +3297,7 @@ else (UNIX)
 
   tobuild_dll(win32.rebased win32/rebased.c "")
   # On Win8+ loading via 8.3 name doesn't fool the loader, so we make a copy.
-  DynamoRIO_get_full_path(rebased_path win32.rebased.dll)
+  DynamoRIO_get_full_path(rebased_path win32.rebased.dll "${location_suffix}")
   add_custom_command(TARGET win32.rebased.dll POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${rebased_path}
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/win32.rebased2.dll.dll VERBATIM)

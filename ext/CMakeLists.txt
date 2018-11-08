@@ -91,7 +91,7 @@ macro(configure_extension target is_static)
 
   DR_export_target(${target})
   install_exported_target(${target} ${INSTALL_EXT_LIB})
-  copy_target_to_device(${target})
+  copy_target_to_device(${target} "${location_suffix}")
 endmacro(configure_extension)
 
 macro(install_ext_header header)
