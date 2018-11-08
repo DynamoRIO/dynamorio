@@ -35,7 +35,7 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
-  copy_target_to_device(runstats)
+  copy_target_to_device(runstats "${location_suffix}")
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
@@ -172,7 +172,7 @@ set_target_properties(drinject PROPERTIES
 set(tgts ${tgts} drconfig drrun drinject)
 
 foreach (deploytgt drconfig drrun drinject)
-  copy_target_to_device(${deploytgt})
+  copy_target_to_device(${deploytgt} "${location_suffix}")
   if (WINDOWS)
     target_link_libraries(${deploytgt}
       policy_static user32 advapi32 pdh imagehlp shell32)

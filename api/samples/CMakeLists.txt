@@ -57,8 +57,6 @@ project(DynamoRIO_samples)
 
 if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(SET CMP0026 OLD)
   # XXX i#1375: if we make 2.8.12 the minimum we can remove the @rpath
   # Mac stuff and this policy, right?
   cmake_policy(SET CMP0042 OLD)
@@ -162,7 +160,7 @@ function (add_sample_client name source_file_list extension_list)
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-    DynamoRIO_get_full_path(path ${name})
+    DynamoRIO_get_full_path(path ${name} "${location_suffix}")
     add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
@@ -312,14 +310,12 @@ DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 DR_install(FILES "${public_clist}"
   DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
-if (WIN32)                                                          # NON-PUBLIC
-  # Have a copy of dynamorio library for tracedump.                 # NON-PUBLIC
-  # XXX i#1557: replace w/ generator expression to satisfy CMP0026. # NON-PUBLIC
-  get_target_property(DR_TARGET_LOCATION dynamorio                  # NON-PUBLIC
-    LOCATION${location_suffix})                                     # NON-PUBLIC
-  DR_install(FILES "${DR_TARGET_LOCATION}"                          # NON-PUBLIC
-    DESTINATION "${INSTALL_SAMPLES_BIN}")                           # NON-PUBLIC
-endif (WIN32)                                                       # NON-PUBLIC
+if (WIN32)                                                                    # NON-PUBLIC
+  # Have a copy of dynamorio library for tracedump.                           # NON-PUBLIC
+  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")  # NON-PUBLIC
+  DR_install(FILES "${DR_TARGET_LOCATION}"                                    # NON-PUBLIC
+    DESTINATION "${INSTALL_SAMPLES_BIN}")                                     # NON-PUBLIC
+endif (WIN32)                                                                 # NON-PUBLIC
 
 DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_SAMPLES_BIN}
