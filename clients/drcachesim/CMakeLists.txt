@@ -417,9 +417,9 @@ register_tool_file("drcachesim")
 
 if (WIN32)
   # drcachesim needs these dlls (i#1737 would eliminate this)
-  DynamoRIO_get_full_path(injectlib_loc drinjectlib )
+  DynamoRIO_get_full_path(injectlib_loc drinjectlib "${location_suffix}")
   DR_install(FILES "${injectlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  DynamoRIO_get_full_path(configlib_loc drconfiglib )
+  DynamoRIO_get_full_path(configlib_loc drconfiglib "${location_suffix}")
   DR_install(FILES "${configlib_loc}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drinjectlib.dll

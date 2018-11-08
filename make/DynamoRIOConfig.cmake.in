@@ -375,14 +375,7 @@ endfunction (_DR_get_x64)
 
 # i#955: support a <basename>.drpath file for loader search paths
 function (_DR_get_drpath_name out target)
-  # i#1557: LOCATION has been made obsolete for build targets by policy CMP0026.
-  # However, we can and should use it for imported targets, hence the check.
-  get_target_property(is_imported ${target} IMPORTED)
-  if (is_imported)
-    get_target_property(client_path ${target} LOCATION${_DR_location_suffix})
-  else ()
-    DynamoRIO_get_full_path(client_path ${target})
-  endif ()
+  DynamoRIO_get_full_path(client_path ${target} "${_DR_location_suffix}")
   # NAME_WE chops off from the first . instead of the last . so we use regex:
   string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
   set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
@@ -844,13 +837,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
     DynamoRIO_add_rel_rpaths(${target} dynamorio)
     if (USE_DRPATH AND is_client) # doesn't make sense for standalone
       # Create the .drpath file our loader uses
-      # i#1557: see comment above
-      get_target_property(is_imported dynamorio IMPORTED)
-      if (is_imported)
-        get_target_property(libpath dynamorio LOCATION${_DR_location_suffix})
-      else ()
-        DynamoRIO_get_full_path(libpath dynamorio)
-      endif ()
+      DynamoRIO_get_full_path(libpath dynamorio "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       file(WRITE ${drpath_file} "${libdir}\n")
@@ -1177,13 +1164,7 @@ function (use_DynamoRIO_extension target extname)
   if (DynamoRIO_RPATH AND NOT DynamoRIO_EXT_${extname}_NOLIB)
     DynamoRIO_add_rel_rpaths(${target} ${extname})
     if (USE_DRPATH)
-      # i#1557: see comment above
-      get_target_property(is_imported ${extname} IMPORTED)
-      if (is_imported)
-        get_target_property(libpath ${extname} LOCATION${_DR_location_suffix})
-      else ()
-        DynamoRIO_get_full_path(libpath ${extname})
-      endif ()
+      DynamoRIO_get_full_path(libpath ${extname} "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       if (EXISTS ${drpath_file})
