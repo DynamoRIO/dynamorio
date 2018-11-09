@@ -86,7 +86,7 @@ if (NOT "${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
     set(DynamoRIO_REG_COMPATIBILITY ON PARENT_SCOPE)
   endif ()
   # Automatically define PAGE_SIZE and PAGE_START if client targets older version
-  if ("${PACKAGE_FIND_VERSION}" VERSION_LESS "6.3")
+  if ("${PACKAGE_FIND_VERSION}" VERSION_LESS "7.1")
     set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON PARENT_SCOPE)
   endif ()
   # Ditto with the LOG_ defines.
