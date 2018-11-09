@@ -245,13 +245,6 @@
 # should have a "_DR_" prefix.  Public functions and variables should have DynamoRIO
 # in the name.
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  # XXX i#1557: update our code to satisfy the changes in 3.x
-  cmake_policy(PUSH)
-  cmake_policy(SET CMP0026 OLD)
-endif ()
-
 INCLUDEFILE make/utils_exposed.cmake
 
 if (UNIX)
@@ -382,7 +375,7 @@ endfunction (_DR_get_x64)
 
 # i#955: support a <basename>.drpath file for loader search paths
 function (_DR_get_drpath_name out target)
-  get_target_property(client_path ${target} LOCATION${_DR_location_suffix})
+  DynamoRIO_get_full_path(client_path ${target} "${_DR_location_suffix}")
   # NAME_WE chops off from the first . instead of the last . so we use regex:
   string(REGEX REPLACE "\\.[^\\.]*$" "" client_base ${client_path})
   set(${out} ${client_base}.@DR_RPATH_SUFFIX@ PARENT_SCOPE)
@@ -844,7 +837,7 @@ function (_DR_set_compile_flags target is_client extra_flags)
     DynamoRIO_add_rel_rpaths(${target} dynamorio)
     if (USE_DRPATH AND is_client) # doesn't make sense for standalone
       # Create the .drpath file our loader uses
-      get_target_property(libpath dynamorio LOCATION${_DR_location_suffix})
+      DynamoRIO_get_full_path(libpath dynamorio "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       file(WRITE ${drpath_file} "${libdir}\n")
@@ -1171,7 +1164,7 @@ function (use_DynamoRIO_extension target extname)
   if (DynamoRIO_RPATH AND NOT DynamoRIO_EXT_${extname}_NOLIB)
     DynamoRIO_add_rel_rpaths(${target} ${extname})
     if (USE_DRPATH)
-      get_target_property(libpath ${extname} LOCATION${_DR_location_suffix})
+      DynamoRIO_get_full_path(libpath ${extname} "${_DR_location_suffix}")
       get_filename_component(libdir ${libpath} PATH)
       _DR_get_drpath_name(drpath_file ${target})
       if (EXISTS ${drpath_file})
@@ -1252,9 +1245,4 @@ endfunction ()
 if (NOT DrMemoryFramework_DIR AND EXISTS "${DynamoRIO_DIR}/../drmemory/drmf")
   set(DrMemoryFramework_DIR "${DynamoRIO_DIR}/../drmemory/drmf")
   find_package(DrMemoryFramework)
-endif ()
-
-if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
-  cmake_policy(POP)
 endif ()

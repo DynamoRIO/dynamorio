@@ -269,8 +269,7 @@ if (WIN32)
   add_library(ntdll_imports SHARED win32/ntdll_imports.c ${ntimp_def})
   # i#1137: ignore 'specified multiple times' linker warnings
   append_property_string(TARGET ntdll_imports LINK_FLAGS "/ignore:4197")
-  # XXX i#1557: replace w/ generator expression to satisfy CMP0026
-  get_target_property(ntimp_flags ntdll_imports LOCATION${location_suffix})
+  DynamoRIO_get_full_path(ntimp_flags ntdll_imports "${location_suffix}")
   string(REPLACE ".dll" ".lib" ntimp_flags ${ntimp_flags})
   DR_export_target(ntdll_imports)
   # We need separate 32-bit and 64-bit versions so we put into lib dir
@@ -462,7 +461,7 @@ function (configure_core_lib target)
   endif ()
 
   target_link_libraries(${target} drhelper)
-  copy_target_to_device(${target})
+  copy_target_to_device(${target} "${location_suffix}")
 
   # rather than a separate BUILD_INCLUDES option we always build
   # include headers if building core (or if building docs or samples as
@@ -691,7 +690,7 @@ else (UNIX)
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
   # XXX i#1557: replace w/ $<TARGET_FILE:dynamorio> to satisfy CMP0026
-  get_target_property(drout dynamorio LOCATION${location_suffix})
+  DynamoRIO_get_full_path(drout dynamorio "${location_suffix}")
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
   set(dynamorio_link_flags
@@ -844,7 +843,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
-copy_target_to_device(${PRELOAD_NAME})
+copy_target_to_device(${PRELOAD_NAME} "${location_suffix}")
 
 # drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
 # functions.
@@ -1014,13 +1013,13 @@ if (BUILD_TESTS)
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
   target_link_libraries(unit_tests drhelper)
-  get_target_path_for_execution(unit_relpath unit_tests)
+  get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(unit_tests ${unit_relpath})
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
-  copy_target_to_device(unit_tests)
+  copy_target_to_device(unit_tests "${location_suffix}")
 endif (BUILD_TESTS)
 
 ###########################################################################

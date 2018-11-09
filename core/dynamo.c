@@ -362,6 +362,8 @@ statistics_init(void)
 static void
 statistics_exit(void)
 {
+    if (doing_detach)
+        memset(stats, 0, sizeof(*stats)); /* for possible re-attach */
     stats = NULL;
 }
 
