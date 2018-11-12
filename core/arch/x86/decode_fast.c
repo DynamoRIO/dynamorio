@@ -1293,7 +1293,7 @@ get_implied_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
 byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
-    byte byte0, byte1;
+    byte byte0 = 0, byte1 = 0;
     byte *start_pc = pc;
 
     /* find and remember the instruction and its size */
