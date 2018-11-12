@@ -1264,9 +1264,18 @@ get_implied_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
                              byte *byte1)
 {
     switch (vex_mm) {
-    case 1: *byte0 = 0x0f; *byte1 = *(pc + prefixes); break;
-    case 2: *byte0 = 0x0f; *byte1 = 0x38; break;
-    case 3: *byte0 = 0x0f; *byte1 = 0x3a; break;
+    case 1:
+        *byte0 = 0x0f;
+        *byte1 = *(pc + prefixes);
+        break;
+    case 2:
+        *byte0 = 0x0f;
+        *byte1 = 0x38;
+        break;
+    case 3:
+        *byte0 = 0x0f;
+        *byte1 = 0x3a;
+        break;
     default: CLIENT_ASSERT(false, "decode_cti: internal prefix error");
     }
 }
