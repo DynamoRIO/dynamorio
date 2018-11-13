@@ -1260,8 +1260,8 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
 }
 
 static void
-get_implied_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
-                             byte *byte1)
+get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                byte *byte1)
 {
     switch (vex_mm) {
     case 1:
@@ -1337,14 +1337,18 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * fairly rare to begin with.
      */
 
-    if ((*pc == VEX_3BYTE_PREFIX_OPCODE) &&
+    if ((*pc == VEX_2BYTE_PREFIX_OPCODE) &&
         (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1)))) {
+        byte0 = 0x0f;
+        byte1 = *(pc + prefixes);
+    } else if ((*pc == VEX_3BYTE_PREFIX_OPCODE) &&
+               (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1)))) {
         byte vex_mm = *(pc + 1) & 0x1f;
-        get_implied_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+        get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
     } else if (*pc == EVEX_PREFIX_OPCODE &&
                (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1)))) {
         byte vex_mm = *(pc + 1) & 0x3;
-        get_implied_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+        get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
     } else {
         if (prefixes > 0) {
             for (i = 0; i < prefixes; i++, pc++) {
