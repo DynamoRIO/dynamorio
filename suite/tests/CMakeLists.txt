@@ -2667,6 +2667,14 @@ endif ()
       # and print out the "---- <application exited with code 0> ----".
       torunonly_drcacheoff(simple ${ci_shared_app} "" "" "")
 
+      # Test reading a legacy pre-interleaved file.
+      torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
+        "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz"
+        OFF)
+      set(tool.drcacheoff.legacy_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
+
       if (UNIX) # Enable on Windows once i#1727 is fixed.
         # FIXME i#2384: we need to combine the subdir from the child with the
         # parent in some way and update the templatex file to include both.
