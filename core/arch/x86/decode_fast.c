@@ -1245,6 +1245,27 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
     return false;
 }
 
+static void
+get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                byte *byte1)
+{
+    switch (vex_mm) {
+    case 1:
+        *byte0 = 0x0f;
+        *byte1 = *(pc + prefixes);
+        break;
+    case 2:
+        *byte0 = 0x0f;
+        *byte1 = 0x38;
+        break;
+    case 3:
+        *byte0 = 0x0f;
+        *byte1 = 0x3a;
+        break;
+    default: CLIENT_ASSERT(false, "decode_cti: internal prefix error");
+    }
+}
+
 /* Decodes only enough of the instruction at address pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
@@ -1267,7 +1288,7 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
 byte *
 decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
-    byte byte0, byte1;
+    byte byte0 = 0, byte1 = 0;
     byte *start_pc = pc;
 
     /* find and remember the instruction and its size */
@@ -1299,24 +1320,38 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with. */
-    if (prefixes > 0) {
-        for (i = 0; i < prefixes; i++, pc++) {
-            switch (*pc) {
-            case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
-            case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
-            default: break;
+     * fairly rare to begin with.
+     */
+
+    if ((*pc == VEX_2BYTE_PREFIX_OPCODE) &&
+        (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1)))) {
+        byte0 = 0x0f;
+        byte1 = *(pc + prefixes);
+    } else if ((*pc == VEX_3BYTE_PREFIX_OPCODE) &&
+               (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1)))) {
+        byte vex_mm = *(pc + 1) & 0x1f;
+        get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+    } else {
+        if (prefixes > 0) {
+            for (i = 0; i < prefixes; i++, pc++) {
+                switch (*pc) {
+                case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
+                case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+                default: break;
+                }
             }
         }
-    }
 
-    byte0 = *pc;
-    byte1 = *(pc + 1);
+        byte0 = *pc;
+        byte1 = *(pc + 1);
+    }
 
     /* eflags analysis
      * we do this even if -unsafe_ignore_eflags b/c it doesn't cost that
      * much and we can use the analysis to detect any bb that reads a flag
      * prior to writing it
+     * XXX: I don't think this is working correctly for vex (and definitely
+     * not for future evex) instructions
      */
     eflags = eflags_6[byte0];
     if (eflags == EFLAGS_6_ESCAPE) {
@@ -1376,6 +1411,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     if (interesting[byte0] == 0) {
         /* assumption: opcode already OP_UNDECODED */
         /* assumption: operands are already marked invalid (instr was reset) */
+        /* vex always implies at least an 0x0f opcode byte */
         instr_set_raw_bits(instr, start_pc, sz);
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (start_pc + sz);
