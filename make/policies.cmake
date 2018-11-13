@@ -44,8 +44,5 @@ cmake_policy(SET CMP0042 OLD)
 # XXX DrMem-i#1481: update to cmake 2.8.12's better handling of interface imports
 cmake_policy(SET CMP0022 OLD)
 
-# XXX i#1418: update to cmake 2.8.12's better handling of interface imports, for Qt/Win
-cmake_policy(SET CMP0020 OLD)
-
 # Recognize literals in if statements
 cmake_policy(SET CMP0012 NEW)
