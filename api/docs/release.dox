@@ -149,6 +149,10 @@ compatibility changes:
  - Added a parameter to cmake functions DynamoRIO_get_target_path_for_execution and
    DynamoRIO_copy_target_to_device. External projects outside of DynamoRIO need
    to pass _DR_location_suffix.
+ - The drcachesim tool's offline traces are now stored in separate files per traced
+   application thread, rather than a single interleaved file.  Reading and analyzing
+   a legacy interleaved file is still supported, but all new generated traces are
+   split.  Splitting enables parallelized post-processing and trace analysis.
 
 Further non-compatibility-affecting changes include:
 

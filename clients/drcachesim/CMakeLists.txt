@@ -115,7 +115,7 @@ add_exported_library(drmemtrace_raw2trace STATIC
   tracer/instru_offline.cpp
   )
 configure_DynamoRIO_standalone(drmemtrace_raw2trace)
-target_link_libraries(drmemtrace_raw2trace drfrontendlib)
+target_link_libraries(drmemtrace_raw2trace directory_iterator drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
 
 set(drcachesim_srcs
