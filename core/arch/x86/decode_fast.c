@@ -1410,7 +1410,6 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     if (interesting[byte0] == 0) {
         /* assumption: opcode already OP_UNDECODED */
         /* assumption: operands are already marked invalid (instr was reset) */
-        /* vex always implies at least an 0x0f opcode byte */
         instr_set_raw_bits(instr, start_pc, sz);
         IF_X64(instr_set_rip_rel_pos(instr, rip_rel_pos));
         return (start_pc + sz);
