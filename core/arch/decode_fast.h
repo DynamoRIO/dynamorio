@@ -55,10 +55,6 @@ int
 decode_sizeof(dcontext_t *dcontext, byte *pc,
               int *num_prefixes _IF_X86_64(uint *rip_rel_pos));
 
-int
-decode_sizeof_internal(dcontext_t *dcontext, byte *pc, int *num_prefixes, byte *vex_out,
-                       byte *vex_mm_out _IF_X86_64(uint *rip_rel_pos));
-
 DR_API
 /**
  * Decodes only enough of the instruction at address \p pc to determine its size.

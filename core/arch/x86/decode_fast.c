@@ -474,14 +474,6 @@ int
 decode_sizeof(dcontext_t *dcontext, byte *start_pc,
               int *num_prefixes _IF_X86_64(uint *rip_rel_pos))
 {
-    return decode_sizeof_internal(dcontext, start_pc, num_prefixes, NULL,
-                                  NULL _IF_X64(rip_rel_pos));
-}
-
-int
-decode_sizeof_internal(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
-                       byte *vex_out, byte *vex_mm_out _IF_X64(uint *rip_rel_pos))
-{
     byte *pc = start_pc;
     uint opc = (uint)*pc;
     int sz = 0;
@@ -555,8 +547,6 @@ decode_sizeof_internal(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
                      * - no vex-encoded instr size differs based on prefixes,
                      *   so we don't bother to decode vex.pp
                      */
-                    if (vex_out)
-                        *vex_out = (byte)opc;
                     bool vex3 = (opc == 0xc4);
                     byte vex_mm = 0;
                     opc = (uint) * (++pc); /* 2nd vex prefix byte */
@@ -566,8 +556,6 @@ decode_sizeof_internal(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
                         opc = (uint) * (++pc); /* 3rd vex prefix byte */
                         sz += 1;
                     }
-                    if (vex_mm_out)
-                        *vex_mm_out = vex_mm;
                     opc = (uint) * (++pc); /* 1st opcode byte */
                     sz += 1;
                     if (num_prefixes != NULL)
@@ -1316,9 +1304,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * on every return. */
     uint rip_rel_pos;
 #endif
-    byte vex = 0, vex_mm = 0;
-    int sz = decode_sizeof_internal(dcontext, pc, &prefixes, &vex,
-                                    &vex_mm _IF_X64(&rip_rel_pos));
+    int sz = decode_sizeof(dcontext, pc, &prefixes _IF_X64(&rip_rel_pos));
     if (sz == 0) {
         /* invalid instruction! */
         instr_set_opcode(instr, OP_INVALID);
@@ -1326,6 +1312,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     }
     instr_set_opcode(instr, OP_UNDECODED);
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
+
+    byte0 = *(pc + prefixes);
+    byte1 = *(pc + prefixes + 1);
 
     /* we call instr_set_raw_bits on every return from here, not up
      * front, because any instr_set_src, instr_set_dst, or
@@ -1343,22 +1332,20 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
             switch (*pc) {
             case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
             case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+            case VEX_2BYTE_PREFIX_OPCODE:
+                /* VEX 2-byte prefix implies 0x0f opcode */
+                byte0 = 0x0f;
+                byte1 = *(pc + prefixes);
+                break;
+            case VEX_3BYTE_PREFIX_OPCODE: {
+                /* VEX 3-byte prefix implies instruction opcodes by setting mm bits */
+                byte vex_mm = (byte)(*(pc + 1) & 0x1f);
+                get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+                break;
+            }
             default: break;
             }
         }
-    }
-
-    byte0 = *pc;
-    byte1 = *(pc + 1);
-
-    /* VEX2 prefix implies 0x0f opcode, VEX3 prefix implies instruction opcodes by
-     * setting mm bits.
-     */
-    if (vex == VEX_2BYTE_PREFIX_OPCODE) {
-        byte0 = 0x0f;
-        byte1 = *(pc + prefixes);
-    } else if (vex == VEX_3BYTE_PREFIX_OPCODE) {
-        get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
     }
 
     /* eflags analysis
