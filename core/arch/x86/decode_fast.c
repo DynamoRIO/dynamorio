@@ -1321,9 +1321,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with.
-     */
-
+     * fairly rare to begin with. */
     if ((*pc == VEX_2BYTE_PREFIX_OPCODE) &&
         (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1)))) {
         byte0 = 0x0f;
