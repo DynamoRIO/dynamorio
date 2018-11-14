@@ -1262,7 +1262,8 @@ get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0
         *byte0 = 0x0f;
         *byte1 = 0x3a;
         break;
-    default: CLIENT_ASSERT(false, "decode_cti: internal prefix error");
+    default:
+        CLIENT_ASSERT(false, "get_implied_mm_vex_opcode_bytes: internal prefix error");
     }
 }
 
