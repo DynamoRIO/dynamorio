@@ -35,9 +35,6 @@ cmake_minimum_required(VERSION 3.2)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-# XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-cmake_policy(SET CMP0022 OLD)
-
 if (X64)
   set(BITS "64")
 else ()
