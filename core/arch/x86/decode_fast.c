@@ -556,7 +556,7 @@ decode_sizeof_internal(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
                      *   so we don't bother to decode vex.pp
                      */
                     if (vex_out)
-                        *vex_out = opc;
+                        *vex_out = (byte)opc;
                     bool vex3 = (opc == 0xc4);
                     byte vex_mm = 0;
                     opc = (uint) * (++pc); /* 2nd vex prefix byte */
