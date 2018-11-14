@@ -472,7 +472,7 @@ static const byte xop_a_extra[256] = {
  */
 int
 decode_sizeof(dcontext_t *dcontext, byte *start_pc,
-              int *num_prefixes _IF_X86_64(uint *rip_rel_pos))
+              int *num_prefixes _IF_X86(uint *rip_rel_pos))
 {
     byte *pc = start_pc;
     uint opc = (uint)*pc;
