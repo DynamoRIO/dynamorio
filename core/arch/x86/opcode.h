@@ -1387,8 +1387,8 @@ enum {
 };
 
 enum { /* FIXME: vs RAW_OPCODE_* enum */
-       CS_SEG_OPCODE = 0x2e,
-       DS_SEG_OPCODE = 0x3e,
+       CS_SEG_OPCODE = RAW_PREFIX_jcc_not_taken,
+       DS_SEG_OPCODE = RAW_PREFIX_jcc_taken,
        ES_SEG_OPCODE = 0x26,
        FS_SEG_OPCODE = 0x64,
        GS_SEG_OPCODE = 0x65,
