@@ -700,8 +700,10 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                         "assuming a prefix instruction\n",
                         cpc, target_cache);
                     res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
-                    /* should only happen for thread synch, not a fault */
-                    ASSERT(tdcontext != get_thread_private_dcontext() ||
+                    /* Should only happen for thread synch, not a fault. Checking whether
+                     * tdcontext is the same as this thread's private dcontext is a weak
+                     * indicator of xl8 due to a fault. */
+                    ASSERT_CURIOSITY(tdcontext != get_thread_private_dcontext() ||
                            INTERNAL_OPTION(stress_recreate_pc));
                 } else {
                     LOG(THREAD_GET, LOG_INTERP, 2,
