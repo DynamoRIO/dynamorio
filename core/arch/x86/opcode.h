@@ -1387,8 +1387,12 @@ enum {
 };
 
 enum { /* FIXME: vs RAW_OPCODE_* enum */
+       CS_SEG_OPCODE = 0x2e,
+       DS_SEG_OPCODE = 0x3e,
+       ES_SEG_OPCODE = 0x26,
        FS_SEG_OPCODE = 0x64,
        GS_SEG_OPCODE = 0x65,
+       SS_SEG_OPCODE = 0x36,
 
 /* For Windows, we piggyback on native TLS via gs for x64 and fs for x86.
  * For Linux, we steal a segment register, and so use fs for x86 (where
