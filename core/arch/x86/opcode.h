@@ -1387,8 +1387,12 @@ enum {
 };
 
 enum { /* FIXME: vs RAW_OPCODE_* enum */
+       CS_SEG_OPCODE = RAW_PREFIX_jcc_not_taken,
+       DS_SEG_OPCODE = RAW_PREFIX_jcc_taken,
+       ES_SEG_OPCODE = 0x26,
        FS_SEG_OPCODE = 0x64,
        GS_SEG_OPCODE = 0x65,
+       SS_SEG_OPCODE = 0x36,
 
 /* For Windows, we piggyback on native TLS via gs for x64 and fs for x86.
  * For Linux, we steal a segment register, and so use fs for x86 (where
@@ -1433,6 +1437,8 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
        RET_NOIMM_OPCODE = 0xc3,
        RET_IMM_OPCODE = 0xc2,
        MOV_IMM_EDX_OPCODE = 0xba,
+       VEX_2BYTE_PREFIX_OPCODE = 0xc5,
+       VEX_3BYTE_PREFIX_OPCODE = 0xc4,
 };
 
 /* Debug registers are used for breakpoint with x86.
