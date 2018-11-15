@@ -509,7 +509,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
             sz += 1;
         } else {
             switch (opc) {
-            case 0x66: /* operand size */
+            case DATA_PREFIX_OPCODE: /* operand size */
                 /* rex.w before other prefixes is a nop */
                 if (qword_operands)
                     qword_operands = false;
@@ -517,28 +517,28 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0xf2:
-            case 0xf3: /* REP */
+            case REPNE_PREFIX_OPCODE:
+            case REP_PREFIX_OPCODE: /* REP */
                 rep_prefix = true;
                 /* fall through */
-            case 0xf0: /* LOCK */
-            case 0x64:
-            case 0x65: /* segment overrides */
-            case 0x26:
-            case 0x36:
-            case 0x2e:
-            case 0x3e:
+            case RAW_PREFIX_lock: /* LOCK */
+            case CS_SEG_OPCODE:   /* segment overrides */
+            case DS_SEG_OPCODE:
+            case ES_SEG_OPCODE:
+            case FS_SEG_OPCODE:
+            case GS_SEG_OPCODE:
+            case SS_SEG_OPCODE:
                 opc = (uint) * (++pc);
                 sz += 1;
                 break;
-            case 0x67:
+            case ADDR_PREFIX_OPCODE:
                 addr16 = true;
                 opc = (uint) * (++pc);
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
-            case 0xc4:
-            case 0xc5: {
+            case VEX_3BYTE_PREFIX_OPCODE:
+            case VEX_2BYTE_PREFIX_OPCODE: {
                 /* If 64-bit mode or mod selects for register, this is vex */
                 if (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
                     /* Assumptions:
@@ -1245,6 +1245,28 @@ intercept_fip_save(byte *pc, byte byte0, byte byte1)
     return false;
 }
 
+static void
+get_implied_mm_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byte0,
+                                byte *byte1)
+{
+    switch (vex_mm) {
+    case 1:
+        *byte0 = 0x0f;
+        *byte1 = *(pc + prefixes);
+        break;
+    case 2:
+        *byte0 = 0x0f;
+        *byte1 = 0x38;
+        break;
+    case 3:
+        *byte0 = 0x0f;
+        *byte1 = 0x3a;
+        break;
+    default:
+        CLIENT_ASSERT(false, "get_implied_mm_vex_opcode_bytes: internal prefix error");
+    }
+}
+
 /* Decodes only enough of the instruction at address pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
@@ -1291,32 +1313,47 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     instr_set_opcode(instr, OP_UNDECODED);
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
 
+    byte0 = *(pc + prefixes);
+    byte1 = *(pc + prefixes + 1);
+
     /* we call instr_set_raw_bits on every return from here, not up
      * front, because any instr_set_src, instr_set_dst, or
-     * instr_set_opcode will kill original bits state */
+     * instr_set_opcode will kill original bits state
+     */
 
     /* Fill in SEG_FS and SEG_GS override prefixes, ignore rest for now.
      * We rely on having these set during bb building.
      * FIXME - could be done in decode_sizeof which is already walking these
      * bytes, but would need to complicate its interface and prefixes are
-     * fairly rare to begin with. */
+     * fairly rare to begin with.
+     */
     if (prefixes > 0) {
         for (i = 0; i < prefixes; i++, pc++) {
             switch (*pc) {
             case FS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_FS); break;
             case GS_SEG_OPCODE: instr_set_prefix_flag(instr, PREFIX_SEG_GS); break;
+            case VEX_2BYTE_PREFIX_OPCODE:
+                /* VEX 2-byte prefix implies 0x0f opcode */
+                byte0 = 0x0f;
+                byte1 = *(pc + prefixes);
+                break;
+            case VEX_3BYTE_PREFIX_OPCODE: {
+                /* VEX 3-byte prefix implies instruction opcodes by setting mm bits */
+                byte vex_mm = (byte)(*(pc + 1) & 0x1f);
+                get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
+                break;
+            }
             default: break;
             }
         }
     }
 
-    byte0 = *pc;
-    byte1 = *(pc + 1);
-
     /* eflags analysis
      * we do this even if -unsafe_ignore_eflags b/c it doesn't cost that
      * much and we can use the analysis to detect any bb that reads a flag
      * prior to writing it
+     * i#3267: eflags lookup possibly incorrect for instructions with VEX prefix.
+     * (and instructions with EVEX prefix once AVX512 has been added).
      */
     eflags = eflags_6[byte0];
     if (eflags == EFLAGS_6_ESCAPE) {
