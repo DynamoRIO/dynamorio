@@ -483,6 +483,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
     bool addr16 = false;         /* really "addr32" for x64 mode */
     bool found_prefix = true;
     bool rep_prefix = false;
+    bool evex_prefix = false;
     byte reg_opcode; /* reg_opcode field of modrm byte */
 #ifdef X64
     byte *rip_rel_pc = NULL;
@@ -537,10 +538,17 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 sz += 1;
                 /* up to caller to check for addr prefix! */
                 break;
+            case EVEX_PREFIX_OPCODE: {
+                /* If 64-bit mode or EVEX.R' bit is flipped, this is evex */
+                if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
+                    evex_prefix = true;
+                }
+            }
             case VEX_3BYTE_PREFIX_OPCODE:
             case VEX_2BYTE_PREFIX_OPCODE: {
                 /* If 64-bit mode or mod selects for register, this is vex */
-                if (X64_MODE_DC(dcontext) || TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
+                if (evex_prefix || X64_MODE_DC(dcontext) ||
+                    TESTALL(MODRM_BYTE(3, 0, 0), *(pc + 1))) {
                     /* Assumptions:
                      * - no vex-encoded instr size differs based on vex.w,
                      *   so we don't bother to set qword_operands
@@ -554,6 +562,12 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                     if (vex3) {
                         vex_mm = (byte)(opc & 0x1f);
                         opc = (uint) * (++pc); /* 3rd vex prefix byte */
+                        sz += 1;
+                    } else if (evex_prefix) {
+                        vex_mm = (byte)(opc & 0x3);
+                        opc = (uint) * (++pc); /* 3rd evex prefix byte */
+                        sz += 1;
+                        opc = (uint) * (++pc); /* 4th evex prefix byte */
                         sz += 1;
                     }
                     opc = (uint) * (++pc); /* 1st opcode byte */
@@ -1337,9 +1351,13 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
                 byte0 = 0x0f;
                 byte1 = *(pc + prefixes);
                 break;
+            case EVEX_PREFIX_OPCODE:
             case VEX_3BYTE_PREFIX_OPCODE: {
-                /* VEX 3-byte prefix implies instruction opcodes by setting mm bits */
-                byte vex_mm = (byte)(*(pc + 1) & 0x1f);
+                /* EVEX and VEX 3-byte prefixes imply instruction opcodes by encoding mm
+                 * bits in the second prefix byte. In theory, there are 5 VEX mm bits, but
+                 * only 2 of them are used.
+                 */
+                byte vex_mm = (byte)(*(pc + 1) & 0x3);
                 get_implied_mm_vex_opcode_bytes(pc, prefixes, vex_mm, &byte0, &byte1);
                 break;
             }
