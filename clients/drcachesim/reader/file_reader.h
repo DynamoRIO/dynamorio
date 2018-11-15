@@ -62,6 +62,11 @@
 #    endif
 #endif
 
+/* We templatize on the file type itself for specializing for compression and
+ * other different types.  An alternative would be to require a std::istream
+ * interface and add gzip_istream_t (paralleling gzip_ostream_t used for
+ * raw2trace).
+ */
 template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t()
