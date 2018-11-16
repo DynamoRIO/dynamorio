@@ -543,6 +543,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                 if (X64_MODE_DC(dcontext) || TEST(0x10, *(pc + 1))) {
                     evex_prefix = true;
                 }
+                /* Fall-through is deliberate, EVEX is handled through VEX below */
             }
             case VEX_3BYTE_PREFIX_OPCODE:
             case VEX_2BYTE_PREFIX_OPCODE: {
@@ -555,7 +556,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                      * - no vex-encoded instr size differs based on prefixes,
                      *   so we don't bother to decode vex.pp
                      */
-                    bool vex3 = (opc == 0xc4);
+                    bool vex3 = (opc == VEX_3BYTE_PREFIX_OPCODE);
                     byte vex_mm = 0;
                     opc = (uint) * (++pc); /* 2nd vex prefix byte */
                     sz += 1;
