@@ -3,14 +3,11 @@ signal blocked: 10
 Testing epoll_pwait
 signal received: 12
 signal received: 10
-signal received: 10
 Testing pselect
 signal received: 12
 signal received: 10
-signal received: 10
 Testing ppoll
 signal received: 12
-signal received: 10
 signal received: 10
 Testing epoll_pwait failure
 Testing pselect failure
@@ -19,13 +16,10 @@ Testing ppoll failure
 Testing epoll_pwait, preserve mask
 signal received: 12
 signal received: 10
-signal received: 10
 Testing pselect, preserve mask
 signal received: 12
 signal received: 10
-signal received: 10
 Testing ppoll, preserve mask
 signal received: 12
-signal received: 10
 signal received: 10
 #endif
