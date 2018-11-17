@@ -570,10 +570,8 @@ function(add_exe test source)
         AND NOT ${test} MATCHES "drdecode")
       target_link_libraries(${test} ${libmath} ${libdl})
     endif ()
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      if ("${test}" MATCHES "^pthread")
-        target_link_libraries(${test} ${libpthread})
-      endif ()
+    if ("${test}" MATCHES "^pthread")
+      link_with_pthread(${test})
     endif ()
   elseif (WIN32)
     append_link_flags(${test} "${ARCH_LDFLAGS}")
@@ -1779,9 +1777,7 @@ if (CLIENT_INTERFACE)
       "" "" "${annotation_test_args}")
     tobuild_appdll(client.annotation-concurrency
       client-interface/annotation-concurrency.c)
-    if (UNIX)
-      target_link_libraries(client.annotation-concurrency ${libpthread})
-    endif (UNIX)
+    link_with_pthread(client.annotation-concurrency)
     # i#1681: on a many-core machine this test can hit the 1-min timeout
     set(client.annotation-concurrency_timeout 120)
     set(client.annotation-concurrency.full-decode_expectbase
@@ -1843,9 +1839,7 @@ if (CLIENT_INTERFACE)
     tobuild_appdll(client.annotation-concurrency-opt
       client-interface/annotation-concurrency.c)
     optimize(client.annotation-concurrency-opt.appdll)
-    if (UNIX)
-      target_link_libraries(client.annotation-concurrency-opt ${libpthread})
-    endif (UNIX)
+    link_with_pthread(client.annotation-concurrency-opt)
     # i#1681: on a many-core machine this test can hit the 1-min timeout
     set(client.annotation-concurrency-opt_timeout 120)
     set(client.annotation-concurrency-opt.full-decode_expectbase
@@ -1958,7 +1952,7 @@ if (CLIENT_INTERFACE)
     endif (X86 OR AARCH64)
     if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
       tobuild_ci(client.signal client-interface/signal.c "" "" "")
-      target_link_libraries(client.signal ${libpthread})
+      link_with_pthread(client.signal)
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
     tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
@@ -2066,16 +2060,12 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
   use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
-    target_link_libraries(client.drmgr-test ${libpthread})
-  endif ()
+  link_with_pthread(client.drmgr-test)
 
   tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
   use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
   use_DynamoRIO_extension(client.drx_buf-test.dll drx)
-  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
-    target_link_libraries(client.drx_buf-test ${libpthread})
-  endif ()
+  link_with_pthread(client.drx_buf-test)
   target_include_directories(client.drx_buf-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
@@ -2180,9 +2170,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
   use_DynamoRIO_extension(client.drutil-test.dll drmgr)
-  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
-    target_link_libraries(client.drutil-test ${libpthread})
-  endif ()
+  link_with_pthread(client.drutil-test)
 
   tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
   use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
@@ -2279,20 +2267,14 @@ if (CLIENT_INTERFACE)
 
   if (NOT ARM AND NOT AARCH64) # FIXME i#1551, i#1569: fix bugs on ARM/AArch64
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(api.startstop ${libpthread})
-    endif ()
+    link_with_pthread(api.startstop)
     tobuild_api(api.detach api/detach.c "" "" OFF OFF)
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(api.detach ${libpthread})
-    endif ()
+    link_with_pthread(api.detach)
     if (LINUX AND X64) # Will take extra work to port to 32-bit.
       tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
       target_include_directories(api.detach_state PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/api)
-      if (NOT ANDROID) # pthreads is inside Bionic on Android
-        target_link_libraries(api.detach_state ${libpthread})
-      endif ()
+      link_with_pthread(api.detach_state)
     endif ()
     if (NOT WIN32) # XXX i#2611: fix for Windows
       if (X64)
@@ -2302,9 +2284,7 @@ if (CLIENT_INTERFACE)
         set(detach_spawn_name api.detach_spawn_FLAKY)
       endif ()
       tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
-      if (NOT ANDROID) # pthreads is inside Bionic on Android
-        target_link_libraries(${detach_spawn_name} ${libpthread})
-      endif ()
+      link_with_pthread(${detach_spawn_name})
     endif ()
   endif ()
   # test static decoder library
@@ -2331,9 +2311,8 @@ if (CLIENT_INTERFACE)
     tobuild_api(api.ibl-stress api/ibl-stress.c
       "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
-    if (UNIX)
-      target_link_libraries(api.ibl-stress ${libpthread})
-    else ()
+    link_with_pthread(api.ibl-stress)
+    if (WIN32)
       # On Windows, somehow linking with drcontainers inserts it and drhelper
       # in front of dynamorio.lib, despite being added to the link list later,
       # which results in unresolved symbols.
@@ -2377,14 +2356,16 @@ endif ()
     target_link_libraries(api.static_prepop ${libmath})
     if (NOT WIN32)
       tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
-      target_link_libraries(api.static_signal ${libmath} ${libpthread})
+      target_link_libraries(api.static_signal ${libmath})
+      link_with_pthread(api.static_signal)
       # i#2119: test invoking the app's handler on a DR fault.
       tobuild_api(api.static_crash api/static_crash.c "-unsafe_crash_process" "" OFF ON)
       target_link_libraries(api.static_crash ${libmath})
       # XXX i#2346: add delayed sideline thread exit on Windows
       # FIXME i#297: static_sideline is flaky and sometimes hangs on exit.
       tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
-      target_link_libraries(api.static_sideline_FLAKY ${libmath} ${libpthread})
+      target_link_libraries(api.static_sideline_FLAKY ${libmath})
+      link_with_pthread(api.static_sideline_FLAKY)
     endif ()
   endif ()
 
@@ -3143,21 +3124,15 @@ if (UNIX)
 
   # i#1145: test re-starting syscalls, both inlined and from dispatch
   tobuild(linux.eintr linux/eintr.c)
-  if (NOT ANDROID) # pthreads is inside Bionic on Android
-    target_link_libraries(linux.eintr ${libpthread})
-  endif ()
+  link_with_pthread(linux.eintr)
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild(linux.sigsuspend linux/sigsuspend.c)
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(linux.sigsuspend ${libpthread})
-    endif ()
+    link_with_pthread(linux.sigsuspend)
 
     tobuild(linux.signest linux/signest.c)
-    if (NOT ANDROID) # pthreads is inside Bionic on Android
-      target_link_libraries(linux.signest ${libpthread})
-    endif ()
+    link_with_pthread(linux.signest)
   endif ()
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
