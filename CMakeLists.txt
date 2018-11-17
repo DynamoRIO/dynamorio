@@ -1626,6 +1626,12 @@ if (BUILD_TESTS AND UNIX)
   endif ()
 endif ()
 
+function (link_with_pthread target)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(${target} ${libpthread})
+  endif ()
+endfunction ()
+
 # zlib is used for some clients/ and tests.
 if (CMAKE_CROSSCOMPILING)
   # find_package looks at the host system.
