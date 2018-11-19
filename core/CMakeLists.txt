@@ -1035,14 +1035,7 @@ include_directories(BEFORE
 
 # Avoid transitive linking for imported target.
 # This is a shared library, after all, and ntdll.lib is typically not available.
-set_target_properties(dynamorio PROPERTIES
-  # I seem to have to set these to remove the
-  # IMPORTED_LINK_INTERFACE_LIBRARIES from the resulting .cmake file.
-  LINK_INTERFACE_LIBRARIES ""
-  LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-  # Setting these isn't affecting anything but doing so anyway.
-  IMPORTED_LINK_INTERFACE_LIBRARIES ""
-  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
+set_target_properties(dynamorio PROPERTIES INTERFACE_LINK_LIBRARIES "")
 install_exported_target(dynamorio ${INSTALL_LIB}
   # CMake doesn't set +x on shared libraries, so we have to ask for it.
   PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
