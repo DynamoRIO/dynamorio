@@ -79,9 +79,6 @@ kick_off_child_signals()
         /* waste some time */
         nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR1);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
         return true;
     }
 
@@ -121,7 +118,7 @@ main(int argc, char *argv[])
     print("Testing epoll_pwait\n");
 
     int count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
@@ -151,7 +148,7 @@ main(int argc, char *argv[])
     print("Testing pselect\n");
 
     count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
@@ -181,7 +178,7 @@ main(int argc, char *argv[])
     print("Testing ppoll\n");
 
     count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
          * call. Once it does, please include this in this test or add a new test.
          */
@@ -258,7 +255,7 @@ main(int argc, char *argv[])
     print("Testing epoll_pwait, preserve mask\n");
 
     count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
         /* Syscall preserves all registers except rax, rcx and r11. Note that we're
@@ -311,7 +308,7 @@ main(int argc, char *argv[])
     print("Testing pselect, preserve mask\n");
 
     count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
         asm volatile("movq 0(%8), %%rbx\n\t"
@@ -350,7 +347,7 @@ main(int argc, char *argv[])
     print("Testing ppoll, preserve mask\n");
 
     count = 0;
-    while (count++ < 3) {
+    while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
         asm volatile("mov %6, %%rbx\n\t"
