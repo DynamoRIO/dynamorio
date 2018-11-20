@@ -565,6 +565,13 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc,
                         opc = (uint) * (++pc); /* 3rd vex prefix byte */
                         sz += 1;
                     } else if (evex_prefix) {
+                        /* XXX i#1312: EVEX prefix always implies a leading 0x0f opcode
+                         * and as such, while this will return the instruction's length,
+                         * will still not be supported e.g. in decode_cti, because neither
+                         * are there sizeof tables supporting prefix + > 1 opcode
+                         * instructions, nor do we support full decode of EVEX
+                         * instructions yet.
+                         */
                         vex_mm = (byte)(opc & 0x3);
                         opc = (uint) * (++pc); /* 3rd evex prefix byte */
                         sz += 1;
