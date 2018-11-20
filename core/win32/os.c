@@ -6478,6 +6478,9 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
      * to do that? is it to translate . or ..?, better just to do the
      * translation here where we know what's going on */
     /* XXX: if you change the logic here, change convert_to_NT_file_path_wide() */
+    /* XXX i#3278: support /./ style file paths. Remove workaround in cmake function
+     * DynamoRIO_get_full_path.
+     */
     if (name[0] == '\\') {
         name += 1; /* eat the first \ */
         if (name[0] == '\\') {
