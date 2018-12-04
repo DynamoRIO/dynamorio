@@ -42,7 +42,7 @@
 #    include "elm.h"
 #    include "events.h"      /* for canary */
 #    include "processes.h"   /* for canary */
-#    include "options.h"     /* for option checking */
+#    include "../options.h"  /* for option checking */
 #    include "ntdll_types.h" /* for NT_SUCCESS */
 
 #    include <io.h>    /* for canary */
