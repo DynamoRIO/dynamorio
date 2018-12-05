@@ -247,7 +247,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
@@ -265,6 +265,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
         }
+    } else if (subtest == DRREG_TEST_6_C) {
+        // blah
+        /* Clean-call restore rax/TEST_REG1_SLOT test */
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #6\n");
+        // blah;
     }
 
     drvector_delete(&allowed);

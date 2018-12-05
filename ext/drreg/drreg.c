@@ -1620,7 +1620,7 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                 return false;
             }
 #ifdef X86
-            if (slot > max_DR_slot - 1) {
+            if (slot == 0) {
                 /* FIXME i#2933: We rule out the 3rd DR TLS slot b/c it's used by
                  * DR for purposes where there's no restore paired with a spill.
                  * Another tool component could also use the other slots that way,
