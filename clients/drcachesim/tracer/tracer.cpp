@@ -1687,8 +1687,8 @@ fork_init(void *drcontext)
 DR_EXPORT void
 drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* We need 2 reg slots beyond drreg's eflags slots => 3 slots */
-    drreg_options_t ops = { sizeof(ops), 3, false };
+    /* drreg will add 1 slot for eflags internally */
+    drreg_options_t ops = { sizeof(ops), 2, false };
     byte buf[MAXIMUM_PATH];
 
     dr_set_client_name("DynamoRIO Cache Simulator Tracer", "http://dynamorio.org/issues");
