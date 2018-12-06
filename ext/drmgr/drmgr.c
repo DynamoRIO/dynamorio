@@ -2617,9 +2617,9 @@ bool
 drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where,
                              emulated_instr_t *einstr)
 {
-    if (einstr->size < sizeof(emulated_instr_t))
+    if (einstr->size < sizeof(emulated_instr_t)) {
         return false;
-
+    }
     instr_t *start_emul_label = INSTR_CREATE_label(drcontext);
     instr_set_meta(start_emul_label);
     instr_set_note(start_emul_label, (void *)get_emul_note_val(DRMGR_NOTE_EMUL_START));
