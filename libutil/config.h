@@ -61,7 +61,7 @@
 #define _DETERMINA_CONFIG_H_
 
 #include <windows.h>
-#include "lib/globals_shared.h" /* for process_id_t */
+#include "globals_shared.h" /* for process_id_t */
 
 #ifdef __cplusplus
 extern "C" {

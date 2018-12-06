@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,9 +33,9 @@
 
 #include "share.h"
 
-#include "win32/drmarker.h"      // from src tree
-#include "win32/ntdll.h"         // from src tree
-#include "win32/inject_shared.h" // only for w_get_short_name
+#include "drmarker.h"      // from src tree
+#include "ntdll.h"         // from src tree
+#include "inject_shared.h" // only for w_get_short_name
 
 #include "processes.h"
 

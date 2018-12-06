@@ -37,7 +37,7 @@
 #include "utils.h"
 #include "share.h"
 #include "utils.h"
-#include "lib/dr_config.h"
+#include "dr_config.h"
 #include "our_tchar.h"
 #include "dr_frontend.h"
 
