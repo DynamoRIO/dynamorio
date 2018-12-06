@@ -379,7 +379,8 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
 }
 
 app_pc
-module_mapper_t::find_mapped_trace_address(app_pc trace_address)
+module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
+                                          OUT size_t *module_size)
 {
     if (modhandle == nullptr || modlist.empty()) {
         last_error = "Failed to call get_module_list() first";
@@ -389,6 +390,10 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
     // For simplicity we do a linear search, caching the prior hit.
     if (trace_address >= last_orig_base &&
         trace_address < last_orig_base + last_map_size) {
+        if (module_start != nullptr)
+            *module_start = last_map_base;
+        if (module_size != nullptr)
+            *module_size = last_map_size;
         return trace_address - last_orig_base + last_map_base;
     }
     for (std::vector<module_t>::iterator mvi = modvec.begin(); mvi != modvec.end();
@@ -399,11 +404,21 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
             last_orig_base = mvi->orig_base;
             last_map_size = mvi->map_size;
             last_map_base = mvi->map_base;
+            if (module_start != nullptr)
+                *module_start = last_map_base;
+            if (module_size != nullptr)
+                *module_size = last_map_size;
             return mapped_address;
         }
     }
     last_error = "Trace address not found";
     return nullptr;
+}
+
+app_pc
+module_mapper_t::find_mapped_trace_address(app_pc trace_address)
+{
+    return find_mapped_trace_bounds(trace_address, nullptr, nullptr);
 }
 
 /***************************************************************************

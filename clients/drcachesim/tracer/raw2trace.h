@@ -231,6 +231,7 @@ struct trace_metadata_reader_t {
 /**
  * module_mapper_t maps and unloads application modules.
  * Using it assumes a dr_context has already been setup.
+ * This class is not thread-safe.
  */
 class module_mapper_t final {
 public:
@@ -299,6 +300,15 @@ public:
      */
     app_pc
     find_mapped_trace_address(app_pc trace_address);
+
+    /**
+     * This is identical to find_mapped_trace_address() but it also returns the
+     * bounds of the containing region, allowing the caller to perform its own
+     * mapping for any address that is also within those bounds.
+     */
+    app_pc
+    find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
+                             OUT size_t *module_size);
 
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.

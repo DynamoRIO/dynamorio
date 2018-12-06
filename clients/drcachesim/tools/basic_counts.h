@@ -41,41 +41,78 @@
 class basic_counts_t : public analysis_tool_t {
 public:
     basic_counts_t(unsigned int verbose);
-    virtual ~basic_counts_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    ~basic_counts_t() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    void
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
 protected:
-    int_least64_t total_threads;
-    int_least64_t total_instrs;
-    int_least64_t total_instrs_nofetch;
-    int_least64_t total_prefetches;
-    int_least64_t total_loads;
-    int_least64_t total_stores;
-    int_least64_t total_sched_markers;
-    int_least64_t total_xfer_markers;
-    int_least64_t total_func_id_markers;
-    int_least64_t total_func_retaddr_markers;
-    int_least64_t total_func_arg_markers;
-    int_least64_t total_func_retval_markers;
-    int_least64_t total_other_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_instrs;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_instrs_nofetch;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_prefetches;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_loads;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_stores;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_sched_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_xfer_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_func_id_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_func_retaddr_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_func_arg_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_func_retval_markers;
-    std::unordered_map<memref_tid_t, int_least64_t> thread_other_markers;
+    struct counters_t {
+        counters_t()
+            : tid(0)
+            , instrs(0)
+            , instrs_nofetch(0)
+            , prefetches(0)
+            , loads(0)
+            , stores(0)
+            , sched_markers(0)
+            , xfer_markers(0)
+            , func_id_markers(0)
+            , func_retaddr_markers(0)
+            , func_arg_markers(0)
+            , func_retval_markers(0)
+            , other_markers(0)
+        {
+        }
+        counters_t &
+        operator+=(counters_t &rhs)
+        {
+            instrs += rhs.instrs;
+            instrs_nofetch += rhs.instrs_nofetch;
+            prefetches += rhs.prefetches;
+            loads += rhs.loads;
+            stores += rhs.stores;
+            sched_markers += rhs.sched_markers;
+            xfer_markers += rhs.xfer_markers;
+            func_id_markers += rhs.func_id_markers;
+            func_retaddr_markers += rhs.func_retaddr_markers;
+            func_arg_markers += rhs.func_arg_markers;
+            func_retval_markers += rhs.func_retval_markers;
+            other_markers += rhs.other_markers;
+            return *this;
+        }
+        memref_tid_t tid;
+        int_least64_t instrs;
+        int_least64_t instrs_nofetch;
+        int_least64_t prefetches;
+        int_least64_t loads;
+        int_least64_t stores;
+        int_least64_t sched_markers;
+        int_least64_t xfer_markers;
+        int_least64_t func_id_markers;
+        int_least64_t func_retaddr_markers;
+        int_least64_t func_arg_markers;
+        int_least64_t func_retval_markers;
+        int_least64_t other_markers;
+        std::string error;
+    };
+    static bool
+    cmp_counters(const std::pair<memref_tid_t, counters_t *> &l,
+                 const std::pair<memref_tid_t, counters_t *> &r);
 
+    std::unordered_map<int, counters_t *> shard_counters;
     unsigned int knob_verbose;
-
     static const std::string TOOL_NAME;
 };
 
