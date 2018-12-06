@@ -504,7 +504,7 @@ ASSUME fs:_DATA @N@\
         PUSH_SEH(REG_XBP) @N@\
         PUSH_SEH(REG_XSI) @N@\
         PUSH_SEH(REG_XDI)
-#  define PUSH_CALLEE_SAVED_REGS() \
+#  define POP_CALLEE_SAVED_REGS() \
         POP_SEH(REG_XDI) @N@\
         POP_SEH(REG_XSI) @N@\
         POP_SEH(REG_XBP) @N@\
