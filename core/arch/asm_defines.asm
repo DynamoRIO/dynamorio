@@ -131,6 +131,7 @@
 # define RAW(n) .byte HEX(n) @N@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
+# define POP_SEH(reg) pop reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
@@ -283,7 +284,14 @@ ASSUME fs:_DATA @N@\
 #  define REG_XDI rdi
 #  define REG_XBP rbp
 #  define REG_XSP rsp
-/* skip [r8..r15], only available on AMD64 */
+#  define REG_R8  r8
+#  define REG_R9  r9
+#  define REG_R10 r10
+#  define REG_R11 r11
+#  define REG_R12 r12
+#  define REG_R13 r13
+#  define REG_R14 r14
+#  define REG_R15 r15
 #  define SEG_TLS gs /* keep in sync w/ {unix,win32}/os_exports.h defines */
 #  ifdef UNIX
 #   define LIB_SEG_TLS fs /* keep in sync w/ unix/os_exports.h defines */
@@ -411,6 +419,24 @@ ASSUME fs:_DATA @N@\
 #   define ARG8_NORETADDR  QWORD [7*ARG_SZ + REG_XSP]
 #   define ARG9_NORETADDR  QWORD [8*ARG_SZ + REG_XSP]
 #   define ARG10_NORETADDR QWORD [9*ARG_SZ + REG_XSP]
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_XSI) @N@\
+         PUSH_SEH(REG_XDI) @N@\
+         PUSH_SEH(REG_R12) @N@\
+         PUSH_SEH(REG_R13) @N@\
+         PUSH_SEH(REG_R14) @N@\
+         PUSH_SEH(REG_R15)
+#   define POP_CALLEE_SAVED_REGS() \
+         POP_SEH(REG_R15) @N@\
+         POP_SEH(REG_R14) @N@\
+         POP_SEH(REG_R13) @N@\
+         POP_SEH(REG_R12) @N@\
+         POP_SEH(REG_XDI) @N@\
+         POP_SEH(REG_XSI) @N@\
+         POP_SEH(REG_XBP) @N@\
+         POP_SEH(REG_XBX)
 #  else /* UNIX */
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -435,6 +461,20 @@ ASSUME fs:_DATA @N@\
 #   define ARG8_NORETADDR  QWORD [1*ARG_SZ + rsp]
 #   define ARG9_NORETADDR  QWORD [2*ARG_SZ + rsp]
 #   define ARG10_NORETADDR QWORD [3*ARG_SZ + rsp]
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_R12) @N@\
+         PUSH_SEH(REG_R13) @N@\
+         PUSH_SEH(REG_R14) @N@\
+         PUSH_SEH(REG_R15)
+#   define POP_CALLEE_SAVED_REGS() \
+         POP_SEH(REG_R15) @N@\
+         POP_SEH(REG_R14) @N@\
+         POP_SEH(REG_R13) @N@\
+         POP_SEH(REG_R12) @N@\
+         POP_SEH(REG_XBP) @N@\
+         POP_SEH(REG_XBX)
 #  endif /* WINDOWS/UNIX */
 # else /* 32-bit */
 /* Arguments are passed on stack right-to-left. */
@@ -458,6 +498,25 @@ ASSUME fs:_DATA @N@\
 #  define ARG8_NORETADDR  DWORD [7*ARG_SZ + esp]
 #  define ARG9_NORETADDR  DWORD [8*ARG_SZ + esp]
 #  define ARG10_NORETADDR DWORD [9*ARG_SZ + esp]
+#  ifdef WINDOWS
+#  define PUSH_CALLEE_SAVED_REGS() \
+        PUSH_SEH(REG_XBX) @N@\
+        PUSH_SEH(REG_XBP) @N@\
+        PUSH_SEH(REG_XSI) @N@\
+        PUSH_SEH(REG_XDI)
+#  define PUSH_CALLEE_SAVED_REGS() \
+        POP_SEH(REG_XDI) @N@\
+        POP_SEH(REG_XSI) @N@\
+        POP_SEH(REG_XBP) @N@\
+        POP_SEH(REG_XBX)
+#  else /* UNIX */
+#   define PUSH_CALLEE_SAVED_REGS() \
+         PUSH_SEH(REG_XBX) @N@\
+         PUSH_SEH(REG_XBP)
+#   define POP_CALLEE_SAVED_REGS() \
+         POP_SEH(REG_XBP) @N@\
+         POP_SEH(REG_XBX)
+#  endif /* WINDOWS/UNIX */
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
 

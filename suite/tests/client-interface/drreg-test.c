@@ -123,11 +123,7 @@ START_FILE
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -163,10 +159,7 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
         b        test1
@@ -232,11 +225,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        POP_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -251,10 +240,7 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog2
      epilog2:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
         b        test3
@@ -288,11 +274,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -310,10 +292,7 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog3
      epilog3:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
         b        test5
