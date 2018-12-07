@@ -48,6 +48,9 @@
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
 #endif
+#ifdef HAS_ZLIB
+#    include "common/gzip_ostream.h"
+#endif
 
 #include "dr_api.h"
 #include "dr_frontend.h"
@@ -131,7 +134,13 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
                     outname, TRACE_SUFFIX) <= 0) {
         FATAL_ERROR("Failed to compute full path of output file for %s", basename);
     }
-    out_files.push_back(new std::ofstream(path, std::ofstream::binary));
+    std::ostream *ofile;
+#ifdef HAS_ZLIB
+    ofile = new gzip_ostream_t(path);
+#else
+    ofile = new std::ofstream(path, std::ofstream::binary);
+#endif
+    out_files.push_back(ofile);
     if (!(*out_files.back()))
         FATAL_ERROR("Failed to open output file %s", path);
     VPRINT(1, "Opened output file %s\n", path);
