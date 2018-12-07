@@ -394,7 +394,6 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
-
 END_FILE
-/* clang-format on */
 #endif
+/* clang-format on */
