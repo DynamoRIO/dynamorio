@@ -68,7 +68,7 @@ main(int argc, char *argv[])
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 0
+# define FRAME_PADDING 8
 #else
 /* Don't need to align, but we do need to keep the "add esp, 0" to make a legal
  * SEH64 epilog.
@@ -81,13 +81,23 @@ DECL_EXTERN(callee)
 #define FUNCNAME test_ret
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        PUSH_CALLEE_SAVED_REGS()
+        /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
         CALLC0(GLOBAL_REF(callee))
         mov      REG_XAX, PTRSZ [REG_XSP - ARG_SZ]
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        POP_CALLEE_SAVED_REGS()
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -95,7 +105,14 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_iret
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        PUSH_CALLEE_SAVED_REGS()
+        /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 #ifdef X64
@@ -116,7 +133,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, PTRSZ [REG_XSP - 3*ARG_SZ]
 #endif
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        POP_CALLEE_SAVED_REGS()
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
         ret
      skip_iret:
 #ifdef X64
@@ -130,7 +150,14 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_far_ret
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        PUSH_CALLEE_SAVED_REGS()
+        /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
+        PUSH_SEH(REG_XBX)
+        PUSH_SEH(REG_XBP)
+        PUSH_SEH(REG_XSI)
+        PUSH_SEH(REG_XDI)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 #ifdef X64
@@ -142,7 +169,10 @@ GLOBAL_LABEL(FUNCNAME:)
      next_instr_far:
         mov      REG_XAX, PTRSZ [REG_XSP - 2*ARG_SZ]
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        POP_CALLEE_SAVED_REGS()
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
         ret
      skip_far:
 #ifdef X64
