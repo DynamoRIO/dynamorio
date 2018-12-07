@@ -559,18 +559,24 @@ $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/
 \endcode
 
 The direct results of the \p -offline run are raw, compacted files, stored
-in a \p raw subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
+in a \p raw/ subdirectory of the \p drmemtrace.app.pid.xxxx.dir directory.
 The \p -indir option both converts the data to a canonical trace form and
 passes the resulting data to the cache simulator.  The canonical trace data
-is stored by \p -indir in a file named \p drmemtrace.trace inside the \p
-drmemtrace.app.pid.xxxx.dir/ directory.  Future runs can point directly at
-this file using the \p -infile option:
+is stored by \p -indir in a \p trace/ subdirectory inside the \p
+drmemtrace.app.pid.xxxx.dir/ directory.  For both the raw and canonical
+data, a separate file per application thread is used.  If the canonical
+data already exists, future runs will use that data rather than
+re-converting it.  Either the top-level directory or the \p trace/
+subdirectory may be pointed at with \p -indir:
+
 \code
-$ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
+$ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 \endcode
 
-The \p -infile option supports reading a gzipped trace file, allowing
-compression of the \p drmemtrace.trace file to save space:
+The canonical trace files may be manually compressed with gzip, as the
+trace reader supports reading gzipped files.
+
+Older versions of the simulator produced a single trace file containing all threads interleaved.  The \p -infile option supports reading these legacy files:
 \code
 $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 $ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz

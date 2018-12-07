@@ -41,16 +41,21 @@
 
 class raw2trace_directory_t {
 public:
-    raw2trace_directory_t(const std::string &indir, const std::string &outname,
+    // If outdir.empty() then a peer of indir's OUTFILE_SUBDIR named TRACE_SUBDIR
+    // is used by default.
+    raw2trace_directory_t(const std::string &indir, const std::string &outdir,
                           unsigned int verbosity = 0);
     // This version is for constructing module_mapper_t.
     raw2trace_directory_t(const std::string &module_file_path,
                           unsigned int verbosity = 0);
     ~raw2trace_directory_t();
 
+    static std::string
+    tracedir_from_rawdir(const std::string &rawdir);
+
     char *modfile_bytes;
-    std::vector<std::istream *> thread_files;
-    std::ofstream out_file;
+    std::vector<std::istream *> in_files;
+    std::vector<std::ostream *> out_files;
 
 private:
     void
@@ -61,7 +66,7 @@ private:
     open_thread_log_file(const char *basename);
     file_t modfile;
     std::string indir;
-    std::string outname;
+    std::string outdir;
     unsigned int verbosity;
 };
 
