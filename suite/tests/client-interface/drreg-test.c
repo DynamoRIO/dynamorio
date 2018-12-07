@@ -42,6 +42,8 @@ void
 test_asm_faultA();
 void
 test_asm_faultB();
+void
+test_asm_faultC();
 
 static SIGJMP_BUF mark;
 
@@ -61,6 +63,17 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
+
+static void
+handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -72,6 +85,16 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
             print("ERROR: spilled flags value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception2(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT6 != DRREG_TEST_7_C)
+            print("ERROR: spilled register value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -99,6 +122,17 @@ main(int argc, const char *argv[])
     /* Test fault aflags restore */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultB();
+    }
+
+#    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal2, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception2);
+#    endif
+
+    /* Test fault aflags restore */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultC();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -329,6 +363,33 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog3
     epilog3:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultC
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test6
+        /* Test 6: fault aflags restore */
+     test6:
+        mov      TEST_REG_ASM, DRREG_TEST_6_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_6_ASM
+        nop
+        mov      TEST_REG_ASM, DRREG_TEST_7_ASM
+        nop
+        ud2
+
+        jmp      epilog6
+     epilog6:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
         ret
 #endif
         END_FUNC(FUNCNAME)
