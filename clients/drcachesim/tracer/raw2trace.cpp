@@ -44,6 +44,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 // Assumes we return an error string by convention.
@@ -406,80 +407,12 @@ module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 }
 
 /***************************************************************************
- * Disassembly to fill in instr and memref entries
- */
-
-// We do our own buffering to avoid performance problems for some istreams where
-// seekg is slow.  We expect just 1 entry peeked and put back the vast majority of the
-// time, but we use a vector for generality.  We expect our overall performance to
-// be i/o bound (or ISA decode bound) and aren't worried about some extra copies
-// from the vector.
-bool
-raw2trace_t::read_from_thread_file(void *tls, offline_entry_t *dest, size_t count,
-                                   OUT size_t *num_read)
-{
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    size_t from_buf = 0;
-    if (!tdata->pre_read.empty()) {
-        from_buf = (std::min)(tdata->pre_read.size(), count);
-        memcpy(dest, &tdata->pre_read[0], from_buf * sizeof(*dest));
-        tdata->pre_read.erase(tdata->pre_read.begin(),
-                              tdata->pre_read.begin() + from_buf);
-        dest += from_buf;
-        count -= from_buf;
-    }
-    if (count > 0) {
-        if (!tdata->thread_file->read((char *)dest, count * sizeof(*dest))) {
-            if (num_read != nullptr)
-                *num_read = from_buf + (size_t)tdata->thread_file->gcount();
-            return false;
-        }
-    }
-    if (num_read != nullptr)
-        *num_read = from_buf + count;
-    return true;
-}
-
-void
-raw2trace_t::unread_from_thread_file(void *tls, offline_entry_t *dest, size_t count)
-{
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    // We expect 1 the vast majority of the time, 2 occasionally.
-    for (size_t i = 0; i < count; ++i)
-        tdata->pre_read.push_back(*(dest + i));
-}
-
-bool
-raw2trace_t::thread_file_at_eof(void *tls)
-{
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    return tdata->pre_read.empty() && tdata->thread_file->eof();
-}
-
-std::string
-raw2trace_t::append_delayed_branch(void *tls)
-{
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    if (tdata->delayed_branch.empty())
-        return "";
-    VPRINT(4, "Appending delayed branch for thread %d\n", tdata->index);
-    if (!tdata->out_file->write(&tdata->delayed_branch[0], tdata->delayed_branch.size()))
-        return "Failed to write to output file";
-    tdata->delayed_branch.clear();
-    return "";
-}
-
-/***************************************************************************
  * Top-level
  */
 
 std::string
-raw2trace_t::process_thread_file(void *tls)
+raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
-    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    offline_entry_t in_entry;
-    bool last_bb_handled = true;
-
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
@@ -490,12 +423,13 @@ raw2trace_t::process_thread_file(void *tls)
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
                               INVALID_THREAD_ID, 0 };
-    std::string err = read_header(tdata, &header);
-    if (!err.empty())
-        return err;
+    std::string error = read_header(tdata, &header);
+    if (!error.empty())
+        return error;
     VPRINT(2, "File %u is thread %u\n", tdata->index, (uint)header.tid);
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
+    tdata->tid = tid;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
@@ -510,57 +444,99 @@ raw2trace_t::process_thread_file(void *tls)
     CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
         return "Failed to write to output file";
+    return "";
+}
 
+std::string
+raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
+                                        OUT bool *end_of_record)
+{
     // We now convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
+    const offline_entry_t *in_entry = get_next_entry(tdata);
+    if (!tdata->saw_header) {
+        // We look for the initial header here rather than the top of
+        // process_thread_file() to support use cases where buffers are passed from
+        // another source.
+        tdata->saw_header =
+            trace_metadata_reader_t::is_thread_start(in_entry, &tdata->error);
+        if (!tdata->error.empty())
+            return tdata->error;
+        if (tdata->saw_header) {
+            tdata->error = process_header(tdata);
+            if (!tdata->error.empty())
+                return tdata->error;
+        }
+        in_entry = get_next_entry(tdata);
+    }
+    byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
+    bool last_bb_handled = true;
+    for (; in_entry != nullptr; in_entry = get_next_entry(tdata)) {
+        // Make a copy to avoid clobbering the entry we pass to process_offline_entry()
+        // when it calls get_next_entry() on its own.
+        offline_entry_t entry = *in_entry;
+        if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+                   (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            byte *buf = buf_base +
+                trace_metadata_writer_t::write_timestamp(buf_base,
+                                                         (uintptr_t)entry.timestamp.usec);
+            CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+            if (!tdata->out_file->write((char *)buf_base, buf - buf_base)) {
+                tdata->error = "Failed to write to output file";
+                return tdata->error;
+            }
+            continue;
+        }
+        // Append any delayed branch, but not until we output all markers to
+        // ensure we group them all with the timestamp for this thread segment.
+        if (entry.extended.type != OFFLINE_TYPE_EXTENDED ||
+            entry.extended.ext != OFFLINE_EXT_TYPE_MARKER) {
+            tdata->error = append_delayed_branch(tdata);
+            if (!tdata->error.empty())
+                return tdata->error;
+        }
+        tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
+                                             &last_bb_handled);
+        if (!tdata->error.empty())
+            return tdata->error;
+    }
+    tdata->error = "";
+    return "";
+}
+
+std::string
+raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
+{
     bool end_of_file = false;
     while (!end_of_file) {
-        VPRINT(4, "About to read thread %d at pos %d\n", (uint)tid,
-               (int)tdata->thread_file->tellg());
-        if (!read_from_thread_file(tdata, &in_entry, 1)) {
+        VPRINT(4, "About to read thread #%d==%d at pos %d\n", tdata->index,
+               (uint)tdata->tid, (int)tdata->thread_file->tellg());
+        tdata->error = process_next_thread_buffer(tdata, &end_of_file);
+        if (!tdata->error.empty()) {
             if (thread_file_at_eof(tdata)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
-                WARN("Input file for thread %d is truncated", (uint)tid);
-                in_entry.extended.type = OFFLINE_TYPE_EXTENDED;
-                in_entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+                WARN("Input file for thread %d is truncated", (uint)tdata->tid);
+                offline_entry_t entry;
+                entry.extended.type = OFFLINE_TYPE_EXTENDED;
+                entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
+                bool last_bb_handled = true;
+                tdata->error = process_offline_entry(tdata, &entry, tdata->tid,
+                                                     &end_of_file, &last_bb_handled);
+                CHECK(end_of_file, "Synthetic footer failed");
+                if (!tdata->error.empty())
+                    return tdata->error;
             } else {
                 std::stringstream ss;
-                ss << "Failed to read from file for thread " << (uint)tid;
-                return ss.str();
+                ss << "Failed to process file for thread " << (uint)tdata->tid;
+                tdata->error = ss.str();
+                return tdata->error;
             }
         }
-        if (in_entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n", (uint)tid,
-                   (uint64)in_entry.timestamp.usec);
-            buf = buf_base +
-                trace_metadata_writer_t::write_timestamp(
-                      buf_base, (uintptr_t)in_entry.timestamp.usec);
-            CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
-            if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
-                return "Failed to write to output file";
-            continue;
-        }
-        std::string result;
-        // Append any delayed branch, but not until we output all markers to
-        // ensure we group them all with the timestamp for this thread segment.
-        if (in_entry.extended.type != OFFLINE_TYPE_EXTENDED ||
-            in_entry.extended.ext != OFFLINE_EXT_TYPE_MARKER) {
-            result = append_delayed_branch(tdata);
-            if (!result.empty())
-                return result;
-        }
-        result =
-            process_offline_entry(tdata, &in_entry, tid, &end_of_file, &last_bb_handled);
-        if (!result.empty())
-            return result;
     }
-
-    entry.type = TRACE_TYPE_FOOTER;
-    entry.size = 0;
-    entry.addr = 0;
-    if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
-        return "Failed to write footer to output file";
+    // The footer is written out by on_thread_end().
+    tdata->error = "";
     return "";
 }
 
@@ -572,7 +548,29 @@ raw2trace_t::check_thread_file(std::istream *f)
     if (!f->read((char *)&ver_entry, sizeof(ver_entry))) {
         return "Unable to read thread log file";
     }
+    // Put it back.
+    f->seekg(-(std::streamoff)sizeof(ver_entry), f->cur);
     return trace_metadata_reader_t::check_entry_thread_start(&ver_entry);
+}
+
+void
+raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
+{
+    if (tasks->empty()) {
+        VPRINT(1, "Worker has no tasks\n");
+        return;
+    }
+    VPRINT(1, "Worker %d assigned %zd task(s)\n", (*tasks)[0]->worker, tasks->size());
+    for (raw2trace_thread_data_t *tdata : *tasks) {
+        VPRINT(1, "Worker %d starting on trace thread %d\n", tdata->worker, tdata->index);
+        std::string error = process_thread_file(tdata);
+        if (!error.empty()) {
+            VPRINT(1, "Worker %d hit error %s on trace thread %d\n", tdata->worker,
+                   error.c_str(), tdata->index);
+            break;
+        }
+        VPRINT(1, "Worker %d finished trace thread %d\n", tdata->worker, tdata->index);
+    }
 }
 
 std::string
@@ -583,23 +581,44 @@ raw2trace_t::do_conversion()
         return error;
     if (thread_data.empty())
         return "No thread files found.";
-    // XXX i#3230: Parallelize this processing.
-    for (size_t i = 0; i < thread_data.size(); ++i) {
-        error = process_thread_file(&thread_data[i]);
-        if (!error.empty())
-            return error;
+    // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
+    if (worker_count == 0) {
+        for (size_t i = 0; i < thread_data.size(); ++i) {
+            error = process_thread_file(&thread_data[i]);
+            if (!error.empty())
+                return error;
+        }
+    } else {
+        // The files can be converted concurrently.
+        std::vector<std::thread> threads;
+        VPRINT(1, "Creating %d worker threads\n", worker_count);
+        threads.reserve(worker_count);
+        for (int i = 0; i < worker_count; ++i) {
+            threads.push_back(
+                std::thread(&raw2trace_t::process_tasks, this, &worker_tasks[i]));
+        }
+        for (std::thread &thread : threads)
+            thread.join();
+        for (auto &tdata : thread_data) {
+            if (!tdata.error.empty())
+                return error;
+        }
     }
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data.size());
     return "";
 }
 
 const instr_summary_t *
-raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
+raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
                                app_pc orig)
 {
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     const app_pc decode_pc = *pc;
-    const instr_summary_t *ret =
-        static_cast<const instr_summary_t *>(hashtable_lookup(&decode_cache, decode_pc));
+    // For rep string loops we expect the same PC many times in a row.
+    if (decode_pc == tdata->last_decode_pc)
+        return tdata->last_summary;
+    const instr_summary_t *ret = static_cast<const instr_summary_t *>(
+        hashtable_lookup(&decode_cache[tdata->worker], decode_pc));
     if (ret == nullptr) {
         instr_summary_t *desc = new instr_summary_t();
         if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
@@ -607,7 +626,7 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
                  modvec()[static_cast<size_t>(modidx)].path, (ptr_uint_t)modoffs);
             return nullptr;
         }
-        hashtable_add(&decode_cache, decode_pc, desc);
+        hashtable_add(&decode_cache[tdata->worker], decode_pc, desc);
         ret = desc;
     } else {
         /* XXX i#3129: Log some rendering of the instruction summary that will be
@@ -615,6 +634,8 @@ raw2trace_t::get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
          */
         *pc = ret->next_pc();
     }
+    tdata->last_decode_pc = decode_pc;
+    tdata->last_summary = ret;
     return ret;
 }
 
@@ -689,9 +710,20 @@ instr_summary_t::construct(void *dcontext, INOUT app_pc *pc, app_pc orig_pc,
 const offline_entry_t *
 raw2trace_t::get_next_entry(void *tls)
 {
+    // We do our own buffering to avoid performance problems for some istreams where
+    // seekg is slow.  We expect just 1 entry peeked and put back the vast majority of the
+    // time, but we use a vector for generality.  We expect our overall performance to
+    // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
+    // from the vector.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    if (!read_from_thread_file(tdata, &tdata->last_entry, 1))
-        return nullptr;
+    if (!tdata->pre_read.empty()) {
+        tdata->last_entry = tdata->pre_read[0];
+        tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
+    } else {
+        if (!tdata->thread_file->read((char *)&tdata->last_entry,
+                                      sizeof(tdata->last_entry)))
+            return nullptr;
+    }
     return &tdata->last_entry;
 }
 
@@ -699,7 +731,27 @@ void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    unread_from_thread_file(tdata, &tdata->last_entry, 1);
+    tdata->pre_read.push_back(tdata->last_entry);
+}
+
+bool
+raw2trace_t::thread_file_at_eof(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->pre_read.empty() && tdata->thread_file->eof();
+}
+
+std::string
+raw2trace_t::append_delayed_branch(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->delayed_branch.empty())
+        return "";
+    VPRINT(4, "Appending delayed branch for thread %d\n", tdata->index);
+    if (!tdata->out_file->write(&tdata->delayed_branch[0], tdata->delayed_branch.size()))
+        return "Failed to write to output file";
+    tdata->delayed_branch.clear();
+    return "";
 }
 
 trace_entry_t *
@@ -731,13 +783,25 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
 }
 
 std::string
+raw2trace_t::write_footer(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_FOOTER;
+    entry.size = 0;
+    entry.addr = 0;
+    if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
+        return "Failed to write footer to output file";
+    return "";
+}
+
+std::string
 raw2trace_t::on_thread_end(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    offline_entry_t entry;
-    if (read_from_thread_file(tdata, &entry, 1) || !thread_file_at_eof(tdata))
+    if (get_next_entry(tdata) != nullptr || !thread_file_at_eof(tdata))
         return "Footer is not the final entry";
-    return "";
+    return write_footer(tdata);
 }
 
 void
@@ -769,8 +833,10 @@ raw2trace_t::was_prev_instr_rep_string(void *tls)
 raw2trace_t::raw2trace_t(const char *module_map_in,
                          const std::vector<std::istream *> &thread_files_in,
                          const std::vector<std::ostream *> &out_files_in,
-                         void *dcontext_in, unsigned int verbosity_in)
+                         void *dcontext_in, unsigned int verbosity_in,
+                         int worker_count_in)
     : trace_converter_t(dcontext_in)
+    , worker_count(worker_count_in)
     , user_process(nullptr)
     , user_process_data(nullptr)
     , modmap(module_map_in)
@@ -784,30 +850,60 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
 #endif
     }
     thread_data.resize(thread_files_in.size());
-    for (size_t i = 0; i < thread_files_in.size(); ++i) {
+    for (size_t i = 0; i < thread_data.size(); ++i) {
         thread_data[i].index = static_cast<int>(i);
         thread_data[i].thread_file = thread_files_in[i];
         thread_data[i].out_file = out_files_in[i];
-        thread_data[i].prev_instr_was_rep_string = false;
     }
-    // We go ahead and start with a reasonably large capacity.
-    hashtable_init_ex(&decode_cache, 16, HASH_INTPTR, false, false, NULL, NULL, NULL);
-    // We pay a little memory to get a lower load factor in our hashtables.
-    hashtable_config_t config = { sizeof(config), true, 40 };
-    hashtable_configure(&decode_cache, &config);
+    // Since we know the traced-thread count up front, we use a simple round-robin
+    // static work assigment.  This won't be as load balanced as a dynamic work
+    // queue but it is much simpler.
+    if (worker_count < 0) {
+        worker_count = std::thread::hardware_concurrency();
+        if (worker_count > kDefaultJobMax)
+            worker_count = kDefaultJobMax;
+    }
+    int cache_count = worker_count;
+    if (worker_count > 0) {
+        worker_tasks.resize(worker_count);
+        int worker = 0;
+        for (size_t i = 0; i < thread_data.size(); ++i) {
+            VPRINT(2, "Worker %d assigned trace thread %zd\n", worker, i);
+            worker_tasks[worker].push_back(&thread_data[i]);
+            thread_data[i].worker = worker;
+            worker = (worker + 1) % worker_count;
+        }
+    } else
+        cache_count = 1;
+    decode_cache.resize(cache_count);
+    for (int i = 0; i < cache_count; ++i) {
+        // We go ahead and start with a reasonably large capacity.
+        // We do not want the built-in mutex: this is per-worker so it can be lockless.
+        hashtable_init_ex(&decode_cache[i], 16, HASH_INTPTR, false, false, NULL, NULL,
+                          NULL);
+        // We pay a little memory to get a lower load factor, unless we have
+        // many duplicated tables.
+        hashtable_config_t config = { sizeof(config), true,
+                                      worker_count <= 8
+                                          ? 40U
+                                          : (worker_count <= 16 ? 50U : 60U) };
+        hashtable_configure(&decode_cache[i], &config);
+    }
 }
 
 raw2trace_t::~raw2trace_t()
 {
     module_mapper.reset();
-    // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
-    // so we have to explicitly free the payloads.
-    for (uint i = 0; i < HASHTABLE_SIZE(decode_cache.table_bits); i++) {
-        for (hash_entry_t *e = decode_cache.table[i]; e != NULL; e = e->next) {
-            delete (static_cast<instr_summary_t *>(e->payload));
+    for (size_t i = 0; i < decode_cache.size(); ++i) {
+        // XXX: We can't use a free-payload function b/c we can't get the dcontext there,
+        // so we have to explicitly free the payloads.
+        for (uint j = 0; j < HASHTABLE_SIZE(decode_cache[i].table_bits); j++) {
+            for (hash_entry_t *e = decode_cache[i].table[j]; e != NULL; e = e->next) {
+                delete (static_cast<instr_summary_t *>(e->payload));
+            }
         }
+        hashtable_delete(&decode_cache[i]);
     }
-    hashtable_delete(&decode_cache);
 }
 
 bool

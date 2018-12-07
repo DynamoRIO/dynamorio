@@ -104,7 +104,7 @@ analyzer_multi_t::analyzer_multi_t()
             existing = nullptr;
             raw2trace_directory_t dir(op_indir.get_value(), "", op_verbose.get_value());
             raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, nullptr,
-                                  op_verbose.get_value());
+                                  op_verbose.get_value(), op_jobs.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success = false;

@@ -56,8 +56,11 @@
 #define OUTFILE_SUFFIX "raw"
 #define OUTFILE_SUBDIR "raw"
 #define TRACE_SUBDIR "trace"
-// XXX: We should add support for directly writing as compressed files.
-#define TRACE_SUFFIX "trace"
+#ifdef HAS_ZLIB
+#    define TRACE_SUFFIX "trace.gz"
+#else
+#    define TRACE_SUFFIX "trace"
+#endif
 
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
@@ -425,8 +428,8 @@ struct trace_header_t {
  * Implementers are given the opportunity to implement their own logging. The level
  * parameter represents severity: the lower the level, the higher the severity.</LI>
  *
- * <LI>const instr_summary_t *get_instr_summary(uint64 modidx, uint64 modoffs, INOUT
- * app_pc *pc, app_pc orig)
+ * <LI>const instr_summary_t *get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+ * INOUT app_pc *pc, app_pc orig)
  *
  * Return the #instr_summary_t representation of the instruction at *pc,
  * updating the value at pc to the PC of the next instruction. It is assumed the app
@@ -659,8 +662,8 @@ private:
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
-            instr = impl()->get_instr_summary(in_entry->pc.modidx, in_entry->pc.modoffs,
-                                              &pc, orig_pc);
+            instr = impl()->get_instr_summary(tls, in_entry->pc.modidx,
+                                              in_entry->pc.modoffs, &pc, orig_pc);
             if (instr == nullptr) {
                 // We hit some error somewhere, and already reported it. Just exit the
                 // loop.
@@ -837,8 +840,8 @@ public:
     // caller.  module_map is not a string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
-                unsigned int verbosity = 0);
-    ~raw2trace_t();
+                unsigned int verbosity = 0, int worker_count = -1);
+    virtual ~raw2trace_t();
 
     /**
      * Adds handling for custom data fields that were stored with each module via
@@ -912,11 +915,72 @@ public:
      * Performs the conversion from raw data to finished trace files.
      * Returns a non-empty error message on failure.
      */
-    std::string
+    virtual std::string
     do_conversion();
 
     static std::string
     check_thread_file(std::istream *f);
+
+protected:
+    // Overridable parts of the interface expected by trace_converter_t.
+    virtual const offline_entry_t *
+    get_next_entry(void *tls);
+    virtual void
+    unread_last_entry(void *tls);
+    virtual std::string
+    on_thread_end(void *tls);
+    virtual void
+    log(uint level, const char *fmt, ...);
+
+    // Per-traced-thread data is stored here and accessed without locks by having each
+    // traced thread processed by only one processing thread.
+    // This is what trace_converter_t passes as void* to our routines.
+    struct raw2trace_thread_data_t {
+        raw2trace_thread_data_t()
+            : index(0)
+            , tid(0)
+            , worker(0)
+            , thread_file(nullptr)
+            , out_file(nullptr)
+            , saw_header(false)
+            , prev_instr_was_rep_string(false)
+            , last_decode_pc(nullptr)
+            , last_summary(nullptr)
+        {
+        }
+
+        int index;
+        thread_id_t tid;
+        int worker;
+        std::istream *thread_file;
+        std::ostream *out_file;
+        std::string error;
+        std::vector<offline_entry_t> pre_read;
+
+        // Used to delay a thread-buffer-final branch to keep it next to its target.
+        std::vector<char> delayed_branch;
+
+        // Current trace conversion state.
+        bool saw_header;
+        offline_entry_t last_entry;
+        std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
+        bool prev_instr_was_rep_string;
+        app_pc last_decode_pc;
+        const instr_summary_t *last_summary;
+    };
+
+    std::string
+    read_and_map_modules();
+
+    // Processes a raw buffer which must be the next buffer in the desired (typically
+    // timestamp-sorted) order for its traced thread.  For concurrent buffer processing,
+    // all buffers from any one traced thread must be processed by the same worker
+    // thread, both for correct ordering and correct synchronization.
+    std::string
+    process_next_thread_buffer(raw2trace_thread_data_t *tdata, OUT bool *end_of_record);
+
+    std::string
+    write_footer(void *tls);
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -929,11 +993,7 @@ private:
         void *user_data;
     };
 
-    // interface expected by trace_converter_t
-    const offline_entry_t *
-    get_next_entry(void *tls);
-    void
-    unread_last_entry(void *tls);
+    // Non-overridable parts of the interface expected by trace_converter_t.
     trace_entry_t *
     get_write_buffer(void *tls);
     bool
@@ -941,59 +1001,39 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
-    std::string
-    on_thread_end(void *tls);
-    void
-    log(uint level, const char *fmt, ...);
     const instr_summary_t *
-    get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
+    get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
+                      app_pc orig);
     void
     set_prev_instr_rep_string(void *tls, bool value);
     bool
     was_prev_instr_rep_string(void *tls);
 
     std::string
-    read_and_map_modules();
-    std::string
-    process_thread_file(void *tls);
-    std::string
     append_delayed_branch(void *tls);
 
-    // We do some internal buffering to avoid istream::seekg whose performance is
-    // detrimental for some filesystem types.
-    bool
-    read_from_thread_file(void *tls, offline_entry_t *dest, size_t count,
-                          OUT size_t *num_read = nullptr);
-    void
-    unread_from_thread_file(void *tls, offline_entry_t *dest, size_t count);
     bool
     thread_file_at_eof(void *tls);
+    std::string
+    process_header(raw2trace_thread_data_t *tdata);
 
-    // Per-traced-thread data is stored here and accessed without locks by having each
-    // traced thread processed by only one processing thread.
-    // This is what trace_converter_t passes as void* to our routines.
-    struct raw2trace_thread_data_t {
-        int index;
-        std::istream *thread_file;
-        std::ostream *out_file;
-        std::vector<offline_entry_t> pre_read;
+    std::string
+    process_thread_file(raw2trace_thread_data_t *tdata);
 
-        // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<char> delayed_branch;
-
-        // Current trace conversion state.
-        offline_entry_t last_entry;
-        std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
-        bool prev_instr_was_rep_string;
-    };
+    void
+    process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
 
     std::vector<raw2trace_thread_data_t> thread_data;
+
+    int worker_count;
+    std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks;
 
     // We use a hashtable to cache decodings.  We compared the performance of
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
     // and hash function), and hashtable_t outperformed the others (i#2056).
-    hashtable_t decode_cache;
+    // We use a per-worker cache to avoid locks.
+    std::vector<hashtable_t> decode_cache;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
@@ -1006,6 +1046,10 @@ private:
     std::unique_ptr<module_mapper_t> module_mapper;
 
     unsigned int verbosity = 0;
+
+    // Our decode_cache duplication will not scale forever on very large code
+    // footprint traces, so we set a cap for the default.
+    static const int kDefaultJobMax = 16;
 };
 
 #endif /* _RAW2TRACE_H_ */

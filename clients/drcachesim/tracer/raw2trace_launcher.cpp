@@ -58,6 +58,13 @@ static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0
                                            "Verbosity level for diagnostic output",
                                            "Verbosity level for diagnostic output.");
 
+static droption_t<int>
+    op_jobs(DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
+            "By default, post-processing is parallelized.  This option controls the "
+            "number of concurrent jobs.  0 "
+            "disables concurrency and uses  single thread to perform all operations.  A "
+            "negative value sets the job count to the number of hardware threads.");
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -85,7 +92,7 @@ _tmain(int argc, const TCHAR *targv[])
     raw2trace_directory_t dir(op_indir.get_value(), op_outdir.get_value(),
                               op_verbose.get_value());
     raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL,
-                          op_verbose.get_value());
+                          op_verbose.get_value(), op_jobs.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

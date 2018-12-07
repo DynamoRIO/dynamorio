@@ -1592,8 +1592,8 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
-# Used by tests in multiple places.
-if (BUILD_TESTS AND UNIX)
+# Used by tests in multiple places, and by some drcachesim non-test binaries.
+if (UNIX)
   if (ANDROID)
     # pthreads is inside Bionic on Android, and for some reason find_library() can't
     # locate libm or libdl within the Android toolchain: we just assume they're there.
