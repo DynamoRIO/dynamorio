@@ -153,6 +153,8 @@ compatibility changes:
    application thread, rather than a single interleaved file.  Reading and analyzing
    a legacy interleaved file is still supported, but all new generated traces are
    split.  Splitting enables parallelized post-processing and trace analysis.
+ - In standalone mode, there are no 32-bit-displacement reachability guarantees
+   regarding DynamoRIO's heap.
 
 Further non-compatibility-affecting changes include:
 
