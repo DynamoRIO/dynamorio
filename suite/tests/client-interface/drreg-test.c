@@ -93,7 +93,7 @@ static LONG WINAPI
 handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
-        if (ep->ContextRecord->TEST_REG_CXT6 != DRREG_TEST_7_C)
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
             print("ERROR: spilled register value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
