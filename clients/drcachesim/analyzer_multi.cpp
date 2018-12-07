@@ -35,15 +35,23 @@
 #include "analysis_tool_interface.h"
 #include "common/options.h"
 #include "common/utils.h"
+#include "common/directory_iterator.h"
+#include "tracer/raw2trace_directory.h"
+#include "tracer/raw2trace.h"
 #include "reader/file_reader.h"
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #endif
 #include "reader/ipc_reader.h"
-#include "tracer/raw2trace_directory.h"
-#include "tracer/raw2trace.h"
 #ifdef DEBUG
 #    include "tests/trace_invariants.h"
+#endif
+
+#ifdef HAS_ZLIB
+// Even for uncompressed files, zlib's gzip interface is faster than fstream.
+typedef compressed_file_reader_t my_file_reader_t;
+#else
+typedef file_reader_t<std::ifstream *> my_file_reader_t;
 #endif
 
 analyzer_multi_t::analyzer_multi_t()
@@ -64,7 +72,8 @@ analyzer_multi_t::analyzer_multi_t()
         // XXX: better to put in app name + pid, or rely on staying inside subdir?
         std::string tracefile =
             op_indir.get_value() + std::string(DIRSEP) + TRACE_FILENAME;
-        file_reader_t *existing = new file_reader_t(tracefile.c_str());
+        auto existing =
+            new file_reader_t<std::ifstream *>(tracefile.c_str(), op_verbose.get_value());
         if (existing->is_complete())
             trace_iter = existing;
         else {
@@ -76,11 +85,12 @@ analyzer_multi_t::analyzer_multi_t()
                 success = false;
                 error_string = "raw2trace failed: " + error;
             }
-            trace_iter = new file_reader_t(tracefile.c_str());
+            trace_iter = new file_reader_t<std::ifstream *>(tracefile.c_str(),
+                                                            op_verbose.get_value());
         }
         // We don't support a compressed file here (is_complete() is too hard
         // to implement).
-        trace_end = new file_reader_t();
+        trace_end = new file_reader_t<std::ifstream *>();
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
@@ -94,14 +104,9 @@ analyzer_multi_t::analyzer_multi_t()
 #endif
         }
     } else {
-#ifdef HAS_ZLIB
-        // Even for uncompressed files, zlib's gzip interface is faster than fstream.
-        trace_iter = new compressed_file_reader_t(op_infile.get_value().c_str());
-        trace_end = new compressed_file_reader_t();
-#else
-        trace_iter = new file_reader_t(op_infile.get_value().c_str());
-        trace_end = new file_reader_t();
-#endif
+        trace_iter =
+            new my_file_reader_t(op_infile.get_value().c_str(), op_verbose.get_value());
+        trace_end = new my_file_reader_t();
     }
     // We can't call trace_iter->init() here as it blocks for ipc_reader_t.
 }
