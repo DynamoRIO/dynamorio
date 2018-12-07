@@ -63,8 +63,8 @@ analyzer_t::init_file_reader(const std::string &trace_file)
     trace_iter = new compressed_file_reader_t(trace_file.c_str());
     trace_end = new compressed_file_reader_t();
 #else
-    trace_iter = new file_reader_t(trace_file.c_str());
-    trace_end = new file_reader_t();
+    trace_iter = new file_reader_t<std::ifstream *>(trace_file.c_str());
+    trace_end = new file_reader_t<std::ifstream *>();
 #endif
     return true;
 }

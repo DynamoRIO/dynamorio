@@ -162,6 +162,8 @@ typedef enum {
      * counter execution sequence.
      */
     TRACE_TYPE_INSTR_SYSENTER,
+
+    // Update trace_type_names[] when adding here.
 } trace_type_t;
 
 /** The sub-type for TRACE_TYPE_MARKER. */
