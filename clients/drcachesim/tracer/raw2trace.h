@@ -56,8 +56,11 @@
 #define OUTFILE_SUFFIX "raw"
 #define OUTFILE_SUBDIR "raw"
 #define TRACE_SUBDIR "trace"
-// XXX: We should add support for directly writing as compressed files.
-#define TRACE_SUFFIX "trace"
+#ifdef HAS_ZLIB
+#    define TRACE_SUFFIX "trace.gz"
+#else
+#    define TRACE_SUFFIX "trace"
+#endif
 
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
