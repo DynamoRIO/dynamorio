@@ -114,7 +114,7 @@ main(int argc, const char *argv[])
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif
@@ -123,11 +123,7 @@ START_FILE
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -163,12 +159,10 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -197,6 +191,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -232,11 +227,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -251,12 +242,10 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog2
      epilog2:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -269,6 +258,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog2:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -288,11 +278,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
@@ -310,12 +296,10 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog3
      epilog3:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:
@@ -331,6 +315,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog3:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:

@@ -82,6 +82,9 @@ DECL_EXTERN(callee)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
@@ -103,6 +106,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)
@@ -145,6 +151,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* push callee-saved registers */
+        /* XXX i#3289: test fails when changing this to
+         * PUSH_CALLEE_SAVED_REGS, POP_CALLEE_SAVED_REGS
+         */
         PUSH_SEH(REG_XBX)
         PUSH_SEH(REG_XBP)
         PUSH_SEH(REG_XSI)

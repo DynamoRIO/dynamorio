@@ -2156,7 +2156,7 @@ GLOBAL_LABEL(get_segments_cs_ss:)
  */
         DECLARE_FUNC(get_own_context_helper)
 GLOBAL_LABEL(get_own_context_helper:)
-        /* push callee-saved registers that we use */
+        /* push callee-saved registers that we use only */
         push     REG_XBX
         push     REG_XSI
         push     REG_XDI

@@ -301,11 +301,7 @@ START_FILE
 GLOBAL_LABEL(FUNCNAME:)
         /* can't push ARG1 here b/c of SEH64 epilog restrictions */
         mov      REG_XAX, ARG1
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         PUSH_NONCALLEE_SEH(REG_XAX)
         END_PROLOG
         mov      ax, 4
@@ -318,10 +314,7 @@ GLOBAL_LABEL(FUNCNAME:)
         CALLC0(PTRSZ [REG_XSP] /* ARG1 */)
         pop      REG_XAX /* arg1 */
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -645,11 +638,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         /* test i#1118 sequences: all should be valid */
@@ -664,10 +653,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(BD) RAW(E9) /* bsr */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
@@ -678,11 +664,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
         RAW(66) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
@@ -691,10 +673,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(f3) RAW(0F) RAW(D8) RAW(E9) /* psubusb */
 
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
