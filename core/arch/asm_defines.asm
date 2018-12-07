@@ -511,8 +511,12 @@ ASSUME fs:_DATA @N@\
 #  else /* UNIX */
 #   define PUSH_CALLEE_SAVED_REGS() \
          PUSH_SEH(REG_XBX) @N@\
-         PUSH_SEH(REG_XBP)
+         PUSH_SEH(REG_XBP) @N@\
+         PUSH_SEH(REG_XSI) @N@\
+         PUSH_SEH(REG_XDI)
 #   define POP_CALLEE_SAVED_REGS() \
+         pop REG_XDI @N@\
+         pop REG_XSI @N@\
          pop REG_XBP @N@\
          pop REG_XBX
 #  endif /* WINDOWS/UNIX */
