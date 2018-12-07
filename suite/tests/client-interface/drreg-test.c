@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/* clang-format off */
+/* XXX: clang-format complained about a tab difference at "clang-format on"
+ * below. This is why clang-format has been moved outside the ifsef until
+ * bug has been fixed.
+ */
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
 #    include "drreg-test-shared.h"
@@ -144,7 +149,6 @@ main(int argc, const char *argv[])
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 #    include "drreg-test-shared.h"
-/* clang-format off */
 START_FILE
 
 #ifdef X64
