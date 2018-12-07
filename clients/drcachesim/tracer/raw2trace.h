@@ -841,7 +841,7 @@ public:
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
                 unsigned int verbosity = 0, int worker_count = -1);
-    ~raw2trace_t();
+    virtual ~raw2trace_t();
 
     /**
      * Adds handling for custom data fields that were stored with each module via
@@ -915,11 +915,72 @@ public:
      * Performs the conversion from raw data to finished trace files.
      * Returns a non-empty error message on failure.
      */
-    std::string
+    virtual std::string
     do_conversion();
 
     static std::string
     check_thread_file(std::istream *f);
+
+protected:
+    // Overridable parts of the interface expected by trace_converter_t.
+    virtual const offline_entry_t *
+    get_next_entry(void *tls);
+    virtual void
+    unread_last_entry(void *tls);
+    virtual std::string
+    on_thread_end(void *tls);
+    virtual void
+    log(uint level, const char *fmt, ...);
+
+    // Per-traced-thread data is stored here and accessed without locks by having each
+    // traced thread processed by only one processing thread.
+    // This is what trace_converter_t passes as void* to our routines.
+    struct raw2trace_thread_data_t {
+        raw2trace_thread_data_t()
+            : index(0)
+            , tid(0)
+            , worker(0)
+            , thread_file(nullptr)
+            , out_file(nullptr)
+            , saw_header(false)
+            , prev_instr_was_rep_string(false)
+            , last_decode_pc(nullptr)
+            , last_summary(nullptr)
+        {
+        }
+
+        int index;
+        thread_id_t tid;
+        int worker;
+        std::istream *thread_file;
+        std::ostream *out_file;
+        std::string error;
+        std::vector<offline_entry_t> pre_read;
+
+        // Used to delay a thread-buffer-final branch to keep it next to its target.
+        std::vector<char> delayed_branch;
+
+        // Current trace conversion state.
+        bool saw_header;
+        offline_entry_t last_entry;
+        std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
+        bool prev_instr_was_rep_string;
+        app_pc last_decode_pc;
+        const instr_summary_t *last_summary;
+    };
+
+    std::string
+    read_and_map_modules();
+
+    // Processes a raw buffer which must be the next buffer in the desired (typically
+    // timestamp-sorted) order for its traced thread.  For concurrent buffer processing,
+    // all buffers from any one traced thread must be processed by the same worker
+    // thread, both for correct ordering and correct synchronization.
+    std::string
+    process_next_thread_buffer(raw2trace_thread_data_t *tdata, OUT bool *end_of_record);
+
+    std::string
+    write_footer(void *tls);
 
 private:
     friend class trace_converter_t<raw2trace_t>;
@@ -932,11 +993,7 @@ private:
         void *user_data;
     };
 
-    // interface expected by trace_converter_t
-    const offline_entry_t *
-    get_next_entry(void *tls);
-    void
-    unread_last_entry(void *tls);
+    // Non-overridable parts of the interface expected by trace_converter_t.
     trace_entry_t *
     get_write_buffer(void *tls);
     bool
@@ -944,10 +1001,6 @@ private:
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
                            const trace_entry_t *end);
-    std::string
-    on_thread_end(void *tls);
-    void
-    log(uint level, const char *fmt, ...);
     const instr_summary_t *
     get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
                       app_pc orig);
@@ -957,41 +1010,12 @@ private:
     was_prev_instr_rep_string(void *tls);
 
     std::string
-    read_and_map_modules();
-    std::string
     append_delayed_branch(void *tls);
 
-    // We do some internal buffering to avoid istream::seekg whose performance is
-    // detrimental for some filesystem types.
-    bool
-    read_from_thread_file(void *tls, offline_entry_t *dest, size_t count,
-                          OUT size_t *num_read = nullptr);
-    void
-    unread_from_thread_file(void *tls, offline_entry_t *dest, size_t count);
     bool
     thread_file_at_eof(void *tls);
-
-    // Per-traced-thread data is stored here and accessed without locks by having each
-    // traced thread processed by only one processing thread.
-    // This is what trace_converter_t passes as void* to our routines.
-    struct raw2trace_thread_data_t {
-        int index;
-        int worker;
-        std::istream *thread_file;
-        std::ostream *out_file;
-        std::string error;
-        std::vector<offline_entry_t> pre_read;
-
-        // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<char> delayed_branch;
-
-        // Current trace conversion state.
-        offline_entry_t last_entry;
-        std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
-        bool prev_instr_was_rep_string;
-        app_pc last_decode_pc;
-        const instr_summary_t *last_summary;
-    };
+    std::string
+    process_header(raw2trace_thread_data_t *tdata);
 
     std::string
     process_thread_file(raw2trace_thread_data_t *tdata);
