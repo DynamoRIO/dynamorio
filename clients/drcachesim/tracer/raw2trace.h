@@ -44,6 +44,8 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drcovlib.h"
+#include <array>
+#include <atomic>
 #include <memory>
 #include "trace_entry.h"
 #include <fstream>
@@ -53,7 +55,9 @@
 #define OUTFILE_PREFIX "drmemtrace"
 #define OUTFILE_SUFFIX "raw"
 #define OUTFILE_SUBDIR "raw"
-#define TRACE_FILENAME "drmemtrace.trace"
+#define TRACE_SUBDIR "trace"
+// XXX: We should add support for directly writing as compressed files.
+#define TRACE_SUFFIX "trace"
 
 struct module_t {
     module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
@@ -378,25 +382,26 @@ struct trace_header_t {
  * co-located in one large file, or spread accross multiple, mixed-thread files.
  *
  * #trace_converter_t expects to be instantiated with its type template T which should
- * provide the following APIs:
+ * provide the following APIs.  These pass through an opaque pointer which provides
+ * per-traced-thread-local data to the converter:
  *
- * <UL> <LI>const offline_entry_t *get_next_entry()
+ * <UL> <LI>const offline_entry_t *get_next_entry(void *tls)
  *
  * Point to the next offline entry_t. There is no assumption about the underlying source
  * of the data, and #trace_converter_t will not attempt to dereference past the provided
  * pointer.</LI>
  *
- * <LI>void unread_last_entry()
+ * <LI>void unread_last_entry(void *tls)
  *
  * Ensure that the next call to get_next_entry() re-reads the last value.</LI>
  *
- * <LI>trace_entry_t *get_write_buffer()
+ * <LI>trace_entry_t *get_write_buffer(void *tls)
  *
  * Return a writable buffer guaranteed to be at least #WRITE_BUFFER_SIZE large.
  *  get_write_buffer() may reuse the same buffer after write() or write_delayed_branches()
  * is called.</LI>
  *
- * <LI>bool write(const trace_entry_t *start, const trace_entry_t *end)
+ * <LI>bool write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
  *
  * Writes the converted traces between start and end, where end is past the last
  * item to write. Both start and end are assumed to be pointers inside a buffer
@@ -409,7 +414,7 @@ struct trace_header_t {
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
  *
- * <LI>std::string on_thread_end()
+ * <LI>std::string on_thread_end(void *tls)
  *
  * Callback notifying the currently-processed thread has exited. #trace_converter_t
  * extenders are expected to track record metadata themselves. #trace_converter_t offers
@@ -428,6 +433,16 @@ struct trace_header_t {
  * binaries have already been loaded using #module_mapper_t, and the values at *pc point
  * within memory mapped by the module mapper. This API provides an opportunity to cache
  * decoded instructions.</LI>
+ *
+ * <LI>void set_prev_instr_rep_string(void *tls, bool value)
+ *
+ * Sets a per-traced-thread cached flag that is read by was_prev_instr_rep_string().
+ * </LI>
+ *
+ * <LI>bool was_prev_instr_rep_string(void *tls)
+ *
+ * Queries a per-traced-thread cached flag that is set by set_prev_instr_rep_string().
+ * </LI>
  * </UL>
  */
 template <typename T> class trace_converter_t {
@@ -462,10 +477,10 @@ protected:
      * set_modvec() must have been called by the implementation before calling this API.
      */
     std::string
-    process_offline_entry(const offline_entry_t *in_entry, thread_id_t tid,
+    process_offline_entry(void *tls, const offline_entry_t *in_entry, thread_id_t tid,
                           OUT bool *end_of_record, OUT bool *last_bb_handled)
     {
-        trace_entry_t *buf_base = impl()->get_write_buffer();
+        trace_entry_t *buf_base = impl()->get_write_buffer(tls);
         byte *buf = reinterpret_cast<byte *>(buf_base);
         if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED) {
             if (in_entry->extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
@@ -473,11 +488,11 @@ protected:
                 impl()->log(2, "Thread %d exit\n", (uint)tid);
                 buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
                 *end_of_record = true;
-                if (!impl()->write(buf_base, reinterpret_cast<trace_entry_t *>(buf)))
+                if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf)))
                     return "Failed to write to output file";
                 // Let the user determine what other actions to take, e.g. account for
                 // the ending of the current thread, etc.
-                return impl()->on_thread_end();
+                return impl()->on_thread_end(tls);
             } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
                 buf += trace_metadata_writer_t::write_marker(
                     buf, (trace_marker_type_t)in_entry->extended.valueB,
@@ -510,11 +525,11 @@ protected:
             DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
                      "We shouldn't have buffered anything before calling "
                      "append_bb_entries");
-            std::string result = append_bb_entries(in_entry, last_bb_handled);
+            std::string result = append_bb_entries(tls, in_entry, last_bb_handled);
             if (!result.empty())
                 return result;
         } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
-            const offline_entry_t *entry = impl()->get_next_entry();
+            const offline_entry_t *entry = impl()->get_next_entry(tls);
             if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH)
                 return "Flush missing 2nd entry";
             impl()->log(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry->addr.addr,
@@ -530,7 +545,7 @@ protected:
         size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
         DR_CHECK((uint)size < WRITE_BUFFER_SIZE, "Too many entries");
         if (size > 0) {
-            if (!impl()->write(buf_base, reinterpret_cast<trace_entry_t *>(buf)))
+            if (!impl()->write(tls, buf_base, reinterpret_cast<trace_entry_t *>(buf)))
                 return "Failed to write to output file";
         }
         return "";
@@ -542,21 +557,21 @@ protected:
      * for legacy traces.
      */
     std::string
-    read_header(OUT trace_header_t *header)
+    read_header(void *tls, OUT trace_header_t *header)
     {
-        const offline_entry_t *in_entry = impl()->get_next_entry();
+        const offline_entry_t *in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "Failed to read header from input file";
         // Handle legacy traces which have the timestamp first.
         if (in_entry->tid.type == OFFLINE_TYPE_TIMESTAMP) {
             header->timestamp = in_entry->timestamp.usec;
-            in_entry = impl()->get_next_entry();
+            in_entry = impl()->get_next_entry(tls);
             if (in_entry == nullptr)
                 return "Failed to read header from input file";
         }
         DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
         header->tid = in_entry->tid.tid;
-        in_entry = impl()->get_next_entry();
+        in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
@@ -600,7 +615,7 @@ private:
         return static_cast<T *>(this);
     }
     std::string
-    append_bb_entries(const offline_entry_t *in_entry, OUT bool *handled)
+    append_bb_entries(void *tls, const offline_entry_t *in_entry, OUT bool *handled)
     {
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
@@ -624,6 +639,9 @@ private:
         }
         bool skip_icache = false;
         bool truncated = false; // Whether a fault ended the bb early.
+        // This indicates that each memref has its own PC entry and that each
+        // icache entry does not need to be considered a memref PC entry as well.
+        bool instrs_are_separate = false;
         if (instr_count == 0) {
             // L0 filtering adds a PC entry with a count of 0 prior to each memref.
             skip_icache = true;
@@ -634,7 +652,7 @@ private:
         DR_CHECK(!instrs_are_separate || instr_count == 1,
                  "cannot mix 0-count and >1-count");
         for (uint i = 0; !truncated && i < instr_count; ++i) {
-            trace_entry_t *buf_start = impl()->get_write_buffer();
+            trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
             app_pc orig_pc = decode_pc - modvec()[in_entry->pc.modidx].map_base +
                 modvec()[in_entry->pc.modidx].orig_base;
@@ -656,8 +674,8 @@ private:
                 // fetch for the whole loop, instead of the drutil-expanded loop.
                 // We fix up the maybe-fetch here so our offline file doesn't have to
                 // rely on our own reader.
-                if (!prev_instr_was_rep_string) {
-                    prev_instr_was_rep_string = true;
+                if (!impl()->was_prev_instr_rep_string(tls)) {
+                    impl()->set_prev_instr_rep_string(tls, true);
                     buf->type = TRACE_TYPE_INSTR;
                 } else {
                     impl()->log(3, "Skipping instr fetch for " PFX "\n",
@@ -667,7 +685,7 @@ private:
                     buf->type = TRACE_TYPE_INSTR_NO_FETCH;
                 }
             } else
-                prev_instr_was_rep_string = false;
+                impl()->set_prev_instr_rep_string(tls, false);
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
@@ -679,7 +697,7 @@ private:
                 (instr->reads_memory() || instr->writes_memory())) {
                 bool interrupted = false;
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    error = append_memref(&buf, instr, instr->mem_src_at(j), false,
+                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
                                           &interrupted);
                     if (!error.empty())
                         return error;
@@ -689,7 +707,7 @@ private:
                     }
                 }
                 for (uint j = 0; !truncated && j < instr->num_mem_dests(); j++) {
-                    error = append_memref(&buf, instr, instr->mem_dest_at(j), true,
+                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true,
                                           &interrupted);
                     if (!error.empty())
                         return error;
@@ -709,11 +727,11 @@ private:
                 // we handle it in post-processing by delaying a thread-block-final branch
                 // (and its memrefs) to that thread's next block.  This changes the
                 // timestamp of the branch, which we live with.
-                error = impl()->write_delayed_branches(buf_start, buf);
+                error = impl()->write_delayed_branches(tls, buf_start, buf);
                 if (!error.empty())
                     return error;
             } else {
-                if (!impl()->write(buf_start, buf))
+                if (!impl()->write(tls, buf_start, buf))
                     return "Failed to write to output file";
             }
         }
@@ -722,12 +740,12 @@ private:
     }
 
     std::string
-    append_memref(INOUT trace_entry_t **buf_in, const instr_summary_t *instr, opnd_t ref,
-                  bool write, OUT bool *interrupted)
+    append_memref(void *tls, INOUT trace_entry_t **buf_in, const instr_summary_t *instr,
+                  opnd_t ref, bool write, OUT bool *interrupted)
     {
         *interrupted = false;
         trace_entry_t *buf = *buf_in;
-        const offline_entry_t *in_entry = impl()->get_next_entry();
+        const offline_entry_t *in_entry = impl()->get_next_entry(tls);
         bool have_type = false;
         if (in_entry == nullptr)
             return "Trace ends mid-block";
@@ -740,7 +758,7 @@ private:
             buf->type = in_entry->extended.valueB;
             buf->size = in_entry->extended.valueA;
             impl()->log(4, "Found type entry type %d size %d\n", buf->type, buf->size);
-            in_entry = impl()->get_next_entry();
+            in_entry = impl()->get_next_entry(tls);
             if (in_entry == nullptr)
                 return "Trace ends mid-block";
         }
@@ -756,7 +774,7 @@ private:
                         "Missing memref from predication, 0-iter repstr, or filter "
                         "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
                         in_entry->combined_value);
-            impl()->unread_last_entry();
+            impl()->unread_last_entry(tls);
             return "";
         }
         if (!have_type) {
@@ -788,11 +806,11 @@ private:
         *buf_in = ++buf;
         // To avoid having to backtrack later, we read ahead to see whether this memref
         // faulted.
-        in_entry = impl()->get_next_entry();
+        in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "";
         // Put it back.
-        impl()->unread_last_entry();
+        impl()->unread_last_entry(tls);
         if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
             in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
@@ -804,10 +822,6 @@ private:
     }
 
     const std::vector<module_t> *modvec_ptr = nullptr;
-    bool prev_instr_was_rep_string = false;
-    // This indicates that each memref has its own PC entry and that each
-    // icache entry does not need to be considered a memref PC entry as well.
-    bool instrs_are_separate = false;
 
 #undef DR_CHECK
 };
@@ -819,10 +833,10 @@ private:
  */
 class raw2trace_t : public trace_converter_t<raw2trace_t> {
 public:
-    // module_map, thread_files and out_file are all owned and opened/closed by the
+    // module_map, thread_files and out_files are all owned and opened/closed by the
     // caller.  module_map is not a string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
-                std::ostream *out_file, void *dcontext = NULL,
+                const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
                 unsigned int verbosity = 0);
     ~raw2trace_t();
 
@@ -917,54 +931,69 @@ private:
 
     // interface expected by trace_converter_t
     const offline_entry_t *
-    get_next_entry();
+    get_next_entry(void *tls);
     void
-    unread_last_entry();
+    unread_last_entry(void *tls);
     trace_entry_t *
-    get_write_buffer();
+    get_write_buffer(void *tls);
     bool
-    write(const trace_entry_t *start, const trace_entry_t *end);
+    write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
     std::string
-    write_delayed_branches(const trace_entry_t *start, const trace_entry_t *end);
+    write_delayed_branches(void *tls, const trace_entry_t *start,
+                           const trace_entry_t *end);
     std::string
-    on_thread_end();
+    on_thread_end(void *tls);
     void
     log(uint level, const char *fmt, ...);
     const instr_summary_t *
     get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
+    void
+    set_prev_instr_rep_string(void *tls, bool value);
+    bool
+    was_prev_instr_rep_string(void *tls);
 
     std::string
     read_and_map_modules();
     std::string
-    merge_and_process_thread_files();
+    process_thread_file(void *tls);
     std::string
-    append_delayed_branch(uint tidx);
+    append_delayed_branch(void *tls);
 
     // We do some internal buffering to avoid istream::seekg whose performance is
     // detrimental for some filesystem types.
     bool
-    read_from_thread_file(uint tidx, offline_entry_t *dest, size_t count,
+    read_from_thread_file(void *tls, offline_entry_t *dest, size_t count,
                           OUT size_t *num_read = nullptr);
     void
-    unread_from_thread_file(uint tidx, offline_entry_t *dest, size_t count);
+    unread_from_thread_file(void *tls, offline_entry_t *dest, size_t count);
     bool
-    thread_file_at_eof(uint tidx);
+    thread_file_at_eof(void *tls);
 
-    std::vector<std::vector<offline_entry_t>> pre_read;
+    // Per-traced-thread data is stored here and accessed without locks by having each
+    // traced thread processed by only one processing thread.
+    // This is what trace_converter_t passes as void* to our routines.
+    struct raw2trace_thread_data_t {
+        int index;
+        std::istream *thread_file;
+        std::ostream *out_file;
+        std::vector<offline_entry_t> pre_read;
 
-    const char *modmap;
-    std::vector<std::istream *> thread_files;
-    std::ostream *out_file;
+        // Used to delay a thread-buffer-final branch to keep it next to its target.
+        std::vector<char> delayed_branch;
 
-    unsigned int verbosity;
+        // Current trace conversion state.
+        offline_entry_t last_entry;
+        std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
+        bool prev_instr_was_rep_string;
+    };
+
+    std::vector<raw2trace_thread_data_t> thread_data;
+
     // We use a hashtable to cache decodings.  We compared the performance of
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
     // and hash function), and hashtable_t outperformed the others (i#2056).
     hashtable_t decode_cache;
-
-    // Used to delay thread-buffer-final branch to keep it next to its target.
-    std::vector<std::vector<char>> delayed_branch;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
@@ -973,13 +1002,10 @@ private:
                                 void *user_data) = nullptr;
     void *user_process_data = nullptr;
 
+    const char *modmap;
     std::unique_ptr<module_mapper_t> module_mapper;
 
-    // Current trace conversion state.
-    offline_entry_t last_entry;
-    uint tidx = 0;
-    trace_entry_t out_buf[WRITE_BUFFER_SIZE];
-    uint thread_count = 0;
+    unsigned int verbosity = 0;
 };
 
 #endif /* _RAW2TRACE_H_ */
