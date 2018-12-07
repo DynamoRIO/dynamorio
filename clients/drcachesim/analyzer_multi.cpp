@@ -62,35 +62,58 @@ analyzer_multi_t::analyzer_multi_t()
         return;
     }
     // XXX: add a "required" flag to droption to avoid needing this here
-    if (op_infile.get_value().empty() && op_ipc_name.get_value().empty()) {
-        error_string = "Usage error: -ipc_name or -infile is required\nUsage:\n" +
+    if (op_indir.get_value().empty() && op_infile.get_value().empty() &&
+        op_ipc_name.get_value().empty()) {
+        error_string =
+            "Usage error: -ipc_name or -indir or -infile is required\nUsage:\n" +
             droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         success = false;
         return;
     }
     if (!op_indir.get_value().empty()) {
-        // XXX: better to put in app name + pid, or rely on staying inside subdir?
-        std::string tracefile =
-            op_indir.get_value() + std::string(DIRSEP) + TRACE_FILENAME;
-        auto existing =
-            new file_reader_t<std::ifstream *>(tracefile.c_str(), op_verbose.get_value());
-        if (existing->is_complete())
-            trace_iter = existing;
+        std::string tracedir =
+            raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
+        my_file_reader_t *existing =
+            new my_file_reader_t(tracedir.c_str(), op_verbose.get_value());
+        // We support the trace dir being empty if we haven't post-processed
+        // the raw files yet.
+        bool needs_processing = false;
+        if (!directory_iterator_t::is_directory(tracedir))
+            needs_processing = true;
         else {
+            directory_iterator_t end;
+            directory_iterator_t iter(tracedir);
+            if (!iter) {
+                needs_processing = true;
+            } else {
+                int count = 0;
+                for (; iter != end; ++iter) {
+                    if ((*iter) == "." || (*iter) == "..")
+                        continue;
+                    ++count;
+                    // XXX: It would be nice to call file_reader_t::is_complete()
+                    // but we don't have support for that for compressed files.
+                    // Thus it's up to the user to delete incomplete processed files.
+                }
+                if (count == 0)
+                    needs_processing = true;
+            }
+        }
+        if (needs_processing) {
             delete existing;
-            raw2trace_directory_t dir(op_indir.get_value(), tracefile);
-            raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file);
+            existing = nullptr;
+            raw2trace_directory_t dir(op_indir.get_value(), "", op_verbose.get_value());
+            raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, nullptr,
+                                  op_verbose.get_value());
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success = false;
                 error_string = "raw2trace failed: " + error;
             }
-            trace_iter = new file_reader_t<std::ifstream *>(tracefile.c_str(),
-                                                            op_verbose.get_value());
-        }
-        // We don't support a compressed file here (is_complete() is too hard
-        // to implement).
-        trace_end = new file_reader_t<std::ifstream *>();
+            trace_iter = new my_file_reader_t(tracedir.c_str(), op_verbose.get_value());
+        } else
+            trace_iter = existing;
+        trace_end = new my_file_reader_t();
     } else if (op_infile.get_value().empty()) {
         trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
         trace_end = new ipc_reader_t();
@@ -104,6 +127,7 @@ analyzer_multi_t::analyzer_multi_t()
 #endif
         }
     } else {
+        // Legacy file.
         trace_iter =
             new my_file_reader_t(op_infile.get_value().c_str(), op_verbose.get_value());
         trace_end = new my_file_reader_t();

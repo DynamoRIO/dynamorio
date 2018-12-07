@@ -863,6 +863,9 @@ standalone_init(void)
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
     stats = &nonshared_stats;
+    /* No reason to limit heap size when there's no code cache. */
+    IF_X64(dynamo_options.reachable_heap = false;)
+    dynamo_options.vm_base_near_app = false;
 #    if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
     /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
     dynamo_options.deadlock_avoidance = false;

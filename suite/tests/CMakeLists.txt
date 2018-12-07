@@ -2769,7 +2769,7 @@ endif ()
               set(tool.raw2trace.${testname}_precmd
                 "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
               set(tool.raw2trace.${testname}_postcmd
-              "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir@-out@drraw2trace.${exetgt}.out")
+                "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir")
             endmacro()
             # actual trace processing not important -- set a very small limit for speed
             torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
@@ -2814,7 +2814,7 @@ endif ()
       set(tool.histogram.offline_postcmd
         "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
       set(tool.histogram.offline_postcmd2
-        "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+        "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
@@ -2836,9 +2836,9 @@ endif ()
         set(tool.histogram.gzip_postcmd
           "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
         set(tool.histogram.gzip_postcmd2
-          "${GZIP}@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+          "${GZIP}@drmemtrace.${histo_app}.*.dir/trace/*")
         set(tool.histogram.gzip_postcmd3
-          "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace.gz")
+          "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
       elseif (UNIX)
         message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
       endif ()
