@@ -876,8 +876,9 @@ raw2trace_t::raw2trace_t(const char *module_map_in,
         // We pay a little memory to get a lower load factor, unless we have
         // many duplicated tables.
         hashtable_config_t config = { sizeof(config), true,
-                                      worker_count <= 8 ? 40U :
-                                      (worker_count <= 16 ? 50U : 60U) };
+                                      worker_count <= 8
+                                          ? 40U
+                                          : (worker_count <= 16 ? 50U : 60U) };
         hashtable_configure(&decode_cache[i], &config);
     }
 }
