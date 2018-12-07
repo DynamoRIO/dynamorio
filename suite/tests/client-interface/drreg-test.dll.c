@@ -267,7 +267,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else if (subtest == DRREG_TEST_6_C) {
         /* Save the 3rd DR slot at the label, restore register after
-         * the xl8 point this test.
+         * the xl8 point in this test.
          */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #6\n");
         if (instr_is_label(inst)) {
