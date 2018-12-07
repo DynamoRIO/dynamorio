@@ -425,8 +425,8 @@ struct trace_header_t {
  * Implementers are given the opportunity to implement their own logging. The level
  * parameter represents severity: the lower the level, the higher the severity.</LI>
  *
- * <LI>const instr_summary_t *get_instr_summary(uint64 modidx, uint64 modoffs, INOUT
- * app_pc *pc, app_pc orig)
+ * <LI>const instr_summary_t *get_instr_summary(void *tls, uint64 modidx, uint64 modoffs,
+ * INOUT app_pc *pc, app_pc orig)
  *
  * Return the #instr_summary_t representation of the instruction at *pc,
  * updating the value at pc to the PC of the next instruction. It is assumed the app
@@ -659,8 +659,8 @@ private:
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
-            instr = impl()->get_instr_summary(in_entry->pc.modidx, in_entry->pc.modoffs,
-                                              &pc, orig_pc);
+            instr = impl()->get_instr_summary(tls, in_entry->pc.modidx,
+                                              in_entry->pc.modoffs, &pc, orig_pc);
             if (instr == nullptr) {
                 // We hit some error somewhere, and already reported it. Just exit the
                 // loop.
@@ -837,7 +837,7 @@ public:
     // caller.  module_map is not a string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
-                unsigned int verbosity = 0);
+                unsigned int verbosity = 0, int worker_count = -1);
     ~raw2trace_t();
 
     /**
@@ -946,7 +946,8 @@ private:
     void
     log(uint level, const char *fmt, ...);
     const instr_summary_t *
-    get_instr_summary(uint64 modidx, uint64 modoffs, INOUT app_pc *pc, app_pc orig);
+    get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT app_pc *pc,
+                      app_pc orig);
     void
     set_prev_instr_rep_string(void *tls, bool value);
     bool
@@ -954,8 +955,6 @@ private:
 
     std::string
     read_and_map_modules();
-    std::string
-    process_thread_file(void *tls);
     std::string
     append_delayed_branch(void *tls);
 
@@ -974,8 +973,10 @@ private:
     // This is what trace_converter_t passes as void* to our routines.
     struct raw2trace_thread_data_t {
         int index;
+        int worker;
         std::istream *thread_file;
         std::ostream *out_file;
+        std::string error;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -985,15 +986,27 @@ private:
         offline_entry_t last_entry;
         std::array<trace_entry_t, WRITE_BUFFER_SIZE> out_buf;
         bool prev_instr_was_rep_string;
+        app_pc last_decode_pc;
+        const instr_summary_t *last_summary;
     };
 
+    std::string
+    process_thread_file(raw2trace_thread_data_t *tdata);
+
+    void
+    process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
+
     std::vector<raw2trace_thread_data_t> thread_data;
+
+    int worker_count;
+    std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks;
 
     // We use a hashtable to cache decodings.  We compared the performance of
     // hashtable_t to std::map.find, std::map.lower_bound, std::tr1::unordered_map,
     // and c++11 std::unordered_map (including tuning its load factor, initial size,
     // and hash function), and hashtable_t outperformed the others (i#2056).
-    hashtable_t decode_cache;
+    // We use a per-worker cache to avoid locks.
+    std::vector<hashtable_t> decode_cache;
 
     // Store optional parameters for the module_mapper_t until we need to construct it.
     const char *(*user_parse)(const char *src, OUT void **data) = nullptr;
@@ -1006,6 +1019,10 @@ private:
     std::unique_ptr<module_mapper_t> module_mapper;
 
     unsigned int verbosity = 0;
+
+    // Our decode_cache duplication will not scale forever on very large code
+    // footprint traces, so we set a cap for the default.
+    static const int kDefaultJobMax = 16;
 };
 
 #endif /* _RAW2TRACE_H_ */
