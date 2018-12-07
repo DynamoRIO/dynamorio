@@ -104,6 +104,7 @@ add_exported_library(drmemtrace_simulator STATIC
   )
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
+add_dependencies(directory_iterator api_headers)
 target_link_libraries(directory_iterator drfrontendlib)
 
 add_exported_library(drmemtrace_raw2trace STATIC
