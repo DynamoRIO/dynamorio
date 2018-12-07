@@ -131,7 +131,6 @@
 # define RAW(n) .byte HEX(n) @N@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
-# define POP_SEH(reg) pop reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
@@ -429,14 +428,14 @@ ASSUME fs:_DATA @N@\
          PUSH_SEH(REG_R14) @N@\
          PUSH_SEH(REG_R15)
 #   define POP_CALLEE_SAVED_REGS() \
-         POP_SEH(REG_R15) @N@\
-         POP_SEH(REG_R14) @N@\
-         POP_SEH(REG_R13) @N@\
-         POP_SEH(REG_R12) @N@\
-         POP_SEH(REG_XDI) @N@\
-         POP_SEH(REG_XSI) @N@\
-         POP_SEH(REG_XBP) @N@\
-         POP_SEH(REG_XBX)
+         pop REG_R15 @N@\
+         pop REG_R14 @N@\
+         pop REG_R13 @N@\
+         pop REG_R12 @N@\
+         pop REG_XDI @N@\
+         pop REG_XSI @N@\
+         pop REG_XBP @N@\
+         pop REG_XBX
 #  else /* UNIX */
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -469,12 +468,12 @@ ASSUME fs:_DATA @N@\
          PUSH_SEH(REG_R14) @N@\
          PUSH_SEH(REG_R15)
 #   define POP_CALLEE_SAVED_REGS() \
-         POP_SEH(REG_R15) @N@\
-         POP_SEH(REG_R14) @N@\
-         POP_SEH(REG_R13) @N@\
-         POP_SEH(REG_R12) @N@\
-         POP_SEH(REG_XBP) @N@\
-         POP_SEH(REG_XBX)
+         pop REG_R15 @N@\
+         pop REG_R14 @N@\
+         pop REG_R13 @N@\
+         pop REG_R12 @N@\
+         pop REG_XBP @N@\
+         pop REG_XBX
 #  endif /* WINDOWS/UNIX */
 # else /* 32-bit */
 /* Arguments are passed on stack right-to-left. */
@@ -505,17 +504,17 @@ ASSUME fs:_DATA @N@\
         PUSH_SEH(REG_XSI) @N@\
         PUSH_SEH(REG_XDI)
 #  define POP_CALLEE_SAVED_REGS() \
-        POP_SEH(REG_XDI) @N@\
-        POP_SEH(REG_XSI) @N@\
-        POP_SEH(REG_XBP) @N@\
-        POP_SEH(REG_XBX)
+        pop REG_XDI @N@\
+        pop REG_XSI @N@\
+        pop REG_XBP @N@\
+        pop REG_XBX
 #  else /* UNIX */
 #   define PUSH_CALLEE_SAVED_REGS() \
          PUSH_SEH(REG_XBX) @N@\
          PUSH_SEH(REG_XBP)
 #   define POP_CALLEE_SAVED_REGS() \
-         POP_SEH(REG_XBP) @N@\
-         POP_SEH(REG_XBX)
+         pop REG_XBP @N@\
+         pop REG_XBX
 #  endif /* WINDOWS/UNIX */
 # endif /* 64/32-bit */
 #endif /* ARM/X86 */
