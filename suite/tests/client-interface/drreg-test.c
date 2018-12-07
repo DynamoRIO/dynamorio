@@ -114,7 +114,7 @@ main(int argc, const char *argv[])
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 # define FRAME_PADDING 0
 #endif

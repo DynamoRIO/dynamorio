@@ -68,7 +68,7 @@ main(int argc, char *argv[])
 START_FILE
 
 #ifdef X64
-# define FRAME_PADDING 8
+# define FRAME_PADDING 0
 #else
 /* Don't need to align, but we do need to keep the "add esp, 0" to make a legal
  * SEH64 epilog.
