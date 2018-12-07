@@ -162,6 +162,7 @@ GLOBAL_LABEL(FUNCNAME:)
         POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -190,6 +191,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test1
         /* Test 1: separate write and read of reserved reg */
      test1:
@@ -243,6 +245,7 @@ GLOBAL_LABEL(FUNCNAME:)
         POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -255,6 +258,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog2:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test3
         /* Test 3: fault reg restore */
      test3:
@@ -295,6 +299,7 @@ GLOBAL_LABEL(FUNCNAME:)
         POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:
@@ -310,6 +315,7 @@ GLOBAL_LABEL(FUNCNAME:)
     epilog3:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
         b        test5
         /* Test 5: fault aflags restore */
      test5:
