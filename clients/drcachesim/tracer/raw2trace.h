@@ -1022,7 +1022,7 @@ private:
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.
-    static constexpr int kDefaultJobMax = 16;
+    static const int kDefaultJobMax = 16;
 };
 
 #endif /* _RAW2TRACE_H_ */
