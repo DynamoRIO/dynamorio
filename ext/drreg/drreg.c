@@ -1609,9 +1609,19 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                 opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
             uint DR_max_offs = opnd_get_disp(
                 dr_reg_spill_slot_opnd(drcontext, dr_max_opnd_accessible_spill_slot()));
-            if (DR_min_offs > DR_max_offs)
-                DR_min_offs = DR_max_offs;
-            slot = (offs - DR_min_offs) / sizeof(reg_t);
+            if (DR_min_offs > DR_max_offs) {
+                if (offs > DR_min_offs) {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                } else {
+                    slot = (DR_min_offs - offs) / sizeof(reg_t);
+                }
+            } else {
+                if (offs > DR_max_offs) {
+                    slot = (offs - DR_max_offs) / sizeof(reg_t);
+                } else {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                }
+            }
             uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
             if (slot > max_DR_slot) {
                 /* This is not a drreg spill, but some TLS access by
@@ -1774,9 +1784,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS) {
             reg_t val = get_spilled_value(drcontext, spilled_to[GPR_IDX(reg)]);
-            LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring %s from " PFX " to " PFX "\n",
-                __FUNCTION__, get_register_name(reg), reg_get_value(reg, info->mcontext),
-                val);
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring %s from slot %d from " PFX " to " PFX "\n", __FUNCTION__,
+                get_register_name(reg), spilled_to[GPR_IDX(reg)],
+                reg_get_value(reg, info->mcontext), val);
             reg_set_value(reg, info->mcontext, val);
         }
     }
