@@ -1610,9 +1610,17 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
             uint DR_max_offs = opnd_get_disp(
                 dr_reg_spill_slot_opnd(drcontext, dr_max_opnd_accessible_spill_slot()));
             if (DR_min_offs > DR_max_offs) {
-                slot = (DR_min_offs - offs) / sizeof(reg_t);
+                if (offs > DR_min_offs) {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                } else {
+                    slot = (DR_min_offs - offs) / sizeof(reg_t);
+                }
             } else {
-                slot = (offs - DR_min_offs) / sizeof(reg_t);
+                if (offs > DR_max_offs) {
+                    slot = (offs - DR_max_offs) / sizeof(reg_t);
+                } else {
+                    slot = (offs - DR_min_offs) / sizeof(reg_t);
+                }
             }
             uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
             if (slot > max_DR_slot) {
