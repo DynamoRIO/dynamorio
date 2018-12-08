@@ -31,9 +31,9 @@
  */
 
 /* clang-format off */
-/* XXX: clang-format complained about a tab difference at "clang-format on"
- * below. This is why clang-format has been moved outside the ifsef until
- * bug has been fixed.
+/* XXX: clang-format incorrectly detected a tab difference at "clang-format on"
+ * below. This is why "clang-format off" has been moved outside the ifdef until
+ * bug is fixed.
  */
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
