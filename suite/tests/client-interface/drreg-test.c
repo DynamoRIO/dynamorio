@@ -397,11 +397,11 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
 #elif defined(ARM)
         /* XXX i#3289: prologue missing */
-        /* Test 6: doesn't exit for ARM */
+        /* Test 6: doesn't exist for ARM */
         bx       lr
 #elif defined(AARCH64)
         /* XXX i#3289: prologue missing */
-        /* Test 6: doesn't exit for ARM */
+        /* Test 6: doesn't exist for AARCH64 */
         ret
 #endif
         END_FUNC(FUNCNAME)
