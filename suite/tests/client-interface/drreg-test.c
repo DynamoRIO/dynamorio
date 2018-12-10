@@ -381,7 +381,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
 
         jmp      test6
-        /* Test 6: fault aflags restore */
+        /* Test 6: fault check ignore 3rd DR TLS slot */
      test6:
         mov      TEST_REG_ASM, DRREG_TEST_6_ASM
         mov      TEST_REG_ASM, DRREG_TEST_6_ASM
@@ -394,6 +394,36 @@ GLOBAL_LABEL(FUNCNAME:)
      epilog6:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test6
+        /* Test 6: fault check ignore 3rd DR TLS slot */
+     test6:
+        movw     TEST_REG_ASM, DRREG_TEST_6_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_6_ASM
+        nop
+        movw     TEST_REG_ASM, DRREG_TEST_7_ASM
+        nop
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog6
+    epilog6:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test6
+        /* Test 6: fault check ignore 3rd DR TLS slot */
+     test6:
+        movz     TEST_REG_ASM, DRREG_TEST_6_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_6_ASM
+        nop
+        movz     TEST_REG_ASM, DRREG_TEST_7_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog6
+    epilog6:
         ret
 #endif
         END_FUNC(FUNCNAME)
