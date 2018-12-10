@@ -42,6 +42,8 @@
  * to link both ntdll.lib and a libc.lib).
  */
 
+#include <stdio.h> /* sscanf */
+
 #include "configure.h"
 #if defined(NOT_DYNAMORIO_CORE)
 #    define ASSERT(x)
@@ -375,7 +377,7 @@ get_proc_address_common(module_base_t lib, const char *name,
     /* NB: There are some DLLs (like System32\profapi.dll) that have no named
      * exported functions names, only ordinals. As a result, the only correct
      * checks we can do here are on the presence and size of the export table
-     * + presenence and count of the function export list.
+     * abd the presence and count of the function export list.
      */
     if (exports == NULL || exports_size == 0 || exports->AddressOfFunctions == 0 ||
         exports->NumberOfFunctions == 0) {
@@ -387,7 +389,6 @@ get_proc_address_common(module_base_t lib, const char *name,
     /* avoid preinject issues: doesn't have module_size */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* sanity checks, split up for readability */
-
     /* The DLL either exports nothing or has a sane combination of export
      *  table address and function count.
      */
@@ -415,22 +416,9 @@ get_proc_address_common(module_base_t lib, const char *name,
         /* Ordinal forwarders are formatted as #XXX, when XXX is a positive
          * base-10 integer.
          */
-        const char *digit = name + 1;
-        ord = 0;
-
-        while (*digit) {
-            if (digit[0] < '0' || digit[0] > '9') {
-                /* Having a non-numeric ordinal forwarder doesn't make any sense,
-                 * but who knows?
-                 */
-                ASSERT_CURIOSITY(false && "non-numeric ordinal forwarder");
-                return NULL;
-            }
-
-            ord *= 10;
-            ord += (digit[0] - '0');
-
-            digit += 1;
+        if (sscanf(name, "#%u", &ord) != 1) {
+            ASSERT_CURIOSITY(false && "non-numeric ordinal forwarder");
+            return NULL;
         }
 
         /* Like raw ordinals, these are offset from the export base.
