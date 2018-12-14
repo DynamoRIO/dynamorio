@@ -450,12 +450,12 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         /* XXX i#3312: Temporarily disable test until bug has been fixed. */
-#if 0
 #ifdef X86
 #ifdef X64
         PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
+#if 0
 
         jmp      test8
         /* Test 8: fault test restore of non-public DR slot used by mangling.
@@ -478,9 +478,9 @@ GLOBAL_LABEL(FUNCNAME:)
      epilog8:
         add      REG_XSP, 8
         mov      REG_XAX, PTRSZ [REG_XSP]
+#endif
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
-#endif
 #endif
         ret
 #elif defined(ARM)
