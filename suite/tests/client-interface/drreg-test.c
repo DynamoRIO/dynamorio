@@ -49,11 +49,14 @@ void
 test_asm_faultB();
 void
 test_asm_faultC();
+void
+test_asm_faultD();
 
 static SIGJMP_BUF mark;
 
 #    if defined(UNIX)
 #        include <signal.h>
+
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -68,7 +71,6 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
-
 static void
 handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -76,6 +78,18 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
             print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+static void
+handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->SC_XAX != DRREG_TEST_9_C) {
+            print("ERROR: spilled register value was not preserved! 0x%lx\n", sc->SC_XAX);
+            exit(1);
+        }
     }
     SIGLONGJMP(mark, 1);
 }
@@ -93,12 +107,20 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
-
 static LONG WINAPI
 handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+static LONG WINAPI
+handle_exception3(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
             print("ERROR: spilled register value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
@@ -135,10 +157,24 @@ main(int argc, const char *argv[])
     SetUnhandledExceptionFilter(&handle_exception2);
 #    endif
 
-    /* Test fault aflags restore */
+    /* Test fault check ignore 3rd DR TLS slot */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultC();
     }
+
+#    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal3, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception3);
+#    endif
+
+    /* Test fault restore of non-public DR slot used by mangling.
+     * Making sure drreg ignores restoring this slot.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultD();
+    }
+#    endif
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
@@ -402,6 +438,52 @@ GLOBAL_LABEL(FUNCNAME:)
 #elif defined(AARCH64)
         /* XXX i#3289: prologue missing */
         /* Test 6: doesn't exist for AARCH64 */
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_asm_faultD
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+#ifdef X64
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test8
+        /* Test 8: fault test restore of non-public DR slot used by mangling.
+         * Making sure drreg ignores restoring this slot.
+         */
+     test8:
+        mov      PTRSZ [REG_XSP], REG_XAX
+        sub      REG_XSP, 8
+        mov      TEST_REG_ASM, DRREG_TEST_8_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_8_ASM
+        nop
+        mov      REG_XAX, DRREG_TEST_9_ASM
+        /* There's a good chance that this will be too far away for a
+         * signed 32-bit rip-rel offset, which is what we want, in order
+         * to get the address mangled into register REG_XAX.
+         */
+        add      TEST_REG_ASM, SYMREF(-0x7fffffff) /* crash */
+
+        jmp      epilog8
+     epilog8:
+        add      REG_XSP, 8
+        mov      REG_XAX, PTRSZ [REG_XSP]
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+#endif
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        /* Test 8: not implemented for ARM */
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* Test 8: not implemented for AARCH64 */
         ret
 #endif
         END_FUNC(FUNCNAME)
