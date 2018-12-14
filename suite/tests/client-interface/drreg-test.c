@@ -174,7 +174,6 @@ main(int argc, const char *argv[])
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultD();
     }
-#    endif
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
