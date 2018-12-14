@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+/* clang-format off */
 /* XXX: clang-format incorrectly detected a tab difference at "clang-format on"
  * below. This is why "clang-format off" has been moved outside the ifdef until
  * bug is fixed.
@@ -80,10 +81,10 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
-#        if X86
 static void
 handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+#        ifdef X86
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_9_C) {
@@ -91,9 +92,9 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
             exit(1);
         }
     }
+#        endif
     SIGLONGJMP(mark, 1);
 }
-#        endif
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -117,17 +118,17 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
-#        if X86
 static LONG WINAPI
 handle_exception3(struct _EXCEPTION_POINTERS *ep)
 {
+#        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
             print("ERROR: spilled register value was not preserved!\n");
     }
+#        endif
     SIGLONGJMP(mark, 1);
 }
-#        endif
 #    endif
 
 int
@@ -185,7 +186,6 @@ main(int argc, const char *argv[])
 }
 
 #else /* asm code *************************************************************/
-/* clang-format off */
 #    include "asm_defines.asm"
 #    include "drreg-test-shared.h"
 START_FILE
@@ -493,4 +493,4 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 END_FILE
 #endif
-/* clang-format on */
+      /* clang-format on */
