@@ -449,6 +449,8 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_asm_faultD
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        /* XXX i#3312: Temporarily disable test until bug has been fixed. */
+#if 0
 #ifdef X86
 #ifdef X64
         PUSH_CALLEE_SAVED_REGS()
@@ -470,7 +472,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * signed 32-bit rip-rel offset, which is what we want, in order
          * to get the address mangled into register REG_XAX.
          */
-        add      TEST_REG_ASM, SYMREF(-0x7fffffff) /* crash */
+        add      TEST_REG_ASM, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog8
      epilog8:
@@ -478,6 +480,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, PTRSZ [REG_XSP]
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
+#endif
 #endif
         ret
 #elif defined(ARM)
