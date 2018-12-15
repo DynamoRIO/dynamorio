@@ -490,12 +490,12 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_asm_faultD
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* XXX i#3312: Temporarily disable test until bug has been fixed. */
 #ifdef X86
 #ifdef X64
         PUSH_CALLEE_SAVED_REGS()
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
+        /* XXX i#3312: Temporarily disable test until bug has been fixed. */
 #if 0
 
         jmp      test8
@@ -545,6 +545,8 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
+          /* XXX i#3312: Temporarily disable test until bug has been fixed. */
+#if 0
         jmp      test10
         /* Test 10: fault test restore of non-public DR slot used by mangling,
          * when rip-rel address is forced to be in register. Making sure drreg ignores
@@ -561,13 +563,13 @@ GLOBAL_LABEL(FUNCNAME:)
          * signed 32-bit rip-rel offset, which is what we want, in order
          * to get the address mangled into register REG_XAX.
          */
-        /* *** Will get reverted before commit - test to narrow down on Win assembler build error *** */
-        // mov      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
+        mov      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog10
      epilog10:
         add      REG_XSP, 8
         mov      REG_XAX, PTRSZ [REG_XSP]
+#endif
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
 #endif
