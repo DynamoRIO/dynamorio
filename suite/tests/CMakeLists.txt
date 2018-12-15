@@ -2078,7 +2078,7 @@ if (CLIENT_INTERFACE)
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
   endif (ARM)
 
-  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "-no_mangle_rel_addr_scratch_reg_opt" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
   target_include_directories(client.drreg-test PRIVATE
