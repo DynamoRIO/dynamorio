@@ -561,7 +561,8 @@ GLOBAL_LABEL(FUNCNAME:)
          * signed 32-bit rip-rel offset, which is what we want, in order
          * to get the address mangled into register REG_XAX.
          */
-        mov      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
+        /* *** Will get reverted before commit - test to narrow down on Win assembler build error *** */
+        // mov      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog10
      epilog10:
