@@ -211,7 +211,7 @@ main(int argc, const char *argv[])
     SetUnhandledExceptionFilter(&handle_exception4);
 #    endif
 
-    /* Test 10: fault test restore of non-public DR slot used by mangling,
+    /* Test 10: test fault restore of non-public DR slot used by mangling,
      * when rip-rel address is forced to be in register. Making sure drreg
      * ignores restoring this slot. Exposes transparency limitation of DR
      * if reg is optimized to be app's dead reg.
@@ -499,7 +499,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #if 0
 
         jmp      test8
-        /* Test 8: fault test restore of non-public DR slot used by mangling.
+        /* Test 8: test fault restore of non-public DR slot used by mangling.
          * Making sure drreg ignores restoring this slot.
          */
      test8:
@@ -548,7 +548,7 @@ GLOBAL_LABEL(FUNCNAME:)
           /* XXX i#3312: Temporarily disable test until bug has been fixed. */
 #if 0
         jmp      test10
-        /* Test 10: fault test restore of non-public DR slot used by mangling,
+        /* Test 10: test fault restore of non-public DR slot used by mangling,
          * when rip-rel address is forced to be in register. Making sure drreg ignores
          * restoring this slot.
          */
@@ -563,7 +563,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * signed 32-bit rip-rel offset, which is what we want, in order
          * to get the address mangled into register REG_XAX.
          */
-        mov      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
+        add      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog10
      epilog10:

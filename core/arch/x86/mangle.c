@@ -2885,8 +2885,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 relop = instr_get_src(instr, si);
                 ASSERT(di < 0 || opnd_same(relop, instr_get_dst(instr, di)));
                 /* If it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
-                if (DYNAMO_OPTION(mangle_rel_addr_scratch_reg_opt) &&
-                    instr_num_srcs(instr) == 1 && /* src is the rip-rel opnd */
+                if (instr_num_srcs(instr) == 1 && /* src is the rip-rel opnd */
                     instr_num_dsts(instr) == 1 && /* only one dest: a register */
                     opnd_is_reg(instr_get_dst(instr, 0)) && !instr_is_predicated(instr)) {
                     opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));

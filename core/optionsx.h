@@ -536,8 +536,6 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
      }, "translate x86 code to x64 when on a 64-bit kernel.", STATIC, OP_PCACHE_GLOBAL)
     OPTION_DEFAULT(bool, x86_to_x64_ibl_opt, false,
                    "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
-    OPTION_DEFAULT_INTERNAL(bool, mangle_rel_addr_scratch_reg_opt, true,
-                            "Try to optimize scratch register usage when mangling rip-rel operands")
 #endif
 
 #ifdef AARCHXX
