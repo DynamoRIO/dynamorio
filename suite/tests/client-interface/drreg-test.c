@@ -509,10 +509,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_8_ASM
         nop
         mov      REG_XAX, DRREG_TEST_9_ASM
-        /* There's a good chance that this will be too far away for a
-         * signed 32-bit rip-rel offset, which is what we want, in order
-         * to get the address mangled into register REG_XAX.
-         */
+        /* The address will get mangled into register REG_XAX. */
         add      TEST_REG_ASM, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog8
@@ -547,7 +544,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
           /* XXX i#3312: Temporarily disable test until bug has been fixed. */
 #if 0
-        jmp      test10
+OB        jmp      test10
         /* Test 10: test fault restore of non-public DR slot used by mangling,
          * when rip-rel address is forced to be in register. Making sure drreg ignores
          * restoring this slot.
@@ -559,10 +556,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_10_ASM
         nop
         mov      REG_XAX, DRREG_TEST_11_ASM
-        /* There's a good chance that this will be too far away for a
-         * signed 32-bit rip-rel offset, which is what we want, in order
-         * to get the address mangled into register REG_XAX.
-         */
+        /* The address will get mangled into register REG_XAX. */
         add      REG_XAX, PTRSZ SYMREF(-0x7fffffff) /* crash */
 
         jmp      epilog10
