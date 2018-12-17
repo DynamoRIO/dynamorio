@@ -1350,7 +1350,7 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     os_unmap_file(base, size);
     os_close(f);
 
-    /* SIGSTOP can make gdb debugging early privload. */
+    /* SIGSTOP can let gdb break into early_privload function. */
     kill(pid, SIGSTOP);
     our_ptrace(PTRACE_DETACH, pid, NULL, NULL);
     snprintf(pid_str, BUFFER_SIZE_ELEMENTS(pid_str), "%d", pid);
@@ -1493,6 +1493,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
         signal = WSTOPSIG(status);
     } while (signal == SIGSEGV || signal == SIGILL);
+    /* SIGILL has a handler at signal_arch_init and defined to XSTATE_QUERY_SIG (x86)
+     * or VFP_QUERY_SIG (arm). It will dispatch by thread_signal in signal_arch_init.
+     * But if the child process is ptraced, the signal will catch by parent. We just
+     * pass it back to child.
+     */
 
     /* When we get SIGTRAP, DR has initialized. */
     if (signal != SIGTRAP) {
