@@ -1609,20 +1609,26 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                 opnd_get_disp(dr_reg_spill_slot_opnd(drcontext, SPILL_SLOT_1));
             uint DR_max_offs = opnd_get_disp(
                 dr_reg_spill_slot_opnd(drcontext, dr_max_opnd_accessible_spill_slot()));
+            uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
             if (DR_min_offs > DR_max_offs) {
                 if (offs > DR_min_offs) {
                     slot = (offs - DR_min_offs) / sizeof(reg_t);
+                } else if (offs < DR_max_offs) {
+                    /* Fix hidden slot regardless of low-to-high or vice versa. */
+                    slot = max_DR_slot + 1;
                 } else {
                     slot = (DR_min_offs - offs) / sizeof(reg_t);
                 }
             } else {
                 if (offs > DR_max_offs) {
                     slot = (offs - DR_max_offs) / sizeof(reg_t);
+                } else if (offs < DR_min_offs) {
+                    /* Fix hidden slot regardless of low-to-high or vice versa. */
+                    slot = max_DR_slot + 1;
                 } else {
                     slot = (offs - DR_min_offs) / sizeof(reg_t);
                 }
             }
-            uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
             if (slot > max_DR_slot) {
                 /* This is not a drreg spill, but some TLS access by
                  * tool instrumentation (i#2035).
