@@ -3143,6 +3143,13 @@ if (UNIX)
 
     tobuild(linux.signest linux/signest.c)
     link_with_pthread(linux.signest)
+
+    if (UNIX)
+      tobuild_ops(linux.sigmangle_asynch linux/sigmangle_asynch.c "-vm_base 0x100000000 -no_vm_base_near_app" "")
+      target_include_directories(linux.sigmangle_asynch PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/linux)
+      link_with_pthread(linux.sigmangle_asynch)
+    endif ()
   endif ()
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,

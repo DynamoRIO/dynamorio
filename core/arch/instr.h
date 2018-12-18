@@ -194,6 +194,8 @@ enum {
     INSTR_CLOBBER_RETADDR = 0x02000000,
 #    endif
 
+    /* instruction of our own mangling region's epilogue, see i#3307 */
+    INSTR_OUR_MANGLING_EPILOGUE = 0x02000000,
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
      * exit cti's or linkstubs since it is mainly intended for clients etc.
@@ -1839,6 +1841,22 @@ instr_is_our_mangling(instr_t *instr);
 /* Sets whether instr came from our mangling. */
 void
 instr_set_our_mangling(instr_t *instr, bool ours);
+
+/* Returns whether instr came from our mangling and is in epilogue. */
+bool
+instr_is_our_mangling_epilogue(instr_t *instr);
+
+/* Sets whether instr came from our mangling and is in epilogue. */
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue);
+
+/* Sets that instr is in our mangling epilogue as well as the translation pointer
+ * for instr, by adding the translation pointer of mangle_instr to its length.
+ * Returns the instr.
+ */
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instr_t *mangle_instr,
+                                        instr_t *instr);
 
 DR_API
 /**
