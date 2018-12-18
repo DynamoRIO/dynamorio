@@ -1350,7 +1350,7 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     os_unmap_file(base, size);
     os_close(f);
 
-    /* SIGSTOP can let gdb break into early_privload function. */
+    /* SIGSTOP can let gdb break into privload_early_inject(). */
     kill(pid, SIGSTOP);
     our_ptrace(PTRACE_DETACH, pid, NULL, NULL);
     snprintf(pid_str, BUFFER_SIZE_ELEMENTS(pid_str), "%d", pid);
