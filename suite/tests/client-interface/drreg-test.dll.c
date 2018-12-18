@@ -278,6 +278,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_8_C) {
         /* Nothing to do here */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #8\n");
+    } else if (subtest == DRREG_TEST_10_C) {
+        /* Nothing to do here */
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #10\n");
     }
 
     drvector_delete(&allowed);
