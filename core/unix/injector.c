@@ -1481,6 +1481,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * return.
      * XXX: we can actually fault during dynamorio_app_init() due to safe_reads,
      * so we have to expect SIGSEGV and let it be delivered.
+     * XXX: SIGILL is delivered from signal_arch_init() and we should pass it
+     * to its original handler.
      */
     signal = 0;
     do {
@@ -1493,11 +1495,6 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
         signal = WSTOPSIG(status);
     } while (signal == SIGSEGV || signal == SIGILL);
-    /* SIGILL has a handler at signal_arch_init and defined to XSTATE_QUERY_SIG (x86)
-     * or VFP_QUERY_SIG (arm). It will dispatch by thread_signal in signal_arch_init.
-     * But if the child process is ptraced, the signal will catch by parent. We just
-     * pass it back to child.
-     */
 
     /* When we get SIGTRAP, DR has initialized. */
     if (signal != SIGTRAP) {

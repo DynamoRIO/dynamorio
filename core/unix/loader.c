@@ -1757,6 +1757,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
          * can easily find the address of _start in the ELF header.
          */
         takeover_ptrace((ptrace_stack_args_t *)sp);
+        ASSERT_NOT_REACHED();
     }
 
     kernel_init_sp = (void *)sp;
