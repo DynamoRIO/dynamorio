@@ -169,6 +169,7 @@ instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
 }
 #endif
 
+#ifdef X86
 static bool
 translate_walk_enters_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
                                         translate_walk_t *walk)
@@ -182,6 +183,7 @@ translate_walk_exits_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
 {
     return walk->in_mangle_region_epilogue && !instr_is_our_mangling_epilogue(inst);
 }
+#endif
 
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)

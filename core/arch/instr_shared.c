@@ -2183,7 +2183,7 @@ instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instr_t *mangle_in
     ASSERT(instr_is_our_mangling(mangle_instr));
     if (instr_get_translation(mangle_instr) != NULL) {
         int sz = decode_sizeof(dcontext, instr_get_translation(mangle_instr),
-                               NULL _IF_X64(NULL));
+                               NULL _IF_X86_64(NULL));
         instr_set_translation(instr, instr_get_translation(mangle_instr) + sz);
     }
     instr_set_our_mangling_epilogue(instr, true);
