@@ -2567,21 +2567,18 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (op == OP_fnsave || op == OP_fnstenv) {
             opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS);
             opnd_set_size(&memop, OPSZ_4);
-            /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
             PRE(ilist, next_instr,
                 INSTR_CREATE_mov_st(dcontext, memop,
                                     OPND_CREATE_INT32((int)(ptr_int_t)prior_float)));
         } else if (op == OP_fxsave32) {
             opnd_set_disp(&memop, opnd_get_disp(memop) + FXSAVE_PC_OFFS);
             opnd_set_size(&memop, OPSZ_4);
-            /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
             PRE(ilist, next_instr,
                 INSTR_CREATE_mov_st(dcontext, memop,
                                     OPND_CREATE_INT32((int)(ptr_int_t)prior_float)));
         } else if (op == OP_fxsave64) {
             opnd_set_disp(&memop, opnd_get_disp(memop) + FXSAVE_PC_OFFS);
             opnd_set_size(&memop, OPSZ_8);
-            /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
             insert_mov_immed_ptrsz(dcontext, (ptr_int_t)prior_float, memop, ilist,
                                    next_instr, NULL, NULL);
         } else
@@ -2828,7 +2825,6 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     uint opc = instr_get_opcode(instr);
     app_pc tgt;
     opnd_t dst, src;
-
     ASSERT(instr_has_rel_addr_reference(instr));
     instr_get_rel_addr_target(instr, &tgt);
     STATS_INC(rip_rel_instrs);
@@ -2950,8 +2946,10 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_set_our_mangling(instr, true);
             if (spill) {
                 PRE(ilist, next_instr,
-                    instr_create_restore_from_tls(dcontext, scratch_reg,
-                                                  MANGLE_RIPREL_SPILL_SLOT));
+                    instr_set_translation_mangling_epilogue(
+                        dcontext, ilist,
+                        instr_create_restore_from_tls(dcontext, scratch_reg,
+                                                      MANGLE_RIPREL_SPILL_SLOT)));
             }
             STATS_INC(rip_rel_unreachable);
         }
@@ -3082,7 +3080,6 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr,
             instr_create_save_to_tls(dcontext, reg, tls_slots[reg - REG_XAX]));
         /* restore reg */
-        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, reg, tls_slots[reg - REG_XAX]));
         switch (dst_sz) {
