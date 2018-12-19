@@ -168,5 +168,5 @@ GLOBAL_LABEL(FUNCNAME:)
 
 END_FILE
 
-        /* clang-format on */
+/* clang-format on */
 #endif
