@@ -77,6 +77,7 @@ thread_routine(void *arg)
         nanosleep(&sleeptime, NULL);
     }
 #    endif
+    return NULL;
 }
 
 int
