@@ -50,16 +50,16 @@ static SIGJMP_BUF mark;
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+#    ifdef X86
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->LOOP_COUNT_REG_SIG != LOOP_COUNT)
             print("ERROR: incorrect result!\n");
-        else
-            print("Correct result!\n");
         SIGLONGJMP(mark, 1);
     } else if (signal != SIGUSR2) {
         print("Unexpected signal!\n");
     }
+#    endif
 }
 
 static void *
