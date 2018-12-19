@@ -2166,20 +2166,14 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
                                         NULL);
         /* sysenter goes here */
         PRE(ilist, next_instr, post_sysenter);
+        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
         PRE(ilist, next_instr,
-            instr_set_translation_mangling_epilogue(
-                dcontext, instr,
-                RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT,
-                                       XDX_OFFSET)));
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT, XDX_OFFSET));
         PRE(ilist, next_instr,
-            instr_set_translation_mangling_epilogue(
-                dcontext, instr,
-                SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET)));
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
         PRE(ilist, next_instr,
-            instr_set_translation_mangling_epilogue(
-                dcontext, instr,
-                INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XCX),
-                                    opnd_create_reg(REG_XDX))));
+            INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XCX),
+                                opnd_create_reg(REG_XDX)));
     } else if (TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags)) {
         int num = instr_get_interrupt_number(instr);
         ASSERT(instr_get_opcode(instr) == OP_int);
@@ -2959,10 +2953,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_set_our_mangling(instr, true);
             if (spill) {
                 PRE(ilist, next_instr,
-                    instr_set_translation_mangling_epilogue(
-                        dcontext, instr,
-                        instr_create_restore_from_tls(dcontext, scratch_reg,
-                                                      MANGLE_RIPREL_SPILL_SLOT)));
+                    instr_create_restore_from_tls(dcontext, scratch_reg,
+                                                  MANGLE_RIPREL_SPILL_SLOT));
             }
             STATS_INC(rip_rel_unreachable);
         }
@@ -3093,10 +3085,9 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, instr,
             instr_create_save_to_tls(dcontext, reg, tls_slots[reg - REG_XAX]));
         /* restore reg */
+        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
         PRE(ilist, next_instr,
-            instr_set_translation_mangling_epilogue(
-                dcontext, instr,
-                instr_create_restore_from_tls(dcontext, reg, tls_slots[reg - REG_XAX])));
+            instr_create_restore_from_tls(dcontext, reg, tls_slots[reg - REG_XAX]));
         switch (dst_sz) {
         case OPSZ_8: IF_NOT_X64(ASSERT(false);) break;
         case OPSZ_4: IF_X64(reg = reg_64_to_32(reg);) break;
