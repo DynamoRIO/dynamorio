@@ -69,7 +69,6 @@ thread_routine(void *arg)
     pthread_t main_thread = *(pthread_t *)arg;
     while (!test_ready) {
         /* Empty. */
-        ;
     }
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
