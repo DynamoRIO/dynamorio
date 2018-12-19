@@ -429,8 +429,34 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
 {
     reg_id_t r;
 
-    if (IF_X86(!translate_walk_enters_mangling_epilogue(tdcontext, inst, walk) &&)
-            translate_pc != walk->translation) {
+    if (IF_X86_ELSE(translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
+                    false)) {
+        /* We handle only simple symmetric one-spill/one-restore mangling
+         * cases when xl8 inst addresses in mangling epilogue. Everything
+         * else is currently not supported.
+         */
+        LOG(THREAD_GET, LOG_INTERP, 2,
+            "\ttranslation " PFX " is in mangling epilogue " PFX
+            " checking for simple symmetric mangling case\n",
+            translate_pc, walk->translation);
+        DOCHECK(1, {
+            /* */
+            bool spill_seen = false;
+            for (r = 0; r < REG_SPILL_NUM; r++) {
+                if (walk->reg_spilled[r]) {
+                    ASSERT_NOT_IMPLEMENTED(!spill_seen);
+                    spill_seen = true;
+                }
+            }
+            bool spill;
+            if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, NULL, &spill, NULL)) {
+                ASSERT_NOT_IMPLEMENTED(!spill);
+            } else {
+                ASSERT_NOT_IMPLEMENTED(false);
+            }
+            ASSERT_NOT_IMPLEMENTED(walk->xsp_adjust == 0);
+        });
+    } else if (translate_pc != walk->translation) {
         /* When we walk we update only each instr we pass.  If we're
          * now sitting at the instr AFTER the mangle region, we do
          * NOT want to adjust xsp, since we're not translating to

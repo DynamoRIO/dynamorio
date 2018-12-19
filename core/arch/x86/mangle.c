@@ -1823,7 +1823,9 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         IF_X64(ASSERT_TRUNCATE(val, int, opnd_get_immed_int(instr_get_src(instr, 0))));
         /* addl sizeof_param_area, %xsp
          * except that clobbers the flags, so we use lea */
-        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
+        /* XXX i#3307: unimplemented, we can only support simple mangling cases in
+         * mangling epilogue.
+         */
         PRE(ilist, next_instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, val, OPSZ_lea)));
@@ -2163,7 +2165,9 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
                                         NULL);
         /* sysenter goes here */
         PRE(ilist, next_instr, post_sysenter);
-        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
+        /* XXX i#3307: unimplemented, we can only support simple mangling cases in
+         * mangling epilogue.
+         */
         PRE(ilist, next_instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT, XDX_OFFSET));
         PRE(ilist, next_instr,
