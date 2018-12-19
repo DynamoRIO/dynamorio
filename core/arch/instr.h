@@ -1864,7 +1864,7 @@ instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue);
  * Returns the instr.
  */
 instr_t *
-instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instr_t *mangle_instr,
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
                                         instr_t *instr);
 
 DR_API

@@ -3199,7 +3199,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (spill) {
         PRE(ilist, next_instr,
             instr_set_translation_mangling_epilogue(
-                dcontext, instr,
+                dcontext, ilist,
                 instr_create_restore_from_tls(dcontext, scratch_reg,
                                               tls_slots[scratch_reg - REG_XAX])));
     }

@@ -2177,14 +2177,13 @@ instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue)
 }
 
 instr_t *
-instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instr_t *mangle_instr,
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
                                         instr_t *instr)
 {
-    ASSERT(instr_is_our_mangling(mangle_instr));
-    if (instr_get_translation(mangle_instr) != NULL) {
-        int sz = decode_sizeof(dcontext, instr_get_translation(mangle_instr),
+    if (instrlist_get_translation_target(ilist) != NULL) {
+        int sz = decode_sizeof(dcontext, instrlist_get_translation_target(ilist),
                                NULL _IF_X86_64(NULL));
-        instr_set_translation(instr, instr_get_translation(mangle_instr) + sz);
+        instr_set_translation(instr, instrlist_get_translation_target(ilist) + sz);
     }
     instr_set_our_mangling_epilogue(instr, true);
     return instr;
