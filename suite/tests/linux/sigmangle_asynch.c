@@ -50,7 +50,7 @@ static SIGJMP_BUF mark;
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-#    ifdef X86
+#    ifdef X86_64
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->LOOP_COUNT_REG_SIG != LOOP_COUNT)
@@ -65,6 +65,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 static void *
 thread_routine(void *arg)
 {
+#    if X86_64
     pthread_t main_thread = *(pthread_t *)arg;
     while (!test_ready)
         ;
@@ -75,6 +76,7 @@ thread_routine(void *arg)
         pthread_kill(main_thread, SIGUSR2);
         nanosleep(&sleeptime, NULL);
     }
+#    endif
 }
 
 int
