@@ -1350,6 +1350,8 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     os_unmap_file(base, size);
     os_close(f);
 
+    /* SIGSTOP can let gdb break into privload_early_inject(). */
+    kill(pid, SIGSTOP);
     our_ptrace(PTRACE_DETACH, pid, NULL, NULL);
     snprintf(pid_str, BUFFER_SIZE_ELEMENTS(pid_str), "%d", pid);
     NULL_TERMINATE_BUFFER(pid_str);
@@ -1479,6 +1481,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * return.
      * XXX: we can actually fault during dynamorio_app_init() due to safe_reads,
      * so we have to expect SIGSEGV and let it be delivered.
+     * XXX: SIGILL is delivered from signal_arch_init() and we should pass it
+     * to its original handler.
      */
     signal = 0;
     do {
@@ -1490,7 +1494,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         if (r < 0 || !WIFSTOPPED(status))
             return false;
         signal = WSTOPSIG(status);
-    } while (signal == SIGSEGV);
+    } while (signal == SIGSEGV || signal == SIGILL);
 
     /* When we get SIGTRAP, DR has initialized. */
     if (signal != SIGTRAP) {
