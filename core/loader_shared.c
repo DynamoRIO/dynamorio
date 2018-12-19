@@ -185,8 +185,13 @@ loader_thread_init(dcontext_t *dcontext)
              * We do notify priv libs of client threads.
              */
             for (mod = modlist; mod != NULL; mod = mod->next) {
-                if (!mod->externally_loaded)
-                    privload_call_entry(mod, DLL_THREAD_INIT);
+                if (!mod->externally_loaded) {
+                    if (!privload_call_entry(mod, DLL_THREAD_INIT)) {
+                        LOG(GLOBAL, LOG_LOADER, 1,
+                            "%s: entry routine failed on DLL_THREAD_INIT\n",
+                            __FUNCTION__);
+                    }
+                }
             }
             release_recursive_lock(&privload_lock);
         }
@@ -215,8 +220,12 @@ loader_thread_exit(dcontext_t *dcontext)
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
         for (mod = modlist; mod != NULL; mod = mod->next) {
-            if (!mod->externally_loaded)
-                privload_call_entry(mod, DLL_THREAD_EXIT);
+            if (!mod->externally_loaded) {
+                if (!privload_call_entry(mod, DLL_THREAD_EXIT)) {
+                    LOG(GLOBAL, LOG_LOADER, 1,
+                        "%s: entry routine failed on DLL_THREAD_EXIT\n", __FUNCTION__);
+                }
+            }
         }
         release_recursive_lock(&privload_lock);
     }
@@ -608,7 +617,10 @@ privload_unload(privmod_t *privmod)
         if (privmod->next != NULL)
             privmod->next->prev = privmod->prev;
         if (!privmod->externally_loaded) {
-            privload_call_entry(privmod, DLL_PROCESS_EXIT);
+            if (!privload_call_entry(privmod, DLL_PROCESS_EXIT)) {
+                LOG(GLOBAL, LOG_LOADER, 1,
+                    "%s: entry routine failed on DLL_PROCESS_EXIT\n", __FUNCTION__);
+            }
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
@@ -702,7 +714,8 @@ privload_load_finalize(privmod_t *privmod)
     privload_os_finalize(privmod);
 
     if (!privload_call_entry(privmod, DLL_PROCESS_INIT)) {
-        LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed\n", __FUNCTION__);
+        LOG(GLOBAL, LOG_LOADER, 1, "%s: entry routine failed on DLL_PROCESS_INIT\n",
+            __FUNCTION__);
         privload_unload(privmod);
         return false;
     }

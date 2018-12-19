@@ -1778,6 +1778,8 @@ dr_get_parent_id(void);
 /** Windows versions */
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
+    /** Windows 10 1809 major update. */
+    DR_WINDOWS_VERSION_10_1809 = 106,
     /** Windows 10 1803 major update. */
     DR_WINDOWS_VERSION_10_1803 = 105,
     /** Windows 10 1709 major update. */

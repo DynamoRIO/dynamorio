@@ -53,6 +53,7 @@
  * get_windows_version() in suite/tests/tools.c, defines in libutil/mfapi.h,
  * and get_platform() in libutil/utils.c.
  */
+#define WINDOWS_VERSION_10_1809 106 /* 10.6 is artificial */
 #define WINDOWS_VERSION_10_1803 105 /* 10.5 is artificial */
 #define WINDOWS_VERSION_10_1709 104 /* 10.4 is artificial */
 #define WINDOWS_VERSION_10_1703 103 /* 10.3 is artificial */

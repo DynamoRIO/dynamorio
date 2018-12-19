@@ -71,8 +71,10 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 10 && version.dwMinorVersion == 0) {
-            if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
-                NULL)
+            if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateSectionEx") != NULL)
+                return WINDOWS_VERSION_10_1809;
+            else if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
+                     NULL)
                 return WINDOWS_VERSION_10_1803;
             else if (GetProcAddress((HMODULE)ntdll_handle, "NtCallEnclave") != NULL)
                 return WINDOWS_VERSION_10_1709;

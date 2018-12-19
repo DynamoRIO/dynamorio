@@ -583,8 +583,10 @@ get_platform(DWORD *platform)
             }
         } else if (osinfo.dwMajorVersion == 10) {
             if (osinfo.dwMinorVersion == 0) {
-                if (GetProcAddress((HMODULE)ntdll_handle, "NtAllocateVirtualMemoryEx") !=
-                    NULL)
+                if (GetProcAddress((HMODULE)ntdll_handle, "NtCreateSectionEx") != NULL)
+                    *platform = PLATFORM_WIN_10_1809;
+                else if (GetProcAddress((HMODULE)ntdll_handle,
+                                        "NtAllocateVirtualMemoryEx") != NULL)
                     *platform = PLATFORM_WIN_10_1803;
                 else if (GetProcAddress((HMODULE)ntdll_handle, "NtCallEnclave") != NULL)
                     *platform = PLATFORM_WIN_10_1709;
