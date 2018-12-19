@@ -32,7 +32,7 @@
 
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "tools.h"
-#    include "sigmangle_asynch-shared.h"
+#    include "mangle_asynch-shared.h"
 #    include <setjmp.h>
 #    include <signal.h>
 #    include <pthread.h>
@@ -67,8 +67,10 @@ thread_routine(void *arg)
 {
 #    ifdef X86_64
     pthread_t main_thread = *(pthread_t *)arg;
-    while (!test_ready)
+    while (!test_ready) {
+        /* Empty. */
         ;
+    }
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 1000 * 1111;
@@ -116,7 +118,7 @@ main(int argc, const char *argv[])
 
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
-#    include "sigmangle_asynch-shared.h"
+#    include "mangle_asynch-shared.h"
 /* clang-format off */
 START_FILE
 

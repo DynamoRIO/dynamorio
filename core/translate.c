@@ -440,6 +440,9 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             "\ttranslation " PFX " is post-walk " PFX " so not fixing xsp\n",
             translate_pc, walk->translation);
         DOCHECK(1, {
+            /* Assumes all spills are matched by the same number of restores. This
+             * assumption may not hold for more complex mangling.
+             */
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]
                         /* Register X0 is used for branches on AArch64.
@@ -1666,7 +1669,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             (!instr_is_our_mangling(in) ||
              /* handle adjacent mangle regions */
              (TEST(FRAG_IS_TRACE, f->flags) /* we have translation only for traces */ &&
-              IF_X86((prev_in &&
+              IF_X86((prev_in != NULL &&
                       (instr_is_our_mangling_epilogue(prev_in) ||
                        !instr_is_our_mangling_epilogue(in))) &&)
                       mangle_translation != instr_get_translation(in)))) {

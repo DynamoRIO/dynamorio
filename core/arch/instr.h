@@ -191,10 +191,17 @@ enum {
 #    endif
 
 #    ifdef CLIENT_INTERFACE
+    /* This enum is also used for INSTR_OUR_MANGLING_EPILOGUE. Its semantics are
+     * orthogonal to this and must not overlap.
+     */
     INSTR_CLOBBER_RETADDR = 0x02000000,
 #    endif
 
-    /* instruction of our own mangling region's epilogue, see i#3307 */
+    /* Indicates that the instruction is part of an own mangling region's
+     * epilogue (xref i#3307). Currently, instructions with the
+     * INSTR_CLOBBER_RETADDR property are never in a mangling epilogue, which
+     * is why we are reusing its enum value here.
+     * */
     INSTR_OUR_MANGLING_EPILOGUE = 0x02000000,
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
@@ -1842,7 +1849,9 @@ instr_is_our_mangling(instr_t *instr);
 void
 instr_set_our_mangling(instr_t *instr, bool ours);
 
-/* Returns whether instr came from our mangling and is in epilogue. */
+/* Returns whether instr came from our mangling and is in epilogue. This routine
+ * requires the caller to already know that instr is our_mangling.
+ */
 bool
 instr_is_our_mangling_epilogue(instr_t *instr);
 

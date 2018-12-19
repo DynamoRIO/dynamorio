@@ -3145,10 +3145,11 @@ if (UNIX)
     link_with_pthread(linux.signest)
 
     if (UNIX)
-      tobuild_ops(linux.sigmangle_asynch linux/sigmangle_asynch.c "-vm_base 0x100000000 -no_vm_base_near_app" "")
-      target_include_directories(linux.sigmangle_asynch PRIVATE
+      # XXX i#3307: add Windows test.
+      tobuild_ops(linux.mangle_asynch linux/mangle_asynch.c "-vm_base 0x100000000 -no_vm_base_near_app" "")
+      target_include_directories(linux.mangle_asynch PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/linux)
-      link_with_pthread(linux.sigmangle_asynch)
+      link_with_pthread(linux.mangle_asynch)
     endif ()
   endif ()
 

@@ -1495,7 +1495,6 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (target == (app_pc)retaddr) {
         LOG(THREAD, LOG_INTERP, 3, "found call to next instruction " PFX "\n", target);
     } else {
-        /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
         check_return_handle_call(dcontext, ilist, next_instr);
     }
     /* now do the normal thing for a call */
@@ -1755,7 +1754,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_set_our_mangling(instr, true);
 
 #    ifdef CHECK_RETURNS_SSE2
-    /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
     check_return_handle_call(dcontext, ilist, next_instr);
 #    endif
     return next_instr;
@@ -1800,7 +1798,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     opnd_size_t retsz;
 
 #    ifdef CHECK_RETURNS_SSE2
-    /* XXX i#3307: necessary to instr_set_translation_mangling_epilogue? */
     check_return_handle_return(dcontext, ilist, next_instr);
     /* now do the normal ret mangling */
 #    endif
