@@ -65,7 +65,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 static void *
 thread_routine(void *arg)
 {
-#    if X86_64
+#    ifdef X86_64
     pthread_t main_thread = *(pthread_t *)arg;
     while (!test_ready)
         ;
