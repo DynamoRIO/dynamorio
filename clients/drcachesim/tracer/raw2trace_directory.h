@@ -42,7 +42,9 @@
 class raw2trace_directory_t {
 public:
     raw2trace_directory_t(unsigned int verbosity_in = 0)
-        : indir("")
+        : modfile_bytes(nullptr)
+        , modfile(INVALID_FILE)
+        , indir("")
         , outdir("")
         , verbosity(verbosity_in)
     {

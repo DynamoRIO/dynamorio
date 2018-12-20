@@ -244,8 +244,10 @@ raw2trace_directory_t::initialize_module_file(const std::string &module_file_pat
 
 raw2trace_directory_t::~raw2trace_directory_t()
 {
-    delete[] modfile_bytes;
-    dr_close_file(modfile);
+    if (modfile_bytes != nullptr)
+        delete[] modfile_bytes;
+    if (modfile != INVALID_FILE)
+        dr_close_file(modfile);
     for (std::vector<std::istream *>::iterator fi = in_files.begin();
          fi != in_files.end(); ++fi) {
         delete *fi;
