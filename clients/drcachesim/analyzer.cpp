@@ -78,6 +78,8 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
     , tools(tools_in)
 {
     for (int i = 0; i < num_tools; ++i) {
+        if (tools[i] != NULL && !!*tools[i])
+            tools[i]->initialize();
         if (tools[i] == NULL || !*tools[i]) {
             success = false;
             error_string = "Tool is not successfully initialized";
