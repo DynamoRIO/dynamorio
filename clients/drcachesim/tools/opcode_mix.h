@@ -44,7 +44,7 @@ class opcode_mix_t : public analysis_tool_t {
 public:
     opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
     virtual ~opcode_mix_t();
-    void
+    std::string
     initialize() override;
     bool
     process_memref(const memref_t &memref) override;

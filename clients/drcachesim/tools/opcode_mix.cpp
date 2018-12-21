@@ -59,32 +59,24 @@ opcode_mix_t::opcode_mix_t(const std::string &module_file_path_in, unsigned int 
 {
 }
 
-void
+std::string
 opcode_mix_t::initialize()
 {
     serial_shard.worker = &serial_worker;
-    if (module_file_path.empty()) {
-        error_string = "Module file path is missing";
-        success = false;
-        return;
-    }
+    if (module_file_path.empty())
+        return "Module file path is missing";
     dcontext = dr_standalone_init();
     std::string error = directory.initialize_module_file(module_file_path);
-    if (!error.empty()) {
-        error_string = "Failed to initialize directory: " + error;
-        success = false;
-        return;
-    }
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
     mapper_mutex = dr_mutex_create();
     module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
                                             nullptr, nullptr, knob_verbose);
     module_mapper->get_loaded_modules();
     error = module_mapper->get_last_error();
-    if (!error.empty()) {
-        error_string = "Failed to load binaries: " + error;
-        success = false;
-        return;
-    }
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
+    return "";
 }
 
 opcode_mix_t::~opcode_mix_t()
