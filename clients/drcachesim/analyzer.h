@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -78,6 +78,7 @@ public:
      * The analyzer will reference the tools array passed in during its lifetime:
      * it does not make a copy.
      * The user must free them afterward.
+     * The analyzer calls the initialize() function on each tool before use.
      */
     analyzer_t(const std::string &trace_file, analysis_tool_t **tools, int num_tools);
     /** Launches the analysis process. */

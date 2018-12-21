@@ -89,8 +89,10 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    raw2trace_directory_t dir(op_indir.get_value(), op_outdir.get_value(),
-                              op_verbose.get_value());
+    raw2trace_directory_t dir(op_verbose.get_value());
+    std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
+    if (!dir_err.empty())
+        FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
     raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL,
                           op_verbose.get_value(), op_jobs.get_value());
     std::string error = raw2trace.do_conversion();

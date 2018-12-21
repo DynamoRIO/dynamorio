@@ -102,7 +102,12 @@ analyzer_multi_t::analyzer_multi_t()
         if (needs_processing) {
             delete existing;
             existing = nullptr;
-            raw2trace_directory_t dir(op_indir.get_value(), "", op_verbose.get_value());
+            raw2trace_directory_t dir(op_verbose.get_value());
+            std::string dir_err = dir.initialize(op_indir.get_value(), "");
+            if (!dir_err.empty()) {
+                success = false;
+                error_string = "Directory setup failed: " + dir_err;
+            }
             raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, nullptr,
                                   op_verbose.get_value(), op_jobs.get_value());
             std::string error = raw2trace.do_conversion();
@@ -149,24 +154,30 @@ analyzer_multi_t::create_analysis_tools()
      */
     tools = new analysis_tool_t *[max_num_tools];
     tools[0] = drmemtrace_analysis_tool_create();
-    if (tools[0] != NULL && !*tools[0]) {
+    if (tools[0] == NULL)
+        return false;
+    if (!!*tools[0])
+        tools[0]->initialize();
+    if (!*tools[0]) {
         error_string = tools[0]->get_error_string();
         delete tools[0];
         tools[0] = NULL;
-    }
-    if (tools[0] == NULL)
         return false;
+    }
     num_tools = 1;
 #ifdef DEBUG
     if (op_test_mode.get_value()) {
         tools[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
-        if (tools[1] != NULL && !*tools[1]) {
+        if (tools[1] == NULL)
+            return false;
+        if (!!*tools[1])
+            tools[1]->initialize();
+        if (!*tools[1]) {
             error_string = tools[1]->get_error_string();
             delete tools[1];
             tools[1] = NULL;
-        }
-        if (tools[1] == NULL)
             return false;
+        }
         num_tools = 2;
     }
 #endif

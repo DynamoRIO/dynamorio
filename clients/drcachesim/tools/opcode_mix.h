@@ -46,13 +46,16 @@ public:
     virtual ~opcode_mix_t()
     {
     }
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    void
+    initialize() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
     void *dcontext;
+    std::string module_file_path;
     std::unique_ptr<module_mapper_t> module_mapper;
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.

@@ -252,7 +252,8 @@ Further non-compatibility-affecting changes include:
    - Added #module_mapper_t, which factors out the module mapping functionality
      out of #raw2trace_t, replacing the following #raw2trace_t APIs:
      #raw2trace_t::handle_custom_data(), #raw2trace_t::do_module_parsing(),
-     #raw2trace_t::do_module_parsing_and_mapping(), and #raw2trace_t::find_mapped_trace_address().
+     #raw2trace_t::do_module_parsing_and_mapping(), and
+     #raw2trace_t::find_mapped_trace_address().
    - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
      #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
    - Added #trace_metadata_reader_t, a set of utilities for checking and validating
@@ -272,6 +273,10 @@ Further non-compatibility-affecting changes include:
    in a hashtable with user data also available.
  - Added cmake function DynamoRIO_get_full_path that shall be used instead of reading
    the LOCATION target property.
+ - Added a drcachesim/drmemtrace analysis tool routine initialize() to help separate
+   initialization that could fail from tool construction.
+ - Split raw2trace_directory_t initialization from its constructors
+   into new initialize() and initialize_module_file() methods.
 
 **************************************************
 <hr>
