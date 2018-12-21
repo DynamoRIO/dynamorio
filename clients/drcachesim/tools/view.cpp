@@ -65,30 +65,21 @@ view_t::view_t(const std::string &module_file_path_in, uint64_t skip_refs,
 {
 }
 
-void
+std::string
 view_t::initialize()
 {
-    if (module_file_path.empty()) {
-        error_string = "Module file path is missing";
-        success = false;
-        return;
-    }
+    if (module_file_path.empty())
+        return "Module file path is missing";
     dcontext = dr_standalone_init();
     std::string error = directory.initialize_module_file(module_file_path);
-    if (!error.empty()) {
-        error_string = "Failed to initialize directory: " + error;
-        success = false;
-        return;
-    }
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
     module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
                                             nullptr, nullptr, knob_verbose);
     module_mapper->get_loaded_modules();
     error = module_mapper->get_last_error();
-    if (!error.empty()) {
-        error_string = "Failed to load binaries: " + error;
-        success = false;
-        return;
-    }
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
     dr_disasm_flags_t flags = DR_DISASM_ATT;
     if (knob_syntax == "intel") {
         flags = DR_DISASM_INTEL;
@@ -98,6 +89,7 @@ view_t::initialize()
         flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
+    return "";
 }
 
 bool

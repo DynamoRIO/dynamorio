@@ -47,7 +47,7 @@ public:
     virtual ~view_t()
     {
     }
-    void
+    std::string
     initialize() override;
     bool
     process_memref(const memref_t &memref) override;
