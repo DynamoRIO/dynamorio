@@ -873,6 +873,9 @@ present the results of the analysis.  For parallel operation, any desired
 aggregation across the whole trace should occur here as well, while shard-specific
 results can be presented in parallel_shard_exit().
 
+Today, parallel analysis is only supported for offline traces.
+Support for online traces may be added in the future.
+
 In the default mode of operation, the #analyzer_t class iterates over
 the trace and calls the appropriate #analysis_tool_t functions for
 each tool.  An alternative mode is supported which exposes the

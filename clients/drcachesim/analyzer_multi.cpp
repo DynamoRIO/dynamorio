@@ -115,6 +115,8 @@ analyzer_multi_t::analyzer_multi_t()
         if (!init_file_reader(tracedir, op_verbose.get_value()))
             success = false;
     } else if (op_infile.get_value().empty()) {
+        // XXX i#3323: Add parallel analysis support for online tools.
+        parallel = false;
         serial_trace_iter =
             std::unique_ptr<reader_t>(new ipc_reader_t(op_ipc_name.get_value().c_str()));
         trace_end = std::unique_ptr<reader_t>(new ipc_reader_t());

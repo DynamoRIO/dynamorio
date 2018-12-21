@@ -111,7 +111,8 @@ protected:
     cmp_counters(const std::pair<memref_tid_t, counters_t *> &l,
                  const std::pair<memref_tid_t, counters_t *> &r);
 
-    std::unordered_map<int, counters_t *> shard_counters;
+    // The keys here are int for parallel, tid for serial.
+    std::unordered_map<memref_tid_t, counters_t *> shard_counters;
     unsigned int knob_verbose;
     static const std::string TOOL_NAME;
 };

@@ -222,6 +222,10 @@ analyzer_t::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (parallel) {
+        if (worker_count <= 0) {
+            error_string = "Invalid worker count: must be > 0";
+            return false;
+        }
         std::vector<std::thread> threads;
         VPRINT(this, 1, "Creating %d worker threads\n", worker_count);
         threads.reserve(worker_count);

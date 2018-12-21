@@ -277,9 +277,9 @@ Further non-compatibility-affecting changes include:
    initialization that could fail from tool construction.
  - Split raw2trace_directory_t initialization from its constructors
    into new initialize() and initialize_module_file() methods.
- - Added drcachesim/drmemtrace support for analyzing traces in parallel, concurrently
-   operating on each traced thread (or other sharding division).  This is made
-   possible by the new storage of traces in separate files.  Adds a new
+ - Added drcachesim/drmemtrace support for analyzing offline traces in parallel,
+   concurrently operating on each traced thread (or other sharding division).  This
+   is made possible by the new storage of traces in separate files.  Adds a new
    analysis_tool_t interface where if the tool's parallel_shard_supported() returns
    true, analyzer_t switches to a parallel operation mode.  Today, a simple static
    scheduling among worker threads is used.  Each worker completely owns one or more
