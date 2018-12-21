@@ -156,10 +156,15 @@ analyzer_multi_t::create_analysis_tools()
     tools[0] = drmemtrace_analysis_tool_create();
     if (tools[0] == NULL)
         return false;
-    if (!!*tools[0])
-        tools[0]->initialize();
+    std::string tool_error;
     if (!*tools[0]) {
-        error_string = tools[0]->get_error_string();
+        tool_error = tools[0]->get_error_string();
+        if (tool_error.empty())
+            tool_error = "no error message provided.";
+    } else
+        tool_error = tools[0]->initialize();
+    if (!tool_error.empty()) {
+        error_string = "Tool failed to initialize: " + tool_error;
         delete tools[0];
         tools[0] = NULL;
         return false;
