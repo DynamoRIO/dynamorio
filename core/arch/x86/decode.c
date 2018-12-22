@@ -1090,6 +1090,8 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         });
 #endif
 
+    di->opcode = info->type;
+
     /* if just want opcode, stop here!  faster for caller to
      * separately call decode_next_pc than for us to decode immeds!
      */
