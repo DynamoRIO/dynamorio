@@ -709,7 +709,10 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
     return pc;
 }
 
-/* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes */
+/* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes.
+ * Note that this function does not initialise the opcode field in \p di but is set in
+ * \p info->type.
+ */
 static inline const instr_info_t *
 read_prefix_ext(const instr_info_t *info, decode_info_t *di)
 {
@@ -1089,8 +1092,6 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
           }
         });
 #endif
-
-    di->opcode = info->type;
 
     /* if just want opcode, stop here!  faster for caller to
      * separately call decode_next_pc than for us to decode immeds!
@@ -1877,7 +1878,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
     read_instruction(pc, pc, &info, &di, true /* just opcode */ _IF_DEBUG(true));
 
     *usage = instr_eflags_conditionally(
-        info->eflags, decode_predicate_from_instr_info(di.opcode, info), flags);
+        info->eflags, decode_predicate_from_instr_info(info->type, info), flags);
     pc = decode_next_pc(dcontext, pc);
     /* failure handled fine -- we'll go ahead and return the NULL */
 
