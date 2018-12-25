@@ -296,10 +296,10 @@ const char *options_list_str =
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
 #        endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
+    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
+    "                          for pid to launch and inject into a new process.\n"
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
@@ -1102,6 +1102,7 @@ _tmain(int argc, TCHAR *targv[])
     bool use_ptrace = false;
     bool kill_group = false;
 #    endif
+    process_id_t attach_pid = 0;
     char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -1261,10 +1262,18 @@ _tmain(int argc, TCHAR *targv[])
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
                 usage(false, "-attach expects an integer pid");
-            if (pid != 0)
-                usage(false, "attaching to running processes is not yet implemented");
+            attach_pid = pid;
+            limit = -1;
+#ifdef UNIX
             use_ptrace = true;
+#endif
             /* FIXME: use pid below to attach. */
+            continue;
+        }
+#    ifdef UNIX
+        else if (strcmp(argv[i], "-use_ptrace") == 0) {
+            /* Undocumented option for using ptrace on a fresh process. */
+            use_ptrace = true;
             continue;
         }
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
@@ -1534,7 +1543,20 @@ done_with_options:
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-    if (i < argc || native_tool[0] == '\0') {
+#       ifdef UNIX
+    if (attach_pid != 0) {
+        char *exe = malloc(PATH_MAX);
+        char *exe_str = malloc(PATH_MAX);
+        ssize_t size;
+        sprintf(exe_str, "/proc/%u/exe", attach_pid);
+        size = readlink(exe_str, exe, PATH_MAX);
+        exe[size] = 0;
+        app_name = strdup(exe);
+        free(exe);
+        free(exe_str);
+    }
+#       endif /* UNIX */
+    if ( attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1737,8 +1759,14 @@ done_with_options:
     if (limit == 0 && !use_ptrace && !kill_group) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
+    } else if(attach_pid != 0) {
+        errcode = dr_inject_prepare_to_attach(attach_pid, app_name, &inject_data);
     } else
-#    endif /* UNIX */
+#    elif defined(WINDOWS)
+    if(attach_pid != 0) {
+        errcode = dr_inject_process_attach(attach_pid, &inject_data);
+    } else
+#    endif /* WINDOWS */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",

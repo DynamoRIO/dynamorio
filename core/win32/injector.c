@@ -59,6 +59,7 @@
 #include "../globals.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <Psapi.h>
 #include <commdlg.h>
 #include <imagehlp.h>
 #include <stdio.h>
@@ -231,6 +232,7 @@ typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
     bool using_thread_injection;
+    bool attached;
     TCHAR wimage_name[MAXIMUM_PATH];
     /* We need something to point at for dr_inject_get_image_name so we just
      * keep a utf8 buffer as well.
@@ -750,6 +752,58 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
     }
 }
 
+DYNAMORIO_EXPORT
+int
+dr_inject_process_attach(process_id_t pid, void **data OUT)
+{
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));;
+    memset(info, 0, sizeof(*info));
+    int errcode = ERROR_SUCCESS;
+    if(DebugActiveProcess((DWORD)pid)) {
+        info->using_debugger_injection = false;
+        info->attached = true;
+        DEBUG_EVENT dbgevt = {0};
+        for(;;) {
+            dbgevt.dwProcessId = (DWORD)pid;
+            WaitForDebugEvent(&dbgevt,INFINITE);
+            ContinueDebugEvent(dbgevt.dwProcessId, dbgevt.dwThreadId, DBG_CONTINUE);
+
+            if(dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT){
+                break;
+            }
+        }
+        char szExePath[MAX_PATH];
+        char* pExeName = NULL;
+        GetModuleFileNameExA(dbgevt.u.CreateProcessInfo.hProcess, NULL, szExePath, MAX_PATH);
+        pExeName = strrchr(szExePath, '\\');
+        if(pExeName == NULL)  {
+            return ERROR_INVALID_PARAMETER;
+        }
+
+        strcpy(info->image_name, pExeName+1);
+        char_to_tchar(info->image_name, info->wimage_name, BUFFER_SIZE_ELEMENTS(info->wimage_name));
+
+        info->pi.dwProcessId = dbgevt.dwProcessId;
+        info->pi.dwThreadId = dbgevt.dwThreadId;
+
+        DuplicateHandle(GetCurrentProcess(),
+                        dbgevt.u.CreateProcessInfo.hProcess,
+                        GetCurrentProcess(),
+                        &info->pi.hProcess,
+                        0, FALSE,DUPLICATE_SAME_ACCESS);
+
+        DuplicateHandle(GetCurrentProcess(),
+                        dbgevt.u.CreateProcessInfo.hThread,
+                        GetCurrentProcess(),
+                        &info->pi.hThread,
+                        0, FALSE,DUPLICATE_SAME_ACCESS);
+    } else {
+        errcode = GetLastError();
+    }
+    *data = info;
+    return errcode;
+}
+
 /* Returns 0 on success.
  * On failure, returns a Windows API error code.
  */
@@ -954,9 +1008,14 @@ bool
 dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    /* resume the suspended app process so its main thread can run */
-    ResumeThread(info->pi.hThread);
-    close_handle(info->pi.hThread);
+    if(info->attached) {
+        /* detach the debugger */
+        DebugActiveProcessStop(info->pi.dwProcessId);
+    } else {
+        /* resume the suspended app process so its main thread can run */
+        ResumeThread(info->pi.hThread);
+        close_handle(info->pi.hThread);
+    }
 
     return true;
 }

@@ -566,6 +566,22 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     return errcode;
 }
 
+
+DR_EXPORT
+int
+dr_inject_prepare_to_attach(process_id_t pid, const char *appname, void **data OUT)
+{
+    dr_inject_info_t *info = create_inject_info(appname, NULL);
+    int errcode = 0;
+    *data = info;
+    info->pid = pid;
+    info->pipe_fd = 0; /* No pipe. */
+    info->exec_self = false;
+    info->method = INJECT_PTRACE;
+    return errcode;
+}
+
+
 DR_EXPORT
 bool
 dr_inject_prepare_to_ptrace(void *data)
@@ -1392,6 +1408,20 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
     ASSERT(false && "failed to exec gdb?");
 }
 
+/* singlestep traced process
+ */
+bool
+ptrace_singlestep(process_id_t pid)
+{
+    if(our_ptrace(PTRACE_SINGLESTEP, pid, NULL,NULL) < 0)
+        return false;
+
+    if(!wait_until_signal(pid, SIGTRAP))
+        return false;
+
+    return true;
+}
+
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path)
 {
@@ -1425,6 +1455,12 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             0)
             return false;
         if (!continue_until_break(info->pid))
+            return false;
+    } else {
+        /* We are attached to target process, singlestep to make sure not returning from
+         * blocked syscall.
+         */
+        if(!ptrace_singlestep(info->pid))
             return false;
     }
 
