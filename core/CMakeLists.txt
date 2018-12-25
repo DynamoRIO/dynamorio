@@ -278,9 +278,9 @@ endif (WIN32)
 
 if (WIN32)
   if (DEBUG)
-    set(WIN32_C_LIB libcmtd)
+    set(WIN32_C_LIB libcmtd Psapi)
   else (DEBUG)
-    set(WIN32_C_LIB libcmt)
+    set(WIN32_C_LIB libcmt Psapi)
   endif (DEBUG)
 
   set(NOLIBC_DLL_ENTRY /entry:DllMain)
