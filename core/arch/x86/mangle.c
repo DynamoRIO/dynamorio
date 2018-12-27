@@ -2949,11 +2949,26 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* we need the whole spill...restore region to all be marked mangle */
             instr_set_our_mangling(instr, true);
             if (spill) {
+                /* We are making several assumptions here. Firstly, we assume that any
+                 * instruction in the mangling code of any control-flow app instruction
+                 * is always before the actual commit point. This shold be safe to assume
+                 * for any control-flow instruction. Such changes in the mangling code of
+                 * the former will be rolled back if needed if xl8 point is in mangling
+                 * code. We therefore do not mark the rip-rel related restores here as
+                 * 'epilogue'. Secondly, we assume that any instructions in mangled code
+                 * that require xsp adjustment to xl8 app state are instructions that can
+                 * be fully rolled back. We do not mark these restores as 'epilogue'
+                 * either.
+                 */
+                instr_t *restore = instr_create_restore_from_tls(
+                    dcontext, scratch_reg, MANGLE_RIPREL_SPILL_SLOT);
+                int xsp_adjust;
                 PRE(ilist, next_instr,
-                    instr_set_translation_mangling_epilogue(
-                        dcontext, ilist,
-                        instr_create_restore_from_tls(dcontext, scratch_reg,
-                                                      MANGLE_RIPREL_SPILL_SLOT)));
+                    instr_is_cti(instr) ||
+                            instr_check_xsp_mangling(dcontext, instr, &xsp_adjust)
+                        ? restore
+                        : instr_set_translation_mangling_epilogue(dcontext, ilist,
+                                                                  restore));
             }
             STATS_INC(rip_rel_unreachable);
         }
@@ -3199,6 +3214,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     if (spill) {
         PRE(ilist, next_instr,
+            /* XXX i#3307: needs test. */
             instr_set_translation_mangling_epilogue(
                 dcontext, ilist,
                 instr_create_restore_from_tls(dcontext, scratch_reg,

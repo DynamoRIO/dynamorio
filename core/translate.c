@@ -419,7 +419,10 @@ translate_walk_good_state(dcontext_t *tdcontext, translate_walk_t *walk,
 {
     return (!walk->unsupported_mangle ||
             /* If we're at the instr AFTER the mangle region, or at an instruction
-             * in the mangled region's EPILOGUE, we're ok. */
+             * in the mangled region's EPILOGUE, we're ok. If it's epilogue, we only
+             * support a simple spill/restore case, which is checked in
+             * translate_walk_restore.
+             */
             (walk->in_mangle_region && translate_pc != walk->translation));
 }
 
@@ -440,7 +443,6 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             " checking for simple symmetric mangling case\n",
             translate_pc, walk->translation);
         DOCHECK(1, {
-            /* */
             bool spill_seen = false;
             for (r = 0; r < REG_SPILL_NUM; r++) {
                 if (walk->reg_spilled[r]) {
@@ -448,12 +450,23 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
                     spill_seen = true;
                 }
             }
+            bool tls;
             bool spill;
-            if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, NULL, &spill, NULL)) {
+            uint offs;
+            if (instr_is_reg_spill_or_restore(tdcontext, inst, &tls, &spill, NULL,
+                                              &offs)) {
                 ASSERT_NOT_IMPLEMENTED(!spill);
-            } else {
+            } else if (!tls || offs == -1 ||
+                       offs != os_tls_offset((ushort)MANGLE_RIPREL_SPILL_SLOT)) {
+                /* Riprel mangling can put arbitrary registers into
+                 * MANGLE_RIPREL_SPILL_SLOT and as such is not recognized as regular
+                 * spill/restore by instr_is_reg_spill_or_restore. Either way, we don't
+                 * support cases that are more complex than one spill and restore in this
+                 * context if instruction was part of mangling epilogue.
+                 */
                 ASSERT_NOT_IMPLEMENTED(false);
             }
+            /* Enforcing here what mangling needs to obey. */
             ASSERT_NOT_IMPLEMENTED(walk->xsp_adjust == 0);
         });
     } else if (translate_pc != walk->translation) {
@@ -1716,7 +1729,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 mangle_translation = instr_get_translation(in);
             } else {
                 ASSERT(!TEST(FRAG_IS_TRACE, f->flags) ||
-                       mangle_translation == instr_get_translation(in));
+                       IF_X86(instr_is_our_mangling_epilogue(in) ||)
+                               mangle_translation == instr_get_translation(in));
             }
 
             mc.xcx =
