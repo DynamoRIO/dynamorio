@@ -47,13 +47,16 @@ public:
     virtual ~view_t()
     {
     }
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    std::string
+    initialize() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
     void *dcontext;
+    std::string module_file_path;
     std::unique_ptr<module_mapper_t> module_mapper;
     raw2trace_directory_t directory;
     unsigned int knob_verbose;
@@ -61,6 +64,7 @@ protected:
     static const std::string TOOL_NAME;
     uint64_t knob_skip_refs;
     uint64_t knob_sim_refs;
+    std::string knob_syntax;
     uint64_t num_disasm_instrs;
     std::unordered_map<app_pc, std::string> disasm_cache;
 };

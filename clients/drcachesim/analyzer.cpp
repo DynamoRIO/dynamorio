@@ -85,6 +85,12 @@ analyzer_t::analyzer_t(const std::string &trace_file, analysis_tool_t **tools_in
                 error_string += ": " + tools[i]->get_error_string();
             return;
         }
+        std::string error = tools[i]->initialize();
+        if (!error.empty()) {
+            success = false;
+            error_string = "Tool failed to initialize: " + error;
+            return;
+        }
     }
     if (!init_file_reader(trace_file))
         success = false;

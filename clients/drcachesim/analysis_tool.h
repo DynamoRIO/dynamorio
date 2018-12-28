@@ -66,6 +66,16 @@ public:
     analysis_tool_t()
         : success(true){};
     virtual ~analysis_tool_t(){}; /**< Destructor. */
+    /**
+     * Tools are encouraged to perform any initialization that might fail here rather
+     * than in the constructor.  On an error, this returns an error string.  On success,
+     * it returns "".
+     */
+    virtual std::string
+    initialize()
+    {
+        return "";
+    }
     /** Returns whether the tool was created successfully. */
     virtual bool operator!()
     {

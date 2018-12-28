@@ -52,27 +52,30 @@ opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose
     return new opcode_mix_t(module_file_path, verbose);
 }
 
-opcode_mix_t::opcode_mix_t(const std::string &module_file_path, unsigned int verbose)
+opcode_mix_t::opcode_mix_t(const std::string &module_file_path_in, unsigned int verbose)
     : dcontext(nullptr)
-    , directory(module_file_path)
+    , module_file_path(module_file_path_in)
     , knob_verbose(verbose)
     , instr_count(0)
 {
-    if (module_file_path.empty()) {
-        error_string = "Module file path is missing";
-        success = false;
-        return;
-    }
+}
+
+std::string
+opcode_mix_t::initialize()
+{
+    if (module_file_path.empty())
+        return "Module file path is missing";
     dcontext = dr_standalone_init();
+    std::string error = directory.initialize_module_file(module_file_path);
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
     module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, verbose);
+                                            nullptr, nullptr, knob_verbose);
     module_mapper->get_loaded_modules();
-    std::string error = module_mapper->get_last_error();
-    if (!error.empty()) {
-        error_string = "Failed to load binaries: " + error;
-        success = false;
-        return;
-    }
+    error = module_mapper->get_last_error();
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
+    return "";
 }
 
 bool
