@@ -40,6 +40,8 @@
 #include "mangle_suspend-shared.h"
 #include <string.h> /* memset */
 
+#define MAX_RESUME_COUNT 10
+
 #define CHECK(x, msg)                                                                \
     do {                                                                             \
         if (!(x)) {                                                                  \
@@ -65,6 +67,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     if (translating)
         return DR_EMIT_DEFAULT;
 
+#ifdef X86_64
     /* Look for duplicate mov immediates telling us which subaction we're in */
     for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
         if (instr_is_mov_constant(inst, prev_was_mov_const ? &val2 : &val1)) {
@@ -79,16 +82,18 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         } else
             prev_was_mov_const = false;
     }
-
+#else
+        /* XXX i#3307: port to ARM if possible. */
+#endif
     return DR_EMIT_DEFAULT;
 }
 
 static void
 suspend_func()
 {
+#ifdef X86_64
     void **drcontexts = NULL;
     uint num_suspended;
-#define MAX_RESUME_COUNT 10
     if (dr_suspend_all_other_threads(&drcontexts, &num_suspended, NULL)) {
         if (num_suspended != 1)
             CHECK(false, "num_suspended unexpected!");
@@ -112,6 +117,9 @@ suspend_func()
             }
         }
     }
+#else
+    /* XXX i#3307: port to ARM if possible. */
+#endif
 }
 
 static dr_emit_flags_t
