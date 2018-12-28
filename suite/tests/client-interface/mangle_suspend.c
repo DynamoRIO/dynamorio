@@ -58,7 +58,7 @@ sus_thread_routine(void *arg)
     }
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 1000 * 1111;
+    sleeptime.tv_nsec = 2000 * 1111;
     while (!test_done) {
         asm volatile("mov %0, %%rdx\n\t"
                      "mov %0, %%rdx\n"
