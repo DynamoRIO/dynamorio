@@ -42,7 +42,6 @@
 #    include <pthread.h>
 
 volatile bool test_ready = false;
-volatile bool decode_ready = false;
 volatile bool test_done = false;
 volatile int loop_inc = 1;
 
@@ -77,9 +76,8 @@ main(int argc, const char *argv[])
 {
     pthread_t sus_thread;
     void *retval;
-    pthread_t main_thread = pthread_self();
 
-    if (pthread_create(&sus_thread, NULL, sus_thread_routine, &main_thread) != 0) {
+    if (pthread_create(&sus_thread, NULL, sus_thread_routine, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
     }
