@@ -566,7 +566,6 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     return errcode;
 }
 
-
 DR_EXPORT
 int
 dr_inject_prepare_to_attach(process_id_t pid, const char *appname, void **data OUT)
@@ -580,7 +579,6 @@ dr_inject_prepare_to_attach(process_id_t pid, const char *appname, void **data O
     info->method = INJECT_PTRACE;
     return errcode;
 }
-
 
 DR_EXPORT
 bool
@@ -1413,10 +1411,10 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
 bool
 ptrace_singlestep(process_id_t pid)
 {
-    if(our_ptrace(PTRACE_SINGLESTEP, pid, NULL,NULL) < 0)
+    if (our_ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL) < 0)
         return false;
 
-    if(!wait_until_signal(pid, SIGTRAP))
+    if (!wait_until_signal(pid, SIGTRAP))
         return false;
 
     return true;
@@ -1460,7 +1458,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         /* We are attached to target process, singlestep to make sure not returning from
          * blocked syscall.
          */
-        if(!ptrace_singlestep(info->pid))
+        if (!ptrace_singlestep(info->pid))
             return false;
     }
 

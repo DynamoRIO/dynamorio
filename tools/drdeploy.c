@@ -1264,9 +1264,9 @@ _tmain(int argc, TCHAR *targv[])
                 usage(false, "-attach expects an integer pid");
             attach_pid = pid;
             limit = -1;
-#ifdef UNIX
+#    ifdef UNIX
             use_ptrace = true;
-#endif
+#    endif
             /* FIXME: use pid below to attach. */
             continue;
         }
@@ -1543,7 +1543,7 @@ done_with_options:
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-#       ifdef UNIX
+#        ifdef UNIX
     if (attach_pid != 0) {
         char *exe = malloc(PATH_MAX);
         char *exe_str = malloc(PATH_MAX);
@@ -1555,8 +1555,8 @@ done_with_options:
         free(exe);
         free(exe_str);
     }
-#       endif /* UNIX */
-    if ( attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
+#        endif /* UNIX */
+    if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1759,11 +1759,11 @@ done_with_options:
     if (limit == 0 && !use_ptrace && !kill_group) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
-    } else if(attach_pid != 0) {
+    } else if (attach_pid != 0) {
         errcode = dr_inject_prepare_to_attach(attach_pid, app_name, &inject_data);
     } else
 #    elif defined(WINDOWS)
-    if(attach_pid != 0) {
+    if (attach_pid != 0) {
         errcode = dr_inject_process_attach(attach_pid, &inject_data);
     } else
 #    endif /* WINDOWS */

@@ -105,15 +105,15 @@ dr_inject_process_create(const char *app_name, const char **app_cmdline, void **
 #ifdef WINDOWS
 DR_EXPORT
 /**
-* Attach to a existing process.
-*
-* \param[in]   pid            PID for process to attach.
-*
-* \param[out]  data           An opaque pointer that should be passed to
-*                             subsequent dr_inject_* routines to refer to
-*                             this process.
-* \return  Returns 0 on success.  On failure, returns a system error code.`
-*/
+ * Attach to a existing process.
+ *
+ * \param[in]   pid            PID for process to attach.
+ *
+ * \param[out]  data           An opaque pointer that should be passed to
+ *                             subsequent dr_inject_* routines to refer to
+ *                             this process.
+ * \return  Returns 0 on success.  On failure, returns a system error code.`
+ */
 int
 dr_inject_process_attach(process_id_t pid, void **data);
 #endif

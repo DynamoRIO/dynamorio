@@ -756,47 +756,45 @@ DYNAMORIO_EXPORT
 int
 dr_inject_process_attach(process_id_t pid, void **data OUT)
 {
-    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));;
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     memset(info, 0, sizeof(*info));
     int errcode = ERROR_SUCCESS;
-    if(DebugActiveProcess((DWORD)pid)) {
+    if (DebugActiveProcess((DWORD)pid)) {
         info->using_debugger_injection = false;
         info->attached = true;
-        DEBUG_EVENT dbgevt = {0};
-        for(;;) {
+        DEBUG_EVENT dbgevt = { 0 };
+        for (;;) {
             dbgevt.dwProcessId = (DWORD)pid;
-            WaitForDebugEvent(&dbgevt,INFINITE);
+            WaitForDebugEvent(&dbgevt, INFINITE);
             ContinueDebugEvent(dbgevt.dwProcessId, dbgevt.dwThreadId, DBG_CONTINUE);
 
-            if(dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT){
+            if (dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT) {
                 break;
             }
         }
         char szExePath[MAX_PATH];
-        char* pExeName = NULL;
-        GetModuleFileNameExA(dbgevt.u.CreateProcessInfo.hProcess, NULL, szExePath, MAX_PATH);
+        char *pExeName = NULL;
+        GetModuleFileNameExA(dbgevt.u.CreateProcessInfo.hProcess, NULL, szExePath,
+                             MAX_PATH);
         pExeName = strrchr(szExePath, '\\');
-        if(pExeName == NULL)  {
+        if (pExeName == NULL) {
             return ERROR_INVALID_PARAMETER;
         }
 
-        strcpy(info->image_name, pExeName+1);
-        char_to_tchar(info->image_name, info->wimage_name, BUFFER_SIZE_ELEMENTS(info->wimage_name));
+        strcpy(info->image_name, pExeName + 1);
+        char_to_tchar(info->image_name, info->wimage_name,
+                      BUFFER_SIZE_ELEMENTS(info->wimage_name));
 
         info->pi.dwProcessId = dbgevt.dwProcessId;
         info->pi.dwThreadId = dbgevt.dwThreadId;
 
-        DuplicateHandle(GetCurrentProcess(),
-                        dbgevt.u.CreateProcessInfo.hProcess,
-                        GetCurrentProcess(),
-                        &info->pi.hProcess,
-                        0, FALSE,DUPLICATE_SAME_ACCESS);
+        DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
+                        GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
+                        DUPLICATE_SAME_ACCESS);
 
-        DuplicateHandle(GetCurrentProcess(),
-                        dbgevt.u.CreateProcessInfo.hThread,
-                        GetCurrentProcess(),
-                        &info->pi.hThread,
-                        0, FALSE,DUPLICATE_SAME_ACCESS);
+        DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hThread,
+                        GetCurrentProcess(), &info->pi.hThread, 0, FALSE,
+                        DUPLICATE_SAME_ACCESS);
     } else {
         errcode = GetLastError();
     }
@@ -1008,7 +1006,7 @@ bool
 dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    if(info->attached) {
+    if (info->attached) {
         /* detach the debugger */
         DebugActiveProcessStop(info->pi.dwProcessId);
     } else {
