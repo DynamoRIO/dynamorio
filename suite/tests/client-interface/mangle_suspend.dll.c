@@ -100,14 +100,19 @@ suspend_func()
         dr_mcontext_t mc = { sizeof(mc), DR_MC_INTEGER | DR_MC_CONTROL };
         if (!dr_get_mcontext(drcontexts[0], &mc))
             CHECK(false, "dr_get_mcontext failed!");
-        if (add_instr_pc == mc.xip) {
-            if (LOOP_COUNT_REG_MC != 1) {
-                CHECK(false, "loop count reg expected to be 1");
+        /* Check xip such that we only perform the check if we are in the loop
+         * body of the test, in order to avoid races.
+         */
+        if (mc.xip >= add_instr_pc - 7 && mc.xip <= add_instr_pc + 24) {
+            if (add_instr_pc == mc.xip) {
+                if (LOOP_COUNT_REG_MC != 1) {
+                    CHECK(false, "loop count reg expected to be 1");
+                    exit(1);
+                }
+            } else if (LOOP_COUNT_REG_MC != 2) {
+                CHECK(false, "loop count reg expected to be 2");
                 exit(1);
             }
-        } else if (LOOP_COUNT_REG_MC != 2) {
-            CHECK(false, "loop count reg expected to be 2");
-            exit(1);
         }
         int resume_count = 0;
         while (!dr_resume_all_other_threads(drcontexts, num_suspended)) {
