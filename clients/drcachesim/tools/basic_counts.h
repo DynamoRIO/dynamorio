@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,7 +50,7 @@ public:
     parallel_shard_supported() override;
     void *
     parallel_shard_init(int shard_index, void *worker_data) override;
-    void
+    bool
     parallel_shard_exit(void *shard_data) override;
     bool
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
@@ -60,19 +60,6 @@ public:
 protected:
     struct counters_t {
         counters_t()
-            : tid(0)
-            , instrs(0)
-            , instrs_nofetch(0)
-            , prefetches(0)
-            , loads(0)
-            , stores(0)
-            , sched_markers(0)
-            , xfer_markers(0)
-            , func_id_markers(0)
-            , func_retaddr_markers(0)
-            , func_arg_markers(0)
-            , func_retval_markers(0)
-            , other_markers(0)
         {
         }
         counters_t &
@@ -92,19 +79,19 @@ protected:
             other_markers += rhs.other_markers;
             return *this;
         }
-        memref_tid_t tid;
-        int_least64_t instrs;
-        int_least64_t instrs_nofetch;
-        int_least64_t prefetches;
-        int_least64_t loads;
-        int_least64_t stores;
-        int_least64_t sched_markers;
-        int_least64_t xfer_markers;
-        int_least64_t func_id_markers;
-        int_least64_t func_retaddr_markers;
-        int_least64_t func_arg_markers;
-        int_least64_t func_retval_markers;
-        int_least64_t other_markers;
+        memref_tid_t tid = 0;
+        int_least64_t instrs = 0;
+        int_least64_t instrs_nofetch = 0;
+        int_least64_t prefetches = 0;
+        int_least64_t loads = 0;
+        int_least64_t stores = 0;
+        int_least64_t sched_markers = 0;
+        int_least64_t xfer_markers = 0;
+        int_least64_t func_id_markers = 0;
+        int_least64_t func_retaddr_markers = 0;
+        int_least64_t func_arg_markers = 0;
+        int_least64_t func_retval_markers = 0;
+        int_least64_t other_markers = 0;
         std::string error;
     };
     static bool

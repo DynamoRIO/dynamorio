@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -54,10 +54,10 @@
  * "shards" which are each processed sequentially.  The default shard is a traced
  * application thread, but the tool interface can support other divisions.  For tools
  * that support concurrent processing of shards and do not need to see a single
- * time-sorted interleaved merged trace, the interface functions with the parallel_
+ * thread-interleaved merged trace, the interface functions with the parallel_
  * prefix should be implemented, and parallel_shard_supported() should return true.
  * parallel_shard_init() will be invoked for each shard prior to invoking
- * parallel_shard_memref() for each entry in that shard; the data structure returned
+ * parallel_shard_memref() for any entry in that shard; the data structure returned
  * from parallel_shard_init() will be passed to parallel_shard_memref() for each
  * trace entry for that shard.  The concurrency model used guarantees that all
  * entries from any one shard are processed by the same single worker thread, so no
@@ -131,7 +131,7 @@ public:
 
     /**
      * Returns whether this tool supports analyzing trace shards concurrently, or
-     * whether it needs to see a single time-sorted interleaved stream of traced
+     * whether it needs to see a single thread-interleaved stream of traced
      * events.
      */
     virtual bool
@@ -183,10 +183,13 @@ public:
      * results.  Most tools, however, prefer to aggregate data or at least sort data,
      * and perform nothing here, doing all cleanup in print_results() by storing the
      * thread data into a table.
+     * Return whether exiting was successful. On failure, parallel_shard_error()
+     * returns a descriptive message.
      */
-    virtual void
+    virtual bool
     parallel_shard_exit(void *shard_data)
     {
+        return true;
     }
     /**
      * The heart of an analysis tool, this routine operates on a single trace entry
@@ -194,7 +197,7 @@ public:
      * shard_data parameter is the value returned by parallel_shard_init() for this
      * shard.  Since each shard is operated upon in its entirety by the same worker
      * thread, no synchronization is needed.  The return value indicates whether this
-     * function was successful. On failure, parallel_shared_error() returns a
+     * function was successful. On failure, parallel_shard_error() returns a
      * descriptive message.
      */
     virtual bool

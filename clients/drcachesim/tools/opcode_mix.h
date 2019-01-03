@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,7 +58,7 @@ public:
     parallel_worker_exit(void *worker_data) override;
     void *
     parallel_shard_init(int shard_index, void *worker_data) override;
-    void
+    bool
     parallel_shard_exit(void *shard_data) override;
     bool
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
@@ -93,6 +93,7 @@ protected:
         app_pc last_mapped_module_start;
     };
 
+    // XXX: Share this for use in other C++ code.
     struct scoped_mutex_t {
         scoped_mutex_t(void *mutex_in)
             : mutex(mutex_in)

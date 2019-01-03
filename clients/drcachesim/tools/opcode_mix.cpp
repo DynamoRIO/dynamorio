@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -116,10 +116,11 @@ opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
     return reinterpret_cast<void *>(shard);
 }
 
-void
+bool
 opcode_mix_t::parallel_shard_exit(void *shard_data)
 {
     // Nothing (we read the shard data in print_results).
+    return true;
 }
 
 bool
@@ -133,7 +134,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     ++shard->instr_count;
 
     app_pc mapped_pc;
-    app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+    const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
     if (trace_pc >= shard->last_trace_module_start &&
         static_cast<size_t>(trace_pc - shard->last_trace_module_start) <
             shard->last_trace_module_size) {

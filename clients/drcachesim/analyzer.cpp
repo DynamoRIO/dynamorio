@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -82,10 +82,10 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
             return false;
         }
         for (; iter != end; ++iter) {
-            std::string fname = *iter;
+            const std::string fname = *iter;
             if (fname == "." || fname == "..")
                 continue;
-            std::string path = trace_path + DIRSEP + fname;
+            const std::string path = trace_path + DIRSEP + fname;
             thread_data.push_back(analyzer_shard_data_t(
                 static_cast<int>(thread_data.size()),
                 std::unique_ptr<reader_t>(new my_file_reader_t(path, verbosity)), path));
@@ -97,7 +97,7 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
         worker_tasks.resize(worker_count);
         int worker = 0;
         for (size_t i = 0; i < thread_data.size(); ++i) {
-            VPRINT(this, 2, "Worker %d assigned trace thread %zd\n", worker, i);
+            VPRINT(this, 2, "Worker %d assigned trace shard %zd\n", worker, i);
             worker_tasks[worker].push_back(&thread_data[i]);
             thread_data[i].worker = worker;
             worker = (worker + 1) % worker_count;
@@ -126,7 +126,7 @@ analyzer_t::analyzer_t(const std::string &trace_path, analysis_tool_t **tools_in
                 error_string += ": " + tools[i]->get_error_string();
             return;
         }
-        std::string error = tools[i]->initialize();
+        const std::string error = tools[i]->initialize();
         if (!error.empty()) {
             success = false;
             error_string = "Tool failed to initialize: " + error;
@@ -193,7 +193,7 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
     for (int i = 0; i < num_tools; ++i)
         worker_data[i] = tools[i]->parallel_worker_init((*tasks)[0]->worker);
     for (analyzer_shard_data_t *tdata : *tasks) {
-        VPRINT(this, 1, "Worker %d starting on trace thread %d\n", tdata->worker,
+        VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
                tdata->index);
         if (!tdata->iter->init()) {
             tdata->error = "Failed to read from trace" + tdata->trace_file;
@@ -205,19 +205,26 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
         VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
         for (; *tdata->iter != *trace_end; ++(*tdata->iter)) {
             for (int i = 0; i < num_tools; ++i) {
-                memref_t memref = **tdata->iter;
+                const memref_t &memref = **tdata->iter;
                 if (!tools[i]->parallel_shard_memref(shard_data[i], memref)) {
                     tdata->error = tools[i]->parallel_shard_error(shard_data[i]);
-                    VPRINT(this, 1, "Worker %d hit error %s on trace thread %d\n",
+                    VPRINT(this, 1,
+                           "Worker %d hit shard memref error %s on trace shard %d\n",
                            tdata->worker, tdata->error.c_str(), tdata->index);
                     return;
                 }
             }
         }
-        VPRINT(this, 1, "Worker %d finished trace thread %d\n", tdata->worker,
+        VPRINT(this, 1, "Worker %d finished trace shard %d\n", tdata->worker,
                tdata->index);
-        for (int i = 0; i < num_tools; ++i)
-            tools[i]->parallel_shard_exit(shard_data[i]);
+        for (int i = 0; i < num_tools; ++i) {
+            if (!tools[i]->parallel_shard_exit(shard_data[i])) {
+                tdata->error = tools[i]->parallel_shard_error(shard_data[i]);
+                VPRINT(this, 1, "Worker %d hit shared exit error %s on trace shard %d\n",
+                       tdata->worker, tdata->error.c_str(), tdata->index);
+                return;
+            }
+        }
     }
 }
 
@@ -225,27 +232,7 @@ bool
 analyzer_t::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
-    if (parallel) {
-        if (worker_count <= 0) {
-            error_string = "Invalid worker count: must be > 0";
-            return false;
-        }
-        std::vector<std::thread> threads;
-        VPRINT(this, 1, "Creating %d worker threads\n", worker_count);
-        threads.reserve(worker_count);
-        for (int i = 0; i < worker_count; ++i) {
-            threads.push_back(
-                std::thread(&analyzer_t::process_tasks, this, &worker_tasks[i]));
-        }
-        for (std::thread &thread : threads)
-            thread.join();
-        for (auto &tdata : thread_data) {
-            if (!tdata.error.empty()) {
-                error_string = tdata.error;
-                return false;
-            }
-        }
-    } else {
+    if (!parallel) {
         if (!start_reading())
             return false;
         for (; *serial_trace_iter != *trace_end; ++(*serial_trace_iter)) {
@@ -258,6 +245,26 @@ analyzer_t::run()
                     return false;
                 }
             }
+        }
+        return true;
+    }
+    if (worker_count <= 0) {
+        error_string = "Invalid worker count: must be > 0";
+        return false;
+    }
+    std::vector<std::thread> threads;
+    VPRINT(this, 1, "Creating %d worker threads\n", worker_count);
+    threads.reserve(worker_count);
+    for (int i = 0; i < worker_count; ++i) {
+        threads.emplace_back(
+            std::thread(&analyzer_t::process_tasks, this, &worker_tasks[i]));
+    }
+    for (std::thread &thread : threads)
+        thread.join();
+    for (auto &tdata : thread_data) {
+        if (!tdata.error.empty()) {
+            error_string = tdata.error;
+            return false;
         }
     }
     return true;

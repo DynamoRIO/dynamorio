@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,10 +73,11 @@ basic_counts_t::parallel_shard_init(int shard_index, void *worker_data)
     return reinterpret_cast<void *>(counters);
 }
 
-void
+bool
 basic_counts_t::parallel_shard_exit(void *shard_data)
 {
     // Nothing (we read the shard data in print_results).
+    return true;
 }
 
 std::string
