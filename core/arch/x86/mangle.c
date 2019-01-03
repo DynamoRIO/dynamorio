@@ -1259,6 +1259,19 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
     return true;
 }
 
+/* Returns whether the instruction supports a simple mangling epilogue that is supported
+ * to xl8 to the next program counter post original app instruction.
+ */
+bool
+instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst)
+{
+    /* XXX we expect the check in translate_walk_restore to fail if any other type
+     * of mangling overlaps with rip-rel mangling than the supported ones. Currently,
+     * this are only rip-rel control-flow instructions which are excluded here.
+     */
+    return !instr_is_cti(inst);
+}
+
 /* N.B.: keep in synch with instr_check_xsp_mangling() */
 void
 insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -2162,6 +2175,9 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
                                         NULL);
         /* sysenter goes here */
         PRE(ilist, next_instr, post_sysenter);
+        /* XXX i#3307: unimplemented, we can only support simple mangling cases in
+         * mangling epilogue.
+         */
         PRE(ilist, next_instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT, XDX_OFFSET));
         PRE(ilist, next_instr,
@@ -2943,9 +2959,27 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             /* we need the whole spill...restore region to all be marked mangle */
             instr_set_our_mangling(instr, true);
             if (spill) {
+                /* We are making several assumptions here. Firstly, we assume that any
+                 * instruction in the mangling code of any control-flow app instruction
+                 * is always before the last commit point of the app instruction, i.e.
+                 * does not xl8 to a PC post app instruction. This should be safe to
+                 * assume for any control-flow instruction. We therefore do not mark the
+                 * rip-rel related restores here as 'epilogue'. Secondly, we assume that
+                 * no instructions in mangled code that require xsp adjustment to xl8 app
+                 * state are instructions that can be fully rolled back. There is a check
+                 * in translate_walk_restore that makes sure there is no xsp_adjust for
+                 * instructions in mangling epilogue. Both of this includes instructions
+                 * with further mangling after the rip-rel mangling code that require
+                 * roll-back. We assume here that this is supported for all such
+                 * instructions.
+                 */
+                instr_t *restore = instr_create_restore_from_tls(
+                    dcontext, scratch_reg, MANGLE_RIPREL_SPILL_SLOT);
                 PRE(ilist, next_instr,
-                    instr_create_restore_from_tls(dcontext, scratch_reg,
-                                                  MANGLE_RIPREL_SPILL_SLOT));
+                    instr_supports_simple_mangling_epilogue(dcontext, instr)
+                        ? instr_set_translation_mangling_epilogue(dcontext, ilist,
+                                                                  restore)
+                        : restore);
             }
             STATS_INC(rip_rel_unreachable);
         }
@@ -3191,8 +3225,11 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     if (spill) {
         PRE(ilist, next_instr,
-            instr_create_restore_from_tls(dcontext, scratch_reg,
-                                          tls_slots[scratch_reg - REG_XAX]));
+            /* XXX i#3307: needs test. */
+            instr_set_translation_mangling_epilogue(
+                dcontext, ilist,
+                instr_create_restore_from_tls(dcontext, scratch_reg,
+                                              tls_slots[scratch_reg - REG_XAX])));
     }
 }
 #    endif /* UNIX */
