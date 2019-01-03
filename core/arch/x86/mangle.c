@@ -1265,8 +1265,7 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
 bool
 instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst)
 {
-    int xsp_adjust;
-    return !instr_is_cti(inst) && !instr_check_xsp_mangling(dcontext, inst, &xsp_adjust);
+    return !instr_is_cti(inst);
 }
 
 /* N.B.: keep in synch with instr_check_xsp_mangling() */
