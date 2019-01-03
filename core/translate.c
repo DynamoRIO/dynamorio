@@ -82,7 +82,7 @@ typedef struct _translate_walk_t {
     /* PR 263407: Track registers spilled since the last cti, for
      * restoring indirect branch and rip-rel spills
      */
-    bool reg_spilled[REG_SPILL_NUM];
+    uint reg_spilled[REG_SPILL_NUM];
     bool reg_tls[REG_SPILL_NUM];
     /* PR 267260: Track our own mangle-inserted pushes and pops, for
      * restoring state in the middle of our indirect branch mangling.
@@ -107,6 +107,8 @@ translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
     walk->mc = mc;
     walk->start_cache = start_cache;
     walk->end_cache = end_cache;
+    for (int r = 0; r < REG_SPILL_NUM; r++)
+        walk->reg_spilled[r] = UINT_MAX;
 }
 
 #ifdef UNIX
@@ -217,8 +219,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
-            ASSERT(!walk->reg_spilled[r]);
-            walk->reg_spilled[r] = false; /* be paranoid */
+            ASSERT(walk->reg_spilled[r] == UINT_MAX);
+            walk->reg_spilled[r] = UINT_MAX; /* be paranoid */
 #else
             /* On ARM we do spill registers across app instrs and mangle
              * regions, though right now only the following routines do this:
@@ -228,12 +230,12 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
              * Each of these cases is a tls restore, and we assert as much.
              */
             DOCHECK(1, {
-                if (walk->reg_spilled[r]) {
+                if (walk->reg_spilled[r] != UINT_MAX) {
                     instr_t *curr;
                     bool spill_or_restore = false;
                     for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
                         spill_or_restore = instr_is_DR_reg_spill_or_restore(
-                            tdcontext, curr, &spill_tls, &spill, &reg);
+                            tdcontext, curr, &spill_tls, &spill, &reg, NULL);
                         if (spill_or_restore)
                             break;
                     }
@@ -316,9 +318,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             for (r = 0; r < REG_SPILL_NUM; r++)
-                walk->reg_spilled[r] = false;
+                walk->reg_spilled[r] = UINT_MAX;
         }
-        if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg)) {
+        uint offs = UINT_MAX;
+        if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg,
+                                             &offs)) {
             r = reg - REG_START_SPILL;
             ASSERT(r < REG_SPILL_NUM);
             IF_ARM({
@@ -330,12 +334,16 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                     spill = false;
             });
             /* if a restore whose spill was before a cti, ignore */
-            if (spill || walk->reg_spilled[r]) {
-                /* ensure restores and spills are properly paired up */
-                ASSERT((spill && !walk->reg_spilled[r]) ||
-                       (!spill && walk->reg_spilled[r]));
+            if (spill || walk->reg_spilled[r] != UINT_MAX) {
+                /* Ensure restores and spills are properly paired up, but we do
+                 * allow for redundant spills.
+                 */
+                ASSERT(spill || (!spill && walk->reg_spilled[r] != UINT_MAX));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
-                walk->reg_spilled[r] = spill;
+                if (spill)
+                    walk->reg_spilled[r] = offs;
+                else
+                    walk->reg_spilled[r] = UINT_MAX;
                 walk->reg_tls[r] = spill_tls;
                 LOG(THREAD_GET, LOG_INTERP, 5, "\tspill update: %s %s %s\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
@@ -453,7 +461,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
         DOCHECK(1, {
             bool spill_seen = false;
             for (r = 0; r < REG_SPILL_NUM; r++) {
-                if (walk->reg_spilled[r]) {
+                if (walk->reg_spilled[r] != UINT_MAX) {
                     ASSERT_NOT_IMPLEMENTED(!spill_seen);
                     spill_seen = true;
                 }
@@ -491,17 +499,18 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
              * assumption may not hold for more complex mangling.
              */
             for (r = 0; r < REG_SPILL_NUM; r++)
-                ASSERT(!walk->reg_spilled[r]
-                        /* Register X0 is used for branches on AArch64.
-                         * See mangle_cbr_stolen_reg.
-                         */
-                        IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
-                        /* The special stolen register mangling from
-                         * mangle_syscall_arch() for a non-restartable syscall ends
-                         * up here due to the nop having a xl8 post-syscall.
-                         * We do need to restore that spill.
-                         */
-                        IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
+                ASSERT(walk->reg_spilled[r] ==
+                       UINT_MAX
+                           /* Register X0 is used for branches on AArch64.
+                            * See mangle_cbr_stolen_reg.
+                            */
+                           IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
+                       /* The special stolen register mangling from
+                        * mangle_syscall_arch() for a non-restartable syscall ends
+                        * up here due to the nop having a xl8 post-syscall.
+                        * We do need to restore that spill.
+                        */
+                       IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
         });
         return;
     }
@@ -512,12 +521,12 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
      * already, and won't be able to restore it: but that's a minor issue.
      */
     for (r = 0; r < REG_SPILL_NUM; r++) {
-        if (walk->reg_spilled[r]) {
+        if (walk->reg_spilled[r] != UINT_MAX) {
             reg_id_t reg = r + REG_START_SPILL;
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) +
-                                   reg_spill_tls_offs(reg));
+                                   walk->reg_spilled[r]);
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }
@@ -1758,7 +1767,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
              */
             ASSERT(success_so_far /* ok to fail */ ||
                    (!res &&
-                    (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, NULL, NULL) ||
+                    (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, NULL, NULL,
+                                                      NULL) ||
                      (!instr_reads_memory(in) && !instr_writes_memory(in)))));
 
             /* check that xsp and xcx are adjusted properly */
@@ -1773,7 +1783,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             instr_check_xsp_mangling(dcontext, in, &xsp_adjust);
             if (xsp_adjust != 0)
                 LOG(THREAD, LOG_INTERP, 3, "  xsp_adjust=%d\n", xsp_adjust);
-            if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg) &&
+            if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
+                                                 NULL) &&
                 reg == REG_XCX)
                 spill_xcx_outstanding = spill;
         }

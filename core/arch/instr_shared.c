@@ -3333,7 +3333,14 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
         int offs = reg_spill_tls_offs(*reg);
-        if (!DR_only || (offs != -1 && check_disp == os_tls_offset((ushort)offs))) {
+        if (!DR_only ||
+            (offs != -1 &&
+             /* Mangling may choose to spill registers to a not natural tls offset,
+              * e.g. rip-rel mangling will, if rax is used by the instruction. We
+              * allow for this here and still recognize the DR spill.
+              */
+             (instr_is_our_mangling(instr) ||
+              check_disp == os_tls_offset((ushort)offs)))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)
@@ -3366,10 +3373,10 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
-                                 reg_id_t *reg)
+                                 reg_id_t *reg, uint *offs)
 {
     return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
-                                            NULL);
+                                            offs);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other

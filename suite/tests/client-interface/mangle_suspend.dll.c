@@ -50,9 +50,6 @@
         }                                                                            \
     } while (0);
 
-extern void
-test_asm();
-
 static byte *add_instr_pc = NULL;
 
 static dr_emit_flags_t
@@ -89,7 +86,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 }
 
 static void
-suspend_func()
+suspend_test_1_func()
 {
 #ifdef X86_64
     void **drcontexts = NULL;
@@ -101,18 +98,63 @@ suspend_func()
         if (!dr_get_mcontext(drcontexts[0], &mc))
             CHECK(false, "dr_get_mcontext failed!");
         /* Check xip such that we only perform the check if we are in the loop
-         * body of the test, in order to avoid races. The magic values 7 and 24
+         * body of the test, in order to avoid races. The magic values 16 and 42
          * are byte counts to compute the bounds of the asm loop in the test.
          * The values need to stay in synch with the test.
          */
-        if (mc.xip >= add_instr_pc - 7 && mc.xip <= add_instr_pc + 24) {
+        if (mc.xip >= add_instr_pc - 16 && mc.xip <= add_instr_pc + 42) {
             if (add_instr_pc == mc.xip) {
-                if (LOOP_COUNT_REG_MC != 1) {
+                if (TEST_1_LOOP_COUNT_REG_MC != 1) {
                     CHECK(false, "loop count reg expected to be 1");
                     exit(1);
                 }
-            } else if (LOOP_COUNT_REG_MC != 2) {
+            } else if (TEST_1_LOOP_COUNT_REG_MC != 2) {
                 CHECK(false, "loop count reg expected to be 2");
+                exit(1);
+            }
+        }
+        int resume_count = 0;
+        while (!dr_resume_all_other_threads(drcontexts, num_suspended)) {
+            if (resume_count++ == MAX_RESUME_COUNT) {
+                CHECK(false, "resume failed!");
+                exit(1);
+            }
+        }
+    }
+#else
+    /* XXX i#3329: port to ARM if possible. */
+#endif
+}
+
+static void
+suspend_test_2_func()
+{
+#ifdef X86_64
+    void **drcontexts = NULL;
+    uint num_suspended;
+    if (dr_suspend_all_other_threads(&drcontexts, &num_suspended, NULL)) {
+        if (num_suspended != 1)
+            CHECK(false, "num_suspended unexpected!");
+        dr_mcontext_t mc = { sizeof(mc), DR_MC_INTEGER | DR_MC_CONTROL };
+        if (!dr_get_mcontext(drcontexts[0], &mc))
+            CHECK(false, "dr_get_mcontext failed!");
+        /* Check xip such that we only perform the check if we are in the loop
+         * body of the test, in order to avoid races. The magic values 16 and 42
+         * are byte counts to compute the bounds of the asm loop in the test.
+         * The values need to stay in synch with the test.
+         */
+        if (mc.xip >= add_instr_pc - 16 && mc.xip <= add_instr_pc + 42) {
+            if (add_instr_pc == mc.xip) {
+                if (TEST_2_LOOP_COUNT_REG_MC != 1) {
+                    CHECK(false, "loop count reg expected to be 1");
+                    exit(1);
+                }
+            } else if (TEST_2_LOOP_COUNT_REG_MC != 2) {
+                CHECK(false, "loop count reg expected to be 2");
+                exit(1);
+            }
+            if (TEST_2_CHECK_REG_MC != 0) {
+                CHECK(false, "check reg expected to be 0");
                 exit(1);
             }
         }
@@ -141,10 +183,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (subaction == TEST_VAL_C) {
         if (instr_is_label(inst)) {
 #ifdef X86_64
-            byte *pc = tag;
             for (instr_t *inst = instrlist_first(bb); inst; inst = instr_get_next(inst)) {
-                if (pc == NULL)
-                    CHECK(false, "Unexpected decode error");
                 if (instr_get_opcode(inst) == OP_add &&
                     instr_has_rel_addr_reference(inst)) {
                     add_instr_pc = instr_get_app_pc(inst);
@@ -154,12 +193,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(false, "add instruction not found");
 #endif
         }
-    } else if (subaction == SUSPEND_VAL_C) {
+    } else if (subaction == SUSPEND_VAL_TEST_1_C) {
         if (instr_is_label(inst)) {
             /* This is expected to be in a separate thread that the test creates. The
              * test is just executing the label instructions in a loop.
              */
-            dr_insert_clean_call(drcontext, bb, inst, suspend_func, false, 0);
+            dr_insert_clean_call(drcontext, bb, inst, suspend_test_1_func, false, 0);
+        }
+    } else if (subaction == SUSPEND_VAL_TEST_2_C) {
+        if (instr_is_label(inst)) {
+            dr_insert_clean_call(drcontext, bb, inst, suspend_test_2_func, false, 0);
         }
     }
 

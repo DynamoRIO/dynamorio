@@ -2851,7 +2851,7 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
-                                 bool *spill OUT, reg_id_t *reg OUT);
+                                 bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
 #ifdef ARM
 bool

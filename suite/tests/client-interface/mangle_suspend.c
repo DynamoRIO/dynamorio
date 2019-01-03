@@ -47,11 +47,14 @@
 
 volatile bool test_ready = false;
 volatile bool test_done = false;
+volatile bool test_suspend = false;
 volatile int loop_inc = 1;
 
-/* asm routines */
 void
-test_asm();
+test_1_asm();
+
+void
+test_2_asm();
 
 static void *
 suspend_thread_routine(void *arg)
@@ -60,22 +63,28 @@ suspend_thread_routine(void *arg)
     /* This thread is executing labels for the client to insert a clean call that
      * does the suspend and subsequent check for correctness.
      */
+    int suspend_val = *(int *)arg;
     while (!test_ready) {
         /* Empty. */
     }
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    /* Pick an uneven number to maximize the number of suspend calls w/o
-     * running into limitations in DR.
-     */
-    sleeptime.tv_nsec = 2000 * 1111;
     while (!test_done) {
-        asm volatile("mov %0, %%rdx\n\t"
-                     "mov %0, %%rdx\n"
-                     :
-                     : "i"(SUSPEND_VAL_C)
-                     : "rdx");
-        nanosleep(&sleeptime, NULL);
+        if (suspend_val == SUSPEND_VAL_TEST_1_C) {
+            asm volatile("mov %0, %%rdx\n\t"
+                         "mov %0, %%rdx\n"
+                         :
+                         : "i"(SUSPEND_VAL_TEST_1_C)
+                         : "rdx");
+        } else {
+            asm volatile("mov %0, %%rdx\n\t"
+                         "mov %0, %%rdx\n"
+                         :
+                         : "i"(SUSPEND_VAL_TEST_2_C)
+                         : "rdx");
+        }
+        while (!test_suspend && !test_done) {
+            /* Empty. */
+        }
+        test_suspend = false;
     }
 #    endif
     return NULL;
@@ -87,20 +96,45 @@ main(int argc, const char *argv[])
     pthread_t suspend_thread;
     void *retval;
 
-    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, NULL) != 0) {
+    int suspend_val = SUSPEND_VAL_TEST_1_C;
+
+    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, &suspend_val) !=
+        0) {
         perror("Failed to create thread");
         exit(1);
     }
 
-    /* Test xl8 pc of rip-rel instruction (xref #3307) in mangling epilogue, caused by
+    /* Test xl8 pc of rip-rel instruction (xref #3307) caused by
      * asynch interrupt.
      */
-    test_asm();
+    test_1_asm();
 
     if (pthread_join(suspend_thread, &retval) != 0)
         perror("Failed to join thread");
 
-    print("Test finished\n");
+    print("Test 1 finished\n");
+
+    test_ready = false;
+    test_done = false;
+    test_suspend = false;
+
+    suspend_val = SUSPEND_VAL_TEST_2_C;
+    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, &suspend_val) !=
+        0) {
+        perror("Failed to create thread");
+        exit(1);
+    }
+
+    /* Test xl8 pc of rip-rel instruction (xref #3307) caused by
+     * asynch interrupt.
+     */
+    test_2_asm();
+
+    if (pthread_join(suspend_thread, &retval) != 0)
+        perror("Failed to join thread");
+
+    print("Test 2 finished\n");
+
     return 0;
 }
 
@@ -116,7 +150,7 @@ START_FILE
 # define FRAME_PADDING 0
 #endif
 
-#define FUNCNAME test_asm
+#define FUNCNAME test_1_asm
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -125,32 +159,96 @@ GLOBAL_LABEL(FUNCNAME:)
         sub      REG_XSP, FRAME_PADDING /* align */
         END_PROLOG
 
-        jmp      test
-     test:
-        mov      PTRSZ [REG_XSP], LOOP_COUNT_REG_ASM
+        jmp      test_1
+     test_1:
+        mov      PTRSZ [REG_XSP], TEST_1_LOOP_COUNT_REG_ASM
         sub      REG_XSP, 8
         mov      SUSPEND_TEST_REG_ASM, TEST_VAL
         mov      SUSPEND_TEST_REG_ASM, TEST_VAL
         nop
         mov      BYTE SYMREF(test_ready), HEX(1)
-        mov      LOOP_TEST_REG_ASM, LOOP_COUNT
-        mov      LOOP_COUNT_REG_ASM, 2
+        mov      LOOP_TEST_REG_OUTER_ASM, LOOP_COUNT_OUTER
+        mov      TEST_1_LOOP_COUNT_REG_ASM, 2
 
-      loop:
-        /* XXX i#3327: add zero check for REG_XCX in client dll. */
-        /* mov      REG_XCX, HEX(0) */
-        mov      LOOP_COUNT_REG_ASM, 1
-        add      LOOP_COUNT_REG_ASM, PTRSZ SYMREF(loop_inc)
-        mov      LOOP_COUNT_REG_ASM, 2
-        sub      LOOP_TEST_REG_ASM, 1
-        cmp      LOOP_TEST_REG_ASM, 0
-        jnz      loop
+      loop_a_outer:
+        mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
+      loop_a_inner:
+        mov      TEST_1_LOOP_COUNT_REG_ASM, 1
+        add      TEST_1_LOOP_COUNT_REG_ASM, PTRSZ SYMREF(loop_inc)
+        mov      TEST_1_LOOP_COUNT_REG_ASM, 2
+        sub      LOOP_TEST_REG_INNER_ASM, 1
+        cmp      LOOP_TEST_REG_INNER_ASM, 0
+        jnz      loop_a_inner
+        mov      BYTE SYMREF(test_suspend), HEX(1)
+        sub      LOOP_TEST_REG_OUTER_ASM, 1
+        cmp      LOOP_TEST_REG_OUTER_ASM, 0
+        jnz      loop_a_outer
 
-        jmp      epilog
-     epilog:
+        jmp      epilog_a
+     epilog_a:
         mov      BYTE SYMREF(test_done), HEX(1)
         add      REG_XSP, 8
-        mov      LOOP_COUNT_REG_ASM, PTRSZ [REG_XSP]
+        mov      TEST_1_LOOP_COUNT_REG_ASM, PTRSZ [REG_XSP]
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+#endif
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        /* Test: not implemented for ARM */
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* Test: not implemented for AARCH64 */
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#define FUNCNAME test_2_asm
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+#ifdef X64
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test_2
+     test_2:
+        mov      PTRSZ [REG_XSP], TEST_2_LOOP_COUNT_REG_ASM
+        sub      REG_XSP, 8
+        mov      PTRSZ [REG_XSP], TEST_2_CHECK_REG_ASM
+        sub      REG_XSP, 8
+        mov      SUSPEND_TEST_REG_ASM, TEST_VAL
+        mov      SUSPEND_TEST_REG_ASM, TEST_VAL
+        nop
+        mov      BYTE SYMREF(test_ready), HEX(1)
+        mov      LOOP_TEST_REG_OUTER_ASM, LOOP_COUNT_OUTER
+        mov      TEST_2_LOOP_COUNT_REG_ASM, 2
+        mov      TEST_2_CHECK_REG_ASM, HEX(0)
+
+  loop_b_outer:
+        mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
+  loop_b_inner:
+        mov      TEST_2_LOOP_COUNT_REG_ASM, 1
+        add      TEST_2_LOOP_COUNT_REG_ASM, PTRSZ SYMREF(loop_inc)
+        mov      TEST_2_LOOP_COUNT_REG_ASM, 2
+        sub      LOOP_TEST_REG_INNER_ASM, 1
+        cmp      LOOP_TEST_REG_INNER_ASM, 0
+        jnz      loop_b_inner
+        mov      BYTE SYMREF(test_suspend), HEX(1)
+        sub      LOOP_TEST_REG_OUTER_ASM, 1
+        cmp      LOOP_TEST_REG_OUTER_ASM, 0
+        jnz      loop_b_outer
+
+        jmp      epilog_b
+     epilog_b:
+        mov      BYTE SYMREF(test_done), HEX(1)
+        add      REG_XSP, 8
+        mov      TEST_2_CHECK_REG_ASM, PTRSZ [REG_XSP]
+        add      REG_XSP, 8
+        mov      TEST_2_LOOP_COUNT_REG_ASM, PTRSZ [REG_XSP]
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
 #endif
