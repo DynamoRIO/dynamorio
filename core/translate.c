@@ -437,9 +437,16 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
 
     if (IF_X86_ELSE(translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
                     false)) {
-        /* We handle only simple symmetric one-spill/one-restore mangling
-         * cases when xl8 inst addresses in mangling epilogue. Everything
-         * else is currently not supported.
+        /* We handle only simple symmetric one-spill/one-restore mangling cases
+         * when xl8 inst addresses in mangling epilogue. Everything else is
+         * currently not supported. In this case, the restore routine here acts
+         * as if it was emulating the epilogue instructions, because we xl8 the
+         * PC post-app instruction. This is semantically different from restoring
+         * the state pre-app instruction, as this routine originally intended.
+         * This works, because only the simple spill-restore mangle case is
+         * supported (xref i#3307). For more complex cases, this should get factored
+         * out into a separate routine that walks the epilogue and advances the state
+         * accordingly.
          */
         LOG(THREAD_GET, LOG_INTERP, 2,
             "\ttranslation " PFX " is in mangling epilogue " PFX
