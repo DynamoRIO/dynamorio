@@ -2159,6 +2159,36 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+bool
+instr_is_our_mangling_epilogue(instr_t *instr)
+{
+    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+           instr_is_our_mangling(instr));
+    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+}
+
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue)
+{
+    if (epilogue) {
+        instr->flags |= INSTR_OUR_MANGLING_EPILOGUE;
+    } else
+        instr->flags &= ~INSTR_OUR_MANGLING_EPILOGUE;
+}
+
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr)
+{
+    if (instrlist_get_translation_target(ilist) != NULL) {
+        int sz = decode_sizeof(dcontext, instrlist_get_translation_target(ilist),
+                               NULL _IF_X86_64(NULL));
+        instr_set_translation(instr, instrlist_get_translation_target(ilist) + sz);
+    }
+    instr_set_our_mangling_epilogue(instr, true);
+    return instr;
+}
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
