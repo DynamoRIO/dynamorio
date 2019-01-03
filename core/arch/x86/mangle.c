@@ -2961,7 +2961,6 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  * is always before the last commit point of the app instruction, i.e.
                  * does not xl8 to a PC post app instruction. This should be safe to
                  * assume for any control-flow instruction. We therefore do not mark the
-
                  * rip-rel related restores here as 'epilogue'. Secondly, we assume that
                  * any instructions in mangled code that require xsp adjustment to xl8 app
                  * state are instructions that can be fully rolled back. We do not mark

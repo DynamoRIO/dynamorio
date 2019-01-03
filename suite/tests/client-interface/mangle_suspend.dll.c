@@ -148,9 +148,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                 if (instr_get_opcode(inst) == OP_add &&
                     instr_has_rel_addr_reference(inst)) {
                     add_instr_pc = instr_get_app_pc(inst);
-                    break;
+                    return DR_EMIT_DEFAULT;
                 }
             }
+            CHECK(false, "add instruction not found");
 #endif
         }
     } else if (subaction == SUSPEND_VAL_C) {
