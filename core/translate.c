@@ -1783,7 +1783,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             instr_check_xsp_mangling(dcontext, in, &xsp_adjust);
             if (xsp_adjust != 0)
                 LOG(THREAD, LOG_INTERP, 3, "  xsp_adjust=%d\n", xsp_adjust);
-            int offs = UINT_MAX;
+            uint offs = UINT_MAX;
             if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
                                                  &offs) &&
                 reg == REG_XCX)
