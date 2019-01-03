@@ -93,6 +93,8 @@ typedef struct _translate_walk_t {
     bool unsupported_mangle;
     /* Are we currently in a mangle region */
     bool in_mangle_region;
+    /* Are we currently in a mangle region's epilogue */
+    bool in_mangle_region_epilogue;
     /* What is the translation target of the current mangle region */
     app_pc translation;
 } translate_walk_t;
@@ -167,6 +169,25 @@ instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
 }
 #endif
 
+#ifdef X86
+
+/* FIXME i#3329: add support for ARM/AArch64. */
+
+static bool
+translate_walk_enters_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
+                                        translate_walk_t *walk)
+{
+    return !walk->in_mangle_region_epilogue && instr_is_our_mangling_epilogue(inst);
+}
+
+static bool
+translate_walk_exits_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
+                                       translate_walk_t *walk)
+{
+    return walk->in_mangle_region_epilogue && !instr_is_our_mangling_epilogue(inst);
+}
+#endif
+
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
@@ -177,13 +198,18 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
     if (walk->in_mangle_region &&
         /* On ARM, we spill registers across an app instr, so go solely on xl8 */
         (IF_X86(!instr_is_our_mangling(inst) ||)
-             instr_get_translation(inst) != walk->translation)) {
+         /* handle adjacent mangle regions */
+         IF_X86(translate_walk_exits_mangling_epilogue(tdcontext, inst, walk) ||)
+         /* Entering the mangling region's epilogue can have different xl8 */
+         (IF_X86(!translate_walk_enters_mangling_epilogue(tdcontext, inst, walk) &&)
+              instr_get_translation(inst) != walk->translation))) {
         LOG(THREAD_GET, LOG_INTERP, 5, "%s: from one mangle region to another\n",
             __FUNCTION__);
         /* We assume our manglings are local and contiguous: once out of a
          * mangling region, we're good to go again.
          */
         walk->in_mangle_region = false;
+        walk->in_mangle_region_epilogue = false;
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
         for (r = 0; r < REG_SPILL_NUM; r++) {
@@ -225,6 +251,14 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             walk->translation = instr_get_translation(inst);
             LOG(THREAD_GET, LOG_INTERP, 5, "%s: entering mangle region xl8=" PFX "\n",
                 __FUNCTION__, walk->translation);
+        } else if (IF_X86_ELSE(
+                       translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
+                       false)) {
+            walk->in_mangle_region_epilogue = true;
+            walk->translation = instr_get_translation(inst);
+            LOG(THREAD_GET, LOG_INTERP, 5,
+                "%s: entering mangle region epilogue xl8=" PFX "\n", __FUNCTION__,
+                walk->translation);
         } else
             ASSERT(walk->translation == instr_get_translation(inst));
         /* PR 302951: we recognize a clean call by its NULL translation.
@@ -387,16 +421,63 @@ translate_walk_good_state(dcontext_t *tdcontext, translate_walk_t *walk,
                           app_pc translate_pc)
 {
     return (!walk->unsupported_mangle ||
-            /* If we're at the instr AFTER the mangle region, we're ok */
+            /* If we're at the instr AFTER the mangle region, or at an instruction
+             * in the mangled region's EPILOGUE, we're ok.
+             */
             (walk->in_mangle_region && translate_pc != walk->translation));
 }
 
 static void
-translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, app_pc translate_pc)
+translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *inst,
+                       app_pc translate_pc)
 {
     reg_id_t r;
 
-    if (translate_pc != walk->translation) {
+    if (IF_X86_ELSE(translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
+                    false)) {
+        /* We handle only simple symmetric one-spill/one-restore mangling cases
+         * when xl8 inst addresses in mangling epilogue. Everything else is
+         * currently not supported. In this case, the restore routine here acts
+         * as if it was emulating the epilogue instructions, because we xl8 the
+         * PC post-app instruction. This is semantically different from restoring
+         * the state pre-app instruction, as this routine originally intended.
+         * This works, because only the simple spill-restore mangle case is
+         * supported (xref i#3307). For more complex cases, this should get factored
+         * out into a separate routine that walks the epilogue and advances the state
+         * accordingly.
+         */
+        LOG(THREAD_GET, LOG_INTERP, 2,
+            "\ttranslation " PFX " is in mangling epilogue " PFX
+            " checking for simple symmetric mangling case\n",
+            translate_pc, walk->translation);
+        DOCHECK(1, {
+            bool spill_seen = false;
+            for (r = 0; r < REG_SPILL_NUM; r++) {
+                if (walk->reg_spilled[r]) {
+                    ASSERT_NOT_IMPLEMENTED(!spill_seen);
+                    spill_seen = true;
+                }
+            }
+            bool tls;
+            bool spill;
+            uint offs;
+            if (instr_is_reg_spill_or_restore(tdcontext, inst, &tls, &spill, NULL,
+                                              &offs)) {
+                ASSERT_NOT_IMPLEMENTED(!spill);
+            } else if (!tls || offs == -1 ||
+                       offs != os_tls_offset((ushort)MANGLE_RIPREL_SPILL_SLOT)) {
+                /* Riprel mangling can put arbitrary registers into
+                 * MANGLE_RIPREL_SPILL_SLOT and as such is not recognized as regular
+                 * spill/restore by instr_is_reg_spill_or_restore. Either way, we don't
+                 * support cases that are more complex than one spill and restore in this
+                 * context if instruction was part of mangling epilogue.
+                 */
+                ASSERT_NOT_IMPLEMENTED(false);
+            }
+            /* Enforcing here what mangling needs to obey. */
+            ASSERT_NOT_IMPLEMENTED(walk->xsp_adjust == 0);
+        });
+    } else if (translate_pc != walk->translation) {
         /* When we walk we update only each instr we pass.  If we're
          * now sitting at the instr AFTER the mangle region, we do
          * NOT want to adjust xsp, since we're not translating to
@@ -406,6 +487,9 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, app_pc tra
             "\ttranslation " PFX " is post-walk " PFX " so not fixing xsp\n",
             translate_pc, walk->translation);
         DOCHECK(1, {
+            /* Assumes all spills are matched by the same number of restores. This
+             * assumption may not hold for more complex mangling.
+             */
             for (r = 0; r < REG_SPILL_NUM; r++)
                 ASSERT(!walk->reg_spilled[r]
                         /* Register X0 is used for branches on AArch64.
@@ -602,7 +686,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     }
 
     if (!just_pc)
-        translate_walk_restore(tdcontext, &walk, answer);
+        translate_walk_restore(tdcontext, &walk, &instr, answer);
     LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n", answer);
     mc->pc = answer;
     return res;
@@ -794,7 +878,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                 }
             }
             if (!just_pc)
-                translate_walk_restore(tdcontext, &walk, answer);
+                translate_walk_restore(tdcontext, &walk, inst, answer);
             LOG(THREAD_GET, LOG_INTERP, 2, "recreate_app -- found ok pc " PFX "\n",
                 answer);
             mc->pc = answer;
@@ -1598,7 +1682,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
-    instr_t *in;
+    instr_t *in, *prev_in = NULL;
     static const reg_t STRESS_XSP_INIT = 0x08000000; /* arbitrary */
     bool success_so_far = true;
     bool inside_mangle_region = false;
@@ -1632,7 +1716,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             (!instr_is_our_mangling(in) ||
              /* handle adjacent mangle regions */
              (TEST(FRAG_IS_TRACE, f->flags) /* we have translation only for traces */ &&
-              mangle_translation != instr_get_translation(in)))) {
+              IF_X86((prev_in != NULL &&
+                      (instr_is_our_mangling_epilogue(prev_in) ||
+                       !instr_is_our_mangling_epilogue(in))) &&)
+                      mangle_translation != instr_get_translation(in)))) {
             /* reset */
             LOG(THREAD, LOG_INTERP, 3, "  out of mangling region\n");
             inside_mangle_region = false;
@@ -1641,6 +1728,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             spill_xcx_outstanding = false;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
+        prev_in = in;
 
         if (instr_is_our_mangling(in)) {
             if (!inside_mangle_region) {
@@ -1649,7 +1737,8 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 mangle_translation = instr_get_translation(in);
             } else {
                 ASSERT(!TEST(FRAG_IS_TRACE, f->flags) ||
-                       mangle_translation == instr_get_translation(in));
+                       IF_X86(instr_is_our_mangling_epilogue(in) ||)
+                               mangle_translation == instr_get_translation(in));
             }
 
             mc.xcx =
