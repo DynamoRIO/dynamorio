@@ -150,6 +150,9 @@ GLOBAL_LABEL(FUNCNAME:)
         jmp      epilog
      epilog:
         mov      BYTE SYMREF(test_done), HEX(1)
+        /* This will trigger the SIGILL handler which ensures there was no extra
+         * add within the loop from re-execution due to translating back.
+         */
         ud2
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()

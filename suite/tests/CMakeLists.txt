@@ -1946,12 +1946,14 @@ if (CLIENT_INTERFACE)
         "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
-      tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
-        "-vm_base 0x100000000 -no_vm_base_near_app" "")
-      use_DynamoRIO_extension(client.mangle_suspend.dll drmgr)
-      target_include_directories(client.mangle_suspend PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
-      link_with_pthread(client.mangle_suspend)
+      if (X64)
+        tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
+          "-vm_base 0x100000000 -no_vm_base_near_app" "")
+        use_DynamoRIO_extension(client.mangle_suspend.dll drmgr)
+        target_include_directories(client.mangle_suspend PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+        link_with_pthread(client.mangle_suspend)
+      endif ()
     endif (NOT ARM)
     if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")

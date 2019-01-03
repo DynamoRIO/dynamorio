@@ -422,9 +422,7 @@ translate_walk_good_state(dcontext_t *tdcontext, translate_walk_t *walk,
 {
     return (!walk->unsupported_mangle ||
             /* If we're at the instr AFTER the mangle region, or at an instruction
-             * in the mangled region's EPILOGUE, we're ok. If it's epilogue, we only
-             * support a simple spill/restore case, which is checked in
-             * translate_walk_restore.
+             * in the mangled region's EPILOGUE, we're ok.
              */
             (walk->in_mangle_region && translate_pc != walk->translation));
 }

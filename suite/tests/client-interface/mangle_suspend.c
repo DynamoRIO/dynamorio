@@ -30,6 +30,10 @@
  * DAMAGE.
  */
 
+/* Test xl8 pc of rip-rel instruction (xref #3307) in mangling epilogue, caused
+ * by asynch interrupt.
+ */
+
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "configure.h"
 #    ifndef UNIX
@@ -53,11 +57,17 @@ static void *
 suspend_thread_routine(void *arg)
 {
 #    ifdef X86_64
+    /* This thread is executing labels for the client to insert a clean call that
+     * does the suspend and subsequent check for correctness.
+     */
     while (!test_ready) {
         /* Empty. */
     }
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
+    /* Pick an uneven number to maximize the number of suspend calls w/o
+     * running into limitations in DR.
+     */
     sleeptime.tv_nsec = 2000 * 1111;
     while (!test_done) {
         asm volatile("mov %0, %%rdx\n\t"
@@ -74,20 +84,20 @@ suspend_thread_routine(void *arg)
 int
 main(int argc, const char *argv[])
 {
-    pthread_t sus_thread;
+    pthread_t suspend_thread;
     void *retval;
 
-    if (pthread_create(&sus_thread, NULL, suspend_thread_routine, NULL) != 0) {
+    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
     }
 
-    /* Test xl8 pc of rip-rel instruction (xref #3307) caused by
+    /* Test xl8 pc of rip-rel instruction (xref #3307) in mangling epilogue, caused by
      * asynch interrupt.
      */
     test_asm();
 
-    if (pthread_join(sus_thread, &retval) != 0)
+    if (pthread_join(suspend_thread, &retval) != 0)
         perror("Failed to join thread");
 
     print("Test finished\n");

@@ -83,7 +83,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             prev_was_mov_const = false;
     }
 #else
-        /* XXX i#3307: port to ARM if possible. */
+        /* XXX i#3329: port to ARM if possible. */
 #endif
     return DR_EMIT_DEFAULT;
 }
@@ -101,7 +101,9 @@ suspend_func()
         if (!dr_get_mcontext(drcontexts[0], &mc))
             CHECK(false, "dr_get_mcontext failed!");
         /* Check xip such that we only perform the check if we are in the loop
-         * body of the test, in order to avoid races.
+         * body of the test, in order to avoid races. The magic values 7 and 24
+         * are byte counts to compute the bounds of the asm loop in the test.
+         * The values need to stay in synch with the test.
          */
         if (mc.xip >= add_instr_pc - 7 && mc.xip <= add_instr_pc + 24) {
             if (add_instr_pc == mc.xip) {
@@ -123,7 +125,7 @@ suspend_func()
         }
     }
 #else
-    /* XXX i#3307: port to ARM if possible. */
+    /* XXX i#3329: port to ARM if possible. */
 #endif
 }
 
@@ -140,17 +142,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (instr_is_label(inst)) {
 #ifdef X86_64
             byte *pc = tag;
-            instr_t *instr = instr_create(drcontext);
-            while (true) {
-                instr_reset(drcontext, instr);
-                byte *prev_pc = pc;
-                pc = decode(drcontext, pc, instr);
+            for (instr_t *inst = instrlist_first(bb); inst; inst = instr_get_next(inst)) {
                 if (pc == NULL)
                     CHECK(false, "Unexpected decode error");
-                if (instr_get_opcode(instr) == OP_add &&
-                    instr_has_rel_addr_reference(instr)) {
-                    add_instr_pc = prev_pc;
-                    instr_destroy(drcontext, instr);
+                if (instr_get_opcode(inst) == OP_add &&
+                    instr_has_rel_addr_reference(inst)) {
+                    add_instr_pc = instr_get_app_pc(inst);
                     break;
                 }
             }
@@ -158,6 +155,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else if (subaction == SUSPEND_VAL_C) {
         if (instr_is_label(inst)) {
+            /* This is expected to be in a separate thread that the test creates. The
+             * test is just executing the label instructions in a loop.
+             */
             dr_insert_clean_call(drcontext, bb, inst, suspend_func, false, 0);
         }
     }
@@ -177,9 +177,6 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    /* We actually need 3 slots (flags + 2 scratch) but we want to test using
-     * a DR slot.
-     */
     if (!drmgr_init())
         CHECK(false, "init failed");
     /* register events */
