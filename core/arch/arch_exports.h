@@ -2218,6 +2218,9 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
 bool
 instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);
 
+bool
+instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst);
+
 void
 float_pc_update(dcontext_t *dcontext);
 

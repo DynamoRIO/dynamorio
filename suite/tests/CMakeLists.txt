@@ -1946,7 +1946,8 @@ if (CLIENT_INTERFACE)
         "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
-      tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c "" "-vm_base 0x100000000 -no_vm_base_near_app" "")
+      tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
+        "-vm_base 0x100000000 -no_vm_base_near_app" "")
       use_DynamoRIO_extension(client.mangle_suspend.dll drmgr)
       target_include_directories(client.mangle_suspend PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)

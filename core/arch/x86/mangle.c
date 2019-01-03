@@ -1259,6 +1259,16 @@ instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
     return true;
 }
 
+/* Returns whether the instruction supports a simple mangling epilogue that is supported
+ * to xl8 to the next program counter post original app instruction.
+ */
+bool
+instr_supports_simple_mangling_epilogue(dcontext_t *dcontext, instr_t *inst)
+{
+    int xsp_adjust;
+    return !instr_is_cti(inst) && !instr_check_xsp_mangling(dcontext, inst, &xsp_adjust);
+}
+
 /* N.B.: keep in synch with instr_check_xsp_mangling() */
 void
 insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1823,9 +1833,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         IF_X64(ASSERT_TRUNCATE(val, int, opnd_get_immed_int(instr_get_src(instr, 0))));
         /* addl sizeof_param_area, %xsp
          * except that clobbers the flags, so we use lea */
-        /* XXX i#3307: unimplemented, we can only support simple mangling cases in
-         * mangling epilogue.
-         */
         PRE(ilist, next_instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, val, OPSZ_lea)));
@@ -2951,24 +2958,22 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             if (spill) {
                 /* We are making several assumptions here. Firstly, we assume that any
                  * instruction in the mangling code of any control-flow app instruction
-                 * is always before the actual commit point. This shold be safe to assume
-                 * for any control-flow instruction. Such changes in the mangling code of
-                 * the former will be rolled back if needed if xl8 point is in mangling
-                 * code. We therefore do not mark the rip-rel related restores here as
-                 * 'epilogue'. Secondly, we assume that any instructions in mangled code
-                 * that require xsp adjustment to xl8 app state are instructions that can
-                 * be fully rolled back. We do not mark these restores as 'epilogue'
-                 * either.
+                 * is always before the last commit point of the app instruction, i.e.
+                 * does not xl8 to a PC post app instruction. This should be safe to
+                 * assume for any control-flow instruction. We therefore do not mark the
+
+                 * rip-rel related restores here as 'epilogue'. Secondly, we assume that
+                 * any instructions in mangled code that require xsp adjustment to xl8 app
+                 * state are instructions that can be fully rolled back. We do not mark
+                 * these restores as 'epilogue' either.
                  */
                 instr_t *restore = instr_create_restore_from_tls(
                     dcontext, scratch_reg, MANGLE_RIPREL_SPILL_SLOT);
-                int xsp_adjust;
                 PRE(ilist, next_instr,
-                    instr_is_cti(instr) ||
-                            instr_check_xsp_mangling(dcontext, instr, &xsp_adjust)
-                        ? restore
-                        : instr_set_translation_mangling_epilogue(dcontext, ilist,
-                                                                  restore));
+                    instr_supports_simple_mangling_epilogue(dcontext, instr)
+                        ? instr_set_translation_mangling_epilogue(dcontext, ilist,
+                                                                  restore)
+                        : restore);
             }
             STATS_INC(rip_rel_unreachable);
         }

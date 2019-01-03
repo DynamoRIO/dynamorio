@@ -170,6 +170,9 @@ instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
 #endif
 
 #ifdef X86
+
+/* FIXME i#3329: add support for ARM/AArch64. */
+
 static bool
 translate_walk_enters_mangling_epilogue(dcontext_t *tdcontext, instr_t *inst,
                                         translate_walk_t *walk)
