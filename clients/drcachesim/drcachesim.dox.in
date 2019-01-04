@@ -576,7 +576,8 @@ $ bin64/drrun -t drcachesim -indir drmemtrace.app.pid.xxxx.dir/trace
 The canonical trace files may be manually compressed with gzip, as the
 trace reader supports reading gzipped files.
 
-Older versions of the simulator produced a single trace file containing all threads interleaved.  The \p -infile option supports reading these legacy files:
+Older versions of the simulator produced a single trace file containing all threads
+interleaved.  The \p -infile option supports reading these legacy files:
 \code
 $ gzip drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 $ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace.gz
@@ -839,14 +840,46 @@ class.
 
 \p drcachesim provides a \p drmemtrace analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
-#analysis_tool_t.  Two key functions should be overridden:
-analysis_tool_t::process_memref(), which operates on a single trace entry,
-and analysis_tool_t::print_results(), which is called just once after
-processing the entire trace and should present the results of analysis.  In
-the default mode of operation, the #analyzer_t class iterates over the
-trace and calls the analysis_tool_t::process_memref() function of each
-tool.  An alternative mode is supported which exposes the iterator and
-allows a separate control infrastructure to be built.
+#analysis_tool_t.
+
+Concurrent processing of traces is supported by logically splitting a trace into
+"shards" which are each processed sequentially.  The default shard is a traced
+application thread, but the tool interface can support other divisions.  For tools
+that support concurrent processing of shards and do not need to see a single
+time-sorted interleaved merged trace, the interface functions with the parallel_
+prefix should be overridden, and parallel_shard_supported() should return true.
+parallel_shard_init() will be invoked for each shard prior to invoking
+parallel_shard_memref() for each entry in that shard; the data structure returned
+from parallel_shard_init() will be passed to parallel_shard_memref() for each
+trace entry for that shard.  The concurrency model used guarantees that all
+entries from any one shard are processed by the same single worker thread, so no
+synchronization is needed inside the parallel_ functions.  A single worker thread
+invokes print_results() as well.
+
+For serial operation, process_memref(), operates on a trace entry in a single,
+sorted, interleaved stream of trace entries.  In the default mode of operation,
+the #analyzer_t class iterates over the trace and calls the process_memref()
+function of each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.  This
+alternative mode does not support parallel operation at this time.
+
+Both parallel and serial operation can be supported by a tool, typically by having
+process_memref() create data on a newly seen traced thread and invoking
+parallel_shard_memref() to do its work.
+
+For both parallel and serial operation, the function print_results() should be
+overridden.  It is called just once after processing all trace data and it should
+present the results of the analysis.  For parallel operation, any desired
+aggregation across the whole trace should occur here as well, while shard-specific
+results can be presented in parallel_shard_exit().
+
+Today, parallel analysis is only supported for offline traces.
+Support for online traces may be added in the future.
+
+In the default mode of operation, the #analyzer_t class iterates over
+the trace and calls the appropriate #analysis_tool_t functions for
+each tool.  An alternative mode is supported which exposes the
+iterator and allows a separate control infrastructure to be built.
 
 Each trace entry is of type #memref_t and represents one instruction or
 data reference or a metadata operation such as a thread exit or marker.
@@ -897,7 +930,8 @@ The \p drcachesim tool is a work in progress.  We welcome contributions in
 these areas of missing functionality:
 
 - Cache coherence (https://github.com/DynamoRIO/dynamorio/issues/1726)
-- Multi-process online application simulation on Windows (https://github.com/DynamoRIO/dynamorio/issues/1727)
+- Multi-process online application simulation on Windows
+  (https://github.com/DynamoRIO/dynamorio/issues/1727)
 - Arbitrary cache hierarchy support via an input config file
   (https://github.com/DynamoRIO/dynamorio/issues/1715)
 - Offline traces do not currently accurately record instruction fetches in
