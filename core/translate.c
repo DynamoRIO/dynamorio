@@ -80,9 +80,11 @@ typedef struct _translate_walk_t {
     byte *start_cache;
     byte *end_cache;
     /* PR 263407: Track registers spilled since the last cti, for
-     * restoring indirect branch and rip-rel spills
+     * restoring indirect branch and rip-rel spills. UINT_MAX means
+     * nothing recorded, otherwise holds offset of spill in local
+     * spill space.
      */
-    uint reg_spilled[REG_SPILL_NUM];
+    uint reg_spill_offs[REG_SPILL_NUM];
     bool reg_tls[REG_SPILL_NUM];
     /* PR 267260: Track our own mangle-inserted pushes and pops, for
      * restoring state in the middle of our indirect branch mangling.
@@ -108,7 +110,7 @@ translate_walk_init(translate_walk_t *walk, byte *start_cache, byte *end_cache,
     walk->start_cache = start_cache;
     walk->end_cache = end_cache;
     for (int r = 0; r < REG_SPILL_NUM; r++)
-        walk->reg_spilled[r] = UINT_MAX;
+        walk->reg_spill_offs[r] = UINT_MAX;
 }
 
 #ifdef UNIX
@@ -219,8 +221,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
-            ASSERT(walk->reg_spilled[r] == UINT_MAX);
-            walk->reg_spilled[r] = UINT_MAX; /* be paranoid */
+            ASSERT(walk->reg_spill_offs[r] == UINT_MAX);
+            walk->reg_spill_offs[r] = UINT_MAX; /* be paranoid */
 #else
             /* On ARM we do spill registers across app instrs and mangle
              * regions, though right now only the following routines do this:
@@ -230,7 +232,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
              * Each of these cases is a tls restore, and we assert as much.
              */
             DOCHECK(1, {
-                if (walk->reg_spilled[r] != UINT_MAX) {
+                if (walk->reg_spill_offs[r] != UINT_MAX) {
                     instr_t *curr;
                     bool spill_or_restore = false;
                     for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
@@ -318,7 +320,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
             for (r = 0; r < REG_SPILL_NUM; r++)
-                walk->reg_spilled[r] = UINT_MAX;
+                walk->reg_spill_offs[r] = UINT_MAX;
         }
         uint offs = UINT_MAX;
         if (instr_is_DR_reg_spill_or_restore(tdcontext, inst, &spill_tls, &spill, &reg,
@@ -334,16 +336,16 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                     spill = false;
             });
             /* if a restore whose spill was before a cti, ignore */
-            if (spill || walk->reg_spilled[r] != UINT_MAX) {
+            if (spill || walk->reg_spill_offs[r] != UINT_MAX) {
                 /* Ensure restores and spills are properly paired up, but we do
                  * allow for redundant spills.
                  */
-                ASSERT(spill || (!spill && walk->reg_spilled[r] != UINT_MAX));
+                ASSERT(spill || (!spill && walk->reg_spill_offs[r] != UINT_MAX));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
                 if (spill)
-                    walk->reg_spilled[r] = offs;
+                    walk->reg_spill_offs[r] = offs;
                 else
-                    walk->reg_spilled[r] = UINT_MAX;
+                    walk->reg_spill_offs[r] = UINT_MAX;
                 walk->reg_tls[r] = spill_tls;
                 LOG(THREAD_GET, LOG_INTERP, 5, "\tspill update: %s %s %s\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
@@ -461,7 +463,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
         DOCHECK(1, {
             bool spill_seen = false;
             for (r = 0; r < REG_SPILL_NUM; r++) {
-                if (walk->reg_spilled[r] != UINT_MAX) {
+                if (walk->reg_spill_offs[r] != UINT_MAX) {
                     ASSERT_NOT_IMPLEMENTED(!spill_seen);
                     spill_seen = true;
                 }
@@ -499,7 +501,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
              * assumption may not hold for more complex mangling.
              */
             for (r = 0; r < REG_SPILL_NUM; r++)
-                ASSERT(walk->reg_spilled[r] ==
+                ASSERT(walk->reg_spill_offs[r] ==
                        UINT_MAX
                            /* Register X0 is used for branches on AArch64.
                             * See mangle_cbr_stolen_reg.
@@ -521,12 +523,12 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
      * already, and won't be able to restore it: but that's a minor issue.
      */
     for (r = 0; r < REG_SPILL_NUM; r++) {
-        if (walk->reg_spilled[r] != UINT_MAX) {
+        if (walk->reg_spill_offs[r] != UINT_MAX) {
             reg_id_t reg = r + REG_START_SPILL;
             reg_t value;
             if (walk->reg_tls[r]) {
                 value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) +
-                                   walk->reg_spilled[r]);
+                                   walk->reg_spill_offs[r]);
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }

@@ -57,30 +57,46 @@ void
 test_2_asm();
 
 static void *
-suspend_thread_routine(void *arg)
+suspend_thread_1_routine(void *arg)
 {
 #    ifdef X86_64
     /* This thread is executing labels for the client to insert a clean call that
      * does the suspend and subsequent check for correctness.
      */
-    int suspend_val = *(int *)arg;
     while (!test_ready) {
         /* Empty. */
     }
     while (!test_done) {
-        if (suspend_val == SUSPEND_VAL_TEST_1_C) {
-            asm volatile("mov %0, %%rdx\n\t"
-                         "mov %0, %%rdx\n"
-                         :
-                         : "i"(SUSPEND_VAL_TEST_1_C)
-                         : "rdx");
-        } else {
-            asm volatile("mov %0, %%rdx\n\t"
-                         "mov %0, %%rdx\n"
-                         :
-                         : "i"(SUSPEND_VAL_TEST_2_C)
-                         : "rdx");
+        asm volatile("mov %0, %%rdx\n\t"
+                     "mov %0, %%rdx\n"
+                     :
+                     : "i"(SUSPEND_VAL_TEST_1_C)
+                     : "rdx");
+        while (!test_suspend && !test_done) {
+            /* Empty. */
         }
+        test_suspend = false;
+    }
+#    endif
+    return NULL;
+}
+
+static void *
+suspend_thread_2_routine(void *arg)
+{
+#    ifdef X86_64
+    /* This thread is executing labels for the client to insert a clean call that
+     * does the suspend and subsequent check for correctness.
+     */
+    while (!test_ready) {
+        /* Empty. */
+    }
+    while (!test_done) {
+        asm volatile("mov %0, %%rdx\n\t"
+                     "mov %0, %%rdx\n"
+                     :
+                     : "i"(SUSPEND_VAL_TEST_2_C)
+                     : "rdx");
         while (!test_suspend && !test_done) {
             /* Empty. */
         }
@@ -96,10 +112,7 @@ main(int argc, const char *argv[])
     pthread_t suspend_thread;
     void *retval;
 
-    int suspend_val = SUSPEND_VAL_TEST_1_C;
-
-    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, &suspend_val) !=
-        0) {
+    if (pthread_create(&suspend_thread, NULL, suspend_thread_1_routine, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
     }
@@ -118,9 +131,7 @@ main(int argc, const char *argv[])
     test_done = false;
     test_suspend = false;
 
-    suspend_val = SUSPEND_VAL_TEST_2_C;
-    if (pthread_create(&suspend_thread, NULL, suspend_thread_routine, &suspend_val) !=
-        0) {
+    if (pthread_create(&suspend_thread, NULL, suspend_thread_2_routine, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
     }
@@ -170,6 +181,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      LOOP_TEST_REG_OUTER_ASM, LOOP_COUNT_OUTER
         mov      TEST_1_LOOP_COUNT_REG_ASM, 2
 
+        /* Code changes here must stay in synch with the loop bounds
+         * check hardcoded in the dll.
+         */
       loop_a_outer:
         mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
       loop_a_inner:
@@ -228,6 +242,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_2_LOOP_COUNT_REG_ASM, 2
         mov      TEST_2_CHECK_REG_ASM, HEX(0)
 
+        /* Code changes here must stay in synch with the loop bounds
+         * check hardcoded in the dll.
+         */
   loop_b_outer:
         mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
   loop_b_inner:
