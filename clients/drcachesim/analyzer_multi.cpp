@@ -47,15 +47,15 @@
 #    include "tests/trace_invariants.h"
 #endif
 
-#ifdef HAS_ZLIB
-// Even for uncompressed files, zlib's gzip interface is faster than fstream.
-typedef compressed_file_reader_t my_file_reader_t;
-#else
-typedef file_reader_t<std::ifstream *> my_file_reader_t;
-#endif
-
 analyzer_multi_t::analyzer_multi_t()
 {
+    worker_count = op_jobs.get_value();
+    // Initial measurements show it's sometimes faster to keep the parallel model
+    // of using single-file readers but use them sequentially, as opposed to
+    // the every-file interleaving reader, but the user can specify -jobs 1, so
+    // we still keep the serial vs parallel split for 0.
+    if (worker_count == 0)
+        parallel = false;
     if (!create_analysis_tools()) {
         success = false;
         error_string = "Failed to create analysis tool: " + error_string;
@@ -73,8 +73,6 @@ analyzer_multi_t::analyzer_multi_t()
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        my_file_reader_t *existing =
-            new my_file_reader_t(tracedir.c_str(), op_verbose.get_value());
         // We support the trace dir being empty if we haven't post-processed
         // the raw files yet.
         bool needs_processing = false;
@@ -100,8 +98,6 @@ analyzer_multi_t::analyzer_multi_t()
             }
         }
         if (needs_processing) {
-            delete existing;
-            existing = nullptr;
             raw2trace_directory_t dir(op_verbose.get_value());
             std::string dir_err = dir.initialize(op_indir.get_value(), "");
             if (!dir_err.empty()) {
@@ -115,29 +111,31 @@ analyzer_multi_t::analyzer_multi_t()
                 success = false;
                 error_string = "raw2trace failed: " + error;
             }
-            trace_iter = new my_file_reader_t(tracedir.c_str(), op_verbose.get_value());
-        } else
-            trace_iter = existing;
-        trace_end = new my_file_reader_t();
+        }
+        if (!init_file_reader(tracedir, op_verbose.get_value()))
+            success = false;
     } else if (op_infile.get_value().empty()) {
-        trace_iter = new ipc_reader_t(op_ipc_name.get_value().c_str());
-        trace_end = new ipc_reader_t();
-        if (!*trace_iter) {
+        // XXX i#3323: Add parallel analysis support for online tools.
+        parallel = false;
+        serial_trace_iter =
+            std::unique_ptr<reader_t>(new ipc_reader_t(op_ipc_name.get_value().c_str()));
+        trace_end = std::unique_ptr<reader_t>(new ipc_reader_t());
+        if (!*serial_trace_iter) {
             success = false;
 #ifdef UNIX
             // This is the most likely cause of the error.
             // XXX: Even better would be to propagate the mkfifo errno here.
             error_string = "try removing stale pipe file " +
-                reinterpret_cast<ipc_reader_t *>(trace_iter)->get_pipe_name();
+                reinterpret_cast<ipc_reader_t *>(serial_trace_iter.get())
+                    ->get_pipe_name();
 #endif
         }
     } else {
         // Legacy file.
-        trace_iter =
-            new my_file_reader_t(op_infile.get_value().c_str(), op_verbose.get_value());
-        trace_end = new my_file_reader_t();
+        if (!init_file_reader(op_infile.get_value(), op_verbose.get_value()))
+            success = false;
     }
-    // We can't call trace_iter->init() here as it blocks for ipc_reader_t.
+    // We can't call serial_trace_iter->init() here as it blocks for ipc_reader_t.
 }
 
 analyzer_multi_t::~analyzer_multi_t()
