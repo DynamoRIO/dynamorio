@@ -54,7 +54,7 @@ public:
     parallel_shard_supported() override;
     void *
     parallel_worker_init(int worker_index) override;
-    void
+    std::string
     parallel_worker_exit(void *worker_data) override;
     void *
     parallel_shard_init(int shard_index, void *worker_data) override;

@@ -220,10 +220,19 @@ analyzer_t::process_tasks(std::vector<analyzer_shard_data_t *> *tasks)
         for (int i = 0; i < num_tools; ++i) {
             if (!tools[i]->parallel_shard_exit(shard_data[i])) {
                 tdata->error = tools[i]->parallel_shard_error(shard_data[i]);
-                VPRINT(this, 1, "Worker %d hit shared exit error %s on trace shard %d\n",
+                VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %d\n",
                        tdata->worker, tdata->error.c_str(), tdata->index);
                 return;
             }
+        }
+    }
+    for (int i = 0; i < num_tools; ++i) {
+        const std::string error = tools[i]->parallel_worker_exit(worker_data[i]);
+        if (!error.empty()) {
+            (*tasks)[0]->error = error;
+            VPRINT(this, 1, "Worker %d hit worker exit error %s\n", (*tasks)[0]->worker,
+                   error.c_str());
+            return;
         }
     }
 }

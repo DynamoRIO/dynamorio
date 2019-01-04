@@ -155,11 +155,13 @@ public:
     }
     /**
      * Invoked once when a worker thread is finished processing all shard data.  The
-     * \p worker_data is the return value of parallel_worker_init().
+     * \p worker_data is the return value of parallel_worker_init().  A non-empty
+     * string indicates an error while an empty string indicates success.
      */
-    virtual void
+    virtual std::string
     parallel_worker_exit(void *worker_data)
     {
+        return "";
     }
     /**
      * Invoked once for each trace shard prior to calling parallel_shard_memref() for

@@ -100,11 +100,12 @@ opcode_mix_t::parallel_worker_init(int worker_index)
     return reinterpret_cast<void *>(worker);
 }
 
-void
+std::string
 opcode_mix_t::parallel_worker_exit(void *worker_data)
 {
     worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
     delete worker;
+    return "";
 }
 
 void *
