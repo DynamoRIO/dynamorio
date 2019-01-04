@@ -342,10 +342,12 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                  */
                 ASSERT(spill || (!spill && walk->reg_spill_offs[r] != UINT_MAX));
                 ASSERT(spill || walk->reg_tls[r] == spill_tls);
-                if (spill)
+                if (spill) {
+                    ASSERT(offs != UINT_MAX);
                     walk->reg_spill_offs[r] = offs;
-                else
+                } else {
                     walk->reg_spill_offs[r] = UINT_MAX;
+                }
                 walk->reg_tls[r] = spill_tls;
                 LOG(THREAD_GET, LOG_INTERP, 5, "\tspill update: %s %s %s\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
@@ -527,8 +529,9 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             reg_id_t reg = r + REG_START_SPILL;
             reg_t value;
             if (walk->reg_tls[r]) {
-                value = *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) +
-                                   walk->reg_spill_offs[r]);
+                value =
+                    *(reg_t *)(((byte *)&tdcontext->local_state->spill_space) +
+                               os_local_state_offset((ushort)walk->reg_spill_offs[r]));
             } else {
                 value = reg_get_value_priv(reg, get_mcontext(tdcontext));
             }
@@ -1697,7 +1700,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     static const reg_t STRESS_XSP_INIT = 0x08000000; /* arbitrary */
     bool success_so_far = true;
     bool inside_mangle_region = false;
-    bool spill_xcx_outstanding = false;
+    uint spill_xcx_outstanding_offs = UINT_MAX;
     reg_id_t reg;
     bool spill;
     int xsp_adjust = 0;
@@ -1736,7 +1739,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             inside_mangle_region = false;
             xsp_adjust = 0;
             success_so_far = true;
-            spill_xcx_outstanding = false;
+            spill_xcx_outstanding_offs = UINT_MAX;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
         prev_in = in;
@@ -1752,8 +1755,13 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                                mangle_translation == instr_get_translation(in));
             }
 
-            mc.xcx =
-                (reg_t)get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) + 1;
+            if (spill_xcx_outstanding_offs != UINT_MAX) {
+                mc.xcx = (reg_t)get_tls(spill_xcx_outstanding_offs) + 1;
+            } else {
+                mc.xcx =
+                    (reg_t)get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) +
+                    1;
+            }
             mc.xsp = STRESS_XSP_INIT;
             mc.pc = cpc;
             LOG(THREAD, LOG_INTERP, 3, "  restoring cpc=" PFX ", xsp=" PFX "\n", mc.pc,
@@ -1775,20 +1783,23 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 
             /* check that xsp and xcx are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
-            ASSERT(
-                !spill_xcx_outstanding ||
-                mc.xcx ==
-                    (reg_t)get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))));
+            ASSERT(spill_xcx_outstanding_offs == UINT_MAX ||
+                   mc.xcx == (reg_t)get_tls(spill_xcx_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;
             instr_check_xsp_mangling(dcontext, in, &xsp_adjust);
             if (xsp_adjust != 0)
                 LOG(THREAD, LOG_INTERP, 3, "  xsp_adjust=%d\n", xsp_adjust);
+            uint offs = UINT_MAX;
             if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
-                                                 NULL) &&
-                reg == REG_XCX)
-                spill_xcx_outstanding = spill;
+                                                 &offs) &&
+                reg == REG_XCX) {
+                if (spill)
+                    spill_xcx_outstanding_offs = offs;
+                else
+                    spill_xcx_outstanding_offs = UINT_MAX;
+            }
         }
     }
     if (TEST(FRAG_IS_TRACE, f->flags)) {
