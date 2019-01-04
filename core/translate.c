@@ -1786,10 +1786,11 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             uint offs = UINT_MAX;
             if (instr_is_DR_reg_spill_or_restore(dcontext, in, NULL, &spill, &reg,
                                                  &offs) &&
-                reg == REG_XCX)
+                reg == REG_XCX) {
                 if (offs == os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) {
                     spill_xcx_outstanding = spill;
                 }
+            }
         }
     }
     if (TEST(FRAG_IS_TRACE, f->flags)) {
