@@ -1615,6 +1615,16 @@ os_tls_offset(ushort tls_offs)
     return (TLS_LOCAL_STATE_OFFSET + tls_offs);
 }
 
+/* converts a segment offset to a local_state_t offset */
+ushort
+os_local_state_offset(ushort seg_offs)
+{
+    /* no ushort truncation issues b/c TLS_LOCAL_STATE_OFFSET is 0 */
+    IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
+    ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
+    return (seg_offs - TLS_LOCAL_STATE_OFFSET);
+}
+
 /* XXX: Will return NULL if called before os_thread_init(), which sets
  * ostd->dr_fs/gs_base.
  */
