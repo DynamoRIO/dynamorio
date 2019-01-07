@@ -64,7 +64,7 @@ suspend_thread_1_routine(void *arg)
      * does the suspend and subsequent check for correctness.
      */
     while (!test_ready) {
-        /* Empty. */
+        sched_yield();
     }
     while (!test_done) {
         asm volatile("mov %0, %%rdx\n\t"
@@ -73,7 +73,7 @@ suspend_thread_1_routine(void *arg)
                      : "i"(SUSPEND_VAL_TEST_1_C)
                      : "rdx");
         while (!test_suspend && !test_done) {
-            /* Empty. */
+            sched_yield();
         }
         test_suspend = false;
     }
@@ -89,7 +89,7 @@ suspend_thread_2_routine(void *arg)
      * does the suspend and subsequent check for correctness.
      */
     while (!test_ready) {
-        /* Empty. */
+        sched_yield();
     }
     while (!test_done) {
         asm volatile("mov %0, %%rdx\n\t"
@@ -98,7 +98,7 @@ suspend_thread_2_routine(void *arg)
                      : "i"(SUSPEND_VAL_TEST_2_C)
                      : "rdx");
         while (!test_suspend && !test_done) {
-            /* Empty. */
+            sched_yield();
         }
         test_suspend = false;
     }
@@ -184,9 +184,9 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Code changes here must stay in synch with the loop bounds
          * check hardcoded in the dll.
          */
-      loop_a_outer:
+     loop_a_outer:
         mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
-      loop_a_inner:
+     loop_a_inner:
         mov      TEST_1_LOOP_COUNT_REG_ASM, 1
         add      TEST_1_LOOP_COUNT_REG_ASM, PTRSZ SYMREF(loop_inc)
         mov      TEST_1_LOOP_COUNT_REG_ASM, 2
@@ -245,9 +245,9 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Code changes here must stay in synch with the loop bounds
          * check hardcoded in the dll.
          */
-  loop_b_outer:
+     loop_b_outer:
         mov      LOOP_TEST_REG_INNER_ASM, LOOP_COUNT_INNER
-  loop_b_inner:
+     loop_b_inner:
         mov      TEST_2_LOOP_COUNT_REG_ASM, 1
         add      TEST_2_LOOP_COUNT_REG_ASM, PTRSZ SYMREF(loop_inc)
         mov      TEST_2_LOOP_COUNT_REG_ASM, 2
