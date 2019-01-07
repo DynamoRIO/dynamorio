@@ -34,6 +34,11 @@
  * by asynch interrupt.
  */
 
+/* clang-format off */
+/* XXX: clang-format incorrectly detected a tab difference at "clang-format on"
+ * below. This is why "clang-format off" has been moved outside the ifdef until
+ * bug is fixed.
+ */
 #ifndef ASM_CODE_ONLY /* C code */
 #    include "configure.h"
 #    ifndef UNIX
@@ -152,7 +157,6 @@ main(int argc, const char *argv[])
 #else /* asm code *************************************************************/
 #    include "asm_defines.asm"
 #    include "mangle_suspend-shared.h"
-/* clang-format off */
 START_FILE
 
 #ifdef X64
@@ -284,5 +288,5 @@ GLOBAL_LABEL(FUNCNAME:)
 
 END_FILE
 
-/* clang-format on */
 #endif
+/* clang-format on */
