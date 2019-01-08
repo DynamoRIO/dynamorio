@@ -35,8 +35,8 @@
  */
 
 /* clang-format off */
-/* XXX: clang-format incorrectly detected a tab difference at "clang-format on"
- * below. This is why "clang-format off" has been moved outside the ifdef until
+/* XXX: clang-format incorrectly detects a white space difference at "clang-format on"
+ * below. This is why "clang-format off" has been moved outside the ifdef until the
  * bug is fixed.
  */
 #ifndef ASM_CODE_ONLY /* C code */
