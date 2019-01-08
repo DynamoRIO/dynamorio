@@ -55,7 +55,7 @@
 #endif
 
 #define LOOP_COUNT_INNER 1000
-#define LOOP_COUNT_OUTER 10000000
+#define LOOP_COUNT_OUTER 100000
 
 #define MAKE_HEX_ASM(n) HEX(n)
 #define MAKE_HEX(n) 0x##n
