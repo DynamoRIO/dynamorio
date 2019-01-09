@@ -49,6 +49,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <poll.h>
+#include <sys/mman.h>
 
 typedef struct {
     sigset_t *sigmask;
@@ -56,6 +57,7 @@ typedef struct {
 } data_t;
 
 static struct timespec sleeptime;
+static bool *ready_to_listen;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
@@ -73,6 +75,9 @@ kick_off_child_signals()
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
+        while (!*ready_to_listen) {
+            /* Empty. */
+        }
         /* waste some time */
         nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR2);
@@ -93,8 +98,11 @@ main(int argc, char *argv[])
 
     INIT();
 
+    ready_to_listen = mmap(NULL, sizeof(*ready_to_listen), PROT_READ | PROT_WRITE,
+                           MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 500 * 1000 * 1000;
+    sleeptime.tv_nsec = 100 * 1000 * 1000;
 
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
@@ -109,6 +117,7 @@ main(int argc, char *argv[])
     sigdelset(&test_set, SIGUSR1);
     sigdelset(&test_set, SIGUSR2);
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
@@ -117,6 +126,7 @@ main(int argc, char *argv[])
 
     print("Testing epoll_pwait\n");
 
+    *ready_to_listen = true;
     int count = 0;
     while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
@@ -142,11 +152,13 @@ main(int argc, char *argv[])
         }
     }
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
     print("Testing pselect\n");
 
+    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
@@ -172,11 +184,13 @@ main(int argc, char *argv[])
         }
     }
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
     print("Testing ppoll\n");
 
+    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
@@ -249,11 +263,13 @@ main(int argc, char *argv[])
 
 #if defined(X86) && defined(X64)
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
     print("Testing epoll_pwait, preserve mask\n");
 
+    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
@@ -302,11 +318,13 @@ main(int argc, char *argv[])
 
     data_t data = { &test_set, _NSIG / 8 };
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
     print("Testing pselect, preserve mask\n");
 
+    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
@@ -341,11 +359,13 @@ main(int argc, char *argv[])
             perror("expected syscall to preserve mask parameter");
     }
 
+    *ready_to_listen = false;
     if (kick_off_child_signals())
         return 0;
 
     print("Testing ppoll, preserve mask\n");
 
+    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
