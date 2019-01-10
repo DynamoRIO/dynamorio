@@ -62,7 +62,7 @@
 #    define cmb() asm volatile("" : : : "memory")
 #else
 #    define mb()
-#    define wbm()
+#    define wmb()
 #    define rmb()
 #    define cmb()
 #endif
