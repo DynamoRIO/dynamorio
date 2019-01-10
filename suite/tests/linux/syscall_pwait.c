@@ -49,7 +49,16 @@
 #include <unistd.h>
 #include <time.h>
 #include <poll.h>
-#include <sys/mman.h>
+#include <sched.h>
+
+/* Hardware (-and compiler) read/write memory barrier */
+#define mb() asm volatile("mfence" : : : "memory")
+/* Hardware (-and compiler) write memory barrier */
+#define wmb() asm volatile("sfence" : : : "memory")
+/* Hardware (-and compiler) read memory barrier */
+#define rmb() asm volatile("lfence" : : : "memory")
+/* Compiler memory barrier */
+#define cmb() asm volatile("" : : : "memory")
 
 typedef struct {
     sigset_t *sigmask;
@@ -66,27 +75,52 @@ signal_handler(int sig, siginfo_t *siginfo, void *context)
 }
 
 bool
-kick_off_child_signals()
+kick_off_child_usr1()
 {
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
     int pid = fork();
     if (pid < 0) {
         perror("fork error");
     } else if (pid == 0) {
-        while (!*ready_to_listen) {
-            /* Empty. */
-        }
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR2);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
         kill(getppid(), SIGUSR1);
+        *ready_to_listen = true;
         return true;
     }
+    return false;
+}
 
+bool
+kick_off_child_usr2()
+{
+    int pid = fork();
+    if (pid < 0) {
+        perror("fork error");
+    } else if (pid == 0) {
+        kill(getppid(), SIGUSR2);
+        *ready_to_listen = true;
+        return true;
+    }
+    return false;
+}
+
+bool
+kick_off_child_signal(int count)
+{
+    *ready_to_listen = false;
+    wmb();
+    if (count == 1) {
+        if (kick_off_child_usr1())
+            return true;
+    } else if (count == 2) {
+        if (kick_off_child_usr2())
+            return true;
+    }
+    rmb();
+    /* This makes sure that the signal is pending
+     * in the kernel after return of this call.
+     */
+    while (!*ready_to_listen) {
+        sched_yield();
+    }
     return false;
 }
 
@@ -102,14 +136,16 @@ main(int argc, char *argv[])
                            MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 100 * 1000 * 1000;
+    sleeptime.tv_nsec = 500 * 1000 * 1000;
 
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
     print("handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
     sigemptyset(&new_set);
+    sigaddset(&new_set, SIGUSR2);
     sigaddset(&new_set, SIGUSR1);
     sigprocmask(SIG_BLOCK, &new_set, NULL);
+    print("signal blocked: %d\n", SIGUSR2);
     print("signal blocked: %d\n", SIGUSR1);
 
     sigset_t test_set;
@@ -117,24 +153,22 @@ main(int argc, char *argv[])
     sigdelset(&test_set, SIGUSR1);
     sigdelset(&test_set, SIGUSR2);
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
 
     print("Testing epoll_pwait\n");
 
-    *ready_to_listen = true;
     int count = 0;
     while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this
+         * system call. Once it does, please include this in this test or add a new
+         * test.
          */
         sigset_t pre_syscall_set = {
             0, /* Set padding to 0 so we can use memcmp */
         };
+        if (kick_off_child_signal(count))
+            return 0;
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
             if (errno != EINTR)
@@ -152,21 +186,19 @@ main(int argc, char *argv[])
         }
     }
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing pselect\n");
 
-    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this
+         * system call. Once it does, please include this in this test or add a new
+         * test.
          */
         sigset_t pre_syscall_set = {
             0, /* Set padding to 0 so we can use memcmp */
         };
+        if (kick_off_child_signal(count))
+            return 0;
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
             if (errno != EINTR)
@@ -184,21 +216,19 @@ main(int argc, char *argv[])
         }
     }
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing ppoll\n");
 
-    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
+        /* XXX i#3240: DR currently does not handle the atomicity aspect of this
+         * system call. Once it does, please include this in this test or add a new
+         * test.
          */
         sigset_t pre_syscall_set = {
             0, /* Set padding to 0 so we can use memcmp */
         };
+        if (kick_off_child_signal(count))
+            return 0;
         sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
         if (ppoll(NULL, 0, NULL, &test_set) == -1) {
             if (errno != EINTR)
@@ -218,8 +248,9 @@ main(int argc, char *argv[])
 
     print("Testing epoll_pwait failure\n");
 
-    /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the nature
-     * of the syscall. Maybe change this into something that will rather fail immediately.
+    /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the
+     * nature of the syscall. Maybe change this into something that will rather fail
+     * immediately.
      */
 
     /* waste some time */
@@ -263,17 +294,14 @@ main(int argc, char *argv[])
 
 #if defined(X86) && defined(X64)
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing epoll_pwait, preserve mask\n");
 
-    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        if (kick_off_child_signal(count))
+            return 0;
         /* Syscall preserves all registers except rax, rcx and r11. Note that we're
          * clobbering rbx (which is choosen randomly) in order to save the old mask
          * for a mask check. Upon a syscall, DR will modify the sigmask parameter
@@ -308,9 +336,9 @@ main(int argc, char *argv[])
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1) {
-            /* This checks whether DR has properly restored the mask parameter after the
-             * syscall. I.e. internally, DR may choose to change the parameter prior to
-             * the syscall.
+            /* This checks whether DR has properly restored the mask parameter after
+             * the syscall. I.e. internally, DR may choose to change the parameter
+             * prior to the syscall.
              */
             perror("expected syscall to preserve mask parameter");
         }
@@ -318,17 +346,14 @@ main(int argc, char *argv[])
 
     data_t data = { &test_set, _NSIG / 8 };
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing pselect, preserve mask\n");
 
-    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        if (kick_off_child_signal(count))
+            return 0;
         asm volatile("movq 0(%8), %%rbx\n\t"
                      "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
@@ -359,17 +384,14 @@ main(int argc, char *argv[])
             perror("expected syscall to preserve mask parameter");
     }
 
-    *ready_to_listen = false;
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing ppoll, preserve mask\n");
 
-    *ready_to_listen = true;
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        if (kick_off_child_signal(count))
+            return 0;
         asm volatile("mov %6, %%rbx\n\t"
                      "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
