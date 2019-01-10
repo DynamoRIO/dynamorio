@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,7 +75,7 @@ droption_t<int> op_jobs(
     DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
     "By default, both post-processing of offline raw trace files and analysis of trace "
     "files is parallelized.  This option controls the number of concurrent jobs.  0 "
-    "disables concurrency and uses  single thread to perform all operations.  A "
+    "disables concurrency and uses a single thread to perform all operations.  A "
     "negative value sets the job count to the number of hardware threads, "
     "with a cap of 16.");
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -210,67 +210,88 @@ To compute reuse distance metrics:
 $ bin64/drrun -t drcachesim -simulator_type reuse_distance -reuse_distance_histogram -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
-Reuse distance tool results:
-Total accesses: 361486
-Unique accesses: 205963
-Unique cache lines accessed: 4188
+Reuse distance tool aggregated results:
+Total accesses: 349632
+Unique accesses: 196603
+Unique cache lines accessed: 4235
 
-Reuse distance mean: 14.76
+Reuse distance mean: 14.64
 Reuse distance median: 1
-Reuse distance standard deviation: 109.74
+Reuse distance standard deviation: 104.10
 Reuse distance histogram:
 Distance       Count  Percent  Cumulative
-       0      155523   43.53%   43.53%
-       1      108799   30.45%   73.98%
-       2       17659    4.94%   78.92%
-       3       12417    3.48%   82.40%
-       4        9304    2.60%   85.00%
-       5        3949    1.11%   86.10%
-       6        1747    0.49%   86.59%
-       7        3091    0.87%   87.46%
-       8        3894    1.09%   88.55%
-       9        3047    0.85%   89.40%
-      10        1415    0.40%   89.80%
-      11        1113    0.31%   90.11%
-      12         682    0.19%   90.30%
-      13         773    0.22%   90.52%
-      14         698    0.20%   90.71%
-      15        1167    0.33%   91.04%
-      16         971    0.27%   91.31%
-      17        1564    0.44%   91.75%
-      18        1127    0.32%   92.06%
-      19         660    0.18%   92.25%
-      20         480    0.13%   92.38%
+       0      153029   44.36%   44.36%
+       1      101294   29.37%   73.73%
+       2       14116    4.09%   77.82%
+       3       14248    4.13%   81.95%
+       4        8894    2.58%   84.53%
+       5        2733    0.79%   85.32%
 ...
-    3642           1    0.00%  100.00%
-    3906           1    0.00%  100.00%
-    3912           1    0.00%  100.00%
+==================================================
+Reuse distance tool results for shard 29327 (thread 29327):
+Total accesses: 335084
+Unique accesses: 187927
+Unique cache lines accessed: 4148
+
+Reuse distance mean: 14.77
+Reuse distance median: 1
+Reuse distance standard deviation: 106.02
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0      147157   44.47%   44.47%
+       1       96820   29.26%   73.72%
+       2       13613    4.11%   77.84%
+       3       13834    4.18%   82.02%
+       4        8666    2.62%   84.64%
+       5        2552    0.77%   85.41%
+...
+    3658          29    0.01%  100.00%
+    3851           1    0.00%  100.00%
 
 Reuse distance threshold = 100 cache lines
 Top 10 frequently referenced cache lines
         cache line:     #references   #distant refs
-    0x7fc242632780:        30216,           56
-    0x7fc240da8fc0:        27664,            0
-    0x7fc240da9000:        18629,            0
-    0x7fc242622e80:        17864,           70
-    0x7fc242622500:        10976,           29
-    0x7fc2426224c0:         9633,           28
-    0x7fc242624940:         8865,            6
-    0x7fc242622480:         8167,           29
-    0x7fc240da8f80:         6660,            0
-    0x7fc242622540:         5768,           31
+    0x7f2a86b3fd80:        27980,            0
+    0x7f2a86b3fdc0:        18823,            0
+    0x7f2a88388fc0:        16409,          111
+    0x7f2a8838abc0:        15176,            6
+    0x7f2a883884c0:         9930,           20
+    0x7f2a88388480:         7944,           20
+    0x7f2a88388500:         7574,           20
+    0x7f2a88398d00:         7390,          100
+    0x7f2a86b3fd40:         6668,            0
+    0x7f2a88388440:         5717,           20
 Top 10 distant repeatedly referenced cache lines
         cache line:     #references   #distant refs
-    0x7fc24283b140:          293,          104
-    0x7fc2417806c0:          353,          100
-    0x7fc24144d000:          333,          100
-    0x7fc24283a940:          322,           99
-    0x7fc2417809c0:          212,           97
-    0x7fc241780700:          320,           96
-    0x7fc24144d300:          202,           96
-    0x7fc241754e40:          319,           95
-    0x7fc24144d040:          314,           95
-    0x7fc24144be40:          309,           95
+    0x7f2a885a4180:          246,          132
+    0x7f2a87504ec0:          202,          128
+    0x7f2a875044c0:          323,          126
+    0x7f2a885a4480:          220,          126
+    0x7f2a87504f00:          293,          124
+    0x7f2a86fd7e00:          289,          124
+    0x7f2a875049c0:          221,          124
+    0x7f2a875053c0:          270,          122
+    0x7f2a86db9c00:          269,          122
+    0x7f2a875047c0:          201,          122
+
+==================================================
+Reuse distance tool results for shard 29328 (thread 29328):
+Total accesses: 12216
+Unique accesses: 7251
+Unique cache lines accessed: 319
+
+Reuse distance mean: 12.98
+Reuse distance median: 1
+Reuse distance standard deviation: 38.19
+Reuse distance histogram:
+Distance       Count  Percent  Cumulative
+       0        4965   41.73%   41.73%
+       1        3758   31.59%   73.32%
+       2         411    3.45%   76.78%
+       3         348    2.93%   79.70%
+       4         179    1.50%   81.21%
+       5         152    1.28%   82.48%
+...
 \endcode
 
 A reuse time tool is also provided, which counts the total number of memory
@@ -281,19 +302,37 @@ address:
 $ bin64/drrun -t drcachesim -simulator_type reuse_time -- ~/test/pi_estimator
 Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
-Reuse time tool results:
-Total accesses: 99944
-Total instructions: 259351
-Mean reuse time: 479.21
+Reuse time tool aggregated results:
+Total accesses: 88281
+Total instructions: 261315
+Mean reuse time: 433.47
 Reuse time histogram:
 Distance       Count  Percent  Cumulative
-       1       33901   34.99%      34.99%
-       2       13646   14.09%      49.08%
-       3        6837    7.06%      56.13%
+       1       27893   32.84%      32.84%
+       2       10948   12.89%      45.73%
+       3        5789    6.82%      52.54%
 ...
-   88585           1    0.00%     100.00%
-   93953           1    0.00%     100.00%
-   94830           1    0.00%     100.00%
+==================================================
+Reuse time tool results for shard 29482 (thread 29482):
+Total accesses: 84194
+Total instructions: 250854
+Mean reuse time: 450.01
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1       26677   32.86%      32.86%
+       2       10508   12.95%      45.81%
+       3        5427    6.69%      52.50%
+...
+==================================================
+Reuse time tool results for shard 29483 (thread 29483):
+Total accesses: 3411
+Total instructions: 8805
+Mean reuse time: 86.36
+Reuse time histogram:
+Distance       Count  Percent  Cumulative
+       1        1014   31.56%      31.56%
+       2         363   11.30%      42.86%
+       3         308    9.59%      52.44%
 \endcode
 
 To simply see the counts of instructions and memory references broken down
