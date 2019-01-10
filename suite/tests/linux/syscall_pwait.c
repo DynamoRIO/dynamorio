@@ -51,14 +51,21 @@
 #include <poll.h>
 #include <sched.h>
 
+#if defined(X86)
 /* Hardware (-and compiler) read/write memory barrier */
-#define mb() asm volatile("mfence" : : : "memory")
+#    define mb() asm volatile("mfence" : : : "memory")
 /* Hardware (-and compiler) write memory barrier */
-#define wmb() asm volatile("sfence" : : : "memory")
+#    define wmb() asm volatile("sfence" : : : "memory")
 /* Hardware (-and compiler) read memory barrier */
-#define rmb() asm volatile("lfence" : : : "memory")
+#    define rmb() asm volatile("lfence" : : : "memory")
 /* Compiler memory barrier */
-#define cmb() asm volatile("" : : : "memory")
+#    define cmb() asm volatile("" : : : "memory")
+#else
+#    define mb()
+#    define wbm()
+#    define rmb()
+#    define cmb()
+#endif
 
 typedef struct {
     sigset_t *sigmask;
