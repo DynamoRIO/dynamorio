@@ -58,14 +58,17 @@
 #    define wmb() asm volatile("sfence" : : : "memory")
 /* Hardware (-and compiler) read memory barrier */
 #    define rmb() asm volatile("lfence" : : : "memory")
-/* Compiler memory barrier */
-#    define cmb() asm volatile("" : : : "memory")
 #else
-#    define mb()
-#    define wmb()
-#    define rmb()
-#    define cmb()
+#    define dsb(opt) asm volatile("dsb " #    opt : : : "memory")
+/* Hardware (-and compiler) read/write memory barrier */
+#    define mb() dsb(sy)
+/* Hardware (-and compiler) read memory barrier */
+#    define rmb() dsb(ld)
+/* Hardware (-and compiler) write memory barrier */
+#    define wmb() dsb(st)
 #endif
+/* Compiler memory barrier */
+#define cmb() asm volatile("" : : : "memory")
 
 typedef struct {
     sigset_t *sigmask;
