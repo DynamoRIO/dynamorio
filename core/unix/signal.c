@@ -2064,7 +2064,7 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
  * signals, and sets dcontext->signals_pending if there are.  Do this after
  * modifying the set of signals blocked by the application.
  */
-static void
+void
 check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 {
     int i;
