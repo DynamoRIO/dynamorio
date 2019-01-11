@@ -352,8 +352,8 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
 bool
 is_repeat_handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext)
 {
-      thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-      return info->pre_syscall_app_sigprocmask_valid;
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    return info->pre_syscall_app_sigprocmask_valid;
 }
 
 bool
