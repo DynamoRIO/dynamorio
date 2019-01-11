@@ -33,6 +33,7 @@
 #ifndef _OPCODE_MIX_H_
 #define _OPCODE_MIX_H_ 1
 
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -114,7 +115,10 @@ protected:
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
     raw2trace_directory_t directory;
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_data;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex;
     unsigned int knob_verbose;
     static const std::string TOOL_NAME;
     // For serial operation.
