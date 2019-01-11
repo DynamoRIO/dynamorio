@@ -33,8 +33,9 @@
 #ifndef _BASIC_COUNTS_H_
 #define _BASIC_COUNTS_H_ 1
 
-#include <unordered_map>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include "analysis_tool.h"
 
@@ -99,7 +100,10 @@ protected:
                  const std::pair<memref_tid_t, counters_t *> &r);
 
     // The keys here are int for parallel, tid for serial.
-    std::unordered_map<memref_tid_t, counters_t *> shard_counters;
+    std::unordered_map<memref_tid_t, counters_t *> shard_map;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex;
     unsigned int knob_verbose;
     static const std::string TOOL_NAME;
 };

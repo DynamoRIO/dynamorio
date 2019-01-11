@@ -81,7 +81,7 @@ opcode_mix_t::initialize()
 
 opcode_mix_t::~opcode_mix_t()
 {
-    for (auto &iter : shard_data) {
+    for (auto &iter : shard_map) {
         delete iter.second;
     }
     dr_mutex_destroy(mapper_mutex);
@@ -113,7 +113,8 @@ opcode_mix_t::parallel_shard_init(int shard_index, void *worker_data)
 {
     worker_data_t *worker = reinterpret_cast<worker_data_t *>(worker_data);
     auto shard = new shard_data_t(worker);
-    shard_data[shard_index] = shard;
+    std::lock_guard<std::mutex> guard(shard_map_mutex);
+    shard_map[shard_index] = shard;
     return reinterpret_cast<void *>(shard);
 }
 
@@ -203,10 +204,10 @@ bool
 opcode_mix_t::print_results()
 {
     shard_data_t total(0);
-    if (shard_data.empty()) {
+    if (shard_map.empty()) {
         total = serial_shard;
     } else {
-        for (const auto &shard : shard_data) {
+        for (const auto &shard : shard_map) {
             total.instr_count += shard.second->instr_count;
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
