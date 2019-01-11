@@ -2,14 +2,20 @@ handlers for signals: 10, 12
 signal blocked: 12
 signal blocked: 10
 Testing epoll_pwait
+#if defined(X86)
 signal received: 10
 signal received: 12
+#endif
 Testing pselect
+#if defined(X86)
 signal received: 10
 signal received: 12
+#endif
 Testing ppoll
+#if defined(X86)
 signal received: 10
 signal received: 12
+#endif
 Testing epoll_pwait failure
 Testing pselect failure
 Testing ppoll failure
