@@ -310,11 +310,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
 
 #ifdef LINUX
 bool
-is_repeat_handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext);
-
-bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
-                                     size_t sizemask);
+                                     size_t sizemask, bool *pending);
 
 void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
