@@ -58,7 +58,7 @@
 #    define wmb() asm volatile("sfence" : : : "memory")
 /* Hardware (-and compiler) read memory barrier */
 #    define rmb() asm volatile("lfence" : : : "memory")
-#else
+#elif defined(AARCH64)
 #    define dsb(opt) asm volatile("dsb " #    opt : : : "memory")
 /* Hardware (-and compiler) read/write memory barrier */
 #    define mb() dsb(sy)
@@ -66,6 +66,14 @@
 #    define rmb() dsb(ld)
 /* Hardware (-and compiler) write memory barrier */
 #    define wmb() dsb(st)
+#else
+#    define dsb(opt) asm volatile("dsb " #    opt : : : "memory")
+/* Hardware (-and compiler) read/write memory barrier */
+#    define mb() dsb(sy)
+/* Hardware (-and compiler) read memory barrier */
+#    define rmb() dsb(sy)
+/* Hardware (-and compiler) write memory barrier */
+#    define wmb() dsb(sy)
 #endif
 /* Compiler memory barrier */
 #define cmb() asm volatile("" : : : "memory")
