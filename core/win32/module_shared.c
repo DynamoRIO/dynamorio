@@ -390,7 +390,7 @@ get_proc_address_common(module_base_t lib, const char *name,
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
     /* sanity checks, split up for readability */
     /* The DLL either exports nothing or has a sane combination of export
-     *  table address and function count.
+     * table address and function count.
      */
     ASSERT(exports->AddressOfFunctions == 0 ||
            (exports->AddressOfFunctions < module_size && exports->NumberOfFunctions > 0));
