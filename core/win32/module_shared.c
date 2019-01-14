@@ -377,7 +377,7 @@ get_proc_address_common(module_base_t lib, const char *name,
     /* NB: There are some DLLs (like System32\profapi.dll) that have no named
      * exported functions names, only ordinals. As a result, the only correct
      * checks we can do here are on the presence and size of the export table
-     * abd the presence and count of the function export list.
+     * and the presence and count of the function export list.
      */
     if (exports == NULL || exports_size == 0 || exports->AddressOfFunctions == 0 ||
         exports->NumberOfFunctions == 0) {
