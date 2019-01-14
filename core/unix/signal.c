@@ -6019,8 +6019,16 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
          * when itself was non-rt?
          */
 
-        /* Discard blocked signals, re-set from prev mask stored in frame. */
-        set_blocked(dcontext, SIGMASK_FROM_UCXT(ucxt), true /*absolute*/);
+        if (info->pre_syscall_app_sigprocmask_valid) {
+            /* Discard blocked signals, re-set from original sigmask we have changed
+             * in pre_system_call of extended p* version of a system call.
+             */
+            set_blocked(dcontext, &info->pre_syscall_app_sigprocmask, true /*absolute*/);
+            info->pre_syscall_app_sigprocmask_valid = false;
+        } else {
+            /* Discard blocked signals, re-set from prev mask stored in frame. */
+            set_blocked(dcontext, SIGMASK_FROM_UCXT(ucxt), true /*absolute*/);
+        }
         /* Restore DR's so sigreturn syscall won't change it. */
         *SIGMASK_FROM_UCXT(ucxt) = our_mask;
     }
@@ -6047,16 +6055,24 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
-        /* discard blocked signals, re-set from prev mask stored in frame */
-        prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
-        if (_NSIG_WORDS > 1) {
-            memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
-                   sizeof(prevset.sig[1]));
-        }
+        if (info->pre_syscall_app_sigprocmask_valid) {
+            /* Discard blocked signals, re-set from original sigmask we have changed
+             * in pre_system_call of extended p* version of a system call.
+             */
+            set_blocked(dcontext, &info->pre_syscall_app_sigprocmask, true /*absolute*/);
+            info->pre_syscall_app_sigprocmask_valid = false;
+        } else {
+            /* Discard blocked signals, re-set from prev mask stored in frame. */
+            prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
+            if (_NSIG_WORDS > 1) {
+                memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
+                       sizeof(prevset.sig[1]));
+            }
 #    ifdef ARM
-        ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
+            ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
 #    endif
-        set_blocked(dcontext, &prevset, true /*absolute*/);
+            set_blocked(dcontext, &prevset, true /*absolute*/);
+        }
         /* Restore DR's so sigreturn syscall won't change it. */
         convert_rt_mask_to_nonrt(frame, &our_mask);
     }

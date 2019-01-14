@@ -3112,6 +3112,7 @@ if (UNIX)
   tobuild(linux.sigaction   linux/sigaction.c)
   if (LINUX)
     tobuild(linux.syscall_pwait linux/syscall_pwait.c)
+    link_with_pthread(linux.syscall_pwait)
   endif ()
   if (LINUX AND NOT ANDROID) # Only tests RT sigaction which is not supported on Android.
     tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)

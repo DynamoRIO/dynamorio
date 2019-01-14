@@ -7457,7 +7457,10 @@ pre_system_call(dcontext_t *dcontext)
             /* If there had been pending signals, we revert re-writing the app's
              * parameter, but we leave the modified signal mask.
              */
-            set_syscall_param(dcontext, 3, (reg_t)sigmask);
+            set_syscall_param(dcontext, 3, dcontext->sys_param4);
+            set_failure_return_val(dcontext, EINTR);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }
@@ -7497,12 +7500,15 @@ pre_system_call(dcontext_t *dcontext)
         }
         if (sig_pending) {
             if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                               &data.sigmask, NULL)) {
+                               &dcontext->sys_param4, NULL)) {
                 set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 execute_syscall = false;
                 break;
             }
+            set_failure_return_val(dcontext, EINTR);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }
@@ -7521,7 +7527,10 @@ pre_system_call(dcontext_t *dcontext)
             execute_syscall = false;
         }
         if (sig_pending) {
-            set_syscall_param(dcontext, 4, (reg_t)sigmask);
+            set_syscall_param(dcontext, 4, dcontext->sys_param4);
+            set_failure_return_val(dcontext, EINTR);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            execute_syscall = false;
         }
         break;
     }

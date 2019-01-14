@@ -366,9 +366,9 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
     /* XXX: we do not support any kind of nesting of p* variants of system calls, e.g.
      * by executing another one in a signal handler, should the kernel support this.
      */
-    if (!info->pre_syscall_app_sigprocmask_valid)
-        info->pre_syscall_app_sigprocmask = info->app_sigblocked;
+    ASSERT(!info->pre_syscall_app_sigprocmask_valid);
     info->pre_syscall_app_sigprocmask_valid = true;
+    info->pre_syscall_app_sigprocmask = info->app_sigblocked;
     signal_set_mask(dcontext, sigmask);
     /* Make sure we deliver pending signals that are now unblocked. */
     check_signals_pending(dcontext, info);
@@ -380,7 +380,6 @@ void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    ASSERT(info->pre_syscall_app_sigprocmask_valid);
     info->pre_syscall_app_sigprocmask_valid = false;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
 }
