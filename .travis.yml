@@ -32,10 +32,9 @@
 
 notifications:
   email:
-    # XXX i#3031: We'd like to send email to dynamorio-devs@googlegroups.com,
-    # but Travis stopped supporting that and will only send to registered
-    # Github account addresses, so we go with the default of just the
-    # committer and author and rely on PR testing to pre-detect failures.
+    # This overrides the default of sending to the committer and author.
+    recipients:
+      - dynamorio-devs@googlegroups.com
     on_success: change
     on_failure: always
 
