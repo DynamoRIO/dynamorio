@@ -168,6 +168,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${zlib_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
+link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
 install_client_nonDR_header(drmemtrace common/utils.h)

@@ -1116,7 +1116,7 @@ find_prior_scratch_reg_restore(dcontext_t *dcontext, instr_t *instr, reg_id_t *p
            instr_is_label(prev) && instr_is_our_mangling(prev))
         prev = instr_get_prev(prev);
     if (prev != NULL &&
-        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg)) {
+        instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, prior_reg, NULL)) {
         if (tls && !spill && *prior_reg >= SCRATCH_REG0 && *prior_reg <= SCRATCH_REG_LAST)
             return prev;
     }
@@ -1144,9 +1144,9 @@ insert_save_to_tls_if_necessary(dcontext_t *dcontext, instrlist_t *ilist, instr_
     STATS_INC(non_mbr_spills);
     prev = find_prior_scratch_reg_restore(dcontext, where, &prior_reg);
     if (INTERNAL_OPTION(opt_mangle) > 0 && prev != NULL && prior_reg == reg) {
-        ASSERT(
-            instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg) &&
-            tls && !spill && prior_reg == reg);
+        ASSERT(instr_is_DR_reg_spill_or_restore(dcontext, prev, &tls, &spill, &prior_reg,
+                                                NULL) &&
+               tls && !spill && prior_reg == reg);
         /* remove the redundant restore-spill pair */
         instrlist_remove(ilist, prev);
         instr_destroy(dcontext, prev);
@@ -1517,7 +1517,7 @@ mangle_add_predicated_fall_through(dcontext_t *dcontext, instrlist_t *ilist,
         instr_t *prev = instr_get_next(mangle_start);
         for (; prev != next_instr; prev = instr_get_next(prev)) {
             if (instr_is_app(prev) ||
-                !instr_is_DR_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL))
+                !instr_is_DR_reg_spill_or_restore(dcontext, prev, NULL, NULL, NULL, NULL))
                 instr_set_predicate(prev, pred);
         }
     }

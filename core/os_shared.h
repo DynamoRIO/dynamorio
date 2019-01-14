@@ -235,6 +235,9 @@ set_thread_private_dcontext(dcontext_t *dcontext);
 ushort
 os_tls_offset(ushort tls_offs);
 
+ushort
+os_local_state_offset(ushort seg_offs);
+
 struct _local_state_t;          /* in arch_exports.h */
 struct _local_state_extended_t; /* in arch_exports.h */
 struct _local_state_t *

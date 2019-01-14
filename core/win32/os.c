@@ -4441,6 +4441,13 @@ os_tls_offset(ushort tls_offs)
     return (ushort)(tls_local_state_offs + tls_offs);
 }
 
+/* converts a segment offset to a local_state_t offset */
+ushort
+os_local_state_offset(ushort seg_offs)
+{
+    return (ushort)(seg_offs - tls_local_state_offs);
+}
+
 local_state_t *
 get_local_state()
 {

@@ -231,6 +231,7 @@ struct trace_metadata_reader_t {
 /**
  * module_mapper_t maps and unloads application modules.
  * Using it assumes a dr_context has already been setup.
+ * This class is not thread-safe.
  */
 class module_mapper_t final {
 public:
@@ -299,6 +300,15 @@ public:
      */
     app_pc
     find_mapped_trace_address(app_pc trace_address);
+
+    /**
+     * This is identical to find_mapped_trace_address() but it also returns the
+     * bounds of the containing region, allowing the caller to perform its own
+     * mapping for any address that is also within those bounds.
+     */
+    app_pc
+    find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
+                             OUT size_t *module_size);
 
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
@@ -750,9 +760,7 @@ private:
         trace_entry_t *buf = *buf_in;
         const offline_entry_t *in_entry = impl()->get_next_entry(tls);
         bool have_type = false;
-        if (in_entry == nullptr)
-            return "Trace ends mid-block";
-        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+        if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
             in_entry->extended.ext == OFFLINE_EXT_TYPE_MEMINFO) {
             // For -L0_filter we have to store the type for multi-memref instrs where
             // we can't tell which memref it is (we'll still come here for the subsequent
@@ -765,8 +773,9 @@ private:
             if (in_entry == nullptr)
                 return "Trace ends mid-block";
         }
-        if (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
-            in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH) {
+        if (in_entry == nullptr ||
+            (in_entry->addr.type != OFFLINE_TYPE_MEMREF &&
+             in_entry->addr.type != OFFLINE_TYPE_MEMREF_HIGH)) {
             // This happens when there are predicated memrefs in the bb, or for a
             // zero-iter rep string loop, or for a multi-memref instr with -L0_filter.
             // For predicated memrefs, they could be earlier, so "instr"
@@ -776,8 +785,10 @@ private:
             impl()->log(4,
                         "Missing memref from predication, 0-iter repstr, or filter "
                         "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
-                        in_entry->combined_value);
-            impl()->unread_last_entry(tls);
+                        in_entry == nullptr ? 0 : in_entry->combined_value);
+            if (in_entry != nullptr) {
+                impl()->unread_last_entry(tls);
+            }
             return "";
         }
         if (!have_type) {

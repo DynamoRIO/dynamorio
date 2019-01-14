@@ -262,7 +262,10 @@ main(int argc, const char *argv[])
     /* Open input/output files outside of traced region. And explicitly don't destroy dir,
      * so they never get closed.
      */
-    raw2trace_directory_t *dir = new raw2trace_directory_t(op_indir.get_value(), "");
+    raw2trace_directory_t *dir = new raw2trace_directory_t;
+    std::string dir_err = dir->initialize(op_indir.get_value(), "");
+    if (!dir_err.empty())
+        std::cerr << "Directory setup failed: " << dir_err;
 
     bool test1_ret = test_raw2trace(dir);
     bool test2_ret = test_module_mapper(dir);
