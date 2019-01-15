@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,25 +50,62 @@ reuse_distance_tool_create(const reuse_distance_knobs_t &knobs)
 
 reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs_)
     : knobs(knobs_)
-    , total_refs(0)
+    , line_size_bits(compute_log2((int)knobs.line_size))
 {
-    line_size_bits = compute_log2((int)knobs.line_size);
-    ref_list = new line_ref_list_t(knobs.distance_threshold, knobs.skip_list_distance,
-                                   knobs.verify_skip);
     if (DEBUG_VERBOSE(2)) {
         std::cerr << "cache line size " << knobs.line_size << ", "
-                  << "reuse distance threshold " << ref_list->threshold << std::endl;
+                  << "reuse distance threshold " << knobs.distance_threshold << std::endl;
     }
 }
 
 reuse_distance_t::~reuse_distance_t()
 {
-    delete ref_list;
+    for (auto &shard : shard_map) {
+        delete shard.second;
+    }
+}
+
+reuse_distance_t::shard_data_t::shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
+                                             bool verify)
+{
+    ref_list = std::unique_ptr<line_ref_list_t>(
+        new line_ref_list_t(reuse_threshold, skip_dist, verify));
 }
 
 bool
-reuse_distance_t::process_memref(const memref_t &memref)
+reuse_distance_t::parallel_shard_supported()
 {
+    return true;
+}
+
+void *
+reuse_distance_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    auto shard = new shard_data_t(knobs.distance_threshold, knobs.skip_list_distance,
+                                  knobs.verify_skip);
+    std::lock_guard<std::mutex> guard(shard_map_mutex);
+    shard_map[shard_index] = shard;
+    return reinterpret_cast<void *>(shard);
+}
+
+bool
+reuse_distance_t::parallel_shard_exit(void *shard_data)
+{
+    // Nothing (we read the shard data in print_results).
+    return true;
+}
+
+std::string
+reuse_distance_t::parallel_shard_error(void *shard_data)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
+    return shard->error;
+}
+
+bool
+reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (DEBUG_VERBOSE(3)) {
         std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
                   << ":: " << trace_type_names[memref.data.type];
@@ -80,32 +117,56 @@ reuse_distance_t::process_memref(const memref_t &memref)
         }
         std::cerr << std::endl;
     }
+    if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
+        shard->tid = memref.exit.tid;
+        return true;
+    }
     if (type_is_instr(memref.instr.type) || memref.data.type == TRACE_TYPE_READ ||
         memref.data.type == TRACE_TYPE_WRITE ||
         // We may potentially handle prefetches differently.
         // TRACE_TYPE_PREFETCH_INSTR is handled above.
         type_is_prefetch(memref.data.type)) {
-        ++total_refs;
+        ++shard->total_refs;
         addr_t tag = memref.data.addr >> line_size_bits;
-        std::unordered_map<addr_t, line_ref_t *>::iterator it = cache_map.find(tag);
-        if (it == cache_map.end()) {
+        std::unordered_map<addr_t, line_ref_t *>::iterator it =
+            shard->cache_map.find(tag);
+        if (it == shard->cache_map.end()) {
             line_ref_t *ref = new line_ref_t(tag);
             // insert into the map
-            cache_map.insert(std::pair<addr_t, line_ref_t *>(tag, ref));
+            shard->cache_map.insert(std::pair<addr_t, line_ref_t *>(tag, ref));
             // insert into the list
-            ref_list->add_to_front(ref);
+            shard->ref_list->add_to_front(ref);
         } else {
-            int_least64_t dist = ref_list->move_to_front(it->second);
+            int_least64_t dist = shard->ref_list->move_to_front(it->second);
             std::unordered_map<int_least64_t, int_least64_t>::iterator dist_it =
-                dist_map.find(dist);
-            if (dist_it == dist_map.end())
-                dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
+                shard->dist_map.find(dist);
+            if (dist_it == shard->dist_map.end())
+                shard->dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
             else
                 ++dist_it->second;
             if (DEBUG_VERBOSE(3)) {
                 std::cerr << "Distance is " << dist << "\n";
             }
         }
+    }
+    return true;
+}
+
+bool
+reuse_distance_t::process_memref(const memref_t &memref)
+{
+    // For serial operation we index using the tid.
+    shard_data_t *shard;
+    const auto &lookup = shard_map.find(memref.data.tid);
+    if (lookup == shard_map.end()) {
+        shard = new shard_data_t(knobs.distance_threshold, knobs.skip_list_distance,
+                                 knobs.verify_skip);
+        shard_map[memref.data.tid] = shard;
+    } else
+        shard = lookup->second;
+    if (!parallel_shard_memref(reinterpret_cast<void *>(shard), memref)) {
+        error_string = shard->error;
+        return false;
     }
     return true;
 }
@@ -147,13 +208,12 @@ cmp_distant_refs(const std::pair<addr_t, line_ref_t *> &l,
     return l.first < r.first;
 }
 
-bool
-reuse_distance_t::print_results()
+void
+reuse_distance_t::print_shard_results(const shard_data_t *shard)
 {
-    std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << "Total accesses: " << total_refs << "\n";
-    std::cerr << "Unique accesses: " << ref_list->cur_time << "\n";
-    std::cerr << "Unique cache lines accessed: " << ref_list->unique_lines << "\n";
+    std::cerr << "Total accesses: " << shard->total_refs << "\n";
+    std::cerr << "Unique accesses: " << shard->ref_list->cur_time << "\n";
+    std::cerr << "Unique cache lines accessed: " << shard->cache_map.size() << "\n";
     std::cerr << "\n";
 
     std::cerr.precision(2);
@@ -161,19 +221,18 @@ reuse_distance_t::print_results()
 
     double sum = 0.0;
     int_least64_t count = 0;
-    for (std::unordered_map<int_least64_t, int_least64_t>::iterator it = dist_map.begin();
-         it != dist_map.end(); ++it) {
-        sum += it->first * it->second;
-        count += it->second;
+    for (const auto &it : shard->dist_map) {
+        sum += it.first * it.second;
+        count += it.second;
     }
     double mean = sum / count;
     std::cerr << "Reuse distance mean: " << mean << "\n";
     double sum_of_squares = 0;
     int_least64_t recount = 0;
     bool have_median = false;
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(dist_map.size());
-    std::partial_sort_copy(dist_map.begin(), dist_map.end(), sorted.begin(), sorted.end(),
-                           cmp_dist_key);
+    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(shard->dist_map.size());
+    std::partial_sort_copy(shard->dist_map.begin(), shard->dist_map.end(), sorted.begin(),
+                           sorted.end(), cmp_dist_key);
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         double diff = it->first - mean;
         sum_of_squares += (diff * diff) * it->second;
@@ -205,10 +264,11 @@ reuse_distance_t::print_results()
     }
 
     std::cerr << "\n";
-    std::cerr << "Reuse distance threshold = " << ref_list->threshold << " cache lines\n";
+    std::cerr << "Reuse distance threshold = " << knobs.distance_threshold
+              << " cache lines\n";
     std::vector<std::pair<addr_t, line_ref_t *>> top(knobs.report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(), top.begin(), top.end(),
-                           cmp_total_refs);
+    std::partial_sort_copy(shard->cache_map.begin(), shard->cache_map.end(), top.begin(),
+                           top.end(), cmp_total_refs);
     std::cerr << "Top " << top.size() << " frequently referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
               << ": " << std::setw(17) << "#references  " << std::setw(14)
@@ -225,8 +285,8 @@ reuse_distance_t::print_results()
     }
     top.clear();
     top.resize(knobs.report_top);
-    std::partial_sort_copy(cache_map.begin(), cache_map.end(), top.begin(), top.end(),
-                           cmp_distant_refs);
+    std::partial_sort_copy(shard->cache_map.begin(), shard->cache_map.end(), top.begin(),
+                           top.end(), cmp_distant_refs);
     std::cerr << "Top " << top.size() << " distant repeatedly referenced cache lines\n";
     std::cerr << std::setw(18) << "cache line"
               << ": " << std::setw(17) << "#references  " << std::setw(14)
@@ -240,6 +300,61 @@ reuse_distance_t::print_results()
                   << (it->first << line_size_bits) << ": " << std::setw(12) << std::dec
                   << it->second->total_refs << ", " << std::setw(12) << std::dec
                   << it->second->distant_refs << "\n";
+    }
+}
+
+bool
+reuse_distance_t::print_results()
+{
+    // First, aggregate the per-shard data into whole-trace data.
+    auto aggregate = std::unique_ptr<shard_data_t>(new shard_data_t(
+        knobs.distance_threshold, knobs.skip_list_distance, knobs.verify_skip));
+    for (const auto &shard : shard_map) {
+        aggregate->total_refs += shard.second->total_refs;
+        // We simply sum the unique accesses.
+        // If the user wants the unique accesses over the merged trace they
+        // can create a single shard and invoke the parallel operations.
+        aggregate->ref_list->cur_time += shard.second->ref_list->cur_time;
+        // We merge the histogram and the cache_map.
+        for (const auto &entry : shard.second->dist_map) {
+            aggregate->dist_map[entry.first] += entry.second;
+        }
+        for (const auto &entry : shard.second->cache_map) {
+            const auto &existing = aggregate->cache_map.find(entry.first);
+            line_ref_t *ref;
+            if (existing == aggregate->cache_map.end()) {
+                ref = new line_ref_t(entry.first);
+                aggregate->cache_map.insert(
+                    std::pair<addr_t, line_ref_t *>(entry.first, ref));
+                ref->total_refs = 0;
+            } else {
+                ref = existing->second;
+            }
+            ref->total_refs += entry.second->total_refs;
+            ref->distant_refs += entry.second->distant_refs;
+        }
+    }
+
+    std::cerr << TOOL_NAME << " aggregated results:\n";
+    print_shard_results(aggregate.get());
+
+    // For regular shards the line_ref_t's are deleted in ~line_ref_list_t.
+    for (auto &iter : aggregate->cache_map) {
+        delete iter.second;
+    }
+
+    if (shard_map.size() > 1) {
+        using keyval_t = std::pair<memref_tid_t, shard_data_t *>;
+        std::vector<keyval_t> sorted(shard_map.begin(), shard_map.end());
+        std::sort(sorted.begin(), sorted.end(), [](const keyval_t &l, const keyval_t &r) {
+            return l.second->total_refs > r.second->total_refs;
+        });
+        for (const auto &shard : sorted) {
+            std::cerr << "\n==================================================\n"
+                      << TOOL_NAME << " results for shard " << shard.first << " (thread "
+                      << shard.second->tid << "):\n";
+            print_shard_results(shard.second);
+        }
     }
 
     return true;
