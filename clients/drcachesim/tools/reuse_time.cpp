@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "reuse_time.h"
