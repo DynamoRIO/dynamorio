@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -2629,8 +2629,18 @@ endif ()
         torunonly_simtool(reuse_offline ${ci_shared_app}
           "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "")
 
-        torunonly_simtool(reuse_time_offline ${ci_shared_app}
-          "-infile ${small_trace_file} -simulator_type reuse_time" "")
+        # Our multi-threaded sample trace is larger so we require gzip.
+        if (ZLIB_FOUND)
+          set(thread_trace_dir
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+          torunonly_simtool(reuse_offline_threads ${ci_shared_app}
+            "-indir ${thread_trace_dir} -simulator_type reuse_distance -reuse_distance_histogram" "")
+          set(tool.reuse_offline_threads_rawtemp ON) # no preprocessor
+
+          torunonly_simtool(reuse_time_offline ${ci_shared_app}
+            "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
+          set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
+        endif ()
       endif ()
 
       # We run an app w/ kernel xfers to test trace_invariants online.
