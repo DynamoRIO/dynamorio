@@ -363,8 +363,8 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
      */
     if (sizemask != sizeof(kernel_sigset_t))
         return false;
-    /* XXX: we do not support any kind of nesting of p* variants of system calls, e.g.
-     * by executing another one in a signal handler, should the kernel support this.
+    /* XXX i#3344: we do not support any kind of nesting of p* variants of system calls,
+     * e.g. by executing another one in a signal handler, should the kernel support this.
      */
     ASSERT(!info->pre_syscall_app_sigprocmask_valid);
     info->pre_syscall_app_sigprocmask_valid = true;
