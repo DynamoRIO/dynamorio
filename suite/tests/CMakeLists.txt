@@ -447,7 +447,7 @@ function (set_cflags source)
   endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
-    string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+    string(REGEX REPLACE "-std=gnu99" "-std=c++11" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
