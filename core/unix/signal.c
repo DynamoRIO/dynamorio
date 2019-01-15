@@ -6039,7 +6039,6 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
         /* Discard blocked signals, re-set from prev mask stored in frame. */
         set_blocked(dcontext, SIGMASK_FROM_UCXT(ucxt), true /*absolute*/);
-
         /* Restore DR's so sigreturn syscall won't change it. */
         *SIGMASK_FROM_UCXT(ucxt) = our_mask;
     }
