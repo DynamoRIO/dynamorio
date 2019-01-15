@@ -103,6 +103,7 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
             worker = (worker + 1) % worker_count;
         }
     } else {
+        parallel = false;
         serial_trace_iter = std::unique_ptr<reader_t>(
             new my_file_reader_t(trace_path.c_str(), verbosity));
     }
