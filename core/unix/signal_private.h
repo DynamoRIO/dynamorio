@@ -434,6 +434,8 @@ typedef struct _thread_sig_info_t {
      * mask supporting ppoll, epoll_pwait and pselect
      */
     kernel_sigset_t pre_syscall_app_sigprocmask;
+    /* True if pre_syscall_app_sigprocmask holds a pre-syscall sigmask */
+    bool pre_syscall_app_sigprocmask_valid;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)
      */
@@ -615,6 +617,9 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info);
 bool
 notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 sigframe_rt_t *frame);
+
+void
+check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info);
 #endif
 
 #endif /* _SIGNAL_PRIVATE_H_ */

@@ -447,7 +447,9 @@ function (set_cflags source)
   endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
-    string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+    # configure_DynamoRIO_global removes unfavorable options for clients,
+    # re-adding -std=c++11.
+    string(REGEX REPLACE "-std=gnu99" "-std=c++11" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
@@ -3121,7 +3123,8 @@ if (UNIX)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
   if (LINUX)
-    tobuild(linux.syscall_pwait linux/syscall_pwait.c)
+    tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
+    link_with_pthread(linux.syscall_pwait)
   endif ()
   if (LINUX AND NOT ANDROID) # Only tests RT sigaction which is not supported on Android.
     tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)

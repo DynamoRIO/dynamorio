@@ -49,13 +49,25 @@
 #include <unistd.h>
 #include <time.h>
 #include <poll.h>
+#include <sched.h>
+#include <functional>
+#include "thread.h"
+#include "condvar.h"
 
 typedef struct {
     sigset_t *sigmask;
     size_t sizemask;
 } data_t;
 
+typedef struct {
+    pthread_t main_thread;
+    bool immediately;
+    int sig;
+} args_t;
+
 static struct timespec sleeptime;
+static void *ready_to_listen;
+static args_t args;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
@@ -63,26 +75,84 @@ signal_handler(int sig, siginfo_t *siginfo, void *context)
     print("signal received: %d\n", sig);
 }
 
-bool
-kick_off_child_signals()
+THREAD_FUNC_RETURN_TYPE
+kick_off_child_func(void *arg)
 {
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    int pid = fork();
-    if (pid < 0) {
-        perror("fork error");
-    } else if (pid == 0) {
+    args_t args = *(args_t *)arg;
+    if (!args.immediately) {
         /* waste some time */
         nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR2);
-        /* waste some time */
-        nanosleep(&sleeptime, NULL);
-        kill(getppid(), SIGUSR1);
-        return true;
     }
+    pthread_kill(args.main_thread, args.sig);
+    signal_cond_var(ready_to_listen);
+    return THREAD_FUNC_RETURN_ZERO;
+}
 
-    return false;
+pthread_t
+kick_off_child_signal(int count, pthread_t main_thread, bool immediately)
+{
+    pthread_t child_thread;
+    reset_cond_var(ready_to_listen);
+    args.main_thread = main_thread;
+    args.immediately = immediately;
+    if (count == 1) {
+        args.sig = SIGUSR1;
+        child_thread = create_thread(kick_off_child_func, &args);
+    } else if (count == 2) {
+        args.sig = SIGUSR2;
+        child_thread = create_thread(kick_off_child_func, &args);
+    }
+    if (immediately) {
+        /* This makes sure that the signal is pending
+         * in the kernel after return of this call.
+         */
+        wait_cond_var(ready_to_listen);
+    }
+    return child_thread;
+}
+
+void
+execute_subtest(pthread_t main_thread, sigset_t *test_set, std::function<int()> psyscall)
+{
+    int count;
+    for (int i = 0; i < 2; ++i) {
+        count = 0;
+        while (count++ < 2) {
+            /* XXX i#3240: DR currently does not handle the atomicity aspect of this
+             * system call. Once it does, please include this in this test or add a new
+             * test.
+             */
+            sigset_t pre_syscall_set = {
+                0, /* Set padding to 0 so we can use memcmp */
+            };
+            /* immediately == true sends the signal before the system call is executed
+             * such that the signal is in pending state once we start the call.
+             * immediately == false adds a delay before sending the signal such that the
+             * signal arrives while we are in the system call, but there is no check to
+             * verifiy whether it arrived "late enough".
+             */
+            bool immediately = i == 0 ? true : false;
+            pthread_t child_thread =
+                kick_off_child_signal(count, main_thread, immediately);
+            pthread_sigmask(SIG_SETMASK, NULL, &pre_syscall_set);
+            if (psyscall() == -1) {
+                if (errno != EINTR)
+                    perror("expected EINTR");
+            } else {
+                perror("expected interruption of syscall");
+            }
+            sigset_t post_syscall_set = {
+                0, /* Set padding to 0 so we can use memcmp */
+            };
+            pthread_sigmask(SIG_SETMASK, NULL, &post_syscall_set);
+            if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) !=
+                0) {
+                print("sigmask mismatch\n");
+                exit(1);
+            }
+            pthread_join(child_thread, NULL);
+        }
+    }
 }
 
 int
@@ -93,15 +163,20 @@ main(int argc, char *argv[])
 
     INIT();
 
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 500 * 1000 * 1000;
+    sleeptime.tv_sec = 1;
+    sleeptime.tv_nsec = 0;
 
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
     print("handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
     sigemptyset(&new_set);
+    sigaddset(&new_set, SIGUSR2);
     sigaddset(&new_set, SIGUSR1);
-    sigprocmask(SIG_BLOCK, &new_set, NULL);
+    pthread_sigmask(SIG_BLOCK, &new_set, NULL);
+    /* We need to block the signals for the purpose of this test, so that
+     * the p* system call will unblock it as part of its execution.
+     */
+    print("signal blocked: %d\n", SIGUSR2);
     print("signal blocked: %d\n", SIGUSR1);
 
     sigset_t test_set;
@@ -109,108 +184,42 @@ main(int argc, char *argv[])
     sigdelset(&test_set, SIGUSR1);
     sigdelset(&test_set, SIGUSR2);
 
-    if (kick_off_child_signals())
-        return 0;
-
-    int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-    struct epoll_event events;
+    ready_to_listen = create_cond_var();
+    pthread_t main_thread = pthread_self();
 
     print("Testing epoll_pwait\n");
 
-    int count = 0;
-    while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
-         */
-        sigset_t pre_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
-        if (epoll_pwait(epoll_fd, &events, 24, -1, &test_set) == -1) {
-            if (errno != EINTR)
-                perror("expected EINTR");
-        } else {
-            perror("expected interruption of syscall");
-        }
-        sigset_t post_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
-            print("sigmask mismatch");
-            exit(1);
-        }
-    }
-
-    if (kick_off_child_signals())
-        return 0;
+    auto psyscall_epoll_pwait = [test_set]() -> int {
+        int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        struct epoll_event events;
+        return epoll_pwait(epoll_fd, &events, 24, -1, &test_set);
+    };
+    execute_subtest(main_thread, &test_set, psyscall_epoll_pwait);
 
     print("Testing pselect\n");
 
-    count = 0;
-    while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
-         */
-        sigset_t pre_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
-        if (pselect(0, NULL, NULL, NULL, NULL, &test_set) == -1) {
-            if (errno != EINTR)
-                perror("expected EINTR");
-        } else {
-            perror("expected interruption of syscall");
-        }
-        sigset_t post_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
-            print("sigmask mismatch");
-            exit(1);
-        }
-    }
-
-    if (kick_off_child_signals())
-        return 0;
+    auto psyscall_pselect = [test_set]() -> int {
+        return pselect(0, NULL, NULL, NULL, NULL, &test_set);
+    };
+    execute_subtest(main_thread, &test_set, psyscall_pselect);
 
     print("Testing ppoll\n");
 
-    count = 0;
-    while (count++ < 2) {
-        /* XXX i#3240: DR currently does not handle the atomicity aspect of this system
-         * call. Once it does, please include this in this test or add a new test.
-         */
-        sigset_t pre_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &pre_syscall_set);
-        if (ppoll(NULL, 0, NULL, &test_set) == -1) {
-            if (errno != EINTR)
-                perror("expected EINTR");
-        } else {
-            perror("expected interruption of syscall");
-        }
-        sigset_t post_syscall_set = {
-            0, /* Set padding to 0 so we can use memcmp */
-        };
-        sigprocmask(SIG_SETMASK, NULL, &post_syscall_set);
-        if (memcmp(&pre_syscall_set, &post_syscall_set, sizeof(pre_syscall_set)) != 0) {
-            print("sigmask mismatch");
-            exit(1);
-        }
-    }
+    auto psyscall_ppoll = [test_set]() -> int { return ppoll(NULL, 0, NULL, &test_set); };
+    execute_subtest(main_thread, &test_set, psyscall_ppoll);
 
     print("Testing epoll_pwait failure\n");
 
-    /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the nature
-     * of the syscall. Maybe change this into something that will rather fail immediately.
+    /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the
+     * nature of the syscall. Maybe change this into something that will rather fail
+     * immediately.
      */
 
     /* waste some time */
     nanosleep(&sleeptime, NULL);
 
+    int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    struct epoll_event events;
     if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24LL, -1LL, &test_set, 0) == 0) {
         print("expected syscall failure");
         exit(1);
@@ -249,15 +258,13 @@ main(int argc, char *argv[])
 
 #if defined(X86) && defined(X64)
 
-    if (kick_off_child_signals())
-        return 0;
-
     print("Testing epoll_pwait, preserve mask\n");
 
-    count = 0;
+    int count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        pthread_t child_thread = kick_off_child_signal(count, main_thread, true);
         /* Syscall preserves all registers except rax, rcx and r11. Note that we're
          * clobbering rbx (which is choosen randomly) in order to save the old mask
          * for a mask check. Upon a syscall, DR will modify the sigmask parameter
@@ -292,18 +299,16 @@ main(int argc, char *argv[])
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
         if (mask_error == 1) {
-            /* This checks whether DR has properly restored the mask parameter after the
-             * syscall. I.e. internally, DR may choose to change the parameter prior to
-             * the syscall.
+            /* This checks whether DR has properly restored the mask parameter after
+             * the syscall. I.e. internally, DR may choose to change the parameter
+             * prior to the syscall.
              */
             perror("expected syscall to preserve mask parameter");
         }
+        pthread_join(child_thread, NULL);
     }
 
     data_t data = { &test_set, _NSIG / 8 };
-
-    if (kick_off_child_signals())
-        return 0;
 
     print("Testing pselect, preserve mask\n");
 
@@ -311,6 +316,7 @@ main(int argc, char *argv[])
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        pthread_t child_thread = kick_off_child_signal(count, main_thread, true);
         asm volatile("movq 0(%8), %%rbx\n\t"
                      "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
@@ -339,10 +345,8 @@ main(int argc, char *argv[])
             perror("expected syscall error EINTR");
         if (mask_error == 1)
             perror("expected syscall to preserve mask parameter");
+        pthread_join(child_thread, NULL);
     }
-
-    if (kick_off_child_signals())
-        return 0;
 
     print("Testing ppoll, preserve mask\n");
 
@@ -350,6 +354,7 @@ main(int argc, char *argv[])
     while (count++ < 2) {
         int syscall_error = 0;
         int mask_error = 0;
+        pthread_t child_thread = kick_off_child_signal(count, main_thread, true);
         asm volatile("mov %6, %%rbx\n\t"
                      "movq %2, %%rax\n\t"
                      "movq %3, %%rdi\n\t"
@@ -377,9 +382,12 @@ main(int argc, char *argv[])
             perror("expected syscall error EINTR");
         if (mask_error == 1)
             perror("expected syscall to preserve mask parameter");
+        pthread_join(child_thread, NULL);
     }
 
 #endif
+
+    destroy_cond_var(ready_to_listen);
 
     return 0;
 }
