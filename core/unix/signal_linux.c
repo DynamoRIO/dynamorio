@@ -363,7 +363,6 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
      */
     if (sizemask != sizeof(kernel_sigset_t))
         return false;
-    /* Fixes #3344. */
     ASSERT(!info->pre_syscall_app_sigprocmask_valid);
     info->pre_syscall_app_sigprocmask_valid = true;
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;

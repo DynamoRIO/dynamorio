@@ -3162,12 +3162,12 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         ASSERT_NOT_REACHED();
     }
 
-    kernel_sigset_t *pre_syscall_app_sigprocmask = NULL;
+    kernel_sigset_t *mask_to_restore = NULL;
     if (info->pre_syscall_app_sigprocmask_valid) {
-        pre_syscall_app_sigprocmask = &info->pre_syscall_app_sigprocmask;
+        mask_to_restore = &info->pre_syscall_app_sigprocmask;
         info->pre_syscall_app_sigprocmask_valid = false;
     } else {
-        pre_syscall_app_sigprocmask = &info->app_sigblocked;
+        mask_to_restore = &info->app_sigblocked;
     }
 
     /* if !has_restorer we do NOT add the restorer code to the exec list here,
@@ -3192,11 +3192,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         f_new->uc.uc_stack = info->app_sigstack;
 #endif
 
-        /* Store the prior app's mask or the mask that had been saved pre-syscall, for
-         * restoring in sigreturn.
-         */
-        memcpy(&f_new->uc.uc_sigmask, pre_syscall_app_sigprocmask,
-               sizeof(info->app_sigblocked));
+         /* Store the prior mask, for restoring in sigreturn. */
+        memcpy(&f_new->uc.uc_sigmask, mask_to_restore, sizeof(info->app_sigblocked));
     } else {
 #ifdef X64
         ASSERT_NOT_REACHED();
@@ -3238,10 +3235,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         info->signal_restorer_retaddr = (app_pc)f_new->pretcode;
 #        endif
 #    endif /* X86 */
-        /* Store the prior app's mask or the mask that had been saved pre-syscall, for
-         * restoring in sigreturn.
-         */
-        convert_rt_mask_to_nonrt(f_new, pre_syscall_app_sigprocmask);
+        /* Store the prior mask, for restoring in sigreturn. */
+        convert_rt_mask_to_nonrt(f_new, mask_to_restore);
 #endif /* LINUX && !X64 */
     }
 
@@ -6060,6 +6055,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
+        /* discard blocked signals, re-set from prev mask stored in frame */
         prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
         if (_NSIG_WORDS > 1) {
             memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
