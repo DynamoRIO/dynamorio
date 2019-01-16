@@ -3192,7 +3192,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         f_new->uc.uc_stack = info->app_sigstack;
 #endif
 
-         /* Store the prior mask, for restoring in sigreturn. */
+        /* Store the prior mask, for restoring in sigreturn. */
         memcpy(&f_new->uc.uc_sigmask, mask_to_restore, sizeof(info->app_sigblocked));
     } else {
 #ifdef X64
