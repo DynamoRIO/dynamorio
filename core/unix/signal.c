@@ -3166,6 +3166,8 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     if (info->pre_syscall_app_sigprocmask_valid) {
         pre_syscall_app_sigprocmask = &info->pre_syscall_app_sigprocmask;
         info->pre_syscall_app_sigprocmask_valid = false;
+    } else {
+        pre_syscall_app_sigprocmask = &info->app_sigblocked;
     }
 
     /* if !has_restorer we do NOT add the restorer code to the exec list here,
@@ -3190,17 +3192,11 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         f_new->uc.uc_stack = info->app_sigstack;
 #endif
 
-        if (pre_syscall_app_sigprocmask != NULL) {
-            /* Store the prior mask that had been saved pre-syscall, for restoring in
-             * sigreturn.
-             */
-            memcpy(&f_new->uc.uc_sigmask, pre_syscall_app_sigprocmask,
-                   sizeof(info->app_sigblocked));
-        } else {
-            /* Store the prior mask, for restoring in sigreturn. */
-            memcpy(&f_new->uc.uc_sigmask, &info->app_sigblocked,
-                   sizeof(info->app_sigblocked));
-        }
+        /* Store the prior app's mask or the mask that had been saved pre-syscall, for
+         * restoring in sigreturn.
+         */
+        memcpy(&f_new->uc.uc_sigmask, pre_syscall_app_sigprocmask,
+               sizeof(info->app_sigblocked));
     } else {
 #ifdef X64
         ASSERT_NOT_REACHED();
@@ -3242,15 +3238,10 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         info->signal_restorer_retaddr = (app_pc)f_new->pretcode;
 #        endif
 #    endif /* X86 */
-        if (pre_syscall_app_sigprocmask != NULL) {
-            /* Store the prior mask that had been saved pre-syscall, for restoring in
-             * sigreturn.
-             */
-            convert_rt_mask_to_nonrt(f_new, pre_syscall_app_sigprocmask);
-        } else {
-            /* Store the prior mask, for restoring in sigreturn. */
-            convert_rt_mask_to_nonrt(f_new, &info->app_sigblocked);
-        }
+        /* Store the prior app's mask or the mask that had been saved pre-syscall, for
+         * restoring in sigreturn.
+         */
+        convert_rt_mask_to_nonrt(f_new, pre_syscall_app_sigprocmask);
 #endif /* LINUX && !X64 */
     }
 
