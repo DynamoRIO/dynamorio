@@ -238,6 +238,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   # dr_insert_cbr_instrument_ex is NYI
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drx")
 endif (X86)
+add_sample_client(dbgmalloc        "dbgmalloc.c"          "drmgr;drwrap;drdbg")
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
