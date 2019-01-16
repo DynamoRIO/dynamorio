@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8237,17 +8237,21 @@ check_in_last_thread_vm_area(dcontext_t *dcontext, app_pc pc)
     }
     /* last decoded app pc may be in last shared area instead */
     if (!in_last && DYNAMO_OPTION(shared_bbs)) {
-        /* FIXME: bad to grab on failure path...
-         * can we assume only grabbed then, and not synch?
+        /* We avoid the high-ranked shared_vm_areas lock which can easily cause
+         * rank order violations (i#3346).  We're trying to catch the scenario
+         * where a shared bb is being built and we fault decoding it.  There,
+         * the bb building lock will prevent another thread from changing the
+         * shared last_area, so we should hit when reading w/o the lock.
+         * The risk of falsely matching with a half-updated or mismatched
+         * racily read last_area bounds seems lower than the risk of problems
+         * if we grab the lock.
          */
-        SHARED_VECTOR_RWLOCK(&shared_data->areas, read, lock);
         if (is_readable_without_exception((app_pc)&shared_data->last_area->end, 4) &&
             is_readable_without_exception((app_pc)&shared_data->last_area->start, 4)) {
             /* we can walk off to the next page */
             in_last = (pc < shared_data->last_area->end + MAX_INSTR_LENGTH &&
                        shared_data->last_area->start <= pc);
         }
-        SHARED_VECTOR_RWLOCK(&shared_data->areas, read, unlock);
     }
     /* the last decoded app pc may be in the last decoded page or the page after
      * if the instr crosses a page boundary. This can help us more gracefully
