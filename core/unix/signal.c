@@ -3162,6 +3162,12 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         ASSERT_NOT_REACHED();
     }
 
+    kernel_sigset_t *pre_syscall_app_sigprocmask = NULL;
+    if (info->pre_syscall_app_sigprocmask_valid) {
+        pre_syscall_app_sigprocmask = &info->pre_syscall_app_sigprocmask;
+        info->pre_syscall_app_sigprocmask_valid = false;
+    }
+
     /* if !has_restorer we do NOT add the restorer code to the exec list here,
      * to avoid removal problems (if handler never returns) and consistency problems
      * (would have to mark as selfmod right now if on stack).
@@ -3184,13 +3190,12 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         f_new->uc.uc_stack = info->app_sigstack;
 #endif
 
-        if (info->pre_syscall_app_sigprocmask_valid) {
+        if (pre_syscall_app_sigprocmask != NULL) {
             /* Store the prior mask that had been saved pre-syscall, for restoring in
              * sigreturn.
              */
-            memcpy(&f_new->uc.uc_sigmask, &info->pre_syscall_app_sigprocmask,
+            memcpy(&f_new->uc.uc_sigmask, pre_syscall_app_sigprocmask,
                    sizeof(info->app_sigblocked));
-            info->pre_syscall_app_sigprocmask_valid = false;
         } else {
             /* Store the prior mask, for restoring in sigreturn. */
             memcpy(&f_new->uc.uc_sigmask, &info->app_sigblocked,
@@ -3237,12 +3242,11 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         info->signal_restorer_retaddr = (app_pc)f_new->pretcode;
 #        endif
 #    endif /* X86 */
-        if (info->pre_syscall_app_sigprocmask_valid) {
+        if (pre_syscall_app_sigprocmask != NULL) {
             /* Store the prior mask that had been saved pre-syscall, for restoring in
              * sigreturn.
              */
-            convert_rt_mask_to_nonrt(f_new, &info->pre_syscall_app_sigprocmask);
-            info->pre_syscall_app_sigprocmask_valid = false;
+            convert_rt_mask_to_nonrt(f_new, pre_syscall_app_sigprocmask);
         } else {
             /* Store the prior mask, for restoring in sigreturn. */
             convert_rt_mask_to_nonrt(f_new, &info->app_sigblocked);
@@ -6065,24 +6069,15 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #    endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && !IS_RT_FOR_APP(info, sig));
         sc = get_sigcontext_from_app_frame(info, sig, (void *)frame);
-        if (info->pre_syscall_app_sigprocmask_valid) {
-            /* Discard blocked signals, re-set from original sigmask we have changed
-             * in pre_system_call of extended p* version of a system call.
-             */
-            set_blocked(dcontext, &info->pre_syscall_app_sigprocmask, true /*absolute*/);
-            info->pre_syscall_app_sigprocmask_valid = false;
-        } else {
-            /* Discard blocked signals, re-set from prev mask stored in frame. */
-            prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
-            if (_NSIG_WORDS > 1) {
-                memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
-                       sizeof(prevset.sig[1]));
-            }
-#    ifdef ARM
-            ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
-#    endif
-            set_blocked(dcontext, &prevset, true /*absolute*/);
+        prevset.sig[0] = frame->IF_X86_ELSE(sc.oldmask, uc.uc_mcontext.oldmask);
+        if (_NSIG_WORDS > 1) {
+            memcpy(&prevset.sig[1], &frame->IF_X86_ELSE(extramask, uc.sigset_ex),
+                   sizeof(prevset.sig[1]));
         }
+#    ifdef ARM
+        ucxt = &frame->uc; /* we leave ucxt NULL for x86: not needed there */
+#    endif
+        set_blocked(dcontext, &prevset, true /*absolute*/);
         /* Restore DR's so sigreturn syscall won't change it. */
         convert_rt_mask_to_nonrt(frame, &our_mask);
     }
