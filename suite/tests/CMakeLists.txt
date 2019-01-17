@@ -2039,7 +2039,7 @@ if (CLIENT_INTERFACE)
    # tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c "" "-opt_cleancall 1" "")
    # tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
     if (CMAKE_COMPILER_IS_CLANG)
-      optimize(client.inline.dll)
+      #optimize(client.inline.dll)
     endif ()
   endif (NOT ARM)
   if (NOT ANDROID) # XXX i#1874: get working on Android
@@ -3478,13 +3478,6 @@ if (NOT ANDROID)
   tobuild("${TestMemProtChg}" security-common/TestMemProtChg.c)
   tochcon("${TestMemProtChg}" wine_exec_t)
   mark_execstack("${TestMemProtChg}")
-endif ()
-
-if (vera++_FOUND)
-  file(READ "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.templatex" vera_regex)
-  add_test(vera ${VERA++_EXECUTABLE} --root "${PROJECT_SOURCE_DIR}/make/style_checks"
-    --error "${PROJECT_SOURCE_DIR}/make/style_checks/style_test.c")
-  set_tests_properties(vera PROPERTIES PASS_REGULAR_EXPRESSION "${vera_regex}")
 endif ()
 
 ###########################################################################
