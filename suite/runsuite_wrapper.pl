@@ -86,7 +86,7 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    system("ctest --output-on-failure ${verbose} -V -R tool.drcacheoff.opcode_mix --repeat-until-fail 10000 2>&1");
+    system("ctest --output-on-failure ${verbose} -R tool.drcacheoff.opcode_mix --repeat-until-fail 10000 2>&1");
     exit 0;
 }
 
