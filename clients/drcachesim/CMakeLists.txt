@@ -454,8 +454,8 @@ if (BUILD_TESTS)
       drmemtrace_static drmemtrace_analyzer)
   endif ()
   add_win32_flags(tool.drcachesim.unit_tests)
-  add_test(NAME tool.drcachesim.unit_tests
-           COMMAND tool.drcachesim.unit_tests)
+  #add_test(NAME tool.drcachesim.unit_tests
+  #         COMMAND tool.drcachesim.unit_tests)
 
   # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
@@ -471,8 +471,8 @@ if (BUILD_TESTS)
         drmemtrace_static drmemtrace_analyzer)
     endif ()
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
-    add_test(NAME tool.drcachesim.miss_analyzer_unit_test
-             COMMAND tool.drcachesim.miss_analyzer_unit_test)
+    #add_test(NAME tool.drcachesim.miss_analyzer_unit_test
+    #         COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)

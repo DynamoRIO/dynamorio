@@ -266,12 +266,12 @@ endif ()
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   # For cross-arch execve test we need to "make install"
-  testbuild_ex("debug-internal-32" OFF "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
-    ${install_path_cache}
-    " OFF ON "${install_build_args}")
+#  testbuild_ex("debug-internal-32" OFF "
+#    DEBUG:BOOL=ON
+#    INTERNAL:BOOL=ON
+#    BUILD_TESTS:BOOL=ON
+#    ${install_path_cache}
+#    " OFF ON "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
@@ -286,44 +286,44 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
     " OFF ON "${install_build_args}")
   # we don't really support debug-external anymore
   if (DO_ALL_BUILDS_NOT_SUPPORTED)
-    testbuild("debug-external-64" ON "
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=OFF
-      ")
-    testbuild("debug-external-32" OFF "
-      DEBUG:BOOL=ON
-      INTERNAL:BOOL=OFF
-      ")
+#    testbuild("debug-external-64" ON "
+#      DEBUG:BOOL=ON
+#      INTERNAL:BOOL=OFF
+#      ")
+#    testbuild("debug-external-32" OFF "
+#      DEBUG:BOOL=ON
+#      INTERNAL:BOOL=OFF
+#      ")
   endif ()
-  testbuild_ex("release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    " OFF ${arg_package} "${install_build_args}")
+#  testbuild_ex("release-external-32" OFF "
+#    DEBUG:BOOL=OFF
+#    INTERNAL:BOOL=OFF
+#    ${install_path_cache}
+#    " OFF ${arg_package} "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
     set(32bit_path "")
   endif ()
-  testbuild_ex("release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${install_path_cache}
-    ${32bit_path}
-    " OFF ${arg_package} "${install_build_args}")
+ # testbuild_ex("release-external-64" ON "
+ #   DEBUG:BOOL=OFF
+ #   INTERNAL:BOOL=OFF
+ #   ${install_path_cache}
+ #   ${32bit_path}
+ #   " OFF ${arg_package} "${install_build_args}")
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
     # suite (not much burden) in case we need to tweak internal options
-    testbuild("release-internal-32" OFF "
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=ON
-      ${install_path_cache}
-      ")
-    testbuild("release-internal-64" ON "
-      DEBUG:BOOL=OFF
-      INTERNAL:BOOL=ON
-      ${install_path_cache}
-      ")
+ #   testbuild("release-internal-32" OFF "
+ #     DEBUG:BOOL=OFF
+ #     INTERNAL:BOOL=ON
+ #     ${install_path_cache}
+ #     ")
+ #   testbuild("release-internal-64" ON "
+ #     DEBUG:BOOL=OFF
+ #     INTERNAL:BOOL=ON
+ #     ${install_path_cache}
+ #     ")
   endif (DO_ALL_BUILDS)
   # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
@@ -331,49 +331,49 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
   if (ARCH_IS_X86 AND NOT APPLE)
     # we do not bother to support these on ARM
     if (DO_ALL_BUILDS)
-      testbuild("vmsafe-debug-internal-32" OFF "
-        VMAP:BOOL=OFF
-        VMSAFE:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ${install_path_cache}
-        ")
+ #     testbuild("vmsafe-debug-internal-32" OFF "
+ #       VMAP:BOOL=OFF
+ #       VMSAFE:BOOL=ON
+ #       DEBUG:BOOL=ON
+ #       INTERNAL:BOOL=ON
+ #       ${install_path_cache}
+ #       ")
     endif ()
     if (DO_ALL_BUILDS)
-      testbuild("vmsafe-release-external-32" OFF "
-        VMAP:BOOL=OFF
-        VMSAFE:BOOL=ON
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        ${install_path_cache}
-        ")
+#      testbuild("vmsafe-release-external-32" OFF "
+#        VMAP:BOOL=OFF
+#        VMSAFE:BOOL=ON
+#        DEBUG:BOOL=OFF
+#        INTERNAL:BOOL=OFF
+#        ${install_path_cache}
+#        ")
     endif (DO_ALL_BUILDS)
     # i#2406: we skip the vps build to speed up PR's, using just the merge to
     # master to catch breakage in vps.
     if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
-      testbuild("vps-debug-internal-32" OFF "
-        VMAP:BOOL=OFF
-        VPS:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ${install_path_cache}
-        ")
+#      testbuild("vps-debug-internal-32" OFF "
+#        VMAP:BOOL=OFF
+#        VPS:BOOL=ON
+#        DEBUG:BOOL=ON
+#        INTERNAL:BOOL=ON
+#        ${install_path_cache}
+#        ")
     endif ()
     if (DO_ALL_BUILDS)
-      testbuild("vps-release-external-32" OFF "
-        VMAP:BOOL=OFF
-        VPS:BOOL=ON
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        ${install_path_cache}
-        ")
+#      testbuild("vps-release-external-32" OFF "
+#        VMAP:BOOL=OFF
+#        VPS:BOOL=ON
+#        DEBUG:BOOL=OFF
+#        INTERNAL:BOOL=OFF
+#        ${install_path_cache}
+#        ")
       # Builds we'll keep from breaking but not worth running many tests
-      testbuild("callprof-32" OFF "
-        CALLPROF:BOOL=ON
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        ${install_path_cache}
-        ")
+#      testbuild("callprof-32" OFF "
+#        CALLPROF:BOOL=ON
+#        DEBUG:BOOL=OFF
+#        INTERNAL:BOOL=OFF
+#        ${install_path_cache}
+#        ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
 endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
@@ -392,28 +392,28 @@ if (UNIX AND ARCH_IS_X86)
   set(ENV{CXXFLAGS} "")
   set(prev_run_tests ${run_tests})
   set(run_tests OFF) # build tests but don't run them
-  testbuild_ex("arm-debug-internal-32" OFF "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF ${arg_package} "")
-  testbuild_ex("arm-release-external-32" OFF "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
-    " OFF ${arg_package} "")
-  testbuild_ex("arm-debug-internal-64" ON "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_TESTS:BOOL=ON
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF ${arg_package} "")
-  testbuild_ex("arm-release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
-    " OFF ${arg_package} "")
+#  testbuild_ex("arm-debug-internal-32" OFF "
+#    DEBUG:BOOL=ON
+#    INTERNAL:BOOL=ON
+#    BUILD_TESTS:BOOL=ON
+#    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+#    " OFF ${arg_package} "")
+#  testbuild_ex("arm-release-external-32" OFF "
+#    DEBUG:BOOL=OFF
+#    INTERNAL:BOOL=OFF
+#    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
+#    " OFF ${arg_package} "")
+#  testbuild_ex("arm-debug-internal-64" ON "
+#    DEBUG:BOOL=ON
+#    INTERNAL:BOOL=ON
+#    BUILD_TESTS:BOOL=ON
+#    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+#    " OFF ${arg_package} "")
+#  testbuild_ex("arm-release-external-64" ON "
+#    DEBUG:BOOL=OFF
+#    INTERNAL:BOOL=OFF
+#    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+#    " OFF ${arg_package} "")
   set(run_tests ${prev_run_tests})
   set(optional_cross_compile ${prev_optional_cross_compile})
 
