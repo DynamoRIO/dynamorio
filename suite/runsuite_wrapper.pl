@@ -86,9 +86,9 @@ if ($child) {
         $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
         chomp $mydir;
     }
-    my $query_tmp_test = `ctest -N | grep tool.drcacheoff.opcode_mix`;
+    my $query_tmp_test = `ctest -N | grep \"tool.drcacheoff.opcode_mix\"`;
     my $query_test_no;
-    if ($query_tmp_test =~ m/Test\s\#(\d+)/) {
+    if ($query_tmp_test =~ m/Test\s+\#(\d+)/) {
         $query_test_no = $1;
     } else {
         die;
