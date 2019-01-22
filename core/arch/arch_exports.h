@@ -464,12 +464,12 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                 } while (0)
 #        endif /* X64 */
 #        define ATOMIC_INC_suffix(suffix, var) \
-            __asm__ __volatile__("lock inc" suffix " %0" : "=m"(var) : : "memory")
+            __asm__ __volatile__("lock inc" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #        define ATOMIC_DEC_suffix(suffix, var) \
-            __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "memory")
+            __asm__ __volatile__("lock dec" suffix " %0" : "=m"(var) : : "cc", "memory")
 #        define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
@@ -481,7 +481,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock add" suffix " %1, %0" \
                                  : "=m"(var)                 \
                                  : "ri"(value)               \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
 #        define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
 #        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
@@ -490,7 +490,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock xadd" suffix " %1, %0"          \
                                  : "=m"(*var), "=r"(result)            \
                                  : "1"(value)                          \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("l", var, val, res)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
@@ -499,7 +499,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             __asm__ __volatile__("lock cmpxchg" suffix " %2,%0"                \
                                  : "=m"(var)                                   \
                                  : "a"(compare), "r"(exchange)                 \
-                                 : "memory")
+                                 : "cc", "memory")
 #        define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
             ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange)
 #        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
@@ -534,7 +534,10 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 /* clang-format off */
 #        define SET_FLAG(cc, flag) \
-            __asm__ __volatile__("set" #        cc " %0" : "=qm"(flag))
+            __asm__ __volatile__("set" #        cc " %0" \
+                                 : "=qm"(flag)           \
+                                 :                       \
+                                 : "cc", "memory")
 /* clang-flag on */
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
