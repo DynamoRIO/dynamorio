@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -115,6 +115,12 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
         WRITE_DR_SEG(selector); /* macro needs lvalue! */
     }
 #endif
+}
+
+bool
+tls_thread_preinit()
+{
+    return true;
 }
 
 #ifndef X64
