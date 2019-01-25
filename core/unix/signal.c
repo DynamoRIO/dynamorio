@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4814,11 +4814,36 @@ master_signal_handler_C(byte *xsp)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
-    if (dcontext == NULL && sig == SUSPEND_SIGNAL) {
-        /* Check for a temporarily-native thread we're synch-ing with. */
-        tr = thread_lookup(get_sys_thread_id());
-        if (tr != NULL)
-            dcontext = tr->dcontext;
+    if (sig == SUSPEND_SIGNAL) {
+        if (proc_get_vendor() == VENDOR_AMD) {
+            /* i#3356: Work around an AMD processor bug where it does not clear the
+             * hidden gs base when the gs selector is written.  Pre-4.7 Linux kernels
+             * leave the prior thread's base in place on a switch due to this.
+             * We can thus come here and get the wrong dcontext on attach; worse,
+             * we can get NULL here but the wrong one later during init.  It's
+             * safest to just set a non-zero value (the kernel ignores zero) for all
+             * unknown threads here.  There are no problems for non-attach takeover.
+             */
+            if (dcontext == NULL || dcontext->owning_thread != get_sys_thread_id()) {
+                /* tls_thread_preinit() further rules out a temp-native dcontext
+                 * and avoids clobbering it, to preserve the thread_lookup() case
+                 * below (which we do not want to run first as we could swap to
+                 * the incorrect dcontext midway through it).
+                 */
+                if (!tls_thread_preinit()) {
+                    SYSLOG_INTERNAL_ERROR_ONCE("ERROR: Failed to work around AMD context "
+                                               "switch bug #3356: crashes or "
+                                               "hangs may ensue...");
+                }
+                dcontext = NULL;
+            }
+        }
+        if (dcontext == NULL) {
+            /* Check for a temporarily-native thread we're synch-ing with. */
+            tr = thread_lookup(get_sys_thread_id());
+            if (tr != NULL)
+                dcontext = tr->dcontext;
+        }
     }
     if (dcontext == NULL ||
         (dcontext != GLOBAL_DCONTEXT &&
