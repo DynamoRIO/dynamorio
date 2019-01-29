@@ -45,29 +45,26 @@
 #include <unistd.h>
 #include <assert.h>
 #include <setjmp.h>
-#include "thread.h"
+#include "condvar.h"
 
-volatile double pi = 0.0;         /* Approximation to pi (shared) */
-pthread_mutex_t pi_lock;          /* Lock for above */
-pthread_mutex_t sig_counter_lock; /* Lock to increment signal counter */
-volatile double intervals;        /* How many intervals? */
+volatile double pi = 0.0;  /* Approximation to pi (shared) */
+pthread_mutex_t pi_lock;   /* Lock for above */
+volatile double intervals; /* How many intervals? */
 static SIGJMP_BUF mark;
-static int signal_received = 0;
+static void *signal_received;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+#if VERBOSE
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     void *pc = (void *)sc->SC_XIP;
 
-#if VERBOSE
     print("thread %d signal_handler: sig=%d, retaddr=" PFX ", fpregs=" PFX "\n", getpid(),
           sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
-    pthread_mutex_lock(&sig_counter_lock);
-    ++signal_received;
-    pthread_mutex_unlock(&sig_counter_lock);
+    signal_cond_var(signal_received);
 
     switch (sig) {
     case SIGUSR1: {
@@ -142,9 +139,10 @@ main(int argc, char **argv)
     intervals = 10;
 #endif
 
+    signal_received = create_cond_var();
+
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
-    pthread_mutex_init(&sig_counter_lock, NULL);
 
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGSEGV, signal_handler, false);
@@ -156,10 +154,9 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    /* We may get only one SIGUSR1 if kernels merges. */
-    while (signal_received == 0)
-        thread_yield();
-    signal_received = 0;
+    /* We may get only one SIGUSR1 if kernel merges. */
+    wait_cond_var(signal_received);
+    reset_cond_var(signal_received);
 
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
@@ -172,9 +169,8 @@ main(int argc, char **argv)
 #endif
     kill(getpid(), SIGUSR1);
 
-    while (signal_received == 0)
-        thread_yield();
-    signal_received = 0;
+    wait_cond_var(signal_received);
+    reset_cond_var(signal_received);
 
 #if VERBOSE
     print("thread %d hitting SIGSEGV\n", getpid());
@@ -183,9 +179,8 @@ main(int argc, char **argv)
         *(int *)42 = 0;
     }
 
-    while (signal_received == 0)
-        thread_yield();
-    signal_received = 0;
+    wait_cond_var(signal_received);
+    reset_cond_var(signal_received);
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
