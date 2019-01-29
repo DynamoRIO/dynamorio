@@ -45,35 +45,44 @@
 #include <unistd.h>
 #include <assert.h>
 #include <setjmp.h>
+#include "thread.h"
 
-volatile double pi = 0.0;  /* Approximation to pi (shared) */
-pthread_mutex_t pi_lock;   /* Lock for above */
-volatile double intervals; /* How many intervals? */
+volatile double pi = 0.0;         /* Approximation to pi (shared) */
+pthread_mutex_t pi_lock;          /* Lock for above */
+pthread_mutex_t sig_counter_lock; /* Lock to increment signal counter */
+volatile double intervals;        /* How many intervals? */
 static SIGJMP_BUF mark;
+static int signal_received = 0;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+    void *pc = (void *)sc->SC_XIP;
+
 #if VERBOSE
     print("thread %d signal_handler: sig=%d, retaddr=" PFX ", fpregs=" PFX "\n", getpid(),
           sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
+    pthread_mutex_lock(&sig_counter_lock);
+    ++signal_received;
+    pthread_mutex_unlock(&sig_counter_lock);
+
     switch (sig) {
     case SIGUSR1: {
-        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        void *pc = (void *)sc->SC_XIP;
 #if VERBOSE
         print("thread %d got SIGUSR1 @ " PFX "\n", getpid(), pc);
 #endif
         break;
     }
-    case SIGSEGV:
+    case SIGSEGV: {
 #if VERBOSE
         print("thread %d got SIGSEGV @ " PFX "\n", getpid(), pc);
 #endif
         SIGLONGJMP(mark, 1);
         break;
+    }
     default: assert(0);
     }
 }
@@ -135,6 +144,7 @@ main(int argc, char **argv)
 
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
+    pthread_mutex_init(&sig_counter_lock, NULL);
 
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGSEGV, signal_handler, false);
@@ -146,6 +156,11 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    /* We may get only one SIGUSR1 if kernels merges. */
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
+
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
         print("%s: thread join failed\n", argv[0]);
@@ -156,6 +171,11 @@ main(int argc, char **argv)
     print("thread %d sending SIGUSR1\n", getpid());
 #endif
     kill(getpid(), SIGUSR1);
+
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
+
 #if VERBOSE
     print("thread %d hitting SIGSEGV\n", getpid());
 #endif
@@ -163,11 +183,10 @@ main(int argc, char **argv)
         *(int *)42 = 0;
     }
 
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
+
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
-
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 1000 * 1000 * 1000; /* 100ms */
-    nanosleep(&sleeptime, NULL);
 }
