@@ -163,6 +163,7 @@ DECL_EXTERN(dynamo_process_exit)
 DECL_EXTERN(dynamo_thread_exit)
 DECL_EXTERN(dynamo_thread_stack_free_and_exit)
 DECL_EXTERN(dynamorio_app_take_over_helper)
+DECL_EXTERN(remove_thread_exiting)
 DECL_EXTERN(found_modified_code)
 DECL_EXTERN(get_cleanup_and_terminate_global_do_syscall_entry)
 #ifdef INTERNAL
