@@ -255,9 +255,10 @@ DECLARE_FREQPROT_VAR(int num_execve_threads, 0);
 #endif
 DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 
-/* FIXME : not static so os.c can hand walk it for dump core */
+/* FIXME: not static so os.c can hand walk it for dump core */
 /* FIXME: use new generic_table_t and generic_hash_* routines */
-thread_record_t **all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
+thread_record_t **all_threads;   /* ALL_THREADS_HASH_BITS-bit addressed hash table */
+thread_exit_t **exiting_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
 
 /* these locks are used often enough that we put them in .cspdata: */
 
@@ -610,6 +611,10 @@ dynamorio_app_init(void)
         all_threads =
             (thread_record_t **)global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
+        size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_exit_t *);
+        exiting_threads =
+            (thread_exit_t **)global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
+        memset(exiting_threads, 0, size);
         if (!INTERNAL_OPTION(nop_initial_bblock) IF_WINDOWS(
                 || !check_sole_thread())) /* some other thread is already here! */
             bb_lock_start = true;
@@ -1068,6 +1073,10 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
                      HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) *
                          sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     all_threads = NULL;
+    global_heap_free(exiting_threads,
+                     HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) *
+                         sizeof(thread_exit_t *) HEAPACCT(ACCT_THREAD_MGT));
+    exiting_threads = NULL;
     mutex_unlock(&all_threads_lock);
 
 #ifdef WINDOWS
@@ -1948,6 +1957,45 @@ mark_thread_execve(thread_record_t *tr, bool execve)
 }
 #endif /* UNIX */
 
+static void
+mark_thread_exiting(thread_id_t tid, bool exiting)
+{
+    thread_exit_t *te = (thread_exit_t *)global_heap_alloc(sizeof(thread_exit_t)
+                                                               HEAPACCT(ACCT_THREAD_MGT));
+    te->id = tid;
+    te->exiting = true;
+    mutex_lock(&all_threads_lock);
+    uint hindex = HASH_FUNC_BITS(tid, ALL_THREADS_HASH_BITS);
+    te->next = exiting_threads[hindex];
+    exiting_threads[hindex] = te;
+    mutex_unlock(&all_threads_lock);
+}
+
+bool
+remove_thread_exiting()
+{
+    thread_id_t tid = get_thread_id();
+    thread_exit_t *te = NULL, *prevte;
+    uint hindex = HASH_FUNC_BITS(tid, ALL_THREADS_HASH_BITS);
+
+    ASSERT(exiting_threads != NULL);
+
+    mutex_lock(&all_threads_lock);
+    for (te = exiting_threads[hindex], prevte = NULL; te; prevte = te, te = te->next) {
+        if (te->id == tid) {
+            if (prevte)
+                prevte->next = te->next;
+            else
+                exiting_threads[hindex] = te->next;
+            global_heap_free(te, sizeof(thread_exit_t) HEAPACCT(ACCT_THREAD_MGT));
+            break;
+        }
+    }
+
+    mutex_unlock(&all_threads_lock);
+    return (te != NULL);
+}
+
 int
 get_num_threads(void)
 {
@@ -2030,6 +2078,32 @@ get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_execve)
     get_list_of_threads_common(list, num, include_execve);
 }
 #endif
+
+/* Returns whether thread is flagged as currently exiting. This function is called
+ * from the master signal handler and we must be sure that we are not already in
+ * the process to obtain a lock that we also would try to acquire here (i#2694). Hence,
+ * we operate lock-free here. As a result, this function can only used when potential
+ * races don't matter.
+ */
+bool
+is_thread_exiting(thread_id_t tid)
+{
+    thread_exit_t *te = NULL;
+    uint hindex = HASH_FUNC_BITS(tid, ALL_THREADS_HASH_BITS);
+
+    ASSERT(exiting_threads != NULL);
+
+    mutex_lock(&all_threads_lock);
+    for (te = exiting_threads[hindex]; te; te = te->next) {
+        if (te->id == tid) {
+            return te->exiting;
+            break;
+        }
+    }
+
+    mutex_unlock(&all_threads_lock);
+    return false;
+}
 
 /* assumes caller can ensure that thread is either suspended or self to
  * avoid races
@@ -2166,6 +2240,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
             break;
         }
     }
+
     mutex_unlock(&all_threads_lock);
     return (tr != NULL);
 }
@@ -2589,6 +2664,14 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
         close_log_file(dcontext->logfile);
     }
 #endif
+
+    /* If thread goes native, we don't need to keep track of it. A this
+    * point, we have already received the SUSPEND signal, and we don't
+    * expect or could handle other signals anymore, so a deadlock should
+    * not happen (i#2964).
+    */
+    if (!doing_detach)
+        mark_thread_exiting(id, true);
 
     /* remove thread from threads hashtable */
     remove_thread(IF_WINDOWS_(NT_CURRENT_THREAD) id);

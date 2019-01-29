@@ -330,6 +330,12 @@ typedef struct _thread_record_t {
     struct _thread_record_t *next;
 } thread_record_t;
 
+typedef struct _thread_exit_t {
+    thread_id_t id; /* thread id */
+    bool exiting;   /* thread is on its way to exit (i#2694) */
+    struct _thread_exit_t *next;
+} thread_exit_t;
+
 /* we don't include dr_api.h, that's for external use, we only need _app
  * (everything in dr_defines.h is duplicated in our own header files)
  */
@@ -561,6 +567,8 @@ standalone_init(void);
 void
 standalone_exit(void);
 #endif
+bool
+is_thread_exiting(thread_id_t tid);
 thread_record_t *
 thread_lookup(thread_id_t tid);
 void
@@ -586,6 +594,8 @@ mark_thread_execve(thread_record_t *tr, bool execve);
 #endif
 bool
 is_thread_initialized(void);
+bool
+remove_thread_exiting(void);
 int
 dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
                    void *os_data _IF_CLIENT_INTERFACE(bool client_thread));

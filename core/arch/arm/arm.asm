@@ -305,6 +305,8 @@ cat_have_lock:
         ldr      sp, [REG_R3]
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
+        /* remove thead's exit record */
+        CALLC0(GLOBAL_REF(remove_thread_exiting))
         /* give up initstack mutex */
         ldr      REG_R2, .Lgot3
         add      REG_R2, REG_R2, pc

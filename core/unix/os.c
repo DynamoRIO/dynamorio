@@ -10223,6 +10223,16 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
      */
     os_thread_re_take_over();
     if (!is_thread_initialized()) {
+        /* If this is a thread on its way to exit, then we are here because its dc was
+         * already destroyed. Its thread record has potentially been destroyed and
+         * removed from the global thread record table as well. The thread exiting
+         * hash is used as a life line that preserves the knowledge about the thread
+         * on its way to the exit (i#2694).
+         */
+        if (is_thread_exiting(get_thread_id())) {
+            os_thread_signal_taken_over();
+            return false;
+        }
         /* If this is a thread on its way to init, don't self-interp (i#2688). */
         if (is_dynamo_address(mc->pc)) {
             os_thread_signal_taken_over();

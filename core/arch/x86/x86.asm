@@ -690,6 +690,8 @@ cat_no_thread2:
 #endif
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_XCX) /* pass dstack */
+        /* remove thead's exit record */
+        CALLC0(GLOBAL_REF(remove_thread_exiting))
 #if defined(MACOS) && !defined(X64)
         lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align to 16 */
 #endif

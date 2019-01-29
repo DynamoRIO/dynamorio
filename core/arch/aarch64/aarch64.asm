@@ -337,6 +337,9 @@ cat_have_lock:
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
+        /* remove thead's exit record */
+        CALLC0(GLOBAL_REF(remove_thread_exiting))
+
         /* give up initstack mutex */
         adrp     x0, :got:initstack_mutex
         ldr      x0, [x0, #:got_lo12:initstack_mutex]
