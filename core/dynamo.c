@@ -2666,10 +2666,10 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #endif
 
     /* If thread goes native, we don't need to keep track of it. A this
-    * point, we have already received the SUSPEND signal, and we don't
-    * expect or could handle other signals anymore, so a deadlock should
-    * not happen (i#2964).
-    */
+     * point, we have already received the SUSPEND signal, and we don't
+     * expect or could handle other signals anymore, so a deadlock should
+     * not happen (i#2964).
+     */
     if (!doing_detach)
         mark_thread_exiting(id, true);
 
