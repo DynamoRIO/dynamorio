@@ -4881,7 +4881,7 @@ master_signal_handler_C(byte *xsp)
         if (can_always_delay[sig])
             return;
 
-        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_HANDLE_SIGNAL, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 2,
                                     get_application_name(), get_application_pid());
     }
 
