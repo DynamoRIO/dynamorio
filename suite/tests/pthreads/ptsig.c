@@ -124,6 +124,11 @@ process(void *arg)
     pi += localsum;
     pthread_mutex_unlock(&pi_lock);
 
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 100 * 1000 * 1000; /* 100ms */
+    nanosleep(&sleeptime, NULL);
+
 #if VERBOSE
     print("thread %s exiting\n", id);
 #endif
@@ -196,4 +201,9 @@ main(int argc, char **argv)
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
+
+    struct timespec sleeptime;
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 100 * 1000 * 1000; /* 100ms */
+    nanosleep(&sleeptime, NULL);
 }
