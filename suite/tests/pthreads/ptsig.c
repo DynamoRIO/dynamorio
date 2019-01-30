@@ -73,6 +73,12 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 #endif
         break;
     }
+    case SIGUSR2: {
+#if VERBOSE
+        print("thread %d got SIGUSR2 @ " PFX "\n", getpid(), pc);
+#endif
+        break;
+    }
     case SIGSEGV: {
 #if VERBOSE
         print("thread %d got SIGSEGV @ " PFX "\n", getpid(), pc);
@@ -145,6 +151,7 @@ main(int argc, char **argv)
     pthread_mutex_init(&pi_lock, NULL);
 
     intercept_signal(SIGUSR1, signal_handler, false);
+    intercept_signal(SIGUSR2, signal_handler, false);
     intercept_signal(SIGSEGV, signal_handler, false);
 
     /* Make the two threads */
@@ -165,9 +172,9 @@ main(int argc, char **argv)
     }
 
 #if VERBOSE
-    print("thread %d sending SIGUSR1\n", getpid());
+    print("thread %d sending SIGUSR2\n", getpid());
 #endif
-    kill(getpid(), SIGUSR1);
+    kill(getpid(), SIGUSR2);
 
     wait_cond_var(signal_received);
     reset_cond_var(signal_received);
