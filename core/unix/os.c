@@ -8961,10 +8961,11 @@ get_dynamo_library_bounds(void)
     NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
 
     if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
-        // We do not have a dcontext and it may be unsafe to try to find one.
-        // Luckily, REPORT_FATAL_ERROR_AND_EXIT does not require one to be
-        // passed.
-        // TODO(i#2723): just delete the first parameter of the macro.
+        /* We do not have a dcontext and it may be unsafe to try to find one.
+         * Luckily, REPORT_FATAL_ERROR_AND_EXIT does not require one to be
+         * passed.
+         * TODO(i#2723): just delete the first parameter of the macro.
+         */
         REPORT_FATAL_ERROR_AND_EXIT(NULL, FAILED_TO_FIND_DR_BOUNDS, 2,
                                     get_application_name(), get_application_pid());
     }
