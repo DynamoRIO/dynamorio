@@ -51,7 +51,8 @@ volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
 volatile double intervals; /* How many intervals? */
 static SIGJMP_BUF mark;
-static int signal_received = 0;
+static int sig_received = 0;
+pthread_mutex_t sig_received_lock; /* Lock for above */
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -64,8 +65,9 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
           sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
-    /* Does not need a lock, a race is fine. */
-    ++signal_received;
+    pthread_mutex_lock(&sig_received_lock);
+    ++sig_received;
+    pthread_mutex_unlock(&sig_received_lock);
 
     switch (sig) {
     case SIGUSR1: {
@@ -101,10 +103,10 @@ process(void *arg)
 
 #if VERBOSE
     print("thread %s starting\n", id);
-    print("thread %d sending SIGUSR1\n", getpid());
+    print("thread %d sending SIGUSR2\n", getpid());
 #endif
 
-    kill(getpid(), SIGUSR1);
+    kill(getpid(), SIGUSR2);
 
     iproc = (*id - '0');
 
@@ -124,6 +126,10 @@ process(void *arg)
     pi += localsum;
     pthread_mutex_unlock(&pi_lock);
 
+    /* It may be that signal above gets delivered to this
+     * thread, adding some wait to be sure we're not in an
+     * unhandled exit state.
+     */
     struct timespec sleeptime;
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 100 * 1000 * 1000; /* 100ms */
@@ -152,10 +158,12 @@ main(int argc, char **argv)
     intervals = 10;
 #endif
 
-    signal_received = 0;
+    sig_received = 0;
 
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
+    /* Initialize the lock on sig_received */
+    pthread_mutex_init(&sig_received_lock, NULL);
 
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGUSR2, signal_handler, false);
@@ -168,10 +176,12 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    /* We may get only one SIGUSR1 if kernel merges. */
-    while (signal_received == 0)
+    /* We may get only one SIGUSR1 if kernel or DR drops. DR drop
+     * can happen if we receive the signal during record_pending.
+     */
+    while (sig_received == 0)
         thread_yield();
-    signal_received = 0;
+    sig_received = 0;
 
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
@@ -180,13 +190,13 @@ main(int argc, char **argv)
     }
 
 #if VERBOSE
-    print("thread %d sending SIGUSR2\n", getpid());
+    print("thread %d sending SIGUSR1\n", getpid());
 #endif
-    kill(getpid(), SIGUSR2);
+    kill(getpid(), SIGUSR1);
 
-    while (signal_received == 0)
+    while (sig_received == 0)
         thread_yield();
-    signal_received = 0;
+    sig_received = 0;
 
 #if VERBOSE
     print("thread %d hitting SIGSEGV\n", getpid());
@@ -195,15 +205,10 @@ main(int argc, char **argv)
         *(int *)42 = 0;
     }
 
-    while (signal_received == 0)
+    while (sig_received == 0)
         thread_yield();
-    signal_received = 0;
+    sig_received = 0;
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
-
-    struct timespec sleeptime;
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 100 * 1000 * 1000; /* 100ms */
-    nanosleep(&sleeptime, NULL);
 }
