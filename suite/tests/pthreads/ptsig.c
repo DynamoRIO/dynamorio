@@ -45,13 +45,13 @@
 #include <unistd.h>
 #include <assert.h>
 #include <setjmp.h>
-#include "condvar.h"
+#include "thread.h"
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
 volatile double intervals; /* How many intervals? */
 static SIGJMP_BUF mark;
-static void *signal_received;
+static int signal_received = 0;
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -64,7 +64,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
           sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
 #endif
 
-    signal_cond_var(signal_received);
+    /* Does not need a lock, a race is fine. */
+    ++signal_received;
 
     switch (sig) {
     case SIGUSR1: {
@@ -102,6 +103,7 @@ process(void *arg)
     print("thread %s starting\n", id);
     print("thread %d sending SIGUSR1\n", getpid());
 #endif
+
     kill(getpid(), SIGUSR1);
 
     iproc = (*id - '0');
@@ -145,7 +147,7 @@ main(int argc, char **argv)
     intervals = 10;
 #endif
 
-    signal_received = create_cond_var();
+    signal_received = 0;
 
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
@@ -162,8 +164,9 @@ main(int argc, char **argv)
     }
 
     /* We may get only one SIGUSR1 if kernel merges. */
-    wait_cond_var(signal_received);
-    reset_cond_var(signal_received);
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
 
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) || pthread_join(thread1, &retval)) {
@@ -176,8 +179,9 @@ main(int argc, char **argv)
 #endif
     kill(getpid(), SIGUSR2);
 
-    wait_cond_var(signal_received);
-    reset_cond_var(signal_received);
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
 
 #if VERBOSE
     print("thread %d hitting SIGSEGV\n", getpid());
@@ -186,8 +190,9 @@ main(int argc, char **argv)
         *(int *)42 = 0;
     }
 
-    wait_cond_var(signal_received);
-    reset_cond_var(signal_received);
+    while (signal_received == 0)
+        thread_yield();
+    signal_received = 0;
 
     /* Print the result */
     print("Estimation of pi is %16.15f\n", pi);
