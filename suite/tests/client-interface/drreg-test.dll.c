@@ -247,7 +247,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5\n");
         if (instr_is_label(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
@@ -265,6 +265,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
         }
+    } else if (subtest == DRREG_TEST_6_C) {
+        /* Save the 3rd DR slot at the label, restore register after
+         * the xl8 point in this test.
+         */
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #6\n");
+        if (instr_is_label(inst)) {
+            dr_save_reg(drcontext, bb, inst, TEST_REG, 2);
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            dr_restore_reg(drcontext, bb, inst, TEST_REG, 2);
+        }
+    } else if (subtest == DRREG_TEST_8_C) {
+        /* Nothing to do here */
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #8\n");
+    } else if (subtest == DRREG_TEST_10_C) {
+        /* Nothing to do here */
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #10\n");
     }
 
     drvector_delete(&allowed);

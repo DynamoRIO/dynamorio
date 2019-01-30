@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,14 +58,26 @@ droption_t<std::string> op_outdir(
     "to a directory where per-thread trace files will be written.");
 
 droption_t<std::string> op_indir(
-    DROPTION_SCOPE_ALL, "indir", "", "Offline directory of raw data for input",
+    DROPTION_SCOPE_ALL, "indir", "", "Input directory of offline trace files",
     "After a trace file is produced via -offline into -outdir, it can be passed to the "
-    "simulator via this flag pointing at the subdirectory created in -outdir.");
+    "simulator via this flag pointing at the subdirectory created in -outdir. "
+    "The -offline tracing produces raw data files which are converted into final "
+    "trace files on the first execution with -indir.  The raw files can also be manually "
+    "converted using the drraw2trace tool.  Legacy single trace files with all threads "
+    "interleaved into one are not supported with this option: use -infile instead.");
 
 droption_t<std::string> op_infile(
-    DROPTION_SCOPE_ALL, "infile", "", "Offline trace file for input to the simulator",
-    "Directs the simulator to use a trace file (not a raw data file from -offline: "
-    "such a file neeeds to be converted via drraw2trace or -indir first).");
+    DROPTION_SCOPE_ALL, "infile", "", "Offline legacy file for input to the simulator",
+    "Directs the simulator to use a single all-threads-interleaved-into-one trace file. "
+    "This is a legacy file format that is no longer produced.");
+
+droption_t<int> op_jobs(
+    DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
+    "By default, both post-processing of offline raw trace files and analysis of trace "
+    "files is parallelized.  This option controls the number of concurrent jobs.  0 "
+    "disables concurrency and uses a single thread to perform all operations.  A "
+    "negative value sets the job count to the number of hardware threads, "
+    "with a cap of 16.");
 
 droption_t<std::string> op_module_file(
     DROPTION_SCOPE_ALL, "module_file", "", "Path to modules.log for opcode_mix tool",

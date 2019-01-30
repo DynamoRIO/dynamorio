@@ -191,9 +191,18 @@ enum {
 #    endif
 
 #    ifdef CLIENT_INTERFACE
+    /* This enum is also used for INSTR_OUR_MANGLING_EPILOGUE. Its semantics are
+     * orthogonal to this and must not overlap.
+     */
     INSTR_CLOBBER_RETADDR = 0x02000000,
 #    endif
 
+    /* Indicates that the instruction is part of an own mangling region's
+     * epilogue (xref i#3307). Currently, instructions with the
+     * INSTR_CLOBBER_RETADDR property are never in a mangling epilogue, which
+     * is why we are reusing its enum value here.
+     * */
+    INSTR_OUR_MANGLING_EPILOGUE = 0x02000000,
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
      * exit cti's or linkstubs since it is mainly intended for clients etc.
@@ -1840,6 +1849,24 @@ instr_is_our_mangling(instr_t *instr);
 void
 instr_set_our_mangling(instr_t *instr, bool ours);
 
+/* Returns whether instr came from our mangling and is in epilogue. This routine
+ * requires the caller to already know that instr is our_mangling.
+ */
+bool
+instr_is_our_mangling_epilogue(instr_t *instr);
+
+/* Sets whether instr came from our mangling and is in epilogue. */
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue);
+
+/* Sets that instr is in our mangling epilogue as well as the translation pointer
+ * for instr, by adding the translation pointer of mangle_instr to its length.
+ * Returns the instr.
+ */
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr);
+
 DR_API
 /**
  * Returns NULL if none of \p instr's operands is a memory reference.
@@ -2824,7 +2851,7 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
-                                 bool *spill OUT, reg_id_t *reg OUT);
+                                 bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
 #ifdef ARM
 bool

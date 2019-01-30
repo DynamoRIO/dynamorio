@@ -34,9 +34,9 @@
 /* note - include order matters */
 #include <tchar.h>
 #include "share.h"
-#include "win32/ntdll.h" /* just for typedefs and defines */
+#include "ntdll.h" /* just for typedefs and defines */
 #include "processes.h"
-#include "win32/drmarker.h"
+#include "drmarker.h"
 #include <AccCtrl.h>
 #include <Aclapi.h>
 #include <stdio.h>

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -435,6 +435,11 @@ typedef byte *vm_addr_t;
 static byte *heap_allowable_region_start = (byte *)PTR_UINT_0;
 static byte *heap_allowable_region_end = (byte *)POINTER_MAX;
 
+/* In standalone mode we do not guarantee 32-bit reachability for anything.
+ * This lets apps grow beyond 4G of heap.
+ */
+#    define HEAP_REACHABILITY_ENABLED() (!standalone_library)
+
 /* used only to protect read/write access to the must_reach_* static variables in
  * request_region_be_heap_reachable() */
 DECLARE_CXTSWPROT_VAR(static mutex_t request_region_be_heap_reachable_lock,
@@ -455,6 +460,9 @@ request_region_be_heap_reachable(byte *start, size_t size)
      * request_region_be_heap_reachable_lock */
     static byte *must_reach_region_start = (byte *)POINTER_MAX;
     static byte *must_reach_region_end = (byte *)PTR_UINT_0; /* closed */
+
+    if (!HEAP_REACHABILITY_ENABLED())
+        return;
 
     LOG(GLOBAL, LOG_HEAP, 2,
         "Adding must-be-reachable-from-heap region " PFX "-" PFX "\n"

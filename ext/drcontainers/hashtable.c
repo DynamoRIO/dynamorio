@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -270,8 +270,9 @@ hashtable_lookup(hashtable_t *table, void *key)
 {
     void *res = NULL;
     hash_entry_t *e;
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
     uint hindex = hash_key(table, key);
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
@@ -324,8 +325,9 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
 {
     /* if payload is null can't tell from lookup miss */
     ASSERT(payload != NULL, "hashtable_add internal error");
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
     uint hindex = hash_key(table, key);
     hash_entry_t *e;
     for (e = table->table[hindex]; e != NULL; e = e->next) {
@@ -358,8 +360,9 @@ hashtable_add_replace(hashtable_t *table, void *key, void *payload)
 {
     /* if payload is null can't tell from lookup miss */
     ASSERT(payload != NULL, "hashtable_add_replace internal error");
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
     void *old_payload = NULL;
     uint hindex = hash_key(table, key);
     hash_entry_t *e, *new_e, *prev_e;
@@ -402,8 +405,9 @@ hashtable_remove(hashtable_t *table, void *key)
 {
     bool res = false;
     hash_entry_t *e, *prev_e;
-    if (table->synch)
+    if (table->synch) {
         dr_mutex_lock(table->lock);
+    }
     uint hindex = hash_key(table, key);
     for (e = table->table[hindex], prev_e = NULL; e != NULL; prev_e = e, e = e->next) {
         if (keys_equal(table, e->key, key)) {

@@ -798,6 +798,19 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_
      * -- ifdef UNIX, mangle seg ref and mov_seg
      */
 
+    /* Mangling routines need to be careful about whether or not to flag mangling
+     * epilogue instructions (xref i#3307).
+     * -- should be marked with mangling epilogue flag, if it can be translated to
+          the next PC post-app instruction using/abusing translate_walk_restore.
+     * -- should not be marked with mangling epilogue flag, it either is 1) logically not
+          a PC post-app instruction, which is the case for control-flow instructions.
+          Or 2) it is unsupported to advance to the next PC, and we're making the
+          assumption here that all such instructions can be fully rolled back to the
+          current PC.
+     * Mangling routines should set mangling epilogue flag manually. This could get
+     * improved by doing this automatically for next_instr, unless explictly flagged.
+     */
+
     KSTART(mangling);
     instrlist_set_our_mangling(ilist, true); /* PR 267260 */
 

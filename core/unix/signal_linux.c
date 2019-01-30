@@ -351,7 +351,7 @@ signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
 
 bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
-                                     size_t sizemask)
+                                     size_t sizemask, bool *pending)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
 
@@ -363,8 +363,13 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
      */
     if (sizemask != sizeof(kernel_sigset_t))
         return false;
+    ASSERT(!info->pre_syscall_app_sigprocmask_valid);
+    info->pre_syscall_app_sigprocmask_valid = true;
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
     signal_set_mask(dcontext, sigmask);
+    /* Make sure we deliver pending signals that are now unblocked. */
+    check_signals_pending(dcontext, info);
+    *pending = dcontext->signals_pending;
     return true;
 }
 
@@ -372,6 +377,7 @@ void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    info->pre_syscall_app_sigprocmask_valid = false;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
 }
 

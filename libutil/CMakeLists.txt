@@ -43,8 +43,9 @@ endfunction (add_gen_events_deps)
 # FIXME i#60: add rules from old Makefile for building unit tests
 # the tests had been broken for a while
 
+# We avoid core/ to avoid conflicts between core/hashtable.h and drcontainers
+# hashtable.h.  An alternative would be to rename core/hashtable.h.
 include_directories(BEFORE
-  ${PROJECT_SOURCE_DIR}/core
   ${PROJECT_SOURCE_DIR}/core/lib
   ${PROJECT_SOURCE_DIR}/core/win32
   ${PROJECT_SOURCE_DIR}/core/arch

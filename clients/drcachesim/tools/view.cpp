@@ -52,41 +52,44 @@ view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
     return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
 }
 
-view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose)
+view_t::view_t(const std::string &module_file_path_in, uint64_t skip_refs,
+               uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
     : dcontext(nullptr)
-    , directory(module_file_path)
+    , module_file_path(module_file_path_in)
     , knob_verbose(verbose)
     , instr_count(0)
     , knob_skip_refs(skip_refs)
     , knob_sim_refs(sim_refs)
+    , knob_syntax(syntax)
     , num_disasm_instrs(0)
 {
-    if (module_file_path.empty()) {
-        error_string = "Module file path is missing";
-        success = false;
-        return;
-    }
-    dcontext = dr_standalone_init();
-    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
-                                            nullptr, nullptr, verbose);
-    module_mapper->get_loaded_modules();
-    std::string error = module_mapper->get_last_error();
-    if (!error.empty()) {
-        error_string = "Failed to load binaries: " + error;
-        success = false;
-        return;
-    }
+}
 
+std::string
+view_t::initialize()
+{
+    if (module_file_path.empty())
+        return "Module file path is missing";
+    dcontext = dr_standalone_init();
+    std::string error = directory.initialize_module_file(module_file_path);
+    if (!error.empty())
+        return "Failed to initialize directory: " + error;
+    module_mapper = module_mapper_t::create(directory.modfile_bytes, nullptr, nullptr,
+                                            nullptr, nullptr, knob_verbose);
+    module_mapper->get_loaded_modules();
+    error = module_mapper->get_last_error();
+    if (!error.empty())
+        return "Failed to load binaries: " + error;
     dr_disasm_flags_t flags = DR_DISASM_ATT;
-    if (syntax == "intel") {
+    if (knob_syntax == "intel") {
         flags = DR_DISASM_INTEL;
-    } else if (syntax == "dr") {
+    } else if (knob_syntax == "dr") {
         flags = DR_DISASM_DR;
-    } else if (syntax == "arm") {
+    } else if (knob_syntax == "arm") {
         flags = DR_DISASM_ARM;
     }
     disassemble_set_syntax(flags);
+    return "";
 }
 
 bool

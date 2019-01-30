@@ -103,6 +103,10 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/tlb_simulator.cpp
   )
 
+add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
+add_dependencies(directory_iterator api_headers)
+target_link_libraries(directory_iterator drfrontendlib)
+
 add_exported_library(drmemtrace_raw2trace STATIC
   tracer/raw2trace.cpp
   tracer/raw2trace_directory.cpp
@@ -111,8 +115,9 @@ add_exported_library(drmemtrace_raw2trace STATIC
   tracer/instru_offline.cpp
   )
 configure_DynamoRIO_standalone(drmemtrace_raw2trace)
-target_link_libraries(drmemtrace_raw2trace drfrontendlib)
+target_link_libraries(drmemtrace_raw2trace directory_iterator drfrontendlib)
 use_DynamoRIO_extension(drmemtrace_raw2trace drutil_static)
+link_with_pthread(drmemtrace_raw2trace)
 
 set(drcachesim_srcs
   launcher.cpp
@@ -138,7 +143,7 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace)
+  drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace directory_iterator)
 # To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
 # to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -162,6 +167,8 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/file_reader.cpp
   ${zlib_reader}
   )
+target_link_libraries(drmemtrace_analyzer directory_iterator)
+link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
 install_client_nonDR_header(drmemtrace common/utils.h)
@@ -225,6 +232,7 @@ endif ()
 if (ZLIB_FOUND)
   target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
   target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
+  target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
   if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
   endif ()
@@ -351,6 +359,7 @@ add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_view)
 add_win32_flags(drmemtrace_analyzer)
+add_win32_flags(directory_iterator)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,15 +47,23 @@
 static droption_t<std::string>
     op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
              "[Required] Directory with trace input files",
-             "Specifies a directory within which all *.log files will be processed.");
+             "Specifies a directory within which all *.raw files will be processed.");
 
-static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
-                                      "[Required] Path to output file",
-                                      "Specifies the path to the output file.");
+static droption_t<std::string>
+    op_outdir(DROPTION_SCOPE_FRONTEND, "out", "", "Path to output directory",
+              "Specifies the path to the output directory where per-thread output files "
+              "will be written.  If unspecified, -indir/trace/ is used.");
 
 static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0,
                                            "Verbosity level for diagnostic output",
                                            "Verbosity level for diagnostic output.");
+
+static droption_t<int>
+    op_jobs(DROPTION_SCOPE_ALL, "jobs", -1, "Number of parallel jobs",
+            "By default, post-processing is parallelized.  This option controls the "
+            "number of concurrent jobs.  0 "
+            "disables concurrency and uses  single thread to perform all operations.  A "
+            "negative value sets the job count to the number of hardware threads.");
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -76,15 +84,17 @@ _tmain(int argc, const TCHAR *targv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_indir.get_value().empty() || op_out.get_value().empty()) {
+        op_indir.get_value().empty()) {
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    raw2trace_directory_t dir(op_indir.get_value(), op_out.get_value(),
-                              op_verbose.get_value());
-    raw2trace_t raw2trace(dir.modfile_bytes, dir.thread_files, &dir.out_file, NULL,
-                          op_verbose.get_value());
+    raw2trace_directory_t dir(op_verbose.get_value());
+    std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
+    if (!dir_err.empty())
+        FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
+    raw2trace_t raw2trace(dir.modfile_bytes, dir.in_files, dir.out_files, NULL,
+                          op_verbose.get_value(), op_jobs.get_value());
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

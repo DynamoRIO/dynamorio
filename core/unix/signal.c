@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1060,6 +1060,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                               (record == NULL) ? NULL : record->pcprofile_info);
     }
 
+    info->pre_syscall_app_sigprocmask_valid = false;
+
     /* Assumed to be async safe. */
     info->fully_initialized = true;
 }
@@ -1160,6 +1162,8 @@ signal_fork_init(dcontext_t *dcontext)
     if (INTERNAL_OPTION(profile_pcs)) {
         pcprofile_fork_init(dcontext);
     }
+
+    info->pre_syscall_app_sigprocmask_valid = false;
 
     /* Assumed to be async safe. */
     info->fully_initialized = true;
@@ -2064,7 +2068,7 @@ signal_swap_mask(dcontext_t *dcontext, bool to_app)
  * signals, and sets dcontext->signals_pending if there are.  Do this after
  * modifying the set of signals blocked by the application.
  */
-static void
+void
 check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 {
     int i;
@@ -3158,6 +3162,14 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         ASSERT_NOT_REACHED();
     }
 
+    kernel_sigset_t *mask_to_restore = NULL;
+    if (info->pre_syscall_app_sigprocmask_valid) {
+        mask_to_restore = &info->pre_syscall_app_sigprocmask;
+        info->pre_syscall_app_sigprocmask_valid = false;
+    } else {
+        mask_to_restore = &info->app_sigblocked;
+    }
+
     /* if !has_restorer we do NOT add the restorer code to the exec list here,
      * to avoid removal problems (if handler never returns) and consistency problems
      * (would have to mark as selfmod right now if on stack).
@@ -3179,9 +3191,9 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
             &f_new->uc.uc_stack, info->app_sigstack.ss_sp);
         f_new->uc.uc_stack = info->app_sigstack;
 #endif
+
         /* Store the prior mask, for restoring in sigreturn. */
-        memcpy(&f_new->uc.uc_sigmask, &info->app_sigblocked,
-               sizeof(info->app_sigblocked));
+        memcpy(&f_new->uc.uc_sigmask, mask_to_restore, sizeof(info->app_sigblocked));
     } else {
 #ifdef X64
         ASSERT_NOT_REACHED();
@@ -3224,7 +3236,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #        endif
 #    endif /* X86 */
         /* Store the prior mask, for restoring in sigreturn. */
-        convert_rt_mask_to_nonrt(f_new, &info->app_sigblocked);
+        convert_rt_mask_to_nonrt(f_new, mask_to_restore);
 #endif /* LINUX && !X64 */
     }
 
@@ -4802,11 +4814,36 @@ master_signal_handler_C(byte *xsp)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
-    if (dcontext == NULL && sig == SUSPEND_SIGNAL) {
-        /* Check for a temporarily-native thread we're synch-ing with. */
-        tr = thread_lookup(get_sys_thread_id());
-        if (tr != NULL)
-            dcontext = tr->dcontext;
+    if (sig == SUSPEND_SIGNAL) {
+        if (proc_get_vendor() == VENDOR_AMD) {
+            /* i#3356: Work around an AMD processor bug where it does not clear the
+             * hidden gs base when the gs selector is written.  Pre-4.7 Linux kernels
+             * leave the prior thread's base in place on a switch due to this.
+             * We can thus come here and get the wrong dcontext on attach; worse,
+             * we can get NULL here but the wrong one later during init.  It's
+             * safest to just set a non-zero value (the kernel ignores zero) for all
+             * unknown threads here.  There are no problems for non-attach takeover.
+             */
+            if (dcontext == NULL || dcontext->owning_thread != get_sys_thread_id()) {
+                /* tls_thread_preinit() further rules out a temp-native dcontext
+                 * and avoids clobbering it, to preserve the thread_lookup() case
+                 * below (which we do not want to run first as we could swap to
+                 * the incorrect dcontext midway through it).
+                 */
+                if (!tls_thread_preinit()) {
+                    SYSLOG_INTERNAL_ERROR_ONCE("ERROR: Failed to work around AMD context "
+                                               "switch bug #3356: crashes or "
+                                               "hangs may ensue...");
+                }
+                dcontext = NULL;
+            }
+        }
+        if (dcontext == NULL) {
+            /* Check for a temporarily-native thread we're synch-ing with. */
+            tr = thread_lookup(get_sys_thread_id());
+            if (tr != NULL)
+                dcontext = tr->dcontext;
+        }
     }
     if (dcontext == NULL ||
         (dcontext != GLOBAL_DCONTEXT &&

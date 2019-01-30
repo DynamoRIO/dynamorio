@@ -102,10 +102,13 @@ ipc_reader_t::read_next_entry()
             cur_buf->type = TRACE_TYPE_FOOTER;
             cur_buf->size = 0;
             cur_buf->addr = 0;
+            at_eof = true;
             return cur_buf;
         }
         cur_buf = buf;
         end_buf = buf + (sz / sizeof(*end_buf));
     }
+    if (cur_buf->type == TRACE_TYPE_FOOTER)
+        at_eof = true;
     return cur_buf;
 }

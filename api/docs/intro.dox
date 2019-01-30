@@ -2048,6 +2048,9 @@ controlled via disassemble_set_syntax().  The processor to use will not be
 automatically set and will be assumed to be \p VENDOR_INTEL.  Use
 proc_set_vendor() to set to \p VENDOR_AMD instead.
 
+In standalone mode, there are no 32-bit-displacement reachability
+guarantees regarding DynamoRIO's heap.
+
 Some DynamoRIO API routines are not supported in standalone mode.  These
 include all event registration routines, module iteration,
 dr_memory_protect(), dr_messagebox(), dr_get_current_drcontext(),

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,9 +56,6 @@ static droption_t<std::string> op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
                                         "[Required] Directory with trace input files",
                                         "Specifies a directory with raw files.");
 
-static droption_t<std::string> op_out(DROPTION_SCOPE_FRONTEND, "out", "",
-                                      "[Required] Path to output file",
-                                      "Specifies the path to the output file.");
 #if defined(X64)
 #    define SYS_NUM(r) (r).orig_rax
 #elif defined(X86)
@@ -150,7 +147,7 @@ test_raw2trace(raw2trace_directory_t *dir)
         /* Sycalls below will be ptraced. We don't expect any open/close calls outside of
          * raw2trace::read_and_map_modules().
          */
-        raw2trace_t raw2trace(dir->modfile_bytes, dir->thread_files, &dir->out_file,
+        raw2trace_t raw2trace(dir->modfile_bytes, dir->in_files, dir->out_files,
                               GLOBAL_DCONTEXT, 1);
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
@@ -197,7 +194,7 @@ test_module_mapper(const raw2trace_directory_t *dir)
 bool
 test_trace_timestamp_reader(const raw2trace_directory_t *dir)
 {
-    std::istream *file = dir->thread_files[0];
+    std::istream *file = dir->in_files[0];
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
     offline_entry_t buffer[4];
@@ -256,7 +253,7 @@ main(int argc, const char *argv[])
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||
-        op_indir.get_value().empty() || op_out.get_value().empty()) {
+        op_indir.get_value().empty()) {
         std::cerr << "Usage error: " << parse_err << "\nUsage:\n"
                   << droption_parser_t::usage_short(DROPTION_SCOPE_ALL);
         return 1;
@@ -265,8 +262,10 @@ main(int argc, const char *argv[])
     /* Open input/output files outside of traced region. And explicitly don't destroy dir,
      * so they never get closed.
      */
-    raw2trace_directory_t *dir =
-        new raw2trace_directory_t(op_indir.get_value(), op_out.get_value());
+    raw2trace_directory_t *dir = new raw2trace_directory_t;
+    std::string dir_err = dir->initialize(op_indir.get_value(), "");
+    if (!dir_err.empty())
+        std::cerr << "Directory setup failed: " << dir_err;
 
     bool test1_ret = test_raw2trace(dir);
     bool test2_ret = test_module_mapper(dir);

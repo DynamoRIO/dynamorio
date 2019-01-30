@@ -2159,6 +2159,36 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+bool
+instr_is_our_mangling_epilogue(instr_t *instr)
+{
+    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+           instr_is_our_mangling(instr));
+    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+}
+
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue)
+{
+    if (epilogue) {
+        instr->flags |= INSTR_OUR_MANGLING_EPILOGUE;
+    } else
+        instr->flags &= ~INSTR_OUR_MANGLING_EPILOGUE;
+}
+
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr)
+{
+    if (instrlist_get_translation_target(ilist) != NULL) {
+        int sz = decode_sizeof(dcontext, instrlist_get_translation_target(ilist),
+                               NULL _IF_X86_64(NULL));
+        instr_set_translation(instr, instrlist_get_translation_target(ilist) + sz);
+    }
+    instr_set_our_mangling_epilogue(instr, true);
+    return instr;
+}
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
@@ -3302,8 +3332,16 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
-        int offs = reg_spill_tls_offs(*reg);
-        if (!DR_only || (offs != -1 && check_disp == os_tls_offset((ushort)offs))) {
+        if (!DR_only ||
+            (reg_spill_tls_offs(*reg) != -1 &&
+             /* Mangling may choose to spill registers to a not natural tls offset,
+              * e.g. rip-rel mangling will, if rax is used by the instruction. We
+              * allow for all possible internal DR slots to recognize a DR spill.
+              */
+             (check_disp == os_tls_offset((ushort)TLS_REG0_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)
@@ -3336,10 +3374,10 @@ instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
-                                 reg_id_t *reg)
+                                 reg_id_t *reg, uint *offs)
 {
     return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
-                                            NULL);
+                                            offs);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other

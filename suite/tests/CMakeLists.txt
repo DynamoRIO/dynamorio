@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -447,7 +447,9 @@ function (set_cflags source)
   endif ()
   if ("${source}" MATCHES ".cpp$")
     # Our C files need -std=gnu99, but that's an invalid flag for C++.
-    string(REGEX REPLACE "-std=gnu99" "" cflags "${cflags}")
+    # configure_DynamoRIO_global removes unfavorable options for clients,
+    # re-adding -std=c++11.
+    string(REGEX REPLACE "-std=gnu99" "-std=c++11" cflags "${cflags}")
     if (WIN32)
       set(cflags "${cflags} /EHsc")
     endif (WIN32)
@@ -1946,6 +1948,14 @@ if (CLIENT_INTERFACE)
         "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
       tobuild_ci(client.timer client-interface/timer.c "" "" "")
+      if (X64)
+        tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
+          "-vm_base 0x100000000 -no_vm_base_near_app" "")
+        use_DynamoRIO_extension(client.mangle_suspend.dll drmgr)
+        target_include_directories(client.mangle_suspend PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+        link_with_pthread(client.mangle_suspend)
+      endif ()
     endif (NOT ARM)
     if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
@@ -2621,8 +2631,18 @@ endif ()
         torunonly_simtool(reuse_offline ${ci_shared_app}
           "-infile ${small_trace_file} -simulator_type reuse_distance -reuse_distance_histogram" "")
 
-        torunonly_simtool(reuse_time_offline ${ci_shared_app}
-          "-infile ${small_trace_file} -simulator_type reuse_time" "")
+        # Our multi-threaded sample trace is larger so we require gzip.
+        if (ZLIB_FOUND)
+          set(thread_trace_dir
+            "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+          torunonly_simtool(reuse_offline_threads ${ci_shared_app}
+            "-indir ${thread_trace_dir} -simulator_type reuse_distance -reuse_distance_histogram" "")
+          set(tool.reuse_offline_threads_rawtemp ON) # no preprocessor
+
+          torunonly_simtool(reuse_time_offline ${ci_shared_app}
+            "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
+          set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
+        endif ()
       endif ()
 
       # We run an app w/ kernel xfers to test trace_invariants online.
@@ -2666,6 +2686,16 @@ endif ()
       # We could share drcachesim-simple.templatex if we had the launcher fork
       # and print out the "---- <application exited with code 0> ----".
       torunonly_drcacheoff(simple ${ci_shared_app} "" "" "")
+
+      # Test reading a legacy pre-interleaved file.
+      if (ZLIB_FOUND)
+        torunonly_api(tool.drcacheoff.legacy "${drcachesim_path}" "offline-legacy.c" ""
+          "-infile;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/offline-legacy-trace.gz"
+          OFF)
+        set(tool.drcacheoff.legacy_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
+      endif ()
 
       if (UNIX) # Enable on Windows once i#1727 is fixed.
         # FIXME i#2384: we need to combine the subdir from the child with the
@@ -2759,7 +2789,7 @@ endif ()
               set(tool.raw2trace.${testname}_precmd
                 "foreach@${CMAKE_COMMAND}@-E@remove_directory@drmemtrace.${exetgt}.*.dir")
               set(tool.raw2trace.${testname}_postcmd
-              "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir@-out@drraw2trace.${exetgt}.out")
+                "${raw2trace_io_path}@-indir@drmemtrace.${exetgt}.*.dir")
             endmacro()
             # actual trace processing not important -- set a very small limit for speed
             torunonly_raw2trace(simple ${ci_shared_app} "-max_trace_size 8K" "")
@@ -2804,7 +2834,7 @@ endif ()
       set(tool.histogram.offline_postcmd
         "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
       set(tool.histogram.offline_postcmd2
-        "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+        "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
@@ -2826,9 +2856,9 @@ endif ()
         set(tool.histogram.gzip_postcmd
           "${drcachesim_path}@-indir@drmemtrace.${histo_app}.*.dir")
         set(tool.histogram.gzip_postcmd2
-          "${GZIP}@drmemtrace.${histo_app}.*.dir/drmemtrace.trace")
+          "${GZIP}@drmemtrace.${histo_app}.*.dir/trace/*")
         set(tool.histogram.gzip_postcmd3
-          "${histo_path}@-test_mode@-trace@drmemtrace.${histo_app}.*.dir/drmemtrace.trace.gz")
+          "${histo_path}@-test_mode@-trace_dir@drmemtrace.${histo_app}.*.dir/trace")
       elseif (UNIX)
         message(STATUS "gzip or zlib not found: disabling tool.histogram.gzip test")
       endif ()
@@ -3093,7 +3123,8 @@ if (UNIX)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
   if (LINUX)
-    tobuild(linux.syscall_pwait linux/syscall_pwait.c)
+    tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
+    link_with_pthread(linux.syscall_pwait)
   endif ()
   if (LINUX AND NOT ANDROID) # Only tests RT sigaction which is not supported on Android.
     tobuild(linux.sigaction_nosignals linux/sigaction_nosignals.c)
@@ -3133,6 +3164,16 @@ if (UNIX)
 
     tobuild(linux.signest linux/signest.c)
     link_with_pthread(linux.signest)
+
+    if (UNIX)
+      if (X64)
+        # XXX i#3307: add Windows test.
+        tobuild_ops(linux.mangle_asynch linux/mangle_asynch.c "-vm_base 0x100000000 -no_vm_base_near_app" "")
+        target_include_directories(linux.mangle_asynch PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/linux)
+        link_with_pthread(linux.mangle_asynch)
+      endif ()
+    endif ()
   endif ()
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,

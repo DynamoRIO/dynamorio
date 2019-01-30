@@ -284,11 +284,7 @@ GLOBAL_LABEL(FUNCNAME:)
         */
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        /* push callee-saved registers */
-        PUSH_SEH(REG_XBX)
-        PUSH_SEH(REG_XBP)
-        PUSH_SEH(REG_XSI)
-        PUSH_SEH(REG_XDI)
+        PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
         mov  eax, 1
         mov  ebx, 2
@@ -299,10 +295,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov  ebp, 7
         RAW(f0) RAW(eb) RAW(00)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
-        pop      REG_XDI
-        pop      REG_XSI
-        pop      REG_XBP
-        pop      REG_XBX
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 
