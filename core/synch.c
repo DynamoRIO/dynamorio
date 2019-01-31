@@ -1877,7 +1877,7 @@ send_all_other_threads_native(void)
     if (!synch_with_all_threads(desired_state, &threads, &num_threads,
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                 THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
-        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SYNCHRONIZE_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
 
@@ -2074,7 +2074,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
                                  * other threads.
                                  */
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER, flags)) {
-        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SYNCHRONIZE_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
 
