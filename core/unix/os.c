@@ -8961,8 +8961,8 @@ get_dynamo_library_bounds(void)
     NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
 
     if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
-        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2,
-                                    get_application_name(), get_application_pid());
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_FIND_DR_BOUNDS, 2, get_application_name(),
+                                    get_application_pid());
     }
 }
 
