@@ -8873,11 +8873,11 @@ exit_post_system_call:
     dcontext->whereami = old_whereami;
 }
 
-/* initializes dynamorio library bounds.
- * does not use any heap.
- * assumed to be called prior to find_executable_vm_areas.
+/* get_dynamo_library_bounds initializes dynamorio library bounds, using a
+ * release-time assert if there is a problem doing so. It does not use any
+ * heap, and we assume it is called prior to find_executable_vm_areas.
  */
-static int
+static void
 get_dynamo_library_bounds(void)
 {
     /* Note that we're not counting DYNAMORIO_PRELOAD_NAME as a DR area, to match
@@ -8960,7 +8960,15 @@ get_dynamo_library_bounds(void)
              dynamorio_alt_arch_path, dynamorio_libname);
     NULL_TERMINATE_BUFFER(dynamorio_alt_arch_filepath);
 
-    return res;
+    if (dynamo_dll_start == NULL || dynamo_dll_end == NULL) {
+        /* We do not have a dcontext and it may be unsafe to try to find one.
+         * Luckily, REPORT_FATAL_ERROR_AND_EXIT does not require one to be
+         * passed.
+         * TODO(i#2723): just delete the first parameter of the macro.
+         */
+        REPORT_FATAL_ERROR_AND_EXIT(NULL, FAILED_TO_FIND_DR_BOUNDS, 2,
+                                    get_application_name(), get_application_pid());
+    }
 }
 
 /* get full path to our own library, (cached), used for forking and message file name */
