@@ -1439,6 +1439,7 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
        MOV_IMM_EDX_OPCODE = 0xba,
        VEX_2BYTE_PREFIX_OPCODE = 0xc5,
        VEX_3BYTE_PREFIX_OPCODE = 0xc4,
+       EVEX_PREFIX_OPCODE = 0x62,
 };
 
 /* Debug registers are used for breakpoint with x86.
