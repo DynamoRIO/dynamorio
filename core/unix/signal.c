@@ -4865,9 +4865,9 @@ master_signal_handler_C(byte *xsp)
               * known, because the thread will be added to the all_threads list after its
               * tls has been initialized (i#2921).
               */
-             safe_read_tls_magic() == TLS_MAGIC_INVALID))
+             safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
-    ) {
+             )) {
         tr = thread_lookup(get_sys_thread_id());
         if (tr != NULL)
             dcontext = tr->dcontext;
