@@ -4857,13 +4857,17 @@ master_signal_handler_C(byte *xsp)
     if (dcontext == NULL &&
         /* Check for a temporarily-native thread we're synch-ing with. */
         (sig == SUSPEND_SIGNAL
-         /* Check for whether this is a thread that makes a clone, in which case its
-          * magic field is temporarily invalid. It is also possible that it is a new
-          * thread on its way to init, but in this case the thread will not yet be known,
-          * because the thread will be added to the all_threads list after its tls has
-          * been initialized (i#2921).
-          */
-         || safe_read_tls_magic() == TLS_MAGIC_INVALID)) {
+#ifdef X86
+         || (INTERNAL_OPTION(safe_read_tls_init) &&
+             /* Check for whether this is a thread that makes a clone, in which case its
+              * magic field is temporarily invalid. It is also possible that it is a new
+              * thread on its way to init, but in this case the thread will not yet be
+              * known, because the thread will be added to the all_threads list after its
+              * tls has been initialized (i#2921).
+              */
+             safe_read_tls_magic() == TLS_MAGIC_INVALID))
+#endif
+    ) {
         tr = thread_lookup(get_sys_thread_id());
         if (tr != NULL)
             dcontext = tr->dcontext;
