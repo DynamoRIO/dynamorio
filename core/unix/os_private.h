@@ -271,6 +271,8 @@ void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
+void
+block_all_signals_except(kernel_sigset_t *oset, int num, ...);
 bool
 is_thread_signal_info_initialized(dcontext_t *dcontext);
 void

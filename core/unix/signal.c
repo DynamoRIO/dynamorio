@@ -343,6 +343,20 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
                              set, oset, sigsetsize);
 }
 
+void
+block_all_signals_except(kernel_sigset_t *oset, int num, ...)
+{
+    kernel_sigset_t set;
+    kernel_sigfillset(&set);
+    va_list ap;
+    va_start(ap, num);
+    for (int i = 0; i < num; ++i) {
+        kernel_sigdelset(&set, va_arg(ap, int));
+    }
+    va_end(ap);
+    sigprocmask_syscall(SIG_SETMASK, &set, oset, sizeof(set));
+}
+
 static void
 unblock_all_signals(kernel_sigset_t *oset)
 {
@@ -1276,7 +1290,8 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         }
         info->num_pending = 0;
     }
-    if (!other_thread)
+    /* If no detach flag is set, we assume that this thread is on its way to exit. */
+    if (!other_thread && doing_detach)
         signal_swap_mask(dcontext, true /*to_app*/);
 #ifdef HAVE_SIGALTSTACK
     /* Remove our sigstack and restore the app sigstack if it had one.  */
@@ -4838,12 +4853,20 @@ master_signal_handler_C(byte *xsp)
                 dcontext = NULL;
             }
         }
-        if (dcontext == NULL) {
-            /* Check for a temporarily-native thread we're synch-ing with. */
-            tr = thread_lookup(get_sys_thread_id());
-            if (tr != NULL)
-                dcontext = tr->dcontext;
-        }
+    }
+    if (dcontext == NULL &&
+        /* Check for a temporarily-native thread we're synch-ing with. */
+        (sig == SUSPEND_SIGNAL
+         /* Check for whether this is a thread that makes a clone, in which case its
+          * magic field is temporarily invalid. It is also possible that it is a new
+          * thread on its way to init, but in this case the thread will not yet be known,
+          * because the thread will be added to the all_threads list after its tls has
+          * been initialized (i#2921).
+          */
+         || safe_read_tls_magic() == TLS_MAGIC_INVALID)) {
+        tr = thread_lookup(get_sys_thread_id());
+        if (tr != NULL)
+            dcontext = tr->dcontext;
     }
     if (dcontext == NULL ||
         (dcontext != GLOBAL_DCONTEXT &&
@@ -5574,9 +5597,15 @@ terminate_via_kill(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(dcontext == get_thread_private_dcontext());
-    unblock_all_signals(NULL);
     /* Enure signal_thread_exit() will not re-block */
     memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
+
+    /* This thread is on its way to exit, we are blocking all signals since any
+     * signal that reaches us now can be delayed until after the exit is complete.
+     * We may still receive a suspend signal for synchronization that we may need
+     * to reply to (i#2921).
+     */
+    block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
 
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
