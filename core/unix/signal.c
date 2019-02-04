@@ -344,13 +344,14 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 }
 
 void
-block_all_signals_except(kernel_sigset_t *oset, int num, ...)
+block_all_signals_except(kernel_sigset_t *oset, int num_signals,
+                         ... /* list of signals */)
 {
     kernel_sigset_t set;
     kernel_sigfillset(&set);
     va_list ap;
-    va_start(ap, num);
-    for (int i = 0; i < num; ++i) {
+    va_start(ap, num_signals);
+    for (int i = 0; i < num_signals; ++i) {
         kernel_sigdelset(&set, va_arg(ap, int));
     }
     va_end(ap);
@@ -1290,7 +1291,13 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         }
         info->num_pending = 0;
     }
-    /* If no detach flag is set, we assume that this thread is on its way to exit. */
+    /* If no detach flag is set, we assume that this thread is on its way to exit.
+     * In order to prevent receiving signals while a thread is on its way to exit
+     * without a valid dcontext, signals at this stage are blocked. The exceptions
+     * are the suspend signal and any signal that a terminating SYS_kill may need.
+     * (i#2921). In this case, we do not want to restore the signal mask. For detach,
+     * we do need to restore the app's mask.
+     */
     if (!other_thread && doing_detach)
         signal_swap_mask(dcontext, true /*to_app*/);
 #ifdef HAVE_SIGALTSTACK
@@ -4859,11 +4866,15 @@ master_signal_handler_C(byte *xsp)
         (sig == SUSPEND_SIGNAL
 #ifdef X86
          || (INTERNAL_OPTION(safe_read_tls_init) &&
-             /* Check for whether this is a thread that makes a clone, in which case its
-              * magic field is temporarily invalid. It is also possible that it is a new
-              * thread on its way to init, but in this case the thread will not yet be
-              * known, because the thread will be added to the all_threads list after its
-              * tls has been initialized (i#2921).
+             /* Check for whether this is a thread with its invalid sentinel magic set.
+              * In this case, we assume that it is either a thread that is currently
+              * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
+              * clone window. If the thread currently makes a clone, we will find it by
+              * looking it up. If the thread was just cloned, we will not find it yet.
+              * In both cases, we know by inspection of our own code, that it is safe to
+              * call thread_lookup. thread_lookup requires a lock that must not be held
+              * by the calling thread (i#2921).
+              * XXX: what is ARM doing, any special case w/ dcontext == NULL?
               */
              safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
@@ -5604,23 +5615,16 @@ terminate_via_kill(dcontext_t *dcontext)
     /* Enure signal_thread_exit() will not re-block */
     memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
 
-    /* This thread is on its way to exit, we are blocking all signals since any
-     * signal that reaches us now can be delayed until after the exit is complete.
-     * We may still receive a suspend signal for synchronization that we may need
-     * to reply to (i#2921).
-     */
-    block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
-
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
      */
-    cleanup_and_terminate(dcontext, SYS_kill,
-                          /* Pass -pid in case main thread has exited
-                           * in which case will get -ESRCH
-                           */
-                          IF_VMX86(os_in_vmkernel_userworld() ? -(int)get_process_id() :)
-                              get_process_id(),
-                          dcontext->sys_param0, true, 0, 0);
+    cleanup_and_terminate_helper(
+        dcontext, SYS_kill,
+        /* Pass -pid in case main thread has exited
+         * in which case will get -ESRCH
+         */
+        IF_VMX86(os_in_vmkernel_userworld() ? -(int)get_process_id() :) get_process_id(),
+        dcontext->sys_param0, true, 0, 0);
     ASSERT_NOT_REACHED();
 }
 

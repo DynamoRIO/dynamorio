@@ -1301,6 +1301,28 @@ os_slow_exit(void)
     IF_NO_MEMQUERY(memcache_exit());
 }
 
+/* Helper function that calls cleanup_and_terminate after blocking most signals
+ *(i#2921).
+ */
+void
+cleanup_and_terminate_helper(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
+                             ptr_uint_t sys_arg2, bool exitproc,
+                             /* these 2 args are only used for Mac thread exit */
+                             ptr_uint_t sys_arg3, ptr_uint_t sys_arg4)
+{
+    /* This thread is on its way to exit. We are blocking all signals since any
+     * signal that reaches us now can be delayed until after the exit is complete.
+     * We may still receive a suspend signal for synchronization that we may need
+     * to reply to (i#2921).
+     */
+    if (sysnum == SYS_kill)
+        block_all_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
+    else
+        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
+    cleanup_and_terminate(dcontext, sysnum, sys_arg1, sys_arg2, exitproc, sys_arg3,
+                          sys_arg4);
+}
+
 /* os-specific atexit cleanup */
 void
 os_fast_exit(void)
@@ -1323,16 +1345,8 @@ os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_c
     if (TEST(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);
-
-        /* This thread is on its way to exit, we are blocking all signals since any
-         * signal that reaches us now can be delayed until after the exit is complete.
-         * We may still receive a suspend signal for synchronization that we may need
-         * to reply to (i#2921).
-         */
-        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
-
-        cleanup_and_terminate(dcontext, SYSNUM_EXIT_PROCESS, exit_code, 0,
-                              true /*whole process*/, 0, 0);
+        cleanup_and_terminate_helper(dcontext, SYSNUM_EXIT_PROCESS, exit_code, 0,
+                                     true /*whole process*/, 0, 0);
     } else {
         /* clean up may be impossible - just terminate */
         config_exit(); /* delete .1config file */
@@ -3747,16 +3761,8 @@ client_thread_run(void)
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
         get_thread_id());
-
-    /* This thread is on its way to exit, we are blocking all signals since any
-     * signal that reaches us now can be delayed until after the exit is complete.
-     * We may still receive a suspend signal for synchronization that we may need
-     * to reply to (i#2921).
-     */
-    block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
-
-    cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false /*just thread*/,
-                          IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
+    cleanup_and_terminate_helper(dcontext, SYS_exit, 0, 0, false /*just thread*/,
+                                 IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
 }
 #        endif
 
@@ -5577,17 +5583,9 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
          * Should do set_default_signal_action(SIGABRT) (and set a flag so
          * no races w/ another thread re-installing?) and then SYS_kill.
          */
-
-        /* This thread is on its way to exit, we are blocking all signals since any
-         * signal that reaches us now can be delayed until after the exit is complete.
-         * We may still receive a suspend signal for synchronization that we may need
-         * to reply to (i#2921).
-         */
-        block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
-
-        cleanup_and_terminate(dcontext, SYSNUM_EXIT_THREAD, -1, 0,
-                              (is_last_app_thread() && !dynamo_exited),
-                              IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
+        cleanup_and_terminate_helper(dcontext, SYSNUM_EXIT_THREAD, -1, 0,
+                                     (is_last_app_thread() && !dynamo_exited),
+                                     IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
         ASSERT_NOT_REACHED();
     }
 }
@@ -6398,19 +6396,10 @@ handle_exit(dcontext_t *dcontext)
             exit_process ? "process" : "thread");
     }
     KSTOP(num_exits_dir_syscall);
-
-    /* This thread is on its way to exit, we are blocking all signals since any
-     * signal that reaches us now can be delayed until after the exit is complete.
-     * We may still receive a suspend signal for synchronization that we may need
-     * to reply to. If we are doing a detach, the thread's sigmask will be swapped
-     * back to the app's mask in signal_thread_exit (i#2921).
-     */
-    block_all_signals_except(NULL, 1, SUSPEND_SIGNAL);
-
-    cleanup_and_terminate(dcontext, MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0),
-                          sys_param(dcontext, 1), exit_process,
-                          /* SYS_bsdthread_terminate has 2 more args */
-                          sys_param(dcontext, 2), sys_param(dcontext, 3));
+    cleanup_and_terminate_helper(dcontext, MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0),
+                                 sys_param(dcontext, 1), exit_process,
+                                 /* SYS_bsdthread_terminate has 2 more args */
+                                 sys_param(dcontext, 2), sys_param(dcontext, 3));
 }
 
 #    if defined(LINUX) && defined(X86) /* XXX i#58: just until we have Mac support */
