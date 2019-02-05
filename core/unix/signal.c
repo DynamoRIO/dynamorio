@@ -4869,11 +4869,10 @@ master_signal_handler_C(byte *xsp)
              /* Check for whether this is a thread with its invalid sentinel magic set.
               * In this case, we assume that it is either a thread that is currently
               * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
-              * clone window. If the thread currently makes a clone, we will find it by
-              * looking it up. If the thread was just cloned, we will not find it yet.
-              * In both cases, we know by inspection of our own code, that it is safe to
-              * call thread_lookup. thread_lookup requires a lock that must not be held
-              * by the calling thread (i#2921).
+              * clone window. We know by inspection of our own code that it is safe to
+              * call thread_lookup for either case thread makes a clone or was just
+              * cloned. i.e. thread_lookup requires a lock that must not be held by the
+              * calling thread (i#2921).
               * XXX: what is ARM doing, any special case w/ dcontext == NULL?
               */
              safe_read_tls_magic() == TLS_MAGIC_INVALID)
@@ -5618,7 +5617,7 @@ terminate_via_kill(dcontext_t *dcontext)
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
      */
-    cleanup_and_terminate_helper(
+    block_cleanup_and_terminate(
         dcontext, SYS_kill,
         /* Pass -pid in case main thread has exited
          * in which case will get -ESRCH

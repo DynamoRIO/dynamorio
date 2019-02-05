@@ -272,12 +272,12 @@ signal_thread_init(dcontext_t *dcontext, void *os_data);
 void
 signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 void
-block_all_signals_except(kernel_sigset_t *oset, int num, ...);
+block_all_signals_except(kernel_sigset_t *oset, int num_signals, ...);
 void
-cleanup_and_terminate_helper(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
-                             ptr_uint_t sys_arg2, bool exitproc,
-                             /* these 2 args are only used for Mac thread exit */
-                             ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
+block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg1,
+                            ptr_uint_t sys_arg2, bool exitproc,
+                            /* these 2 args are only used for Mac thread exit */
+                            ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
 bool
 is_thread_signal_info_initialized(dcontext_t *dcontext);
 void
