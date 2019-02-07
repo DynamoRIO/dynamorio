@@ -1536,7 +1536,7 @@ synch_with_all_exit:
     *threads_out = threads;
     *num_threads_out = num_threads;
     dynamo_all_threads_synched = all_synched;
-    ASSERT(exiting_thread_count == 0);
+    ASSERT(exiting_thread_count - expect_self_exiting == 0);
     /* FIXME case 9392: where on all_synch failure we do not release the locks in the
      * non-abort exit path */
     return all_synched;
@@ -1571,7 +1571,7 @@ synch_with_all_abort:
     }
     mutex_unlock(&thread_initexit_lock);
     mutex_unlock(&all_threads_synch_lock);
-    ASSERT(exiting_thread_count == 0);
+    ASSERT(exiting_thread_count - expect_self_exiting == 0);
     ASSERT(!all_synched); /* ensure our OUT values will be NULL,0
                              for THREAD_SYNCH_SUSPEND_FAILURE_ABORT */
     goto synch_with_all_exit;
