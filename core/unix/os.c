@@ -10086,6 +10086,19 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     while (uninit_thread_count > 0) /* relying on volatile */
         os_thread_yield();
 
+    /* This can only happen if we had already taken over a thread, because there is
+     * full synchronization at detach. The same thread may now already be on its way
+     * to exit, and its thread record might be gone already and make it look like a
+     * new native thread below. If we rely on the thread to self-detect that it was
+     * interrupted at a DR address we may run into a deadlock (i#2694). In order to
+     * avoid this, we wait here. This is expected to be uncommon, and can only happen
+     * with very short-lived threads.
+     * XXX: if this loop turns out to be too inefficient, we could support detecting
+     * the lock function's address bounds along w/ is_dynamo_address.
+     */
+    while (exiting_thread_count > 0)
+        os_thread_yield();
+
     mutex_lock(&thread_initexit_lock);
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");
