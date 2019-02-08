@@ -4879,8 +4879,17 @@ master_signal_handler_C(byte *xsp)
 #endif
              )) {
         tr = thread_lookup(get_sys_thread_id());
-        if (tr != NULL)
+        if (tr != NULL) {
             dcontext = tr->dcontext;
+            ASSERT(dcontext != NULL);
+            /* If the thread's thread private dcontext pointer was NULL because it is
+             * currently on its way to exit, we are re-setting it to NULL. We don't
+             * have to, but not doing it can trigger an assertion further below. It is
+             * more safe to treat the thread like its dcontext is gone (i#3369).
+             */
+            if (dcontext->is_exiting)
+                dcontext = NULL;
+        }
     }
     if (dcontext == NULL ||
         (dcontext != GLOBAL_DCONTEXT &&
