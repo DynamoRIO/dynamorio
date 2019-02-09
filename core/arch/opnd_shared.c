@@ -1803,6 +1803,36 @@ reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value)
     *(reg_t *)((byte *)mc + opnd_get_reg_mcontext_offs(reg)) = value;
 }
 
+
+/* Sets the register reg in the passed in mcontext to value.  Currently only works
+ * with ptr sized registers. FIXME - handle other sized registers. */
+void
+reg_set_value_priv_ex(reg_id_t reg, priv_mcontext_t *mc, byte *value)
+{
+    if (reg == REG_NULL)
+        return;
+
+#ifdef X86
+
+    if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
+    } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
+        dr_ymm_t *ymm = (dr_ymm_t *) ((byte *)mc + XMM_OFFSET);
+        memcpy(&(ymm[reg - DR_REG_START_XMM]), value, XMM_REG_SIZE);
+
+    } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
+        dr_ymm_t *ymm = (dr_ymm_t *) ((byte *)mc + XMM_OFFSET);
+        memcpy(&(ymm[reg - DR_REG_START_YMM]), value, YMM_REG_SIZE);
+
+    } else {
+        reg_t reg_value =  *(reg_t *)value;
+        reg_set_value_priv(reg, mc, reg_value);
+    }
+
+#else
+    CLIENT_ASSERT(false, "NYI i#1551");
+#endif
+}
+
 DR_API
 void
 reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
@@ -1810,6 +1840,15 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
     /* only supports GPRs so we ignore mc.size */
     reg_set_value_priv(reg, dr_mcontext_as_priv_mcontext(mc), value);
 }
+
+
+DR_API
+void
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val){
+
+    reg_set_value_priv_ex(reg, dr_mcontext_as_priv_mcontext(mc), val);
+}
+
 
 /* helper for sharing w/ VSIB computations */
 app_pc

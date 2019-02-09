@@ -2648,6 +2648,20 @@ DR_API
 void
 reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value);
 
+DR_API
+/**
+ * Sets the register \p reg in the passed in mcontext \p mc to \p value.
+ * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
+ *
+ * Supports not only general purpose registers, but xmm, mmxm and ymm.
+ *
+ * Up to sizeof(dr_ymm_t) bytes will be read from \p val.
+ *
+ */
+void
+reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val);
+
+
 /* internal version */
 void
 reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value);
