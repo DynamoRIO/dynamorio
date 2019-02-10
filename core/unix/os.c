@@ -327,6 +327,10 @@ static app_pc executable_end = NULL;
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
 
+/* Used by get_cl_args(). */
+static int *argc = NULL;
+static char **argv = NULL;
+
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
 
@@ -1099,6 +1103,26 @@ char *
 get_application_name(void)
 {
     return get_application_name_helper(false, true /* full path */);
+}
+
+/* Sets the . Used for get_cl_args, and called from privload_early_inject() */
+void
+set_application_cl_args(int *argc_passed, char **argv_passed)
+{
+    argc = argc_passed;
+    argv = argv_passed;
+}
+
+/* get command line arguments. Used by dr_get_cl_args() */
+bool
+get_application_cl_args(OUT int **argc_out, OUT char ***argv_out)
+{
+    if (argc != NULL) {
+        *argc_out = argc;
+        *argv_out = argv;
+        return true;
+    }
+    return false;
 }
 
 /* Note: this is exported so that libdrpreload.so (preload.c) can use it to

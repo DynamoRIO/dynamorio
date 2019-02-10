@@ -1758,6 +1758,17 @@ const char *
 dr_get_application_name(void);
 
 DR_API
+/**
+ * Sets the passed arguments to the command-line arguments of the
+ * application.
+ * @param argc Pointer to place argc
+ * @param argv Pointer to place argv
+ * @return Returns true if successful.
+ */
+bool
+dr_get_application_cl_args(OUT int **argc, OUT char ***argv);
+
+DR_API
 /** Returns the process id of the current process. */
 process_id_t
 dr_get_process_id(void);

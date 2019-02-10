@@ -1811,6 +1811,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      */
     set_executable_path(exe_path);
 
+    set_application_cl_args((int *) argc, argv);
+
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success,
              "Failed to read app ELF headers.  Check path and "
