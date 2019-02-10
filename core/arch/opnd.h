@@ -2661,7 +2661,6 @@ DR_API
 void
 reg_set_value_ex(reg_id_t reg, dr_mcontext_t *mc, IN byte *val);
 
-
 /* internal version */
 void
 reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value);
