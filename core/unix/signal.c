@@ -5242,8 +5242,11 @@ master_signal_handler_C(byte *xsp)
 
     /* Ensure we didn't get the app's sigstack into our frame.  On Mac, the kernel
      * doesn't use the frame's uc_stack, so we limit this to Linux.
+     * The pointers may be different if a thread is on its way to exit, and the app's
+     * sigstack was already restored (i#3369).
      */
     IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+                    dcontext->is_exiting ||
                     frame->uc.uc_stack.ss_sp ==
                         ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));
 
