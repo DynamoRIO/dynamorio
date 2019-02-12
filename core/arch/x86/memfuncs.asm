@@ -70,6 +70,10 @@ START_FILE
 /* Private memcpy.
  */
         DECLARE_FUNC(memcpy)
+        /* i#3315: We mark as weak to avoid app conflicts in our static libs drinjectlib
+         * and drfrontendlib (we omit completely from static core DR).  There is no
+         * weak support in nasm on Mac so we live with potential conflicts there.
+         */
         WEAK(memcpy)
 GLOBAL_LABEL(memcpy:)
         ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, src=xsi, n=xdx */
@@ -83,6 +87,7 @@ GLOBAL_LABEL(memcpy:)
 /* Private memset.
  */
         DECLARE_FUNC(memset)
+        /* See the discussion above on marking weak. */
         WEAK(memset)
 GLOBAL_LABEL(memset:)
         ARGS_TO_XDI_XSI_XDX()           /* dst=xdi, val=xsi, n=xdx */
