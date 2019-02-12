@@ -47,6 +47,13 @@
  * early, and since these functions should always be re-entrant, we simply
  * do not include them in libdynamorio_static and it imports from libc.
  * We accomplish that by separating these into their own library.
+ * There is a downside to using libc routines: they can be intercepted,
+ * such as by sanitizer tools.  There are other interoperability issues
+ * with such tools, though, so we live with the potential problem of
+ * the app overriding DR's memory function as the lesser of two evils,
+ * assuming symbol conflicts are more prevalent and serious.
+ * XXX i#3348: We can try to rename DR's internal uses of functions like
+ * these to avoid interception.
  */
 
 #include "../asm_defines.asm"
@@ -56,13 +63,16 @@ START_FILE
 /***************************************************************************/
 #ifdef UNIX
 
-/* i#46: Implement private memcpy and memset for libc isolation.  If we import
- * memcpy and memset from libc in the normal way, the application can override
- * those definitions and intercept them.  In particular, this occurs when
- * running an app that links in the Address Sanitizer runtime.  Since we already
- * need a reasonably efficient assembly memcpy implementation for safe_read, we
- * go ahead and reuse the code for private memcpy and memset.
+/* i#46: Implement private memcpy and memset for libc isolation.  With early
+ * injection we need libdynamorio.so to have zero dependencies so we can
+ * more easily bootstrap-load our own library.  Even with late injection, if we
+ * import memcpy and memset from libc in the normal way, the application can
+ * override those definitions and intercept them.  In particular, this occurs when
+ * running an app that links in a sanitizer tool's runtime.
  *
+ * Since we already need a reasonably efficient assembly memcpy implementation
+ * for safe_read, we go ahead and reuse the code (via the REP_STRING_OP macros)
+ * for these private memcpy and memset functions.
  * XXX: See comment on REP_STRING_OP about maybe using SSE instrs.  It's more
  * viable for memcpy and memset than for safe_read_asm.
  */
