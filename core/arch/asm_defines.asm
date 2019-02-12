@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -212,7 +212,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label) _##label
 # define ADDRTAKEN_LABEL(label) _##label
 # define GLOBAL_REF(label) _##label
-# define WEAK(name) weak name
+# define WEAK(name) /* no support */
 # define BYTE byte
 # define WORD word
 # define DWORD dword
