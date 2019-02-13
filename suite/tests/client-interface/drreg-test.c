@@ -284,10 +284,13 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      REG_XAX
         mov      REG_XAX, TEST_REG_ASM
         mov      TEST_REG_ASM, REG_XAX
-        je       epilog
+        je       test11_done
         /* Null deref if we have incorrect eflags */
         xor      TEST_REG_ASM, TEST_REG_ASM
-        mov      PTRSZ [TEST_REG_ASM - 8], TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test11_done
+     test11_done:
+        jmp     epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
