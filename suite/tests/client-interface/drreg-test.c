@@ -274,7 +274,24 @@ GLOBAL_LABEL(FUNCNAME:)
         setne    TEST_REG_ASM_LSB
         cmp      TEST_REG_ASM, REG_XSP
 
-        jmp      epilog
+        jmp      test11
+        /* Store aflags to dead XAX, and restore when XAX is live */
+     test11:
+        mov      TEST_REG_ASM, DRREG_TEST_11_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_11_ASM
+        cmp      TEST_REG_ASM, TEST_REG_ASM
+        push     TEST_CONST
+        pop      REG_XAX
+        mov      REG_XAX, TEST_REG_ASM
+        mov      TEST_REG_ASM, REG_XAX
+        je       test11_done
+        /* Null deref if we have incorrect eflags */
+        xor      TEST_REG_ASM, TEST_REG_ASM
+        mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
+        jmp      test11_done
+     test11_done:
+        jmp     epilog
+
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
