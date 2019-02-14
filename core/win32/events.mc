@@ -633,7 +633,17 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_FAILED_TO_TAKE_OVER_THREADS
 Language=English
-Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts
+Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts.
 .
+
+;#ifdef UNIX
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FAILED_TO_FIND_DR_BOUNDS
+Language=English
+Application %1!s! (%2!s!). Failed to find DynamoRIO library bounds.
+.
+;#endif
 
 ;// ADD NEW MESSAGES HERE

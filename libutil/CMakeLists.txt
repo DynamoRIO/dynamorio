@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -207,6 +207,10 @@ if (AARCH64)
 endif()
 # We need drhelper for dynamorio_syscall for core/unix/os.c.
 target_link_libraries(drfrontendlib drhelper)
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drfrontendlib drmemfuncs)
+endif ()
 add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})

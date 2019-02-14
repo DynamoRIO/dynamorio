@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,7 @@ file_reader_t<gzFile>::~file_reader_t<gzFile>()
 {
     for (auto file : input_files)
         gzclose(file);
+    delete[] thread_eof;
 }
 
 template <>

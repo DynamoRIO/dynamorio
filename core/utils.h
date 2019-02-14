@@ -2021,13 +2021,17 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 
 #define FATAL_ERROR_EXIT_CODE 40
 
-#define REPORT_FATAL_ERROR_AND_EXIT(dcontext, msg_id, arg_count, ...)               \
-    do {                                                                            \
-        /* Right now we just print an error message. In the future */               \
-        /* it may make sense to generate a core dump too. */                        \
-        SYSLOG_COMMON(false, SYSLOG_CRITICAL, msg_id, arg_count, __VA_ARGS__);      \
-        os_terminate_with_code(dcontext, TERMINATE_PROCESS, FATAL_ERROR_EXIT_CODE); \
-        ASSERT_NOT_REACHED();                                                       \
+#define REPORT_FATAL_ERROR_AND_EXIT(msg_id, arg_count, ...)                     \
+    do {                                                                        \
+        /* Right now we just print an error message. In the future              \
+         * it may make sense to generate a core dump too.                       \
+         */                                                                     \
+        SYSLOG_COMMON(false, SYSLOG_CRITICAL, msg_id, arg_count, __VA_ARGS__);  \
+        /* We hard-code NULL for the dcontext because we know it isn't used     \
+         * with TERMINATE_PROCESS or our specific error code.                   \
+         */                                                                     \
+        os_terminate_with_code(NULL, TERMINATE_PROCESS, FATAL_ERROR_EXIT_CODE); \
+        ASSERT_NOT_REACHED();                                                   \
     } while (0)
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
