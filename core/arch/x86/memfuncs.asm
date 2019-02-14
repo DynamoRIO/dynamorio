@@ -134,10 +134,12 @@ make_val_word_size:
  */
 .global __memcpy_chk
 .hidden __memcpy_chk
+WEAK(__memcpy_chk)
 .set __memcpy_chk,memcpy
 
 .global __memset_chk
 .hidden __memset_chk
+WEAK(__memset_chk)
 .set __memset_chk,memset
 # endif
 
