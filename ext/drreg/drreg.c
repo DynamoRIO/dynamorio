@@ -547,7 +547,8 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                 /* Don't bother if reg is dead beyond this write */
                 (ops.conservative || pt->live_idx == 0 ||
                  drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx - 1) ==
-                     REG_LIVE || pt->aflags.xchg == reg)) {
+                     REG_LIVE ||
+                 pt->aflags.xchg == reg)) {
                 uint tmp_slot = MAX_SPILLS;
                 if (pt->aflags.xchg == reg) {
                     /* Bail on keeping the flags in the reg. */
