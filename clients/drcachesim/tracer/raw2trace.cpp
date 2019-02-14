@@ -639,6 +639,7 @@ raw2trace_t::get_instr_summary(void *tls, uint64 modidx, uint64 modoffs, INOUT a
         if (!instr_summary_t::construct(dcontext, pc, orig, desc, verbosity)) {
             WARN("Encountered invalid/undecodable instr @ %s+" PFX,
                  modvec()[static_cast<size_t>(modidx)].path, (ptr_uint_t)modoffs);
+            delete desc;
             return nullptr;
         }
         hashtable_add(&decode_cache[tdata->worker], decode_pc, desc);
