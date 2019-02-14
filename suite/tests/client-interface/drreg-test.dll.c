@@ -281,6 +281,14 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_10_C) {
         /* Nothing to do here */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #10\n");
+    } else if (subtest == DRREG_TEST_11_C) {
+#ifdef X86
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #11\n");
+        res = drreg_reserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        res = drreg_unreserve_aflags(drcontext, bb, inst);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
+#endif
     }
 
     drvector_delete(&allowed);
