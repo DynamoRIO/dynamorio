@@ -291,7 +291,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
     }
 
-
     drvector_delete(&allowed);
 
     /* XXX i#511: add more tests */
