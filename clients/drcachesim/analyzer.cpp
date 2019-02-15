@@ -62,6 +62,7 @@ analyzer_t::analyzer_t()
     /* Nothing else: child class needs to initialize. */
 }
 
+#ifdef HAS_SNAPPY
 static bool
 ends_with(const std::string &str, const std::string &with)
 {
@@ -70,6 +71,7 @@ ends_with(const std::string &str, const std::string &with)
         return false;
     return (pos + with.size() == str.size());
 }
+#endif
 
 static std::unique_ptr<reader_t>
 get_reader(const std::string &path, int verbosity)
@@ -111,9 +113,8 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
             if (fname == "." || fname == "..")
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
-            thread_data.push_back(
-                analyzer_shard_data_t(static_cast<int>(thread_data.size()),
-                                      std::move(get_reader(path, verbosity)), path));
+            thread_data.push_back(analyzer_shard_data_t(
+                static_cast<int>(thread_data.size()), get_reader(path, verbosity), path));
             VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This

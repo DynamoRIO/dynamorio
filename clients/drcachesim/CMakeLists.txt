@@ -64,6 +64,13 @@ else ()
   set(zlib_reader "")
 endif()
 
+if (libsnappy)
+  add_definitions(-DHAS_SNAPPY)
+  set(snappy_reader reader/snappy_file_reader.cpp)
+else ()
+  set(snappy_reader "")
+endif()
+
 set(client_and_sim_srcs
   common/named_pipe_${os_name}.cpp
   common/options.cpp
@@ -128,6 +135,7 @@ set(drcachesim_srcs
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
@@ -166,6 +174,7 @@ add_exported_library(drmemtrace_analyzer STATIC
   reader/config_reader.cpp
   reader/file_reader.cpp
   ${zlib_reader}
+  ${snappy_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
 link_with_pthread(drmemtrace_analyzer)
@@ -235,6 +244,15 @@ if (ZLIB_FOUND)
   target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
   if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
+  endif ()
+endif ()
+
+if (libsnappy)
+  target_link_libraries(drcachesim snappy)
+  target_link_libraries(histogram_launcher snappy)
+  target_link_libraries(drmemtrace_raw2trace snappy)
+  if (NOT AARCH64 AND NOT APPLE)
+    target_link_libraries(opcode_mix_launcher snappy)
   endif ()
 endif ()
 
