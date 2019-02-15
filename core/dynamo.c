@@ -2877,7 +2877,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     signal_event(dr_attach_finished);
 
     if (found_threads) {
-        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_TAKE_OVER_THREADS, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
     DO_ONCE({

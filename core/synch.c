@@ -1180,7 +1180,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     int num_threads = 0;
     /* we record ids from before we gave up thread_initexit_lock */
     thread_id_t *thread_ids_temp = NULL;
-    int num_threads_temp = 0, i, j, expect_exiting = 0;
+    int num_threads_temp = 0, i, j, expect_self_exiting = 0;
     /* synch array contains a SYNCH_WITH_ALL_ value for each thread */
     uint *synch_array = NULL, *synch_array_temp = NULL;
     enum {
@@ -1245,8 +1245,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
 
     if (tr != NULL) {
         dcontext = tr->dcontext;
-        expect_exiting = dcontext->is_exiting ? 1 : 0;
-        ASSERT(exiting_thread_count >= expect_exiting);
+        expect_self_exiting = dcontext->is_exiting ? 1 : 0;
+        ASSERT(exiting_thread_count >= expect_self_exiting);
     } else {
         /* calling thread should always be a known thread */
         ASSERT_NOT_REACHED();
@@ -1300,8 +1300,8 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
      */
-    while (threads_are_stale || !all_synched || exiting_thread_count > expect_exiting ||
-           uninit_thread_count > 0) {
+    while (threads_are_stale || !all_synched ||
+           exiting_thread_count > expect_self_exiting || uninit_thread_count > 0) {
         if (threads != NULL) {
             /* Case 8941: must free here rather than when yield (below) since
              * termination condition can change between there and here
@@ -1445,12 +1445,12 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
          * process (current thread, though we could be here for detach or other
          * reasons) and an exiting thread (who might no longer be on the all
          * threads list) who is still using shared resources (ref case 3121) */
-        if (!all_synched || exiting_thread_count > expect_exiting ||
+        if (!all_synched || exiting_thread_count > expect_self_exiting ||
             uninit_thread_count > 0) {
             DOSTATS({
-                if (all_synched && exiting_thread_count > expect_exiting) {
+                if (all_synched && exiting_thread_count > expect_self_exiting) {
                     LOG(THREAD, LOG_SYNCH, 2, "Waiting for an exiting thread %d %d %d\n",
-                        all_synched, exiting_thread_count, expect_exiting);
+                        all_synched, exiting_thread_count, expect_self_exiting);
                     STATS_INC(synch_yields_for_exiting_thread);
                 } else if (all_synched && uninit_thread_count > 0) {
                     LOG(THREAD, LOG_SYNCH, 2, "Waiting for an uninit thread %d %d\n",
@@ -1536,6 +1536,7 @@ synch_with_all_exit:
     *threads_out = threads;
     *num_threads_out = num_threads;
     dynamo_all_threads_synched = all_synched;
+    ASSERT(exiting_thread_count - expect_self_exiting == 0);
     /* FIXME case 9392: where on all_synch failure we do not release the locks in the
      * non-abort exit path */
     return all_synched;
@@ -1570,6 +1571,7 @@ synch_with_all_abort:
     }
     mutex_unlock(&thread_initexit_lock);
     mutex_unlock(&all_threads_synch_lock);
+    ASSERT(exiting_thread_count - expect_self_exiting == 0);
     ASSERT(!all_synched); /* ensure our OUT values will be NULL,0
                              for THREAD_SYNCH_SUSPEND_FAILURE_ABORT */
     goto synch_with_all_exit;
@@ -1877,7 +1879,7 @@ send_all_other_threads_native(void)
     if (!synch_with_all_threads(desired_state, &threads, &num_threads,
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER,
                                 THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
-        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SYNCHRONIZE_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
 
@@ -2074,7 +2076,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
                                  * other threads.
                                  */
                                 THREAD_SYNCH_NO_LOCKS_NO_XFER, flags)) {
-        REPORT_FATAL_ERROR_AND_EXIT(my_dcontext, FAILED_TO_SYNCHRONIZE_THREADS, 2,
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_SYNCHRONIZE_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
 

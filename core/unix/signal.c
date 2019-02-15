@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -341,6 +341,21 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 {
     return dynamorio_syscall(IF_MACOS_ELSE(SYS_sigprocmask, SYS_rt_sigprocmask), 4, how,
                              set, oset, sigsetsize);
+}
+
+void
+block_all_signals_except(kernel_sigset_t *oset, int num_signals,
+                         ... /* list of signals */)
+{
+    kernel_sigset_t set;
+    kernel_sigfillset(&set);
+    va_list ap;
+    va_start(ap, num_signals);
+    for (int i = 0; i < num_signals; ++i) {
+        kernel_sigdelset(&set, va_arg(ap, int));
+    }
+    va_end(ap);
+    sigprocmask_syscall(SIG_SETMASK, &set, oset, sizeof(set));
 }
 
 static void
@@ -1276,7 +1291,14 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         }
         info->num_pending = 0;
     }
-    if (!other_thread)
+    /* If no detach flag is set, we assume that this thread is on its way to exit.
+     * In order to prevent receiving signals while a thread is on its way to exit
+     * without a valid dcontext, signals at this stage are blocked. The exceptions
+     * are the suspend signal and any signal that a terminating SYS_kill may need.
+     * (i#2921). In this case, we do not want to restore the signal mask. For detach,
+     * we do need to restore the app's mask.
+     */
+    if (!other_thread && doing_detach)
         signal_swap_mask(dcontext, true /*to_app*/);
 #ifdef HAVE_SIGALTSTACK
     /* Remove our sigstack and restore the app sigstack if it had one.  */
@@ -4814,8 +4836,48 @@ master_signal_handler_C(byte *xsp)
      * that could have been interrupted
      * e.g., synchronize_dynamic_options grabs the stats_lock!
      */
-    if (dcontext == NULL && sig == SUSPEND_SIGNAL) {
+    if (sig == SUSPEND_SIGNAL) {
+        if (proc_get_vendor() == VENDOR_AMD) {
+            /* i#3356: Work around an AMD processor bug where it does not clear the
+             * hidden gs base when the gs selector is written.  Pre-4.7 Linux kernels
+             * leave the prior thread's base in place on a switch due to this.
+             * We can thus come here and get the wrong dcontext on attach; worse,
+             * we can get NULL here but the wrong one later during init.  It's
+             * safest to just set a non-zero value (the kernel ignores zero) for all
+             * unknown threads here.  There are no problems for non-attach takeover.
+             */
+            if (dcontext == NULL || dcontext->owning_thread != get_sys_thread_id()) {
+                /* tls_thread_preinit() further rules out a temp-native dcontext
+                 * and avoids clobbering it, to preserve the thread_lookup() case
+                 * below (which we do not want to run first as we could swap to
+                 * the incorrect dcontext midway through it).
+                 */
+                if (!tls_thread_preinit()) {
+                    SYSLOG_INTERNAL_ERROR_ONCE("ERROR: Failed to work around AMD context "
+                                               "switch bug #3356: crashes or "
+                                               "hangs may ensue...");
+                }
+                dcontext = NULL;
+            }
+        }
+    }
+    if (dcontext == NULL &&
         /* Check for a temporarily-native thread we're synch-ing with. */
+        (sig == SUSPEND_SIGNAL
+#ifdef X86
+         || (INTERNAL_OPTION(safe_read_tls_init) &&
+             /* Check for whether this is a thread with its invalid sentinel magic set.
+              * In this case, we assume that it is either a thread that is currently
+              * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
+              * clone window. We know by inspection of our own code that it is safe to
+              * call thread_lookup for either case thread makes a clone or was just
+              * cloned. i.e. thread_lookup requires a lock that must not be held by the
+              * calling thread (i#2921).
+              * XXX: what is ARM doing, any special case w/ dcontext == NULL?
+              */
+             safe_read_tls_magic() == TLS_MAGIC_INVALID)
+#endif
+             )) {
         tr = thread_lookup(get_sys_thread_id());
         if (tr != NULL)
             dcontext = tr->dcontext;
@@ -4856,8 +4918,8 @@ master_signal_handler_C(byte *xsp)
         if (can_always_delay[sig])
             return;
 
-        REPORT_FATAL_ERROR_AND_EXIT(dcontext, FAILED_TO_HANDLE_SIGNAL, 2,
-                                    get_application_name(), get_application_pid());
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 2, get_application_name(),
+                                    get_application_pid());
     }
 
     /* we may be entering dynamo from code cache! */
@@ -5180,8 +5242,11 @@ master_signal_handler_C(byte *xsp)
 
     /* Ensure we didn't get the app's sigstack into our frame.  On Mac, the kernel
      * doesn't use the frame's uc_stack, so we limit this to Linux.
+     * The pointers may be different if a thread is on its way to exit, and the app's
+     * sigstack was already restored (i#3369).
      */
     IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+                    dcontext->is_exiting ||
                     frame->uc.uc_stack.ss_sp ==
                         ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));
 
@@ -5549,20 +5614,19 @@ terminate_via_kill(dcontext_t *dcontext)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(dcontext == get_thread_private_dcontext());
-    unblock_all_signals(NULL);
     /* Enure signal_thread_exit() will not re-block */
     memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
 
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
      */
-    cleanup_and_terminate(dcontext, SYS_kill,
-                          /* Pass -pid in case main thread has exited
-                           * in which case will get -ESRCH
-                           */
-                          IF_VMX86(os_in_vmkernel_userworld() ? -(int)get_process_id() :)
-                              get_process_id(),
-                          dcontext->sys_param0, true, 0, 0);
+    block_cleanup_and_terminate(
+        dcontext, SYS_kill,
+        /* Pass -pid in case main thread has exited
+         * in which case will get -ESRCH
+         */
+        IF_VMX86(os_in_vmkernel_userworld() ? -(int)get_process_id() :) get_process_id(),
+        dcontext->sys_param0, true, 0, 0);
     ASSERT_NOT_REACHED();
 }
 

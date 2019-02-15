@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -79,6 +79,17 @@ if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
 endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+
+if (UNIX AND X86)
+  # i#3315: We want our own memcpy and memset for the shared-lib DR core and
+  # for drinjectlib + drfrontendlib to avoid glibc-versioned symbols in
+  # our auxiliary tools (i#1504), but we do *not* want our own memcpy and
+  # memset for static-lib DR core.  Thus we separate them out.  The i#1504
+  # glibc versioning is only an issue on x86.
+  add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
+    "_memfuncs" "" "${asm_deps}")
+  add_library(drmemfuncs STATIC ${memfuncs_asm_src})
+endif ()
 
 # i#1409: to share core code with non-core, we use the "drhelper" library.
 # XXX: we're using _shared here, and for inject_shared, etc., to mean
@@ -559,6 +570,11 @@ add_library(dynamorio SHARED
   )
 
 configure_core_lib(dynamorio)
+if (UNIX AND X86)
+  # We need our own memcpy + memset for isolation.
+  # They're separated out for sharing for i#1504.
+  target_link_libraries(dynamorio drmemfuncs)
+endif ()
 
 if (UNIX)
   # i#47: set the ELF header entry point to _start for early injection.
@@ -843,6 +859,10 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
 target_link_libraries(${PRELOAD_NAME} drhelper)
+if (UNIX AND X86)
+  # We need our own memcpy + memset for isolation.
+  target_link_libraries(${PRELOAD_NAME} drmemfuncs)
+endif ()
 copy_target_to_device(${PRELOAD_NAME} "${location_suffix}")
 
 # drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
@@ -930,6 +950,10 @@ endif ()
 add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
 target_link_libraries(drinjectlib drdecode drhelper)
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drinjectlib drmemfuncs)
+endif ()
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
@@ -1066,3 +1090,7 @@ install_exported_target(drdecode ${INSTALL_LIB})
 # We have to export drhelper as static libs we're exporting depend on it.
 DR_export_target(drhelper)
 install_exported_target(drhelper ${INSTALL_LIB_BASE})
+if (UNIX AND X86)
+  DR_export_target(drmemfuncs)
+  install_exported_target(drmemfuncs ${INSTALL_LIB_BASE})
+endif ()

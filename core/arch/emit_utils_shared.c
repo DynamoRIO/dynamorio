@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5056,7 +5056,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
         APP(&ilist,
             INSTR_CREATE_mov_seg(dcontext, opnd_create_reg(SEG_TLS),
                                  opnd_create_reg(REG_AX)));
-    }
+    } /* Else, os_clone_pre() inherits a valid-except-.magic segment (i#2089). */
 #        endif
 
     /* stack grew down, so priv_mcontext_t at tos */
