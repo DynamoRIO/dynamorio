@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,11 +64,9 @@ typedef BOOL(WINAPI *dbghelp_SymInitializeW_t)(IN HANDLE hProcess,
 typedef BOOL(WINAPI *dbghelp_SymCleanupW_t)(IN HANDLE hProcess);
 typedef BOOL(WINAPI *dbghelp_SymSetSearchPathW_t)(IN HANDLE hProcess,
                                                   IN PCTSTR SearchPath);
-typedef BOOL(WINAPI *dbghelp_SymLoadModuleExW_t)(IN HANDLE hProcess, IN HANDLE hFile,
-                                                 IN PCTSTR ImageName,
-                                                 IN PCTSTR ModuleName,
-                                                 IN DWORD64 BaseOfDll, IN DWORD DllSize,
-                                                 IN PMODLOAD_DATA Data, IN DWORD Flags);
+typedef DWORD64(WINAPI *dbghelp_SymLoadModuleExW_t)(
+    IN HANDLE hProcess, IN HANDLE hFile, IN PCTSTR ImageName, IN PCTSTR ModuleName,
+    IN DWORD64 BaseOfDll, IN DWORD DllSize, IN PMODLOAD_DATA Data, IN DWORD Flags);
 typedef BOOL(WINAPI *dbghelp_SymUnloadModule64_t)(IN HANDLE hProcess,
                                                   IN DWORD64 BaseOfDll);
 typedef BOOL(WINAPI *dbghelp_SymGetModuleInfoW64_t)(IN HANDLE hProcess, IN DWORD64 dwAddr,
