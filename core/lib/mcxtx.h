@@ -134,7 +134,7 @@
      * all.  We do not need anything more than word alignment for OP_vldm/OP_vstm,
      * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
      */
-    dr_simd_t simd[NUM_SIMD_SLOTS];
+    dr_simd_t simd[MAX_NUM_SIMD_SLOTS];
 #else /* X86 */
 #    ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
@@ -245,5 +245,5 @@
      * DrMi#665: we now preserve all of the xmm registers.
      */
 #    endif
-    dr_ymm_t ymm[NUM_SIMD_SLOTS];
+    dr_ymm_t ymm[MAX_NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

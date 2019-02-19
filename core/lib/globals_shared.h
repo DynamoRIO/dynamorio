@@ -1841,11 +1841,11 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define NUM_SIMD_SLOTS                                       \
+#        define MAX_NUM_SIMD_SLOTS                                   \
             32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    else
-#        define NUM_SIMD_SLOTS                                       \
+#        define MAX_NUM_SIMD_SLOTS                                   \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    endif
@@ -1858,7 +1858,7 @@ typedef union _dr_simd_t {
 #    ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update MAX_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
@@ -1867,10 +1867,11 @@ typedef union _dr_simd_t {
 #    ifdef X64
 #        ifdef WINDOWS
 /*xmm0-5*/
-#            define NUM_SIMD_SLOTS 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#            define MAX_NUM_SIMD_SLOTS \
+                6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
 #        else
 /*xmm0-15*/
-#            define NUM_SIMD_SLOTS                                  \
+#            define MAX_NUM_SIMD_SLOTS                              \
                 16 /**< Number of [xy]mm reg slots in dr_mcontext_t \
                     */
 #        endif
@@ -1878,16 +1879,26 @@ typedef union _dr_simd_t {
             16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    else
 /*xmm0-7*/
-#        define NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
+#        define MAX_NUM_SIMD_SLOTS 8 /**< Number of [xy]mm reg slots in dr_mcontext_t */
 #        define PRE_XMM_PADDING \
             24 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    endif
 
-#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
-
 #else
 #    error NYI
 #endif /* AARCHXX/X86 */
+
+#ifdef DR_NUM_SIMD_SLOTS_COMPATIBILITY
+
+#    undef NUM_SIMD_SLOTS
+/**
+ * Number of saved SIMD slots in dr_mcontext_t.
+ */
+#    define NUM_SIMD_SLOTS proc_num_simd_slots()
+
+#    define NUM_XMM_SLOTS NUM_SIMD_SLOTS /* for backward compatibility */
+
+#endif /* DR_NUM_SIMD_SLOTS_COMPATIBILITY */
 
 /** Values for the flags field of dr_mcontext_t */
 typedef enum {
@@ -1947,28 +1958,5 @@ typedef struct _dr_mcontext_t {
 typedef struct _priv_mcontext_t {
 #include "mcxtx.h"
 } priv_mcontext_t;
-
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
- * libc routines invoked by DR in some Linux systems (xref i#139),
- * so they should be saved in 32-bit Linux.
- */
-/* Xref i#139:
- * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
- * that DR with xmm preservation adds negligible overhead over DR without
- * xmm preservation.
- * It means xmm preservation would have little performance impact over
- * DR base system. This is mainly because DR's own operations' overhead
- * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many
- * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit,
- * and could have a noticeable performance hit.
- */
-/* We now save everything but we keep separate NUM_SIMD_SLOTS vs NUM_SIMD_SAVED
- * in case we go back to not saving some slots in the future: e.g., w/o
- * CLIENT_INTERFACE we could control our own libs enough to avoid some saves.
- */
-#define NUM_SIMD_SAVED NUM_SIMD_SLOTS
 
 #endif /* _GLOBALS_SHARED_H_ */

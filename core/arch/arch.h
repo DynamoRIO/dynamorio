@@ -323,7 +323,7 @@ typedef enum {
 #    define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_SIMD_REGS NUM_SIMD_SAVED
+#define NUM_SIMD_REGS MAX_NUM_SIMD_SLOTS
 #define NUM_GP_REGS DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.

@@ -294,6 +294,23 @@ Further non-compatibility-affecting changes include:
 **************************************************
 <hr>
 
+Version 7.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 7.1.0 and 7.0.0 includes the following minor
+compatibility change:
+
+ - Replaced NUM_SIMD_SLOTS with proc_num_simd_slots() and adds the define
+   MAX_NUM_SIMD_SLOTS. Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
+   in order to provide the define NUM_SIMD_SLOTS using proc_num_simd_slots().
+   The macro is not a constant expression and code relying on this needs to be
+   rewritten. DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if
+   clients target version 7.0 or earlier.
+
+**************************************************
+<hr>
+
 Version 7.0.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
 the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
 drsymcache Extensions for use by clients.

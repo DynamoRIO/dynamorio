@@ -342,7 +342,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (cci == NULL)
         cci = &default_clean_call_info;
     if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
-        int offs = XMM_SLOTS_SIZE + PRE_XMM_PADDING;
+        int offs = MAX_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
@@ -367,20 +367,19 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
                         dcontext, opcode,
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
+                                              PRE_XMM_PADDING + i * MAX_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM),
                         opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
+        ASSERT(i * MAX_SIMD_SLOT_SIZE == MAX_TOTAL_SIMD_SLOTS_SIZE);
     }
     /* pc and aflags */
     if (!cci->skip_save_flags) {
@@ -509,26 +508,25 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          * is better. */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
                         dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * XMM_SAVED_REG_SIZE +
+                                              PRE_XMM_PADDING + i * MAX_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * XMM_SAVED_REG_SIZE == XMM_SAVED_SIZE);
-        ASSERT(XMM_SAVED_SIZE <= XMM_SLOTS_SIZE);
+        ASSERT(i * MAX_SIMD_SLOT_SIZE == MAX_TOTAL_SIMD_SLOTS_SIZE);
     }
 
     PRE(ilist, instr,
-        INSTR_CREATE_lea(
-            dcontext, opnd_create_reg(REG_XSP),
-            OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
-                                PRE_XMM_PADDING + XMM_SLOTS_SIZE + offs_beyond_xmm)));
+        INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
+                         OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
+                                             PRE_XMM_PADDING + MAX_TOTAL_SIMD_SLOTS_SIZE +
+                                                 offs_beyond_xmm)));
 }
 
 reg_id_t

@@ -96,4 +96,8 @@ if (NOT "${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
   elseif ("${PACKAGE_FIND_VERSION}" VERSION_LESS "7.0")
     set(DynamoRIO_LOG_COMPATIBILITY ON PARENT_SCOPE)
   endif ()
+  # Automatically define NUM_SIMD_SLOTS if client targets older version
+  if ("${PACKAGE_FIND_VERSION}" VERSION_LESS "7.1")
+    set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON PARENT_SCOPE)
+  endif ()
 endif ()

@@ -34,9 +34,13 @@
 #include "proc.h"
 #include "instr.h"
 
+int num_simd_saved = 0;
+
 void
 proc_init_arch(void)
 {
+    num_simd_saved = MAX_NUM_SIMD_SLOTS;
+
     /* FIXME i#1569: NYI */
 }
 
@@ -59,6 +63,13 @@ proc_fpstate_save_size(void)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
+}
+
+DR_API
+size_t
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
 }
 
 DR_API
