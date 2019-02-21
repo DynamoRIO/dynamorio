@@ -254,7 +254,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             }
         } else {
             /* skip xmm slots */
-            bufptr += XMM_SLOTS_SIZE / sizeof(*bufptr);
+            bufptr += MAX_TOTAL_SIMD_SLOTS_SIZE / sizeof(*bufptr);
         }
         ASSERT((char *)bufptr - (char *)buf == sizeof(priv_mcontext_t));
         *bufptr++ = (ptr_uint_t)load_dynamo_code;
