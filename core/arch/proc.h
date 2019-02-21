@@ -484,7 +484,7 @@ DR_API
  * have noticable impacts, i.e. pushing bbs over the max size limit,
  * and could have a noticeable performance hit.
  */
-size_t
+int
 proc_num_simd_saved(void);
 
 DR_API

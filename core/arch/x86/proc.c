@@ -424,7 +424,7 @@ proc_fpstate_save_size(void)
 }
 
 DR_API
-size_t
+int
 proc_num_simd_saved(void)
 {
     return num_simd_saved;
