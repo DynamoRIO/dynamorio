@@ -45,6 +45,8 @@
 #include "instrument.h"
 #include "../synch.h"
 
+/* dummy change */
+
 /* this points to one of the os-version-specific system call # arrays below */
 int *syscalls = NULL;
 /* this points to one of the os-version-specific wow64 argument conversion arrays */
