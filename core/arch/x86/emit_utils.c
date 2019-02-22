@@ -1342,7 +1342,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 instr_create_1dst_1src(
                     dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                     OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                  XMM_OFFSET + i * MAX_SIMD_SLOT_SIZE)));
+                                  XMM_OFFSET + i * MCTX_SIMD_SLOT_SIZE)));
         }
     }
 }
@@ -1562,10 +1562,11 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i = 0; i < proc_num_simd_saved(); i++) {
             APP(ilist,
-                instr_create_1dst_1src(dcontext, opcode,
-                                       OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                                                     XMM_OFFSET + i * MAX_SIMD_SLOT_SIZE),
-                                       opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
+                instr_create_1dst_1src(
+                    dcontext, opcode,
+                    OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
+                                  XMM_OFFSET + i * MCTX_SIMD_SLOT_SIZE),
+                    opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
         }
     }
 }

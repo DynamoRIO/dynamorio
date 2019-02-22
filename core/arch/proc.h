@@ -461,13 +461,11 @@ DR_API
 /**
  * Returns number of SIMD registers to be saved.
  *
- * This used to be a pre-processor define. AVX-512
- * will increase the number of xmm and ymm registers, if supported by the
- * processor and enabled by the OS. This is why the number of saved SIMD
- * registers is now a global. We may also decide to optimize the number of
- * saved registers in a context switch to avoid frequency scaling (xref #3169).
- *
- * PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+ * The number of saved SIMD registers may be variable. For example, we may decide
+ * to optimize the number of saved registers in a context switch to avoid frequency
+ * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
+ */
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
  * libc routines invoked by DR in some Linux systems (xref i#139),
  * so they should be saved in 32-bit Linux.
  *

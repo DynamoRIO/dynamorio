@@ -478,9 +478,6 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: if VERSION_NUMBER's major number is incremented without also
-# incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
-# symlink loop in core/CMakeLists.txt
 # N.B.: when updating this, update the git tag in .travis.yml.
 # We should find a way to share (xref i#1565).
 set(VERSION_NUMBER_DEFAULT "7.1.${VERSION_NUMBER_PATCHLEVEL}")

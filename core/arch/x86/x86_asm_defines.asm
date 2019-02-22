@@ -47,19 +47,19 @@
  */
 #ifdef X64
 # ifdef WINDOWS
-#  define MAX_NUM_SIMD_SLOTS 6 /* xmm0-5 */
+#  define MCTX_NUM_SIMD_SLOTS 6 /* xmm0-5 */
 # else
-#  define MAX_NUM_SIMD_SLOTS 16 /* xmm0-15 */
+#  define MCTX_NUM_SIMD_SLOTS 16 /* xmm0-15 */
 # endif
 # define PRE_XMM_PADDING 16
 #else
-# define MAX_NUM_SIMD_SLOTS 8 /* xmm0-7 */
+# define MCTX_NUM_SIMD_SLOTS 8 /* xmm0-7 */
 # define PRE_XMM_PADDING 24
 #endif
 #define YMM_REG_SIZE 32
-#define MAX_SIMD_SLOT_SIZE YMM_REG_SIZE
+#define MCTX_SIMD_SLOT_SIZE YMM_REG_SIZE
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define MAX_TOTAL_SIMD_SLOTS_SIZE ((MAX_NUM_SIMD_SLOTS)*(YMM_REG_SIZE))
+#define MCTX_TOTAL_SIMD_SLOTS_SIZE ((MCTX_NUM_SIMD_SLOTS)*(YMM_REG_SIZE))
 
 #ifdef X64
 /* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a
@@ -104,7 +104,7 @@
         pop      r13 @N@\
         pop      r14 @N@\
         pop      r15 @N@
-# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + MAX_TOTAL_SIMD_SLOTS_SIZE)
+# define PRIV_MCXT_SIZE (18*ARG_SZ + PRE_XMM_PADDING + MCTX_TOTAL_SIMD_SLOTS_SIZE)
 # define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
 # define MCONTEXT_PC_OFFS  (17*ARG_SZ)
 #else
@@ -112,7 +112,7 @@
         pusha
 # define POPGPR  \
         popa
-# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + MAX_TOTAL_SIMD_SLOTS_SIZE)
+# define PRIV_MCXT_SIZE (10*ARG_SZ + PRE_XMM_PADDING + MCTX_TOTAL_SIMD_SLOTS_SIZE)
 # define dstack_OFFSET     (PRIV_MCXT_SIZE+UPCXT_EXTRA+3*ARG_SZ)
 # define MCONTEXT_PC_OFFS  (9*ARG_SZ)
 #endif
@@ -120,7 +120,7 @@
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 #define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
 #define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
-#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- MAX_TOTAL_SIMD_SLOTS_SIZE - PRE_XMM_PADDING)
+#define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- MCTX_TOTAL_SIMD_SLOTS_SIZE - PRE_XMM_PADDING)
 
 #if defined(WINDOWS) && !defined(X64)
 /* FIXME: check these selector values on all platforms: these are for XPSP2.

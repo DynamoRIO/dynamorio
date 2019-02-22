@@ -58,12 +58,12 @@
  */
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
-#    define MAX_SIMD_SLOT_SIZE YMM_REG_SIZE
-#    define MAX_TOTAL_SIMD_SLOTS_SIZE (MAX_NUM_SIMD_SLOTS * YMM_REG_SIZE)
+#    define MCTX_SIMD_SLOT_SIZE YMM_REG_SIZE
+#    define MCTX_TOTAL_SIMD_SLOTS_SIZE (MCTX_NUM_SIMD_SLOTS * YMM_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
 #    define YMM_ENABLED() (proc_avx_enabled())
 #    define YMMH_REG_SIZE (YMM_REG_SIZE / 2) /* upper half */
-#    define MAX_YMMH_SLOTS_SIZE (MAX_NUM_SIMD_SLOTS * YMMH_REG_SIZE)
+#    define MCTX_YMMH_SLOTS_SIZE (MCTX_NUM_SIMD_SLOTS * YMMH_REG_SIZE)
 #endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */

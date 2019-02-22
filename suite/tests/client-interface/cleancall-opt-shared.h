@@ -301,7 +301,7 @@ dump_diff_mcontexts(void)
     }
 
     dr_fprintf(STDERR, "Printing XMM regs:\n");
-    for (i = 0; i < MAX_NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < MCTX_NUM_SIMD_SLOTS; i++) {
 #ifdef X86
         dr_ymm_t before_reg = before_mcontext.ymm[i];
         dr_ymm_t after_reg = after_mcontext.ymm[i];

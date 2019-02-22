@@ -341,8 +341,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     int offs_beyond_xmm = 0;
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_simd_skip != NUM_SIMD_REGS) {
-        int offs = MAX_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
+    if (cci->preserve_mcontext || cci->num_simd_skip != MCTX_NUM_SIMD_SLOTS) {
+        int offs = MCTX_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
             offs += offs_beyond_xmm;
@@ -373,13 +373,13 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                     instr_create_1dst_1src(
                         dcontext, opcode,
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * MAX_SIMD_SLOT_SIZE +
+                                              PRE_XMM_PADDING + i * MCTX_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM),
                         opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
             }
         }
-        ASSERT(i * MAX_SIMD_SLOT_SIZE == MAX_TOTAL_SIMD_SLOTS_SIZE);
+        ASSERT(i * MCTX_SIMD_SLOT_SIZE == MCTX_TOTAL_SIMD_SLOTS_SIZE);
     }
     /* pc and aflags */
     if (!cci->skip_save_flags) {
@@ -514,18 +514,19 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                     instr_create_1dst_1src(
                         dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
                         opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                              PRE_XMM_PADDING + i * MAX_SIMD_SLOT_SIZE +
+                                              PRE_XMM_PADDING + i * MCTX_SIMD_SLOT_SIZE +
                                                   offs_beyond_xmm,
                                               OPSZ_SAVED_XMM)));
             }
         }
-        ASSERT(i * MAX_SIMD_SLOT_SIZE == MAX_TOTAL_SIMD_SLOTS_SIZE);
+        ASSERT(i * MCTX_SIMD_SLOT_SIZE == MCTX_TOTAL_SIMD_SLOTS_SIZE);
     }
 
     PRE(ilist, instr,
         INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                          OPND_CREATE_MEM_lea(REG_XSP, REG_NULL, 0,
-                                             PRE_XMM_PADDING + MAX_TOTAL_SIMD_SLOTS_SIZE +
+                                             PRE_XMM_PADDING +
+                                                 MCTX_TOTAL_SIMD_SLOTS_SIZE +
                                                  offs_beyond_xmm)));
 }
 

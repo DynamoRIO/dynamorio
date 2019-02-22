@@ -355,7 +355,7 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
-    num_simd_saved = MAX_NUM_SIMD_SLOTS;
+    num_simd_saved = MCTX_NUM_SIMD_SLOTS;
 
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction

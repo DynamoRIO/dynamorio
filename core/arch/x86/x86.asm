@@ -2205,25 +2205,25 @@ GLOBAL_LABEL(get_own_context_helper:)
         DECLARE_FUNC(get_xmm_caller_saved)
 GLOBAL_LABEL(get_xmm_caller_saved:)
         mov      REG_XAX, ARG1
-        movups   [REG_XAX + 0*MAX_SIMD_SLOT_SIZE], xmm0
-        movups   [REG_XAX + 1*MAX_SIMD_SLOT_SIZE], xmm1
-        movups   [REG_XAX + 2*MAX_SIMD_SLOT_SIZE], xmm2
-        movups   [REG_XAX + 3*MAX_SIMD_SLOT_SIZE], xmm3
-        movups   [REG_XAX + 4*MAX_SIMD_SLOT_SIZE], xmm4
-        movups   [REG_XAX + 5*MAX_SIMD_SLOT_SIZE], xmm5
+        movups   [REG_XAX + 0*MCTX_SIMD_SLOT_SIZE], xmm0
+        movups   [REG_XAX + 1*MCTX_SIMD_SLOT_SIZE], xmm1
+        movups   [REG_XAX + 2*MCTX_SIMD_SLOT_SIZE], xmm2
+        movups   [REG_XAX + 3*MCTX_SIMD_SLOT_SIZE], xmm3
+        movups   [REG_XAX + 4*MCTX_SIMD_SLOT_SIZE], xmm4
+        movups   [REG_XAX + 5*MCTX_SIMD_SLOT_SIZE], xmm5
 #ifdef UNIX
-        movups   [REG_XAX + 6*MAX_SIMD_SLOT_SIZE], xmm6
-        movups   [REG_XAX + 7*MAX_SIMD_SLOT_SIZE], xmm7
+        movups   [REG_XAX + 6*MCTX_SIMD_SLOT_SIZE], xmm6
+        movups   [REG_XAX + 7*MCTX_SIMD_SLOT_SIZE], xmm7
 #endif
 #if defined(UNIX) && defined(X64)
-        movups   [REG_XAX + 8*MAX_SIMD_SLOT_SIZE], xmm8
-        movups   [REG_XAX + 9*MAX_SIMD_SLOT_SIZE], xmm9
-        movups   [REG_XAX + 10*MAX_SIMD_SLOT_SIZE], xmm10
-        movups   [REG_XAX + 11*MAX_SIMD_SLOT_SIZE], xmm11
-        movups   [REG_XAX + 12*MAX_SIMD_SLOT_SIZE], xmm12
-        movups   [REG_XAX + 13*MAX_SIMD_SLOT_SIZE], xmm13
-        movups   [REG_XAX + 14*MAX_SIMD_SLOT_SIZE], xmm14
-        movups   [REG_XAX + 15*MAX_SIMD_SLOT_SIZE], xmm15
+        movups   [REG_XAX + 8*MCTX_SIMD_SLOT_SIZE], xmm8
+        movups   [REG_XAX + 9*MCTX_SIMD_SLOT_SIZE], xmm9
+        movups   [REG_XAX + 10*MCTX_SIMD_SLOT_SIZE], xmm10
+        movups   [REG_XAX + 11*MCTX_SIMD_SLOT_SIZE], xmm11
+        movups   [REG_XAX + 12*MCTX_SIMD_SLOT_SIZE], xmm12
+        movups   [REG_XAX + 13*MCTX_SIMD_SLOT_SIZE], xmm13
+        movups   [REG_XAX + 14*MCTX_SIMD_SLOT_SIZE], xmm14
+        movups   [REG_XAX + 15*MCTX_SIMD_SLOT_SIZE], xmm15
 #endif
         ret
         END_FUNC(get_xmm_caller_saved)
