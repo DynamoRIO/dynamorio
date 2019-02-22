@@ -3297,7 +3297,8 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             if (TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 /* PR 264138 */
-                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0), MCTX_TOTAL_SIMD_SLOTS_SIZE);
+                memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0),
+                       MCTX_TOTAL_SIMD_SLOTS_SIZE);
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
