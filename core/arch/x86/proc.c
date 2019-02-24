@@ -68,7 +68,8 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
-int num_simd_saved = 0;
+
+extern int num_simd_saved;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });

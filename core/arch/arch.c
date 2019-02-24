@@ -87,6 +87,8 @@ byte *app_sysenter_instr_addr = NULL;
 static bool sysenter_hook_failed = false;
 #endif
 
+int num_simd_saved = 0;
+
 /* static functions forward references */
 static byte *
 emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
