@@ -37,6 +37,11 @@
  */
 extern int drfrontend_verbosity;
 
+#ifdef WINDOWS
+/* Disable warning about "while (0)" below. */
+#    pragma warning(disable : 4127)
+#endif
+
 #undef NOTIFY
 #define NOTIFY(level, ...)                     \
     do {                                       \
