@@ -134,7 +134,8 @@ provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
 The changes between version \DR_VERSION and 7.1.0 include:
- - Nothing yet.
+
+ - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
 
 **************************************************
 <hr>
