@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3489,7 +3489,40 @@ On Win10-1703 there's some logic for delegation before the regular lea sequence:
   778b403c e89f230100      call    ntdll!RtlRaiseStatus (778c63e0)
   778b4041 ebf8            jmp     ntdll!KiUserApcDispatcher+0x5b (778b403b)  Branch
 
-FIXME case 6395/case 6050: what are KiUserCallbackExceptionHandler and
+On Win10-1809 the CONTEXT is shifted by 4:
+  ntdll!KiUserApcDispatcher:
+  77d627b0 833dfc17e17700  cmp     dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                              (77e117fc)],0
+  77d627b7 740e            je      ntdll!KiUserApcDispatcher+0x17 (77d627c7)
+  77d627b9 8b0dfc17e177    mov     ecx,dword ptr [ntdll!LdrDelegatedKiUserApcDispatcher
+                                                  (77e117fc)]
+  77d627bf ff15e041e177    call    dword ptr [ntdll!__guard_check_icall_fptr (77e141e0)]
+  77d627c5 ffe1            jmp     ecx
+  77d627c7 8d8424e0020000  lea     eax,[esp+2E0h]
+  77d627ce 648b0d00000000  mov     ecx,dword ptr fs:[0]
+  77d627d5 ba9027d677      mov     edx,offset ntdll!KiUserApcExceptionHandler (77d62790)
+  77d627da 8908            mov     dword ptr [eax],ecx
+  77d627dc 895004          mov     dword ptr [eax+4],edx
+  77d627df 64a300000000    mov     dword ptr fs:[00000000h],eax
+  77d627e5 8d7c2414        lea     edi,[esp+14h]
+  77d627e9 8b742410        mov     esi,dword ptr [esp+10h]
+  77d627ed 83e601          and     esi,1
+  77d627f0 58              pop     eax
+  77d627f1 8bc8            mov     ecx,eax
+  77d627f3 ff15e041e177    call    dword ptr [ntdll!__guard_check_icall_fptr (77e141e0)]
+  77d627f9 ffd1            call    ecx
+  77d627fb 8b8fcc020000    mov     ecx,dword ptr [edi+2CCh]
+  77d62801 64890d00000000  mov     dword ptr fs:[0],ecx
+  77d62808 56              push    esi
+  77d62809 57              push    edi
+  77d6280a e8c1e0ffff      call    ntdll!NtContinue (77d608d0)
+  77d6280f 8bf0            mov     esi,eax
+  77d62811 56              push    esi
+  77d62812 e8f9290100      call    ntdll!RtlRaiseStatus (77d75210)
+  77d62817 ebf8            jmp     ntdll!KiUserApcDispatcher+0x61 (77d62811)
+  77d62819 c21000          ret     10h
+
+XXX case 6395/case 6050: what are KiUserCallbackExceptionHandler and
 KiUserApcExceptionHandler, added on 2003 sp1?  We're assuming not
 entered from kernel mode despite Ki prefix.  They are not exported
 entry points.
@@ -3518,11 +3551,11 @@ cb stack when an exception will abandon that cb frame.
  *        win32_APC_argument
  *    4') *(esp+0xc) == Argument2
  *      on XP SP2 for BaseDispatchAPC, seems to be SXS activation context related
- *    5) *(esp+0x10) == CONTEXT
+ *    5) *(esp+apc_context_xsp_offs) == CONTEXT
  * For x64, it looks like the CONTEXT is at the top of the stack, and the
  * PxHome fields hold the APC parameters.
  */
-#define APC_CONTEXT_XSP_OFFS IF_X64_ELSE(0, 0x10)
+static int apc_context_xsp_offs; /* updated by check_apc_context_offset() */
 #define APC_TARGET_XSP_OFFS IF_X64_ELSE(0x18, 0)
 /* Remember that every path out of here must invoke the DR exit hook.
  * The normal return path will do so as the interception code has an
@@ -3532,11 +3565,11 @@ static after_intercept_action_t /* note return value will be ignored */
 intercept_apc(app_state_at_intercept_t *state)
 {
     CONTEXT *cxt;
-    /* the CONTEXT is laid out on the stack itself
-     * from examining KiUserApcDispatcher, we know it's 16 bytes up
-     * we try to verify that at interception time via check_apc_context_offset
+    /* The CONTEXT is laid out on the stack itself.
+     * From examining KiUserApcDispatcher, we know it's 16 bytes up.
+     * We try to verify that at interception time via check_apc_context_offset().
      */
-    cxt = ((CONTEXT *)(state->mc.xsp + APC_CONTEXT_XSP_OFFS));
+    cxt = ((CONTEXT *)(state->mc.xsp + apc_context_xsp_offs));
 
     /* this might be a new thread */
     possible_new_thread_wait_for_dr_init(cxt);
@@ -3735,8 +3768,10 @@ intercept_apc(app_state_at_intercept_t *state)
     return AFTER_INTERCEPT_LET_GO;
 }
 
-/* Verify the 16 byte offset of the CONTEXT structure */
-void
+/* Identifies the offset of the CONTEXT structure on entry to KiUserApcDispatcher
+ * and stores it into apc_context_xsp_offs.
+ */
+static void
 check_apc_context_offset(byte *apc_entry)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -3762,22 +3797,40 @@ check_apc_context_offset(byte *apc_entry)
              opnd_get_disp(instr_get_src(&instr, 0)) == 0x18)) &&
            opnd_get_base(instr_get_src(&instr, 0)) == REG_XSP &&
            opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL);
+    apc_context_xsp_offs = 0;
 #else
+    int lea_offs = 0x10 /*most common value*/, pushpop_offs = 0;
+    app_pc pc = apc_entry;
     /* Skip over the Win10-1703 delegation prefx */
     if (instr_get_opcode(&instr) == OP_cmp &&
         get_os_version() >= WINDOWS_VERSION_10_1703) {
-        app_pc pc = apc_entry + instr_length(dcontext, &instr);
-        while (instr_get_opcode(&instr) != OP_lea && pc - apc_entry < 32) {
+        pc += instr_length(dcontext, &instr);
+        do {
             instr_reset(dcontext, &instr);
             pc = decode(dcontext, pc, &instr);
-        }
+        } while (instr_get_opcode(&instr) != OP_lea && pc - apc_entry < 32);
     }
-    /* In Win 2003 SP1, the context offset used is 0xc, and DR works with it;
-     * the first lea used there has an offset of 0x2dc, not 0xc.  See case 3522.
-     */
-    ASSERT(instr_get_opcode(&instr) == OP_lea &&
-           (opnd_get_disp(instr_get_src(&instr, 0)) == 0x10 ||
-            opnd_get_disp(instr_get_src(&instr, 0)) == 0x2dc));
+    /* Look for a small-offs lea, accounting for push/pop in between. */
+    while (pc - apc_entry < 96) {
+        if (instr_get_opcode(&instr) == OP_lea &&
+            opnd_is_base_disp(instr_get_src(&instr, 0)) &&
+            opnd_get_base(instr_get_src(&instr, 0)) == DR_REG_XSP &&
+            opnd_get_index(instr_get_src(&instr, 0)) == DR_REG_NULL) {
+            lea_offs = opnd_get_disp(instr_get_src(&instr, 0));
+            /* Skip the large-offs lea 0x2dc */
+            if (lea_offs < 0x100)
+                break;
+        }
+        if (instr_get_opcode(&instr) == OP_pop)
+            pushpop_offs += XSP_SZ;
+        else if (instr_get_opcode(&instr) == OP_push)
+            pushpop_offs -= XSP_SZ;
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+    }
+    ASSERT(instr_get_opcode(&instr) == OP_lea);
+    apc_context_xsp_offs = lea_offs + pushpop_offs;
+    LOG(GLOBAL, LOG_ASYNCH, 1, "apc_context_xsp_offs = %d\n", apc_context_xsp_offs);
 #endif
     instr_free(dcontext, &instr);
 }
