@@ -30,9 +30,11 @@
  * DAMAGE.
  */
 
-/* snappy_file_reader: reads snappy-compressed files containing memory traces. Files
+/*
+ * snappy_file_reader: reads snappy-compressed files containing memory traces. Files
  * should follow the snappy framing format:
- * https://github.com/google/snappy/blob/master/framing_format.txt */
+ * https://github.com/google/snappy/blob/master/framing_format.txt
+ */
 
 #ifndef _SNAPPY_FILE_READER_H_
 #define _SNAPPY_FILE_READER_H_ 1
@@ -91,7 +93,7 @@ private:
     std::unique_ptr<std::ifstream> fstream;
     // Reader into the decompressed buffer.
     std::unique_ptr<snappy::Source> src;
-    // Buffer holdling decompressed chunk data.
+    // Buffer holding decompressed chunk data.
     std::vector<char> uncompressed_buf;
     // BUffer hodling the compressed chunks themselves.
     std::vector<char> compressed_buf;
@@ -99,14 +101,14 @@ private:
     bool seen_magic;
 
     // Maximum uncompressed chunk size. Fixed by the framing format.
-    static constexpr size_t kMaxBlockSize = 65536;
-    // Maximum compressed chunk size. <= kMaxBlockSize, since the compressor only
+    static constexpr size_t max_block_size = 65536;
+    // Maximum compressed chunk size. <= max_block_size, since the compressor only
     // emits a compressed chunk if sizes actually shrink.
-    static constexpr size_t kMaxCompressedSize = 65536;
+    static constexpr size_t max_compressed_size = 65536;
     // Checksum is always 4 bytes. Buffers should reserve space for it as well.
-    static constexpr size_t kChecksumSize = sizeof(uint32_t);
+    static constexpr size_t checksum_size = sizeof(uint32_t);
     // Magic string identifying the snappy chunked format.
-    static constexpr char kMagic[] = "sNaPpY";
+    static constexpr char magic[] = "sNaPpY";
 };
 
 typedef file_reader_t<snappy_reader_t> snappy_file_reader_t;

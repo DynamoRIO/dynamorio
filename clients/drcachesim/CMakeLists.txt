@@ -66,7 +66,7 @@ endif()
 
 if (libsnappy)
   add_definitions(-DHAS_SNAPPY)
-  set(snappy_reader reader/snappy_file_reader.cpp)
+  set(snappy_reader reader/snappy_file_reader.cpp reader/crc32c.cpp)
 else ()
   set(snappy_reader "")
 endif()
@@ -152,6 +152,9 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_view drmemtrace_raw2trace directory_iterator)
+if (libsnappy)
+  target_link_libraries(drcachesim snappy)
+endif ()
 # To avoid dup symbol errors between drinjectlib and drdecode on Windows we have
 # to explicitly list drdecode up front:
 target_link_libraries(drcachesim drdecode drinjectlib drconfiglib drfrontendlib)
@@ -177,6 +180,9 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${snappy_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
+if (libsnappy)
+  target_link_libraries(drmemtrace_analyzer snappy)
+endif ()
 link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
@@ -244,15 +250,6 @@ if (ZLIB_FOUND)
   target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
   if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
-  endif ()
-endif ()
-
-if (libsnappy)
-  target_link_libraries(drcachesim snappy)
-  target_link_libraries(histogram_launcher snappy)
-  target_link_libraries(drmemtrace_raw2trace snappy)
-  if (NOT AARCH64 AND NOT APPLE)
-    target_link_libraries(opcode_mix_launcher snappy)
   endif ()
 endif ()
 
