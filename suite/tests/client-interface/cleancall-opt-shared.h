@@ -269,12 +269,12 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 #ifdef X86
     /* Only look at the initialized bits of the SSE regs. */
     ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < 6; i++) {
         if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
             return false;
     }
 #elif defined(AARCH64)
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < 6; i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], sizeof(dr_simd_t)) != 0)
             return false;
     }
