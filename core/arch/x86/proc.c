@@ -68,6 +68,9 @@
 #define AMD_ECX /* cAMD */ 0x444d4163
 
 static bool avx_enabled;
+
+//int num_simd_saved;
+
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });
 
@@ -353,6 +356,8 @@ proc_init_arch(void)
                       (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
 
+    //num_simd_saved = MCTX_NUM_SIMD_SLOTS;
+
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
          * if the OS hasn't enabled YMM and XMM state saving.
@@ -417,6 +422,14 @@ proc_fpstate_save_size(void)
                       opnd_size_in_bytes(OPSZ_108) == 108,
                   "internal sizing discrepancy");
     return (proc_has_feature(FEATURE_FXSR) ? 512 : 108);
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+  return 0;
+  //return num_simd_saved;
 }
 
 DR_API

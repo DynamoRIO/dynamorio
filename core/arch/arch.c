@@ -3477,7 +3477,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #ifdef X86
     if (preserve_xmm_caller_saved()) {
         int i, j;
-        for (i = 0; i < NUM_SIMD_SAVED; i++) {
+        for (i = 0; i < proc_num_simd_saved(); i++) {
             if (YMM_ENABLED()) {
                 print_file(f, dump_xml ? "\t\tymm%d= \"0x" : "\tymm%d= 0x", i);
                 for (j = 0; j < 8; j++) {
@@ -3505,7 +3505,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #elif defined(ARM)
         {
             int i, j;
-            for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+            for (i = 0; i < proc_num_simd_saved(); i++) {
                 print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
                 for (j = 0; j < 4; j++) {
                     print_file(f, "%08x ", context->simd[i].u32[j]);

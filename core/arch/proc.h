@@ -459,6 +459,34 @@ proc_fpstate_save_size(void);
 
 DR_API
 /**
+ * Returns number of SIMD registers to be saved.
+ *
+ * The number of saved SIMD registers may be variable. For example, we may decide
+ * to optimize the number of saved registers in a context switch to avoid frequency
+ * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
+ */
+/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+ * libc routines invoked by DR in some Linux systems (xref i#139),
+ * so they should be saved in 32-bit Linux.
+ *
+ * Xref i#139:
+ * XMM register preservation will cause extra runtime overhead.
+ * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
+ * that DR with xmm preservation adds negligible overhead over DR without
+ * xmm preservation.
+ * It means xmm preservation would have little performance impact over
+ * DR base system. This is mainly because DR's own operations' overhead
+ * is much higher than the context switch overhead.
+ * However, if a program is running with a DR client which performs many
+ * clean calls (one or more per basic block), xmm preservation may
+ * have noticable impacts, i.e. pushing bbs over the max size limit,
+ * and could have a noticeable performance hit.
+ */
+int
+proc_num_simd_saved(void);
+
+DR_API
+/**
  * Saves the floating point state into the buffer \p buf.
  *
  * On x86, the buffer must be 16-byte-aligned, and it must be

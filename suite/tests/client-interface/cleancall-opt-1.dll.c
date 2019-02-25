@@ -125,7 +125,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
 static instrlist_t *
 codegen_out_of_line(void *dc)
 {
-    uint i;
+    int i;
     instrlist_t *ilist = instrlist_create(dc);
 
     codegen_prologue(dc, ilist);
@@ -138,7 +138,7 @@ codegen_out_of_line(void *dc)
     }
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < proc_num_simd_saved(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
         APP(ilist,
             INSTR_CREATE_movd(dc, opnd_create_reg(reg),

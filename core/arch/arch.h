@@ -323,7 +323,6 @@ typedef enum {
 #    define SHARED_GENCODE_MATCH_THREAD(dc) get_shared_gencode(dc)
 #endif
 
-#define NUM_SIMD_REGS NUM_SIMD_SAVED
 #define NUM_GP_REGS DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
@@ -339,7 +338,7 @@ typedef struct _clean_call_info_t {
     bool skip_save_flags;
     bool skip_clear_flags;
     uint num_simd_skip;
-    bool simd_skip[NUM_SIMD_REGS];
+    bool simd_skip[MCTX_NUM_SIMD_SLOTS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -1371,18 +1370,18 @@ typedef struct _slot_t {
 
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
-    bool bailout;                  /* if we bail out on function analysis */
-    uint num_args;                 /* number of args that will passed in */
-    int num_instrs;                /* total number of instructions of a function */
-    app_pc start;                  /* entry point of a function  */
-    app_pc bwd_tgt;                /* earliest backward branch target */
-    app_pc fwd_tgt;                /* last forward branch target */
-    int num_simd_used;             /* number of SIMD registers (xmms) used by callee */
-    bool simd_used[NUM_SIMD_REGS]; /* SIMD (xmm/ymm) registers usage */
-    bool reg_used[NUM_GP_REGS];    /* general purpose registers usage */
-    int num_callee_save_regs;      /* number of regs callee saved */
-    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
-    bool has_locals;                    /* if reference local via stack */
+    bool bailout;      /* if we bail out on function analysis */
+    uint num_args;     /* number of args that will passed in */
+    int num_instrs;    /* total number of instructions of a function */
+    app_pc start;      /* entry point of a function  */
+    app_pc bwd_tgt;    /* earliest backward branch target */
+    app_pc fwd_tgt;    /* last forward branch target */
+    int num_simd_used; /* number of SIMD registers (xmms) used by callee */
+    bool simd_used[MCTX_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage */
+    bool reg_used[NUM_GP_REGS];          /* general purpose registers usage */
+    int num_callee_save_regs;            /* number of regs callee saved */
+    bool callee_save_regs[NUM_GP_REGS];  /* callee-save registers */
+    bool has_locals;                     /* if reference local via stack */
     bool standard_fp;   /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;    /* can be inlined or not */
     bool write_flags;   /* if the function changes flags */
