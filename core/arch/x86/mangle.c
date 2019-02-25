@@ -367,7 +367,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        for (i = 0; i < 6; i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
@@ -508,7 +508,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          * is better. */
         uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        for (i = 0; i < 6; i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
                     instr_create_1dst_1src(
