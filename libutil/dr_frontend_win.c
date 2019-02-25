@@ -530,8 +530,15 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
     NOTIFY(2, "%s: SymLoadModuleEx %S => 0x%I64x\n", __FUNCTION__, wmodpath, base);
 
     /* Check that we actually got pdbs. */
+    /* i#1376c#12: we want to use the pre-SDK 8.0 size.  Otherwise we'll
+     * fail when used with an older dbghelp.dll.
+     */
+#define IMAGEHLP_MODULEW64_SIZE_COMPAT 0xcb8
     memset(&mod_info, 0, sizeof(mod_info));
-    mod_info.SizeOfStruct = sizeof(mod_info);
+    if (sizeof(mod_info) < IMAGEHLP_MODULEW64_SIZE_COMPAT)
+        mod_info.SizeOfStruct = sizeof(mod_info);
+    else
+        mod_info.SizeOfStruct = IMAGEHLP_MODULEW64_SIZE_COMPAT;
     if (sym_get_module_info_func(proc, base, &mod_info)) {
         switch (mod_info.SymType) {
         case SymPdb:
