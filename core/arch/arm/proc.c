@@ -43,7 +43,7 @@
 #    error NYI
 #endif
 
-extern int num_simd_saved;
+int num_simd_saved;
 
 /* arch specific proc info */
 void

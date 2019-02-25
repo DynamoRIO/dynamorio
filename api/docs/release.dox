@@ -143,6 +143,10 @@ compatibility changes:
    rewritten. DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if
    clients target version 7.0 or earlier.
 
+Further non-compatibility-affecting changes include:
+
+ - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
+
 **************************************************
 <hr>
 

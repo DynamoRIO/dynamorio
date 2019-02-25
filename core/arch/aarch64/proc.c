@@ -34,7 +34,7 @@
 #include "proc.h"
 #include "instr.h"
 
-extern int num_simd_saved;
+int num_simd_saved;
 
 void
 proc_init_arch(void)

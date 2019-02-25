@@ -69,7 +69,7 @@
 
 static bool avx_enabled;
 
-extern int num_simd_saved;
+int num_simd_saved;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });
