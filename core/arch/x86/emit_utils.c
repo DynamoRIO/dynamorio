@@ -1337,7 +1337,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        for (i = 0; i < 6; i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
@@ -1560,7 +1560,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
         int i;
         uint opcode = move_mm_reg_opcode(true /*align32*/, true /*align16*/);
         ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i = 0; i < proc_num_simd_saved(); i++) {
+        for (i = 0; i < 6; i++) {
             APP(ilist,
                 instr_create_1dst_1src(
                     dcontext, opcode,
