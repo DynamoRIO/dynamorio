@@ -133,7 +133,17 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.1.0 include:
+The changes between version \DR_VERSION and 7.1.0 include the following minor
+compatibility changes:
+
+ - Replaced NUM_SIMD_SLOTS with proc_num_simd_saved() and adds the define
+   #MCTX_NUM_SIMD_SLOTS. Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
+   in order to provide the define NUM_SIMD_SLOTS using proc_num_simd_saved().
+   The macro is not a constant expression and code relying on this needs to be
+   rewritten. DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY is set automatically if
+   clients target version 7.0 or earlier.
+
+Further non-compatibility-affecting changes include:
 
  - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
 
