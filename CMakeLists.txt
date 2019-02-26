@@ -1637,10 +1637,7 @@ if (CMAKE_CROSSCOMPILING)
   set(ZLIB_FOUND OFF)
 else ()
   find_package(ZLIB)
-  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
-  if (UNIX AND X64)
-    find_library(libsnappy snappy)
-  endif ()
+  find_library(libsnappy snappy)
 endif ()
 
 if (BUILD_CLIENTS)

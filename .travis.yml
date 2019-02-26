@@ -109,7 +109,7 @@ install:
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
-      sudo apt-get -y install g++-multilib; fi
+      sudo apt-get -y install g++-multilib libsnappy-dev:i386; fi
   # Install cross-compilers for cross-compiling Linux build:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == yes ]]; then
