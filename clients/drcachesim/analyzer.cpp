@@ -38,15 +38,18 @@
 #ifdef HAS_ZLIB
 #    include "reader/compressed_file_reader.h"
 #endif
+#ifdef HAS_SNAPPY
+#    include "reader/snappy_file_reader.h"
+#endif
 #include "common/utils.h"
 
 #ifdef HAS_ZLIB
 // Even if the file is uncompressed, zlib's gzip interface is faster than
 // file_reader_t's fstream in our measurements, so we always use it when
 // available.
-typedef compressed_file_reader_t my_file_reader_t;
+typedef compressed_file_reader_t default_file_reader_t;
 #else
-typedef file_reader_t<std::ifstream *> my_file_reader_t;
+typedef file_reader_t<std::ifstream *> default_file_reader_t;
 #endif
 
 analyzer_t::analyzer_t()
@@ -57,6 +60,30 @@ analyzer_t::analyzer_t()
     , worker_count(0)
 {
     /* Nothing else: child class needs to initialize. */
+}
+
+#ifdef HAS_SNAPPY
+static bool
+ends_with(const std::string &str, const std::string &with)
+{
+    size_t pos = str.rfind(with);
+    if (pos == std::string::npos)
+        return false;
+    return (pos + with.size() == str.size());
+}
+#endif
+
+static std::unique_ptr<reader_t>
+get_reader(const std::string &path, int verbosity)
+{
+    std::unique_ptr<reader_t> reader;
+#ifdef HAS_SNAPPY
+    if (ends_with(path, ".sz"))
+        reader.reset(new snappy_file_reader_t(path, verbosity));
+#endif
+    if (reader == nullptr)
+        reader.reset(new default_file_reader_t(path, verbosity));
+    return reader;
 }
 
 bool
@@ -87,8 +114,8 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
                 continue;
             const std::string path = trace_path + DIRSEP + fname;
             thread_data.push_back(analyzer_shard_data_t(
-                static_cast<int>(thread_data.size()),
-                std::unique_ptr<reader_t>(new my_file_reader_t(path, verbosity)), path));
+                static_cast<int>(thread_data.size()), get_reader(path, verbosity), path));
+            VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
         }
         // Like raw2trace, we use a simple round-robin static work assigment.  This
         // could be improved later with dynamic work queue for better load balancing.
@@ -104,10 +131,11 @@ analyzer_t::init_file_reader(const std::string &trace_path, int verbosity_in)
         }
     } else {
         parallel = false;
-        serial_trace_iter = std::unique_ptr<reader_t>(
-            new my_file_reader_t(trace_path.c_str(), verbosity));
+        serial_trace_iter = get_reader(trace_path, verbosity);
     }
-    trace_end = std::unique_ptr<my_file_reader_t>(new my_file_reader_t());
+    // It's ok if trace_end is a different type from serial_trace_iter, they
+    // will still compare true if both at EOF.
+    trace_end = std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
     return true;
 }
 

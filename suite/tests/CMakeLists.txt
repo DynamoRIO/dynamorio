@@ -2697,6 +2697,15 @@ endif ()
         set(tool.drcacheoff.legacy_rawtemp ON) # no preprocessor
       endif ()
 
+      # Test reading a trace in sharded snappy-compressed files.
+      if (libsnappy)
+        torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
+          "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-simulator_type;basic_counts"
+          OFF)
+        set(tool.drcacheoff.snappy_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      endif()
+
       if (UNIX) # Enable on Windows once i#1727 is fixed.
         # FIXME i#2384: we need to combine the subdir from the child with the
         # parent in some way and update the templatex file to include both.
