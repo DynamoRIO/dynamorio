@@ -59,7 +59,7 @@ bool
 snappy_reader_t::read_magic(uint32_t size)
 {
     if (size > strlen(magic)) {
-        ERRMSG("Magic block size too large. Got %u, want %lu\n", size, strlen(magic));
+        ERRMSG("Magic block size too large. Got %u, want %zu\n", size, strlen(magic));
         return false;
     }
 
@@ -95,7 +95,7 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
     size_t max_size = (type == COMPRESSED_DATA) ? max_compressed_size : max_block_size;
     max_size += checksum_size;
     if (size < checksum_size || size > max_size) {
-        ERRMSG("Corrupted chunk header. Size %u, want <= %lu >= %lu.\n", size, max_size,
+        ERRMSG("Corrupted chunk header. Size %u, want <= %lu >= %zu.\n", size, max_size,
                checksum_size);
         return false;
     }
@@ -121,7 +121,7 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
             return false;
         }
         if (uncompressed_chunk_size > max_block_size) {
-            ERRMSG("Uncompressed chunk larger than maximum size. Want <= %lu, got %lu\n",
+            ERRMSG("Uncompressed chunk larger than maximum size. Want <= %zu, got %zu\n",
                    max_block_size, uncompressed_chunk_size);
             return false;
         }
