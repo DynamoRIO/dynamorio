@@ -95,7 +95,7 @@ snappy_reader_t::read_data_chunk(uint32_t size, chunk_type_t type)
     size_t max_size = (type == COMPRESSED_DATA) ? max_compressed_size : max_block_size;
     max_size += checksum_size;
     if (size < checksum_size || size > max_size) {
-        ERRMSG("Corrupted chunk header. Size %u, want <= %lu >= %zu.\n", size, max_size,
+        ERRMSG("Corrupted chunk header. Size %u, want <= %zu >= %zu.\n", size, max_size,
                checksum_size);
         return false;
     }
