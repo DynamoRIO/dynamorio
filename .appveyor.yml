@@ -53,16 +53,16 @@ branches:
 
 platform: x64
 
-image: Visual Studio 2013
+image: Visual Studio 2015
 
 build:
   verbosity: detailed
 
 # i#2406: Appveyor's global serialization makes it painful to use more than
 # one configuration.  We no longer build packages with VS2010 and are
-# dropping official support for it, meaning we only need to test VS2013 here.
+# dropping official support for it, meaning we only need to test VS2015 here.
 configuration:
-  - 2013
+  - 2015
 
 install:
   ##################################################
@@ -92,7 +92,7 @@ install:
   # XXX i#2145: point at Qt5 for testing drgui build.
 
 before_build:
-  - if "%configuration%"=="2013" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
+  - if "%configuration%"=="2015" call "c:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
   - cd c:\projects\dynamorio
 
 build_script:
@@ -101,7 +101,7 @@ build_script:
   - echo %PATH%
   # The perl in c:\perl can't open a pipe so we use cygwin perl.
   # XXX i#1967: can we pass "package" only when deploying to save time?
-  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl travis use_ninja package %EXTRA_ARGS%
+  - c:\cygwin\bin\perl ../suite/runsuite_wrapper.pl -VV travis use_ninja package %EXTRA_ARGS%
 
 # Automated deployment of builds to GitHub Releases.
 # We rely on a Travis cron job to push a tag to the repo which then
