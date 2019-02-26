@@ -63,10 +63,10 @@ uint32_t
 crc32c(const char *buf, const uint32_t len)
 {
     uint32_t i;
-    uint32_t crc = 0xFFFFFFFF;
+    uint32_t crc = 0xffffffff;
 
     for (i = 0; i < len; i++)
-        crc = (crc >> 8) ^ byte_extension_table[(crc ^ buf[i]) & 0xFF];
+        crc = (crc >> 8) ^ byte_extension_table[(crc ^ buf[i]) & 0xff];
 
-    return crc ^ 0xFFFFFFFF;
+    return crc ^ 0xffffffff;
 }

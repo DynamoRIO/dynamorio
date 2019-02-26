@@ -2699,8 +2699,11 @@ endif ()
 
       # Test reading a trace in sharded snappy-compressed files.
       if (libsnappy)
-        torunonly_drcacheoff(snappy ${ci_shared_app} ""
-          "@-indir@${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir@-simulator_type@basic_counts" "")
+        torunonly_api(tool.drcacheoff.snappy "${drcachesim_path}" "offline-snappy.c" ""
+          "-indir;${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.chase-snappy.x64.tracedir;-simulator_type;basic_counts"
+          OFF)
+        set(tool.drcacheoff.snappy_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       endif()
 
       if (UNIX) # Enable on Windows once i#1727 is fixed.
