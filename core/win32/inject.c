@@ -243,7 +243,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < MCTX_TOTAL_SIMD_SLOTS_SIZE; i++) {
+            for (i = 0; i < MCTX_NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2, 4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
