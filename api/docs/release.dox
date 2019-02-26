@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -133,7 +133,18 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.0.0 include the following minor
+The changes between version \DR_VERSION and 7.1.0 include:
+
+ - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
+
+**************************************************
+<hr>
+
+Version 7.1.0 includes Dr. Memory and the Dr. Memory Framework (DRMF) in
+the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version 7.1.0 and 7.0.0 include the following minor
 compatibility changes:
 
  - The drltrace tool has been moved to the Dr.Memory Framework.
