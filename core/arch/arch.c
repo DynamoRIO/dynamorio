@@ -3505,7 +3505,8 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #elif defined(ARM)
         {
             int i, j;
-            for (i = 0; i < proc_num_simd_saved(); i++) {
+            /* XXX: should be proc_num_simd_saved(). */
+            for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
                 print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
                 for (j = 0; j < 4; j++) {
                     print_file(f, "%08x ", context->simd[i].u32[j]);

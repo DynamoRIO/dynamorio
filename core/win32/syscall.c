@@ -3298,14 +3298,14 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                 preserve_xmm_caller_saved()) {
                 /* PR 264138 */
                 memcpy(CXT_XMM(cxt, 0), CXT_XMM(xlate_cxt, 0),
-                       MCTX_TOTAL_SIMD_SLOTS_SIZE);
+                       MCXT_TOTAL_SIMD_SLOTS_SIZE);
             }
             if (TESTALL(CONTEXT_YMM_FLAG, cxt->ContextFlags) &&
                 preserve_xmm_caller_saved()) {
                 byte *ymmh_area = context_ymmh_saved_area(cxt);
                 ASSERT(ymmh_area != NULL);
                 memcpy(ymmh_area, context_ymmh_saved_area(xlate_cxt),
-                       MCTX_YMMH_SLOTS_SIZE);
+                       MCXT_YMMH_SLOTS_SIZE);
             }
         }
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);

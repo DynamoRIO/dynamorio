@@ -59,18 +59,18 @@ DECL_EXTERN(initstack_mutex)
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 
 #ifdef X64
-# define MCTX_NUM_SIMD_SLOTS 32
+# define MCXT_NUM_SIMD_SLOTS 32
 # define SIMD_REG_SIZE       16
 # define NUM_GPR_SLOTS       33 /* incl flags */
 # define GPR_REG_SIZE         8
 #else
-# define MCTX_NUM_SIMD_SLOTS 16
+# define MCXT_NUM_SIMD_SLOTS 16
 # define SIMD_REG_SIZE       16
 # define NUM_GPR_SLOTS       17 /* incl flags */
 # define GPR_REG_SIZE         4
 #endif
 #define PRE_SIMD_PADDING     0
-#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + MCTX_NUM_SIMD_SLOTS*SIMD_REG_SIZE)
+#define PRIV_MCXT_SIMD_SIZE (PRE_SIMD_PADDING + MCXT_NUM_SIMD_SLOTS*SIMD_REG_SIZE)
 #define PRIV_MCXT_SIZE (NUM_GPR_SLOTS*GPR_REG_SIZE + PRIV_MCXT_SIMD_SIZE)
 #define PRIV_MCXT_SP_FROM_SIMD (-(4*GPR_REG_SIZE)) /* flags, pc, lr, then sp */
 #define PRIV_MCXT_PC_FROM_SIMD (-(2*GPR_REG_SIZE)) /* flags, then pc */

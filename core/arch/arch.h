@@ -338,7 +338,7 @@ typedef struct _clean_call_info_t {
     bool skip_save_flags;
     bool skip_clear_flags;
     uint num_simd_skip;
-    bool simd_skip[MCTX_NUM_SIMD_SLOTS];
+    bool simd_skip[MCXT_NUM_SIMD_SLOTS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -1377,7 +1377,7 @@ typedef struct _callee_info_t {
     app_pc bwd_tgt;    /* earliest backward branch target */
     app_pc fwd_tgt;    /* last forward branch target */
     int num_simd_used; /* number of SIMD registers (xmms) used by callee */
-    bool simd_used[MCTX_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage */
+    bool simd_used[MCXT_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage */
     bool reg_used[NUM_GP_REGS];          /* general purpose registers usage */
     int num_callee_save_regs;            /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS];  /* callee-save registers */

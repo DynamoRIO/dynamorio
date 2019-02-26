@@ -34,12 +34,12 @@
 #include "proc.h"
 #include "instr.h"
 
-int num_simd_saved;
+static int num_simd_saved;
 
 void
 proc_init_arch(void)
 {
-    num_simd_saved = MCTX_NUM_SIMD_SLOTS;
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
 
     /* FIXME i#1569: NYI */
 }

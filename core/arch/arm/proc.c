@@ -43,13 +43,13 @@
 #    error NYI
 #endif
 
-int num_simd_saved;
+static int num_simd_saved;
 
 /* arch specific proc info */
 void
 proc_init_arch(void)
 {
-    num_simd_saved = MCTX_NUM_SIMD_SLOTS;
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
 
     /* FIXME i#1551: NYI on ARM */
     /* all of the CPUID registers are only accessible in privileged modes

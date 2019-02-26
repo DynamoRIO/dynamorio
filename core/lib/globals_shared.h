@@ -1841,11 +1841,11 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define MCTX_NUM_SIMD_SLOTS                                  \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    else
-#        define MCTX_NUM_SIMD_SLOTS                                  \
+#        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
 #    endif
@@ -1858,7 +1858,7 @@ typedef union _dr_simd_t {
 #    ifdef AVOID_API_EXPORT
 /* If this is increased, you'll probably need to increase the size of
  * inject_into_thread's buf and INTERCEPTION_CODE_SIZE (for Windows).
- * Also, update MCTX_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
+ * Also, update MCXT_NUM_SIMD_SLOTS in x86.asm and get_xmm_caller_saved.
  * i#437: YMM is an extension of XMM from 128-bit to 256-bit without
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
@@ -1867,11 +1867,11 @@ typedef union _dr_simd_t {
 #    ifdef X64
 #        ifdef WINDOWS
 /*xmm0-5*/
-#            define MCTX_NUM_SIMD_SLOTS \
+#            define MCXT_NUM_SIMD_SLOTS \
                 6 /**< Number of [xy]mm reg slots in dr_mcontext_t */
 #        else
 /*xmm0-15*/
-#            define MCTX_NUM_SIMD_SLOTS                             \
+#            define MCXT_NUM_SIMD_SLOTS                             \
                 16 /**< Number of [xy]mm reg slots in dr_mcontext_t \
                     */
 #        endif
@@ -1879,7 +1879,7 @@ typedef union _dr_simd_t {
             16 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots */
 #    else
 /*xmm0-7*/
-#        define MCTX_NUM_SIMD_SLOTS                            \
+#        define MCXT_NUM_SIMD_SLOTS                            \
             8 /**< Number of [xy]mm reg slots in dr_mcontext_t \
                */
 #        define PRE_XMM_PADDING \
