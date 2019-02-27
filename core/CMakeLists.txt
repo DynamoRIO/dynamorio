@@ -91,30 +91,43 @@ if (UNIX AND X86)
   add_library(drmemfuncs STATIC ${memfuncs_asm_src})
 endif ()
 
-# i#1409: to share core code with non-core, we use the "drhelper" library.
-# XXX: we're using _shared here, and for inject_shared, etc., to mean
-# "shared between multiple libraries", while we've also started using
-# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
-# perhaps we should separate the naming schemes.
-add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
+# i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
+add_asm_target(drlibc/drlibc_xarch.asm drlibc_xarch_asm_src drlibc_xarch_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}_shared.asm shared_arch_asm_src
-  shared_arch_asm_tgt
+add_asm_target(drlibc/drlibc_${ARCH_NAME}.asm drlibc_arch_asm_src
+  drlibc_arch_asm_tgt
   "" "" "${asm_deps}")
-add_library(drhelper STATIC ${shared_core_asm_src} ${shared_arch_asm_src}
-  lib/dr_helper.c)
-# CMake on Windows fails to link unless we tell it to use the C linker:
-set_target_properties(drhelper PROPERTIES LINKER_LANGUAGE C)
+set(DRLIBC_SRCS
+  ${drlibc_xarch_asm_src}
+  ${drlibc_arch_asm_src}
+  drlibc/drlibc.c
+  drlibc/drlibc_notdr_dcxt.c
+  drlibc/drlibc_notdr_logfile.c
+  drlibc/drlibc_notdr_printlog.c
+  drlibc/drlibc_notdr_report.c
+  drlibc/drlibc_notdr_saferead.c
+  drlibc/drlibc_notdr_stats.c)
 if (UNIX)
-  append_property_string(TARGET drhelper COMPILE_FLAGS "-fPIC")
+  set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_unix.c)
+  if (APPLE)
+    set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_module_macho.c)
+  else ()
+    set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_module_elf.c)
+  endif ()
 endif ()
-add_gen_events_deps(drhelper)
+add_library(drlibc STATIC ${DRLIBC_SRCS})
+# CMake on Windows fails to link unless we tell it to use the C linker:
+set_target_properties(drlibc PROPERTIES LINKER_LANGUAGE C)
+if (UNIX)
+  append_property_string(TARGET drlibc COMPILE_FLAGS "-fPIC")
+endif ()
+add_gen_events_deps(drlibc)
 if (AARCH64)
-  add_dependencies(drhelper gen_aarch64_codec)
+  add_dependencies(drlibc gen_aarch64_codec)
 endif (AARCH64)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(drhelper ${shared_core_asm_tgt} ${shared_arch_asm_tgt})
+  add_dependencies(drlibc ${drlibc_xarch_asm_tgt} ${drlibc_arch_asm_tgt})
 endif ()
 
 set(CORE_SRCS
@@ -201,6 +214,11 @@ if (WIN32 AND NOT X64)
   set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
+# XXX: Originally we used _shared (inject_shared, etc.) to mean
+# "shared between multiple libraries", while we've also started using
+# _shared on opnd_shared.c, etc. to mean 'shared between architectures":
+# perhaps we should separate the naming schemes.  "opnd_xarch.c" and
+# "inject_xlib.c"?
 set(DECODER_SRCS
   arch/opnd_shared.c
   arch/${ARCH_NAME_SHARED}/opnd.c
@@ -349,7 +367,6 @@ if (UNIX)
   set(PRELOAD_SRCS
     unix/preload.c
     config.c
-    unix/os.c
     # i#1334: private string routines for libc independence
     string.c
     io.c
@@ -357,7 +374,6 @@ if (UNIX)
   set(INJECTOR_SRCS
     unix/injector.c
     config.c    # to read config
-    unix/os.c  # for file_t interface
     string.c
     io.c
     )
@@ -366,6 +382,7 @@ if (UNIX)
   else (APPLE)
     set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_elf.c)
   endif ()
+
 else (UNIX)
   set(OSNAME win32)
   set(OS_SRCS
@@ -471,7 +488,7 @@ function (configure_core_lib target)
     add_dependencies(${target} ${arch_core_asm_tgt} ${archshared_core_asm_tgt})
   endif ()
 
-  target_link_libraries(${target} drhelper)
+  target_link_libraries(${target} drlibc)
   copy_target_to_device(${target} "${location_suffix}")
 
   # rather than a separate BUILD_INCLUDES option we always build
@@ -858,7 +875,7 @@ endif()
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
-target_link_libraries(${PRELOAD_NAME} drhelper)
+target_link_libraries(${PRELOAD_NAME} drlibc)
 if (UNIX AND X86)
   # We need our own memcpy + memset for isolation.
   target_link_libraries(${PRELOAD_NAME} drmemfuncs)
@@ -929,7 +946,7 @@ add_gen_events_deps(drdecode)
 if (AARCH64)
   add_dependencies(drdecode gen_aarch64_codec)
 endif()
-target_link_libraries(drdecode drhelper)
+target_link_libraries(drdecode drlibc)
 
 ###########################################################################
 # Injection library
@@ -949,7 +966,7 @@ else ()
 endif ()
 add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
-target_link_libraries(drinjectlib drdecode drhelper)
+target_link_libraries(drinjectlib drdecode drlibc)
 if (UNIX AND X86)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drinjectlib drmemfuncs)
@@ -1036,7 +1053,7 @@ if (BUILD_TESTS)
     set_target_properties(unit_tests PROPERTIES
       LINK_FLAGS "/base:${preferred_base} ${LD_FLAGS}")
   endif (UNIX)
-  target_link_libraries(unit_tests drhelper)
+  target_link_libraries(unit_tests drlibc)
   get_target_path_for_execution(unit_relpath unit_tests "${location_suffix}")
   prefix_cmd_if_necessary(unit_relpath OFF ${unit_relpath})
   add_test(unit_tests ${unit_relpath})
@@ -1055,6 +1072,7 @@ include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH_NAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/drlibc
   )
 
 # Avoid transitive linking for imported target.
@@ -1087,9 +1105,9 @@ endif (UNIX)
 DR_export_target(drdecode)
 install_exported_target(drdecode ${INSTALL_LIB})
 
-# We have to export drhelper as static libs we're exporting depend on it.
-DR_export_target(drhelper)
-install_exported_target(drhelper ${INSTALL_LIB_BASE})
+# We have to export drlibc as static libs we're exporting depend on it.
+DR_export_target(drlibc)
+install_exported_target(drlibc ${INSTALL_LIB_BASE})
 if (UNIX AND X86)
   DR_export_target(drmemfuncs)
   install_exported_target(drmemfuncs ${INSTALL_LIB_BASE})

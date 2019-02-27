@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -425,6 +425,33 @@ privload_unload_imports(privmod_t *privmod)
     return true;
 }
 
+#ifdef LINUX
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static modload_flags_t
+privload_map_flags(modload_flags_t init_flags)
+{
+    if (INTERNAL_OPTION(separate_private_bss) && !TEST(MODLOAD_NOT_PRIVLIB, init_flags)) {
+        /* place an extra no-access page after .bss */
+        /* XXX: update privload_early_inject call to init_emulated_brk if this changes */
+        /* XXX: should we avoid this for -early_inject's map of the app and ld.so? */
+        return init_flags | MODLOAD_SEPARATE_BSS;
+    }
+    return init_flags;
+}
+
+/* Core-specific functionality for elf_loader_map_phdrs(). */
+static void
+privload_check_new_map_bounds(elf_loader_t *elf, byte *map_base, byte *map_end)
+{
+    /* This is only called for MAP_FIXED. */
+    if (get_dynamorio_dll_start() < map_end && get_dynamorio_dll_end() > map_base) {
+        FATAL_USAGE_ERROR(FIXED_MAP_OVERLAPS_DR, 3, get_application_name(),
+                          get_application_pid(), elf->filename);
+        ASSERT_NOT_REACHED();
+    }
+}
+#endif
+
 /* This only maps, as relocation for ELF requires processing imports first,
  * which we have to delay at init time at least.
  */
@@ -468,9 +495,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         }
         return NULL;
     }
-
-    base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
-                                prot_func, flags);
+    base =
+        elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func, prot_func,
+                             privload_check_new_map_bounds, privload_map_flags(flags));
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -1698,7 +1725,8 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
 
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
-                                  os_set_protection, 0 /*!reachable*/);
+                                  os_set_protection, privload_check_new_map_bounds,
+                                  privload_map_flags(0 /*!reachable*/));
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -1843,7 +1871,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    true,
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
-                                   0 /*!reachable*/);
+                                   privload_check_new_map_bounds,
+                                   privload_map_flags(0 /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -1887,9 +1916,9 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         elf_loader_t interp_ld;
         success = elf_loader_read_headers(&interp_ld, interp);
         apicheck(success, "Failed to read ELF interpreter headers.");
-        interp_map =
-            elf_loader_map_phdrs(&interp_ld, false /* fixed */, os_map_file,
-                                 os_unmap_file, os_set_protection, 0 /*!reachable*/);
+        interp_map = elf_loader_map_phdrs(
+            &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
+            privload_check_new_map_bounds, privload_map_flags(0 /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself
