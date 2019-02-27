@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,7 @@
 
 #define _GNU_SOURCE 1 /* for REG_RIP, etc. */
 #include "configure.h"
-#include "dr_helper.h"
+#include "drlibc.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> /* memcpy */

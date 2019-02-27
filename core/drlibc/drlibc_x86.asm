@@ -571,7 +571,7 @@ smc_return_to_32:
 
 /****************************************************************************
  * Injection code shared between core and drinjectlib.
- * XXX: since we are exporting this file in the "drhelper" lib we may want
+ * XXX: since we are exporting this file in the "drlibc" lib we may want
  * to should move this code to a new file inject_shared.asm or sthg.
  */
 #ifdef WINDOWS

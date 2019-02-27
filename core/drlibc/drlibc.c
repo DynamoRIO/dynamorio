@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Default implementation to avoid the user of drhelper having to supply one.
+/* Default implementation to avoid the user of drlibc having to supply one.
  * We declare this as weak for Linux and MacOS, and rely on MSVC prioritizing a
  * .obj def over this .lib def (note that the MSVC linker only does that
  * when the symbol in question is *by itself* in a single .obj: hence this file,
@@ -42,11 +42,51 @@
 
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
+#ifdef MACOS
+#    include <sys/utsname.h> /* for struct utsname */
+#    include <string.h>
+#endif
+
+/***************************************************************************
+ * Compatibility layer for sharing a single compiled-once library
+ * between core and non-core.
+ * Some are separated out into drlibc_notdr_* files since MSVC behaves
+ * better when duplicate symbols are each in their own .obj.
+ */
+
+WEAK bool
+safe_read_if_fast(const void *base, size_t size, void *out_buf)
+{
+    return safe_read(base, size, out_buf);
+}
+
 WEAK void
 internal_error(const char *file, int line, const char *expr)
 {
-    /* do nothing by default */
+    /* Do nothing for non-core. */
 }
+
+WEAK bool
+ignore_assert(const char *assert_file_line, const char *expr)
+{
+    return true;
+}
+
+WEAK file_t main_logfile;
+WEAK options_t dynamo_options;
+
+#ifdef MACOS
+WEAK bool
+kernel_is_64bit(void)
+{
+    struct utsname uinfo;
+    if (uname(&uinfo) != 0)
+        return true; /* guess */
+    return (strncmp(uinfo.machine, "x86_64", sizeof("x86_64")) == 0);
+}
+#endif
+
+/***************************************************************************/
 
 #ifdef AARCH64
 void
