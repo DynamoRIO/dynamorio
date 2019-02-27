@@ -186,6 +186,10 @@ DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 # drconfiglib now uses drfront_access()
 # drconfiglib needs drlibc for dr_fpu_exception_init()
 target_link_libraries(drconfiglib drfrontendlib drlibc)
+if (UNIX AND X86)
+  # We need our own memcpy + memset to avoid glibc versioning (i#1504).
+  target_link_libraries(drconfiglib drmemfuncs)
+endif ()
 
 if (WIN32)
   set(dr_frontend_srcs dr_frontend_win.c)

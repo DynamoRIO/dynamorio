@@ -55,13 +55,6 @@
  */
 
 WEAK bool
-safe_read(const void *base, size_t size, void *out_buf)
-{
-    memcpy(out_buf, base, size);
-    return true;
-}
-
-WEAK bool
 safe_read_if_fast(const void *base, size_t size, void *out_buf)
 {
     return safe_read(base, size, out_buf);
@@ -81,25 +74,6 @@ ignore_assert(const char *assert_file_line, const char *expr)
 
 WEAK file_t main_logfile;
 WEAK options_t dynamo_options;
-
-WEAK file_t
-get_thread_private_logfile(void)
-{
-    return INVALID_FILE;
-}
-
-WEAK void
-print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
-{
-    /* Do nothing for non-core. */
-}
-
-WEAK void
-report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc exception_addr,
-                         app_pc report_ebp, const char *fmt, ...)
-{
-    /* Do nothing for non-core. */
-}
 
 #ifdef MACOS
 WEAK bool

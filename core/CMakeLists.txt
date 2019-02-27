@@ -102,6 +102,10 @@ set(DRLIBC_SRCS
   ${drlibc_arch_asm_src}
   drlibc/drlibc.c
   drlibc/drlibc_notdr_dcxt.c
+  drlibc/drlibc_notdr_logfile.c
+  drlibc/drlibc_notdr_printlog.c
+  drlibc/drlibc_notdr_report.c
+  drlibc/drlibc_notdr_saferead.c
   drlibc/drlibc_notdr_stats.c)
 if (UNIX)
   set(DRLIBC_SRCS ${DRLIBC_SRCS} drlibc/drlibc_unix.c)
