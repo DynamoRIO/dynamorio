@@ -5363,7 +5363,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         cci.num_simd_skip = 6;
 #else
         /* all 8 (or 16) are scratch */
-        cci.num_simd_skip = NUM_SIMD_REGS;
+        cci.num_simd_skip = MCXT_NUM_SIMD_SLOTS;
 #endif
         for (i = 0; i < cci.num_simd_skip; i++)
             cci.simd_skip[i] = true;

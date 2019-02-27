@@ -138,7 +138,7 @@ codegen_out_of_line(void *dc)
     }
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
 #ifdef X86
-    for (i = 0; i < NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
         APP(ilist,
             INSTR_CREATE_movd(dc, opnd_create_reg(reg),
