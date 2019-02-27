@@ -376,8 +376,10 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ARCH_LDFLAGS}")
 
 # Must be AFTER build/include now that dr_api.h is configured.
 # We need this for Windows resources.rc to include globals_shared.h, and
-# for tools.c to include dr_helper.h.
-include_directories(AFTER ${PROJECT_SOURCE_DIR}/core/lib) # dr_helper.h
+# for tools.c to include drlibc.h.
+include_directories(AFTER
+  ${PROJECT_SOURCE_DIR}/core/drlibc # drlibc.h
+  ${PROJECT_SOURCE_DIR}/core/lib) # c_defines.h
 
 # Since we're including configure.h we do not want any default defines.
 # Note that the new DynamoRIOConfig.cmake doesn't set these so we can
@@ -428,7 +430,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for correct parallel builds we need a target
   add_dependencies(tools ${generate_tools_asm})
 endif ()
-target_link_libraries(tools drhelper)
+target_link_libraries(tools drlibc)
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
@@ -1698,7 +1700,9 @@ if (AARCH64)
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" OFF OFF)
+  # We don't want to link with DR.  We hack that for now by requesting drdecode so
+  # we'll get the arch defs.  XXX: Add a better way!
+  tobuild_api(libutil.frontend_test libutil/frontend_test.c "" "" ON OFF)
   target_link_libraries(libutil.frontend_test drfrontendlib)
 endif ()
 
@@ -2323,7 +2327,7 @@ if (CLIENT_INTERFACE)
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
     if (WIN32)
-      # On Windows, somehow linking with drcontainers inserts it and drhelper
+      # On Windows, somehow linking with drcontainers inserts it and drlibc
       # in front of dynamorio.lib, despite being added to the link list later,
       # which results in unresolved symbols.
       # The only fix I could come up with is to force dynamorio.lib earlier
@@ -3211,9 +3215,7 @@ if (UNIX)
       # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic,
       # which doesn't play well with clang and -static.  Adding
       # --no-export-dynamic avoids the problem.
-      # We get two copies of memcpy (from drhelper and from libc) so we avoid
-      # linker warnings on gcc 6.x+ (i#1958).
-      "-static -Wl,--no-export-dynamic -Wl,--allow-multiple-definition")
+      "-static -Wl,--no-export-dynamic")
   endif ()
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.

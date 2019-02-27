@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -346,7 +346,7 @@ typedef struct _thread_record_t {
 #include "options.h"
 #include "os_exports.h"
 #include "arch_exports.h"
-#include "dr_helper.h"
+#include "drlibc.h"
 #include "vmareas.h"
 #include "instrlist.h"
 #include "dispatch.h"

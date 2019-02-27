@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,16 +35,16 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* header for library of core utilites shared with non-core: "drhelper" */
+/* header for library of core utilites shared with non-core: "drlibc" */
 
-#ifndef _DR_HELPER_H_
-#define _DR_HELPER_H_ 1
+#ifndef _DR_LIBC_H_
+#define _DR_LIBC_H_ 1
 
 /* If the caller is using the DR API they'll have our types that way; else we
  * include globals_shared.h.
  */
 #ifndef _DR_API_H_
-#    include "globals_shared.h"
+#    include "../lib/globals_shared.h"
 #endif
 
 #ifdef UNIX
@@ -122,4 +122,4 @@ find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count));
 #endif /* UNIX */
 
-#endif /* _DR_HELPER_H_ */
+#endif /* _DR_LIBC_H_ */
