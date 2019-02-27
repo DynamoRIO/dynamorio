@@ -59,7 +59,7 @@
 #define YMM_REG_SIZE 32
 #define MCXT_SIMD_SLOT_SIZE YMM_REG_SIZE
 /* xmm0-5/7/15 for PR 264138/i#139/PR 302107 */
-#define MCXT_TOTAL_SIMD_SLOTS_SIZE ((MCXT_NUM_SIMD_SLOTS)*(YMM_REG_SIZE))
+#define MCXT_TOTAL_SIMD_SLOTS_SIZE ((MCXT_NUM_SIMD_SLOTS)*(MCXT_SIMD_SLOT_SIZE))
 
 #ifdef X64
 /* push GPR registers in priv_mcontext_t order.  does NOT make xsp have a

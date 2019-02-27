@@ -459,7 +459,7 @@ proc_fpstate_save_size(void);
 
 DR_API
 /**
- * Returns number of SIMD registers to be saved.
+ * Returns the number of SIMD registers to be saved.
  *
  * The number of saved SIMD registers may be variable. For example, we may decide
  * to optimize the number of saved registers in a context switch to avoid frequency
