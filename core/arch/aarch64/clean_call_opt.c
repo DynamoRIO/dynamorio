@@ -183,7 +183,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     /* XXX implement bitset for optimisation */
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->num_simd_used = 0;
-    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    memset(ci->simd_used, 0, sizeof(bool) * MCXT_NUM_SIMD_SLOTS);
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -213,7 +213,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
 
         /* SIMD register usage */
-        for (i = 0; i < NUM_SIMD_REGS; i++) {
+        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
             if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_Q0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses VREG%d at " PFX "\n", ci->start, i,

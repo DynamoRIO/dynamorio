@@ -73,8 +73,8 @@ callee_info_init(callee_info_t *ci)
      * but then later in analyze_callee_regs_usage, we have to use the loop.
      */
     /* assuming all xmm registers are used */
-    ci->num_simd_used = NUM_SIMD_REGS;
-    for (i = 0; i < NUM_SIMD_REGS; i++)
+    ci->num_simd_used = MCXT_NUM_SIMD_SLOTS;
+    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++)
         ci->simd_used[i] = true;
     for (i = 0; i < NUM_GP_REGS; i++)
         ci->reg_used[i] = true;
@@ -493,7 +493,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
-    for (i = 0; i < NUM_SIMD_REGS; i++) {
+    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
         if (info->simd_used[i]) {
             cci->simd_skip[i] = false;
         } else {
@@ -504,7 +504,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_simd_skip++;
         }
     }
-    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_simd_skip != NUM_SIMD_REGS)
+    if (INTERNAL_OPTION(opt_cleancall) > 2 && cci->num_simd_skip != MCXT_NUM_SIMD_SLOTS)
         cci->should_align = false;
     /* 2. general purpose registers */
     /* set regs not to be saved for clean call */
@@ -646,7 +646,7 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
                 }
             }
         }
-        if (cci->num_simd_skip == NUM_SIMD_REGS) {
+        if (cci->num_simd_skip == MCXT_NUM_SIMD_SLOTS) {
             STATS_INC(cleancall_simd_skipped);
         }
         if (cci->skip_save_flags) {
@@ -735,7 +735,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * to be saved or if more than GPR_SAVE_TRESHOLD GP registers have to be saved.
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
-    if ((NUM_SIMD_REGS - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
+    if ((MCXT_NUM_SIMD_SLOTS - cci->num_simd_skip) > SIMD_SAVE_TRESHOLD ||
         (NUM_GP_REGS - cci->num_regs_skip) > GPR_SAVE_TRESHOLD || always_out_of_line)
         cci->out_of_line_swap = true;
 #    endif

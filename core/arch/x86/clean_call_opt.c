@@ -63,7 +63,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     uint i, num_regparm;
 
     ci->num_simd_used = 0;
-    memset(ci->simd_used, 0, sizeof(bool) * NUM_SIMD_REGS);
+    memset(ci->simd_used, 0, sizeof(bool) * MCXT_NUM_SIMD_SLOTS);
     memset(ci->reg_used, 0, sizeof(bool) * NUM_GP_REGS);
     ci->write_flags = false;
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
@@ -74,7 +74,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          * impact unless there are a lot of different clean call callees.
          */
         /* XMM registers usage */
-        for (i = 0; i < NUM_SIMD_REGS; i++) {
+        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
             if (!ci->simd_used[i] && instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses XMM%d at " PFX "\n", ci->start, i,
@@ -605,7 +605,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
     /* Save used registers. */
-    ASSERT(cci->num_simd_skip == NUM_SIMD_REGS);
+    ASSERT(cci->num_simd_skip == MCXT_NUM_SIMD_SLOTS);
     for (i = 0; i < NUM_GP_REGS; i++) {
         if (!cci->reg_skip[i]) {
             reg_id_t reg_id = DR_REG_XAX + (reg_id_t)i;
