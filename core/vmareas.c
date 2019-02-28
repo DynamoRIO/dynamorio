@@ -68,8 +68,6 @@
 #    include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include <string.h>
-
 enum {
     /* VM_ flags to distinguish region types
      * We also use some FRAG_ flags (but in a separate field so no value space overlap)

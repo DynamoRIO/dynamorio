@@ -54,7 +54,6 @@
 #include "../emit.h"
 #include "../link.h"
 #include "../monitor.h" /* for mark_trace_head */
-#include <string.h>     /* for strstr */
 #include <stdarg.h>     /* for varargs */
 #include "../nudge.h"   /* for nudge_internal() */
 #include "../synch.h"
@@ -4596,12 +4595,12 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    /* PR 219380: we use our_vsnprintf instead of ntdll._vsnprintf b/c the
+    /* PR 219380: we use d_r_vsnprintf instead of ntdll._vsnprintf b/c the
      * latter does not support floating point.
-     * Plus, our_vsnprintf returns -1 for > max chars (matching Windows
+     * Plus, d_r_vsnprintf returns -1 for > max chars (matching Windows
      * behavior, but which Linux libc version does not do).
      */
-    res = our_vsnprintf(buf, max, fmt, ap);
+    res = d_r_vsnprintf(buf, max, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -4609,7 +4608,7 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
 DR_API int
 dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap)
 {
-    return our_vsnprintf(buf, max, fmt, ap);
+    return d_r_vsnprintf(buf, max, fmt, ap);
 }
 
 DR_API int
@@ -4618,7 +4617,7 @@ dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    res = our_vsnprintf_wide(buf, max, fmt, ap);
+    res = d_r_vsnprintf_wide(buf, max, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -4626,7 +4625,7 @@ dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...)
 DR_API int
 dr_vsnwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, va_list ap)
 {
-    return our_vsnprintf_wide(buf, max, fmt, ap);
+    return d_r_vsnprintf_wide(buf, max, fmt, ap);
 }
 
 DR_API int
@@ -4635,7 +4634,7 @@ dr_sscanf(const char *str, const char *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    res = our_vsscanf(str, fmt, ap);
+    res = d_r_vsscanf(str, fmt, ap);
     va_end(ap);
     return res;
 }

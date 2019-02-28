@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,8 +50,6 @@
 #    include "instrument.h"
 #    include "../emit.h"
 #    include "../link.h"
-
-#    include <string.h> /* for memset */
 
 #    include "loadtoconst.h"
 

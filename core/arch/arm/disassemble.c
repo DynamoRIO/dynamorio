@@ -38,7 +38,6 @@
 #include "decode.h"
 #include "decode_private.h"
 #include "disassemble.h"
-#include <string.h>
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 

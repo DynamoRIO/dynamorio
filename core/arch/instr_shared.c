@@ -61,8 +61,6 @@
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
-#include <string.h> /* for memcpy */
-
 #ifdef DEBUG
 #    include "disassemble.h"
 #endif

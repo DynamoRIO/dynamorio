@@ -48,7 +48,6 @@
 #include "hotpatch.h"
 #include "synch.h"
 #include "module_shared.h"
-#include <string.h> /* for memset */
 #include <stddef.h> /* for offsetof */
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"

@@ -55,7 +55,6 @@
 #        include <sys/wait.h>    /* for wait */
 #        include <linux/sched.h> /* for clone */
 #        include <signal.h>      /* for SIGCHLD */
-#        include <string.h>      /* for memset */
 #        include <unistd.h>      /* for nice */
 #        define RUN_SIG
 typedef pid_t thread_t;

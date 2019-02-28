@@ -38,7 +38,6 @@
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER

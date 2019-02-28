@@ -64,7 +64,6 @@
 #include "../globals.h"
 #include "../hashtable.h"
 #include "../native_exec.h"
-#include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 

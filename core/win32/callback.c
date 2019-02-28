@@ -68,7 +68,6 @@
 #include "../perscache.h"
 #include "../translate.h"
 
-#include <string.h> /* for memcpy */
 #include <windows.h>
 
 /* forward declarations */

@@ -43,7 +43,6 @@
 #include "decode.h"
 #include "decode_fast.h"
 #include "decode_private.h"
-#include <string.h> /* for memcpy */
 
 /*
  * XXX i#431: consider cpuid features when deciding invalid instrs:

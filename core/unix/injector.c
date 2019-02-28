@@ -68,7 +68,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h> /* for strerror */
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #if defined(LINUX) && defined(AARCH64)

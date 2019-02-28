@@ -40,7 +40,6 @@
  */
 
 #include "globals.h"
-#include <string.h> /* for memcpy */
 #include <limits.h>
 
 #include "fragment.h" /* for struct sizes */

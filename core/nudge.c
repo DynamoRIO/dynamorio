@@ -40,7 +40,6 @@
 #    include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
 #    include "drmarker.h"
 #else
-#    include <string.h>
 #endif /* WINDOWS */
 
 #ifdef HOT_PATCHING_INTERFACE

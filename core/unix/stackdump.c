@@ -48,7 +48,6 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/wait.h>
-#include <string.h>
 
 #include "../globals.h"
 #include "os_private.h"

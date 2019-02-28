@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,8 +51,6 @@
 #include "../fcache.h"
 #include "proc.h"
 #include "instrument.h"
-
-#include <string.h> /* for memcpy */
 
 #if defined(DEBUG) || defined(INTERNAL)
 #    include "disassemble.h"

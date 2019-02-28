@@ -44,7 +44,6 @@
 #include "memcache.h"
 #include "memquery.h"
 #include "os_private.h"
-#include <string.h>
 #include <sys/mman.h>
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"

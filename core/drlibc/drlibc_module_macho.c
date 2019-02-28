@@ -46,7 +46,6 @@
 #include <mach-o/fat.h>
 #include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
-#include <string.h> /* strcmp */
 #include <dlfcn.h>
 
 /* Like is_elf_so_header(), if size == 0 then safe-reads the header; else

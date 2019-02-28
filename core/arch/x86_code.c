@@ -43,7 +43,6 @@
 #include "../dispatch.h"
 #include "../monitor.h"
 #include "arch.h"
-#include <string.h> /* for memcpy */
 
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
  * (or all for linux) (or ymm) only if necessary.
