@@ -1885,7 +1885,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
                 (index_val >> amount) | (index_val << (sizeof(reg_t) * 8 - amount));
             break;
         case DR_SHIFT_RRX:
-            scaled_index = (index_val >> 1) ||
+            scaled_index = (index_val >> 1) |
                 (TEST(EFLAGS_C, mc->cpsr) ? (1 << (sizeof(reg_t) * 8 - 1)) : 0);
             break;
         default: scaled_index = index_val;
