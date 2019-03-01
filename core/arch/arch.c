@@ -2803,101 +2803,101 @@ unhook_vsyscall(void)
     return false;
 }
 #elif defined(LINUX)
-    /* PR 212570: for sysenter support we need to regain control after the
-     * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
-     * The vsyscall code layout is as follows:
-     *     0xffffe400 <__kernel_vsyscall+0>:       push   %ecx
-     *     0xffffe401 <__kernel_vsyscall+1>:       push   %edx
-     *     0xffffe402 <__kernel_vsyscall+2>:       push   %ebp
-     *     0xffffe403 <__kernel_vsyscall+3>:       mov    %esp,%ebp
-     *     0xffffe405 <__kernel_vsyscall+5>:       sysenter
-     *   nops for alignment of return point:
-     *     0xffffe407 <__kernel_vsyscall+7>:       nop
-     *     0xffffe408 <__kernel_vsyscall+8>:       nop
-     *     0xffffe409 <__kernel_vsyscall+9>:       nop
-     *     0xffffe40a <__kernel_vsyscall+10>:      nop
-     *     0xffffe40b <__kernel_vsyscall+11>:      nop
-     *     0xffffe40c <__kernel_vsyscall+12>:      nop
-     *     0xffffe40d <__kernel_vsyscall+13>:      nop
-     *   system call restart point:
-     *     0xffffe40e <__kernel_vsyscall+14>:      jmp    0xffffe403 <__kernel_vsyscall+3>
-     *   system call normal return point:
-     *     0xffffe410 <__kernel_vsyscall+16>:      pop    %ebp
-     *     0xffffe411 <__kernel_vsyscall+17>:      pop    %edx
-     *     0xffffe412 <__kernel_vsyscall+18>:      pop    %ecx
-     *     0xffffe413 <__kernel_vsyscall+19>:      ret
-     *
-     * For randomized vsyscall page locations we can mark the page +w and
-     * write to it.  For now, for simplicity, we focus only on that case;
-     * for vsyscall page at un-reachable 0xffffe000 we bail out and use
-     * ints for now (perf hit but works).  PR 288330 covers leaving
-     * as sysenters.
-     *
-     * There are either nops or garbage after the ret, so we clobber one
-     * byte past the ret to put in a rel32 jmp (an alternative is to do
-     * rel8 jmp into the nop area and have a rel32 jmp there).  We
-     * cleverly copy the 4 bytes of displaced code into the nop area, so
-     * that 1) we don't have to allocate any memory and 2) we don't have
-     * to do any extra work in dispatch, which will naturally go to the
-     * post-system-call-instr pc.
-     * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
-     * recent kernels we instead copy into the padding area:
-     *     0xf77c6be0:  push   %ecx
-     *     0xf77c6be1:  push   %edx
-     *     0xf77c6be2:  push   %ebp
-     *     0xf77c6be3:  mov    %esp,%ebp
-     *     0xf77c6be5:  sysenter
-     *     0xf77c6be7:  int    $0x80
-     *   normal return point:
-     *     0xf77c6be9:  pop    %ebp
-     *     0xf77c6bea:  pop    %edx
-     *     0xf77c6beb:  pop    %ecx
-     *     0xf77c6bec:  ret
-     *     0xf77c6bed+:  <padding>
-     *
-     * Using a hook is much simpler than clobbering the retaddr, which is what
-     * Windows does and then has to spend a lot of effort juggling transparency
-     * and control on asynch in/out events.
-     *
-     * XXX i#2694: We can't handle threads that had never been taken over. Such
-     * native threads w/o TLS will follow the hook and will crash when spilling
-     * to TLS post-syscall before the jump to the linkstub. More synchronization
-     * or no-TLS handling is needed.
-     */
+/* PR 212570: for sysenter support we need to regain control after the
+ * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
+ * The vsyscall code layout is as follows:
+ *     0xffffe400 <__kernel_vsyscall+0>:       push   %ecx
+ *     0xffffe401 <__kernel_vsyscall+1>:       push   %edx
+ *     0xffffe402 <__kernel_vsyscall+2>:       push   %ebp
+ *     0xffffe403 <__kernel_vsyscall+3>:       mov    %esp,%ebp
+ *     0xffffe405 <__kernel_vsyscall+5>:       sysenter
+ *   nops for alignment of return point:
+ *     0xffffe407 <__kernel_vsyscall+7>:       nop
+ *     0xffffe408 <__kernel_vsyscall+8>:       nop
+ *     0xffffe409 <__kernel_vsyscall+9>:       nop
+ *     0xffffe40a <__kernel_vsyscall+10>:      nop
+ *     0xffffe40b <__kernel_vsyscall+11>:      nop
+ *     0xffffe40c <__kernel_vsyscall+12>:      nop
+ *     0xffffe40d <__kernel_vsyscall+13>:      nop
+ *   system call restart point:
+ *     0xffffe40e <__kernel_vsyscall+14>:      jmp    0xffffe403 <__kernel_vsyscall+3>
+ *   system call normal return point:
+ *     0xffffe410 <__kernel_vsyscall+16>:      pop    %ebp
+ *     0xffffe411 <__kernel_vsyscall+17>:      pop    %edx
+ *     0xffffe412 <__kernel_vsyscall+18>:      pop    %ecx
+ *     0xffffe413 <__kernel_vsyscall+19>:      ret
+ *
+ * For randomized vsyscall page locations we can mark the page +w and
+ * write to it.  For now, for simplicity, we focus only on that case;
+ * for vsyscall page at un-reachable 0xffffe000 we bail out and use
+ * ints for now (perf hit but works).  PR 288330 covers leaving
+ * as sysenters.
+ *
+ * There are either nops or garbage after the ret, so we clobber one
+ * byte past the ret to put in a rel32 jmp (an alternative is to do
+ * rel8 jmp into the nop area and have a rel32 jmp there).  We
+ * cleverly copy the 4 bytes of displaced code into the nop area, so
+ * that 1) we don't have to allocate any memory and 2) we don't have
+ * to do any extra work in dispatch, which will naturally go to the
+ * post-system-call-instr pc.
+ * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
+ * recent kernels we instead copy into the padding area:
+ *     0xf77c6be0:  push   %ecx
+ *     0xf77c6be1:  push   %edx
+ *     0xf77c6be2:  push   %ebp
+ *     0xf77c6be3:  mov    %esp,%ebp
+ *     0xf77c6be5:  sysenter
+ *     0xf77c6be7:  int    $0x80
+ *   normal return point:
+ *     0xf77c6be9:  pop    %ebp
+ *     0xf77c6bea:  pop    %edx
+ *     0xf77c6beb:  pop    %ecx
+ *     0xf77c6bec:  ret
+ *     0xf77c6bed+:  <padding>
+ *
+ * Using a hook is much simpler than clobbering the retaddr, which is what
+ * Windows does and then has to spend a lot of effort juggling transparency
+ * and control on asynch in/out events.
+ *
+ * XXX i#2694: We can't handle threads that had never been taken over. Such
+ * native threads w/o TLS will follow the hook and will crash when spilling
+ * to TLS post-syscall before the jump to the linkstub. More synchronization
+ * or no-TLS handling is needed.
+ */
 
 #    define VSYS_DISPLACED_LEN 4
 
-    bool hook_vsyscall(dcontext_t * dcontext, bool method_changing)
-    {
+bool hook_vsyscall(dcontext_t * dcontext, bool method_changing)
+{
 #    ifdef X86
-        bool res = true;
-        instr_t instr;
-        byte *pc;
-        uint num_nops = 0;
-        uint prot;
+    bool res = true;
+    instr_t instr;
+    byte *pc;
+    uint num_nops = 0;
+    uint prot;
 
-        /* On a call on a method change the method is not yet finalized so we always try
-         */
-        if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
-            return false;
+    /* On a call on a method change the method is not yet finalized so we always try
+     */
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER && !method_changing)
+        return false;
 
-        ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
-        ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
-               vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
+    ASSERT(DATASEC_WRITABLE(DATASEC_RARELY_PROT));
+    ASSERT(vsyscall_page_start != NULL && vsyscall_syscall_end_pc != NULL &&
+           vsyscall_page_start == (app_pc)PAGE_START(vsyscall_syscall_end_pc));
 
-        instr_init(dcontext, &instr);
-        pc = vsyscall_syscall_end_pc;
-        do {
-            instr_reset(dcontext, &instr);
-            pc = decode(dcontext, pc, &instr);
-            if (instr_is_nop(&instr))
-                num_nops++;
-        } while (instr_is_nop(&instr));
-        vsyscall_sysenter_return_pc = pc;
-        ASSERT(instr_get_opcode(&instr) == OP_jmp_short ||
-               instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
+    instr_init(dcontext, &instr);
+    pc = vsyscall_syscall_end_pc;
+    do {
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+        if (instr_is_nop(&instr))
+            num_nops++;
+    } while (instr_is_nop(&instr));
+    vsyscall_sysenter_return_pc = pc;
+    ASSERT(instr_get_opcode(&instr) == OP_jmp_short ||
+           instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
-        /* We fail if the pattern looks different */
+    /* We fail if the pattern looks different */
 #        define CHECK(x)                                          \
             do {                                                  \
                 if (!(x)) {                                       \
@@ -2907,124 +2907,124 @@ unhook_vsyscall(void)
                 }                                                 \
             } while (0);
 
-        /* Only now that we've set vsyscall_sysenter_return_pc do we check writability */
-        if (!DYNAMO_OPTION(hook_vsyscall)) {
-            res = false;
+    /* Only now that we've set vsyscall_sysenter_return_pc do we check writability */
+    if (!DYNAMO_OPTION(hook_vsyscall)) {
+        res = false;
+        goto hook_vsyscall_return;
+    }
+    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        if (!res)
             goto hook_vsyscall_return;
-        }
-        get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-            if (!res)
-                goto hook_vsyscall_return;
-        }
+    }
 
-        LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
-            vsyscall_sysenter_return_pc);
+    LOG(GLOBAL, LOG_SYSCALLS | LOG_VMAREAS, 1, "Hooking vsyscall page @ " PFX "\n",
+        vsyscall_sysenter_return_pc);
 
-        /* The 5 bytes we'll clobber: */
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_pop);
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        CHECK(instr_get_opcode(&instr) == OP_ret);
-        /* We don't know what the 5th byte is but we assume that it is junk */
+    /* The 5 bytes we'll clobber: */
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_pop);
+    instr_reset(dcontext, &instr);
+    pc = decode(dcontext, pc, &instr);
+    CHECK(instr_get_opcode(&instr) == OP_ret);
+    /* We don't know what the 5th byte is but we assume that it is junk */
 
-        /* FIXME: at some point we should pull out all the hook code from
-         * callback.c into an os-neutral location.  For now, this hook
-         * is very special-case and simple.
+    /* FIXME: at some point we should pull out all the hook code from
+     * callback.c into an os-neutral location.  For now, this hook
+     * is very special-case and simple.
+     */
+
+    /* For thread synch, the datasec prot lock will serialize us (FIXME: do this at
+     * init time instead, when see [vdso] page in maps file?)
+     */
+
+    CHECK(pc - vsyscall_sysenter_return_pc == VSYS_DISPLACED_LEN);
+    ASSERT(pc + 1 /*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
+    if (num_nops >= VSYS_DISPLACED_LEN) {
+        CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
+        memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
+               /* we don't copy the 5th byte to preserve nop for nice disassembly */
+               pc - vsyscall_sysenter_return_pc);
+        vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
+    } else {
+        /* i#1939: the 4.4.8 kernel removed the nops.  It might be safer
+         * to place the bytes in our own memory somewhere but that requires
+         * extra logic to mark it as executable and to map the PC for
+         * dr_fragment_app_pc() and dr_app_pc_for_decoding(), so we go for the
+         * easier-to-implement route and clobber the padding garbage after the ret.
+         * We assume it is large enough for the 1 byte from the jmp32 and the
+         * 4 bytes of displacement.  Technically we should map the PC back
+         * here as well but it's close enough.
          */
+        pc += 1; /* skip 5th byte of to-be-inserted jmp */
+        CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
+        memcpy(pc, vsyscall_sysenter_return_pc, VSYS_DISPLACED_LEN);
+        vsyscall_sysenter_displaced_pc = pc;
+    }
+    insert_relative_jump(vsyscall_sysenter_return_pc,
+                         /* we require a thread-shared fcache_return */
+                         after_do_shared_syscall_addr(dcontext), NOT_HOT_PATCHABLE);
 
-        /* For thread synch, the datasec prot lock will serialize us (FIXME: do this at
-         * init time instead, when see [vdso] page in maps file?)
-         */
-
-        CHECK(pc - vsyscall_sysenter_return_pc == VSYS_DISPLACED_LEN);
-        ASSERT(pc + 1 /*nop*/ - vsyscall_sysenter_return_pc == JMP_LONG_LENGTH);
-        if (num_nops >= VSYS_DISPLACED_LEN) {
-            CHECK(num_nops >= pc - vsyscall_sysenter_return_pc);
-            memcpy(vsyscall_syscall_end_pc, vsyscall_sysenter_return_pc,
-                   /* we don't copy the 5th byte to preserve nop for nice disassembly */
-                   pc - vsyscall_sysenter_return_pc);
-            vsyscall_sysenter_displaced_pc = vsyscall_syscall_end_pc;
-        } else {
-            /* i#1939: the 4.4.8 kernel removed the nops.  It might be safer
-             * to place the bytes in our own memory somewhere but that requires
-             * extra logic to mark it as executable and to map the PC for
-             * dr_fragment_app_pc() and dr_app_pc_for_decoding(), so we go for the
-             * easier-to-implement route and clobber the padding garbage after the ret.
-             * We assume it is large enough for the 1 byte from the jmp32 and the
-             * 4 bytes of displacement.  Technically we should map the PC back
-             * here as well but it's close enough.
-             */
-            pc += 1; /* skip 5th byte of to-be-inserted jmp */
-            CHECK(PAGE_START(pc) == PAGE_START(pc + VSYS_DISPLACED_LEN));
-            memcpy(pc, vsyscall_sysenter_return_pc, VSYS_DISPLACED_LEN);
-            vsyscall_sysenter_displaced_pc = pc;
-        }
-        insert_relative_jump(vsyscall_sysenter_return_pc,
-                             /* we require a thread-shared fcache_return */
-                             after_do_shared_syscall_addr(dcontext), NOT_HOT_PATCHABLE);
-
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            /* we don't override res here since not much point in not using the
-             * hook once its in if we failed to re-protect: we're going to have to
-             * trust the app code here anyway */
-            DEBUG_DECLARE(bool ok =)
-            set_protection(vsyscall_page_start, PAGE_SIZE, prot);
-            ASSERT(ok);
-        }
-    hook_vsyscall_return:
-        instr_free(dcontext, &instr);
-        return res;
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        /* we don't override res here since not much point in not using the
+         * hook once its in if we failed to re-protect: we're going to have to
+         * trust the app code here anyway */
+        DEBUG_DECLARE(bool ok =)
+        set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        ASSERT(ok);
+    }
+hook_vsyscall_return:
+    instr_free(dcontext, &instr);
+    return res;
 #        undef CHECK
 #    elif defined(AARCHXX)
-        /* No vsyscall support needed for our ARM targets -- still called on
-         * os_process_under_dynamorio().
-         */
-        ASSERT(!method_changing);
-        return false;
+    /* No vsyscall support needed for our ARM targets -- still called on
+     * os_process_under_dynamorio().
+     */
+    ASSERT(!method_changing);
+    return false;
 #    endif /* X86/ARM */
-    }
+}
 
-    bool unhook_vsyscall(void)
-    {
+bool unhook_vsyscall(void)
+{
 #    ifdef X86
-        uint prot;
-        bool res;
-        uint len = VSYS_DISPLACED_LEN;
-        if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
-            return false;
-        ASSERT(!sysenter_hook_failed);
-        ASSERT(vsyscall_sysenter_return_pc != NULL);
-        ASSERT(vsyscall_syscall_end_pc != NULL);
-        get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
-            if (!res)
-                return false;
-        }
-        memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
-        /* we do not restore the 5th (junk/nop) byte (we never copied it) */
-        if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
-            memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
-        if (!TEST(MEMPROT_WRITE, prot)) {
-            res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
-            ASSERT(res);
-        }
-        return true;
-#    elif defined(AARCHXX)
-        ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
+    uint prot;
+    bool res;
+    uint len = VSYS_DISPLACED_LEN;
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER)
         return false;
-#    endif /* X86/ARM */
+    ASSERT(!sysenter_hook_failed);
+    ASSERT(vsyscall_sysenter_return_pc != NULL);
+    ASSERT(vsyscall_syscall_end_pc != NULL);
+    get_memory_info(vsyscall_page_start, NULL, NULL, &prot);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot | MEMPROT_WRITE);
+        if (!res)
+            return false;
     }
+    memcpy(vsyscall_sysenter_return_pc, vsyscall_sysenter_displaced_pc, len);
+    /* we do not restore the 5th (junk/nop) byte (we never copied it) */
+    if (vsyscall_sysenter_displaced_pc == vsyscall_syscall_end_pc) /* <4.4.8 */
+        memset(vsyscall_syscall_end_pc, RAW_OPCODE_nop, len);
+    if (!TEST(MEMPROT_WRITE, prot)) {
+        res = set_protection(vsyscall_page_start, PAGE_SIZE, prot);
+        ASSERT(res);
+    }
+    return true;
+#    elif defined(AARCHXX)
+    ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
+    return false;
+#    endif /* X86/ARM */
+}
 #endif     /* LINUX */
 
 void
