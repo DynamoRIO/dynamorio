@@ -2859,7 +2859,7 @@ unhook_vsyscall(void)
      * Windows does and then has to spend a lot of effort juggling transparency
      * and control on asynch in/out events.
      *
-     * XXX i#2694: We can't handle threads that have never been taken over. Such
+     * XXX i#2694: We can't handle threads that had never been taken over. Such
      * native threads w/o TLS will follow the hook and will crash when spilling
      * to TLS post-syscall before the jump to the linkstub. More synchronization
      * or no-TLS handling is needed.
