@@ -60,8 +60,6 @@
 #include "dr_stats.h"
 #include "stats.h"
 
-#include <string.h> /* for memset */
-
 #ifdef KSTATS
 
 #    ifdef KSTAT_UNIT_TEST

@@ -45,8 +45,6 @@
 #include "decode_fast.h"
 #include "decode_private.h"
 
-#include <string.h> /* memcpy, memset */
-
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */

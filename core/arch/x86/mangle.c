@@ -64,8 +64,6 @@
 #    include <sys/syscall.h>
 #endif
 
-#include <string.h> /* for memset */
-
 #ifdef ANNOTATIONS
 #    include "../annotations.h"
 #endif

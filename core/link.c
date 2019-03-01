@@ -45,7 +45,6 @@
 #include "fcache.h"
 #include "emit.h"
 #include "monitor.h"
-#include <string.h> /* for memset */
 #include "perscache.h"
 #include "instr.h" /* PC_RELATIVE_TARGET */
 

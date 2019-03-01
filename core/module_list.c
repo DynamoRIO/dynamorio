@@ -34,7 +34,6 @@
 #include "globals.h"
 #include "instrument.h"
 #include "native_exec.h"
-#include <string.h> /* for memset */
 #ifdef WINDOWS
 #    include "ntdll.h" /* for protect_virtual_memory */
 #endif

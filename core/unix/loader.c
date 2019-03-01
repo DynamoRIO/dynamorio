@@ -58,7 +58,6 @@
 #ifdef LINUX
 #    include <sys/prctl.h> /* PR_SET_NAME */
 #endif
-#include <string.h> /* strcmp */
 #include <stdlib.h> /* getenv */
 #include <dlfcn.h>  /* dlopen/dlsym */
 #include <unistd.h> /* __environ */
