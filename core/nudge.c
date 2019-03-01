@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -275,11 +275,9 @@ nudge_finished:
 #endif /* WINDOWS */
 
 /* This routine may not return */
-#ifdef WINDOWS
-static
-#endif
-    void
-    handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
+IF_WINDOWS(static)
+void
+handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 {
     uint nudge_action_mask = arg->nudge_action_mask;
 
