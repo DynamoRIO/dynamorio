@@ -45,8 +45,6 @@
 #    include "x86/decode_private.h"
 #endif
 
-#include <string.h> /* for memcpy */
-
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */

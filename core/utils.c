@@ -44,7 +44,6 @@
 #include "configure_defines.h"
 #include "utils.h"
 #include "module_shared.h"
-#include <string.h> /* for memset */
 #include <math.h>
 
 #ifdef PROCESS_CONTROL
@@ -1790,11 +1789,11 @@ vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
                  va_list ap)
 {
     /* in io.c */
-    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    extern int d_r_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     bool ok;
-    /* we use our_vsnprintf for consistent return value and to handle floats */
-    len = our_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
+    /* we use d_r_vsnprintf for consistent return value and to handle floats */
+    len = d_r_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
     /* we support appending an empty string (len==0) */
     ok = (len >= 0 && len < (ssize_t)(bufsz - *sofar));
     *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
@@ -3188,7 +3187,7 @@ print_timestamp_to_buffer(char *buffer, size_t len)
     msec = (uint)(current_time % 1000);
     min = sec / 60;
     sec = sec % 60;
-    return our_snprintf(buffer, print_len, "(%ld:%02ld.%03ld)", min, sec, msec);
+    return d_r_snprintf(buffer, print_len, "(%ld:%02ld.%03ld)", min, sec, msec);
 }
 
 /* prints elapsed time since program startup to the given logfile

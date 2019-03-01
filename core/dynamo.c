@@ -69,8 +69,6 @@
 #    include "annotations.h"
 #endif
 
-#include <string.h>
-
 #ifdef WINDOWS
 /* for close handle, duplicate handle, free memory and constants associated with them
  */

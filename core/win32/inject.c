@@ -46,9 +46,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
-#include <string.h>
 
-#include "ntdll.h"      /* for get/set context etc. */
+#include "ntdll.h" /* for get/set context etc. */
 
 #include "instr.h"
 #include "instr_create.h"

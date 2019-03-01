@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,7 +37,6 @@
  */
 
 #include "configure.h"
-#include <string.h>
 #include <unistd.h>
 #include "include/syscall.h"
 #include "include/siginfo.h"
@@ -45,6 +44,8 @@
 #include "globals_shared.h"
 #ifndef NOT_DYNAMORIO_CORE
 #    include "../globals.h" /* for arch_exports.h for dynamorio_syscall */
+#else
+#    include <string.h> /* for memset */
 #endif
 
 /* shared with tools/nudgeunix.c */

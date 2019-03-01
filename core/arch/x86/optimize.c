@@ -56,7 +56,6 @@
 #    include "../fragment.h"
 #    include "disassemble.h"
 #    include "proc.h"
-#    include <string.h> /* for memset */
 
 /* IMPORTANT INSTRUCTIONS FOR WRITING OPTIMIZATIONS:
  *

@@ -45,7 +45,6 @@
 #include "fcache.h"
 #include "emit.h"
 #include "monitor.h"
-#include <string.h> /* for memset */
 #include "instrument.h"
 #include <stddef.h> /* for offsetof */
 #include <limits.h> /* UINT_MAX */

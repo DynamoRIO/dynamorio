@@ -59,7 +59,6 @@
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "../module_shared.h"
-#include <string.h>
 
 /* these are only needed for symbolic address lookup: */
 #include "../fragment.h" /* for fragment_pclookup */

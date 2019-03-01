@@ -935,6 +935,8 @@ add_library(drdecode
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/mangle_utils.c
   arch/decodelib.c
+  string.c
+  io.c
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
