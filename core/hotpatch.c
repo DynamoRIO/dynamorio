@@ -49,7 +49,6 @@
 #include "moduledb.h" /* macros for nudge; can be moved with nudge to os.c */
 
 #ifndef WINDOWS
-#    include <string.h>
 #endif
 
 #include <limits.h> /* for ULLONG_MAX */

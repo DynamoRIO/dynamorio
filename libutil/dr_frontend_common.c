@@ -60,7 +60,7 @@ drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
 {
     va_list ap;
     va_start(ap, fmt);
-    /* XXX i#1397: We would like to use our_vsnprintf() instead of depending
+    /* XXX i#1397: We would like to use d_r_vsnprintf() instead of depending
      * on libc/winapi.
      */
     *len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);

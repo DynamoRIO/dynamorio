@@ -43,7 +43,6 @@
 #include "fcache.h"     /* in_fcache() */
 #include "translate.h"
 #include "native_exec.h"
-#include <string.h> /* for memcpy */
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 

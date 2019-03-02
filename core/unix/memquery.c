@@ -39,7 +39,6 @@
 #include "../globals.h"
 #include "memquery.h"
 #include "module.h"
-#include <string.h>
 
 /***************************************************************************
  * LIBRARY BOUNDS

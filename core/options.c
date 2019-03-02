@@ -48,12 +48,10 @@
 #    include "monitor.h"
 #    include "moduledb.h" /* for the process control defines */
 #    include "disassemble.h"
-#    include <string.h>
 
 #else /* NOT_DYNAMORIO_CORE */
 #    include "configure.h"
 #    include <stdio.h> /* snprintf, sscanf */
-#    include <string.h>
 
 #    ifdef WINDOWS
 #        define inline __inline

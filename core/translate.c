@@ -52,8 +52,6 @@
 #include "proc.h"
 #include "instrument.h"
 
-#include <string.h> /* for memcpy */
-
 #if defined(DEBUG) || defined(INTERNAL)
 #    include "disassemble.h"
 #endif

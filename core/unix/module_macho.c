@@ -58,7 +58,6 @@
 #include <mach-o/fat.h>
 #include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
-#include <string.h> /* strcmp */
 #include <dlfcn.h>
 
 bool

@@ -178,7 +178,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
 #    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
-     * or our_vsnprintf
+     * or d_r_vsnprintf
      */
     if (len >= (ssize_t)(bufsz - *sofar))
         len = -1;
@@ -207,7 +207,7 @@ print_file(file_t f, const char *fmt, ...)
 
 #    ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
-     * or our_vsnprintf
+     * or d_r_vsnprintf
      */
     if (len >= BUFFER_SIZE_ELEMENTS(buf))
         len = BUFFER_SIZE_ELEMENTS(buf); /* don't need NULL term */

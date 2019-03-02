@@ -43,7 +43,6 @@
 #include "../utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
-#include <string.h> /* for memset */
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"
 #endif

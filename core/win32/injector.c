@@ -63,7 +63,6 @@
 #include <imagehlp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> /* memset */
 #include <time.h>
 #include <tchar.h>
 

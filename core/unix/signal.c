@@ -65,7 +65,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <ucontext.h>
-#include <string.h> /* for memcpy and memset */
 #include "os_private.h"
 #include "../fragment.h"
 #include "../fcache.h"

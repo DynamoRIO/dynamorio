@@ -48,7 +48,6 @@
 #ifdef CUSTOM_TRACES
 #    include "instrument.h"
 #endif
-#include <string.h> /* for memset */
 #include "instr.h"
 #include "perscache.h"
 #include "disassemble.h"

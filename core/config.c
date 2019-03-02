@@ -45,8 +45,6 @@
 #        include "ntdll.h"
 #    endif
 
-#    include <string.h>
-
 /* DYNAMORIO_VAR_CONFIGDIR is searched first, and then these: */
 #    ifdef UNIX
 #        define GLOBAL_CONFIG_DIR "/etc/dynamorio"
@@ -104,11 +102,11 @@ display_verbose_message(char *format, ...);
 #        endif
 #        undef STDERR
 #        define STDERR stderr
-#        undef our_snprintf
+#        undef d_r_snprintf
 #        ifdef WINDOWS
-#            define our_snprintf _snprintf
+#            define d_r_snprintf _snprintf
 #        else
-#            define our_snprintf snprintf
+#            define d_r_snprintf snprintf
 #        endif
 #        undef DECLARE_NEVERPROT_VAR
 #        define DECLARE_NEVERPROT_VAR(var, val) var = (val)
