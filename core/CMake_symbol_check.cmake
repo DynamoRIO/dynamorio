@@ -34,6 +34,7 @@
 # + "lib_fileloc" to /absolute/path/<name> that represents a file <name>.cmake that
 #   contains a set(<name> <path>) where path is the target binary location.
 # + "READELF_EXECUTABLE" so it can be a cache variable
+# + "CMAKE_SYSTEM_PROCESSOR"
 
 include(${lib_fileloc}.cmake)
 
@@ -58,6 +59,7 @@ string(REGEX MATCHALL " [^_\\.]+\n" oneword "${globals}")
 
 string(REGEX MATCHALL "([^\n]+)\n" lines "${oneword}")
 foreach(line ${lines})
+  set(is_ok OFF)
   # We have some legacy exceptions we allow until we've renamed them all.
   if (line MATCHES "crc32\n" OR
       line MATCHES "debugRegister\n" OR
@@ -79,7 +81,17 @@ foreach(line ${lines})
       line MATCHES "stackdump\n" OR
       line MATCHES "stats\n")
     # OK: an exception we allow for now.
-  else ()
+    set(is_ok ON)
+  endif ()
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" OR
+      CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+    if (line MATCHES "memcpy\n" OR
+        line MATCHES "memset\n")
+      # XXX i#3348: We need to remove these from the aarchxx builds too.
+      set(is_ok ON)
+    endif ()
+  endif ()
+  if (NOT is_ok)
     message(FATAL_ERROR
       "*** Error: ${${lib_file}} contains a likely-to-conflict symbol: ${line}")
   endif ()

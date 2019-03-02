@@ -65,6 +65,7 @@ int
 pathcmp(void)
 {
     print("in app's %s\n", __FUNCTION__);
+    return 0;
 }
 
 void

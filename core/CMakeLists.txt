@@ -864,9 +864,9 @@ if (NOT APPLE)
       add_custom_command(TARGET dynamorio_static_nohide
         POST_BUILD
         COMMAND ${CMAKE_COMMAND}
-        # to work around i#84 be sure to put a space after -D for 1st arg at least
         ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+             -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
         VERBATIM
         )
