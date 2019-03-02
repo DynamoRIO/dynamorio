@@ -1225,8 +1225,8 @@ get_app_sysenter_addr(void);
 
 /* in [x86/arm].asm */
 /* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
- * currently on the initstack 'mutex_to_free' should be passed so we release the
- * initstack lock.  The supplied 'func_arg' will be passed as an argument to 'func'.
+ * currently on the d_r_initstack, 'mutex_to_free' should be passed so we release the
+ * initstack_mutex.  The supplied 'func_arg' will be passed as an argument to 'func'.
  * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
  * return to the caller.  If not set then it's assumed that func wasn't supposed to
  * return and we go to an error routine unexpected_return() below.
@@ -1247,8 +1247,8 @@ go_native(dcontext_t *dcontext);
 
 /* Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
  * Uses the current dstack, but instructs the cleanup routines not to
- * de-allocate it, does a custom de-allocate after swapping to initstack (don't
- * want to use initstack the whole time, that's too long to hold the mutex).
+ * de-allocate it, does a custom de-allocate after swapping to d_r_initstack (don't
+ * want to use d_r_initstack the whole time, that's too long to hold the mutex).
  * Then calls system call sysnum with parameter base param_base, which is presumed
  * to be either NtTerminateThread or NtTerminateProcess or exit.
  *

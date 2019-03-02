@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -188,7 +189,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
-        reg_id_t reg = regparms[i];
+        reg_id_t reg = d_r_regparms[i];
         if (!ci->reg_used[reg - DR_REG_START_GPR]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: callee " PFX " uses REG %s for arg passing\n", ci->start,
@@ -523,7 +524,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
                         instr_t *where, opnd_t *args)
 {
     callee_info_t *ci = cci->callee_info;
-    reg_id_t regparm = regparms[0];
+    reg_id_t regparm = d_r_regparms[0];
     opnd_t arg;
 
     if (cci->num_args == 0)
@@ -532,7 +533,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
     /* If the arg is un-referenced, don't set it up.  This is actually necessary
      * for correctness because we will not have spilled regparm[0].
      */
-    if (!ci->reg_used[regparms[0] - DR_REG_START_GPR]) {
+    if (!ci->reg_used[d_r_regparms[0] - DR_REG_START_GPR]) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee " PFX " doesn't read arg, skipping arg setup.\n",
             ci->start);

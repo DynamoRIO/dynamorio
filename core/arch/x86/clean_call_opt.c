@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -151,7 +151,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     /* i#987, i#988: reg might be used for arg passing but not used in callee */
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
     for (i = 0; i < num_regparm; i++) {
-        reg_id_t reg = regparms[i];
+        reg_id_t reg = d_r_regparms[i];
         if (!ci->reg_used[reg - DR_REG_XAX]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
                 "CLEANCALL: callee " PFX " uses REG %s for arg passing\n", ci->start,
@@ -688,7 +688,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
      * for correctness because we will not have spilled regparm[0] on x64 or
      * reserved SLOT_LOCAL for x86_32.
      */
-    if (IF_X64_ELSE(!ci->reg_used[regparms[0] - DR_REG_XAX], !ci->has_locals)) {
+    if (IF_X64_ELSE(!ci->reg_used[d_r_regparms[0] - DR_REG_XAX], !ci->has_locals)) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: callee " PFX " doesn't read arg, skipping arg setup.\n",
             ci->start);
@@ -697,7 +697,7 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
 
     ASSERT(cci->num_args == 1);
     arg = args[0];
-    regparm = shrink_reg_for_param(IF_X64_ELSE(regparms[0], DR_REG_XAX), arg);
+    regparm = shrink_reg_for_param(IF_X64_ELSE(d_r_regparms[0], DR_REG_XAX), arg);
 
     if (opnd_uses_reg(arg, ci->spill_reg)) {
         if (opnd_is_reg(arg)) {

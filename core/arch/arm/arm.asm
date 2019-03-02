@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -47,7 +47,7 @@ DECL_EXTERN(relocate_dynamorio)
 DECL_EXTERN(privload_early_inject)
 
 DECL_EXTERN(exiting_thread_count)
-DECL_EXTERN(initstack)
+DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
 
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) ldr dest, PTRSZ [reg, POUND (offs)]
@@ -279,7 +279,7 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to initstack for cleanup of dstack */
+        /* switch to d_r_initstack for cleanup of dstack */
         /* we use r6, r7, and r8 here so that atomic_swap doesn't clobber them */
         mov      REG_R6, #1
         ldr      REG_R8, .Lgot1
@@ -300,12 +300,12 @@ cat_have_lock:
         /* swap stacks */
         ldr      REG_R2, .Lgot2
         add      REG_R2, REG_R2, pc
-        ldr      REG_R3, .Linitstack
+        ldr      REG_R3, .Ld_r_initstack
 .LPIC2: ldr      REG_R3, [REG_R3, REG_R2]
         ldr      sp, [REG_R3]
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_R4) /* pass dstack */
-        /* give up initstack mutex */
+        /* give up initstack_mutex */
         ldr      REG_R2, .Lgot3
         add      REG_R2, REG_R2, pc
         ldr      REG_R3, .Linitstack_mutex
@@ -338,8 +338,8 @@ cat_have_lock:
         .long   _GLOBAL_OFFSET_TABLE_-.LPIC4
 .Lexiting_thread_count:
         .word   exiting_thread_count(GOT)
-.Linitstack:
-        .word   initstack(GOT)
+.Ld_r_initstack:
+        .word   d_r_initstack(GOT)
 .Linitstack_mutex:
         .word   initstack_mutex(GOT)
 #endif /* NOT_DYNAMORIO_CORE_PROPER */

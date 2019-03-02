@@ -634,14 +634,14 @@ sideline_optimize(fragment_t *f,
 #    ifdef DEBUG
     ASSERT(instr_get_opcode(instrlist_last(ilist)) == OP_jmp);
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nbefore removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     remove_profiling_func(dcontext, ilist);
 
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nafter removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
@@ -653,13 +653,13 @@ sideline_optimize(fragment_t *f,
          */
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     optimize_function(dcontext, f, ilist);
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nafter optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     /* Note that the offline optimization interface cannot be used
@@ -706,8 +706,8 @@ sideline_optimize(fragment_t *f,
 
 #    ifdef DEBUG
     num_optimized++;
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_SIDELINE) != 0) {
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_SIDELINE) != 0) {
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
         LOG(logfile, LOG_SIDELINE, 2,
             "\tSIDELINE: emitted optimized F%d to replace F%d\n", new_f->id, f->id);
     }
