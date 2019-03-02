@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -229,7 +229,7 @@ os_loader_init_prologue(void)
              * XXX: if we attach or something it seems possible that ntdll or user32
              * or some other shared resource might set these and we want to share
              * the value between app and priv.  In that case we should not clear here
-             * and should relax the asserts in dispatch and is_using_app_peb to
+             * and should relax the asserts in d_r_dispatch and is_using_app_peb to
              * allow app==priv if both ==pre.
              */
             set_tls(NLS_CACHE_TIB_OFFSET, NULL);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8764,12 +8764,12 @@ early_inject_init()
         dcontext->thread_record->under_dynamo_control = false;
         whereami_save = dcontext->whereami;
         /* FIXME - this is an ugly hack to get the kstack in a form compatible
-         * with dispatch for processing the native exec syscalls we'll hit
+         * with d_r_dispatch for processing the native exec syscalls we'll hit
          * while loading the helper dll (hotpatch has a similar issue but
          * lucks out with having a compatible stack).  Shouldn't mess things
          * up too much though.  We do have to use non-matching stops so not
          * sure how accurate these times will be (should be tiny anyways)
-         * should poke around dispatch sometime and figure out some way to
+         * should poke around d_r_dispatch sometime and figure out some way to
          * do this nicer. */
         KSTART(dispatch_num_exits);
         KSTART(dispatch_num_exits);

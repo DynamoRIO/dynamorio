@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -910,7 +910,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         di->repne_prefix = false;
     } else if (info->type == EXTENSION) {
         /* discard old info, get new one */
-        info = &extensions[info->code][di->reg];
+        info = &base_extensions[info->code][di->reg];
         /* absurd cases of using prefix on top of reg opcode extension
          * (pslldq, psrldq) => PREFIX_EXT can happen after here,
          * and MOD_EXT after that

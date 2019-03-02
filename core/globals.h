@@ -671,7 +671,7 @@ extern recursive_lock_t change_linking_lock;
 typedef enum {
     DR_WHERE_APP = 0,         /**< Control is in native application code. */
     DR_WHERE_INTERP,          /**< Control is in basic block building. */
-    DR_WHERE_DISPATCH,        /**< Control is in dispatch. */
+    DR_WHERE_DISPATCH,        /**< Control is in d_r_dispatch. */
     DR_WHERE_MONITOR,         /**< Control is in trace building. */
     DR_WHERE_SYSCALL_HANDLER, /**< Control is in system call handling. */
     DR_WHERE_SIGNAL_HANDLER,  /**< Control is in signal handling. */
@@ -756,7 +756,7 @@ typedef struct {
     int dr_errno; /* errno used for DR (no longer used for app) */
 #endif
     bool at_syscall;    /* for shared deletion syscalls_synch_flush,
-                         * as well as syscalls handled from dispatch,
+                         * as well as syscalls handled from d_r_dispatch,
                          * and for reset to identify when at syscalls
                          */
     ushort exit_reason; /* Allows multiplexing LINK_SPECIAL_EXIT */
@@ -954,7 +954,7 @@ struct _dcontext_t {
     app_pc asynch_target;
 
     /* must store post-intercepted-syscall target to allow using normal
-     * dispatch() for native_exec syscalls
+     * d_r_dispatch() for native_exec syscalls
      */
     app_pc native_exec_postsyscall;
 

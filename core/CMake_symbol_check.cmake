@@ -61,13 +61,8 @@ string(REGEX MATCHALL "([^\n]+)\n" lines "${oneword}")
 foreach(line ${lines})
   set(is_ok OFF)
   # We have some legacy exceptions we allow until we've renamed them all.
-  if (line MATCHES "crc32\n" OR
-      line MATCHES "debugRegister\n" OR
-      line MATCHES "decode\n" OR
+  if (line MATCHES "decode\n" OR
       line MATCHES "disassemble\n" OR
-      line MATCHES "dispatch\n" OR
-      line MATCHES "emulate\n" OR
-      line MATCHES "extensions\n" OR
       line MATCHES "initstack\n" OR
       line MATCHES "loginst\n" OR
       line MATCHES "logopnd\n" OR

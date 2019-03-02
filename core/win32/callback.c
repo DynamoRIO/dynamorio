@@ -3000,7 +3000,7 @@ asynch_take_over(app_state_at_intercept_t *state)
     LOG(THREAD, LOG_ASYNCH, 2, "asynch_take_over 0x%08x\n", state->start_pc);
     /* may have been inside syscall...now we're in app! */
     set_at_syscall(dcontext, false);
-    /* tell dispatch() why we're coming there */
+    /* tell d_r_dispatch() why we're coming there */
     if (dcontext->whereami != DR_WHERE_APP) /* new thread, typically: leave it that way */
         dcontext->whereami = DR_WHERE_TRAMPOLINE;
     set_last_exit(dcontext, (linkstub_t *)get_asynch_linkstub());
@@ -3583,7 +3583,7 @@ intercept_apc(app_state_at_intercept_t *state)
         DEBUG_DECLARE(app_pc apc_target;)
         if (get_thread_private_dcontext() != NULL)
             SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
-        /* won't be re-protected until dispatch->fcache */
+        /* won't be re-protected until d_r_dispatch->fcache */
 
         RSTATS_INC(num_APCs);
 
@@ -3889,59 +3889,67 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
         if (TESTALL(CONTEXT_DEBUG_REGISTERS, cxt->ContextFlags)) {
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR0)) {
                 /* Flush only when debug register value changes. */
-                if (debugRegister[0] != (app_pc)cxt->Dr0) {
-                    debugRegister[0] = (app_pc)cxt->Dr0;
-                    flush_fragments_from_region(dcontext, debugRegister[0], 1 /* size */,
+                if (d_r_debug_register[0] != (app_pc)cxt->Dr0) {
+                    d_r_debug_register[0] = (app_pc)cxt->Dr0;
+                    flush_fragments_from_region(dcontext, d_r_debug_register[0],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
                 }
             } else {
                 /* Disable debug register. */
-                if (debugRegister[0] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[0], 1 /* size */,
+                if (d_r_debug_register[0] != NULL) {
+                    flush_fragments_from_region(dcontext, d_r_debug_register[0],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
-                    debugRegister[0] = NULL;
+                    d_r_debug_register[0] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1)) {
-                if (debugRegister[1] != (app_pc)cxt->Dr1) {
-                    debugRegister[1] = (app_pc)cxt->Dr1;
-                    flush_fragments_from_region(dcontext, debugRegister[1], 1 /* size */,
+                if (d_r_debug_register[1] != (app_pc)cxt->Dr1) {
+                    d_r_debug_register[1] = (app_pc)cxt->Dr1;
+                    flush_fragments_from_region(dcontext, d_r_debug_register[1],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
                 }
             } else {
                 /* Disable debug register. */
-                if (debugRegister[1] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[1], 1 /* size */,
+                if (d_r_debug_register[1] != NULL) {
+                    flush_fragments_from_region(dcontext, d_r_debug_register[1],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
-                    debugRegister[1] = NULL;
+                    d_r_debug_register[1] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2)) {
-                if (debugRegister[2] != (app_pc)cxt->Dr2) {
-                    debugRegister[2] = (app_pc)cxt->Dr2;
-                    flush_fragments_from_region(dcontext, debugRegister[2], 1 /* size */,
+                if (d_r_debug_register[2] != (app_pc)cxt->Dr2) {
+                    d_r_debug_register[2] = (app_pc)cxt->Dr2;
+                    flush_fragments_from_region(dcontext, d_r_debug_register[2],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
                 }
             } else {
                 /* Disable debug register. */
-                if (debugRegister[2] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[2], 1 /* size */,
+                if (d_r_debug_register[2] != NULL) {
+                    flush_fragments_from_region(dcontext, d_r_debug_register[2],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
-                    debugRegister[2] = NULL;
+                    d_r_debug_register[2] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3)) {
-                if (debugRegister[3] != (app_pc)cxt->Dr3) {
-                    debugRegister[3] = (app_pc)cxt->Dr3;
-                    flush_fragments_from_region(dcontext, debugRegister[3], 1 /* size */,
+                if (d_r_debug_register[3] != (app_pc)cxt->Dr3) {
+                    d_r_debug_register[3] = (app_pc)cxt->Dr3;
+                    flush_fragments_from_region(dcontext, d_r_debug_register[3],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
                 }
             } else {
                 /* Disable debug register. */
-                if (debugRegister[3] != NULL) {
-                    flush_fragments_from_region(dcontext, debugRegister[3], 1 /* size */,
+                if (d_r_debug_register[3] != NULL) {
+                    flush_fragments_from_region(dcontext, d_r_debug_register[3],
+                                                1 /* size */,
                                                 false /*don't force synchall*/);
-                    debugRegister[3] = NULL;
+                    d_r_debug_register[3] = NULL;
                 }
             }
         }
@@ -4008,7 +4016,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 "\txip=" PFX " not in fcache, intercepting at " PFX "\n", cxt->CXT_XIP,
                 nt_continue_dynamo_start);
             /* we have to use a different slot since next_tag ends up holding
-             * the do_syscall entry when entered from dispatch (we're called
+             * the do_syscall entry when entered from d_r_dispatch (we're called
              * from pre_syscall, prior to entering cache)
              */
             dcontext->asynch_target = (app_pc)cxt->CXT_XIP;
@@ -4083,7 +4091,7 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
          * #ifdefs ensure that the correct location is used for the xip.
          */
         /* we have to use a different slot since next_tag ends up holding the do_syscall
-         * entry when entered from dispatch (we're called from pre_syscall,
+         * entry when entered from d_r_dispatch (we're called from pre_syscall,
          * prior to entering cache)
          */
         dcontext->asynch_target = (app_pc)cxt->CXT_XIP;
@@ -4133,7 +4141,7 @@ static void
 transfer_to_fcache_return(dcontext_t *dcontext, CONTEXT *cxt, app_pc next_pc,
                           linkstub_t *last_exit)
 {
-    /* Do not resume execution in cache, go back to dispatch.
+    /* Do not resume execution in cache, go back to d_r_dispatch.
      * Do a direct nt_continue to fcache_return!
      * Note that even if we were in the shared cache, we
      * still go to the private fcache_return for simplicity.
@@ -4208,7 +4216,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
 #ifdef CLIENT_INTERFACE
         {
             /* we must translate the full state in case a client changed
-             * register values, since we're going back to dispatch
+             * register values, since we're going back to d_r_dispatch
              */
             recreate_success_t res;
             priv_mcontext_t mcontext;
@@ -4307,7 +4315,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
         ok = make_writable(prot_start, prot_size);
         ASSERT_CURIOSITY(ok);
         if (ok) {
-            next_pc = emulate(dcontext, translated_pc, &mcontext);
+            next_pc = d_r_emulate(dcontext, translated_pc, &mcontext);
         } else {
             /* FIXME: case 10550 note that it is possible that this
              * would have failed natively, so we should have executed
@@ -4343,7 +4351,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
                 translated_pc, *((int *)target), target);
             make_unwritable(prot_start, prot_size);
             mutex_unlock(&emulate_write_lock);
-            /* will go back to dispatch for next_pc below */
+            /* will go back to d_r_dispatch for next_pc below */
             STATS_INC(num_emulated_writes);
         }
         ASSERT(next_pc != NULL);
@@ -4393,7 +4401,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
         EXITING_DR();
         nt_continue(cxt);
     } else {
-        /* Cannot resume execution in cache (was flushed), go back to dispatch
+        /* Cannot resume execution in cache (was flushed), go back to d_r_dispatch
          * via fcache_return
          */
         if (is_building_trace(dcontext)) {
@@ -5384,7 +5392,7 @@ intercept_exception(app_state_at_intercept_t *state)
 
         if (dcontext != NULL)
             SELF_PROTECT_LOCAL(dcontext, WRITABLE);
-        /* won't be re-protected until dispatch->fcache */
+        /* won't be re-protected until d_r_dispatch->fcache */
 
         RSTATS_INC(num_exceptions);
 
@@ -6041,7 +6049,7 @@ intercept_raise_exception(app_state_at_intercept_t *state)
     ASSERT_NOT_TESTED();
     if (intercept_asynch_for_self(false /*no unknown threads*/)) {
         SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
-        /* won't be re-protected until dispatch->fcache */
+        /* won't be re-protected until d_r_dispatch->fcache */
 
         LOG(THREAD_GET, LOG_ASYNCH, 1, "ASYNCH intercept_raise_exception()\n");
         STATS_INC(num_raise_exceptions);
@@ -6303,7 +6311,7 @@ intercept_callback_start(app_state_at_intercept_t *state)
             return AFTER_INTERCEPT_LET_GO;
         }
         SELF_PROTECT_LOCAL(dcontext, WRITABLE);
-        /* won't be re-protected until dispatch->fcache */
+        /* won't be re-protected until d_r_dispatch->fcache */
         ASSERT(is_thread_initialized());
         ASSERT(dcontext->whereami == DR_WHERE_FCACHE);
         DODEBUG({
@@ -6619,7 +6627,7 @@ callback_start_return(priv_mcontext_t *mc)
     if (!intercept_callbacks || !intercept_asynch_for_self(false /*no unknown threads*/))
         return;
 
-    /* both paths here, int 2b and syscall, go back through dispatch,
+    /* both paths here, int 2b and syscall, go back through d_r_dispatch,
      * so self-protection has already been taken care of -- we don't come
      * here straight from cache!
      */
@@ -6977,7 +6985,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
 
     /* we're taking over afterward so we need local writability */
     SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
-    /* won't be re-protected until dispatch->fcache */
+    /* won't be re-protected until d_r_dispatch->fcache */
 
 #ifdef DEBUG
     if (get_thread_private_dcontext() != NULL)
@@ -7073,7 +7081,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
 
     /* we're taking over afterward so we need local writability */
     SELF_PROTECT_LOCAL(get_thread_private_dcontext(), WRITABLE);
-    /* won't be re-protected until dispatch->fcache */
+    /* won't be re-protected until d_r_dispatch->fcache */
 
     DOLOG(1, LOG_VMAREAS, {
         char buf[MAXIMUM_PATH];
@@ -7724,7 +7732,7 @@ callback_interception_init_finish(void)
          * and we rely on the list of do-not-inline to allow the actual
          * intercept_{un,}load_dll routine to execute natively.
          * We also count on the interception code to not do anything that won't
-         * cause issues when passed through dispatch().
+         * cause issues when passed through d_r_dispatch().
          * FIXME: a better way to do this?  assume entry point will always
          * be start of fragment, add clean call in mangle?
          */

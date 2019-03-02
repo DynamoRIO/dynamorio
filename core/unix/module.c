@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -192,7 +192,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     if (ma->os_data.checksum == 0 &&
         (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
         /* Use something so we have usable pcache names */
-        ma->os_data.checksum = crc32((const char *)ma->start, PAGE_SIZE);
+        ma->os_data.checksum = d_r_crc32((const char *)ma->start, PAGE_SIZE);
     }
     /* Timestamp we just leave as 0 */
 }

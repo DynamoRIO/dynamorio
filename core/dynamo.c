@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3178,7 +3178,7 @@ check_should_be_protected(uint sec)
      * unprot, but it's not easy.
      */
     if (/* case 8107: for INJECT_LOCATION_LdrpLoadImportModule we
-         * load a helper library and end up in dispatch() for
+         * load a helper library and end up in d_r_dispatch() for
          * syscall_while_native before DR is initialized.
          */
         !dynamo_initialized ||
@@ -3318,7 +3318,7 @@ data_section_exit(void)
     uint i;
     DOSTATS({
         /* There can't have been that many races.
-         * A failure to re-protect should result in a ton of dispatch
+         * A failure to re-protect should result in a ton of d_r_dispatch
          * entrances w/ .data unprot, so should show up here.
          * However, an app with threads that are initializing in DR and thus
          * unprotected .data while other threads are running new code (such as
