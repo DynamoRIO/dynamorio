@@ -783,31 +783,31 @@ endif (UNIX)
 ###########################################################################
 # DynamoRIO static core library
 
-# XXX i#1997: not fully supported on Mac yet
-if (NOT APPLE)
-  add_library(dynamorio_static STATIC
+# hide_symbols is only honored for UNIX.
+function (configure_static_core_lib name hide_symbols)
+  add_library(${name} STATIC
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
 
-  configure_core_lib(dynamorio_static)
+  configure_core_lib(${name})
 
-  append_property_list(TARGET dynamorio_static COMPILE_DEFINITIONS "STATIC_LIBRARY")
+  append_property_list(TARGET ${name} COMPILE_DEFINITIONS "STATIC_LIBRARY")
 
   if (UNIX)
     # We build static DR as PIC in case we're linked into a .so or a PIE.
-    append_property_string(TARGET dynamorio_static COMPILE_FLAGS "-fPIC")
-    target_link_libraries(dynamorio_static dl)
+    append_property_string(TARGET ${name} COMPILE_FLAGS "-fPIC")
+    target_link_libraries(${name} dl)
 
     # We need to do extra work to hide symbols in the static library build.
     # First we do a partial link with ld -r, which makes a single libdynamorio.o
     # object file.  Then we use objcopy --localize-hidden to hide all
-    # non-exported symbols.
+    # non-exported symbols, if hide_symbols is set.
     if (NOT EXISTS ${CMAKE_OBJCOPY})
-      message( "dynamorio_static requires objcopy")
+      message( "${name} requires objcopy")
     endif ()
 
-    set(locvar_name dynamorio_static_loc)
+    set(locvar_name ${name}_loc)
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}.cmake" CONTENT
-      "set(${locvar_name} \"$<TARGET_FILE:dynamorio_static>\")\n")
+      "set(${locvar_name} \"$<TARGET_FILE:${name}>\")\n")
 
     string(REPLACE " " "\;" partial_link_flags "${CMAKE_C_FLAGS}")  # Get -m32/64
 
@@ -820,17 +820,18 @@ if (NOT APPLE)
       set(disable_pie_flag "-no-pie")
     endif ()
 
-    add_custom_command(TARGET dynamorio_static
+    add_custom_command(TARGET ${name}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND}
       ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D CMAKE_C_COMPILER=${CMAKE_C_COMPILER}
            -D partial_link_flags=${partial_link_flags}
            -D disable_pie_flag=${disable_pie_flag}
+           -D localize_hidden=${hide_symbols}
            -D CMAKE_OBJCOPY=${CMAKE_OBJCOPY}
            -D CMAKE_AR=${CMAKE_AR}
            -D CMAKE_RANLIB=${CMAKE_RANLIB}
-           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_globalize_pic_thunks.cmake
+           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_finalize_static_lib.cmake
       WORKING_DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}
       VERBATIM
       )
@@ -842,9 +843,36 @@ if (NOT APPLE)
     # here to make sure things get linked in the right order to avoid duplicate
     # definitions.  See the case 4125 msvcrt comment above about why we need a C
     # library.
-    target_link_libraries(dynamorio_static ${WIN32_C_LIB} ntdll_imports)
+    target_link_libraries(${name} ${WIN32_C_LIB} ntdll_imports)
 
   endif (UNIX)
+endfunction()
+
+# XXX i#1997: not fully supported on Mac yet
+if (NOT APPLE)
+  configure_static_core_lib(dynamorio_static ON)
+  if (UNIX AND BUILD_TESTS)
+    # Create a version without hidden symbols to support that model.
+    # The symbol hiding step is complex and for some toolchains it is simpler
+    # to avoid it and count on symbol names preventing collisions (i#3348).
+    configure_static_core_lib(dynamorio_static_nohide OFF)
+
+    if (LINUX AND READELF_EXECUTABLE)
+      # We already located readelf above for the shared lib.
+      # We also already created a loc.cmake file in configure_static_core_lib.
+      set(locvar_name dynamorio_static_nohide_loc)
+      add_custom_command(TARGET dynamorio_static_nohide
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
+             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+             -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
+        VERBATIM
+        )
+    endif ()
+  endif ()
+
 endif (NOT APPLE)
 
 ###########################################################################
