@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1207,7 +1207,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
              */
 
             /* FIXME: currently our loadlibrary hits our own syscall_while_native
-             * hook and goes to dispatch, which expects protected data sections.
+             * hook and goes to d_r_dispatch, which expects protected data sections.
              * Once we have our own loader we can remove this.
              */
             VUL(vul_tab, vul).hotp_dll_base =
@@ -1404,7 +1404,7 @@ hotp_set_policy_status(const uint vul_index, const hotp_inject_status_t status)
      */
     crc_buf_size = hotp_policy_status_table->size - sizeof(hotp_policy_status_table->crc);
     hotp_policy_status_table->crc =
-        crc32((char *)&hotp_policy_status_table->size, crc_buf_size);
+        d_r_crc32((char *)&hotp_policy_status_table->size, crc_buf_size);
 }
 
 /* The status of hot patches is directly read by the node manager from the
@@ -1512,7 +1512,7 @@ hotp_init_policy_status_table(void)
 
     /* Set the table CRC now that the table has been initialized. */
     crc_buf_size = temp->size - sizeof(temp->crc);
-    temp->crc = crc32((char *)&temp->size, crc_buf_size);
+    temp->crc = d_r_crc32((char *)&temp->size, crc_buf_size);
 
     /* Make the policy status table live.  If the dr_marker_t isn't initialized
      * this won't be set.  In that case, the dr_marker_t initialization code will
@@ -1887,7 +1887,7 @@ hotp_module_match(const hotp_module_t *module, const app_pc base, const uint che
 /* Used to compute the hash of a patch point hash region.  In hotp_only mode,
  * if there is an overlap between a hash region and a patch region, the
  * image bytes, stored at the top of the trampoline, are used to create copy
- * of the image on which crc32 is computed.  In regular hotp mode, crc32 is
+ * of the image on which d_r_crc32 is computed.  In regular hotp mode, d_r_crc32 is
  * called directly.
  */
 static uint
@@ -1906,7 +1906,7 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
     hash_end = hash_start + hash->len;
 
     /* If the hash region overlaps with any patch point region, then use the
-     * original image bytes to compute the crc32.  Valid for hotp_only because
+     * original image bytes to compute the d_r_crc32.  Valid for hotp_only because
      * in hotp mode, i.e., with a code cache, we don't modify the original code.
      */
     if (DYNAMO_OPTION(hotp_only) &&
@@ -2015,12 +2015,12 @@ hotp_compute_hash(app_pc base, hotp_patch_point_hash_t *hash)
              */
         }
         vmvector_iterator_stop(&iterator);
-        crc = crc32(hash_buf, hash->len);
+        crc = d_r_crc32(hash_buf, hash->len);
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, copy, char, copy_size, ACCT_HOT_PATCHING,
                         PROTECTED);
     } else {
-        /* No overlap; image is unmodified, so image's crc32 should be valid. */
-        crc = crc32((char *)hash_start, hash->len);
+        /* No overlap; image is unmodified, so image's d_r_crc32 should be valid. */
+        crc = d_r_crc32((char *)hash_start, hash->len);
     }
     return crc;
 }
@@ -4636,7 +4636,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
         &MODULE(vul_tab, vul_index, set_index, module_index),
         &PPOINT(vul_tab, vul_index, set_index, module_index, ppoint_index));
 
-    /* If we change this to be invoked from dispatch, should remove this.
+    /* If we change this to be invoked from d_r_dispatch, should remove this.
      * Note that we assume that hotp_only, which is invoked from
      * interception code that has its own enter hook embedded, will
      * not call any of these hooks -- else we do a double-enter here and
@@ -4912,7 +4912,7 @@ hotp_gateway_ret:
     if (!own_hot_patch_lock)
         read_unlock(&hotp_vul_table_lock); /* Part of fix for case 5521. */
 
-    /* if we change this to be invoked from dispatch, should remove this */
+    /* if we change this to be invoked from d_r_dispatch, should remove this */
     EXITING_DR();
     return res;
 }

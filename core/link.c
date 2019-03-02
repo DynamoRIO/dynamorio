@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -163,7 +163,7 @@ static
 static const linkstub_t linkstub_ibl_deleted = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_asynch = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_native_exec = { LINK_FAKE, 0 };
-/* this one we give the flag LINK_NI_SYSCALL for executing a syscall in dispatch() */
+/* this one we give the flag LINK_NI_SYSCALL for executing a syscall in d_r_dispatch() */
 static const linkstub_t linkstub_native_exec_syscall = { LINK_FAKE | LINK_NI_SYSCALL, 0 };
 
 #ifdef WINDOWS
@@ -570,9 +570,9 @@ void
 set_last_exit(dcontext_t *dcontext, linkstub_t *l)
 {
     /* We try to set last_fragment every time we set last_exit, rather than
-     * leaving it as a dangling pointer until the next dispatch entrance,
+     * leaving it as a dangling pointer until the next d_r_dispatch entrance,
      * to avoid cases like bug 7534.  However, fcache_return only sets
-     * last_exit, though it hits the dispatch point that sets last_fragment
+     * last_exit, though it hits the d_r_dispatch point that sets last_fragment
      * soon after, and everyone who frees fragments that other threads can
      * see should call last_exit_deleted() on the other threads.
      */

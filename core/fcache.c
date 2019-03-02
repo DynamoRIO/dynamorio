@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -605,7 +605,7 @@ DECLARE_FREQPROT_VAR(bool reset_in_progress, false);
  * reset_at_nth_thread is wholly inside dynamo.c, e.g.
  */
 DECLARE_CXTSWPROT_VAR(mutex_t reset_pending_lock, INIT_LOCK_FREE(reset_pending_lock));
-/* indicates a call to fcache_reset_all_caches_proactively() is pending in dispatch */
+/* indicates a call to fcache_reset_all_caches_proactively() is pending in d_r_dispatch */
 DECLARE_FREQPROT_VAR(uint reset_pending, 0);
 
 /* these cannot be per-cache since caches are reset so we have them act globally.
@@ -4251,7 +4251,7 @@ fcache_reset_all_caches_proactively(uint target)
             last_exit_deleted(dcontext);
             if (target == RESET_PENDING_DELETION) {
                 /* case 7394: need to abort other threads' trace building
-                 * since the reset xfer to dispatch will disrupt it
+                 * since the reset xfer to d_r_dispatch will disrupt it
                  */
                 if (is_building_trace(dcontext)) {
                     LOG(THREAD, LOG_FRAGMENT, 2,

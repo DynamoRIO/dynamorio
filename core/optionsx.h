@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -2800,7 +2800,7 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
         "detach once a thread has 2 levels of nested callbacks (for internal testing)")
     OPTION_DEFAULT_INTERNAL(bool, detach_fix_sysenter_on_stack, true /* default true */,
         "if false then detach does not fix sysenter callbacks on the stack and instead "
-        "uses the emitted dispatch code used for other system calls (a fairly minor "
+        "uses the emitted d_r_dispatch code used for other system calls (a fairly minor "
         "transparency violation).  Used for internal testing.")
 
      /* for stress testing can use 1 */

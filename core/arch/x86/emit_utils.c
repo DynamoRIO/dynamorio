@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2424,7 +2424,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             OPND_CREATE_INT8((int)(ptr_int_t)HASHLOOKUP_SENTINEL_START_PC));
     } else {
         /* sentinel handled in C code
-         * just exit back to dispatch
+         * just exit back to d_r_dispatch
          */
         sentinel_check = fragment_not_found;
     }
@@ -2810,7 +2810,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
          */
         /* need to save xax (was never saved before) */
         /*>>>    SAVE_TO_UPCONTEXT %xax,xax_OFFSET                  */
-        /* put &linkstub where dispatch expects it */
+        /* put &linkstub where d_r_dispatch expects it */
         /*>>>    mov     %xbx,%xax                                       */
         if (linkstub == NULL) {
             APP(&ilist,

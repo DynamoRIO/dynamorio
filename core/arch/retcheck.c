@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1645,7 +1645,7 @@ at_licdll_rct_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc
 }
 
 /* return after call check
-   called by dispatch after inlined return lookup routine has failed */
+   called by d_r_dispatch after inlined return lookup routine has failed */
 /* FIXME: return value is ignored */
 int
 ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)

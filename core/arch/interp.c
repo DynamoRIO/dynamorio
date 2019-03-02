@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1988,7 +1988,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef X86
         /* PR 288101: On Linux we do not yet support inlined sysenter instrs as we
          * do not have in-cache support for the post-sysenter continuation: we rely
-         * for now on very simple sysenter handling where dispatch uses asynch_target
+         * for now on very simple sysenter handling where d_r_dispatch uses asynch_target
          * to know where to go next.
          */
         IF_LINUX(&&instr_get_opcode(bb->instr) != OP_sysenter)
@@ -2658,7 +2658,7 @@ static void
 bb_process_float_pc(dcontext_t *dcontext, build_bb_t *bb)
 {
     /* i#698: for instructions that save the floating-point state
-     * (e.g., fxsave), we go back to dispatch to translate the fp pc.
+     * (e.g., fxsave), we go back to d_r_dispatch to translate the fp pc.
      * We rule out being in a trace (and thus a potential alternative
      * would be to use a FRAG_ flag).  These are rare instructions so that
      * shouldn't have a significant perf impact: except we've been hitting
@@ -8041,7 +8041,7 @@ add_profile_call(dcontext_t *dcontext)
  * returns NULL if failed or not yet implemented, else returns the pc of the next instr.
  */
 app_pc
-emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
+d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
 {
     instr_t instr;
     app_pc next_pc = NULL;

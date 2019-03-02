@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1451,7 +1451,7 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
 #define DEBUG_REGISTERS_FLAG_ENABLE_DR1 0xc
 #define DEBUG_REGISTERS_FLAG_ENABLE_DR2 0x30
 #define DEBUG_REGISTERS_FLAG_ENABLE_DR3 0xc0
-extern app_pc debugRegister[DEBUG_REGISTERS_NB];
+extern app_pc d_r_debug_register[DEBUG_REGISTERS_NB];
 
 /* Tells if instruction will trigger an exception because of debug register. */
 static inline bool
@@ -1459,8 +1459,8 @@ debug_register_fire_on_addr(app_pc pc)
 {
     ASSERT(DEBUG_REGISTERS_NB == 4);
     return (pc != NULL &&
-            (pc == debugRegister[0] || pc == debugRegister[1] || pc == debugRegister[2] ||
-             pc == debugRegister[3]));
+            (pc == d_r_debug_register[0] || pc == d_r_debug_register[1] ||
+             pc == d_r_debug_register[2] || pc == d_r_debug_register[3]));
 }
 
 #endif /* _OPCODE_H_ */

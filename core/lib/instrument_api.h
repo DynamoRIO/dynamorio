@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4028,15 +4028,16 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...);
 #    define DR_LOG_CACHE                                           \
         0x00000100 /**< Log data related to code cache management. \
                     */
-#    define DR_LOG_FRAGMENT                                                         \
-        0x00000200                     /**< Log data related to app code fragments. \
-                                        */
-#    define DR_LOG_DISPATCH 0x00000400 /**< Log data on every context switch dispatch. \
-                                        */
-#    define DR_LOG_MONITOR 0x00000800  /**< Log data related to trace building. */
-#    define DR_LOG_HEAP 0x00001000     /**< Log data related to memory management. */
-#    define DR_LOG_VMAREAS 0x00002000  /**< Log data related to address space regions. */
-#    define DR_LOG_SYNCH 0x00004000    /**< Log data related to synchronization. */
+#    define DR_LOG_FRAGMENT                                     \
+        0x00000200 /**< Log data related to app code fragments. \
+                    */
+#    define DR_LOG_DISPATCH                                                           \
+        0x00000400                    /**< Log data on every context switch dispatch. \
+                                       */
+#    define DR_LOG_MONITOR 0x00000800 /**< Log data related to trace building. */
+#    define DR_LOG_HEAP 0x00001000    /**< Log data related to memory management. */
+#    define DR_LOG_VMAREAS 0x00002000 /**< Log data related to address space regions. */
+#    define DR_LOG_SYNCH 0x00004000   /**< Log data related to synchronization. */
 #    define DR_LOG_MEMSTATS                                                            \
         0x00008000                         /**< Log data related to memory statistics. \
                                             */
@@ -6240,7 +6241,7 @@ typedef enum {
 DR_API
 /**
  * Intended to augment dr_prepopulate_cache() by populating DR's indirect branch
- * tables, avoiding trips back to dispatch during initial execution.  This is only
+ * tables, avoiding trips back to the dispatcher during initial execution.  This is only
  * effective when one of the the runtime options -shared_trace_ibt_tables and
  * -shared_bb_ibt_tables (depending on whether traces are enabled) is turned on, as
  * this routine does not try to populate tables belonging to threads other than the

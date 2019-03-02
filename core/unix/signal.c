@@ -632,7 +632,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         record = (clone_record_t *)(dstack - sizeof(clone_record_t));
         ASSERT(ALIGNED(record, get_ABI_stack_alignment()));
         record->app_thread_xsp = *app_thread_xsp;
-        /* asynch_target is set in dispatch() prior to calling pre_system_call(). */
+        /* asynch_target is set in d_r_dispatch() prior to calling pre_system_call(). */
         record->continuation_pc = dcontext->asynch_target;
         record->clone_flags = dcontext->sys_param0;
 #ifdef MACOS
@@ -2101,7 +2101,7 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
         if (info->sigpending[i] != NULL &&
             !kernel_sigismember(&info->app_sigblocked, i) && !dcontext->signals_pending) {
             /* We only update the application's set of blocked signals from
-             * syscall handlers, so we know we'll go back to dispatch and see
+             * syscall handlers, so we know we'll go back to d_r_dispatch and see
              * this flag right away.
              */
             LOG(THREAD, LOG_ASYNCH, 3, "\tsetting signals_pending flag\n");
@@ -3343,7 +3343,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
 
     /* Set our sigreturn context to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
-     * and go through dispatch & interp, without messing up dynamo stack.
+     * and go through d_r_dispatch & interp, without messing up dynamo stack.
      * Note that even if this is a write in the shared cache, we
      * still go to the private fcache_return for simplicity.
      */
@@ -3681,7 +3681,7 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
     if (TEST(FRAG_HAS_SYSCALL, f->flags)) {
         /* Syscalls are signal barriers!
          * Make sure the next syscall (if any) in f is not executed!
-         * instead go back to dispatch right before the syscall
+         * instead go back to d_r_dispatch right before the syscall
          */
         /* syscall mangling does a bunch of decodes but only one write,
          * changing the target of a short jmp, which is atomic
@@ -3967,7 +3967,7 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 #endif
     } else {
         /* If in fcache_enter or do_syscall*, we stored the next_tag in asynch_target
-         * in dispatch.  But, we need to avoid using the asynch_target for the
+         * in d_r_dispatch.  But, we need to avoid using the asynch_target for the
          * fragment we just exited if we're in fcache_return.
          */
         if (dcontext->asynch_target != NULL && !in_fcache_return(dcontext, pc))
@@ -4073,8 +4073,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from cache pc " PFX "\n",
             sig, pc);
         if (forged || can_always_delay[sig]) {
-            /* to make translation easier, want to delay if can until dispatch
-             * unlink cur frag, wait for dispatch
+            /* to make translation easier, want to delay if can until d_r_dispatch
+             * unlink cur frag, wait for d_r_dispatch
              */
             /* check for coarse first to avoid cost of coarse pclookup */
             if (get_fcache_coarse_info(pc) != NULL) {
@@ -4148,7 +4148,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from gen routine or stub " PFX "\n", sig, pc);
         if (get_at_syscall(dcontext)) {
-            /* i#1206: the syscall was interrupted, so we can go back to dispatch
+            /* i#1206: the syscall was interrupted, so we can go back to d_r_dispatch
              * and don't need to receive it now (which complicates post-syscall handling)
              * w/o any extra delay.
              */
@@ -4156,7 +4156,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              * auto-restart syscalls.  That means we have to adjust do_syscall
              * interruption to give us control so we can deliver the signal.  Due to
              * needing to run post-syscall handlers (we don't want to get into nested
-             * dcontexts like on Windows) it's simplest to go back to dispatch, which
+             * dcontexts like on Windows) it's simplest to go back to d_r_dispatch, which
              * is most easily done by emulating the non-SA_RESTART behavior.
              * XXX: This all seems backward: we should revisit this model and see if
              * we can get rid of this emulation and the auto-restart emulation.
@@ -4219,7 +4219,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from vsyscall " PFX "\n",
             sig, pc);
         /* i#1206: the syscall was interrupted but is not auto-restart, so we can go
-         * back to dispatch and don't need to receive it now (which complicates
+         * back to d_r_dispatch and don't need to receive it now (which complicates
          * post-syscall handling)
          */
     } else if (thread_synch_check_state(dcontext, THREAD_SYNCH_NO_LOCKS) &&
@@ -4420,7 +4420,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 if (adjust_syscall_for_restart(dcontext, info, sig, sc_pend, f,
                                                orig_retval_reg)) {
                     /* We're going to re-start this syscall after we go
-                     * back to dispatch, run the post-syscall handler (for -EINTR),
+                     * back to d_r_dispatch, run the post-syscall handler (for -EINTR),
                      * and deliver the signal.  We've adjusted the sigcontext
                      * for re-start on the sigreturn, but we need to tell
                      * execute_handler_from_dispatch() to use our sigcontext
@@ -4664,7 +4664,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             return true;
         } else {
             ASSERT(!native_state);
-            /* Do not resume execution in cache, go back to dispatch. */
+            /* Do not resume execution in cache, go back to d_r_dispatch. */
             transfer_from_sig_handler_to_fcache_return(
                 dcontext, uc, NULL, SIGSEGV, next_pc,
                 (linkstub_t *)get_selfmod_linkstub(), false);
@@ -5367,7 +5367,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
-     * and go through dispatch & interp, without messing up DR stack.
+     * and go through d_r_dispatch & interp, without messing up DR stack.
      */
     transfer_from_sig_handler_to_fcache_return(
         dcontext, uc, app_sc, sig,
@@ -5444,17 +5444,17 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         mcontext_to_ucontext(uc, mcontext);
     }
     /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
-     * Since we came from dispatch, the post-signal target's mode is in dcontext.
+     * Since we came from d_r_dispatch, the post-signal target's mode is in dcontext.
      */
     IF_ARM(set_pc_mode_in_cpsr(sc, dr_get_isa_mode(dcontext)));
     /* mcontext does not contain fp or mmx or xmm state, which may have
      * changed since the frame was created (while finishing up interrupted
-     * fragment prior to returning to dispatch).  Since DR does not touch
+     * fragment prior to returning to d_r_dispatch).  Since DR does not touch
      * this state except for xmm on x64, we go ahead and copy the
      * current state into the frame, and then touch up xmm for x64.
      */
     /* FIXME: should this be done for all pending as soon as reach
-     * dispatch?  what if get two asynch inside same frag prior to exiting
+     * d_r_dispatch?  what if get two asynch inside same frag prior to exiting
      * cache?  have issues with fpstate, but also prob with next_tag? FIXME
      */
     /* FIXME: we should clear fpstate for app handler itself as that's
@@ -5968,7 +5968,7 @@ receive_pending_signal(dcontext_t *dcontext)
             LOG(THREAD, LOG_ASYNCH, 3, "\treceiving signal %d\n", sig);
             /* execute_handler_from_dispatch()'s call to copy_frame_to_stack() is
              * allowed to remove the front entry from info->sigpending[sig] and
-             * jump to dispatch.
+             * jump to d_r_dispatch.
              */
             executing = execute_handler_from_dispatch(dcontext, sig);
             temp = info->sigpending[sig];
@@ -6181,9 +6181,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * pre-syscall handler.  Hopefully all our pre-syscall handlers can handle that.
      */
 
-    /* set up for dispatch */
+    /* set up for d_r_dispatch */
     /* we have to use a different slot since next_tag ends up holding the do_syscall
-     * entry when entered from dispatch (we're called from
+     * entry when entered from d_r_dispatch (we're called from
      * pre_syscall, prior to entering cache)
      */
     dcontext->asynch_target = canonicalize_pc_target(
@@ -6210,7 +6210,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * error -- disable in release build since this is often app's fault (stack
      * too small)
      * FIXME: how make this transparent?  what ends up happening is that we
-     * get a segfault when we start interpreting dispatch, we want to make it
+     * get a segfault when we start interpreting d_r_dispatch, we want to make it
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
@@ -6378,7 +6378,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * the Windows usage model: but for forging from our own handler,
      * this is good b/c it resets us to the base of dstack.
      */
-    /* tell dispatch() why we're coming there */
+    /* tell d_r_dispatch() why we're coming there */
     dcontext->whereami = DR_WHERE_TRAMPOLINE;
     KSTART(dispatch_num_exits);
     set_last_exit(dcontext, (linkstub_t *)get_asynch_linkstub());

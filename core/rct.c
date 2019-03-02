@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -252,7 +252,7 @@ is_address_after_call(dcontext_t *dcontext, app_pc target)
 }
 
 /* Restricted control transfer check on indirect branches called by
- * dispatch after inlined indirect branch lookup routine has failed
+ * d_r_dispatch after inlined indirect branch lookup routine has failed
  *
  * function does not return if a security violation is blocked
  * FIXME: return value is ignored
