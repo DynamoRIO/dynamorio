@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -725,7 +725,7 @@ enum {
                                 * no actual protection unless SELFPROT_GLOBAL */
     SELFPROT_LOCAL = 0x020,
     SELFPROT_CACHE = 0x040, /* FIXME: thread-safe NYI when doing all units */
-    SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack dispatch()
+    SELFPROT_STACK = 0x080, /* essentially always on with clean-dstack d_r_dispatch()
                              * design, leaving as a bit in case we do more later */
     /* protect our generated thread-shared and thread-private code */
     SELFPROT_GENCODE = 0x100,
@@ -1158,7 +1158,7 @@ app_pc
 aslr_possible_preferred_address(app_pc target_addr);
 
 #ifdef WINDOWS
-/* dispatch places next pc in asynch_target and clears it after syscall handling
+/* d_r_dispatch places next pc in asynch_target and clears it after syscall handling
  * completes, so a zero value means shared syscall was used and the next pc
  * is in the esi slot. If asynch_target == BACK_TO_NATIVE_AFTER_SYSCALL then the
  * thread is native at an intercepted syscall and the real post syscall target is in

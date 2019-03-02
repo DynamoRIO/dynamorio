@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -74,7 +74,7 @@ thread_starting(dcontext_t *dcontext)
     dynamo_thread_under_dynamo(dcontext);
 }
 
-/* Initializes a dcontext with the supplied state and calls dispatch */
+/* Initializes a dcontext with the supplied state and calls d_r_dispatch */
 void
 dynamo_start(priv_mcontext_t *mc)
 {
@@ -121,8 +121,8 @@ dynamo_start(priv_mcontext_t *mc)
             dcontext->next_tag, cur_esp, mc->xsp);
     });
 
-    /* Swap stacks so dispatch is invoked outside the application. */
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    /* Swap stacks so d_r_dispatch is invoked outside the application. */
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on initstack*/, true /*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
@@ -230,7 +230,7 @@ auto_setup(ptr_uint_t appstack)
      * then.  We do so now.
      */
     IF_WINDOWS(os_swap_context(dcontext, false /*to priv*/, DR_STATE_STACK_BOUNDS));
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -314,7 +314,7 @@ new_thread_setup(priv_mcontext_t *mc)
 
     thread_starting(dcontext);
 
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -357,7 +357,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     *(reg_t *)(mc->xsp + sizeof(reg_t)) = (reg_t)func_arg;
 #        endif
 
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
@@ -383,7 +383,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
     /* save target in temp var during init of dcontext */
     /* we have to use a different slot since next_tag ends up holding the do_syscall
-     * entry when entered from dispatch
+     * entry when entered from d_r_dispatch
      */
     if (dcontext->asynch_target != NULL)
         next_pc = dcontext->asynch_target;
@@ -404,7 +404,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     /* We came straight from fcache, so swap to priv now (i#25) */
     IF_WINDOWS(swap_peb_pointer(dcontext, true /*to priv*/));
 
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       NULL /*not on initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }

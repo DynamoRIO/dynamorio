@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -91,7 +91,7 @@ volatile fragment_t *sideline_trace;
 /* number of processors we're running on */
 int num_processors;
 
-/* used to signal which thread we need to pause in dispatch */
+/* used to signal which thread we need to pause in d_r_dispatch */
 thread_id_t pause_for_sideline;
 event_t paused_for_sideline_event;
 event_t resume_from_sideline_event;
@@ -600,7 +600,7 @@ sideline_optimize(fragment_t *f,
     ASSERT(is_thread_known(pause_for_sideline));
 
     if (dcontext->whereami != DR_WHERE_FCACHE) {
-        /* wait for thread to reach waiting point in dispatch */
+        /* wait for thread to reach waiting point in d_r_dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\nsideline_optimize: waiting for target thread " TIDFMT "\n",
             pause_for_sideline);
@@ -716,7 +716,7 @@ sideline_optimize(fragment_t *f,
 exit_sideline_optimize:
     pause_for_sideline = (thread_id_t)0;
     if (!mutex_trylock(&sideline_lock)) {
-        /* thread is waiting in dispatch */
+        /* thread is waiting in d_r_dispatch */
         signal_event(resume_from_sideline_event);
         mutex_lock(&sideline_lock);
         /* at this point we know thread has read our resume event

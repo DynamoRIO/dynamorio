@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -132,7 +132,7 @@ exited_due_to_ni_syscall(dcontext_t *dcontext)
  * self-protection issues with the dstack.
  */
 void
-dispatch(dcontext_t *dcontext)
+d_r_dispatch(dcontext_t *dcontext)
 {
     fragment_t *targetf;
     fragment_t coarse_f;
@@ -162,7 +162,7 @@ dispatch(dcontext_t *dcontext)
 #endif
 
     dispatch_enter_dynamorio(dcontext);
-    LOG(THREAD, LOG_INTERP, 2, "\ndispatch: target = " PFX "\n", dcontext->next_tag);
+    LOG(THREAD, LOG_INTERP, 2, "\nd_r_dispatch: target = " PFX "\n", dcontext->next_tag);
 
     /* This is really a 1-iter loop most of the time: we only iterate
      * when we obtain a target fragment but then fail to enter the
@@ -237,7 +237,7 @@ dispatch(dcontext_t *dcontext)
 
         if (targetf != NULL) {
             if (dispatch_enter_fcache(dcontext, targetf)) {
-                /* won't reach here: will re-enter dispatch() with a clean stack */
+                /* won't reach here: will re-enter d_r_dispatch() with a clean stack */
                 ASSERT_NOT_REACHED();
             } else
                 targetf = NULL; /* targetf was flushed */
@@ -392,7 +392,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
 
     /* FIXME: for now we do this before the synch point to avoid complexity of
      * missing a KSTART(fcache_* for cases like NtSetContextThread where a thread
-     * appears back at dispatch() from the synch point w/o ever entering the cache.
+     * appears back at d_r_dispatch() from the synch point w/o ever entering the cache.
      * To truly fix we need to have the NtSetContextThread handler determine
      * whether its suspended target is at this synch point or in the cache.
      */
@@ -408,7 +408,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
          * fcache_enter/fcache_return for actual code cache times
          */
         /* FIXME: asynch events currently continue their current kstat
-         * until they get back to dispatch, so in-fcache kstats are counting
+         * until they get back to d_r_dispatch, so in-fcache kstats are counting
          * the in-DR trampoline execution time!
          */
     });
@@ -725,7 +725,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 {
     /* We're transitioning to DynamoRIO from somewhere: either the fcache,
      * the kernel (DR_WHERE_TRAMPOLINE), or the app itself via our start/stop API.
-     * N.B.: set whereami to DR_WHERE_APP iff this is the first dispatch() entry
+     * N.B.: set whereami to DR_WHERE_APP iff this is the first d_r_dispatch() entry
      * for this thread!
      */
     dr_where_am_i_t wherewasi = dcontext->whereami;
@@ -768,7 +768,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
 
     DOLOG(2, LOG_INTERP, {
         if (wherewasi == DR_WHERE_APP) {
-            LOG(THREAD, LOG_INTERP, 2, "\ninitial dispatch: target = " PFX "\n",
+            LOG(THREAD, LOG_INTERP, 2, "\ninitial d_r_dispatch: target = " PFX "\n",
                 dcontext->next_tag);
             dump_mcontext_callstack(dcontext);
             dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML);
@@ -882,7 +882,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         if (exited_due_to_ni_syscall(dcontext)
                 IF_CLIENT_INTERFACE(|| instrument_invoke_another_syscall(dcontext))) {
             handle_system_call(dcontext);
-            /* will return here if decided to skip the syscall; else, back to dispatch */
+            /* will return here if decided to skip the syscall; else, back to d_r_dispatch
+             */
         }
 #ifdef WINDOWS
         else if (TEST(LINK_CALLBACK_RETURN, dcontext->last_exit->flags)) {
@@ -913,7 +914,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                 /* this fragment overwrote its original memory image */
                 fragment_self_write(dcontext);
                 /* FIXME: optimize this to stay writable if we're going to
-                 * be exiting dispatch as well -- no very quick check though
+                 * be exiting d_r_dispatch as well -- no very quick check though
                  */
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
             } else if (dcontext->upcontext.upcontext.exit_reason >=
@@ -2005,7 +2006,7 @@ handle_system_call(dcontext_t *dcontext)
              * FIXME: but what if syscall fails?  need to unswap dcontexts!
              */
             fcache_enter = get_fcache_enter_indirect_routine(dcontext);
-            /* avoid synch errors with dispatch -- since enter_fcache will set
+            /* avoid synch errors with d_r_dispatch -- since enter_fcache will set
              * whereami for prev dcontext, not real one!
              */
             tmp_dcontext->whereami = DR_WHERE_FCACHE;
@@ -2022,8 +2023,8 @@ handle_system_call(dcontext_t *dcontext)
              * completely finished, so we cannot go and receive a signal before
              * executing the sigreturn syscall.
              * Similarly, we've already done some clone work.
-             * Sigreturn and clone will come back to dispatch so there's no worry about
-             * unbounded delay.
+             * Sigreturn and clone will come back to d_r_dispatch so there's no worry
+             * about unbounded delay.
              */
             if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
                 dcontext->signals_pending > 0)
@@ -2256,7 +2257,7 @@ issue_last_system_call_from_app(dcontext_t *dcontext)
     ASSERT_NOT_REACHED();
 }
 
-/* Stores the register parameters into the mcontext and calls dispatch.
+/* Stores the register parameters into the mcontext and calls d_r_dispatch.
  * Checks whether currently on initstack and if so clears the initstack_mutex.
  * Does not return.
  */
@@ -2279,12 +2280,12 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
         dcontext->next_tag, mc->xsp, using_initstack);
 
     /* next, want to switch to dstack, and if using initstack, free mutex.
-     * finally, call dispatch(dcontext).
+     * finally, call d_r_dispatch(dcontext).
      * note that we switch to the base of dstack, deliberately squashing
      * what may have been there before, for both new dcontext and reuse dcontext
      * options.
      */
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
                       using_initstack ? &initstack_mutex : NULL,
                       false /*do not return on error*/);
     ASSERT_NOT_REACHED();

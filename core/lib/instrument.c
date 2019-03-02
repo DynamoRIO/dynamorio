@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -6729,7 +6729,7 @@ dr_delete_fragment(void *drcontext, void *tag)
         /* unlink fragment so will return to dynamo and delete.
          * Do not remove the fragment from the hashtable --
          * we need to be able to look up the fragment when
-         * inspecting the to_do list in dispatch.
+         * inspecting the to_do list in d_r_dispatch.
          */
         if ((f->flags & FRAG_LINKED_INCOMING) != 0)
             unlink_fragment_incoming(dcontext, f);

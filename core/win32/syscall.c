@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -766,7 +766,7 @@ syscall_while_native(app_state_at_intercept_t *state)
          * read-only until executed from, so in the common case we should not
          * incur any cost from cache consistency while native.
          */
-        /* Invoke normal DR syscall-handling by calling dispatch() with a
+        /* Invoke normal DR syscall-handling by calling d_r_dispatch() with a
          * linkstub_t marked just like those for fragments ending in syscalls.
          * (We cannot return to the trampoline tail for asynch_take_over() since
          * it will clobber out next_tag and last_exit and will execute the jmp
@@ -898,7 +898,7 @@ init_syscall_trampolines(void)
                     &syscall_trampoline_hook_pc[i], syscall_while_native,
                     (void *)(ptr_int_t)i /* callee arg */,
                     AFTER_INTERCEPT_DYNAMIC_DECISION,
-                    /* must store the skip_pc for the new dispatch()
+                    /* must store the skip_pc for the new d_r_dispatch()
                      * to know where to go after handling from DR --
                      * this is simpler than having trampoline
                      * pass it in as an arg to syscall_while_native
@@ -1125,7 +1125,7 @@ syscall_uses_edx_param_base()
                 ? (POST_SYSCALL_PC(dc) - CTI_FAR_ABS_LENGTH)                        \
                 : get_app_sysenter_addr()))
 
-/* since always coming from dispatch now, only need to set mcontext */
+/* since always coming from d_r_dispatch now, only need to set mcontext */
 #define SET_RETURN_VAL(dc, val) get_mcontext(dc)->xax = (reg_t)(val)
 
 /****************************************************************************

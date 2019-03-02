@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -236,7 +236,7 @@ typedef struct _local_state_extended_t {
 #    define DETACH_CALLBACK_CODE_SIZE 256
 #    define DETACH_CALLBACK_FINAL_JMP_SIZE 32
 
-/* For detach - stores callback continuation pcs and is used to dispatch to them after
+/* For detach - stores callback continuation pcs and is used to d_r_dispatch to them after
  * we detach. We have one per a thread (with stacked callbacks) stored in an array. */
 typedef struct _detach_callback_stack_t {
     thread_id_t tid;        /* thread tid */
@@ -2045,7 +2045,7 @@ void
 add_profile_call(dcontext_t *dcontext);
 #endif
 app_pc
-emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
+d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 
 bool
 instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst);

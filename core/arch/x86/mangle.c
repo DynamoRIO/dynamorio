@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2532,7 +2532,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr, uint *flags INOUT)
 {
     /* If there is a prior non-control float instr, we can inline the pc update.
-     * Otherwise, we go back to dispatch.  In the latter case we do not support
+     * Otherwise, we go back to d_r_dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.
      */
     app_pc prior_float = NULL;

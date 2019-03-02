@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -793,7 +793,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
     link_fragment_incoming(dcontext, f, false /*not new*/);
 #endif
     STATS_INC(num_trace_heads_marked);
-    /* caller is either dispatch or inside emit_fragment, they take care of
+    /* caller is either d_r_dispatch or inside emit_fragment, they take care of
      * re-protecting fcache
      */
     if (protected) {
@@ -2005,7 +2005,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                     ASSERT((head->flags & FRAG_SHARED) == (f->flags & FRAG_SHARED));
                     if (TEST(FRAG_COARSE_GRAIN, head->flags)) {
                         /* we need a local copy before releasing the lock.
-                         * FIXME: share this code sequence w/ dispatch().
+                         * FIXME: share this code sequence w/ d_r_dispatch().
                          */
                         ASSERT(USE_BB_BUILDING_LOCK());
                         fragment_coarse_wrapper(&md->wrapper, f->tag,

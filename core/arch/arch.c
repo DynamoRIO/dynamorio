@@ -2852,7 +2852,7 @@ unhook_vsyscall(void)
  * rel8 jmp into the nop area and have a rel32 jmp there).  We
  * cleverly copy the 4 bytes of displaced code into the nop area, so
  * that 1) we don't have to allocate any memory and 2) we don't have
- * to do any extra work in dispatch, which will naturally go to the
+ * to do any extra work in d_r_dispatch, which will naturally go to the
  * post-system-call-instr pc.
  * Unfortunately the 4.4.8 kernel removed the nops (i#1939) so for
  * recent kernels we instead copy into the padding area:
