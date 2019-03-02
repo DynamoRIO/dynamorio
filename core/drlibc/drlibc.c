@@ -88,6 +88,19 @@ WEAK file_t main_logfile;
 WEAK options_t dynamo_options;
 
 #ifdef MACOS
+WEAK int
+d_r_strncmp(const char *left, const char *right, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n && (left[i] != '\0' || right[i] != '\0'); i++) {
+        if (left[i] < right[i])
+            return -1;
+        if (left[i] > right[i])
+            return 1;
+    }
+    return 0;
+}
+
 WEAK bool
 kernel_is_64bit(void)
 {
