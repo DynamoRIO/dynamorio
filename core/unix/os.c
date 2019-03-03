@@ -5563,7 +5563,7 @@ handle_execve(dcontext_t *dcontext)
         SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
         LOG(THREAD, LOG_SYSCALLS, 1, "syscall: execve %s\n", fname);
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 1, "execve %s\n", fname);
-        if (stats->loglevel >= 3) {
+        if (d_r_stats->loglevel >= 3) {
             if (argv == NULL) {
                 LOG(THREAD, LOG_SYSCALLS, 3, "\targs are NULL\n");
             } else {
@@ -9836,7 +9836,7 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
     return true; /* make compiler happy */
 }

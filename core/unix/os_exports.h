@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -503,7 +503,7 @@ pcprofile_thread_exit(dcontext_t *dcontext);
 /* in stackdump.c */
 /* fork, dump core, and use gdb for complete stack trace */
 void
-stackdump(void);
+d_r_stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void
 glibc_stackdump(int fd);

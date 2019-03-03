@@ -2375,7 +2375,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
      * release builds
      */
     DOSTATS({
-        if (stats != NULL &&
+        if (d_r_stats != NULL &&
             (uint)GLOBAL_STAT(num_fragments) ==
                 INTERNAL_OPTION(reset_at_fragment_count)) {
             ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
@@ -2386,7 +2386,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */
             options_make_writable();
-            stats->loglevel = DYNAMO_OPTION(stats_loglevel);
+            d_r_stats->loglevel = DYNAMO_OPTION(stats_loglevel);
             options_restore_readonly();
             SYSLOG_INTERNAL_INFO("hit -log_at_fragment_count %d, raising loglevel to %d",
                                  INTERNAL_OPTION(log_at_fragment_count),
@@ -3916,7 +3916,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     DOLOG(6, LOG_FRAGMENT, { /* print after start_pc updated so get actual code */
                              LOG(THREAD, LOG_FRAGMENT, 6,
                                  "before shifting F%d (" PFX ")\n", f->id, f->tag);
-                             disassemble_fragment(dcontext, f, stats->loglevel < 3);
+                             disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 
 #ifdef X86
@@ -3938,7 +3938,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
 
     DOLOG(6, LOG_FRAGMENT, {
         LOG(THREAD, LOG_FRAGMENT, 6, "after shifting F%d (" PFX ")\n", f->id, f->tag);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 }
 

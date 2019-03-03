@@ -197,8 +197,9 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_MONITOR, 4,
         "Created private copy F%d of original F%d (" PFX ") for trace creation\n",
         md->last_fragment->id, f->id, f->tag);
-    DOLOG(2, LOG_INTERP,
-          { disassemble_fragment(dcontext, md->last_fragment, stats->loglevel <= 3); });
+    DOLOG(2, LOG_INTERP, {
+        disassemble_fragment(dcontext, md->last_fragment, d_r_stats->loglevel <= 3);
+    });
     KSTOP(temp_private_bb);
     /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
      * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
@@ -1303,7 +1304,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     DOLOG(2, LOG_MONITOR, {
         uint i;
         LOG(THREAD, LOG_MONITOR, 2, "Ending and emitting hot trace (tag " PFX ")\n", tag);
-        if (stats->loglevel >= 4) {
+        if (d_r_stats->loglevel >= 4) {
             instrlist_disassemble(dcontext, md->trace_tag, trace, THREAD);
             LOG(THREAD, LOG_MONITOR, 4, "\n");
         }
@@ -1526,7 +1527,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     DOLOG(2, LOG_MONITOR, {
         LOG(THREAD, LOG_MONITOR, 1, "Generated trace fragment #%d for tag " PFX "\n",
             GLOBAL_STAT(num_traces), tag);
-        disassemble_fragment(dcontext, trace_f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, trace_f, d_r_stats->loglevel < 3);
     });
 
 #ifdef INTERNAL

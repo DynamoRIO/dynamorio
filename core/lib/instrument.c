@@ -1548,8 +1548,10 @@ check_ilist_translations(instrlist_t *ilist)
             CLIENT_ASSERT(INTERNAL_OPTION(fast_client_decode), "level 0 instr found");
         } else if (instr_is_app(in)) {
             DOLOG(LOG_INTERP, 1, {
-                if (instr_get_translation(in) == NULL)
-                    loginst(get_thread_private_dcontext(), 1, in, "translation is NULL");
+                if (instr_get_translation(in) == NULL) {
+                    d_r_loginst(get_thread_private_dcontext(), 1, in,
+                                "translation is NULL");
+                }
             });
             CLIENT_ASSERT(instr_get_translation(in) != NULL,
                           "translation field must be set for every app instruction");
@@ -1559,8 +1561,10 @@ check_ilist_translations(instrlist_t *ilist)
              * empty restore event callback in that case. */
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) != NULL && !instr_is_our_mangling(in) &&
-                    !dr_xl8_hook_exists())
-                    loginst(get_thread_private_dcontext(), 1, in, "translation != NULL");
+                    !dr_xl8_hook_exists()) {
+                    d_r_loginst(get_thread_private_dcontext(), 1, in,
+                                "translation != NULL");
+                }
             });
             CLIENT_ASSERT(instr_get_translation(in) == NULL ||
                               instr_is_our_mangling(in) || dr_xl8_hook_exists(),
@@ -1598,7 +1602,7 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_basic_block ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
 #    endif
 
@@ -1628,7 +1632,7 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
 
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
 #    endif
 
@@ -1655,7 +1659,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_trace ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 
@@ -1692,7 +1696,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 
@@ -4291,7 +4295,8 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
 #    ifdef DEBUG
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     va_list ap;
-    if (stats != NULL && ((stats->logmask & mask) == 0 || stats->loglevel < level))
+    if (d_r_stats != NULL &&
+        ((d_r_stats->logmask & mask) == 0 || d_r_stats->loglevel < level))
         return;
     va_start(ap, fmt);
     if (dcontext != NULL)
@@ -6379,7 +6384,7 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
          * overlap w/ any client uses (DRMGR_NOTE_NONE == 0).
          */
         label->note = 0;
-        /* these values are read back in mangle() */
+        /* these values are read back in d_r_mangle() */
         data->data[0] = (ptr_uint_t)instr;
         data->data[1] = value;
         label->flags |= INSTR_CLOBBER_RETADDR;

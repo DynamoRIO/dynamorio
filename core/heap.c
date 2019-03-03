@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -286,7 +286,7 @@ typedef struct _thread_heap_t {
 typedef struct _heap_t {
     heap_unit_t *units; /* list of all allocated units */
     heap_unit_t *dead;  /* list of deleted units ready for re-allocation */
-    /* FIXME: num_dead duplicates stats->heap_num_free, but we want num_dead
+    /* FIXME: num_dead duplicates d_r_stats->heap_num_free, but we want num_dead
      * for release build too, so it's separate...can we do better?
      */
     uint num_dead;
@@ -1475,7 +1475,7 @@ vmm_heap_exit()
                              : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
                     DYNAMO_OPTION(vmm_block_size)) /
                 DYNAMO_OPTION(vmm_block_size);
-            uint unfreed_blocks = perstack * 1 /* initstack */ +
+            uint unfreed_blocks = perstack * 1 /* d_r_initstack */ +
                 /* current stack */
                 perstack * ((doing_detach IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
             /* FIXME: on detach arch_thread_exit should explicitly mark as
@@ -2541,14 +2541,14 @@ stack_free(void *p, size_t size)
         RSTATS_SUB(stack_capacity, size);
 }
 
-/* only checks initstack and current dcontext
+/* only checks d_r_initstack and current dcontext
  * does not check any dstacks on the callback stack (win32) */
 bool
 is_stack_overflow(dcontext_t *dcontext, byte *sp)
 {
     /* ASSUMPTION: size of stack is DYNAMORIO_STACK_SIZE = dynamo_options.stack_size
      * Currently sideline violates that for a thread stack, and we have separated
-     * -signal_stack_size, but all dstacks and initstack should be this size.
+     * -signal_stack_size, but all dstacks and d_r_initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
     if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(guard_pages))
@@ -2556,8 +2556,8 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
     /* see if in bottom guard page of dstack */
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
-    /* now check the initstack */
-    bottom = initstack - DYNAMORIO_STACK_SIZE;
+    /* now check the d_r_initstack */
+    bottom = d_r_initstack - DYNAMORIO_STACK_SIZE;
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
         return true;
     return false;

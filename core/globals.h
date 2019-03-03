@@ -492,13 +492,13 @@ extern int num_execve_threads;
 #endif
 
 /* global instance of statistics struct */
-extern dr_statistics_t *stats;
+extern dr_statistics_t *d_r_stats;
 
 /* the process-wide logfile */
 extern file_t main_logfile;
 
 /* initial stack so we don't have to use app's */
-extern byte *initstack;
+extern byte *d_r_initstack;
 extern mutex_t initstack_mutex;
 extern byte *initstack_app_xsp;
 

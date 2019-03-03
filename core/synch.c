@@ -316,7 +316,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
      * here in the same manner as fcache_unit_areas.lock in at_safe_spot().  So
      * instead we just check the pc for the dr dll, interception code, and
      * do_syscall regions and check the stack against the thread's dr stack
-     * and the initstack, all of which we can do without grabbing any locks.
+     * and the d_r_initstack, all of which we can do without grabbing any locks.
      * That should be sufficient at this point, FIXME try to use something
      * like is_dynamo_address() to make this more maintainable */
     /* For sysenter system calls we also have to check the top of the stack
@@ -2259,7 +2259,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     ASSERT(exit_res == SUCCESS);
     detach_finalize_cleanup();
 
-    stack_free(initstack, DYNAMORIO_STACK_SIZE);
+    stack_free(d_r_initstack, DYNAMORIO_STACK_SIZE);
 
     dynamo_exit_post_detach();
 

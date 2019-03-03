@@ -249,15 +249,15 @@ OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING, "directory for log files")
  yet we'll also have the initial value in options_t at the cost of 8 bytes */
 OPTION_COMMAND(uint, stats_logmask, 0, "logmask",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->logmask = options->stats_logmask;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->logmask = options->stats_logmask;
                },
                "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
 
 OPTION_COMMAND(uint, stats_loglevel, 0, "loglevel",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->loglevel = options->stats_loglevel;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->loglevel = options->stats_loglevel;
                },
                "set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
 OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")

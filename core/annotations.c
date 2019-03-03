@@ -1091,9 +1091,9 @@ annotation_printf(const char *format, ...)
     char *timestamped_format = NULL;
     uint buffer_length = 0;
 
-    if (stats == NULL || stats->loglevel == 0)
+    if (d_r_stats == NULL || d_r_stats->loglevel == 0)
         return 0; /* No log is available for writing. */
-    if ((stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
+    if ((d_r_stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
         return 0; /* Filtered out by the user. */
 
     /* Substitute the first instance of the timestamp token with a timestamp string.

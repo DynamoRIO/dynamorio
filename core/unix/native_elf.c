@@ -78,7 +78,7 @@
  */
 enum { DL_RUNTIME_RESOLVE_IDX = 2 };
 
-/* The loader's _dl_fixup.  For ia32 it uses regparms. */
+/* The loader's _dl_fixup.  For ia32 it uses d_r_regparms. */
 typedef void *(*fixup_fn_t)(struct link_map *l_map, uint dynamic_index)
     IF_X86_32(__attribute__((regparm(3), stdcall, unused)));
 

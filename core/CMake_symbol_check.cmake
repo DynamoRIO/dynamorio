@@ -62,19 +62,7 @@ foreach(line ${lines})
   set(is_ok OFF)
   # We have some legacy exceptions we allow until we've renamed them all.
   if (line MATCHES "decode\n" OR
-      line MATCHES "disassemble\n" OR
-      line MATCHES "initstack\n" OR
-      line MATCHES "loginst\n" OR
-      line MATCHES "logopnd\n" OR
-      line MATCHES "logtrace\n" OR
-      line MATCHES "mangle\n" OR
-      line MATCHES "MD5Final\n" OR
-      line MATCHES "MD5Init\n" OR
-      line MATCHES "MD5Update\n" OR
-      line MATCHES "notify\n" OR
-      line MATCHES "regparms\n" OR
-      line MATCHES "stackdump\n" OR
-      line MATCHES "stats\n")
+      line MATCHES "disassemble\n")
     # OK: an exception we allow for now.
     set(is_ok ON)
   endif ()

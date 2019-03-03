@@ -123,7 +123,7 @@ dynamo_start(priv_mcontext_t *mc)
 
     /* Swap stacks so d_r_dispatch is invoked outside the application. */
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, true /*return on error*/);
+                      NULL /*not on d_r_initstack*/, true /*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
      * goes into an infinite loop.
@@ -231,7 +231,7 @@ auto_setup(ptr_uint_t appstack)
      */
     IF_WINDOWS(os_swap_context(dcontext, false /*to priv*/, DR_STATE_STACK_BOUNDS));
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -315,7 +315,7 @@ new_thread_setup(priv_mcontext_t *mc)
     thread_starting(dcontext);
 
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -358,7 +358,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 #        endif
 
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 #    endif /* MACOS */
@@ -405,7 +405,7 @@ nt_continue_setup(priv_mcontext_t *mc)
     IF_WINDOWS(swap_peb_pointer(dcontext, true /*to priv*/));
 
     call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

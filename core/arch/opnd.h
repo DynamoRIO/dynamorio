@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2776,7 +2776,7 @@ enum {
     REGPARM_END_ALIGN = 8,
 #endif
 };
-extern const reg_id_t regparms[];
+extern const reg_id_t d_r_regparms[];
 
 /* arch-specific */
 uint

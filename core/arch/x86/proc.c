@@ -326,7 +326,7 @@ proc_init_arch(void)
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
      */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
