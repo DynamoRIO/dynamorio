@@ -1748,6 +1748,8 @@ dr_set_client_name(const char *name, const char *report_URL);
 DR_API
 /**
  * Sets the version string presented to users in diagnostic messages.
+ * This has a maximum length of 96 characters; anything beyond that is
+ * silently truncated.
  */
 bool
 dr_set_client_version_string(const char *version);
@@ -1833,6 +1835,12 @@ typedef struct _dr_os_version_info_t {
     uint service_pack_major;
     /** The service pack minor number */
     uint service_pack_minor;
+    /** The build number. */
+    uint build_number;
+    /** The release identifier (such as "1803" for a Windows 10 release). */
+    char release_id[64];
+    /** The edition (such as "Education" or "Professional"). */
+    char edition[64];
 } dr_os_version_info_t;
 /* DR_API EXPORT END */
 
