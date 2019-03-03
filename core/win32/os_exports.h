@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,7 +71,8 @@ int
 get_os_version(void);
 void
 get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT);
+                  uint *service_pack_minor OUT, uint *build_number OUT,
+                  const char **release_id OUT, const char **edition OUT);
 
 /* TEB offsets
  * we'd like to use offsetof(TEB, field) but that would require
