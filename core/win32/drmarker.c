@@ -272,7 +272,7 @@ init_dr_marker(dr_marker_t *marker)
     marker->dr_hotp_policy_status_table = NULL;
 #    endif
     marker->dr_marker_version = DR_MARKER_VERSION_CURRENT;
-    marker->d_r_stats = get_dr_stats();
+    marker->stats = get_dr_stats();
     dr_marker_magic_init(NT_CURRENT_PROCESS, marker);
     marker->windbg_cmds[0] = '\0';
 }

@@ -82,7 +82,7 @@ struct stats_type {
     int loglevel;
 } thestats;
 
-struct stats_type *stats = &thestats;
+struct stats_type *d_r_stats = &thestats;
 
 /* define away core only features, depending on use outside the core
  * may want to use some of these, NOTE build environments outside of the
