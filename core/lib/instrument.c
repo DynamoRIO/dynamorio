@@ -2722,8 +2722,9 @@ bool
 dr_get_os_version(dr_os_version_info_t *info)
 {
     int ver;
-    uint sp_major, sp_minor;
-    get_os_version_ex(&ver, &sp_major, &sp_minor);
+    uint sp_major, sp_minor, build_number;
+    const char *release_id, *edition;
+    get_os_version_ex(&ver, &sp_major, &sp_minor, &build_number, &release_id, &edition);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
         switch (ver) {
         case WINDOWS_VERSION_10_1803: info->version = DR_WINDOWS_VERSION_10_1803; break;
@@ -2749,6 +2750,18 @@ dr_get_os_version(dr_os_version_info_t *info)
         if (info->size > offsetof(dr_os_version_info_t, service_pack_minor)) {
             info->service_pack_minor = sp_minor;
         }
+    }
+    if (info->size > offsetof(dr_os_version_info_t, build_number)) {
+        info->build_number = build_number;
+    }
+    if (info->size > offsetof(dr_os_version_info_t, release_id)) {
+        dr_snprintf(info->release_id, BUFFER_SIZE_ELEMENTS(info->release_id), "%s",
+                    release_id);
+        NULL_TERMINATE_BUFFER(info->release_id);
+    }
+    if (info->size > offsetof(dr_os_version_info_t, edition)) {
+        dr_snprintf(info->edition, BUFFER_SIZE_ELEMENTS(info->edition), "%s", edition);
+        NULL_TERMINATE_BUFFER(info->edition);
     }
     return true;
 }
