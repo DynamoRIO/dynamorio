@@ -1,6 +1,6 @@
 /* **********************************************************
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
- * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * Copyright (c) 2003-2007 Determina Corp.
@@ -541,12 +541,12 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
      */
     num_regparm = cci->num_args < NUM_REGPARM ? cci->num_args : NUM_REGPARM;
     for (i = 0; i < num_regparm; i++) {
-        if (cci->reg_skip[regparms[i] - DR_REG_START_GPR]) {
+        if (cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR]) {
             LOG(THREAD, LOG_CLEANCALL, 3,
                 "CLEANCALL: if inserting clean call " PFX
                 ", cannot skip saving reg %s due to param passing.\n",
-                info->start, reg_names[regparms[i]]);
-            cci->reg_skip[regparms[i] - DR_REG_START_GPR] = false;
+                info->start, reg_names[d_r_regparms[i]]);
+            cci->reg_skip[d_r_regparms[i] - DR_REG_START_GPR] = false;
             cci->num_regs_skip--;
             /* We cannot call callee_info_reserve_slot for reserving slot
              * on inlining the callee here, because we are in clean call
@@ -576,7 +576,7 @@ analyze_clean_call_args(dcontext_t *dcontext, clean_call_info_t *cci, opnd_t *ar
         if (opnd_is_reg(args[i]))
             cci->save_all_regs = true;
         for (j = 0; j < num_regparm; j++) {
-            if (opnd_uses_reg(args[i], regparms[j]))
+            if (opnd_uses_reg(args[i], d_r_regparms[j]))
                 cci->save_all_regs = true;
         }
     }

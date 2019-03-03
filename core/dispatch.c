@@ -323,7 +323,7 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
     }
 #    endif
 
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_DISPATCH) != 0) {
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_DISPATCH) != 0) {
         /* XXX: should use a different mask - and get printed at level 2 when turned on */
         DOLOG(4, LOG_DISPATCH,
               { dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
@@ -1193,7 +1193,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     vm_area_add_to_list(dcontext, f->tag, &vmlist, orig_flags, f,
                                         false /*no locks*/);
                     ASSERT(ok); /* should never fail for private fragments */
-                    mangle(dcontext, todo->ilist, &f->flags, true, true);
+                    d_r_mangle(dcontext, todo->ilist, &f->flags, true, true);
                     /* mangle shouldn't change the flags here */
                     ASSERT(f->flags == (orig_flags | FRAG_CANNOT_DELETE));
                     new_f = emit_invisible_fragment(dcontext, todo->tag, todo->ilist,
@@ -1206,7 +1206,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                     DOLOG(2, LOG_INTERP, {
                         LOG(THREAD, LOG_INTERP, 3,
                             "Finished emitting replacement fragment %d\n", new_f->id);
-                        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+                        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
                     });
                 }
                 /* delete [old] fragment */
@@ -2258,7 +2258,7 @@ issue_last_system_call_from_app(dcontext_t *dcontext)
 }
 
 /* Stores the register parameters into the mcontext and calls d_r_dispatch.
- * Checks whether currently on initstack and if so clears the initstack_mutex.
+ * Checks whether currently on d_r_initstack and if so clears the initstack_mutex.
  * Does not return.
  */
 void
@@ -2276,10 +2276,10 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
         swap_peb_pointer(dcontext, true /*to priv*/);
 #endif
     LOG(THREAD, LOG_ASYNCH, 2,
-        "transfer_to_dispatch: pc=0x%08x, xsp=" PFX ", initstack=%d\n",
+        "transfer_to_dispatch: pc=0x%08x, xsp=" PFX ", on-initstack=%d\n",
         dcontext->next_tag, mc->xsp, using_initstack);
 
-    /* next, want to switch to dstack, and if using initstack, free mutex.
+    /* next, want to switch to dstack, and if using d_r_initstack, free mutex.
      * finally, call d_r_dispatch(dcontext).
      * note that we switch to the base of dstack, deliberately squashing
      * what may have been there before, for both new dcontext and reuse dcontext

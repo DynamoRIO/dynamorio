@@ -302,9 +302,9 @@ intercept_asynch_for_self(bool intercept_unknown)
  * INTERCEPTION CODE FOR TRAMPOLINES INSERTED INTO APPLICATION CODE
 
 interception code either assumes that the app's xsp is valid, or uses
-dstack if available, or as a last resort uses initstack.  when using
-initstack, must make sure all paths exiting handler routine clear the
-initstack mutex once not using the initstack itself!
+dstack if available, or as a last resort uses d_r_initstack.  when using
+d_r_initstack, must make sure all paths exiting handler routine clear the
+initstack_mutex once not using the d_r_initstack itself!
 
 We clobber TIB->PID, which is believed to be safe since no user-mode
 code will execute there b/c thread is not alertable, and the kernel
@@ -356,7 +356,7 @@ if (!assume_xsp)
       lea -DYNAMORIO_STACK_SIZE(xcx), xcx
       cmp xsp, xcx
       jl  not_on_dstack
-      # record stack method: using dstack/initstack unmodified
+      # record stack method: using dstack/d_r_initstack unmodified
       push xsp
       push $2
       jmp have_stack_now
@@ -366,7 +366,7 @@ if (!assume_xsp)
       # store app xsp in dcontext & switch to dstack; this will be used to save
       # app xsp on the switched stack, i.e., dstack; not used after that.
       # i#1685: we use the PC slot as it won't affect a new thread that is in the
-      # middle of init on the initstack and came here during client code.
+      # middle of init on the d_r_initstack and came here during client code.
     if TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)
       mov $MCONTEXT_OFFSET(xcx), xcx
     endif
@@ -389,11 +389,11 @@ if (!assume_xsp)
       push $1
       jmp have_stack_now
   no_local_stack:
-      # use initstack -- it's a global synch, but should only have no
+      # use d_r_initstack -- it's a global synch, but should only have no
       # dcontext for initializing thread (where we actually use the app's
       # stack) or exiting thread
-      # If we are already on the initstack, should just continue to use it.
-      # need to check if already on initstack
+      # If we are already on the d_r_initstack, should just continue to use it.
+      # need to check if already on d_r_initstack
       # assumes eflags, but we already did on this path for checking dstack
       mov $INITSTACK, xcx
       cmp xsp, xcx
@@ -402,7 +402,7 @@ if (!assume_xsp)
       cmp xsp, xcx
       jl  grab_initstack
       push xsp
-      # record stack method: using dstack/initstack unmodified
+      # record stack method: using dstack/d_r_initstack unmodified
       push $2
       jmp have_stack_now
     grab_initstack:
@@ -424,15 +424,15 @@ if (!assume_xsp)
       jmp get_lock # no way to sleep or anything, must spin
     have_lock:
       # app xsp is saved in initstack_app_xsp only so that it can be accessed after
-      # switching to initstack; used only to set up the app xsp on the initstack
+      # switching to d_r_initstack; used only to set up the app xsp on the d_r_initstack
      if x64 # we don't need to set initstack_app_xsp, just push the app xsp value
       mov xsp, xcx
-      mov initstack, xax
+      mov d_r_initstack, xax
       xchg xax, xsp
       push xcx
      else
       mov xsp, initstack_app_xsp
-      mov initstack, xsp
+      mov d_r_initstack, xsp
       push initstack_app_xsp
      endif
       # need to record stack method, since dcontext could change in handler
@@ -566,7 +566,7 @@ void handler(app_state_at_intercept_t *args)
 if AFTER_INTERCEPT_TAKE_OVER, then asynch_take_over is called.
 
 handler must make sure all paths exiting handler routine clear the
-initstack mutex once not using the initstack itself!
+initstack_mutex once not using the d_r_initstack itself!
 
 */
 
@@ -631,7 +631,7 @@ insert_let_go_cleanup(dcontext_t *dcontext, byte *pc, instrlist_t *ilist,
         APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XSP)));
         APP(ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(restore_initstack)));
         APP(ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(done_restoring)));
-        /* use initstack to avoid any assumptions about app xsp */
+        /* use d_r_initstack to avoid any assumptions about app xsp */
         APP(ilist, restore_initstack);
 #ifdef X64
         APP(ilist,
@@ -988,12 +988,12 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         APP(&ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(1)));
         APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_instr(have_stack_now)));
 
-        /* use initstack to avoid any assumptions about app xsp */
+        /* use d_r_initstack to avoid any assumptions about app xsp */
         /* first check if we are already on it */
         APP(&ilist, no_local_stack);
         APP(&ilist,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
-                                 OPND_CREATE_INTPTR((ptr_int_t)initstack)));
+                                 OPND_CREATE_INTPTR((ptr_int_t)d_r_initstack)));
         APP(&ilist,
             INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XSP),
                              opnd_create_reg(REG_XCX)));
@@ -1049,14 +1049,14 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         /* we can do a 64-bit absolute address into xax only */
         APP(&ilist,
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX),
-                                OPND_CREATE_ABSMEM((void *)&initstack, OPSZ_PTR)));
+                                OPND_CREATE_ABSMEM((void *)&d_r_initstack, OPSZ_PTR)));
         APP(&ilist,
             INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XSP),
                               opnd_create_reg(REG_XAX)));
 #else
         APP(&ilist,
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XSP),
-                                OPND_CREATE_ABSMEM((void *)&initstack, OPSZ_PTR)));
+                                OPND_CREATE_ABSMEM((void *)&d_r_initstack, OPSZ_PTR)));
 #endif
         APP(&ilist,
             INSTR_CREATE_push(
@@ -2134,7 +2134,7 @@ exit_clean_syscall_wrapper:
 }
 
 /* Inserts a trampoline in a system call wrapper.
- * All uses should end up using dstack -- else watch out for initstack
+ * All uses should end up using dstack -- else watch out for d_r_initstack
  * infinite loop (see comment above).
  * Returns in skip_syscall_pc the native pc for skipping the system call altogether.
  *
@@ -4485,7 +4485,7 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTE
                 "check_for_modified_code: seg fault in exec-writable region @" PFX "\n",
                 target);
             /* we're not going to return through either of the usual
-             * methods, so we have to free the initstack mutex, but
+             * methods, so we have to free the initstack_mutex, but
              * we need a stack -- so, we use a separate method to avoid
              * stack conflicts, and switch to dstack now.
              */
@@ -5609,7 +5609,7 @@ intercept_exception(app_state_at_intercept_t *state)
             /* special case: we expect a seg fault for executable regions
              * that were writable and marked read-only by us.
              * if it is modified code, routine won't return to us
-             * (it takes care of initstack though).
+             * (it takes care of d_r_initstack though).
              * checking for modified code shouldn't be done for thin_client.
              * note: hotp_only plays around with memory protection to smash
              *       hooks, so can't be ignore; vlad: in -client mode we
@@ -7342,7 +7342,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
         /* we could have taken over the primary thread already if it
          * has executed its KiUserApcDispatcher routine after the
          * secondary thread has intercepted it, in which case we'd be
-         * on a dstack.  Alternatively, we would be on initstack and
+         * on a dstack.  Alternatively, we would be on d_r_initstack and
          * have no dcontext and dstack */
 
         /* we must create a new dcontext to be a 'known' thread */
@@ -7410,13 +7410,13 @@ intercept_image_entry(app_state_at_intercept_t *state)
              * AFTER_INTERCEPT_LET_GO_ALT_DYN is closest to what we
              * need - direct native JMP to the image entry, instead of
              * potentially non-pc-relativized execution from our copy,
-             * and we only have to make sure we use the initstack properly.
+             * and we only have to make sure we use the d_r_initstack properly.
              *
              * Instead of changing the assembly, we're using a gross
              * hack here - we'll have to rely on asynch_take_over() ->
              * transfer_to_dispatch() -> is_stopping_point(),
              * dispatch_enter_native() to cleanly jump back to the
-             * original application code (releasing initstack etc)
+             * original application code (releasing d_r_initstack etc)
              */
             dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
             /* start_pc is the take-over pc that will jmp to the syscall instr, while
@@ -7570,7 +7570,7 @@ callback_interception_init_start(void)
 
     /* Note that we go ahead and assume that the app's esp is valid for
      * most of these interceptions.  This is for efficiency -- the alternative
-     * is to use the global initstack, which imposes a synchronization point,
+     * is to use the global d_r_initstack, which imposes a synchronization point,
      * which we don't want for multi-thread frequent events like callbacks.
      * Re: transparency, if the app's esp were not valid, the native
      * routine would crash in a similar, though not necessarily
@@ -8693,7 +8693,7 @@ get_app_segment_base(uint seg)
 static after_intercept_action_t /* note return value will be ignored */
 thread_attach_takeover_callee(app_state_at_intercept_t *state)
 {
-    /* transfer_to_dispatch() will swap from initstack to dstack and clear
+    /* transfer_to_dispatch() will swap from d_r_initstack to dstack and clear
      * the initstack_mutex.
      */
     thread_attach_setup(&state->mc);

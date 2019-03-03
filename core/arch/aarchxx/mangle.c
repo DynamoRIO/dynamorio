@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -883,7 +883,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     }
 
     /* Initialise regs[], which encodes the contents of parameter registers.
-     * A non-negative value x means regparms[x];
+     * A non-negative value x means d_r_regparms[x];
      * -1 means an immediate integer;
      * -2 means a non-parameter register.
      */
@@ -894,7 +894,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             reg_id_t reg = opnd_get_reg(args[i]);
             regs[i] = -2;
             for (j = 0; j < NUM_REGPARM; j++) {
-                if (reg == regparms[j]) {
+                if (reg == d_r_regparms[j]) {
                     regs[i] = j;
                     break;
                 }
@@ -920,19 +920,19 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     continue;
                 if (regs[i] == -1) {
                     insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(args[i]),
-                                           opnd_create_reg(regparms[i]), ilist, instr,
+                                           opnd_create_reg(d_r_regparms[i]), ilist, instr,
                                            NULL, NULL);
                 } else if (regs[i] == -2 && opnd_get_reg(args[i]) == DR_REG_XSP) {
                     /* XXX: We could record which register has been set to the SP to
                      * avoid repeating this load if several arguments are set to SP.
                      */
-                    insert_get_mcontext_base(dcontext, ilist, instr, regparms[i]);
+                    insert_get_mcontext_base(dcontext, ilist, instr, d_r_regparms[i]);
                     PRE(ilist, instr,
-                        instr_create_restore_from_dc_via_reg(dcontext, regparms[i],
-                                                             regparms[i], XSP_OFFSET));
+                        instr_create_restore_from_dc_via_reg(
+                            dcontext, d_r_regparms[i], d_r_regparms[i], XSP_OFFSET));
                 } else {
                     PRE(ilist, instr,
-                        XINST_CREATE_move(dcontext, opnd_create_reg(regparms[i]),
+                        XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
                                           args[i]));
                     if (regs[i] != -2)
                         --usecount[regs[i]];
@@ -959,14 +959,14 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         first = i;
         PRE(ilist, instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_LR),
-                              opnd_create_reg(regparms[i])));
+                              opnd_create_reg(d_r_regparms[i])));
         do {
             tmp = regs[i];
             ASSERT(0 <= tmp && tmp < num_regs);
             PRE(ilist, instr,
-                XINST_CREATE_move(dcontext, opnd_create_reg(regparms[i]),
+                XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
                                   tmp == first ? opnd_create_reg(DR_REG_LR)
-                                               : opnd_create_reg(regparms[tmp])));
+                                               : opnd_create_reg(d_r_regparms[tmp])));
             regs[i] = i;
             i = tmp;
         } while (tmp != first);

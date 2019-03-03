@@ -558,7 +558,7 @@ typedef struct _fcache_list_t {
     /* These lists are protected by allunits_lock. */
     fcache_unit_t *units; /* list of all allocated fcache units */
     fcache_unit_t *dead;  /* list of deleted units ready for re-allocation */
-    /* FIXME: num_dead duplicates stats->fcache_num_free, but we want num_dead
+    /* FIXME: num_dead duplicates d_r_stats->fcache_num_free, but we want num_dead
      * for release build too, so it's separate...can we do better?
      */
     uint num_dead;

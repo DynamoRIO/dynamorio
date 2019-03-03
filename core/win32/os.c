@@ -2035,7 +2035,7 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
  * As part of this I also changed the takeover to not store the context at
  * suspend time and instead only change Eip then, capturing the context when
  * the thread resumes.  This requires an assume-nothing routine, which
- * requires initstack: but these takeover points shouldn't be perf-critical.
+ * requires d_r_initstack: but these takeover points shouldn't be perf-critical.
  * This really simplifies the wow64 entry/exit corner cases.
  */
 static bool

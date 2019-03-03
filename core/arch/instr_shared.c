@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1301,7 +1301,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         /* disassembling might change the instruction object, we're cloning it
          * for the logger */
         instr_t *log_instr = instr_clone(dcontext, instr);
-        loginst(dcontext, 4, log_instr, "instr_expand");
+        d_r_loginst(dcontext, 4, log_instr, "instr_expand");
         instr_free(dcontext, log_instr);
     });
 
@@ -1336,7 +1336,8 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             dr_set_isa_mode(dcontext, old_mode, NULL);
             return firstinstr;
         }
-        DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
+        DOLOG(5, LOG_ALL,
+              { d_r_loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
 
         /* CAREFUL of what you call here -- don't call anything that
          * auto-upgrades instr to Level 2, it will fail on Level 0 bundles!
@@ -1607,10 +1608,10 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
         if (!instr_opcode_valid(instr) ||
             (instr_is_cti(instr) && !instr_operands_valid(instr))) {
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
+                d_r_loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
             });
             instr_decode_cti(dcontext, instr);
-            DOLOG(4, LOG_ALL, { loginst(dcontext, 4, instr, "\tjust decoded"); });
+            DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, instr, "\tjust decoded"); });
         }
     }
 
@@ -1629,11 +1630,11 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
             opnd_is_near_pc(instr_get_src(instr, 0))) {
             instr_t *tgt;
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr,
-                        "instrlist_decode_cti: found cti w/ pc target");
+                d_r_loginst(dcontext, 4, instr,
+                            "instrlist_decode_cti: found cti w/ pc target");
             });
             for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
-                DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tchecking"); });
+                DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, tgt, "\tchecking"); });
                 LOG(THREAD, LOG_INTERP | LOG_OPTS, 4, "\t\taddress is " PFX "\n",
                     instr_get_raw_bits(tgt));
                 if (opnd_get_pc(instr_get_target(instr)) == instr_get_raw_bits(tgt)) {
@@ -1648,7 +1649,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
                     if (bits != 0)
                         instr_set_raw_bits(instr, bits, len);
                     DOLOG(4, LOG_ALL,
-                          { loginst(dcontext, 4, tgt, "\tcti targets this"); });
+                          { d_r_loginst(dcontext, 4, tgt, "\tcti targets this"); });
                     break;
                 }
             }
@@ -1666,7 +1667,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
 /* utility routines */
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1676,7 +1677,7 @@ loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 }
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -1686,7 +1687,7 @@ logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 }
 
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
+d_r_logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;

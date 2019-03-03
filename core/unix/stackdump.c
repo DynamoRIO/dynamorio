@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -160,7 +160,7 @@ fork_syscall(void)
 /*-----------------------------------------------------------------------*/
 
 void
-stackdump(void)
+d_r_stackdump(void)
 {
     int pid, core_pid;
     /* get name now -- will be same for children */

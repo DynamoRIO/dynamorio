@@ -45,7 +45,7 @@
  */
 
 #if 0 /* i#3348: Disabling until we rename these symbols. */
-int *initstack = NULL;
+int *d_r_initstack = NULL;
 byte *initstack_app_xsp = NULL;
 
 bool
@@ -72,8 +72,8 @@ void
 test_symbol_conflicts(void)
 {
 #if 0 /* i#3348: Disabling until we rename these symbols. */
-    print("initstack is %p\n", initstack);
-    initstack = NULL;
+    print("d_r_initstack is %p\n", d_r_initstack);
+    d_r_initstack = NULL;
 #endif
     pathcmp();
 }

@@ -4625,7 +4625,7 @@ hotp_gateway(const hotp_vul_t *vul_tab, const uint num_vuls, const uint vul_inde
         ASSERT_CURIOSITY(dcontext != NULL && dcontext != GLOBAL_DCONTEXT &&
                          "unknown thread");
 
-        /* App esp should neither be on dr stack nor on initstack; see case 7058.
+        /* App esp should neither be on dr stack nor on d_r_initstack; see case 7058.
          * TODO: when the hot patch interface expands to having eip, assert that
          *       the eip isn't inside dr.
          */

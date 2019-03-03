@@ -499,7 +499,7 @@ signal_exit()
 {
     IF_LINUX(signalfd_exit());
 #ifdef DEBUG
-    if (stats->loglevel > 0 && (stats->logmask & (LOG_ASYNCH | LOG_STATS)) != 0) {
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & (LOG_ASYNCH | LOG_STATS)) != 0) {
         LOG(GLOBAL, LOG_ASYNCH | LOG_STATS, 1, "Total signals delivered: %d\n",
             GLOBAL_STAT(num_signals));
     }
@@ -2048,7 +2048,7 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         }
     }
 #ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "blocked signals are now:\n");
         dump_sigset(dcontext, &info->app_sigblocked);
     }
@@ -2173,7 +2173,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             }
         }
 #ifdef DEBUG
-        if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+        if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
             LOG(THREAD, LOG_ASYNCH, 3, "blocked signals are now:\n");
             dump_sigset(dcontext, &info->app_sigblocked);
         }
@@ -2243,7 +2243,7 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set, size_t sigsetsize)
         }
     }
 #ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "in sigsuspend, blocked signals are now:\n");
         dump_sigset(dcontext, &info->app_sigblocked);
     }
@@ -4042,7 +4042,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         ucxt->uc_sigmask = info->app_sigblocked;
 #endif
 #ifdef DEBUG
-        if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+        if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
             LOG(THREAD, LOG_ASYNCH, 3, "after sigsuspend, blocked signals are now:\n");
             dump_sigset(dcontext, &info->app_sigblocked);
         }
@@ -4281,7 +4281,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * we do not need to mark this fragment as FRAG_CANNOT_DELETE
          */
 #ifdef DEBUG
-        if (stats->loglevel >= 2 && (stats->logmask & LOG_ASYNCH) != 0 &&
+        if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_ASYNCH) != 0 &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
             ASSERT(f != NULL);
             LOG(THREAD, LOG_ASYNCH, 2, "Got signal at pc " PFX " in this fragment:\n",
@@ -4602,7 +4602,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         LOG(THREAD, LOG_ALL, 2,
             "For SIGSEGV at cache pc " PFX ", computed target %s " PFX "\n",
             instr_cache_pc, *write ? "write" : "read", target);
-        loginst(dcontext, 2, &instr, "\tfaulting instr");
+        d_r_loginst(dcontext, 2, &instr, "\tfaulting instr");
     });
     instr_free(dcontext, &instr);
     return target;
@@ -5429,7 +5429,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      */
 
 #ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "original sigcontext " PFX ":\n", sc);
         dump_sigcontext(dcontext, sc);
     }
@@ -5465,7 +5465,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     save_fpstate(dcontext, frame);
 #endif /* LINUX && X86 */
 #ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "new sigcontext " PFX ":\n", sc);
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
@@ -5648,7 +5648,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
          * (i#1160) so we terminate on the dstack.
          */
         call_switch_stack(dcontext, dcontext->dstack,
-                          (void (*)(void *))terminate_via_kill, NULL /*!initstack */,
+                          (void (*)(void *))terminate_via_kill, NULL /*!d_r_initstack */,
                           false /*no return */);
     } else {
         terminate_via_kill(dcontext);
@@ -6167,7 +6167,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 #endif
 
 #ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "returning-to sigcontext " PFX ":\n", sc);
         dump_sigcontext(dcontext, sc);
     }
@@ -6447,7 +6447,7 @@ os_dump_core(const char *msg)
         static bool tried_stackdump = false;
         if (!tried_stackdump) {
             tried_stackdump = true;
-            stackdump();
+            d_r_stackdump();
         } else {
             static bool tried_calldump = false;
             if (!tried_calldump) {

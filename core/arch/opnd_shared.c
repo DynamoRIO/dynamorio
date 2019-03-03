@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1106,7 +1106,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
 /***************************************************************************/
 /* utility routines */
 
-const reg_id_t regparms[] = {
+const reg_id_t d_r_regparms[] = {
 #ifdef X86
 #    ifdef X64
     REGPARM_0,  REGPARM_1, REGPARM_2, REGPARM_3,
@@ -1838,7 +1838,7 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
     addr = seg_base;
     base = opnd_get_base(opnd);
     disp = opnd_get_disp(opnd);
-    logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
+    d_r_logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
     addr += reg_get_value_priv(base, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tbase => " PFX "\n", addr);
     addr += scaled_index;
@@ -2021,7 +2021,7 @@ reg_parameter_num(reg_id_t reg)
 {
     int r;
     for (r = 0; r < NUM_REGPARM; r++) {
-        if (reg == regparms[r])
+        if (reg == d_r_regparms[r])
             return r;
     }
     return -1;

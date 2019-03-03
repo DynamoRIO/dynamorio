@@ -1698,7 +1698,7 @@ static void inline debug_after_link_change(dcontext_t *dcontext, fragment_t *f,
 {
     DOLOG(5, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 5, "%s\n", msg);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 }
 #endif
@@ -2328,9 +2328,9 @@ shift_links_to_new_fragment(dcontext_t *dcontext, fragment_t *old_f, fragment_t 
 
     DOLOG(4, LOG_LINKS, {
         LOG(THREAD, LOG_LINKS, 4, "Old fragment after shift:\n");
-        disassemble_fragment(dcontext, old_f, stats->loglevel < 4);
+        disassemble_fragment(dcontext, old_f, d_r_stats->loglevel < 4);
         LOG(THREAD, LOG_LINKS, 4, "New fragment after shift:\n");
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 4);
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 4);
     });
 }
 
