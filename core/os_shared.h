@@ -602,7 +602,7 @@ size_t
 os_page_size(void);
 #ifdef UNIX
 void
-os_page_size_init(const char **env);
+os_page_size_init(const char **env, bool env_followed_by_auxv);
 #endif
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);

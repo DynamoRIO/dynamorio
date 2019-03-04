@@ -383,7 +383,7 @@ dynamorio_app_init(void)
     if (!dynamo_initialized /* we do enter if nullcalls is on */) {
 
 #ifdef UNIX
-        os_page_size_init((const char **)our_environ);
+        os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
         /* MUST do this before making any system calls */
@@ -869,7 +869,7 @@ standalone_init(void)
     dynamo_options.deadlock_avoidance = false;
 #    endif
 #    ifdef UNIX
-    os_page_size_init((const char **)our_environ);
+    os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #    endif
 #    ifdef WINDOWS
     /* MUST do this before making any system calls */

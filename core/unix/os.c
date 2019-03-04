@@ -667,6 +667,19 @@ our_getenv(const char *name)
     return NULL;
 }
 
+bool
+is_our_environ_followed_by_auxv(void)
+{
+#ifdef STATIC_LIBRARY
+    /* Since we initialize late, our_environ is likely no longer pointed at
+     * the stack (i#2122).
+     */
+    return false;
+#else
+    return true;
+#endif
+}
+
 /* Work around drpreload's _init going first.  We can get envp in our own _init
  * routine down below, but drpreload.so comes first and calls
  * dynamorio_app_init before our own _init routine gets called.  Apps using the
