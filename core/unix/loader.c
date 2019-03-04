@@ -1639,7 +1639,7 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env);
+    os_page_size_init(env, true);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */
