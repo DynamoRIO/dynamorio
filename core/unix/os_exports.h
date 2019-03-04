@@ -230,6 +230,8 @@ extern char **environ;
 #else
 extern char **our_environ;
 #endif
+bool
+is_our_environ_followed_by_auxv(void);
 void
 dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
