@@ -597,12 +597,12 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                                 BUFFER_SIZE_ELEMENTS(os_edition));
     read_version_registry_value(L"ReleaseId", os_release_id,
                                 BUFFER_SIZE_ELEMENTS(os_release_id));
-#ifdef CLIENT_INTERFACE
+#    ifdef CLIENT_INTERFACE
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->release_id));
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->edition));
-#endif
+#    endif
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
