@@ -237,7 +237,7 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
 
     /* For non-GNU we might be handed an absolute path */
     if (debuglink[0] == '/' && dr_file_exists(debuglink)) {
-        strncpy(debug_modpath, debuglink, MAXIMUM_PATH);
+        strncpy(debug_modpath, debuglink, MAXIMUM_PATH - 1);
         debug_modpath[MAXIMUM_PATH - 1] = '\0';
         return true;
     }
