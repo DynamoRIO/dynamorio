@@ -271,7 +271,7 @@ add_extra_option(opt_info_t *opt_info, const TCHAR *opt)
             return DR_FAILURE;
         }
 
-        len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(opt));
+        len = strnlen(opt, DR_MAX_OPTIONS_LENGTH);
         opt_info->extra_opts[idx] =
             malloc((len + 1) * sizeof(opt_info->extra_opts[idx][0]));
         _tcsncpy(opt_info->extra_opts[idx], opt, len);
@@ -749,7 +749,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
      * approach would be to keep track of a string length and pass
      * that to get_next_token().
      */
-    len = MIN(DR_MAX_OPTIONS_LENGTH - 1, _tcslen(ptr));
+    len = strnlen(ptr, DR_MAX_OPTIONS_LENGTH);
     _tcsncpy(tmp, ptr, len);
     tmp[len] = _T('\0');
 
