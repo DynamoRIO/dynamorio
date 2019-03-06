@@ -72,7 +72,8 @@ static func_metadata_t *
 create_func_metadata(std::string name, int id, int arg_num)
 {
     func_metadata_t *f = (func_metadata_t *)dr_global_alloc(sizeof(func_metadata_t));
-    strncpy(f->name, name.c_str(), BUFFER_SIZE_ELEMENTS(f->name));
+    strncpy(f->name, name.c_str(), BUFFER_SIZE_ELEMENTS(f->name) - 1);
+    f->name[BUFFER_SIZE_ELEMENTS(f->name)] = '\0';
     f->id = id;
     f->arg_num = arg_num;
     return f;
