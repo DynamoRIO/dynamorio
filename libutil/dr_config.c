@@ -473,7 +473,9 @@ get_config_dir_done:
     /* On failure, we still want to copy the last-tried dir out so drdeploy can have a
      * nicer error msg.
      */
+    #pragma GCC diagnostic ignored "-Wformat-truncation"
     _snprintf(fname, fname_len, "%s/%s", dir, subdir);
+    #pragma GCC diagnostic pop
     fname[fname_len - 1] = '\0';
     return res;
 }
@@ -682,7 +684,9 @@ write_config_param(FILE *f, const char *var, const TCHAR *val)
     int len;
     char buf[MAX_CONFIG_VALUE];
     DO_ASSERT(f != NULL);
+    #pragma GCC diagnostic ignored "-Wformat-truncation"
     len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s=" TSTR_FMT "\n", var, val);
+    #pragma GCC diagnostic pop
     /* don't remove the newline: better to truncate options than to have none (i#547) */
     buf[BUFFER_SIZE_ELEMENTS(buf) - 2] = '\n';
     buf[BUFFER_SIZE_ELEMENTS(buf) - 1] = '\0';
