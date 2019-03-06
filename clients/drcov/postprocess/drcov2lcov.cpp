@@ -675,7 +675,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         strstr(info->name, op_test_pattern.get_value().c_str()) != NULL) {
         char *name = (char *)malloc(strlen(info->name) + 1);
         /* strdup is deprecated on Windows */
-        strncpy(name, info->name, strlen(info->name) + 1);
+        strcpy(name, info->name);
         PRINT(5, "function %s: " PFX "-" PFX "\n", name, (ptr_uint_t)info->start_offs,
               (ptr_uint_t)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
