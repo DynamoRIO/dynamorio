@@ -7013,11 +7013,13 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_ppoll: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 3);
+        dcontext->sys_param3 = (reg_t)sigmask;
+        if (sigmask == NULL)
+            break;
         size_t sizemask = (size_t)sys_param(dcontext, 4);
         /* The original app's sigmask parameter is now NULL effectively making the syscall
          * a non p* version, and the mask's semantics are emulated by DR instead.
          */
-        dcontext->sys_param3 = (reg_t)sigmask;
         set_syscall_param(dcontext, 3, (reg_t)NULL);
         bool sig_pending = false;
         if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
@@ -7059,6 +7061,8 @@ pre_system_call(dcontext_t *dcontext)
             break;
         }
         dcontext->sys_param4 = (reg_t)data.sigmask;
+        if (data.sigmask == NULL)
+            break;
         kernel_sigset_t *nullsigmaskptr = NULL;
         if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
                            &nullsigmaskptr, NULL)) {
@@ -7090,9 +7094,11 @@ pre_system_call(dcontext_t *dcontext)
     }
     case SYS_epoll_pwait: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 4);
+        dcontext->sys_param4 = (reg_t)sigmask;
+        if (sigmask == NULL)
+            break;
         size_t sizemask = (size_t)sys_param(dcontext, 5);
         /* Refer to comments in SYS_ppoll above. */
-        dcontext->sys_param4 = (reg_t)sigmask;
         set_syscall_param(dcontext, 4, (reg_t)NULL);
         bool sig_pending = false;
         if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
@@ -8280,11 +8286,15 @@ post_system_call(dcontext_t *dcontext)
 #endif
 #ifdef LINUX
     case SYS_ppoll: {
+        if (dcontext->sys_param3 == (reg_t)NULL)
+            break;
         handle_post_extended_syscall_sigmasks(dcontext, success);
         set_syscall_param(dcontext, 3, dcontext->sys_param3);
         break;
     }
     case SYS_pselect6: {
+        if (dcontext->sys_param4 == (reg_t)NULL)
+            break;
         typedef struct {
             kernel_sigset_t *sigmask;
             size_t sizemask;
@@ -8298,6 +8308,8 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
     case SYS_epoll_pwait: {
+        if (dcontext->sys_param4 == (reg_t)NULL)
+            break;
         handle_post_extended_syscall_sigmasks(dcontext, success);
         set_syscall_param(dcontext, 4, dcontext->sys_param4);
         break;

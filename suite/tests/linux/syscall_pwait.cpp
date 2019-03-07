@@ -72,7 +72,7 @@ static args_t args;
 static void
 signal_handler(int sig, siginfo_t *siginfo, void *context)
 {
-    print("signal received: %d\n", sig);
+    print("Signal received: %d\n", sig);
 }
 
 THREAD_FUNC_RETURN_TYPE
@@ -112,7 +112,8 @@ kick_off_child_signal(int count, pthread_t main_thread, bool immediately)
 }
 
 void
-execute_subtest(pthread_t main_thread, sigset_t *test_set, std::function<int()> psyscall)
+execute_subtest(pthread_t main_thread, sigset_t *test_set,
+                std::function<int(bool nullsigmask)> psyscall, bool nullsigmask)
 {
     int count;
     for (int i = 0; i < 2; ++i) {
@@ -132,10 +133,14 @@ execute_subtest(pthread_t main_thread, sigset_t *test_set, std::function<int()> 
              * verifiy whether it arrived "late enough".
              */
             bool immediately = i == 0 ? true : false;
+            if (immediately && nullsigmask) {
+                /* The immediately test must be skipped if sigmask is NULL. */
+                continue;
+            }
             pthread_t child_thread =
                 kick_off_child_signal(count, main_thread, immediately);
             pthread_sigmask(SIG_SETMASK, NULL, &pre_syscall_set);
-            if (psyscall() == -1) {
+            if (psyscall(nullsigmask) == -1) {
                 if (errno != EINTR)
                     perror("expected EINTR");
             } else {
@@ -159,7 +164,7 @@ int
 main(int argc, char *argv[])
 {
     struct sigaction act;
-    sigset_t new_set;
+    sigset_t block_set;
 
     INIT();
 
@@ -168,16 +173,16 @@ main(int argc, char *argv[])
 
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
-    print("handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
-    sigemptyset(&new_set);
-    sigaddset(&new_set, SIGUSR2);
-    sigaddset(&new_set, SIGUSR1);
-    pthread_sigmask(SIG_BLOCK, &new_set, NULL);
+    print("Handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
+    sigemptyset(&block_set);
+    sigaddset(&block_set, SIGUSR2);
+    sigaddset(&block_set, SIGUSR1);
+    pthread_sigmask(SIG_BLOCK, &block_set, NULL);
     /* We need to block the signals for the purpose of this test, so that
      * the p* system call will unblock it as part of its execution.
      */
-    print("signal blocked: %d\n", SIGUSR2);
-    print("signal blocked: %d\n", SIGUSR1);
+    print("Signal blocked: %d\n", SIGUSR2);
+    print("Signal blocked: %d\n", SIGUSR1);
 
     sigset_t test_set;
     sigfillset(&test_set);
@@ -189,24 +194,26 @@ main(int argc, char *argv[])
 
     print("Testing epoll_pwait\n");
 
-    auto psyscall_epoll_pwait = [test_set]() -> int {
+    auto psyscall_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
-        return epoll_pwait(epoll_fd, &events, 24, -1, &test_set);
+        return epoll_pwait(epoll_fd, &events, 24, -1, nullsigmask ? NULL : &test_set);
     };
-    execute_subtest(main_thread, &test_set, psyscall_epoll_pwait);
+    execute_subtest(main_thread, &test_set, psyscall_epoll_pwait, false);
 
     print("Testing pselect\n");
 
-    auto psyscall_pselect = [test_set]() -> int {
-        return pselect(0, NULL, NULL, NULL, NULL, &test_set);
+    auto psyscall_pselect = [test_set](bool nullsigmask) -> int {
+        return pselect(0, NULL, NULL, NULL, NULL, nullsigmask ? NULL : &test_set);
     };
-    execute_subtest(main_thread, &test_set, psyscall_pselect);
+    execute_subtest(main_thread, &test_set, psyscall_pselect, false);
 
     print("Testing ppoll\n");
 
-    auto psyscall_ppoll = [test_set]() -> int { return ppoll(NULL, 0, NULL, &test_set); };
-    execute_subtest(main_thread, &test_set, psyscall_ppoll);
+    auto psyscall_ppoll = [test_set](bool nullsigmask) -> int {
+        return ppoll(NULL, 0, NULL, nullsigmask ? NULL : &test_set);
+    };
+    execute_subtest(main_thread, &test_set, psyscall_ppoll, false);
 
     print("Testing epoll_pwait failure\n");
 
@@ -386,6 +393,27 @@ main(int argc, char *argv[])
     }
 
 #endif
+
+    /* Now making sure passing a NULL sigmask works. A NULL sigmask
+     * parameter should behave as if it was a non-p* version syscall.
+     */
+
+    pthread_sigmask(SIG_UNBLOCK, &block_set, NULL);
+
+    print("Signal unblocked: %d\n", SIGUSR2);
+    print("Signal unblocked: %d\n", SIGUSR1);
+
+    print("Testing epoll_pwait with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_epoll_pwait, true);
+
+    print("Testing pselect with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_pselect, true);
+
+    print("Testing ppoll with NULL sigmask\n");
+
+    execute_subtest(main_thread, &test_set, psyscall_ppoll, true);
 
     destroy_cond_var(ready_to_listen);
 
