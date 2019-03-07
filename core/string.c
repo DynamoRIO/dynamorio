@@ -164,6 +164,50 @@ d_r_memmove(void *dst, const void *src, size_t n)
     return dst;
 }
 
+#ifdef UNIX
+/* gcc emits calls to these *_chk variants in release builds when the size of
+ * dst is known at compile time.  In C, the caller is responsible for cleaning
+ * up arguments on the stack, so we alias these *_chk routines to the non-chk
+ * routines and rely on the caller to clean up the extra dst_len arg.
+ */
+void *
+__memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
+#    ifdef MACOS
+/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
+ * XXX: better to test for support at config time: for now assuming none on Mac.
+ */
+{
+    return memmove(dst, src, n);
+}
+#    else
+    __attribute__((alias("d_r_memmove")));
+#    endif
+void *
+__strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
+#    ifdef MACOS
+/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
+ * XXX: better to test for support at config time: for now assuming none on Mac.
+ */
+{
+    return strncpy(dst, src, n);
+}
+#    else
+    __attribute__((alias("d_r_strncpy")));
+#    endif
+void *
+__strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
+#    ifdef MACOS
+/* OSX 10.7 gcc 4.2.1 doesn't support the alias attribute.
+ * XXX: better to test for support at config time: for now assuming none on Mac.
+ */
+{
+    return strncat(dst, src, n);
+}
+#    else
+    __attribute__((alias("d_r_strncat")));
+#    endif
+#endif
+
 /* Private strcmp. */
 int
 d_r_strcmp(const char *left, const char *right)
