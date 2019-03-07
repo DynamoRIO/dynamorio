@@ -271,7 +271,7 @@ add_extra_option(opt_info_t *opt_info, const TCHAR *opt)
             return DR_FAILURE;
         }
 
-        len = strnlen(opt, DR_MAX_OPTIONS_LENGTH);
+        len = _dr_nlen(opt, DR_MAX_OPTIONS_LENGTH);
         opt_info->extra_opts[idx] =
             malloc((len + 1) * sizeof(opt_info->extra_opts[idx][0]));
         _tcsncpy(opt_info->extra_opts[idx], opt, len);

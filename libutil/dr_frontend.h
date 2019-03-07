@@ -95,6 +95,11 @@ typedef int ssize_t;
 
 #ifdef WINDOWS
 #    include <tchar.h>
+#    ifdef _UNICODE
+#        define _dr_nlen wcsnlen
+#    else
+#        define _dr_nlen strnlen
+#    endif
 #else
 #    define TCHAR char
 #    define _tmain main
@@ -110,6 +115,7 @@ typedef int ssize_t;
 #    define _ftprintf fprintf
 #    define _tfopen fopen
 #    define _T(s) s
+#    define _dr_nlen strnlen
 #endif
 /* DR_API EXPORT VERBATIM */
 #ifdef _UNICODE
