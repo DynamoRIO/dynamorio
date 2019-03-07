@@ -7017,17 +7017,15 @@ pre_system_call(dcontext_t *dcontext)
         if (sigmask == NULL)
             break;
         size_t sizemask = (size_t)sys_param(dcontext, 4);
-        /* The original app's sigmask parameter is now NULL effectively making the
-         * syscall a non p* version, and the mask's semantics are emulated by DR
-         * instead.
+        /* The original app's sigmask parameter is now NULL effectively making the syscall
+         * a non p* version, and the mask's semantics are emulated by DR instead.
          */
         set_syscall_param(dcontext, 3, (reg_t)NULL);
         bool sig_pending = false;
         if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
                                                   &sig_pending)) {
             /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
-             * failure. We're already violating app transparency in other places in
-             * DR.
+             * failure. We're already violating app transparency in other places in DR.
              */
             set_failure_return_val(dcontext, EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7062,11 +7060,9 @@ pre_system_call(dcontext_t *dcontext)
             execute_syscall = false;
             break;
         }
-        if (data.sigmask == NULL) {
-            dcontext->sys_param3 = (reg_t)NULL;
-            break;
-        }
         dcontext->sys_param4 = (reg_t)data.sigmask;
+        if (data.sigmask == NULL)
+            break;
         kernel_sigset_t *nullsigmaskptr = NULL;
         if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
                            &nullsigmaskptr, NULL)) {
@@ -8297,7 +8293,7 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
     case SYS_pselect6: {
-        if (dcontext->sys_param3 == (reg_t)NULL)
+        if (dcontext->sys_param4 == (reg_t)NULL)
             break;
         typedef struct {
             kernel_sigset_t *sigmask;
