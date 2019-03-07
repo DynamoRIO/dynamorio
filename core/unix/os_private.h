@@ -338,7 +338,7 @@ bool
 handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigmask,
                                      size_t sizemask, bool *pending);
 
-bool
+void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success);
 #endif
 
