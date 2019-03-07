@@ -7013,30 +7013,34 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_ppoll: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 3);
-        size_t sizemask = (size_t)sys_param(dcontext, 4);
-        /* The original app's sigmask parameter is now NULL effectively making the syscall
-         * a non p* version, and the mask's semantics are emulated by DR instead.
-         */
-        dcontext->sys_param3 = (reg_t)sigmask;
-        set_syscall_param(dcontext, 3, (reg_t)NULL);
-        bool sig_pending = false;
-        if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
-                                                  &sig_pending)) {
-            /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
-             * failure. We're already violating app transparency in other places in DR.
+        if (sigmask != NULL) {
+            size_t sizemask = (size_t)sys_param(dcontext, 4);
+            /* The original app's sigmask parameter is now NULL effectively making the
+             * syscall a non p* version, and the mask's semantics are emulated by DR
+             * instead.
              */
-            set_failure_return_val(dcontext, EINVAL);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
-        }
-        if (sig_pending) {
-            /* If there had been pending signals, we revert re-writing the app's
-             * parameter, but we leave the modified signal mask.
-             */
-            set_syscall_param(dcontext, 3, dcontext->sys_param3);
-            set_failure_return_val(dcontext, EINTR);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
+            dcontext->sys_param3 = (reg_t)sigmask;
+            set_syscall_param(dcontext, 3, (reg_t)NULL);
+            bool sig_pending = false;
+            if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
+                                                      &sig_pending)) {
+                /* In old kernels with sizeof(kernel_sigset_t) != sizemask, we're forcing
+                 * failure. We're already violating app transparency in other places in
+                 * DR.
+                 */
+                set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
+            if (sig_pending) {
+                /* If there had been pending signals, we revert re-writing the app's
+                 * parameter, but we leave the modified signal mask.
+                 */
+                set_syscall_param(dcontext, 3, dcontext->sys_param3);
+                set_failure_return_val(dcontext, EINTR);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
         }
         break;
     }
@@ -7058,54 +7062,59 @@ pre_system_call(dcontext_t *dcontext)
             execute_syscall = false;
             break;
         }
-        dcontext->sys_param4 = (reg_t)data.sigmask;
-        kernel_sigset_t *nullsigmaskptr = NULL;
-        if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                           &nullsigmaskptr, NULL)) {
-            set_failure_return_val(dcontext, EFAULT);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
-            break;
-        }
-        bool sig_pending = false;
-        if (!handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask, data.sizemask,
-                                                  &sig_pending)) {
-            set_failure_return_val(dcontext, EINVAL);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
-        }
-        if (sig_pending) {
+        if (data.sigmask != NULL) {
+            dcontext->sys_param4 = (reg_t)data.sigmask;
+            kernel_sigset_t *nullsigmaskptr = NULL;
             if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                               &dcontext->sys_param4, NULL)) {
+                               &nullsigmaskptr, NULL)) {
                 set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 execute_syscall = false;
                 break;
             }
-            set_failure_return_val(dcontext, EINTR);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
+            bool sig_pending = false;
+            if (!handle_pre_extended_syscall_sigmasks(dcontext, data.sigmask,
+                                                      data.sizemask, &sig_pending)) {
+                set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
+            if (sig_pending) {
+                if (!safe_write_ex((void *)&data_param->sigmask,
+                                   sizeof(data_param->sigmask), &dcontext->sys_param4,
+                                   NULL)) {
+                    set_failure_return_val(dcontext, EFAULT);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                    execute_syscall = false;
+                    break;
+                }
+                set_failure_return_val(dcontext, EINTR);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
         }
         break;
     }
     case SYS_epoll_pwait: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 4);
-        size_t sizemask = (size_t)sys_param(dcontext, 5);
-        /* Refer to comments in SYS_ppoll above. */
-        dcontext->sys_param4 = (reg_t)sigmask;
-        set_syscall_param(dcontext, 4, (reg_t)NULL);
-        bool sig_pending = false;
-        if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
-                                                  &sig_pending)) {
-            set_failure_return_val(dcontext, EINVAL);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
-        }
-        if (sig_pending) {
-            set_syscall_param(dcontext, 4, dcontext->sys_param4);
-            set_failure_return_val(dcontext, EINTR);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-            execute_syscall = false;
+        if (sigmask != NULL) {
+            size_t sizemask = (size_t)sys_param(dcontext, 5);
+            /* Refer to comments in SYS_ppoll above. */
+            dcontext->sys_param4 = (reg_t)sigmask;
+            set_syscall_param(dcontext, 4, (reg_t)NULL);
+            bool sig_pending = false;
+            if (!handle_pre_extended_syscall_sigmasks(dcontext, sigmask, sizemask,
+                                                      &sig_pending)) {
+                set_failure_return_val(dcontext, EINVAL);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
+            if (sig_pending) {
+                set_syscall_param(dcontext, 4, dcontext->sys_param4);
+                set_failure_return_val(dcontext, EINTR);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                execute_syscall = false;
+            }
         }
         break;
     }
@@ -8280,8 +8289,8 @@ post_system_call(dcontext_t *dcontext)
 #endif
 #ifdef LINUX
     case SYS_ppoll: {
-        handle_post_extended_syscall_sigmasks(dcontext, success);
-        set_syscall_param(dcontext, 3, dcontext->sys_param3);
+        if (handle_post_extended_syscall_sigmasks(dcontext, success))
+            set_syscall_param(dcontext, 3, dcontext->sys_param3);
         break;
     }
     case SYS_pselect6: {
@@ -8290,16 +8299,17 @@ post_system_call(dcontext_t *dcontext)
             size_t sizemask;
         } data_t;
         data_t *data_param = (data_t *)dcontext->sys_param3;
-        handle_post_extended_syscall_sigmasks(dcontext, success);
-        if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
-                           &dcontext->sys_param4, NULL)) {
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tEFAULT for pselect6 post syscall\n");
+        if (handle_post_extended_syscall_sigmasks(dcontext, success)) {
+            if (!safe_write_ex((void *)&data_param->sigmask, sizeof(data_param->sigmask),
+                               &dcontext->sys_param4, NULL)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "\tEFAULT for pselect6 post syscall\n");
+            }
         }
         break;
     }
     case SYS_epoll_pwait: {
-        handle_post_extended_syscall_sigmasks(dcontext, success);
-        set_syscall_param(dcontext, 4, dcontext->sys_param4);
+        if (handle_post_extended_syscall_sigmasks(dcontext, success))
+            set_syscall_param(dcontext, 4, dcontext->sys_param4);
         break;
     }
 #endif

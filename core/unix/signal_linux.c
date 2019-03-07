@@ -361,11 +361,11 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
      * are not properly emulated w.r.t. their atomicity setting the sigprocmask and
      * executing the syscall.
      */
+    *pending = false;
     if (sizemask != sizeof(kernel_sigset_t))
         return false;
+    ASSERT(sigmask != NULL);
     ASSERT(!info->pre_syscall_app_sigprocmask_valid);
-    if (sigmask == NULL)
-        return true;
     info->pre_syscall_app_sigprocmask_valid = true;
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
     signal_set_mask(dcontext, sigmask);
@@ -375,14 +375,15 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
     return true;
 }
 
-void
+bool
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if (!info->pre_syscall_app_sigprocmask_valid)
-        return;
+        return false;
     info->pre_syscall_app_sigprocmask_valid = false;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
+    return true;
 }
 
 ptr_int_t
