@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1185,18 +1185,18 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #endif
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
-#    define LOG(file, mask, level, ...)                        \
-        do {                                                   \
-            if (stats != NULL && stats->loglevel >= (level) && \
-                (stats->logmask & (mask)) != 0)                \
-                print_log(file, mask, level, __VA_ARGS__);     \
+#    define LOG(file, mask, level, ...)                                \
+        do {                                                           \
+            if (d_r_stats != NULL && d_r_stats->loglevel >= (level) && \
+                (d_r_stats->logmask & (mask)) != 0)                    \
+                print_log(file, mask, level, __VA_ARGS__);             \
         } while (0)
 /* use DOELOG for customer visible logging. statement can be a {} block */
-#    define DOELOG(level, mask, statement)                     \
-        do {                                                   \
-            if (stats != NULL && stats->loglevel >= (level) && \
-                (stats->logmask & (mask)) != 0)                \
-                statement                                      \
+#    define DOELOG(level, mask, statement)                             \
+        do {                                                           \
+            if (d_r_stats != NULL && d_r_stats->loglevel >= (level) && \
+                (d_r_stats->logmask & (mask)) != 0)                    \
+                statement                                              \
         } while (0)
 /* not using DYNAMO_OPTION b/c it contains ASSERT */
 #    define DOCHECK(level, statement) \
@@ -1556,9 +1556,9 @@ enum { LONGJMP_EXCEPTION = 1 };
 /* If -no_global_rstats, all values will be 0, so user does not have to
  * use DO_GLOBAL_STATS or check runtime option.
  */
-#define GLOBAL_STAT(stat) stats->stat##_pair.value
+#define GLOBAL_STAT(stat) d_r_stats->stat##_pair.value
 /* explicit macro for addr so no assumptions on GLOBAL_STAT being lvalue */
-#define GLOBAL_STAT_ADDR(stat) &(stats->stat##_pair.value)
+#define GLOBAL_STAT_ADDR(stat) &(d_r_stats->stat##_pair.value)
 #define DO_GLOBAL_STATS(statement) \
     do {                           \
         if (GLOBAL_STATS_ON()) {   \
@@ -1728,7 +1728,7 @@ enum { LONGJMP_EXCEPTION = 1 };
  * setting of the max, otherwise you're open to race conditions involving
  * multiple threads adjusting the same stats and setting peak/max FIXME
  */
-#    define GLOBAL_STATS_ON() (stats != NULL && INTERNAL_OPTION(global_stats))
+#    define GLOBAL_STATS_ON() (d_r_stats != NULL && INTERNAL_OPTION(global_stats))
 #    define THREAD_STAT(dcontext, stat) (dcontext->thread_stats)->stat##_thread
 #    define THREAD_STATS_ON(dcontext)                         \
         (dcontext != NULL && INTERNAL_OPTION(thread_stats) && \
@@ -1769,7 +1769,7 @@ enum { LONGJMP_EXCEPTION = 1 };
 #    define THREAD_STATS_ON(dcontext) false
 #    define XSTATS_WITH_DC(var, statement) statement
 #    define DO_THREAD_STATS(dcontext, statement) /* nothing */
-#    define GLOBAL_STATS_ON() (stats != NULL && DYNAMO_OPTION(global_rstats))
+#    define GLOBAL_STATS_ON() (d_r_stats != NULL && DYNAMO_OPTION(global_rstats))
 
 /* Would be nice to catch incorrect usage of STATS_INC on a release-build
  * stat: if rename release vars, have to use separate GLOBAL_RSTAT though.
@@ -1970,16 +1970,16 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag, app_pc pc, app_pc r
                    const char *fmt, ...);
 
 void
-notify(syslog_event_type_t priority, bool internal, bool synch,
-       IF_WINDOWS_(uint message_id) uint substitution_nam, const char *prefix,
-       const char *fmt, ...);
+d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
+           IF_WINDOWS_(uint message_id) uint substitution_nam, const char *prefix,
+           const char *fmt, ...);
 
-#define SYSLOG_COMMON(synch, type, id, sub, ...)                                    \
-    notify(type, false, synch, IF_WINDOWS_(MSG_##id) sub, #type, MSG_##id##_STRING, \
-           __VA_ARGS__)
+#define SYSLOG_COMMON(synch, type, id, sub, ...)                                        \
+    d_r_notify(type, false, synch, IF_WINDOWS_(MSG_##id) sub, #type, MSG_##id##_STRING, \
+               __VA_ARGS__)
 
 #define SYSLOG_INTERNAL_COMMON(synch, type, ...) \
-    notify(type, true, synch, IF_WINDOWS_(MSG_INTERNAL_##type) 0, #type, __VA_ARGS__)
+    d_r_notify(type, true, synch, IF_WINDOWS_(MSG_INTERNAL_##type) 0, #type, __VA_ARGS__)
 
 /* For security messages use passed in fmt string instead of eventlog fmt
  * string for LOG/stderr/msgbox to avoid breaking our regression suite,
@@ -1991,7 +1991,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * then we could use the eventlog string.
  */
 #define SYSLOG_CUSTOM_NOTIFY(type, id, sub, ...) \
-    notify(type, false, true, IF_WINDOWS_(id) sub, #type, __VA_ARGS__)
+    d_r_notify(type, false, true, IF_WINDOWS_(id) sub, #type, __VA_ARGS__)
 
 #define SYSLOG(type, id, sub, ...) SYSLOG_COMMON(true, type, id, sub, __VA_ARGS__)
 #define SYSLOG_NO_OPTION_SYNCH(type, id, sub, ...) \
@@ -2211,8 +2211,8 @@ check_low_disk_threshold(file_t f, uint64 new_file_size);
 #define MD5_STRING_LENGTH (2 * MD5_RAW_BYTES)
 
 /* To compute the message digest of several chunks of bytes, declare
- * an MD5Context structure, pass it to MD5Init, call MD5Update as
- * needed on buffers full of bytes, and then call MD5Final, which will
+ * an MD5Context structure, pass it to d_r_md5_init, call d_r_md5_update as
+ * needed on buffers full of bytes, and then call d_r_md5_final, which will
  * fill a supplied 16-byte array with the digest.
  */
 struct MD5Context {
@@ -2222,11 +2222,11 @@ struct MD5Context {
 };
 
 void
-MD5Init(struct MD5Context *ctx);
+d_r_md5_init(struct MD5Context *ctx);
 void
-MD5Update(struct MD5Context *ctx, const unsigned char *buf, size_t len);
+d_r_md5_update(struct MD5Context *ctx, const unsigned char *buf, size_t len);
 void
-MD5Final(unsigned char digest[16], struct MD5Context *ctx);
+d_r_md5_final(unsigned char digest[16], struct MD5Context *ctx);
 
 #ifdef PROCESS_CONTROL
 bool
@@ -2262,7 +2262,7 @@ void
 convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT);
 
 uint
-crc32(const char *buf, const uint len);
+d_r_crc32(const char *buf, const uint len);
 void
 utils_init(void);
 void

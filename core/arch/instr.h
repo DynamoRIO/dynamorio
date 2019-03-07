@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,6 +55,15 @@
 #    undef INSTR_INLINE
 #else
 #    define DR_FAST_IR 1
+#endif
+
+/* Avoid clang-format bug in i#3158 where having ifdef AVOID_API_EXPORT before
+ * a declaration causes the declaration to be indented and skipped by genapi.pl.
+ */
+#ifdef AVOID_API_EXPORT
+#    define INSTR_INLINE_INTERNALLY INSTR_INLINE
+#else
+#    define INSTR_INLINE_INTERNALLY /* nothing */
 #endif
 
 /* can't include decode.h, it includes us, just declare struct */
@@ -994,13 +1003,11 @@ DR_API
 void
 instr_set_target(instr_t *cti_instr, opnd_t target);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE /* hot internally */
-#endif
-    DR_API
-    /** Returns true iff \p instr's operands are up to date. */
-    bool
-    instr_operands_valid(instr_t *instr);
+INSTR_INLINE_INTERNALLY
+DR_API
+/** Returns true iff \p instr's operands are up to date. */
+bool
+instr_operands_valid(instr_t *instr);
 
 DR_API
 /** Sets \p instr's operands to be valid if \p valid is true, invalid otherwise. */
@@ -1094,29 +1101,23 @@ DR_API
 void
 instr_set_raw_bits_valid(instr_t *instr, bool valid);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE /* internal inline */
-#endif
-    DR_API
-    /** Returns true iff \p instr's raw bits are a valid encoding of instr. */
-    bool
-    instr_raw_bits_valid(instr_t *instr);
+INSTR_INLINE_INTERNALLY
+DR_API
+/** Returns true iff \p instr's raw bits are a valid encoding of instr. */
+bool
+instr_raw_bits_valid(instr_t *instr);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE /* internal inline */
-#endif
-    DR_API
-    /** Returns true iff \p instr has its own allocated memory for raw bits. */
-    bool
-    instr_has_allocated_bits(instr_t *instr);
+INSTR_INLINE_INTERNALLY
+DR_API
+/** Returns true iff \p instr has its own allocated memory for raw bits. */
+bool
+instr_has_allocated_bits(instr_t *instr);
 
-#ifdef AVOID_API_EXPORT
-INSTR_INLINE /* internal inline */
-#endif
-    DR_API
-    /** Returns true iff \p instr's raw bits are not a valid encoding of \p instr. */
-    bool
-    instr_needs_encoding(instr_t *instr);
+INSTR_INLINE_INTERNALLY
+DR_API
+/** Returns true iff \p instr's raw bits are not a valid encoding of \p instr. */
+bool
+instr_needs_encoding(instr_t *instr);
 
 DR_API
 /**
@@ -2386,10 +2387,10 @@ opnd_t
 instr_get_src_mem_access(instr_t *instr);
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
 
 DR_API
 /**

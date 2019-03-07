@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -249,15 +249,15 @@ OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING, "directory for log files")
  yet we'll also have the initial value in options_t at the cost of 8 bytes */
 OPTION_COMMAND(uint, stats_logmask, 0, "logmask",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->logmask = options->stats_logmask;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->logmask = options->stats_logmask;
                },
                "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
 
 OPTION_COMMAND(uint, stats_loglevel, 0, "loglevel",
                {
-                   if (stats != NULL && for_this_process)
-                       stats->loglevel = options->stats_loglevel;
+                   if (d_r_stats != NULL && for_this_process)
+                       d_r_stats->loglevel = options->stats_loglevel;
                },
                "set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
 OPTION_INTERNAL(bool, log_to_stderr, "log to stderr instead of files")
@@ -2800,7 +2800,7 @@ OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false,
         "detach once a thread has 2 levels of nested callbacks (for internal testing)")
     OPTION_DEFAULT_INTERNAL(bool, detach_fix_sysenter_on_stack, true /* default true */,
         "if false then detach does not fix sysenter callbacks on the stack and instead "
-        "uses the emitted dispatch code used for other system calls (a fairly minor "
+        "uses the emitted d_r_dispatch code used for other system calls (a fairly minor "
         "transparency violation).  Used for internal testing.")
 
      /* for stress testing can use 1 */

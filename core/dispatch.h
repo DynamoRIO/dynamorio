@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,7 +46,7 @@ is_stopping_point(dcontext_t *dcontext, app_pc pc);
 
 /* central hub of control flow in DynamoRIO */
 void
-dispatch(dcontext_t *dcontext);
+d_r_dispatch(dcontext_t *dcontext);
 
 void
 issue_last_system_call_from_app(dcontext_t *dcontext);

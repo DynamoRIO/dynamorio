@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -54,7 +54,6 @@
 #include "../emit.h"
 #include "../link.h"
 #include "../monitor.h" /* for mark_trace_head */
-#include <string.h>     /* for strstr */
 #include <stdarg.h>     /* for varargs */
 #include "../nudge.h"   /* for nudge_internal() */
 #include "../synch.h"
@@ -1549,8 +1548,10 @@ check_ilist_translations(instrlist_t *ilist)
             CLIENT_ASSERT(INTERNAL_OPTION(fast_client_decode), "level 0 instr found");
         } else if (instr_is_app(in)) {
             DOLOG(LOG_INTERP, 1, {
-                if (instr_get_translation(in) == NULL)
-                    loginst(get_thread_private_dcontext(), 1, in, "translation is NULL");
+                if (instr_get_translation(in) == NULL) {
+                    d_r_loginst(get_thread_private_dcontext(), 1, in,
+                                "translation is NULL");
+                }
             });
             CLIENT_ASSERT(instr_get_translation(in) != NULL,
                           "translation field must be set for every app instruction");
@@ -1560,8 +1561,10 @@ check_ilist_translations(instrlist_t *ilist)
              * empty restore event callback in that case. */
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) != NULL && !instr_is_our_mangling(in) &&
-                    !dr_xl8_hook_exists())
-                    loginst(get_thread_private_dcontext(), 1, in, "translation != NULL");
+                    !dr_xl8_hook_exists()) {
+                    d_r_loginst(get_thread_private_dcontext(), 1, in,
+                                "translation != NULL");
+                }
             });
             CLIENT_ASSERT(instr_get_translation(in) == NULL ||
                               instr_is_our_mangling(in) || dr_xl8_hook_exists(),
@@ -1599,7 +1602,7 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_basic_block ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
 #    endif
 
@@ -1629,7 +1632,7 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
 
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
 #    endif
 
@@ -1656,7 +1659,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_trace ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 
@@ -1693,7 +1696,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 
 #    ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_INTERP) != 0)
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #    endif
 
@@ -2719,8 +2722,9 @@ bool
 dr_get_os_version(dr_os_version_info_t *info)
 {
     int ver;
-    uint sp_major, sp_minor;
-    get_os_version_ex(&ver, &sp_major, &sp_minor);
+    uint sp_major, sp_minor, build_number;
+    const char *release_id, *edition;
+    get_os_version_ex(&ver, &sp_major, &sp_minor, &build_number, &release_id, &edition);
     if (info->size > offsetof(dr_os_version_info_t, version)) {
         switch (ver) {
         case WINDOWS_VERSION_10_1803: info->version = DR_WINDOWS_VERSION_10_1803; break;
@@ -2746,6 +2750,18 @@ dr_get_os_version(dr_os_version_info_t *info)
         if (info->size > offsetof(dr_os_version_info_t, service_pack_minor)) {
             info->service_pack_minor = sp_minor;
         }
+    }
+    if (info->size > offsetof(dr_os_version_info_t, build_number)) {
+        info->build_number = build_number;
+    }
+    if (info->size > offsetof(dr_os_version_info_t, release_id)) {
+        dr_snprintf(info->release_id, BUFFER_SIZE_ELEMENTS(info->release_id), "%s",
+                    release_id);
+        NULL_TERMINATE_BUFFER(info->release_id);
+    }
+    if (info->size > offsetof(dr_os_version_info_t, edition)) {
+        dr_snprintf(info->edition, BUFFER_SIZE_ELEMENTS(info->edition), "%s", edition);
+        NULL_TERMINATE_BUFFER(info->edition);
     }
     return true;
 }
@@ -4292,7 +4308,8 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
 #    ifdef DEBUG
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     va_list ap;
-    if (stats != NULL && ((stats->logmask & mask) == 0 || stats->loglevel < level))
+    if (d_r_stats != NULL &&
+        ((d_r_stats->logmask & mask) == 0 || d_r_stats->loglevel < level))
         return;
     va_start(ap, fmt);
     if (dcontext != NULL)
@@ -4596,12 +4613,12 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    /* PR 219380: we use our_vsnprintf instead of ntdll._vsnprintf b/c the
+    /* PR 219380: we use d_r_vsnprintf instead of ntdll._vsnprintf b/c the
      * latter does not support floating point.
-     * Plus, our_vsnprintf returns -1 for > max chars (matching Windows
+     * Plus, d_r_vsnprintf returns -1 for > max chars (matching Windows
      * behavior, but which Linux libc version does not do).
      */
-    res = our_vsnprintf(buf, max, fmt, ap);
+    res = d_r_vsnprintf(buf, max, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -4609,7 +4626,7 @@ dr_snprintf(char *buf, size_t max, const char *fmt, ...)
 DR_API int
 dr_vsnprintf(char *buf, size_t max, const char *fmt, va_list ap)
 {
-    return our_vsnprintf(buf, max, fmt, ap);
+    return d_r_vsnprintf(buf, max, fmt, ap);
 }
 
 DR_API int
@@ -4618,7 +4635,7 @@ dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    res = our_vsnprintf_wide(buf, max, fmt, ap);
+    res = d_r_vsnprintf_wide(buf, max, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -4626,7 +4643,7 @@ dr_snwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, ...)
 DR_API int
 dr_vsnwprintf(wchar_t *buf, size_t max, const wchar_t *fmt, va_list ap)
 {
-    return our_vsnprintf_wide(buf, max, fmt, ap);
+    return d_r_vsnprintf_wide(buf, max, fmt, ap);
 }
 
 DR_API int
@@ -4635,7 +4652,7 @@ dr_sscanf(const char *str, const char *fmt, ...)
     int res;
     va_list ap;
     va_start(ap, fmt);
-    res = our_vsscanf(str, fmt, ap);
+    res = d_r_vsscanf(str, fmt, ap);
     va_end(ap);
     return res;
 }
@@ -6380,7 +6397,7 @@ dr_clobber_retaddr_after_read(void *drcontext, instrlist_t *ilist, instr_t *inst
          * overlap w/ any client uses (DRMGR_NOTE_NONE == 0).
          */
         label->note = 0;
-        /* these values are read back in mangle() */
+        /* these values are read back in d_r_mangle() */
         data->data[0] = (ptr_uint_t)instr;
         data->data[1] = value;
         label->flags |= INSTR_CLOBBER_RETADDR;
@@ -6730,7 +6747,7 @@ dr_delete_fragment(void *drcontext, void *tag)
         /* unlink fragment so will return to dynamo and delete.
          * Do not remove the fragment from the hashtable --
          * we need to be able to look up the fragment when
-         * inspecting the to_do list in dispatch.
+         * inspecting the to_do list in d_r_dispatch.
          */
         if ((f->flags & FRAG_LINKED_INCOMING) != 0)
             unlink_fragment_incoming(dcontext, f);

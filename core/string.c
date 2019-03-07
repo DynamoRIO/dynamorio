@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,17 +49,17 @@
  * define or declare these routines.  We simplify our lives by avoiding
  * string.h.
  *
- * Other files are free to include string.h.  If the compiler decides not to
- * inline, it will emit a call to the routine with the standard name, and the
- * linker will resolve it to our implementations.
+ * Other files should not include string.h either.  On UNIX, we no longer use
+ * the standard string function names, so the linker will not resolve a
+ * compiler-inlined symbol to ours.
  */
 #ifdef _STRING_H
-#    error "Don't include <string.h> in string.c"
+#    error "Don't include <string.h>"
 #endif
 
 /* Private strlen. */
 size_t
-strlen(const char *str)
+d_r_strlen(const char *str)
 {
     const char *cur = str;
     while (*cur != '\0') {
@@ -70,7 +70,7 @@ strlen(const char *str)
 
 /* Private wcslen. */
 size_t
-wcslen(const wchar_t *str)
+d_r_wcslen(const wchar_t *str)
 {
     const wchar_t *cur = str;
     while (*cur != L'\0') {
@@ -84,7 +84,7 @@ wcslen(const wchar_t *str)
  * returning NULL.
  */
 char *
-strchr(const char *str, int c)
+d_r_strchr(const char *str, int c)
 {
     while (true) {
         if (*str == c)
@@ -101,7 +101,7 @@ strchr(const char *str, int c)
  * returning NULL.
  */
 char *
-strrchr(const char *str, int c)
+d_r_strrchr(const char *str, int c)
 {
     const char *ret = NULL;
     while (true) {
@@ -118,7 +118,7 @@ strrchr(const char *str, int c)
  * truncation applies.
  */
 char *
-strncpy(char *dst, const char *src, size_t n)
+d_r_strncpy(char *dst, const char *src, size_t n)
 {
     size_t i;
     for (i = 0; i < n && src[i] != '\0'; i++)
@@ -131,7 +131,7 @@ strncpy(char *dst, const char *src, size_t n)
 
 /* Private strncat. */
 char *
-strncat(char *dest, const char *src, size_t n)
+d_r_strncat(char *dest, const char *src, size_t n)
 {
     size_t dest_len = strlen(dest);
     size_t i;
@@ -150,7 +150,7 @@ strncat(char *dest, const char *src, size_t n)
  * you want.
  */
 void *
-memmove(void *dst, const void *src, size_t n)
+d_r_memmove(void *dst, const void *src, size_t n)
 {
     ssize_t i;
     byte *dst_b = (byte *)dst;
@@ -180,7 +180,7 @@ __memmove_chk(void *dst, const void *src, size_t n, size_t dst_len)
     return memmove(dst, src, n);
 }
 #    else
-    __attribute__((alias("memmove")));
+    __attribute__((alias("d_r_memmove")));
 #    endif
 void *
 __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
@@ -192,7 +192,7 @@ __strncpy_chk(char *dst, const char *src, size_t n, size_t dst_len)
     return strncpy(dst, src, n);
 }
 #    else
-    __attribute__((alias("strncpy")));
+    __attribute__((alias("d_r_strncpy")));
 #    endif
 void *
 __strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
@@ -204,13 +204,13 @@ __strncat_chk(char *dst, const char *src, size_t n, size_t dst_len)
     return strncat(dst, src, n);
 }
 #    else
-    __attribute__((alias("strncat")));
+    __attribute__((alias("d_r_strncat")));
 #    endif
 #endif
 
 /* Private strcmp. */
 int
-strcmp(const char *left, const char *right)
+d_r_strcmp(const char *left, const char *right)
 {
     size_t i;
     for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
@@ -224,7 +224,7 @@ strcmp(const char *left, const char *right)
 
 /* Private strncmp. */
 int
-strncmp(const char *left, const char *right, size_t n)
+d_r_strncmp(const char *left, const char *right, size_t n)
 {
     size_t i;
     for (i = 0; i < n && (left[i] != '\0' || right[i] != '\0'); i++) {
@@ -238,7 +238,7 @@ strncmp(const char *left, const char *right, size_t n)
 
 /* Private memcmp. */
 int
-memcmp(const void *left_v, const void *right_v, size_t n)
+d_r_memcmp(const void *left_v, const void *right_v, size_t n)
 {
     /* Use unsigned comparisons. */
     const byte *left = left_v;
@@ -255,7 +255,7 @@ memcmp(const void *left_v, const void *right_v, size_t n)
 
 /* Private strstr. */
 char *
-strstr(const char *haystack, const char *needle)
+d_r_strstr(const char *haystack, const char *needle)
 {
     const char *cur = haystack;
     size_t needle_len = strlen(needle);
@@ -270,7 +270,7 @@ strstr(const char *haystack, const char *needle)
 
 /* Private tolower. */
 int
-tolower(int c)
+d_r_tolower(int c)
 {
     if (c >= 'A' && c <= 'Z')
         return (c - ('A' - 'a'));
@@ -279,7 +279,7 @@ tolower(int c)
 
 /* Private strcasecmp. */
 int
-strcasecmp(const char *left, const char *right)
+d_r_strcasecmp(const char *left, const char *right)
 {
     size_t i;
     for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
@@ -301,7 +301,7 @@ strcasecmp(const char *left, const char *right)
  * can call parse_int directly.
  */
 unsigned long
-strtoul(const char *str, char **end, int base)
+d_r_strtoul(const char *str, char **end, int base)
 {
     uint64 num;
     const char *parse_end = parse_int(str, &num, base, 0 /*width*/, true /*signed*/);

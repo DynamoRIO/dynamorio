@@ -64,7 +64,6 @@
 #include "../globals.h"
 #include "../hashtable.h"
 #include "../native_exec.h"
-#include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
 
@@ -666,6 +665,19 @@ our_getenv(const char *name)
         }
     }
     return NULL;
+}
+
+bool
+is_our_environ_followed_by_auxv(void)
+{
+#ifdef STATIC_LIBRARY
+    /* Since we initialize late, our_environ is likely no longer pointed at
+     * the stack (i#2122).
+     */
+    return false;
+#else
+    return true;
+#endif
 }
 
 /* Work around drpreload's _init going first.  We can get envp in our own _init
@@ -2446,7 +2458,7 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
          * We assume the child will not modify this TLS copy in any way.
          * CLONE_SETTLS touc * hes the other segment (we'll have to watch for
          * addition of CLONE_SETTLS_AUX). The parent will use the scratch space
-         * returning from the syscall to dispatch, but we restore via os_clone_post()
+         * returning from the syscall to d_r_dispatch, but we restore via os_clone_post()
          * immediately before anybody calls get_thread_private_dcontext() or
          * anything.
          */
@@ -2507,7 +2519,7 @@ os_clone_pre(dcontext_t *dcontext)
     os_swap_dr_tls(dcontext, true /*to app*/);
 }
 
-/* This is called from dispatch prior to post_system_call() */
+/* This is called from d_r_dispatch prior to post_system_call() */
 void
 os_clone_post(dcontext_t *dcontext)
 {
@@ -4873,7 +4885,7 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
 static inline void
 set_success_return_val(dcontext_t *dcontext, reg_t val)
 {
-    /* since always coming from dispatch now, only need to set mcontext */
+    /* since always coming from d_r_dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
@@ -5564,7 +5576,7 @@ handle_execve(dcontext_t *dcontext)
         SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
         LOG(THREAD, LOG_SYSCALLS, 1, "syscall: execve %s\n", fname);
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 1, "execve %s\n", fname);
-        if (stats->loglevel >= 3) {
+        if (d_r_stats->loglevel >= 3) {
             if (argv == NULL) {
                 LOG(THREAD, LOG_SYSCALLS, 3, "\targs are NULL\n");
             } else {
@@ -5589,7 +5601,7 @@ handle_execve(dcontext_t *dcontext)
      * (to prevent heap accumulation from repeated vfork+execve).  Since vfork
      * on linux suspends the parent, there cannot be any races with the execve
      * syscall completing: there can't even be peer vfork threads, so we could
-     * set a flag and clean up in dispatch, but that seems overkill.  (If vfork
+     * set a flag and clean up in d_r_dispatch, but that seems overkill.  (If vfork
      * didn't suspend the parent we'd need to touch a marker file or something
      * to know the execve was finished.)
      */
@@ -5726,7 +5738,7 @@ handle_execve_post(dcontext_t *dcontext)
 /* i#237/PR 498284: to avoid accumulation of thread state we clean up a vfork
  * child who invoked execve here so we have at most one outstanding thread.  we
  * also clean up at process exit and before thread creation.  we could do this
- * in dispatch but too rare to be worth a flag check there.
+ * in d_r_dispatch but too rare to be worth a flag check there.
  */
 static void
 cleanup_after_vfork_execve(dcontext_t *dcontext)
@@ -7849,7 +7861,7 @@ post_system_call(dcontext_t *dcontext)
 
             /* now let dynamo initialize new shared memory, logfiles, etc.
              * need access to static vars in dynamo.c, that's why we don't do it. */
-            /* FIXME - xref PR 246902 - dispatch runs a lot of code before
+            /* FIXME - xref PR 246902 - d_r_dispatch runs a lot of code before
              * getting to post_system_call() is any of that going to be messed up
              * by waiting till here to fixup the child logfolder/file and tid?
              */
@@ -9836,8 +9848,8 @@ os_thread_take_over(priv_mcontext_t *mc, kernel_sigset_t *sigset)
     });
 
     /* Start interpreting from the signal context. */
-    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))dispatch,
-                      NULL /*not on initstack*/, false /*shouldn't return*/);
+    call_switch_stack(dcontext, dcontext->dstack, (void (*)(void *))d_r_dispatch,
+                      NULL /*not on d_r_initstack*/, false /*shouldn't return*/);
     ASSERT_NOT_REACHED();
     return true; /* make compiler happy */
 }

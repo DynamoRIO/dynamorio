@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -663,6 +663,8 @@ dr_init(client_id_t id)
      */
     if (!dr_get_os_version(&info))
         dr_fprintf(STDERR, "dr_get_os_version failed!\n");
+    if (info.build_number == 0 || info.edition[0] == '\0')
+        dr_fprintf(STDERR, "dr_get_os_version failed to get new fields\n");
 #endif
 
     for (i = 0; i < EVENT_last; i++)

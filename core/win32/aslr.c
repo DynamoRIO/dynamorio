@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1179,7 +1179,7 @@ aslr_get_module_mapping_size(HANDLE section_handle, size_t *module_size, uint pr
     return true;
 }
 
-/* since always coming from dispatch now, only need to set mcontext, but we
+/* since always coming from d_r_dispatch now, only need to set mcontext, but we
  * continue to set reg_eax in case it's read later in the routine
  * FIXME: assumes local variable reg_eax
  */
@@ -2813,9 +2813,9 @@ aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_point
      *  <metadata>  <!- not really going be in xml -->
      *    name=""
      *    <original>
-     *     <checksum md5|crc32|sha1= /> <-- staleness -->
+     *     <checksum md5|d_r_crc32|sha1= /> <-- staleness -->
      *    <rebased>
-     *     <checksum md5|crc32|sha1= /> <-- corruption -->
+     *     <checksum md5|d_r_crc32|sha1= /> <-- corruption -->
      *  </metadata>
      *  <hash>md5(metadata)</hash>
      *
@@ -2835,7 +2835,7 @@ aslr_module_read_signature(HANDLE randomized_file, uint64 *randomized_file_point
      */
 
     /* see reactos/0.2.9/lib/ntdll/ldr/utils.c for the original
-     * LdrpCheckImageChecksum, though we could produce our own crc32()
+     * LdrpCheckImageChecksum, though we could produce our own d_r_crc32()
      * checksum on original file as well and store it as checksum of
      * our generated file in some PE orifice.
      */
@@ -3869,7 +3869,7 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
     }
 
     /* name hash over the wide char as bytes (many will be 0's but OK) */
-    name_hash = crc32((char *)name_info.FileName, name_info.FileNameLength);
+    name_hash = d_r_crc32((char *)name_info.FileName, name_info.FileNameLength);
 
     /* xor over the file size as bytes */
     final_hash =

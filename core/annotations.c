@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -43,10 +43,6 @@
 #    if !(defined(WINDOWS) && defined(X64))
 #        include "../third_party/valgrind/valgrind.h"
 #        include "../third_party/valgrind/memcheck.h"
-#    endif
-
-#    ifdef UNIX
-#        include <string.h>
 #    endif
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.
@@ -1095,9 +1091,9 @@ annotation_printf(const char *format, ...)
     char *timestamped_format = NULL;
     uint buffer_length = 0;
 
-    if (stats == NULL || stats->loglevel == 0)
+    if (d_r_stats == NULL || d_r_stats->loglevel == 0)
         return 0; /* No log is available for writing. */
-    if ((stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
+    if ((d_r_stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
         return 0; /* Filtered out by the user. */
 
     /* Substitute the first instance of the timestamp token with a timestamp string.
@@ -1115,9 +1111,9 @@ annotation_printf(const char *format, ...)
                                                   ACCT_OTHER, UNPROTECTED);
 
             /* copy the original format string up to the timestamp token */
-            our_snprintf(timestamped_format, length_before_token, "%s", format);
+            d_r_snprintf(timestamped_format, length_before_token, "%s", format);
             /* copy the timestamp and the remainder of the original format string */
-            our_snprintf(timestamped_format + length_before_token,
+            d_r_snprintf(timestamped_format + length_before_token,
                          (buffer_length - length_before_token), "%s%s", timestamp_buffer,
                          timestamp_token_start + LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH);
             /* use the timestamped format string */

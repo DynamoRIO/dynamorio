@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,7 +113,12 @@ void *peb_ptr;
 static int os_version;
 static uint os_service_pack_major;
 static uint os_service_pack_minor;
+static uint os_build_number;
+#    define REGISTRY_VERSION_STRING_MAX_LEN 64
+static char os_release_id[REGISTRY_VERSION_STRING_MAX_LEN];
+static char os_edition[REGISTRY_VERSION_STRING_MAX_LEN];
 static const char *os_name;
+static char os_name_buf[MAXIMUM_PATH];
 app_pc vsyscall_page_start = NULL;
 /* pc kernel will claim app is at while in syscall */
 app_pc vsyscall_after_syscall = NULL;
@@ -528,6 +533,28 @@ get_context_xstate_flag(void)
     return IF_X64_ELSE((CONTEXT_AMD64 | 0x20L), (CONTEXT_i386 | 0x40L));
 }
 
+/* Returns false and marks 'value' as an empty string when it fails. */
+static bool
+read_version_registry_value(const wchar_t *name, char *value OUT, size_t value_sz)
+{
+    reg_query_value_result_t result;
+    char buf_array[sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
+                   sizeof(wchar_t) * (MAX_REGISTRY_PARAMETER + 1)];
+    KEY_VALUE_PARTIAL_INFORMATION *kvpi = (KEY_VALUE_PARTIAL_INFORMATION *)buf_array;
+    result = reg_query_value(L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\"
+                             L"Windows NT\\CurrentVersion",
+                             name, KeyValuePartialInformation, kvpi,
+                             BUFFER_SIZE_BYTES(buf_array), 0);
+    if (result == REG_QUERY_SUCCESS) {
+        snprintf(value, value_sz, "%*ls", kvpi->DataLength / sizeof(wchar_t) - 1,
+                 (wchar_t *)kvpi->Data);
+        value[value_sz - 1] = '\0';
+        return true;
+    }
+    value[0] = '\0';
+    return false;
+}
+
 /* FIXME: Right now error reporting will work here, but once we have our
  * error reporting syscalls going through wrappers and requiring this
  * init routine, we'll have to have a fallback here that dynamically
@@ -535,6 +562,8 @@ get_context_xstate_flag(void)
  * We may never be able to report errors for the non-NT OS family.
  * N.B.: this is too early for LOGs so don't do any -- any errors reported
  * will not die, they will simply skip LOG.
+ * N.B.: This is before stderr_mask has been parsed, so don't print any
+ * informational-only messages, or tests will break.
  * N.B.: this is prior to eventlog_init(), but then we've been reporting
  * usage errors prior to that for a long time now anyway.
  */
@@ -556,6 +585,24 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
      */
     os_service_pack_major = (peb->OSCSDVersion & 0xff00) >> 8;
     os_service_pack_minor = (peb->OSCSDVersion & 0xff);
+
+    /* Get various further data needed to distinguish Win10 and other versions. */
+    char buf[64];
+    if (read_version_registry_value(L"CurrentBuild", buf, BUFFER_SIZE_ELEMENTS(buf))) {
+        if (sscanf(buf, "%u", &os_build_number) != 1) {
+            SYSLOG_INTERNAL_WARNING("Failed to parse CurrentBuild '%s'", buf);
+        }
+    } /* Else just leave it blank. */
+    read_version_registry_value(L"EditionId", os_edition,
+                                BUFFER_SIZE_ELEMENTS(os_edition));
+    read_version_registry_value(L"ReleaseId", os_release_id,
+                                BUFFER_SIZE_ELEMENTS(os_release_id));
+#    ifdef CLIENT_INTERFACE
+    ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
+           sizeof(((dr_os_version_info_t *)0)->release_id));
+    ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
+           sizeof(((dr_os_version_info_t *)0)->edition));
+#    endif
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
@@ -793,9 +840,23 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
         }
         if (syscalls == NULL) {
             if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0) {
-                SYSLOG_INTERNAL_WARNING(
-                    "WARNING: Running on unsupported Windows 10+ version");
-                os_name = "Unknown Windows 10+ version";
+                if (os_release_id[0] != '\0') {
+                    snprintf(os_name_buf, BUFFER_SIZE_ELEMENTS(os_name_buf) - 1,
+                             "Microsoft Windows 10-%s%s", os_release_id,
+                             (module_is_64bit(get_ntdll_base()) ||
+                              is_wow64_process(NT_CURRENT_PROCESS))
+                                 ? " x64"
+                                 : "");
+                    NULL_TERMINATE_BUFFER(os_name_buf);
+                    os_name = os_name_buf;
+                    /* We print a notification in os_init() after stderr_mask options
+                     * have been parsed.
+                     */
+                } else {
+                    os_name = "Unknown Windows 10+ version";
+                    SYSLOG_INTERNAL_WARNING("WARNING: Running on unknown "
+                                            "Windows 10+ version");
+                }
             } else {
                 SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: %d.%d",
                                       peb->OSMajorVersion, peb->OSMinorVersion);
@@ -903,6 +964,14 @@ os_init(void)
         peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
         SYSLOG(SYSLOG_WARNING, UNSUPPORTED_OS_VERSION, 3, get_application_name(),
                get_application_pid(), os_name);
+    }
+    if (peb->OSMajorVersion == 10 && peb->OSMinorVersion == 0 &&
+        os_release_id[0] != '\0') {
+        /* Not a warning since we can rely on dynamically finding DR's
+         * syscalls (in the absense of hooks, for which we might want
+         * a solution like Dr. Memory's: i#2713).
+         */
+        SYSLOG_INTERNAL_INFO("Running on newer-than-this-build \"%s\"", os_name);
     }
 
     /* make sure we create the message box title string before we are
@@ -2035,7 +2104,7 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
  * As part of this I also changed the takeover to not store the context at
  * suspend time and instead only change Eip then, capturing the context when
  * the thread resumes.  This requires an assume-nothing routine, which
- * requires initstack: but these takeover points shouldn't be perf-critical.
+ * requires d_r_initstack: but these takeover points shouldn't be perf-critical.
  * This really simplifies the wow64 entry/exit corner cases.
  */
 static bool
@@ -2806,7 +2875,8 @@ get_os_version()
 
 void
 get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
-                  uint *service_pack_minor OUT)
+                  uint *service_pack_minor OUT, uint *build_number OUT,
+                  const char **release_id OUT, const char **edition OUT)
 {
     if (version != NULL)
         *version = os_version;
@@ -2814,6 +2884,12 @@ get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
         *service_pack_major = os_service_pack_major;
     if (service_pack_minor != NULL)
         *service_pack_minor = os_service_pack_minor;
+    if (build_number != NULL)
+        *build_number = os_build_number;
+    if (release_id != NULL)
+        *release_id = os_release_id;
+    if (edition != NULL)
+        *edition = os_edition;
 }
 
 bool
@@ -8764,12 +8840,12 @@ early_inject_init()
         dcontext->thread_record->under_dynamo_control = false;
         whereami_save = dcontext->whereami;
         /* FIXME - this is an ugly hack to get the kstack in a form compatible
-         * with dispatch for processing the native exec syscalls we'll hit
+         * with d_r_dispatch for processing the native exec syscalls we'll hit
          * while loading the helper dll (hotpatch has a similar issue but
          * lucks out with having a compatible stack).  Shouldn't mess things
          * up too much though.  We do have to use non-matching stops so not
          * sure how accurate these times will be (should be tiny anyways)
-         * should poke around dispatch sometime and figure out some way to
+         * should poke around d_r_dispatch sometime and figure out some way to
          * do this nicer. */
         KSTART(dispatch_num_exits);
         KSTART(dispatch_num_exits);

@@ -1,6 +1,6 @@
 /* **********************************************************
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,7 +44,6 @@
 #include "configure_defines.h"
 #include "utils.h"
 #include "module_shared.h"
-#include <string.h> /* for memset */
 #include <math.h>
 
 #ifdef PROCESS_CONTROL
@@ -100,7 +99,7 @@ soft_terminate()
 #endif
     /* set exited status for shared memory watchers, other threads */
     DOSTATS({
-        if (stats != NULL)
+        if (d_r_stats != NULL)
             GLOBAL_STAT(exited) = true;
     });
 
@@ -187,7 +186,7 @@ internal_error(const char *file, int line, const char *expr)
                              file, line, expr
 #    if defined(DEBUG) && defined(INTERNAL)
                              ,
-                             stats == NULL ? -1 : GLOBAL_STAT(num_fragments)
+                             d_r_stats == NULL ? -1 : GLOBAL_STAT(num_fragments)
 #    endif
     );
 
@@ -1790,11 +1789,11 @@ vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
                  va_list ap)
 {
     /* in io.c */
-    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    extern int d_r_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     bool ok;
-    /* we use our_vsnprintf for consistent return value and to handle floats */
-    len = our_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
+    /* we use d_r_vsnprintf for consistent return value and to handle floats */
+    len = d_r_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
     /* we support appending an empty string (len==0) */
     ok = (len >= 0 && len < (ssize_t)(bufsz - *sofar));
     *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
@@ -1832,7 +1831,8 @@ print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 #ifdef DEBUG
     /* FIXME: now the LOG macro checks these, remove here? */
     if (logfile == INVALID_FILE ||
-        (stats != NULL && ((stats->logmask & mask) == 0 || stats->loglevel < level)))
+        (d_r_stats != NULL &&
+         ((d_r_stats->logmask & mask) == 0 || d_r_stats->loglevel < level)))
         return;
 #else
     return;
@@ -1864,9 +1864,9 @@ do_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  *      a wait for a keypress on linux
  */
 void
-notify(syslog_event_type_t priority, bool internal, bool synch,
-       IF_WINDOWS_(uint message_id) uint substitution_num, const char *prefix,
-       const char *fmt, ...)
+d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
+           IF_WINDOWS_(uint message_id) uint substitution_num, const char *prefix,
+           const char *fmt, ...)
 {
     char msgbuf[MAX_LOG_LENGTH];
     int size;
@@ -2775,11 +2775,11 @@ create_log_dir(int dir_type)
     release_recursive_lock(&logdir_mutex);
 
 #ifdef DEBUG
-    if (stats != NULL) {
+    if (d_r_stats != NULL) {
         /* if null, we're trying to report an error (probably via a core dump),
          * so who cares if we lose logdir name */
-        strncpy(stats->logdir, logdir, sizeof(stats->logdir));
-        stats->logdir[sizeof(stats->logdir) - 1] = '\0'; /* if max no null */
+        strncpy(d_r_stats->logdir, logdir, sizeof(d_r_stats->logdir));
+        d_r_stats->logdir[sizeof(d_r_stats->logdir) - 1] = '\0'; /* if max no null */
     }
     if (dir_type == PROCESS_DIR
 #    ifdef UNIX
@@ -3188,7 +3188,7 @@ print_timestamp_to_buffer(char *buffer, size_t len)
     msec = (uint)(current_time % 1000);
     min = sec / 60;
     sec = sec % 60;
-    return our_snprintf(buffer, print_len, "(%ld:%02ld.%03ld)", min, sec, msec);
+    return d_r_snprintf(buffer, print_len, "(%ld:%02ld.%03ld)", min, sec, msec);
 }
 
 /* prints elapsed time since program startup to the given logfile
@@ -3422,7 +3422,7 @@ void
 print_version_and_app_info(file_t file)
 {
     print_file(file, "%s\n", dynamorio_version_string);
-    /* print qualified name (not stats->process_name) to get cmdline */
+    /* print qualified name (not d_r_stats->process_name) to get cmdline */
     print_file(file, "Running: %s\n", get_application_name());
 #ifdef WINDOWS
     /* FIXME: also get linux cmdline -- separate since wide on win32 */
@@ -3644,7 +3644,7 @@ static const uint crctab[] = {
 
 /* This function implements the Ethernet AUTODIN II CRC32 algorithm.  */
 uint
-crc32(const char *buf, const uint len)
+d_r_crc32(const char *buf, const uint len)
 {
     uint i;
     uint crc = 0xFFFFFFFF;
@@ -3671,8 +3671,8 @@ crc32(const char *buf, const uint len)
  * with every copy.
  *
  * To compute the message digest of a chunk of bytes, declare an
- * MD5Context structure, pass it to MD5Init, call MD5Update as
- * needed on buffers full of bytes, and then call MD5Final, which
+ * MD5Context structure, pass it to d_r_md5_init, call d_r_md5_update as
+ * needed on buffers full of bytes, and then call d_r_md5_final, which
  * will fill a supplied 16-byte array with the digest.
  */
 static void
@@ -3709,7 +3709,7 @@ static unsigned char PADDING[MD5_BLOCK_LENGTH] = {
  * initialization constants.
  */
 void
-MD5Init(struct MD5Context *ctx)
+d_r_md5_init(struct MD5Context *ctx)
 {
     ctx->count = 0;
     ctx->state[0] = 0x67452301;
@@ -3723,7 +3723,7 @@ MD5Init(struct MD5Context *ctx)
  * of bytes.
  */
 void
-MD5Update(struct MD5Context *ctx, const unsigned char *input, size_t len)
+d_r_md5_update(struct MD5Context *ctx, const unsigned char *input, size_t len)
 {
     size_t have, need;
 
@@ -3773,15 +3773,15 @@ MD5Pad(struct MD5Context *ctx)
     padlen = (size_t)(MD5_BLOCK_LENGTH - ((ctx->count >> 3) & (MD5_BLOCK_LENGTH - 1)));
     if (padlen < 1 + 8)
         padlen += MD5_BLOCK_LENGTH;
-    MD5Update(ctx, PADDING, padlen - 8); /* padlen - 8 <= 64 */
-    MD5Update(ctx, count, 8);
+    d_r_md5_update(ctx, PADDING, padlen - 8); /* padlen - 8 <= 64 */
+    d_r_md5_update(ctx, count, 8);
 }
 
 /*
  * Final wrapup--call MD5Pad, fill in digest and zero out ctx.
  */
 void
-MD5Final(unsigned char digest[MD5_RAW_BYTES], struct MD5Context *ctx)
+d_r_md5_final(unsigned char digest[MD5_RAW_BYTES], struct MD5Context *ctx)
 {
     int i;
 
@@ -3807,7 +3807,7 @@ MD5Final(unsigned char digest[MD5_RAW_BYTES], struct MD5Context *ctx)
 
 /*
  * The core of the MD5 algorithm, this alters an existing MD5 hash to
- * reflect the addition of 16 longwords of new data.  MD5Update blocks
+ * reflect the addition of 16 longwords of new data.  d_r_md5_update blocks
  * the data and converts bytes into longwords for this routine.
  */
 static void
@@ -4068,14 +4068,14 @@ get_md5_for_file(const char *file, char *hash_buf /* OUT */)
     if (fd == INVALID_FILE)
         return false;
 
-    MD5Init(&md5_cxt);
+    d_r_md5_init(&md5_cxt);
     file_buf =
         (char *)heap_alloc(GLOBAL_DCONTEXT, MD5_FILE_READ_BUF_SIZE HEAPACCT(ACCT_OTHER));
     while ((bytes_read = os_read(fd, file_buf, MD5_FILE_READ_BUF_SIZE)) > 0) {
         ASSERT(CHECK_TRUNCATE_TYPE_uint(bytes_read));
-        MD5Update(&md5_cxt, (byte *)file_buf, (uint)bytes_read);
+        d_r_md5_update(&md5_cxt, (byte *)file_buf, (uint)bytes_read);
     }
-    MD5Final(md5_buf, &md5_cxt);
+    d_r_md5_final(md5_buf, &md5_cxt);
 
     /* Convert 16-byte signature into 32-byte string, which is how MD5 is
      * usually printed/used. n is 3, 2 for chars & 1 for the '\0';
@@ -4165,13 +4165,13 @@ get_md5_for_region(const byte *region_start, uint len,
                    unsigned char digest[MD5_RAW_BYTES] /* OUT */)
 {
     struct MD5Context md5_cxt;
-    MD5Init(&md5_cxt);
+    d_r_md5_init(&md5_cxt);
     ASSERT(region_start != NULL);
     ASSERT_CURIOSITY(len != 0);
 
     if (region_start != NULL && len != 0)
-        MD5Update(&md5_cxt, region_start, len);
-    MD5Final(digest, &md5_cxt);
+        d_r_md5_update(&md5_cxt, region_start, len);
+    d_r_md5_final(digest, &md5_cxt);
     ASSERT_NOT_TESTED();
 }
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -452,7 +452,7 @@ opc_is_cbr_arch(int opc);
 /* exported tables */
 extern const instr_info_t first_byte[];
 extern const instr_info_t second_byte[];
-extern const instr_info_t extensions[][8];
+extern const instr_info_t base_extensions[][8];
 extern const instr_info_t prefix_extensions[][8];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,7 +55,6 @@
 #        include <sys/wait.h>    /* for wait */
 #        include <linux/sched.h> /* for clone */
 #        include <signal.h>      /* for SIGCHLD */
-#        include <string.h>      /* for memset */
 #        include <unistd.h>      /* for nice */
 #        define RUN_SIG
 typedef pid_t thread_t;
@@ -92,7 +91,7 @@ volatile fragment_t *sideline_trace;
 /* number of processors we're running on */
 int num_processors;
 
-/* used to signal which thread we need to pause in dispatch */
+/* used to signal which thread we need to pause in d_r_dispatch */
 thread_id_t pause_for_sideline;
 event_t paused_for_sideline_event;
 event_t resume_from_sideline_event;
@@ -601,7 +600,7 @@ sideline_optimize(fragment_t *f,
     ASSERT(is_thread_known(pause_for_sideline));
 
     if (dcontext->whereami != DR_WHERE_FCACHE) {
-        /* wait for thread to reach waiting point in dispatch */
+        /* wait for thread to reach waiting point in d_r_dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\nsideline_optimize: waiting for target thread " TIDFMT "\n",
             pause_for_sideline);
@@ -635,14 +634,14 @@ sideline_optimize(fragment_t *f,
 #    ifdef DEBUG
     ASSERT(instr_get_opcode(instrlist_last(ilist)) == OP_jmp);
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nbefore removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     remove_profiling_func(dcontext, ilist);
 
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nafter removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
@@ -654,13 +653,13 @@ sideline_optimize(fragment_t *f,
          */
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     optimize_function(dcontext, f, ilist);
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nafter optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     /* Note that the offline optimization interface cannot be used
@@ -707,8 +706,8 @@ sideline_optimize(fragment_t *f,
 
 #    ifdef DEBUG
     num_optimized++;
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_SIDELINE) != 0) {
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_SIDELINE) != 0) {
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
         LOG(logfile, LOG_SIDELINE, 2,
             "\tSIDELINE: emitted optimized F%d to replace F%d\n", new_f->id, f->id);
     }
@@ -717,7 +716,7 @@ sideline_optimize(fragment_t *f,
 exit_sideline_optimize:
     pause_for_sideline = (thread_id_t)0;
     if (!mutex_trylock(&sideline_lock)) {
-        /* thread is waiting in dispatch */
+        /* thread is waiting in d_r_dispatch */
         signal_event(resume_from_sideline_event);
         mutex_lock(&sideline_lock);
         /* at this point we know thread has read our resume event

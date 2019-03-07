@@ -39,4 +39,4 @@
 #include "../globals.h"
 
 static dr_statistics_t libmodule_stats;
-WEAK dr_statistics_t *stats = &libmodule_stats;
+WEAK dr_statistics_t *d_r_stats = &libmodule_stats;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,6 @@
 #ifdef CUSTOM_TRACES
 #    include "instrument.h"
 #endif
-#include <string.h> /* for memset */
 #include "instr.h"
 #include "perscache.h"
 #include "disassemble.h"
@@ -198,8 +197,9 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     LOG(THREAD, LOG_MONITOR, 4,
         "Created private copy F%d of original F%d (" PFX ") for trace creation\n",
         md->last_fragment->id, f->id, f->tag);
-    DOLOG(2, LOG_INTERP,
-          { disassemble_fragment(dcontext, md->last_fragment, stats->loglevel <= 3); });
+    DOLOG(2, LOG_INTERP, {
+        disassemble_fragment(dcontext, md->last_fragment, d_r_stats->loglevel <= 3);
+    });
     KSTOP(temp_private_bb);
     /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
      * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
@@ -794,7 +794,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
     link_fragment_incoming(dcontext, f, false /*not new*/);
 #endif
     STATS_INC(num_trace_heads_marked);
-    /* caller is either dispatch or inside emit_fragment, they take care of
+    /* caller is either d_r_dispatch or inside emit_fragment, they take care of
      * re-protecting fcache
      */
     if (protected) {
@@ -1304,7 +1304,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     DOLOG(2, LOG_MONITOR, {
         uint i;
         LOG(THREAD, LOG_MONITOR, 2, "Ending and emitting hot trace (tag " PFX ")\n", tag);
-        if (stats->loglevel >= 4) {
+        if (d_r_stats->loglevel >= 4) {
             instrlist_disassemble(dcontext, md->trace_tag, trace, THREAD);
             LOG(THREAD, LOG_MONITOR, 4, "\n");
         }
@@ -1527,7 +1527,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     DOLOG(2, LOG_MONITOR, {
         LOG(THREAD, LOG_MONITOR, 1, "Generated trace fragment #%d for tag " PFX "\n",
             GLOBAL_STAT(num_traces), tag);
-        disassemble_fragment(dcontext, trace_f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, trace_f, d_r_stats->loglevel < 3);
     });
 
 #ifdef INTERNAL
@@ -2006,7 +2006,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                     ASSERT((head->flags & FRAG_SHARED) == (f->flags & FRAG_SHARED));
                     if (TEST(FRAG_COARSE_GRAIN, head->flags)) {
                         /* we need a local copy before releasing the lock.
-                         * FIXME: share this code sequence w/ dispatch().
+                         * FIXME: share this code sequence w/ d_r_dispatch().
                          */
                         ASSERT(USE_BB_BUILDING_LOCK());
                         fragment_coarse_wrapper(&md->wrapper, f->tag,

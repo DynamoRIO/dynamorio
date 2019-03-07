@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -230,6 +230,8 @@ extern char **environ;
 #else
 extern char **our_environ;
 #endif
+bool
+is_our_environ_followed_by_auxv(void);
 void
 dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
@@ -503,7 +505,7 @@ pcprofile_thread_exit(dcontext_t *dcontext);
 /* in stackdump.c */
 /* fork, dump core, and use gdb for complete stack trace */
 void
-stackdump(void);
+d_r_stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void
 glibc_stackdump(int fd);

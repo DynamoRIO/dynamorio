@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,6 @@
 #include "fcache.h"
 #include "emit.h"
 #include "monitor.h"
-#include <string.h> /* for memset */
 #include "instrument.h"
 #include <stddef.h> /* for offsetof */
 #include <limits.h> /* UINT_MAX */
@@ -2376,7 +2375,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
      * release builds
      */
     DOSTATS({
-        if (stats != NULL &&
+        if (d_r_stats != NULL &&
             (uint)GLOBAL_STAT(num_fragments) ==
                 INTERNAL_OPTION(reset_at_fragment_count)) {
             ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
@@ -2387,7 +2386,7 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */
             options_make_writable();
-            stats->loglevel = DYNAMO_OPTION(stats_loglevel);
+            d_r_stats->loglevel = DYNAMO_OPTION(stats_loglevel);
             options_restore_readonly();
             SYSLOG_INTERNAL_INFO("hit -log_at_fragment_count %d, raising loglevel to %d",
                                  INTERNAL_OPTION(log_at_fragment_count),
@@ -3917,7 +3916,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
     DOLOG(6, LOG_FRAGMENT, { /* print after start_pc updated so get actual code */
                              LOG(THREAD, LOG_FRAGMENT, 6,
                                  "before shifting F%d (" PFX ")\n", f->id, f->tag);
-                             disassemble_fragment(dcontext, f, stats->loglevel < 3);
+                             disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 
 #ifdef X86
@@ -3939,7 +3938,7 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
 
     DOLOG(6, LOG_FRAGMENT, {
         LOG(THREAD, LOG_FRAGMENT, 6, "after shifting F%d (" PFX ")\n", f->id, f->tag);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
     });
 }
 
@@ -6035,7 +6034,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
             if (dcontext == my_dcontext || thread_synch_successful(flush_threads[i])) {
                 last_exit_deleted(dcontext);
                 /* case 7394: need to abort other threads' trace building
-                 * since the reset xfer to dispatch will disrupt it.
+                 * since the reset xfer to d_r_dispatch will disrupt it.
                  * also, with PR 299808, we now have thread-shared
                  * "undeletable" trace-temp fragments, so we need to abort
                  * all traces.
@@ -6144,7 +6143,7 @@ flush_fragments_thread_unlink(dcontext_t *dcontext, int thread_index,
     per_thread_t *tgt_pt = (per_thread_t *)tgt_dcontext->fragment_field;
 
     /* if a trace-in-progress crosses this region, must squash the trace
-     * (all traces are essentially frozen now since threads stop in dispatch)
+     * (all traces are essentially frozen now since threads stop in d_r_dispatch)
      */
     if (flush_size > 0 /* else, no region to cross */ &&
         is_building_trace(tgt_dcontext)) {
@@ -6691,7 +6690,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
              * only wrt shared fragments (we don't free private fragments here,
              * though we could -- should we?  may make flush time while holding
              * lock take too long?  FIXME)
-             * Currently this works w/ syscalls from dispatch, and w/
+             * Currently this works w/ syscalls from d_r_dispatch, and w/
              * -shared_syscalls by using unprotected storage (thus a slight hole
              * but very hard to exploit for security purposes: can get stale code
              * executed, but we already have that window, or crash us).
@@ -7296,8 +7295,8 @@ profile_fragment_enter(fragment_t *f, uint64 end_time)
 
     /***********************************************************************/
 
-    /* we rely on dispatch being the only way to enter the fcache.
-     * dispatch sets prev_fragment to null prior to entry */
+    /* we rely on d_r_dispatch being the only way to enter the fcache.
+     * d_r_dispatch sets prev_fragment to null prior to entry */
     if (dcontext->prev_fragment != NULL) {
         trace_only_t *last_t = TRACE_FIELDS(dcontext->prev_fragment);
         ASSERT((dcontext->prev_fragment->flags & FRAG_IS_TRACE) != 0);
@@ -7315,7 +7314,7 @@ profile_fragment_enter(fragment_t *f, uint64 end_time)
 #    endif
 }
 
-/* this routine is called from dispatch after exiting the fcache
+/* this routine is called from d_r_dispatch after exiting the fcache
  * it finishes up the final fragment's time slot
  */
 void

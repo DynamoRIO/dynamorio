@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,7 +40,6 @@
 #    include "os_exports.h" /* for detach_helper(), get_stack_bounds() */
 #    include "drmarker.h"
 #else
-#    include <string.h>
 #endif /* WINDOWS */
 
 #ifdef HOT_PATCHING_INTERFACE
@@ -176,7 +175,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
             }
             call_switch_stack(dcontext, dcontext->dstack,
                               (void (*)(void *))nudge_terminate_on_dstack,
-                              NULL /* not on initstack */, false /* don't return */);
+                              NULL /* not on d_r_initstack */, false /* don't return */);
         } else {
             /* Already on dstack or nudge creator will free app stack. */
             if (exit_process) {
@@ -275,11 +274,9 @@ nudge_finished:
 #endif /* WINDOWS */
 
 /* This routine may not return */
-#ifdef WINDOWS
-static
-#endif
-    void
-    handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
+IF_WINDOWS(static)
+void
+handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 {
     uint nudge_action_mask = arg->nudge_action_mask;
 

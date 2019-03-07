@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -155,7 +155,7 @@ DECL_EXTERN(get_xmm_vals)
 DECL_EXTERN(auto_setup)
 DECL_EXTERN(return_from_native)
 DECL_EXTERN(native_module_callout)
-DECL_EXTERN(dispatch)
+DECL_EXTERN(d_r_dispatch)
 #ifdef DR_APP_EXPORTS
 DECL_EXTERN(dr_app_start_helper)
 #endif
@@ -196,7 +196,7 @@ DECL_EXTERN(os_terminate_wow64_stack)
 
 /* non-functions: these make us non-PIC! (PR 212290) */
 DECL_EXTERN(exiting_thread_count)
-DECL_EXTERN(initstack)
+DECL_EXTERN(d_r_initstack)
 DECL_EXTERN(initstack_mutex)
 DECL_EXTERN(int_syscall_address)
 DECL_EXTERN(syscalls)
@@ -621,8 +621,8 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* now switch to initstack for cleanup of dstack
-         * could use initstack for whole thing but that's too long
+        /* now switch to d_r_initstack for cleanup of dstack
+         * could use d_r_initstack for whole thing but that's too long
          * of a time to hold global initstack_mutex */
         mov      ecx, 1
 #if !defined(X64) && defined(LINUX)
@@ -661,10 +661,10 @@ cat_have_lock:
         /* swap stacks */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
+        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(d_r_initstack))
         mov      REG_XSP, PTRSZ [REG_XBP]
 #else
-        mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
+        mov      REG_XSP, PTRSZ SYMREF(d_r_initstack) /* rip-relative on x64 */
 #endif
         /* now save registers */
 #if defined(MACOS) && !defined(X64)
@@ -724,9 +724,9 @@ cat_no_thread2:
 #ifdef WINDOWS
         pop      REG_XSP    /* get the stack pointer we pushed earlier */
 #endif
-        /* give up initstack mutex -- potential problem here with a thread getting
-         *   an asynch event that then uses initstack, but syscall should only care
-         *   about ebx and edx */
+        /* Give up initstack_mutex -- potential problem here with a thread getting
+         * an asynch event that then uses d_r_initstack, but syscall should only care
+         * about ebx and edx. */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
         lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
@@ -1710,7 +1710,7 @@ GLOBAL_LABEL(back_from_native:)
 Lback_from_native:
 #endif
         /* assume valid esp
-         * FIXME: more robust if don't use app's esp -- should use initstack
+         * FIXME: more robust if don't use app's esp -- should use d_r_initstack
          */
         /* grab exec state and pass as param in a priv_mcontext_t struct */
         PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)

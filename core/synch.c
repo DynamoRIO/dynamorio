@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,7 +43,6 @@
 #include "fcache.h"     /* in_fcache() */
 #include "translate.h"
 #include "native_exec.h"
-#include <string.h> /* for memcpy */
 
 extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
@@ -317,7 +316,7 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
      * here in the same manner as fcache_unit_areas.lock in at_safe_spot().  So
      * instead we just check the pc for the dr dll, interception code, and
      * do_syscall regions and check the stack against the thread's dr stack
-     * and the initstack, all of which we can do without grabbing any locks.
+     * and the d_r_initstack, all of which we can do without grabbing any locks.
      * That should be sufficient at this point, FIXME try to use something
      * like is_dynamo_address() to make this more maintainable */
     /* For sysenter system calls we also have to check the top of the stack
@@ -1670,7 +1669,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
     if (get_at_syscall(dcontext)) {
         /* Don't need to do anything as shared_syscall and do_syscall will not
          * change due to a reset and will have any inlined ibl updated.  If we
-         * did try to send these guys back to dispatch, have to set asynch_tag
+         * did try to send these guys back to d_r_dispatch, have to set asynch_tag
          * (as well as next_tag since translation looks only at that), restore
          * TOS to asynch_target/esi (unless still at reset state), and have to
          * figure out how to avoid post-syscall processing for those who never
@@ -1794,7 +1793,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
                     cur_retaddr);
             }
         }
-        /* Send back to dispatch.  Rather than setting up last_exit in eax here,
+        /* Send back to d_r_dispatch.  Rather than setting up last_exit in eax here,
          * we point to a special routine to save the correct eax -- in fact it's
          * simply a direct exit stub.  Originally this was b/c we tried to
          * translate threads at system calls, and the kernel clobbers eax (and
@@ -1808,7 +1807,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
-        /* make dispatch happy */
+        /* make d_r_dispatch happy */
         dcontext->whereami = DR_WHERE_FCACHE;
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
@@ -1915,7 +1914,7 @@ send_all_other_threads_native(void)
             continue;
 
         /* Because dynamo_thread_not_under_dynamo() has to be run by the owning
-         * thread, the simplest solution is to send everyone back to dispatch
+         * thread, the simplest solution is to send everyone back to d_r_dispatch
          * with a flag to go native from there, rather than directly setting the
          * native context.
          */
@@ -1923,7 +1922,7 @@ send_all_other_threads_native(void)
 
         if (thread_synch_state_no_xfer(threads[i]->dcontext)) {
             /* Another thread trying to synch with us: just let it go.  It will
-             * go native once it gets back to dispatch which will be before it
+             * go native once it gets back to d_r_dispatch which will be before it
              * goes into the cache.
              */
             continue;
@@ -1933,7 +1932,7 @@ send_all_other_threads_native(void)
             LOG(threads[i]->dcontext->logfile, LOG_ALL, 1,
                 "**** requested by thread %d to go native\n", my_dcontext->owning_thread);
             /* This won't change a thread at a syscall, so we rely on the thread
-             * going to dispatch and then going native when its syscall exits.
+             * going to d_r_dispatch and then going native when its syscall exits.
              *
              * FIXME i#95: That means the time to go native is, unfortunately,
              * unbounded.  This means that dr_app_cleanup() needs to synch the
@@ -2260,7 +2259,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     ASSERT(exit_res == SUCCESS);
     detach_finalize_cleanup();
 
-    stack_free(initstack, DYNAMORIO_STACK_SIZE);
+    stack_free(d_r_initstack, DYNAMORIO_STACK_SIZE);
 
     dynamo_exit_post_detach();
 

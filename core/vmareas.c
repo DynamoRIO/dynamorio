@@ -68,8 +68,6 @@
 #    include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#include <string.h>
-
 enum {
     /* VM_ flags to distinguish region types
      * We also use some FRAG_ flags (but in a separate field so no value space overlap)
@@ -9037,7 +9035,7 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
      * never-occurring freeing), so we must grab thread_initexit_lock,
      * meaning we must be nolinking, meaning the caller must accept loss
      * of locals.
-     * FIXME: should switch to a flag-triggered addition in dispatch
+     * FIXME: should switch to a flag-triggered addition in d_r_dispatch
      * to avoid this nolinking trouble.
      */
     enter_nolinking(dcontext, NULL, false /*not a cache transition*/);
@@ -10377,7 +10375,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end)
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache
+ * return to d_r_dispatch rather than the code cache
  * If instr_cache_pc==NULL, assumes the cache is unavailable (due to reset).
  */
 app_pc
@@ -10803,9 +10801,9 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, app_pc instr
      * region even if the src bb didn't and anyways flushing can end up
      * flushing outside the requested region (entire vm_area_t). If we could tell
      * we could return NULL instead (which is a special flag that says redo the
-     * write instead of going to dispatch) if f wasn't flushed.
+     * write instead of going to d_r_dispatch) if f wasn't flushed.
      * FIXME - Redoing the write would be more efficient then going back to
-     * dispatch and should be the common case. */
+     * d_r_dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
     if (DYNAMO_OPTION(opt_jit) && !TEST(MEMPROT_WRITE, prot) &&
         is_jit_managed_area(flush_start))
@@ -11371,7 +11369,7 @@ apc_thread_policy_helper(app_pc *apc_target_location, /* IN/OUT */
              * of this because a main thread may get affected very early.
              *
              * It is also hard to reuse security_violation() call here
-             * (since we are not under dispatch()).  If we want to see a
+             * (since we are not under d_r_dispatch()).  If we want to see a
              * code origins failure, we can just disable this policy.
              */
             ASSERT(!TEST(OPTION_HANDLING, target_policy) &&

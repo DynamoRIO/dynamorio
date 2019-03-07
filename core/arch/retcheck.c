@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,8 +70,6 @@
  *
  * Need to provide asm code for win32 (currently #error)
  */
-
-#    include <string.h> /* for memcpy */
 
 /* we have two ways of keeping our stack in the xmm registers:
  * use one of them as a stack pointer, or have a constant top of
@@ -327,7 +325,7 @@ finalize_return_check(dcontext_t *dcontext, fragment_t *f)
         pc = decode(dcontext, pc, &instr);
         ASSERT(instr_valid(&instr)); /* our own code! */
         if (leas_next == 2) {
-            loginst(dcontext, 3, &instr, "\tlea 2");
+            d_r_loginst(dcontext, 3, &instr, "\tlea 2");
             if (instr_get_opcode(&instr) == OP_lea) {
                 opnd_t op = instr_get_src(&instr, 0);
                 int scale = opnd_get_scale(op);
@@ -342,7 +340,7 @@ finalize_return_check(dcontext_t *dcontext, fragment_t *f)
             leas_next = 0;
         }
         if (leas_next == 1) {
-            loginst(dcontext, 3, &instr, "\tlea 1");
+            d_r_loginst(dcontext, 3, &instr, "\tlea 1");
             if (instr_get_opcode(&instr) == OP_lea)
                 leas_next = 2;
             else
@@ -354,14 +352,14 @@ finalize_return_check(dcontext_t *dcontext, fragment_t *f)
             opnd_get_reg(instr_get_src(&instr, 0)) == REG_XMM7 &&
             opnd_is_immed_int(instr_get_src(&instr, 1)) &&
             opnd_get_immed_int(instr_get_src(&instr, 1)) == 7) {
-            loginst(dcontext, 3, &instr, "\tfound pextrw");
+            d_r_loginst(dcontext, 3, &instr, "\tfound pextrw");
             leas_next = 1;
         } else if (leas_next == 0 && instr_get_opcode(&instr) == OP_pinsrw &&
                    opnd_is_reg(instr_get_dst(&instr, 0)) &&
                    opnd_get_reg(instr_get_dst(&instr, 0)) == REG_XMM7 &&
                    opnd_is_immed_int(instr_get_src(&instr, 1)) &&
                    opnd_get_immed_int(instr_get_src(&instr, 1)) == 7) {
-            loginst(dcontext, 3, &instr, "\tfound pinsrw");
+            d_r_loginst(dcontext, 3, &instr, "\tfound pinsrw");
             leas_next = 1;
         }
     } while (pc < end_pc);
@@ -425,7 +423,7 @@ check_return_too_deep(dcontext_t *dcontext, volatile int errno, volatile reg_t e
     memcpy(stack->retaddr, xmm[0], 64);
 
 #        ifdef DEBUG
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         int i, j;
         LOG(THREAD, LOG_ALL, 3, "Copied into stored stack:\n");
         for (i = 0; i < 4; i++) {
@@ -515,7 +513,7 @@ check_return_too_shallow(dcontext_t *dcontext, volatile int errno, volatile reg_
 #            error NYI
 #        endif
 #        ifdef DEBUG
-        if (stats->loglevel >= 3) {
+        if (d_r_stats->loglevel >= 3) {
             int i, j;
             LOG(THREAD, LOG_ALL, 3, "Restored:\n");
             for (i = 0; i < 4; i++) {
@@ -560,7 +558,7 @@ check_return_ra_mangled(dcontext_t *dcontext, volatile int errno, volatile reg_t
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
 
 #        ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ALL) != 0) {
+    if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ALL) != 0) {
         int idx;
 #            ifdef UNIX
         asm("pextrw $7,%xmm7,%eax");
@@ -694,7 +692,7 @@ check_debug(dcontext_t *dcontext, volatile int errno, volatile reg_t eflags,
 {
     ENTERING_DR();
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         int i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
         /* move from registers into memory where we can work with it */
@@ -799,7 +797,7 @@ check_return_handle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
     PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_EBX, XBX_OFFSET));
 
 #        ifdef DEBUG
-    if (stats->loglevel >= 4) {
+    if (d_r_stats->loglevel >= 4) {
         dr_insert_clean_call(dcontext, ilist, instr, (app_pc)check_debug, false /*!fp*/,
                              1, OPND_CREATE_INTPTR(dcontext));
     }
@@ -921,7 +919,7 @@ check_return_too_deep(dcontext_t *dcontext, volatile int errno, volatile reg_t e
     memcpy(stack->retaddr, &xmm[3][14], 64);
 
 #        ifdef DEBUG
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         int i, j;
         LOG(THREAD, LOG_ALL, 3, "Copied into stored stack:\n");
         for (i = 0; i < 4; i++) {
@@ -1018,7 +1016,7 @@ check_return_too_shallow(dcontext_t *dcontext, volatile int errno, volatile reg_
 #            error NYI
 #        endif
 #        ifdef DEBUG
-        if (stats->loglevel >= 3) {
+        if (d_r_stats->loglevel >= 3) {
             int i, j;
             LOG(THREAD, LOG_ALL, 3, "Restored:\n");
             for (i = 0; i < 4; i++) {
@@ -1063,7 +1061,7 @@ check_return_ra_mangled(dcontext_t *dcontext, volatile int errno, volatile reg_t
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
 
 #        ifdef DEBUG
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         int idx, i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
         /* move from registers into memory where we can work with it */
@@ -1647,7 +1645,7 @@ at_licdll_rct_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_pc
 }
 
 /* return after call check
-   called by dispatch after inlined return lookup routine has failed */
+   called by d_r_dispatch after inlined return lookup routine has failed */
 /* FIXME: return value is ignored */
 int
 ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)

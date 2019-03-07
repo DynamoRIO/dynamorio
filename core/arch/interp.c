@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,7 +53,6 @@
 #include "decode.h"
 #include "decode_fast.h"
 #include "disassemble.h"
-#include <string.h> /* for memcpy */
 #include "instrument.h"
 #include "../hotpatch.h"
 #ifdef RETURN_AFTER_CALL
@@ -529,7 +528,7 @@ bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
      * reachability from the likely code cache slot, but these should be
      * rare enough that making them indirect won't matter and then we have
      * fewer reachability dependences.
-     * We do this here rather than in mangle() b/c we'd have a hard time
+     * We do this here rather than in d_r_mangle() b/c we'd have a hard time
      * distinguishing native jmp/call due to DR's own operations from a
      * client's inserted meta jmp/call.
      */
@@ -574,7 +573,7 @@ bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
     /* Indicate that relative target must be
      * re-encoded, and that it is not an exit cti.
      * However, we must mangle this to ensure it reaches (i#992)
-     * which we special-case in mangle().
+     * which we special-case in d_r_mangle().
      */
     instr_set_meta(bb->instr);
     instr_set_raw_bits_valid(bb->instr, false);
@@ -1602,7 +1601,7 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
                     /* an unexpected SEH frame push */
                     LOG(THREAD, LOG_INTERP, 1,
                         "found unexpected write to fs:[0] @" PFX "\n", bb->instr_start);
-                    DOLOG(1, LOG_INTERP, { loginst(dcontext, 1, bb->instr, ""); });
+                    DOLOG(1, LOG_INTERP, { d_r_loginst(dcontext, 1, bb->instr, ""); });
                     ASSERT_CURIOSITY(!is_to_fs0);
                 }
             }
@@ -1989,7 +1988,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef X86
         /* PR 288101: On Linux we do not yet support inlined sysenter instrs as we
          * do not have in-cache support for the post-sysenter continuation: we rely
-         * for now on very simple sysenter handling where dispatch uses asynch_target
+         * for now on very simple sysenter handling where d_r_dispatch uses asynch_target
          * to know where to go next.
          */
         IF_LINUX(&&instr_get_opcode(bb->instr) != OP_sysenter)
@@ -2659,7 +2658,7 @@ static void
 bb_process_float_pc(dcontext_t *dcontext, build_bb_t *bb)
 {
     /* i#698: for instructions that save the floating-point state
-     * (e.g., fxsave), we go back to dispatch to translate the fp pc.
+     * (e.g., fxsave), we go back to d_r_dispatch to translate the fp pc.
      * We rule out being in a trace (and thus a potential alternative
      * would be to use a FRAG_ flag).  These are rare instructions so that
      * shouldn't have a significant perf impact: except we've been hitting
@@ -4517,7 +4516,7 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
     });
-    mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
+    d_r_mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
@@ -5187,7 +5186,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         DOLOG(3, LOG_INTERP, { disassemble_fragment(dcontext, f, false); });
     }
 #endif
-    DOLOG(2, LOG_INTERP, { disassemble_fragment(dcontext, f, stats->loglevel <= 3); });
+    DOLOG(2, LOG_INTERP,
+          { disassemble_fragment(dcontext, f, d_r_stats->loglevel <= 3); });
     DOLOG(4, LOG_INTERP, {
         if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
             LOG(THREAD, LOG_INTERP, 4, "\nXXXX sandboxed fragment!  original code:\n");
@@ -5598,7 +5598,7 @@ regenerate_custom_exit_stub(dcontext_t *dcontext, instr_t *exit_cti, linkstub_t 
             if (!instr_is_return(in) && opnd_is_near_pc(instr_get_target(in)) &&
                 (opnd_get_pc(instr_get_target(in)) < start_pc ||
                  opnd_get_pc(instr_get_target(in)) > start_pc + f->size)) {
-                loginst(dcontext, 3, in, "\tcti has off-fragment target");
+                d_r_loginst(dcontext, 3, in, "\tcti has off-fragment target");
                 /* indicate that relative target must be
                  * re-encoded, and that it is not an exit cti
                  */
@@ -5630,8 +5630,8 @@ regenerate_custom_exit_stub(dcontext_t *dcontext, instr_t *exit_cti, linkstub_t 
                  * and the instr target moves (xref PR 333691)
                  */
                 instr_set_target(real_cti, opnd_create_instr(in));
-                loginst(dcontext, 3, real_cti, "\tthis cti: ");
-                loginst(dcontext, 3, in, "\t  targets intra-stub instr");
+                d_r_loginst(dcontext, 3, real_cti, "\tthis cti: ");
+                d_r_loginst(dcontext, 3, in, "\t  targets intra-stub instr");
                 break;
             }
         }
@@ -6228,7 +6228,7 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
                     } else {
                         /* need to search for targeting jmp */
                         DOLOG(4, LOG_MONITOR,
-                              { loginst(dcontext, 4, inst, "exit==targeter?"); });
+                              { d_r_loginst(dcontext, 4, inst, "exit==targeter?"); });
                         LOG(THREAD, LOG_MONITOR, 4,
                             "target_tag = " PFX ", next_tag = " PFX "\n", target_tag,
                             next_tag);
@@ -6251,7 +6251,7 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
     if (record_translation)
         instrlist_set_translation_target(trace, instr_get_translation(targeter));
     instrlist_set_our_mangling(trace, true); /* PR 267260 */
-    DOLOG(4, LOG_MONITOR, { loginst(dcontext, 4, targeter, "\ttargeter"); });
+    DOLOG(4, LOG_MONITOR, { d_r_loginst(dcontext, 4, targeter, "\ttargeter"); });
     if (is_indirect) {
         added_size += mangle_indirect_branch_in_trace(
             dcontext, trace, targeter, next_tag, next_flags, &delete_after, end_instr);
@@ -6318,7 +6318,7 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
                     "WARNING: deleting non-exit cti in unused tail of frag added to "
                     "trace\n");
             }
-            loginst(dcontext, 4, inst, "\tdeleting");
+            d_r_loginst(dcontext, 4, inst, "\tdeleting");
             instrlist_remove(trace, inst);
             added_size -= instr_length(dcontext, inst);
             instr_destroy(dcontext, inst);
@@ -6765,7 +6765,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
 
         DOLOG(5, LOG_INTERP, {
             LOG(THREAD, LOG_MONITOR, 4, "transl " PFX " ", xl8);
-            loginst(dcontext, 4, inst, "considering non-meta");
+            d_r_loginst(dcontext, 4, inst, "considering non-meta");
         });
 
         /* Skip blocks that don't end in ctis (except final) */
@@ -6833,7 +6833,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                 */
                opnd_get_pc(instr_get_target(inst)) == md->blk_info[blk + 1].info.tag)))) {
 
-            DOLOG(4, LOG_INTERP, { loginst(dcontext, 4, inst, "end of bb"); });
+            DOLOG(4, LOG_INTERP, { d_r_loginst(dcontext, 4, inst, "end of bb"); });
 
             /* Add jump that fixup_last_cti expects */
             if (!instr_is_ubr(inst) IF_X86(|| instr_get_opcode(inst) == OP_jmp_far)) {
@@ -6854,7 +6854,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                 jmp = create_exit_jmp(dcontext, target, xl8, instr_branch_type(inst));
                 instrlist_postinsert(ilist, inst, jmp);
                 /* we're now done w/ vmlist: switch to end instr.
-                 * mangle() shouldn't remove the exit cti.
+                 * d_r_mangle() shouldn't remove the exit cti.
                  */
                 vm_area_destroy_list(dcontext, md->blk_info[blk].vmlist);
                 md->blk_info[blk].vmlist = NULL;
@@ -6938,9 +6938,9 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         instrlist_disassemble(dcontext, md->trace_tag, ilist, THREAD);
     });
     /* We do not need to remove nops since we never emitted */
-    mangle(dcontext, ilist, &md->trace_flags, true /*mangle calls*/,
-           /* we're post-client so we don't need translations unless storing */
-           TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags));
+    d_r_mangle(dcontext, ilist, &md->trace_flags, true /*mangle calls*/,
+               /* we're post-client so we don't need translations unless storing */
+               TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags));
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "trace ilist after mangling:\n");
         instrlist_disassemble(dcontext, md->trace_tag, ilist, THREAD);
@@ -7044,7 +7044,7 @@ forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
         if (eflags_result != EFLAGS_WRITE_ARITH IF_X86(&&eflags_result != EFLAGS_READ_OF))
             eflags_result = eflags_analysis(in, eflags_result, &eflags_6);
         DOLOG(4, LOG_INTERP, {
-            loginst(dcontext, 4, in, "forward_eflags_analysis");
+            d_r_loginst(dcontext, 4, in, "forward_eflags_analysis");
             LOG(THREAD, LOG_INTERP, 4, "\tinstr %x => %x\n",
                 instr_get_eflags(in, DR_QUERY_DEFAULT), eflags_result);
         });
@@ -7348,8 +7348,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                     bool re_relativize = false;
                     bool intra_target = true;
                     DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                        loginst(dcontext, 4, instr,
-                                "decode_fragment: found non-exit cti");
+                        d_r_loginst(dcontext, 4, instr,
+                                    "decode_fragment: found non-exit cti");
                     });
                     if (TEST(FRAG_FAKE, f->flags)) {
                         /* Case 8711: we don't know the size so we can't even
@@ -7378,8 +7378,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                              * or none for others, so not worth doing anything about.
                              */
                             DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                                loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
-                                        "\tcoarse exit cti");
+                                d_r_loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
+                                            "\tcoarse exit cti");
                             });
                             intra_target = false;
                             stop_pc = prev_pc;
@@ -7388,8 +7388,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         } else {
                             /* we'll make it to intra_target if() below */
                             DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                                loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
-                                        "\tcoarse intra-fragment cti");
+                                d_r_loginst(dcontext, DF_LOGLEVEL(dcontext), instr,
+                                            "\tcoarse intra-fragment cti");
                             });
                         }
                     } else if (instr_is_return(instr) ||
@@ -7414,7 +7414,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         re_relativize = true;
                         intra_target = false;
                         DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                            loginst(dcontext, 4, instr, "\tcti has off-fragment target");
+                            d_r_loginst(dcontext, 4, instr,
+                                        "\tcti has off-fragment target");
                         });
                     }
                     if (intra_target) {
@@ -7428,8 +7429,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                         instrlist_append(&intra_ctis, clone);
                         /* intra-fragment target */
                         DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                            loginst(dcontext, 4, instr,
-                                    "\tcti has intra-fragment target");
+                            d_r_loginst(dcontext, 4, instr,
+                                        "\tcti has intra-fragment target");
                         });
                         /* since the resulting instrlist could be manipulated,
                          * we need to change the target operand from pc to instr_t.
@@ -7736,7 +7737,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/ uint 
                      */
                     instr_set_target(real_cti, opnd_create_instr(instr));
                     DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
-                        loginst(dcontext, 4, real_cti, "\tre-set intra-fragment target");
+                        d_r_loginst(dcontext, 4, real_cti,
+                                    "\tre-set intra-fragment target");
                     });
                     break;
                 }
@@ -7874,10 +7876,10 @@ copy_fragment(dcontext_t *dcontext, fragment_t *f, bool replace)
     fragment_copy_data_fields(dcontext, f, new_f);
 
 #ifdef DEBUG
-    if (stats->loglevel > 1) {
+    if (d_r_stats->loglevel > 1) {
         LOG(THREAD, LOG_ALL, 2, "Copying F%d to F%d\n", f->id, new_f->id);
-        disassemble_fragment(dcontext, f, stats->loglevel < 3);
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+        disassemble_fragment(dcontext, f, d_r_stats->loglevel < 3);
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
     }
 #endif /* DEBUG */
 
@@ -7997,9 +7999,10 @@ shift_ctis_in_fragment(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
                 /* must not change size! */
                 ASSERT(nxt_pc != NULL && nxt_pc == pc);
 #ifdef DEBUG
-                if ((stats->logmask & LOG_CACHE) != 0) {
-                    loginst(dcontext, 5, &instr,
-                            "shift_ctis_in_fragment: found cti w/ out-of-cache target");
+                if ((d_r_stats->logmask & LOG_CACHE) != 0) {
+                    d_r_loginst(
+                        dcontext, 5, &instr,
+                        "shift_ctis_in_fragment: found cti w/ out-of-cache target");
                 }
 #endif
             }
@@ -8042,7 +8045,7 @@ add_profile_call(dcontext_t *dcontext)
  * returns NULL if failed or not yet implemented, else returns the pc of the next instr.
  */
 app_pc
-emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
+d_r_emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
 {
     instr_t instr;
     app_pc next_pc = NULL;
@@ -8053,7 +8056,7 @@ emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc)
         next_pc = NULL;
         goto emulate_failure;
     }
-    DOLOG(2, LOG_INTERP, { loginst(dcontext, 2, &instr, "emulating"); });
+    DOLOG(2, LOG_INTERP, { d_r_loginst(dcontext, 2, &instr, "emulating"); });
     opc = instr_get_opcode(&instr);
     if (opc == OP_store) {
         opnd_t src = instr_get_src(&instr, 0);

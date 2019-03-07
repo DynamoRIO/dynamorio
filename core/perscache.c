@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,6 @@
 #include "hotpatch.h"
 #include "synch.h"
 #include "module_shared.h"
-#include <string.h> /* for memset */
 #include <stddef.h> /* for offsetof */
 #ifdef CLIENT_INTERFACE
 #    include "instrument.h"
@@ -2383,18 +2382,18 @@ persist_calculate_self_digest(module_digest_t *digest, coarse_persisted_info_t *
 {
     struct MD5Context self_md5_cxt;
     if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, validation_option)) {
-        MD5Init(&self_md5_cxt);
+        d_r_md5_init(&self_md5_cxt);
         /* Even if generated w/ -persist_map_rw_separate but loaded w/o that
          * option, the md5 should match since the memory layout is the same.
          */
-        MD5Update(&self_md5_cxt, map,
-                  pers->header_len + pers->data_len - sizeof(persisted_footer_t));
-        MD5Final(digest->full_MD5, &self_md5_cxt);
+        d_r_md5_update(&self_md5_cxt, map,
+                       pers->header_len + pers->data_len - sizeof(persisted_footer_t));
+        d_r_md5_final(digest->full_MD5, &self_md5_cxt);
     }
     if (TEST(PERSCACHE_GENFILE_MD5_SHORT, validation_option)) {
-        MD5Init(&self_md5_cxt);
-        MD5Update(&self_md5_cxt, (byte *)pers, pers->header_len);
-        MD5Final(digest->short_MD5, &self_md5_cxt);
+        d_r_md5_init(&self_md5_cxt);
+        d_r_md5_update(&self_md5_cxt, (byte *)pers, pers->header_len);
+        d_r_md5_final(digest->short_MD5, &self_md5_cxt);
     }
 }
 
@@ -2418,13 +2417,13 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
          * the load-time md5 when persisting.
          */
         struct MD5Context code_md5_cxt;
-        MD5Init(&code_md5_cxt);
+        d_r_md5_init(&code_md5_cxt);
         /* Code range should be within a single memory allocation so it should
          * all be readable.  Xref case 9653.
          */
         code_end = MIN(code_end, modbase + view_size);
-        MD5Update(&code_md5_cxt, code_start, code_end - code_start);
-        MD5Final(digest->full_MD5, &code_md5_cxt);
+        d_r_md5_update(&code_md5_cxt, code_start, code_end - code_start);
+        d_r_md5_final(digest->full_MD5, &code_md5_cxt);
     }
     if (TEST(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
         /* Examine only the image header and the footer (if non-writable)

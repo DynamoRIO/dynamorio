@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,7 @@ main(int argc, char *argv[])
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 25 * 1000 * 1000; /* 25ms */
     /* Doing a few more syscalls makes the test more reliable than one long
-     * sleep, since we hit dispatch more often.
+     * sleep, since we hit d_r_dispatch more often.
      */
     nanosleep(&sleeptime, NULL);
     nanosleep(&sleeptime, NULL);

@@ -43,8 +43,6 @@
 #    include "instrument.h" /* for instrument_client_lib_unloaded */
 #endif
 
-#include <string.h>
-
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
  * XXX: Does it hold for Linux?

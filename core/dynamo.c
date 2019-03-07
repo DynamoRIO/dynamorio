@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,8 +68,6 @@
 #ifdef ANNOTATIONS
 #    include "annotations.h"
 #endif
-
-#include <string.h>
 
 #ifdef WINDOWS
 /* for close handle, duplicate handle, free memory and constants associated with them
@@ -140,7 +138,7 @@ bool standalone_library = false;
 bool post_execve = false;
 #endif
 /* initial stack so we don't have to use app's */
-byte *initstack;
+byte *d_r_initstack;
 
 event_t dr_app_started;
 event_t dr_attach_finished;
@@ -246,7 +244,7 @@ file_t main_logfile = INVALID_FILE;
 
 #endif /* DEBUG ****************************/
 
-dr_statistics_t *stats = NULL;
+dr_statistics_t *d_r_stats = NULL;
 
 DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
 #ifdef UNIX
@@ -308,27 +306,27 @@ statistics_pre_init(void)
      */
     /* The indirection here is left over from when we used to allow alternative
      * locations for stats (namely shared memory for the old MIT gui). */
-    stats = &nonshared_stats;
-    stats->process_id = get_process_id();
-    strncpy(stats->process_name, get_application_name(), MAXIMUM_PATH);
-    stats->process_name[MAXIMUM_PATH - 1] = '\0';
-    ASSERT(strlen(stats->process_name) > 0);
-    stats->num_stats = 0;
+    d_r_stats = &nonshared_stats;
+    d_r_stats->process_id = get_process_id();
+    strncpy(d_r_stats->process_name, get_application_name(), MAXIMUM_PATH);
+    d_r_stats->process_name[MAXIMUM_PATH - 1] = '\0';
+    ASSERT(strlen(d_r_stats->process_name) > 0);
+    d_r_stats->num_stats = 0;
 }
 
 static void
 statistics_init(void)
 {
     /* should have called statistics_pre_init() first */
-    ASSERT(stats == &nonshared_stats);
-    ASSERT(stats->num_stats == 0);
+    ASSERT(d_r_stats == &nonshared_stats);
+    ASSERT(d_r_stats->num_stats == 0);
 #ifndef DEBUG
     if (!DYNAMO_OPTION(global_rstats)) {
         /* references to stat values should return 0 (static var) */
         return;
     }
 #endif
-    stats->num_stats = 0
+    d_r_stats->num_stats = 0
 #ifdef DEBUG
 #    define STATS_DEF(desc, name) +1
 #else
@@ -344,15 +342,15 @@ statistics_init(void)
      * not much in release build.
      */
 #ifdef DEBUG
-#    define STATS_DEF(desc, statname)                               \
-        strncpy(stats->statname##_pair.name, desc,                  \
-                BUFFER_SIZE_ELEMENTS(stats->statname##_pair.name)); \
-        NULL_TERMINATE_BUFFER(stats->statname##_pair.name);
+#    define STATS_DEF(desc, statname)                                   \
+        strncpy(d_r_stats->statname##_pair.name, desc,                  \
+                BUFFER_SIZE_ELEMENTS(d_r_stats->statname##_pair.name)); \
+        NULL_TERMINATE_BUFFER(d_r_stats->statname##_pair.name);
 #else
-#    define RSTATS_DEF(desc, statname)                              \
-        strncpy(stats->statname##_pair.name, desc,                  \
-                BUFFER_SIZE_ELEMENTS(stats->statname##_pair.name)); \
-        NULL_TERMINATE_BUFFER(stats->statname##_pair.name);
+#    define RSTATS_DEF(desc, statname)                                  \
+        strncpy(d_r_stats->statname##_pair.name, desc,                  \
+                BUFFER_SIZE_ELEMENTS(d_r_stats->statname##_pair.name)); \
+        NULL_TERMINATE_BUFFER(d_r_stats->statname##_pair.name);
 #endif
 #include "statsx.h"
 #undef STATS_DEF
@@ -363,14 +361,14 @@ static void
 statistics_exit(void)
 {
     if (doing_detach)
-        memset(stats, 0, sizeof(*stats)); /* for possible re-attach */
-    stats = NULL;
+        memset(d_r_stats, 0, sizeof(*d_r_stats)); /* for possible re-attach */
+    d_r_stats = NULL;
 }
 
 dr_statistics_t *
 get_dr_stats(void)
 {
-    return stats;
+    return d_r_stats;
 }
 
 /* initialize per-process dynamo state; this must be called before any
@@ -385,7 +383,7 @@ dynamorio_app_init(void)
     if (!dynamo_initialized /* we do enter if nullcalls is on */) {
 
 #ifdef UNIX
-        os_page_size_init((const char **)our_environ);
+        os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #endif
 #ifdef WINDOWS
         /* MUST do this before making any system calls */
@@ -441,7 +439,7 @@ dynamorio_app_init(void)
         /* decision: nullcalls WILL create a dynamorio.log file and
          * fill it with perfctr stats!
          */
-        if (stats->loglevel > 0) {
+        if (d_r_stats->loglevel > 0) {
             main_logfile = open_log_file(main_logfile_name(), NULL, 0);
             LOG(GLOBAL, LOG_TOP, 1, "global log file fd=%d\n", main_logfile);
         } else {
@@ -450,9 +448,9 @@ dynamorio_app_init(void)
              * N.B.: when checking for no logdir, we check for empty string or
              * first char '<'!
              */
-            strncpy(stats->logdir, "<none (loglevel was 0 on startup)>",
+            strncpy(d_r_stats->logdir, "<none (loglevel was 0 on startup)>",
                     MAXIMUM_PATH - 1);
-            stats->logdir[MAXIMUM_PATH - 1] = '\0'; /* if max no null */
+            d_r_stats->logdir[MAXIMUM_PATH - 1] = '\0'; /* if max no null */
             main_logfile = INVALID_FILE;
         }
 
@@ -528,11 +526,11 @@ dynamorio_app_init(void)
 
         /* Setup for handling faults in loader_init() */
         /* initial stack so we don't have to use app's
-         * N.B.: we never de-allocate initstack (see comments in app_exit)
+         * N.B.: we never de-allocate d_r_initstack (see comments in app_exit)
          */
-        initstack = (byte *)stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
-        LOG(GLOBAL, LOG_SYNCH, 2, "initstack is " PFX "-" PFX "\n",
-            initstack - DYNAMORIO_STACK_SIZE, initstack);
+        d_r_initstack = (byte *)stack_alloc(DYNAMORIO_STACK_SIZE, NULL);
+        LOG(GLOBAL, LOG_SYNCH, 2, "d_r_initstack is " PFX "-" PFX "\n",
+            d_r_initstack - DYNAMORIO_STACK_SIZE, d_r_initstack);
 
 #ifdef WINDOWS
         /* PR203701: separate stack for error reporting when the
@@ -764,12 +762,12 @@ dynamorio_fork_init(dcontext_t *dcontext)
     ASSERT(!post_execve);
 
 #    ifdef DEBUG
-    /* copy stats->logdir
-     * stats->logdir is static, so current copy is fine, don't need
+    /* copy d_r_stats->logdir
+     * d_r_stats->logdir is static, so current copy is fine, don't need
      * frozen copy
      */
-    strncpy(parent_logdir, stats->logdir, MAXIMUM_PATH - 1);
-    stats->logdir[MAXIMUM_PATH - 1] = '\0'; /* if max no null */
+    strncpy(parent_logdir, d_r_stats->logdir, MAXIMUM_PATH - 1);
+    d_r_stats->logdir[MAXIMUM_PATH - 1] = '\0'; /* if max no null */
 #    endif
 
     if (get_log_dir(PROCESS_DIR, NULL, NULL)) {
@@ -780,7 +778,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
 
 #    ifdef DEBUG
     /* just like dynamorio_app_init, create main_logfile before stats */
-    if (stats->loglevel > 0) {
+    if (d_r_stats->loglevel > 0) {
         /* we want brand new log files.  os_fork_init() closed inherited files. */
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);
         print_file(main_logfile, "%s\n", dynamorio_version_string);
@@ -789,11 +787,11 @@ dynamorio_fork_init(dcontext_t *dcontext)
         print_file(main_logfile, "Parent's log dir: %s\n", parent_logdir);
     }
 
-    stats->process_id = get_process_id();
+    d_r_stats->process_id = get_process_id();
 
-    if (stats->loglevel > 0) {
+    if (d_r_stats->loglevel > 0) {
         /* FIXME: share these few lines of code w/ dynamorio_app_init? */
-        LOG(GLOBAL, LOG_TOP, 1, "Running: %s\n", stats->process_name);
+        LOG(GLOBAL, LOG_TOP, 1, "Running: %s\n", d_r_stats->process_name);
 #        ifndef _WIN32_WCE
         LOG(GLOBAL, LOG_TOP, 1, "DYNAMORIO_OPTIONS: %s\n", option_string);
 #        endif
@@ -821,7 +819,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
 
     GLOBAL_STAT(num_threads) = 1;
 #    ifdef DEBUG
-    if (stats->loglevel > 0) {
+    if (d_r_stats->loglevel > 0) {
         /* need a new thread-local logfile */
         dcontext->logfile = open_log_file(thread_logfile_name(), NULL, 0);
         print_file(dcontext->logfile, "%s\n", dynamorio_version_string);
@@ -862,7 +860,7 @@ standalone_init(void)
         return GLOBAL_DCONTEXT;
     standalone_library = true;
     /* We have release-build stats now so this is not just DEBUG */
-    stats = &nonshared_stats;
+    d_r_stats = &nonshared_stats;
     /* No reason to limit heap size when there's no code cache. */
     IF_X64(dynamo_options.reachable_heap = false;)
     dynamo_options.vm_base_near_app = false;
@@ -871,7 +869,7 @@ standalone_init(void)
     dynamo_options.deadlock_avoidance = false;
 #    endif
 #    ifdef UNIX
-    os_page_size_init((const char **)our_environ);
+    os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
 #    endif
 #    ifdef WINDOWS
     /* MUST do this before making any system calls */
@@ -902,7 +900,7 @@ standalone_init(void)
     /* FIXME: share code w/ main init routine? */
     nonshared_stats.logmask = LOG_ALL;
     options_init();
-    if (stats->loglevel > 0) {
+    if (d_r_stats->loglevel > 0) {
         char initial_options[MAX_OPTIONS_STRING];
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);
         print_file(main_logfile, "%s\n", dynamorio_version_string);
@@ -1260,7 +1258,7 @@ dynamo_process_exit_cleanup(void)
 
         dcontext = get_thread_private_dcontext();
 
-        /* we deliberately do NOT clean up initstack (which was
+        /* we deliberately do NOT clean up d_r_initstack (which was
          * allocated using a separate mmap and so is not part of some
          * large unit that is de-allocated), as it is used in special
          * circumstances to call us...FIXME: is this memory leak ok?
@@ -2304,7 +2302,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
 
     DOLOG(1, LOG_STATS, { dump_global_stats(false); });
 #ifdef DEBUG
-    if (stats->loglevel > 0) {
+    if (d_r_stats->loglevel > 0) {
         dcontext->logfile = open_log_file(thread_logfile_name(), NULL, 0);
         print_file(dcontext->logfile, "%s\n", dynamorio_version_string);
     } else {
@@ -3180,7 +3178,7 @@ check_should_be_protected(uint sec)
      * unprot, but it's not easy.
      */
     if (/* case 8107: for INJECT_LOCATION_LdrpLoadImportModule we
-         * load a helper library and end up in dispatch() for
+         * load a helper library and end up in d_r_dispatch() for
          * syscall_while_native before DR is initialized.
          */
         !dynamo_initialized ||
@@ -3320,7 +3318,7 @@ data_section_exit(void)
     uint i;
     DOSTATS({
         /* There can't have been that many races.
-         * A failure to re-protect should result in a ton of dispatch
+         * A failure to re-protect should result in a ton of d_r_dispatch
          * entrances w/ .data unprot, so should show up here.
          * However, an app with threads that are initializing in DR and thus
          * unprotected .data while other threads are running new code (such as
@@ -3437,7 +3435,7 @@ exiting_dynamorio(void)
 bool
 is_on_initstack(byte *esp)
 {
-    return (esp <= initstack && esp > initstack - DYNAMORIO_STACK_SIZE);
+    return (esp <= d_r_initstack && esp > d_r_initstack - DYNAMORIO_STACK_SIZE);
 }
 
 /* Note this includes any stack guard pages */
