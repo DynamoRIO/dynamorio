@@ -8286,7 +8286,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
 #ifdef LINUX
     case SYS_ppoll: {
-      if (dcontext->sys_param3 == (reg_t)NULL)
+        if (dcontext->sys_param3 == (reg_t)NULL)
             break;
         handle_post_extended_syscall_sigmasks(dcontext, success);
         set_syscall_param(dcontext, 3, dcontext->sys_param3);
