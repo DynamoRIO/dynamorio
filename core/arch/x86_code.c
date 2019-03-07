@@ -181,7 +181,7 @@ auto_setup(ptr_uint_t appstack)
     ASSERT(dcontext);
 #ifdef WINDOWS
     LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread " TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
 #endif
 
     /* Despite what *should* happen, there can be other threads if a statically
@@ -278,7 +278,7 @@ new_thread_setup(priv_mcontext_t *mc)
     crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     /* As we used dstack as app thread stack to pass clone record, we now need
      * to switch back to the real app thread stack before continuing.
@@ -340,7 +340,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     func_arg = (void *)get_clone_record_thread_arg(crec);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
                             crec _IF_CLIENT_INTERFACE(false));

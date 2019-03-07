@@ -30,10 +30,10 @@ annotation_unmanage_code_area(void *start, size_t size)
         "Remove code area " PFX "-" PFX " from JIT managed regions\n", start,
         (app_pc)start + size);
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     flush_fragments_and_remove_region(dcontext, start, size, true /*own initexit_lock*/,
                                       false /*keep futures*/);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
 
     jitopt_clear_span(start, (app_pc)start + size);
 }

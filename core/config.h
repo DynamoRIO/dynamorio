@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,10 +41,10 @@
 #include "dr_config.h" /* for dr_platform_t */
 
 void
-config_init(void);
+d_r_config_init(void);
 
 void
-config_exit(void);
+d_r_config_exit(void);
 
 void
 config_heap_init(void);

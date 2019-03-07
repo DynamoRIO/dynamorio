@@ -176,7 +176,7 @@ get_application_short_name(void)
  * installed, so it will segfault before it prints our error.
  */
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     fprintf(stderr, "ASSERT failed: %s:%d (%s)\n", file, line, expr);
     fflush(stderr);

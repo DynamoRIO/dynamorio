@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -87,17 +87,17 @@
 /* avoid mistake of lower-case assert */
 #define assert assert_no_good_use_ASSERT_instead
 void
-internal_error(char *file, int line, char *msg);
+d_r_internal_error(char *file, int line, char *msg);
 #ifdef DEBUG
 #    ifdef INTERNAL
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, #x); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, #x); \
             }
 #    else
-#        define ASSERT(x)                               \
-            if (!(x)) {                                 \
-                internal_error(__FILE__, __LINE__, ""); \
+#        define ASSERT(x)                                   \
+            if (!(x)) {                                     \
+                d_r_internal_error(__FILE__, __LINE__, ""); \
             }
 #    endif /* INTERNAL */
 #else
@@ -142,7 +142,7 @@ display_error_helper(wchar_t *msg)
 }
 
 void
-internal_error(char *file, int line, char *expr)
+d_r_internal_error(char *file, int line, char *expr)
 {
 #ifdef INTERNAL
 #    define FILENAME_LENGTH L""
@@ -401,7 +401,7 @@ process_attach()
     ntdll_init();
 #ifndef PARAMS_IN_REGISTRY
     /* i#85/PR 212034: use config files */
-    config_init();
+    d_r_config_init();
 #endif
 
 #if VERBOSE

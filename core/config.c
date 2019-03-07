@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -619,7 +619,7 @@ get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_sp
 }
 
 void
-config_init(void)
+d_r_config_init(void)
 {
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
@@ -672,7 +672,7 @@ config_heap_exit(void)
 #    endif
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
     if (doing_detach)
@@ -750,12 +750,12 @@ should_inject_from_rununder(const char *runstr, bool app_specific, bool from_env
 #else /* !PARAMS_IN_REGISTRY around whole file */
 
 void
-config_init(void)
+d_r_config_init(void)
 {
 }
 
 void
-config_exit(void)
+d_r_config_exit(void)
 {
 }
 

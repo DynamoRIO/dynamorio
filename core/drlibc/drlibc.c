@@ -56,11 +56,11 @@
 WEAK bool
 safe_read_if_fast(const void *base, size_t size, void *out_buf)
 {
-    return safe_read(base, size, out_buf);
+    return d_r_safe_read(base, size, out_buf);
 }
 
 WEAK void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     /* Do nothing for non-core. */
 }

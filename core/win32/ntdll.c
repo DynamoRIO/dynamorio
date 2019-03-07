@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -542,7 +542,7 @@ syscalls_init()
          * Versus:
          *   0x7c90e520   8d 54 24 08      lea     edx,[esp+8]
          *   0x7c90e524   cd 2e            int     2Eh
-         * XXX: I'd like to use safe_read() but that's not set up yet.
+         * XXX: I'd like to use d_r_safe_read() but that's not set up yet.
          */
         if (*((ushort *)(int_target + 1)) == 0xd2ff) {
             vsys = VSYSCALL_BOOTSTRAP_ADDR;
@@ -771,7 +771,7 @@ query_system_info(IN SYSTEM_INFORMATION_CLASS info_class, IN int info_size,
 /* since not exporting get_own_teb() */
 #ifndef NOT_DYNAMORIO_CORE
 thread_id_t
-get_thread_id()
+d_r_get_thread_id()
 {
     return (thread_id_t)get_own_teb()->ClientId.UniqueThread;
 }
@@ -1070,7 +1070,7 @@ context_ymmh_saved_area(CONTEXT *cxt)
     context_ex_t *cxt_ex = (context_ex_t *)(p + sizeof(*cxt));
     ASSERT(proc_avx_enabled());
     /* verify the dr_cxt_ex is correct */
-    if (safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
+    if (d_r_safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
         if (!context_check_extended_sizes(&our_cxt_ex, cxt->ContextFlags)) {
             ASSERT_CURIOSITY(false && "CONTEXT_EX is not setup correctly");
             return NULL;
@@ -1401,7 +1401,7 @@ alt_tls_acquire(uint *teb_offs /* OUT */, int num_slots, uint alignment)
      *
      * Second, on 64-bit, use space beyond the TEB on the 2nd TEB page.
      */
-    mutex_lock(&alt_tls_lock);
+    d_r_mutex_lock(&alt_tls_lock);
     res = alt_tls_acquire_helper(alt_tls_spare_taken, TLS_SPAREBYTES_SLOTS,
                                  offsetof(TEB, SpareBytes1), teb_offs, num_slots,
                                  alignment);
@@ -1414,7 +1414,7 @@ alt_tls_acquire(uint *teb_offs /* OUT */, int num_slots, uint alignment)
                                    TLS_POSTTEB_BASE_OFFS, teb_offs, num_slots, alignment);
     }
 #    endif
-    mutex_unlock(&alt_tls_lock);
+    d_r_mutex_unlock(&alt_tls_lock);
     return res;
 }
 
@@ -1442,19 +1442,19 @@ alt_tls_release(uint teb_offs, int num_slots)
     ASSERT(DYNAMO_OPTION(alt_teb_tls));
     if (teb_offs >= base_offs &&
         teb_offs < base_offs + TLS_SPAREBYTES_SLOTS * sizeof(void *)) {
-        mutex_lock(&alt_tls_lock);
+        d_r_mutex_lock(&alt_tls_lock);
         res = alt_tls_release_helper(alt_tls_spare_taken, (uint)base_offs, teb_offs,
                                      num_slots);
-        mutex_unlock(&alt_tls_lock);
+        d_r_mutex_unlock(&alt_tls_lock);
     }
 #    ifdef X64
     if (!res) {
         if (teb_offs >= TLS_POSTTEB_BASE_OFFS &&
             teb_offs < TLS_POSTTEB_BASE_OFFS + TLS_POSTTEB_SLOTS * sizeof(void *)) {
-            mutex_lock(&alt_tls_lock);
+            d_r_mutex_lock(&alt_tls_lock);
             res = alt_tls_release_helper(alt_tls_post_taken, TLS_POSTTEB_BASE_OFFS,
                                          teb_offs, num_slots);
-            mutex_unlock(&alt_tls_lock);
+            d_r_mutex_unlock(&alt_tls_lock);
         }
     }
 #    endif

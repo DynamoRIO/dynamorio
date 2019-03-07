@@ -2141,7 +2141,7 @@ privload_set_security_cookie(privmod_t *mod)
     /* 64-bit seems to sign-extend so we use ptr_int_t */
     cookie = (ptr_int_t)(time100ns >> 32) ^ (ptr_int_t)time100ns;
     cookie ^= get_process_id();
-    cookie ^= get_thread_id();
+    cookie ^= d_r_get_thread_id();
     cookie ^= get_tick_count();
     nt_query_performance_counter(&perfctr, NULL);
 #ifdef X64

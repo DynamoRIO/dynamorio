@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,7 +66,7 @@
 /* avoid mistake of lower-case assert */
 #    define assert assert_no_good_use_ASSERT_instead
 extern void
-internal_error(const char *file, int line, const char *msg);
+d_r_internal_error(const char *file, int line, const char *msg);
 #    ifdef DEBUG
 extern void
 display_error(char *msg);
@@ -78,11 +78,11 @@ display_error(char *msg);
 #            ifdef INTERNAL
 #                define ASSERT(x) \
                     if (!(x))     \
-                    internal_error(__FILE__, __LINE__, #x)
+                    d_r_internal_error(__FILE__, __LINE__, #x)
 #            else
 #                define ASSERT(x) \
                     if (!(x))     \
-                    internal_error(__FILE__, __LINE__, "")
+                    d_r_internal_error(__FILE__, __LINE__, "")
 #            endif /* INTERNAL */
 #        elif !defined(NOT_DYNAMORIO_CORE)
 #            define display_warning SYSLOG_INTERNAL_WARNING

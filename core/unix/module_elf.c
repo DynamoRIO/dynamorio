@@ -66,7 +66,7 @@ typedef struct _elf_symbol_iterator_t {
     dr_symbol_export_t symbol_export; /* symbol export returned by next() */
 
     ELF_SYM_TYPE *symbol;      /* safe_cur_sym or NULL */
-    ELF_SYM_TYPE safe_cur_sym; /* safe_read() copy of current symbol */
+    ELF_SYM_TYPE safe_cur_sym; /* d_r_safe_read() copy of current symbol */
 
     /* This data is copied from os_module_data_t so we don't have to hold the
      * module area lock while the client iterates.

@@ -39,7 +39,7 @@
 #include "../globals.h"
 
 WEAK bool
-safe_read(const void *base, size_t size, void *out_buf)
+d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     memcpy(out_buf, base, size);
     return true;

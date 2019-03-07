@@ -1548,7 +1548,7 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar, app_pc
                                                        : "Thread " TIDFMT
                                                          " call stack:\n",
                         /* We avoid TLS tid to work on crashes */
-                        IF_WINDOWS_ELSE(get_thread_id(), get_sys_thread_id()));
+                        IF_WINDOWS_ELSE(d_r_get_thread_id(), get_sys_thread_id()));
     }
 
     if (cur_pc != NULL) {

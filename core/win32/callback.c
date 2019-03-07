@@ -250,7 +250,7 @@ intercept_asynch_common(thread_record_t *tr, bool intercept_unknown)
         if (control_all_threads) {
             /* we should know about all threads! */
             SYSLOG_INTERNAL_WARNING("Received asynch event for unknown thread " TIDFMT "",
-                                    get_thread_id());
+                                    d_r_get_thread_id());
             /* try to make everything run rather than assert -- just do
              * this asynch natively, we probably received it for a thread that's
              * been created but not scheduled?
@@ -295,7 +295,7 @@ intercept_asynch_for_self(bool intercept_unknown)
     if (dcontext != NULL)
         return intercept_asynch_common(dcontext->thread_record, intercept_unknown);
     else
-        return intercept_asynch_for_thread(get_thread_id(), intercept_unknown);
+        return intercept_asynch_for_thread(d_r_get_thread_id(), intercept_unknown);
 }
 
 /***************************************************************************
@@ -1378,7 +1378,7 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
     elem->hook_occludes_instrs = hook_occludes_instrs;
     elem->next = NULL;
 
-    mutex_lock(&map_intercept_pc_lock);
+    d_r_mutex_lock(&map_intercept_pc_lock);
 
     if (intercept_map->head == NULL) {
         intercept_map->head = elem;
@@ -1391,7 +1391,7 @@ map_intercept_pc_to_app_pc(byte *interception_pc, app_pc original_app_pc,
         intercept_map->tail = elem;
     }
 
-    mutex_unlock(&map_intercept_pc_lock);
+    d_r_mutex_unlock(&map_intercept_pc_lock);
 }
 
 static void
@@ -1399,7 +1399,7 @@ unmap_intercept_pc(app_pc original_app_pc)
 {
     intercept_map_elem_t *curr, *prev, *next;
 
-    mutex_lock(&map_intercept_pc_lock);
+    d_r_mutex_lock(&map_intercept_pc_lock);
 
     prev = NULL;
     curr = intercept_map->head;
@@ -1427,7 +1427,7 @@ unmap_intercept_pc(app_pc original_app_pc)
         curr = next;
     }
 
-    mutex_unlock(&map_intercept_pc_lock);
+    d_r_mutex_unlock(&map_intercept_pc_lock);
 }
 
 static void
@@ -1439,7 +1439,7 @@ free_intercept_list(void)
      * down the whole list.
      */
     intercept_map_elem_t *curr;
-    mutex_lock(&map_intercept_pc_lock);
+    d_r_mutex_lock(&map_intercept_pc_lock);
     while (intercept_map->head != NULL) {
         curr = intercept_map->head;
         intercept_map->head = curr->next;
@@ -1448,7 +1448,7 @@ free_intercept_list(void)
     }
     intercept_map->head = NULL;
     intercept_map->tail = NULL;
-    mutex_unlock(&map_intercept_pc_lock);
+    d_r_mutex_unlock(&map_intercept_pc_lock);
 }
 
 /* We assume no mangling of code placed in the interception buffer,
@@ -2909,16 +2909,16 @@ wipe_out_ntdll()
     /* first suspend all other threads */
     thread_record_t **threads;
     int i, num_threads;
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     get_list_of_threads(&threads, &num_threads);
     for (i = 0; i < num_threads; i++) {
-        if (threads[i]->id != get_thread_id()) {
+        if (threads[i]->id != d_r_get_thread_id()) {
             LOG(GLOBAL, LOG_ASYNCH, 1, "Suspending thread " TIDFMT " == " PFX "\n",
                 tr->id, tr->handle);
             SuspendThread(threads[i]->handle);
         }
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads,
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 
@@ -2952,7 +2952,7 @@ wipe_out_ntdll()
 static inline void
 asynch_retakeover_if_native()
 {
-    thread_record_t *tr = thread_lookup(get_thread_id());
+    thread_record_t *tr = thread_lookup(d_r_get_thread_id());
     ASSERT(tr != NULL);
     if (IS_UNDER_DYN_HACK(tr->under_dynamo_control)) {
         ASSERT(!reached_image_entry_yet());
@@ -3053,7 +3053,7 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
          * and initializes before os_take_over_all_unknown_threads() runs.
          */
     } else {
-        threads_waiting_for_dr_init[idx] = get_thread_id();
+        threads_waiting_for_dr_init[idx] = d_r_get_thread_id();
     }
 
     while (!dynamo_initialized && !dynamo_exited) {
@@ -3288,7 +3288,7 @@ intercept_new_thread(CONTEXT *cxt)
              * etc.
              * FIXME - the deref of cxt->CXT_XIP is potentially unsafe, we
              * assume it's ok since is on the executable list and the thread is
-             * about to execute from there.  Should prob. use safe_read()
+             * about to execute from there.  Should prob. use d_r_safe_read()
              * FIXME - for this to work we're also assuming that the thunks
              * will always be on the executable list.
              */
@@ -3595,7 +3595,7 @@ intercept_apc(app_state_at_intercept_t *state)
         LOG(GLOBAL, LOG_ASYNCH, 2,
             "ASYNCH intercepted apc: thread=" TIDFMT ", apc pc=" PFX ", cont pc=" PFX
             "\n",
-            get_thread_id(), apc_target, cxt->CXT_XIP);
+            d_r_get_thread_id(), apc_target, cxt->CXT_XIP);
 #endif
 
         /* this is the same check as in dynamorio_init */
@@ -3870,7 +3870,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
 
         LOG(THREAD, LOG_ASYNCH, 2,
             "ASYNCH intercept_nt_continue in thread " TIDFMT ", xip=" PFX "\n",
-            get_thread_id(), cxt->CXT_XIP);
+            d_r_get_thread_id(), cxt->CXT_XIP);
 
         LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
         DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
@@ -4059,7 +4059,7 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
     ASSERT(dcontext != NULL && dcontext->initialized);
     LOG(THREAD, LOG_ASYNCH, 1,
         "ASYNCH intercept_nt_setcontext: thread " TIDFMT " targeting thread " TIDFMT "\n",
-        get_thread_id(), dcontext->owning_thread);
+        d_r_get_thread_id(), dcontext->owning_thread);
     LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
     DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
 
@@ -4204,7 +4204,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
          * initexit lock (to keep someone from flushing current fragment), the
          * initexit lock is easier
          */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         /* FIXME: currently this will fail for a pc inside a pending-deletion
          * fragment!  == case 3567
          */
@@ -4236,7 +4236,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
             }
         }
 #endif
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         LOG(THREAD, LOG_ASYNCH, 2, "\tinto " PFX "\n", translated_pc);
     }
     ASSERT(translated_pc != NULL);
@@ -4308,7 +4308,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
         prot_size = (app_pc)PAGE_START(target + write_size) + PAGE_SIZE - prot_start;
         context_to_mcontext(&mcontext, cxt);
         /* can't have two threads in here at once mixing up writability w/ the write */
-        mutex_lock(&emulate_write_lock);
+        d_r_mutex_lock(&emulate_write_lock);
         /* FIXME: this opens up a window where an executable region on the same
          * page will not have code modifications detected
          */
@@ -4335,7 +4335,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
             /* using some instr our emulate can't handle yet
              * abort and remove page-expanded region from exec list
              */
-            mutex_unlock(&emulate_write_lock);
+            d_r_mutex_unlock(&emulate_write_lock);
             LOG(THREAD, LOG_ASYNCH, 1, "emulation of instr @" PFX " failed, bailing\n",
                 translated_pc);
             flush_fragments_and_remove_region(dcontext, prot_start, prot_size,
@@ -4350,7 +4350,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
                 "successfully emulated writer @" PFX " writing " PFX " to " PFX "\n",
                 translated_pc, *((int *)target), target);
             make_unwritable(prot_start, prot_size);
-            mutex_unlock(&emulate_write_lock);
+            d_r_mutex_unlock(&emulate_write_lock);
             /* will go back to d_r_dispatch for next_pc below */
             STATS_INC(num_emulated_writes);
         }
@@ -4526,10 +4526,10 @@ check_for_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTE
                  * initexit lock (to keep someone from flushing current fragment), the
                  * initexit lock is easier
                  */
-                mutex_lock(&thread_initexit_lock);
+                d_r_mutex_lock(&thread_initexit_lock);
                 translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
                 ASSERT(translated_pc != NULL);
-                mutex_unlock(&thread_initexit_lock);
+                d_r_mutex_unlock(&thread_initexit_lock);
                 LOG(THREAD, LOG_ASYNCH, 2, "\tinto " PFX "\n", translated_pc);
                 print_symbolic_address(translated_pc, buf, sizeof(buf), false);
                 LOG(THREAD, LOG_VMAREAS, 1,
@@ -4981,9 +4981,9 @@ internal_dynamo_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CON
      */
     DO_ONCE({
         if (is_dstack_overflow(dcontext, pExcptRec, cxt) && exception_stack != NULL) {
-            mutex_lock(&exception_stack_lock);
+            d_r_mutex_lock(&exception_stack_lock);
             call_intr_excpt_alt_stack(dcontext, pExcptRec, cxt, exception_stack);
-            mutex_unlock(&exception_stack_lock);
+            d_r_mutex_unlock(&exception_stack_lock);
         } else {
             internal_exception_info(dcontext, pExcptRec, cxt, false, is_client);
         }
@@ -5333,7 +5333,7 @@ intercept_exception(app_state_at_intercept_t *state)
     }
 
     if (intercept_asynch_global() &&
-        (dcontext != NULL || is_thread_known(get_thread_id()))) {
+        (dcontext != NULL || is_thread_known(d_r_get_thread_id()))) {
         priv_mcontext_t mcontext;
         app_pc forged_exception_addr;
         EXCEPTION_RECORD *pExcptRec;
@@ -5401,7 +5401,8 @@ intercept_exception(app_state_at_intercept_t *state)
 
         LOG(THREAD, LOG_ASYNCH, 1,
             "ASYNCH intercepted exception in %sthread " TIDFMT " at pc " PFX "\n",
-            takeover ? "" : "non-asynch ", get_thread_id(), pExcptRec->ExceptionAddress);
+            takeover ? "" : "non-asynch ", d_r_get_thread_id(),
+            pExcptRec->ExceptionAddress);
         DOLOG(2, LOG_ASYNCH, {
             if (cxt->CXT_XIP != (ptr_uint_t)pExcptRec->ExceptionAddress) {
                 LOG(THREAD, LOG_ASYNCH, 2, "\tcxt pc is different: " PFX "\n",
@@ -5751,7 +5752,7 @@ intercept_exception(app_state_at_intercept_t *state)
              * initexit lock (to keep someone from flushing current fragment), the
              * initexit lock is easier
              */
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
             if (cxt->CXT_XIP != (ptr_uint_t)pExcptRec->ExceptionAddress) {
                 /* sometimes this happens, certainly cxt can be changed by exception
                  * handlers, but not clear why kernel changes it before getting here.
@@ -5798,7 +5799,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 /* we should always at least get pc right */
                 ASSERT(res == RECREATE_SUCCESS_PC);
             }
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
             if (cxt->CXT_XIP == (ptr_uint_t)pExcptRec->ExceptionAddress)
                 pExcptRec->ExceptionAddress = (PVOID)mcontext.pc;
 #ifdef X64
@@ -6325,7 +6326,7 @@ intercept_callback_start(app_state_at_intercept_t *state)
             target = cbtable[*(uint *)(state->mc.xsp + IF_X64_ELSE(0x2c, 4))];
             LOG(THREAD_GET, LOG_ASYNCH, 2,
                 "ASYNCH intercepted callback #%d: target=" PFX ", thread=" TIDFMT "\n",
-                GLOBAL_STAT(num_callbacks) + 1, target, get_thread_id());
+                GLOBAL_STAT(num_callbacks) + 1, target, d_r_get_thread_id());
             DOLOG(3, LOG_ASYNCH,
                   { dump_mcontext(&state->mc, THREAD_GET, DUMP_NOT_XML); });
         });
@@ -6668,7 +6669,7 @@ callback_start_return(priv_mcontext_t *mc)
          * We see this when we take control in the middle of a callback that's
          * in the middle of the init APC, which is used to initialize the main thread.
          */
-        thread_record_t *tr = thread_lookup(get_thread_id());
+        thread_record_t *tr = thread_lookup(d_r_get_thread_id());
         /* we may end up losing control, so use this to signal as a hack,
          * if we intercept any asynchs we'll report an error if we see UNDER_DYN_HACK
          */
@@ -6714,7 +6715,7 @@ callback_start_return(priv_mcontext_t *mc)
                 SYSLOG_INTERNAL_ERROR("non-process-init callback return with native "
                                       "callback context for %s thread " TIDFMT "",
                                       (tr == NULL) ? "unknown" : "known",
-                                      get_thread_id());
+                                      d_r_get_thread_id());
                 /* might be injected late, refer to bug 426 for discussion
                  * of instance here where that was the case */
                 ASSERT_NOT_REACHED();
@@ -6927,7 +6928,7 @@ should_intercept_LdrUnloadDll(void)
 after_intercept_action_t
 intercept_load_dll(app_state_at_intercept_t *state)
 {
-    thread_record_t *tr = thread_lookup(get_thread_id());
+    thread_record_t *tr = thread_lookup(d_r_get_thread_id());
     /* grab args to original routine */
     wchar_t *path = (wchar_t *)APP_PARAM(&state->mc, 0);
     uint *characteristics = (uint *)APP_PARAM(&state->mc, 1);
@@ -6957,7 +6958,8 @@ intercept_load_dll(app_state_at_intercept_t *state)
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: native thread in intercept_load_dll\n");
         if (control_all_threads) {
             SYSLOG_INTERNAL_ERROR("LdrLoadDll reached by unexpected %s thread " TIDFMT "",
-                                  (tr == NULL) ? "unknown" : "known", get_thread_id());
+                                  (tr == NULL) ? "unknown" : "known",
+                                  d_r_get_thread_id());
             /* case 9385 tracks an instance */
             ASSERT_CURIOSITY(false);
         }
@@ -7003,7 +7005,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
     /* grab arg to original routine */
     HMODULE h = (HMODULE)APP_PARAM(&state->mc, 0);
     static int in_svchost = -1; /* unknown yet */
-    thread_record_t *tr = thread_lookup(get_thread_id());
+    thread_record_t *tr = thread_lookup(d_r_get_thread_id());
     ASSERT(should_intercept_LdrUnloadDll());
 
     if (tr == NULL) {
@@ -7011,9 +7013,9 @@ intercept_unload_dll(app_state_at_intercept_t *state)
             "WARNING: native thread in "
             "intercept_unload_dll\n");
         if (control_all_threads) {
-            SYSLOG_INTERNAL_ERROR("LdrUnloadDll reached by unexpected %s thread " TIDFMT
-                                  "",
-                                  (tr == NULL) ? "unknown" : "known", get_thread_id());
+            SYSLOG_INTERNAL_ERROR(
+                "LdrUnloadDll reached by unexpected %s thread " TIDFMT "",
+                (tr == NULL) ? "unknown" : "known", d_r_get_thread_id());
             /* case 9385 tracks an instance */
             ASSERT_CURIOSITY(false);
         }
@@ -7127,13 +7129,13 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
      * block the rest as A) a thread hitting the hook before we remove it should
      * be a nop and B) the hook removal itself should be thread-safe.
      */
-    if (!mutex_trylock(&intercept_hook_lock))
+    if (!d_r_mutex_trylock(&intercept_hook_lock))
         return;
     /* Check whether another thread already did this and already unlocked the lock.
      * We can also later re-insert the image entry hook if we lose control on cbret.
      */
     if (image_entry_trampoline == NULL) {
-        mutex_unlock(&intercept_hook_lock);
+        d_r_mutex_unlock(&intercept_hook_lock);
         return;
     }
 
@@ -7224,7 +7226,7 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
         LOG(GLOBAL, LOG_VMAREAS, 1, "after re-walking, executable regions are:\n");
         DOLOG(1, LOG_VMAREAS, { print_executable_areas(GLOBAL); });
     }
-    mutex_unlock(&intercept_hook_lock);
+    d_r_mutex_unlock(&intercept_hook_lock);
 }
 
 void
@@ -7429,11 +7431,12 @@ intercept_image_entry(app_state_at_intercept_t *state)
             return AFTER_INTERCEPT_LET_GO;
         }
 
-        ASSERT(IS_UNDER_DYN_HACK(thread_lookup(get_thread_id())->under_dynamo_control));
+        ASSERT(
+            IS_UNDER_DYN_HACK(thread_lookup(d_r_get_thread_id())->under_dynamo_control));
     }
 
     if (dynamo_initialized) {
-        thread_record_t *tr = thread_lookup(get_thread_id());
+        thread_record_t *tr = thread_lookup(d_r_get_thread_id());
         /* FIXME: we must unprot .data here and again for retakeover: worth optimizing? */
         set_reached_image_entry();
         if ((tr != NULL && IS_UNDER_DYN_HACK(tr->under_dynamo_control)) ||
@@ -7466,7 +7469,8 @@ intercept_image_entry(app_state_at_intercept_t *state)
         } else {
             SYSLOG_INTERNAL_ERROR("Image entry interception point reached by unexpected "
                                   "%s thread " TIDFMT "",
-                                  (tr == NULL) ? "unknown" : "known", get_thread_id());
+                                  (tr == NULL) ? "unknown" : "known",
+                                  d_r_get_thread_id());
             ASSERT_NOT_REACHED();
         }
     }
@@ -8200,7 +8204,7 @@ at_fiber_init_known_exception(dcontext_t *dcontext, app_pc target_pc)
         ASSERT(sizeof(FIBER_CODE_32) == sizeof(FIBER_CODE_rcx_64) &&
                sizeof(FIBER_CODE_32) == sizeof(FIBER_CODE_rax_64));
 
-        if (!safe_read(target_pc, sizeof(buf), &buf))
+        if (!d_r_safe_read(target_pc, sizeof(buf), &buf))
             return false; /* target not sufficiently readable */
 
         /* For wow64 we expect to only see 32-bit kernel32 */
@@ -8416,7 +8420,7 @@ at_Borland_SEH_rct_exemption(dcontext_t *dcontext, app_pc target_pc)
          * module by now (before we hit the exemption code) */
         rct_ind_branch_target_lookup(dcontext, jmp_loc) != NULL &&
         is_in_code_section(base, target_pc, NULL, NULL) &&
-        safe_read(jmp_loc, sizeof(buf), &buf) &&
+        d_r_safe_read(jmp_loc, sizeof(buf), &buf) &&
         is_jmp_rel32(buf, jmp_loc, &jmp_target) &&
         /* perf opt, we use get_allocation_base instead of get_module_base
          * since already checking if matches a known module base (base) */
