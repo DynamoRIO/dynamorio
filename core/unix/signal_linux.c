@@ -364,6 +364,8 @@ handle_pre_extended_syscall_sigmasks(dcontext_t *dcontext, kernel_sigset_t *sigm
     if (sizemask != sizeof(kernel_sigset_t))
         return false;
     ASSERT(!info->pre_syscall_app_sigprocmask_valid);
+    if (sigmask == NULL)
+        return true;
     info->pre_syscall_app_sigprocmask_valid = true;
     info->pre_syscall_app_sigprocmask = info->app_sigblocked;
     signal_set_mask(dcontext, sigmask);
@@ -377,6 +379,8 @@ void
 handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    if (!info->pre_syscall_app_sigprocmask_valid)
+        return;
     info->pre_syscall_app_sigprocmask_valid = false;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
 }
