@@ -330,6 +330,7 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
     }
     uint hindex = hash_key(table, key);
     hash_entry_t *e;
+    size_t hash_key_size;
     for (e = table->table[hindex]; e != NULL; e = e->next) {
         if (keys_equal(table, e->key, key)) {
             /* we have a use where payload != existing entry so we don't assert on that */
@@ -341,8 +342,9 @@ hashtable_add(hashtable_t *table, void *key, void *payload)
     e = (hash_entry_t *)hash_alloc(sizeof(*e));
     if (table->str_dup) {
         const char *s = (const char *)key;
-        e->key = hash_alloc(strlen(s) + 1);
-        strncpy((char *)e->key, s, sizeof(*e));
+        hash_key_size = strlen(s) + 1;
+        e->key = hash_alloc(hash_key_size);
+        strncpy((char *)e->key, s, hash_key_size);
     } else
         e->key = key;
     e->payload = payload;
