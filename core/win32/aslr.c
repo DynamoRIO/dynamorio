@@ -496,14 +496,14 @@ aslr_get_next_base(void)
      * rely much on this.
      */
 
-    mutex_lock(&aslr_lock);
+    d_r_mutex_lock(&aslr_lock);
     /* note that we always lose the low 16 bits of randomness of the
      * padding, so adding to last dll page-aligned doesn't matter */
     aslr_last_dll_bounds->start = aslr_last_dll_bounds->end + jitter;
     aslr_last_dll_bounds->start =
         (app_pc)ALIGN_FORWARD(aslr_last_dll_bounds->start, ASLR_MAP_GRANULARITY);
     returned_base = aslr_last_dll_bounds->start; /* for racy callers */
-    mutex_unlock(&aslr_lock);
+    d_r_mutex_unlock(&aslr_lock);
 
     LOG(THREAD_GET, LOG_SYSCALLS | LOG_VMAREAS, 1, "ASLR: next dll recommended=" PFX "\n",
         returned_base);
@@ -578,7 +578,7 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
     if (requested_base != current_base) {
         /* update our expectations, so that aslr_update_view_size()
          * doesn't get surprised */
-        mutex_lock(&aslr_lock);
+        d_r_mutex_lock(&aslr_lock);
         if (aslr_last_dll_bounds->start == requested_base) {
             aslr_last_dll_bounds->start = current_base;
         } else {
@@ -586,7 +586,7 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
             ASSERT_CURIOSITY(false && "aslr_get_fitting_base: racy ASLR mapping");
             ASSERT_NOT_TESTED();
         }
-        mutex_unlock(&aslr_lock);
+        d_r_mutex_unlock(&aslr_lock);
     }
     ASSERT(ALIGNED(current_base, ASLR_MAP_GRANULARITY));
     return current_base;
@@ -620,9 +620,9 @@ aslr_update_failed(bool request_new, app_pc requested_base, size_t needed_size)
 
     if (new_base == NULL) {
         /* update old base, currently just so we can ASSERT elsewhere */
-        mutex_lock(&aslr_lock);
+        d_r_mutex_lock(&aslr_lock);
         aslr_last_dll_bounds->start = NULL;
-        mutex_unlock(&aslr_lock);
+        d_r_mutex_unlock(&aslr_lock);
         /* just giving up, no need for new base */
     }
     return new_base;
@@ -650,7 +650,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
     /* NOTE we don't have a lock for the actual system call so we can
      * get out of order here
      */
-    mutex_lock(&aslr_lock);
+    d_r_mutex_lock(&aslr_lock);
     if (aslr_last_dll_bounds->start == view_base) {
         aslr_last_dll_bounds->end = view_base + view_size;
     } else {
@@ -663,7 +663,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
         aslr_last_dll_bounds->end = MAX(aslr_last_dll_bounds->end, view_base + view_size);
         ASSERT_NOT_TESTED();
     }
-    mutex_unlock(&aslr_lock);
+    d_r_mutex_unlock(&aslr_lock);
 }
 
 /* used for tracking potential violations in ASLR_TRACK_AREAS */
@@ -803,8 +803,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
     /* flag currently used only for MapViewOfSection */
     dcontext->aslr_context.sys_aslr_clobbered = false;
 
-    if (!safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) ||
-        !safe_read(pview_size_unsafe, sizeof(requested_size), &requested_size)) {
+    if (!d_r_safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) ||
+        !d_r_safe_read(pview_size_unsafe, sizeof(requested_size), &requested_size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
         return;
@@ -5820,7 +5820,8 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext, bool is_create,
 
     ASSERT(NT_SUCCESS(get_mcontext(dcontext)->xax));
 
-    safe_read(sysarg_section_handle, sizeof(safe_section_handle), &safe_section_handle);
+    d_r_safe_read(sysarg_section_handle, sizeof(safe_section_handle),
+                  &safe_section_handle);
 
     ASSERT(TEST(ASLR_DLL, DYNAMO_OPTION(aslr)));
     ASSERT(file_handle != NULL && file_handle != INVALID_HANDLE_VALUE);
@@ -6167,7 +6168,7 @@ gbop_is_after_cti(const app_pc ret_addr)
      * Not worth doing unless this routine proves to be expensive.
      */
     for (bytes_read = CTI_MAX_LENGTH; bytes_read >= CTI_MIN_LENGTH; bytes_read--) {
-        done = safe_read(ret_addr - bytes_read, bytes_read, (void *)raw_bytes);
+        done = d_r_safe_read(ret_addr - bytes_read, bytes_read, (void *)raw_bytes);
         if (done)
             break;
         ASSERT_NOT_TESTED();

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -118,7 +118,7 @@ take_over(const char *pname)
         return true;
 
     /* i#85/PR 212034: use config files */
-    config_init();
+    d_r_config_init();
     runstr = get_config_val_ex(DYNAMORIO_VAR_RUNUNDER, &app_specific, &from_env);
     if (!should_inject_from_rununder(runstr, app_specific, from_env, &rununder_on) ||
         !rununder_on)

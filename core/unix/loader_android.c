@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -194,7 +194,7 @@ privload_tls_init(void *app_tls)
             thrd = (android_v5_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
             LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,
@@ -204,7 +204,7 @@ privload_tls_init(void *app_tls)
             thrd = (android_v6_pthread_internal_t *)res;
             thrd->tls[ANDROID_TLS_SLOT_SELF] = thrd->tls;
             thrd->tls[ANDROID_TLS_SLOT_THREAD_ID] = thrd;
-            thrd->tid = get_thread_id();
+            thrd->tid = d_r_get_thread_id();
             thrd->dr_tls_base = NULL;
             res = thrd->tls[ANDROID_TLS_SLOT_SELF];
             LOG(GLOBAL, LOG_LOADER, 2, "%s: TLS set to " PFX "\n", __FUNCTION__,

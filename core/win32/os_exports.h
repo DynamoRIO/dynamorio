@@ -121,7 +121,8 @@ enum {
 
 #define DR_REG_SYSNUM REG_EAX
 
-/* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
+/* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
+ */
 #define get_tls(/*ushort*/ tls_offs) \
     ((void *)IF_X64_ELSE(__readgsqword, __readfsdword)(tls_offs))
 
@@ -131,7 +132,8 @@ set_tls(ushort tls_offs, void *value)
     IF_X64_ELSE(__writegsqword, __writefsdword)(tls_offs, (ptr_uint_t)value);
 }
 
-/* even INLINE_FORCED isn't inlining this into get_thread_id() in debug build (i#655) */
+/* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
+ */
 #define get_own_teb() ((TEB *)get_tls(SELF_TIB_OFFSET))
 
 /* We need to meet these requirements:

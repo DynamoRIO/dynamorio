@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,7 +57,7 @@
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
 #    if !defined(NOT_DYNAMORIO_CORE_PROPER)
@@ -121,7 +121,7 @@ typedef struct _pe_symbol_export_iterator_t {
  * !not_readable() below.
  * FIXME : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
- * check here and the actual read later.  See safe_read() as an alt.
+ * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
 /* throw-away buffer */
 DECLARE_NEVERPROT_VAR(static char is_readable_buf[4 /*efficient read*/], { 0 });

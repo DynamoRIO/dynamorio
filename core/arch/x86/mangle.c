@@ -2514,9 +2514,9 @@ float_pc_update(dcontext_t *dcontext)
         }
     }
     /* We must either grab thread_initexit_lock or be couldbelinking to translate */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     xl8_pc = recreate_app_pc(dcontext, orig_pc, NULL);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     LOG(THREAD, LOG_INTERP, 2, "%s: translated " PFX " to " PFX "\n", __FUNCTION__,
         orig_pc, xl8_pc);
 

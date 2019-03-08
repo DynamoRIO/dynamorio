@@ -763,7 +763,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
         protect_generated_code(tpc, WRITABLE);
 
         stop_profile(tpc->profile);
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
 
         /* Print the thread id so even if it has no hits we can
          * count the # total threads. */
@@ -836,7 +836,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
                                tpc->profile->end);
         }
 
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
         free_profile(tpc->profile);
         tpc->profile = NULL;
     }

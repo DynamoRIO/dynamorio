@@ -180,7 +180,7 @@ bool
 os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit);
 
 thread_id_t
-get_thread_id(void);
+d_r_get_thread_id(void);
 process_id_t
 get_process_id(void);
 void
@@ -633,7 +633,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top);
  */
 #define SAFE_READ_VAL(dst_var, src_ptr)           \
     (ASSERT(sizeof(dst_var) == sizeof(*src_ptr)), \
-     safe_read(src_ptr, sizeof(dst_var), &dst_var))
+     d_r_safe_read(src_ptr, sizeof(dst_var), &dst_var))
 
 bool
 is_readable_without_exception(const byte *pc, size_t size);
@@ -642,7 +642,7 @@ is_readable_without_exception_query_os(byte *pc, size_t size);
 bool
 is_readable_without_exception_query_os_noblock(byte *pc, size_t size);
 bool
-safe_read(const void *base, size_t size, void *out_buf);
+d_r_safe_read(const void *base, size_t size, void *out_buf);
 bool
 safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read);
 bool
