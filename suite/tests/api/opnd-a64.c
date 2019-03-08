@@ -58,7 +58,7 @@ test_get_size()
     }
 
     // Check sizes of FP/SIMD regs.
-    for (uint i = 0; i < proc_num_simd_saved_abs(); i++) {
+    for (int i = 0; i < proc_num_simd_saved_abs(); i++) {
         ASSERT(reg_get_size((reg_id_t)DR_REG_H0 + i) == OPSZ_2);
         ASSERT(reg_get_size((reg_id_t)DR_REG_S0 + i) == OPSZ_4);
         ASSERT(reg_get_size((reg_id_t)DR_REG_D0 + i) == OPSZ_8);

@@ -125,7 +125,7 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
 static instrlist_t *
 codegen_out_of_line(void *dc)
 {
-    uint i;
+    int i;
     instrlist_t *ilist = instrlist_create(dc);
 
     codegen_prologue(dc, ilist);

@@ -287,7 +287,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
 static void
 dump_diff_mcontexts(void)
 {
-    uint i;
+    int i;
     dr_fprintf(STDERR,
                "Registers clobbered by supposedly clean call!\n"
                "Printing GPRs + flags:\n");

@@ -60,7 +60,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 {
     instrlist_t *ilist = ci->ilist;
     instr_t *instr;
-    uint i, num_regparm;
+    int i, num_regparm;
 
     ci->num_simd_used = 0;
     memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_saved_abs());

@@ -60,7 +60,7 @@ static bool callee_info_table_exit = false;
 static void
 callee_info_init(callee_info_t *ci)
 {
-    uint i;
+    int i;
     memset(ci, 0, sizeof(*ci));
     ci->bailout = true;
     /* to be conservative */
@@ -489,7 +489,7 @@ analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 static void
 analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
 {
-    uint i, num_regparm;
+    int i, num_regparm;
     callee_info_t *info = cci->callee_info;
 
     /* 1. xmm registers */
