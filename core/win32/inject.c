@@ -1,7 +1,7 @@
-/* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
- * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+\/* **********************************************************
+  * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
+  * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -64,13 +64,11 @@
 /* this entry point is hardcoded, FIXME : abstract */
 #define DYNAMORIO_ENTRY "dynamo_auto_start"
 
-extern int proc_num_simd_saved_abs();
-
 #ifdef DEBUG
-/* for asserts, we import globals.h now (for pragmas) so don't need to
- * duplicate assert defines, declarations */
-extern void
-display_error(char *msg);
+    /* for asserts, we import globals.h now (for pragmas) so don't need to
+     * duplicate assert defines, declarations */
+    extern void
+    display_error(char *msg);
 #else
 #    define display_error(msg) ((void)0)
 #endif
@@ -244,7 +242,9 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             int i, j;
             /* For x86, ensure we have ExtendedRegisters space (i#1223) */
             IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
-            for (i = 0; i < proc_num_simd_saved_abs(); i++) {
+            /* XXX i#1312: This should be proc_num_simd_saved_abs() which is part of
+             * the dynamorio lib. */
+            for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2, 4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
                 }
