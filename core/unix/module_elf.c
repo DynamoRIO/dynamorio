@@ -209,8 +209,31 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
     return tgt;
 }
 
+Elf64_Off module_get_dynstr_offset(app_pc base, size_t view_size)
+{
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
+    ELF_SECTION_HEADER_TYPE *sec_hdr;
+    char *strtab;
+    uint i;
+
+    SYSLOG_INTERNAL_INFO("view_size=%d e_shoff=%d", view_size, elf_hdr->e_shoff);
+    ASSERT(view_size > elf_hdr->e_shoff);
+    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
+
+    sec_hdr = (ELF_SECTION_HEADER_TYPE *)(base + elf_hdr->e_shoff);
+    strtab = (char *)(base + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
+    for (i = 0; i < elf_hdr->e_shnum; i++) {
+        if (strcmp(".dynstr", strtab + sec_hdr->sh_name) == 0)
+            return sec_hdr->sh_offset;
+        ++sec_hdr;
+    }
+    // TODO: assume all ELFs contain a .dynstr ?
+    ASSERT(false);
+    return 0;
+}
+
 /* common code to fill os_module_data_t for loader and module_area_t */
-static int
+static bool
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_base, app_pc mod_max_end, app_pc base, size_t view_size,
                     bool at_map, bool dyn_reloc, ptr_int_t load_delta, OUT char **soname,
@@ -247,10 +270,10 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
         return false;
 #endif
 
-    int soname_index = -1;
     TRY_EXCEPT_ALLOW_NO_DCONTEXT(
         dcontext,
         {
+            int soname_index = -1;
             char *dynstr = NULL;
             size_t sz = mod_max_end - mod_base;
             while (dyn->d_tag != DT_NULL) {
@@ -259,7 +282,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     if (dynstr != NULL)
                         break;
                 } else if (dyn->d_tag == DT_STRTAB) {
-                    dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
+                    /* Fudge to only use module_get_dynstr_offset() for libarmflang.so
+                       libarmflang.so  19.1                   19.0 */
+                    if (view_size == 5603328 || view_size == 4030464)
+                        dynstr = (char *)(base + module_get_dynstr_offset(base, view_size));
+                    else
+                        dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
                                                      at_map, dyn_reloc);
                     if (out_data != NULL)
                         out_data->dynstr = (app_pc)dynstr;
@@ -306,6 +334,15 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     ASSERT_CURIOSITY(false && "soname not in initial map");
                     *soname = NULL;
                 }
+
+                SYSLOG_INTERNAL_INFO("soname [%p]", *soname);
+                SYSLOG_INTERNAL_INFO("soname [%s]", *soname);
+                /* test string readability while still in try/except
+                 * in case we screwed up somewhere or module is
+                 * malformed/only partially mapped */
+                if (*soname != NULL && strlen(*soname) == -1) {
+                    ASSERT_NOT_REACHED();
+                }
             }
             if (out_data != NULL) {
                 /* we put module_hashtab_init here since it should always be called
@@ -321,7 +358,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
         });
     if (res && out_data != NULL)
         out_data->have_dynamic_info = true;
-    return soname_index;
+    return res;
 }
 
 /* Returned addresses out_base and out_end are relative to the actual
@@ -340,7 +377,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
 {
     app_pc mod_base = NULL, first_end = NULL, max_end = NULL;
     char *soname = NULL;
-    int soname_index = -1;
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ptr_int_t load_delta; /* delta loaded at relative to base */
@@ -384,9 +420,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             }
             if ((out_soname != NULL || out_data != NULL) &&
                 prog_hdr->p_type == PT_DYNAMIC) {
-                soname_index = module_fill_os_data(prog_hdr, mod_base, max_end,
-                                    base, view_size, at_map, dyn_reloc, load_delta,
-                                    &soname, out_data);
+                module_fill_os_data(prog_hdr, mod_base, max_end, base, view_size, at_map,
+                                    dyn_reloc, load_delta, &soname, out_data);
                 DOLOG(LOG_INTERP | LOG_VMAREAS, 2, {
                     if (out_data != NULL) {
                         LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
@@ -399,16 +434,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
                     }
                 });
             }
-        }
-
-        /* test string readability while still in try/except
-         * in case we screwed up somewhere or module is
-         * malformed/only partially mapped */
-        if (soname_index != -1) {
-            if (soname != NULL && strlen(soname) == -1) {
-                ASSERT_NOT_REACHED();
-            }
-            SYSLOG_INTERNAL_INFO("DEBUG %s %d: accessing soname=[%s]\n", __func__, __LINE__, soname);
         }
     }
     ASSERT_CURIOSITY(found_load && mod_base != (app_pc)POINTER_MAX &&
