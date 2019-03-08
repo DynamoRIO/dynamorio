@@ -241,7 +241,7 @@ typedef struct thread_data_t {
     do {                                 \
         if (SHOULD_LOCK_VECTOR(v)) {     \
             (release_lock) = true;       \
-            RW##_lock(&(v)->lock);       \
+            d_r_##RW##_lock(&(v)->lock); \
         } else                           \
             (release_lock) = false;      \
     } while (0);
@@ -252,7 +252,7 @@ typedef struct thread_data_t {
             ASSERT(TEST(VECTOR_SHARED, (v)->flags));     \
             ASSERT(!TEST(VECTOR_NO_LOCK, (v)->flags));   \
             ASSERT_OWN_READWRITE_LOCK(true, &(v)->lock); \
-            RW##_unlock(&v->lock);                       \
+            d_r_##RW##_unlock(&v->lock);                 \
         }                                                \
     } while (0);
 
@@ -431,7 +431,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
     do {                                        \
         if (TEST(VECTOR_SHARED, (v)->flags)) {  \
             ASSERT(SHARED_FRAGMENTS_ENABLED()); \
-            rw##_##op(&(v)->lock);              \
+            d_r_##rw##_##op(&(v)->lock);        \
         }                                       \
     } while (0)
 #define ASSERT_VMAREA_DATA_PROTECTED(data, RW)                          \

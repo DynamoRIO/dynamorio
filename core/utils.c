@@ -131,7 +131,7 @@ ignore_assert(const char *assert_stmt, const char *expr)
     return ignore;
 }
 
-/* Hand-made DO_ONCE used in internal_error b/c ifdefs in
+/* Hand-made DO_ONCE used in d_r_internal_error b/c ifdefs in
  * report_dynamorio_problem prevent DO_ONCE itself
  */
 DECLARE_FREQPROT_VAR(static bool do_once_internal_error, false);

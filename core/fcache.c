@@ -543,7 +543,7 @@ typedef struct _fcache_thread_units_t {
 #define PROTECT_CACHE(cache, op)                                  \
     do {                                                          \
         if ((cache)->is_shared && !is_self_allsynch_flushing()) { \
-            mutex_##op(&(cache)->lock);                           \
+            d_r_mutex_##op(&(cache)->lock);                       \
         }                                                         \
     } while (0);
 

@@ -509,9 +509,9 @@ if (AFTER_INTERCEPT_TAKE_OVER || AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT
       call asynch_take_over
       # should never reach here
       push $0
-      push $-3  # internal_error will report -3 as line number
+      push $-3  # d_r_internal_error will report -3 as line number
       push $0
-      call internal_error
+      call d_r_internal_error
 endif
 if (AFTER_INTERCEPT_DYNAMIC_DECISION && alternate target provided)
   let_go_alt:
@@ -1277,7 +1277,7 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
         IF_DEBUG(direct =)
         dr_insert_call_ex(dcontext, &ilist, NULL,
                           /* we're not in vmcode, so avoid indirect call */
-                          pc, (app_pc)internal_error, 3, OPND_CREATE_INTPTR(0),
+                          pc, (app_pc)d_r_internal_error, 3, OPND_CREATE_INTPTR(0),
                           OPND_CREATE_INT32(-3), OPND_CREATE_INTPTR(0));
         ASSERT(direct);
 #endif

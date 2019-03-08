@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,15 +37,15 @@
 #include "asm_defines.asm"
 START_FILE
 
-DECL_EXTERN(internal_error)
+DECL_EXTERN(d_r_internal_error)
 
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.
  */
         DECLARE_FUNC(unexpected_return)
 GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(internal_error), HEX(0), HEX(0), HEX(0))
-        /* internal_error normally never returns */
+        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
+        /* d_r_internal_error normally never returns */
         /* Infinite loop is intentional.  Can we do better in release build?
          * XXX: why not a debug instr?
          */
