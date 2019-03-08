@@ -209,10 +209,10 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
         swap_peb_pointer(dcontext, true /*to priv*/);
 #    endif
 
-    /* To be extra safe we use safe_read() to access the nudge argument, though once
+    /* To be extra safe we use d_r_safe_read() to access the nudge argument, though once
      * we get past the checks below we are trusting its content. */
     ASSERT(arg_dont_use != NULL && "invalid nudge argument");
-    if (!safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
+    if (!d_r_safe_read(arg_dont_use, sizeof(nudge_arg_t), &safe_arg)) {
         ASSERT(false && "invalid nudge argument");
         goto nudge_finished;
     }
@@ -418,7 +418,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     if (TEST(NUDGE_GENERIC(reset), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(reset);
         if (DYNAMO_OPTION(enable_reset)) {
-            mutex_lock(&reset_pending_lock);
+            d_r_mutex_lock(&reset_pending_lock);
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(RESET_ALL);
             /* NOTE - reset is safe since we won't return to the code cache below (we

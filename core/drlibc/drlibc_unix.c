@@ -582,15 +582,17 @@ os_page_size(void)
 }
 
 void
-os_page_size_init(const char **env)
+os_page_size_init(const char **env, bool env_followed_by_auxv)
 {
-#if defined(LINUX) && !defined(STATIC_LIBRARY)
+#ifdef LINUX
     /* On Linux we get the page size from the auxiliary vector, which is what
      * the C library typically does for implementing sysconf(_SC_PAGESIZE).
      * However, for STATIC_LIBRARY, our_environ is not guaranteed to point
      * at the stack as we're so late, so we do not try to read off the end of it
      * (i#2122).
      */
+    if (!env_followed_by_auxv)
+        return;
     size_t size = page_size; /* atomic read */
     if (size == 0) {
         ELF_AUXV_TYPE *auxv;

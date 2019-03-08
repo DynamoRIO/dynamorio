@@ -166,7 +166,7 @@ DECL_EXTERN(dynamorio_app_take_over_helper)
 DECL_EXTERN(found_modified_code)
 DECL_EXTERN(get_cleanup_and_terminate_global_do_syscall_entry)
 #ifdef INTERNAL
-DECL_EXTERN(internal_error)
+DECL_EXTERN(d_r_internal_error)
 #endif
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)

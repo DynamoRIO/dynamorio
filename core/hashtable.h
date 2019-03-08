@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -91,10 +91,10 @@
                                !INTERNAL_OPTION(single_thread_in_DR),         \
                            &(ptable)->rwlock)
 
-#define TABLE_RWLOCK(ptable, rw, lock)      \
-    do {                                    \
-        if (TABLE_NEEDS_LOCK(ptable))       \
-            rw##_##lock(&(ptable)->rwlock); \
+#define TABLE_RWLOCK(ptable, rw, lock)            \
+    do {                                          \
+        if (TABLE_NEEDS_LOCK(ptable))             \
+            d_r_##rw##_##lock(&(ptable)->rwlock); \
     } while (0)
 
 #define TABLE_MEMOP(table_flags, op) \

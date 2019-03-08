@@ -131,14 +131,14 @@ ignore_assert(const char *assert_stmt, const char *expr)
     return ignore;
 }
 
-/* Hand-made DO_ONCE used in internal_error b/c ifdefs in
+/* Hand-made DO_ONCE used in d_r_internal_error b/c ifdefs in
  * report_dynamorio_problem prevent DO_ONCE itself
  */
 DECLARE_FREQPROT_VAR(static bool do_once_internal_error, false);
 
 /* abort on internal dynamo error */
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     /* note that we no longer obfuscate filenames in non-internal builds
      * xref PR 303817 */
@@ -357,7 +357,7 @@ dump_process_locks()
 
     LOG(GLOBAL, LOG_STATS, 2, "Currently live process locks:\n");
     /* global list access needs to be synchronized */
-    mutex_lock(&innermost_lock);
+    d_r_mutex_lock(&innermost_lock);
     cur_lock = &innermost_lock;
     do {
         depth++;
@@ -378,7 +378,7 @@ dump_process_locks()
         ASSERT(cur_lock->prev_process_lock != cur_lock || cur_lock == &innermost_lock);
         ASSERT(cur_lock->next_process_lock != cur_lock || cur_lock == &innermost_lock);
     } while (cur_lock != &innermost_lock);
-    mutex_unlock(&innermost_lock);
+    d_r_mutex_unlock(&innermost_lock);
     LOG(GLOBAL, LOG_STATS, 1,
         "Currently live process locks: %d, acquired %d, contended %d (current only)\n",
         depth, total_acquired, total_contended);
@@ -402,7 +402,7 @@ locks_not_closed()
      * is too much hassle to find a good place to DELETE them -- though we
      * now use a global mutex for DEADLOCK_AVOIDANCE so that's not the case.
      */
-    mutex_lock(&innermost_lock);
+    d_r_mutex_lock(&innermost_lock);
     /* innermost will stay */
     cur_lock = innermost_lock.next_process_lock;
     while (cur_lock != &innermost_lock) {
@@ -424,7 +424,7 @@ locks_not_closed()
         }
         cur_lock = cur_lock->next_process_lock;
     }
-    mutex_unlock(&innermost_lock);
+    d_r_mutex_unlock(&innermost_lock);
     LOG(GLOBAL, LOG_STATS, 3, "locks_not_closed= %d remaining, %d ignored\n", forgotten,
         ignored);
     return forgotten;
@@ -472,12 +472,12 @@ add_process_lock(mutex_t *lock)
     /* add to global locks circular double linked list */
     LOG(THREAD_GET, LOG_THREADS, 5,
         "add_process_lock" DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
-    mutex_lock(&innermost_lock);
+    d_r_mutex_lock(&innermost_lock);
     if (lock->prev_process_lock != NULL) {
         /* race: someone already added (can only happen for read locks) */
         LOG(THREAD_GET, LOG_THREADS, 2, "\talready added\n");
         ASSERT(lock->next_process_lock != NULL);
-        mutex_unlock(&innermost_lock);
+        d_r_mutex_unlock(&innermost_lock);
         return;
     }
     ASSERT(lock->next_process_lock == NULL || lock == &innermost_lock);
@@ -494,7 +494,7 @@ add_process_lock(mutex_t *lock)
     ASSERT(lock->prev_process_lock->next_process_lock == lock);
     ASSERT(lock->prev_process_lock != lock || lock == &innermost_lock);
     ASSERT(lock->next_process_lock != lock || lock == &innermost_lock);
-    mutex_unlock(&innermost_lock);
+    d_r_mutex_unlock(&innermost_lock);
 }
 
 static void
@@ -512,13 +512,13 @@ remove_process_lock(mutex_t *lock)
     ASSERT(lock->prev_process_lock && "if ever acquired should be on the list");
     ASSERT(lock != &innermost_lock && "innermost will be 'leaked'");
     /* remove from global locks list */
-    mutex_lock(&innermost_lock);
+    d_r_mutex_lock(&innermost_lock);
     /* innermost should always have both fields set here */
     lock->next_process_lock->prev_process_lock = lock->prev_process_lock;
     lock->prev_process_lock->next_process_lock = lock->next_process_lock;
     lock->next_process_lock = NULL;
     lock->prev_process_lock = NULL; /* so we catch uses after closing */
-    mutex_unlock(&innermost_lock);
+    d_r_mutex_unlock(&innermost_lock);
 }
 
 #    ifdef MUTEX_CALLSTACK
@@ -528,7 +528,7 @@ mutex_collect_callstack(mutex_t *lock)
 {
     uint max_depth = INTERNAL_OPTION(mutex_callstack);
     uint depth = 0;
-    uint skip = 2; /* ignore calls from deadlock_avoidance() and mutex_lock() */
+    uint skip = 2; /* ignore calls from deadlock_avoidance() and d_r_mutex_lock() */
     /* FIXME: write_lock could ignore one level further */
     byte *fp;
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -568,13 +568,13 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
         LOG(GLOBAL, LOG_THREADS, 6,
             "acquired lock " PFX " %s rank=%d, %s dcontext, tid:%d, %d time\n", lock,
             lock->name, lock->rank, get_thread_private_dcontext() ? "valid" : "not valid",
-            get_thread_id(), lock->count_times_acquired);
+            d_r_get_thread_id(), lock->count_times_acquired);
         LOG(THREAD_GET, LOG_THREADS, 6, "acquired lock " PFX " %s rank=%d\n", lock,
             lock->name, lock->rank);
         ASSERT(lock->rank > 0 && "initialize with INIT_LOCK_FREE");
         if (ownable) {
             ASSERT(!lock->owner);
-            lock->owner = get_thread_id();
+            lock->owner = d_r_get_thread_id();
             lock->owning_dcontext = get_thread_private_dcontext();
         }
         /* add to global list */
@@ -612,7 +612,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                     SYSLOG_INTERNAL_NO_OPTION_SYNCH(
                         SYSLOG_CRITICAL,
                         "rank order violation %s acquired after %s in tid:%x", lock->name,
-                        dcontext->thread_owned_locks->last_lock->name, get_thread_id());
+                        dcontext->thread_owned_locks->last_lock->name,
+                        d_r_get_thread_id());
                     dump_owned_locks(dcontext);
                 }
                 ASSERT((dcontext->thread_owned_locks->last_lock->rank <
@@ -638,7 +639,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
          * calls are made on the non acquired path here */
         ASSERT(lock->rank > 0 && "initialize with INIT_LOCK_FREE");
         if (INTERNAL_OPTION(deadlock_avoidance) && ownable) {
-            ASSERT(lock->owner != get_thread_id() && "deadlock on recursive mutex_lock");
+            ASSERT(lock->owner != d_r_get_thread_id() &&
+                   "deadlock on recursive mutex_lock");
         }
         lock->count_times_contended++;
     }
@@ -656,13 +658,13 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
     LOG(GLOBAL, LOG_THREADS, 6,
         "released lock " PFX " %s rank=%d, %s dcontext, tid:%d \n", lock, lock->name,
         lock->rank, get_thread_private_dcontext() ? "valid" : "not valid",
-        get_thread_id());
+        d_r_get_thread_id());
     LOG(THREAD_GET, LOG_THREADS, 6, "released lock " PFX " %s rank=%d\n", lock,
         lock->name, lock->rank);
     if (!ownable)
         return;
 
-    ASSERT(lock->owner == get_thread_id());
+    ASSERT(lock->owner == d_r_get_thread_id());
     if (INTERNAL_OPTION(deadlock_avoidance) && lock->owning_dcontext != NULL &&
         lock->owning_dcontext != GLOBAL_DCONTEXT) {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -707,7 +709,7 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 
 #ifdef UNIX
 void
-mutex_fork_reset(mutex_t *mutex)
+d_r_mutex_fork_reset(mutex_t *mutex)
 {
     /* i#239/PR 498752: need to free locks held by other threads at fork time.
      * We can't call ASSIGN_INIT_LOCK_FREE as that clobbers any contention event
@@ -819,7 +821,7 @@ void
 spinmutex_delete(spin_mutex_t *spin_lock)
 {
     ASSERT(!ksynch_var_initialized(&spin_lock->lock.contended_event));
-    mutex_delete(&spin_lock->lock);
+    d_r_mutex_delete(&spin_lock->lock);
 }
 
 #ifdef DEADLOCK_AVOIDANCE
@@ -839,7 +841,7 @@ mutex_ownable(mutex_t *lock)
 #endif
 
 void
-mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+d_r_mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 {
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
@@ -853,7 +855,7 @@ mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
     if (spinlock_count) {
         uint i;
         /* in the common case we'll just get it */
-        if (mutex_trylock(lock))
+        if (d_r_mutex_trylock(lock))
             return;
 
         /* otherwise contended, we should spin for some time */
@@ -897,14 +899,14 @@ mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 }
 
 void
-mutex_lock(mutex_t *lock)
+d_r_mutex_lock(mutex_t *lock)
 {
-    mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
+    d_r_mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
 }
 
 /* try once to grab the lock, return whether or not successful */
 bool
-mutex_trylock(mutex_t *lock)
+d_r_mutex_trylock(mutex_t *lock)
 {
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
@@ -924,7 +926,7 @@ mutex_trylock(mutex_t *lock)
 
 /* free the lock */
 void
-mutex_unlock(mutex_t *lock)
+d_r_mutex_unlock(mutex_t *lock)
 {
 #ifdef DEADLOCK_AVOIDANCE
     bool ownable = mutex_ownable(lock);
@@ -943,7 +945,7 @@ mutex_unlock(mutex_t *lock)
 
 /* releases any associated kernel objects */
 void
-mutex_delete(mutex_t *lock)
+d_r_mutex_delete(mutex_t *lock)
 {
     LOG(GLOBAL, LOG_THREADS, 3, "mutex_delete lock " PFX "\n", lock);
     /* When doing detach, application locks may be held on threads which have
@@ -984,7 +986,7 @@ mutex_delete(mutex_t *lock)
 
 #ifdef CLIENT_INTERFACE
 void
-mutex_mark_as_app(mutex_t *lock)
+d_r_mutex_mark_as_app(mutex_t *lock)
 {
 #    ifdef DEADLOCK_AVOIDANCE
     lock->app_lock = true;
@@ -997,7 +999,7 @@ own_recursive_lock(recursive_lock_t *lock)
 {
     ASSERT(lock->owner == INVALID_THREAD_ID);
     ASSERT(lock->count == 0);
-    lock->owner = get_thread_id();
+    lock->owner = d_r_get_thread_id();
     ASSERT(lock->owner != INVALID_THREAD_ID);
     lock->count = 1;
 }
@@ -1011,10 +1013,10 @@ acquire_recursive_app_lock(
     */
 
     /* ASSUMPTION: reading owner field is atomic */
-    if (lock->owner == get_thread_id()) {
+    if (lock->owner == d_r_get_thread_id()) {
         lock->count++;
     } else {
-        mutex_lock_app(&lock->lock _IF_CLIENT_INTERFACE(mc));
+        d_r_mutex_lock_app(&lock->lock _IF_CLIENT_INTERFACE(mc));
         own_recursive_lock(lock);
     }
 }
@@ -1030,10 +1032,10 @@ bool
 try_recursive_lock(recursive_lock_t *lock)
 {
     /* ASSUMPTION: reading owner field is atomic */
-    if (lock->owner == get_thread_id()) {
+    if (lock->owner == d_r_get_thread_id()) {
         lock->count++;
     } else {
-        if (!mutex_trylock(&lock->lock))
+        if (!d_r_mutex_trylock(&lock->lock))
             return false;
         own_recursive_lock(lock);
     }
@@ -1043,12 +1045,12 @@ try_recursive_lock(recursive_lock_t *lock)
 void
 release_recursive_lock(recursive_lock_t *lock)
 {
-    ASSERT(lock->owner == get_thread_id());
+    ASSERT(lock->owner == d_r_get_thread_id());
     ASSERT(lock->count > 0);
     lock->count--;
     if (lock->count == 0) {
         lock->owner = INVALID_THREAD_ID;
-        mutex_unlock(&lock->lock);
+        d_r_mutex_unlock(&lock->lock);
     }
 }
 
@@ -1056,7 +1058,7 @@ bool
 self_owns_recursive_lock(recursive_lock_t *lock)
 {
     /* ASSUMPTION: reading owner field is atomic */
-    return (lock->owner == get_thread_id());
+    return (lock->owner == d_r_get_thread_id());
 }
 
 /* Read write locks */
@@ -1107,7 +1109,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
 */
 
 void
-read_lock(read_write_lock_t *rw)
+d_r_read_lock(read_write_lock_t *rw)
 {
     /* wait for writer here if lock is held
      * FIXME: generalize DEADLOCK_AVOIDANCE to both detect
@@ -1120,16 +1122,16 @@ read_lock(read_write_lock_t *rw)
                 /* contended read */
                 /* am I the writer?
                  * ASSUMPTION: reading field is atomic
-                 * For linux get_thread_id() is expensive -- we
+                 * For linux d_r_get_thread_id() is expensive -- we
                  * should either address that through special handling
                  * of native and new thread cases, or switch this
                  * routine to pass in dcontext and use that.
-                 * Update: linux get_thread_id() now calls get_tls_thread_id()
+                 * Update: linux d_r_get_thread_id() now calls get_tls_thread_id()
                  * and avoids the syscall (xref PR 473640).
                  * FIXME: we could also reorganize this check so that it is done only once
                  * instead of in the loop body but it doesn't seem wortwhile
                  */
-                if (rw->writer == get_thread_id()) {
+                if (rw->writer == d_r_get_thread_id()) {
                     /* we would share the code below but we do not want
                      * the deadlock avoidance to consider this an acquire
                      */
@@ -1156,14 +1158,14 @@ read_lock(read_write_lock_t *rw)
             /* contended read */
             /* am I the writer?
              * ASSUMPTION: reading field is atomic
-             * For linux get_thread_id() is expensive -- we
+             * For linux d_r_get_thread_id() is expensive -- we
              * should either address that through special handling
              * of native and new thread cases, or switch this
              * routine to pass in dcontext and use that.
-             * Update: linux get_thread_id() now calls get_tls_thread_id()
+             * Update: linux d_r_get_thread_id() now calls get_tls_thread_id()
              * and avoids the syscall (xref PR 473640).
              */
-            if (rw->writer == get_thread_id()) {
+            if (rw->writer == d_r_get_thread_id()) {
                 /* we would share the code below but we do not want
                  * the deadlock avoidance to consider this an acquire
                  */
@@ -1224,25 +1226,25 @@ read_lock(read_write_lock_t *rw)
 }
 
 void
-write_lock(read_write_lock_t *rw)
+d_r_write_lock(read_write_lock_t *rw)
 {
     /* we do not follow the pattern of having lock call trylock in
      * a loop because that would be unfair to writers -- first guy
      * in this implementation gets to write
      */
     if (INTERNAL_OPTION(spin_yield_rwlock)) {
-        mutex_lock(&rw->lock);
+        d_r_mutex_lock(&rw->lock);
         while (rw->num_readers > 0) {
             /* contended write */
             DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
             /* FIXME: last places where we yield instead of wait */
             os_thread_yield();
         }
-        rw->writer = get_thread_id();
+        rw->writer = d_r_get_thread_id();
         return;
     }
 
-    mutex_lock(&rw->lock);
+    d_r_mutex_lock(&rw->lock);
     /* We still do this in a loop, since the event signal doesn't guarantee
        that num_readers is 0 when unblocked.
      */
@@ -1251,22 +1253,22 @@ write_lock(read_write_lock_t *rw)
         DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
         rwlock_wait_contended_writer(rw);
     }
-    rw->writer = get_thread_id();
+    rw->writer = d_r_get_thread_id();
 }
 
 bool
-write_trylock(read_write_lock_t *rw)
+d_r_write_trylock(read_write_lock_t *rw)
 {
-    if (mutex_trylock(&rw->lock)) {
+    if (d_r_mutex_trylock(&rw->lock)) {
         ASSERT_NOT_TESTED();
         if (rw->num_readers == 0) {
-            rw->writer = get_thread_id();
+            rw->writer = d_r_get_thread_id();
             return true;
         } else {
-            /* We need to duplicate the bottom of write_unlock() */
+            /* We need to duplicate the bottom of d_r_write_unlock() */
             /* since if a new reader has appeared after we have acquired the lock
                that one may already be waiting on the broadcast event */
-            mutex_unlock(&rw->lock);
+            d_r_mutex_unlock(&rw->lock);
             /* check whether any reader is currently waiting */
             if (rw->num_pending_readers > 0) {
                 /* after we've released the write lock, pending
@@ -1280,7 +1282,7 @@ write_trylock(read_write_lock_t *rw)
 }
 
 void
-read_unlock(read_write_lock_t *rw)
+d_r_read_unlock(read_write_lock_t *rw)
 {
     if (INTERNAL_OPTION(spin_yield_rwlock)) {
         ATOMIC_DEC(int, rw->num_readers);
@@ -1293,13 +1295,13 @@ read_unlock(read_write_lock_t *rw)
 
     /* unfortunately even on the hot path (of a single reader) we have
        to check if the writer is in fact waiting.  Even though this is
-       not atomic we don't need to loop here - write_lock() will loop.
+       not atomic we don't need to loop here - d_r_write_lock() will loop.
     */
     if (atomic_dec_becomes_zero(&rw->num_readers)) {
         /* if the writer is waiting it definitely needs to hold the mutex */
         if (mutex_testlock(&rw->lock)) {
             /* test that it was not this thread owning both write and read lock */
-            if (rw->writer != get_thread_id()) {
+            if (rw->writer != d_r_get_thread_id()) {
                 /* we're assuming the writer has been forced to wait,
                    but since we can't tell whether it did indeed wait this
                    notify may leave signaled the event for the next turn
@@ -1320,14 +1322,14 @@ read_unlock(read_write_lock_t *rw)
 }
 
 void
-write_unlock(read_write_lock_t *rw)
+d_r_write_unlock(read_write_lock_t *rw)
 {
 #ifdef DEADLOCK_AVOIDANCE
     ASSERT(rw->writer == rw->lock.owner);
 #endif
     rw->writer = INVALID_THREAD_ID;
     if (INTERNAL_OPTION(spin_yield_rwlock)) {
-        mutex_unlock(&rw->lock);
+        d_r_mutex_unlock(&rw->lock);
         return;
     }
     /* we need to signal all waiting readers (if any) that they can now go
@@ -1338,7 +1340,7 @@ write_unlock(read_write_lock_t *rw)
        progress as soon as they are notified.  Further field
        accesses however have to be assumed unprotected.
     */
-    mutex_unlock(&rw->lock);
+    d_r_mutex_unlock(&rw->lock);
     /* check whether any reader is currently waiting */
     if (rw->num_pending_readers > 0) {
         /* after we've released the write lock, pending readers will no longer wait */
@@ -1350,7 +1352,7 @@ bool
 self_owns_write_lock(read_write_lock_t *rw)
 {
     /* ASSUMPTION: reading owner field is atomic */
-    return (rw->writer == get_thread_id());
+    return (rw->writer == d_r_get_thread_id());
 }
 
 /****************************************************************************/
@@ -2026,7 +2028,7 @@ under_internal_exception()
 {
 #    ifdef DEADLOCK_AVOIDANCE
     /* ASSUMPTION: reading owner field is atomic */
-    return (report_buf_lock.owner == get_thread_id());
+    return (report_buf_lock.owner == d_r_get_thread_id());
 #    else
     /* mutexes normally don't have an owner, stay safe no matter who owns */
     return mutex_testlock(&report_buf_lock);
@@ -2132,12 +2134,12 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
     if (dcontext == NULL)
         dcontext = GLOBAL_DCONTEXT;
 
-    if (report_buf_lock_owner == get_thread_id()) {
+    if (report_buf_lock_owner == d_r_get_thread_id()) {
         /* nested report: can't do much except bail on inner */
         return;
     }
-    mutex_lock(&report_buf_lock);
-    report_buf_lock_owner = get_thread_id();
+    d_r_mutex_lock(&report_buf_lock);
+    report_buf_lock_owner = d_r_get_thread_id();
     /* we assume the caller does a DO_ONCE to prevent hanging on a
      * fault in this routine, if called to report a fatal error.
      */
@@ -2237,7 +2239,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
 #endif
     } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
-         * going to kill the process. Xref PR 232783. internal_error() already
+         * going to kill the process. Xref PR 232783. d_r_internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(), reportbuf);
@@ -2270,7 +2272,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
     });
 
     report_buf_lock_owner = 0;
-    mutex_unlock(&report_buf_lock);
+    d_r_mutex_unlock(&report_buf_lock);
 
     if (dumpcore_flag != DUMPCORE_CURIOSITY) {
         /* print out stats, can't be done inside the report_buf_lock
@@ -2865,8 +2867,8 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     if (name[0] == '\0')
         return INVALID_FILE;
     snprintf(&name[strlen(name)], BUFFER_SIZE_ELEMENTS(name) - strlen(name),
-             "%c%s.%d." TIDFMT ".html", DIRSEP, basename, get_thread_num(get_thread_id()),
-             get_thread_id());
+             "%c%s.%d." TIDFMT ".html", DIRSEP, basename,
+             get_thread_num(d_r_get_thread_id()), d_r_get_thread_id());
     NULL_TERMINATE_BUFFER(name);
 #ifdef UNIX
     if (post_execve) /* reuse same log file */
@@ -3045,7 +3047,7 @@ stats_thread_init(dcontext_t *dcontext)
         sizeof(thread_local_statistics_t));
     /* initialize any thread stats bookkeeping fields before assigning to dcontext */
     memset(new_thread_stats, 0x0, sizeof(thread_local_statistics_t));
-    new_thread_stats->thread_id = get_thread_id();
+    new_thread_stats->thread_id = d_r_get_thread_id();
     ASSIGN_INIT_LOCK_FREE(new_thread_stats->thread_stats_lock, thread_stats_lock);
     dcontext->thread_stats = new_thread_stats;
 }
@@ -3091,11 +3093,11 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
     LOG(logfile, LOG_STATS, 1,
         "(Begin) Thread statistics @%d global, %d thread fragments ",
         GLOBAL_STAT(num_fragments), THREAD_STAT(dcontext, num_fragments));
-    DOLOG(1, LOG_STATS, { print_timestamp(logfile); });
+    DOLOG(1, LOG_STATS, { d_r_print_timestamp(logfile); });
     /* give up right away if thread stats lock already held, will dump next time
        most likely thread interrupted while dumping state
      */
-    if (!mutex_trylock(&dcontext->thread_stats->thread_stats_lock)) {
+    if (!d_r_mutex_trylock(&dcontext->thread_stats->thread_stats_lock)) {
         LOG(logfile, LOG_STATS, 1, " WARNING: skipped! Another dump in progress.\n");
         return;
     }
@@ -3116,7 +3118,7 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
 #    undef STATS_DEF
 
     LOG(logfile, LOG_STATS, 1, "(End) Thread statistics\n");
-    mutex_unlock(&dcontext->thread_stats->thread_stats_lock);
+    d_r_mutex_unlock(&dcontext->thread_stats->thread_stats_lock);
     /* TODO: update thread statistics, using the thread stats delta when implemented */
 
 #    ifdef KSTATS
@@ -3136,7 +3138,7 @@ dump_global_stats(bool raw)
     if (GLOBAL_STATS_ON()) {
         LOG(GLOBAL, LOG_STATS, 1, "(Begin) All statistics @%d ",
             GLOBAL_STAT(num_fragments));
-        DOLOG(1, LOG_STATS, { print_timestamp(GLOBAL); });
+        DOLOG(1, LOG_STATS, { d_r_print_timestamp(GLOBAL); });
         LOG(GLOBAL, LOG_STATS, 1, ":\n");
 #    define STATS_DEF(desc, stat)                                                       \
         if (GLOBAL_STAT(stat)) {                                                        \
@@ -3196,7 +3198,7 @@ print_timestamp_to_buffer(char *buffer, size_t len)
  * TODO: and relative time from thread start
  */
 uint
-print_timestamp(file_t logfile)
+d_r_print_timestamp(file_t logfile)
 {
     char buffer[PRINT_TIMESTAMP_MAX_LENGTH];
     uint len = print_timestamp_to_buffer(buffer, PRINT_TIMESTAMP_MAX_LENGTH);
@@ -3479,7 +3481,7 @@ get_random_offset(size_t max_offset)
         return 0;
 
     /* process-shared random sequence */
-    mutex_lock(&prng_lock);
+    d_r_mutex_lock(&prng_lock);
     /* FIXME: this is not getting the best randomness
      * see srand() comments why taking higher order bits is usually better
      * j=1+(int) (10.0*rand()/(RAND_MAX+1.0));
@@ -3488,7 +3490,7 @@ get_random_offset(size_t max_offset)
     value = random_seed % max_offset;
 
     random_seed = LCM_A * (random_seed % LCM_Q) - LCM_R * (random_seed / LCM_Q);
-    mutex_unlock(&prng_lock);
+    d_r_mutex_unlock(&prng_lock);
     LOG(GLOBAL, LOG_ALL, 2, "get_random_offset: value=%d (mod %d), new rs=%d\n", value,
         max_offset, random_seed);
     return value;
@@ -4247,7 +4249,7 @@ profile_callers()
      * DR and thus are safe to read, but checks for dstack, etc.
      * Should combine the two into a general routine.
      */
-    while (pc != NULL && safe_read((byte *)pc, sizeof(saferead), saferead)) {
+    while (pc != NULL && d_r_safe_read((byte *)pc, sizeof(saferead), saferead)) {
         caller[num] = saferead[1];
         num++;
         /* yes I've seen weird recursive cases before */
@@ -4276,10 +4278,10 @@ profile_callers()
         entry = global_heap_alloc(sizeof(profile_callers_t) HEAPACCT(ACCT_OTHER));
         memcpy(entry->caller, caller, sizeof(caller));
         entry->count = 1;
-        mutex_lock(&profile_callers_lock);
+        d_r_mutex_lock(&profile_callers_lock);
         entry->next = profcalls;
         profcalls = entry;
-        mutex_unlock(&profile_callers_lock);
+        d_r_mutex_unlock(&profile_callers_lock);
     }
 }
 
@@ -4289,7 +4291,7 @@ profile_callers_exit()
     profile_callers_t *entry, *next;
     file_t file;
     if (DYNAMO_OPTION(prof_caller) > 0) {
-        mutex_lock(&profile_callers_lock);
+        d_r_mutex_lock(&profile_callers_lock);
         file = open_log_file("callprof", NULL, 0);
         for (entry = profcalls; entry != NULL; entry = next) {
             uint num;
@@ -4302,7 +4304,7 @@ profile_callers_exit()
         }
         close_log_file(file);
         profcalls = NULL;
-        mutex_unlock(&profile_callers_lock);
+        d_r_mutex_unlock(&profile_callers_lock);
     }
     DELETE_LOCK(profile_callers_lock);
 }

@@ -185,7 +185,7 @@ d_r_stackdump(void)
 #if VERBOSE
         SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread " TIDFMT
                               "",
-                              get_process_id(), get_parent_id(), get_thread_id());
+                              get_process_id(), get_parent_id(), d_r_get_thread_id());
 #endif
         /* We used to use abort here, but that had lots of complications with
          * pthreads and libc, so now we just dereference NULL.
@@ -205,7 +205,7 @@ d_r_stackdump(void)
     }
 #if VERBOSE
     SYSLOG_INTERNAL_ERROR("parent %d %d waiting for child %d", get_process_id(),
-                          get_thread_id(), pid);
+                          d_r_get_thread_id(), pid);
 #endif
     /* Parent continues */
     core_pid = pid;

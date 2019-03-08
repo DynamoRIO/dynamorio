@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -138,7 +138,7 @@ memcache_lock(void)
          */
         ASSERT_CURIOSITY(all_memory_areas_recursion <= 4);
     } else
-        write_lock(&all_memory_areas->lock);
+        d_r_write_lock(&all_memory_areas->lock);
 }
 
 void
@@ -154,7 +154,7 @@ memcache_unlock(void)
         ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
         all_memory_areas_recursion--;
     } else
-        write_unlock(&all_memory_areas->lock);
+        d_r_write_unlock(&all_memory_areas->lock);
 }
 
 /* vmvector callbacks */

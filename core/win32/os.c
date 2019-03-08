@@ -201,7 +201,7 @@ get_nth_stack_frames_call_target(int num_frames, reg_t *ebp)
 
     /* walk up the stack */
     for (i = 0; i < num_frames; i++) {
-        if (!safe_read(cur_ebp, sizeof(next_frame), next_frame))
+        if (!d_r_safe_read(cur_ebp, sizeof(next_frame), next_frame))
             break;
         cur_ebp = (reg_t *)next_frame[0];
     }
@@ -212,7 +212,7 @@ get_nth_stack_frames_call_target(int num_frames, reg_t *ebp)
         /* FIXME - would be nice to get this with decode_cti, but dr might
          * not even be initialized yet and this is safer */
         byte buf[5]; /* sizeof call rel32 */
-        if (safe_read((byte *)(next_frame[1] - sizeof(buf)), sizeof(buf), &buf) &&
+        if (d_r_safe_read((byte *)(next_frame[1] - sizeof(buf)), sizeof(buf), &buf) &&
             buf[0] == CALL_REL32_OPCODE) {
             app_pc return_point = (app_pc)next_frame[1];
             return (return_point + *(int *)&buf[1]);
@@ -282,7 +282,7 @@ DllMainThreadAttach()
          * noasynch, we do it here (which is later, but better than nothing)
          */
         LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
-            "DllMain: initializing new thread " TIDFMT "\n", get_thread_id());
+            "DllMain: initializing new thread " TIDFMT "\n", d_r_get_thread_id());
         dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
     }
 }
@@ -494,7 +494,7 @@ exit_global_profiles()
 
     /* we expect to be the last thread at this point.
        FIXME: we can remove the mutex_lock/unlock then */
-    mutex_lock(&profile_dump_lock);
+    d_r_mutex_lock(&profile_dump_lock);
     if (dynamo_dll_profile)
         dump_dll_profile(dynamo_dll_profile, global_sum, "dynamorio.dll");
     if (ntdll_profile)
@@ -502,7 +502,7 @@ exit_global_profiles()
 
     print_file(profile_file, "\nDumping global profile\n%d hits\n", global_sum);
     dump_profile(profile_file, global_profile);
-    mutex_unlock(&profile_dump_lock);
+    d_r_mutex_unlock(&profile_dump_lock);
     LOG(GLOBAL, LOG_PROFILE, 1, "\nDumping global profile\n%d hits\n", global_sum);
     DOLOG(1, LOG_PROFILE, dump_profile(GLOBAL, global_profile););
     free_profile(global_profile);
@@ -1250,14 +1250,14 @@ os_fast_exit(void)
                 int num, i;
                 /* get surviving threads */
                 arch_profile_exit();
-                mutex_lock(&thread_initexit_lock);
+                d_r_mutex_lock(&thread_initexit_lock);
                 get_list_of_threads(&threads, &num);
                 for (i = 0; i < num; i++) {
                     arch_thread_profile_exit(threads[i]->dcontext);
                 }
                 global_heap_free(
                     threads, num * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
-                mutex_unlock(&thread_initexit_lock);
+                d_r_mutex_unlock(&thread_initexit_lock);
             }
             if (dynamo_options.prof_pcs_fcache >= 2 &&
                 dynamo_options.prof_pcs_fcache <= 32) {
@@ -1527,7 +1527,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
                 SYSLOG_WARNING,
                 "detach on terminate failed or already started by another thread, "
                 "killing thread " TIDFMT "\n",
-                get_thread_id());
+                d_r_get_thread_id());
             /* if we get here, either we recursed or someone is already trying
              * to detach, just kill this thread so progress is made we don't
              * have anything better to do with it */
@@ -1536,7 +1536,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
              * remove_thread below */
             terminate_type = TERMINATE_THREAD;
         } else {
-            config_exit(); /* delete .1config file */
+            d_r_config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess,
                                  custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
@@ -1594,7 +1594,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
     } else {
         /* may have decided to terminate process */
         if (exit_process) {
-            config_exit(); /* delete .1config file */
+            d_r_config_exit(); /* delete .1config file */
             nt_terminate_process(currentThreadOrProcess,
                                  custom_code ? exit_code : KILL_PROC_EXIT_STATUS);
             ASSERT_NOT_REACHED();
@@ -1605,7 +1605,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
              * an infinite loop with a failure in this function and detach on
              * failure */
             if (all_threads != NULL)
-                remove_thread(NULL, get_thread_id());
+                remove_thread(NULL, d_r_get_thread_id());
             nt_terminate_thread(currentThreadOrProcess, KILL_THREAD_EXIT_STATUS);
             ASSERT_NOT_REACHED();
         }
@@ -1791,7 +1791,7 @@ os_thread_under_dynamo(dcontext_t *dcontext)
     /* add cur thread to callback list */
     ASSERT_MESSAGE(CHKLVL_ASSERTS + 1 /*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-    set_asynch_interception(get_thread_id(), true);
+    set_asynch_interception(d_r_get_thread_id(), true);
 }
 
 void
@@ -1800,7 +1800,7 @@ os_thread_not_under_dynamo(dcontext_t *dcontext)
     /* remove cur thread from callback list */
     ASSERT_MESSAGE(CHKLVL_ASSERTS + 1 /*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-    set_asynch_interception(get_thread_id(), false);
+    set_asynch_interception(d_r_get_thread_id(), false);
 }
 
 void
@@ -2061,7 +2061,7 @@ thread_attach_context_revert(CONTEXT *cxt INOUT)
     takeover_data_t *data;
     TABLE_RWLOCK(takeover_table, read, lock);
     data = (takeover_data_t *)generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
-                                                  (ptr_uint_t)get_thread_id());
+                                                  (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, read, unlock);
     if (data != NULL && data != INVALID_PAYLOAD) {
         cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
@@ -2142,8 +2142,8 @@ wow64_cases_pre_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #1: 1st instr on entry where retaddr is in [esp] */
     if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST12,
                sizeof(WOW64_ENTER_INST12)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [esp]\n",
@@ -2190,8 +2190,8 @@ wow64_cases_pre_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #4: last instr in exit where we already copied retaddr to [r14] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT_INST2,
                     sizeof(WOW64_EXIT_INST2)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
-                      &data->memval_r14) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
+                          &data->memval_r14) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [r14]\n", tid);
@@ -2250,8 +2250,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #1: 1st instr on entry where retaddr is in [esp] */
     if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST12,
                sizeof(WOW64_ENTER_INST12)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [esp]\n",
@@ -2266,8 +2266,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #2: 2nd instr in entry where retaddr is in [r14] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST23,
                     sizeof(WOW64_ENTER_INST23)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 enter1 => changed [r14]\n",
@@ -2318,8 +2318,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
                     sizeof(WOW64_EXIT1_INST23)) == 0 ||
              memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT1_INST3,
                     sizeof(WOW64_EXIT1_INST3)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
-                      &data->memval_r14) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
+                          &data->memval_r14) &&
             safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [r14]\n", tid);
@@ -2349,8 +2349,8 @@ wow64_cases_win10(takeover_data_t *data, CONTEXT_64 *cxt64, HANDLE hthread,
     /* Corner case #7: last instr in 2nd exit where already copied retaddr to [esp] */
     else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT2_INST2,
                     sizeof(WOW64_EXIT2_INST2)) == 0) {
-        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
-                      &data->memval_stack) &&
+        if (d_r_safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                          &data->memval_stack) &&
             safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
             changed_x64_cxt = true;
             LOG(GLOBAL, LOG_THREADS, 2, "\ttid %d @ wow64 exit2 => changed [rsp]\n", tid);
@@ -2605,12 +2605,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     const uint MAX_ITERS = 16;
     uint num_threads = 0;
     thread_list_t *threads = NULL;
-    thread_id_t my_id = get_thread_id();
+    thread_id_t my_id = d_r_get_thread_id();
     bool took_over_all = true, found_new_threads = true;
     /* ensure user_data starts out how we think it does */
     ASSERT(TAKEOVER_NEW == (ptr_uint_t)NULL);
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
 
     /* Need to iterate until no new threads, w/ an escape valve of max iters.
      * This ends up looking similar to synch_with_all_threads(), though it has
@@ -2699,7 +2699,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         took_over_all = false;
     }
 
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     return !took_over_all;
 }
 
@@ -2713,7 +2713,7 @@ thread_attach_setup(priv_mcontext_t *mc)
 
     TABLE_RWLOCK(takeover_table, write, lock);
     data = (takeover_data_t *)generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
-                                                  (ptr_uint_t)get_thread_id());
+                                                  (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, write, unlock);
     if (data == NULL || data == INVALID_PAYLOAD) {
         ASSERT_NOT_REACHED();
@@ -2742,7 +2742,7 @@ thread_attach_setup(priv_mcontext_t *mc)
     set_at_syscall(dcontext, false);
 
     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: thread " TIDFMT ", start pc " PFX "\n",
-        get_thread_id(), data->continuation_pc);
+        d_r_get_thread_id(), data->continuation_pc);
 
     ASSERT(os_using_app_state(dcontext));
 
@@ -2795,7 +2795,7 @@ client_thread_target(void *param)
     void *arg = arg_buf[1];
     byte *dstack = dcontext->dstack;
     ASSERT(IS_CLIENT_THREAD(dcontext));
-    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", get_thread_id());
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
 
     /* i#2335: we support setup separate from start, and we want to allow a client
@@ -2807,7 +2807,7 @@ client_thread_target(void *param)
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
-        get_thread_id());
+        d_r_get_thread_id());
     os_terminate(dcontext, TERMINATE_THREAD | TERMINATE_CLEANUP);
 }
 
@@ -3476,7 +3476,7 @@ is_child_in_thin_client(HANDLE process_handle)
     } else {
         res = opts->thin_client;
     }
-    write_unlock(&options_lock);
+    d_r_write_unlock(&options_lock);
     return res;
 }
 
@@ -3803,7 +3803,7 @@ mem_stats_snapshot()
      * was committed and what reserved, etc., so we only do complete snapshots,
      * resetting the stats to 0 each time.
      */
-    mutex_lock(&snapshot_lock);
+    d_r_mutex_lock(&snapshot_lock);
     STATS_RESET(unaligned_allocations);
     STATS_RESET(dr_library_space);
     STATS_RESET(dr_commited_capacity);
@@ -3909,7 +3909,7 @@ mem_stats_snapshot()
     STATS_PEAK(app_exec_capacity);
     STATS_PEAK(app_ro_capacity);
     STATS_PEAK(app_rw_capacity);
-    mutex_unlock(&snapshot_lock);
+    d_r_mutex_unlock(&snapshot_lock);
 }
 #    endif /* DEBUG (MEMORY STATS) ****************************************/
 
@@ -5232,13 +5232,13 @@ debugbox(char *msg)
     /* FIXME: If we hit an assert in nt_messagebox, we'll deadlock when
      * we come back here.
      */
-    mutex_lock(&debugbox_lock);
+    d_r_mutex_lock(&debugbox_lock);
 
     snwprintf(debugbox_msg_buf, BUFFER_SIZE_ELEMENTS(debugbox_msg_buf), L"%hs", msg);
     NULL_TERMINATE_BUFFER(debugbox_msg_buf);
     res = nt_messagebox(debugbox_msg_buf, debugbox_title_buf);
 
-    mutex_unlock(&debugbox_lock);
+    d_r_mutex_unlock(&debugbox_lock);
 
     return res;
 }
@@ -5830,7 +5830,7 @@ winnt.h:#define PAGE_EXECUTE_WRITECOPY 128
  * !not_readable() below.
  * FIXME : beware of multi-thread races, just because this returns true,
  * doesn't mean another thread can't make the region unreadable between the
- * check here and the actual read later.  See safe_read() as an alt.
+ * check here and the actual read later.  See d_r_safe_read() as an alt.
  */
 static bool
 query_is_readable_without_exception(byte *pc, size_t size)
@@ -5902,7 +5902,7 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
 bool
-safe_read(const void *base, size_t size, void *out_buf)
+d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     size_t bytes_read = 0;
     return (safe_read_ex(base, size, out_buf, &bytes_read) && bytes_read == size);
@@ -7635,7 +7635,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
     /* initialize */
     pb = NULL;
     have_all_threads_lock = false;
-    my_id = get_thread_id();
+    my_id = d_r_get_thread_id();
     my_tr = NULL;
     /* We should eventually add xmm regs to ldmp and use CONTEXT_DR_STATE here
      * (xref PR 264138) */
@@ -7675,14 +7675,14 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
     /* ref case 4174, deadlock avoidance will assert if we try to grab a lock
      * we already own, even if its only a trylock and even if the option is
      * turned off! We hack around it here */
-    if (all_threads_lock.owner == get_thread_id()) {
+    if (all_threads_lock.owner == d_r_get_thread_id()) {
         LOG(GLOBAL, LOG_ALL, 1,
             "WARNING : live dump, faulting thread already owns the all_threads lock, "
             "let's hope things are consistent\n");
     } else {
 #    endif
         for (i = 0; i < 100 /* arbitrary num */; i++) {
-            if (mutex_trylock(&all_threads_lock)) {
+            if (d_r_mutex_trylock(&all_threads_lock)) {
                 have_all_threads_lock = true;
                 break;
             } else {
@@ -7822,7 +7822,7 @@ os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
 
     /* cleanup */
     if (have_all_threads_lock)
-        mutex_unlock(&all_threads_lock);
+        d_r_mutex_unlock(&all_threads_lock);
     close_file(dmp_file);
 
     /* write an event indicating the file was created */
@@ -7879,7 +7879,7 @@ os_dump_core_external_dump()
                   oncrash_var, get_application_pid());
         NULL_TERMINATE_BUFFER(oncrash_cmdline);
 
-        SYSLOG_INTERNAL_INFO("Thread %d dumping core via \"%ls\"", get_thread_id(),
+        SYSLOG_INTERNAL_INFO("Thread %d dumping core via \"%ls\"", d_r_get_thread_id(),
                              oncrash_cmdline);
 
         child = create_process(oncrash_exe, oncrash_cmdline);
@@ -7908,7 +7908,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
     static thread_id_t current_dumping_thread_id VAR_IN_SECTION(NEVER_PROTECTED_SECTION) =
         0;
     bool res = true;
-    thread_id_t current_id = get_thread_id();
+    thread_id_t current_id = d_r_get_thread_id();
 #    ifdef DEADLOCK_AVOIDANCE
     dcontext_t *dcontext = get_thread_private_dcontext();
     thread_locks_t *old_thread_owned_locks = NULL;
@@ -7934,7 +7934,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
 
     /* only allow one thread to dumpcore at a time, also protects static
      * buffers and current_dumping_thread_id */
-    mutex_lock(&dump_core_lock);
+    d_r_mutex_lock(&dump_core_lock);
     current_dumping_thread_id = current_id;
 
     if (live_only || DYNAMO_OPTION(live_dump)) {
@@ -7949,7 +7949,7 @@ os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t pa
 #    endif
 
     current_dumping_thread_id = 0;
-    mutex_unlock(&dump_core_lock);
+    d_r_mutex_unlock(&dump_core_lock);
 
 #    ifdef DEADLOCK_AVOIDANCE
     /* restore deadlock avoidance for this thread */
@@ -8640,7 +8640,7 @@ uint
 os_random_seed()
 {
     LARGE_INTEGER tsc_or_rtc;
-    uint seed = (uint)get_thread_id();
+    uint seed = (uint)d_r_get_thread_id();
     seed ^= (uint)query_time_millis();
 
     /* safer to use than RDTSC, since it defaults to real time clock

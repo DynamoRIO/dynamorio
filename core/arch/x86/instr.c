@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -705,10 +705,10 @@ instr_is_wow64_syscall(instr_t *instr)
         if (xl8 == NULL)
             return false;
         if (/* Is the "call edx" followed by a "ret"? */
-            safe_read(xl8 + CTI_IND1_LENGTH, sizeof(opbyte), &opbyte) &&
+            d_r_safe_read(xl8 + CTI_IND1_LENGTH, sizeof(opbyte), &opbyte) &&
             (opbyte == RET_NOIMM_OPCODE || opbyte == RET_IMM_OPCODE) &&
             /* Is the "call edx" preceded by a "mov imm into edx"? */
-            safe_read(xl8 - sizeof(imm) - 1, sizeof(opbyte), &opbyte) &&
+            d_r_safe_read(xl8 - sizeof(imm) - 1, sizeof(opbyte), &opbyte) &&
             opbyte == MOV_IMM_EDX_OPCODE) {
             /* Slightly worried: let's at least have some kind of marker a user
              * could see to make it easier to diagnose problems.
@@ -718,11 +718,11 @@ instr_is_wow64_syscall(instr_t *instr)
              * cache the bounds of multiple libs.
              */
             ASSERT_CURIOSITY(
-                safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
-                    (safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
+                d_r_safe_read(xl8 - sizeof(imm), sizeof(imm), &imm) &&
+                    (d_r_safe_read((app_pc)(ptr_uint_t)imm, sizeof(tgt_code), tgt_code) &&
                      memcmp(tgt_code, WOW64_SYSSVC, sizeof(tgt_code)) == 0) ||
-                (safe_read((app_pc)(ptr_uint_t)imm, sizeof(WOW64_SYSSVC_1609),
-                           tgt_code) &&
+                (d_r_safe_read((app_pc)(ptr_uint_t)imm, sizeof(WOW64_SYSSVC_1609),
+                               tgt_code) &&
                  memcmp(tgt_code, WOW64_SYSSVC_1609, sizeof(WOW64_SYSSVC_1609)) == 0));
             return true;
         } else
@@ -1816,8 +1816,8 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
                     : DR_PRED_TRIGGER_MISMATCH;
             } else if (opnd_is_memory_reference(src)) {
                 ptr_int_t val;
-                if (!safe_read(opnd_compute_address(src, mc),
-                               MIN(opnd_get_size(src), sizeof(val)), &val))
+                if (!d_r_safe_read(opnd_compute_address(src, mc),
+                                   MIN(opnd_get_size(src), sizeof(val)), &val))
                     return false;
                 return (val != 0) ? DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
             } else

@@ -1339,18 +1339,19 @@ bb_process_SEH_push(dcontext_t *dcontext, build_bb_t *bb, void *value)
         byte target_buf[RET_0_LENGTH + 2 * JMP_LONG_LENGTH];
         app_pc handler_jmp_target = NULL;
 
-        if (!safe_read(value, sizeof(frame), &frame)) {
+        if (!d_r_safe_read(value, sizeof(frame), &frame)) {
             /* We already checked for NULL and -1 above so this should be
              * a valid SEH frame. Xref 8181, borland_seh_frame_t struct is
              * bigger then EXCEPTION_REGISTRATION (which is all that is
              * required) so verify smaller size is readable. */
-            ASSERT_CURIOSITY(sizeof(EXCEPTION_REGISTRATION) < sizeof(frame) &&
-                             safe_read(value, sizeof(EXCEPTION_REGISTRATION), &frame));
+            ASSERT_CURIOSITY(
+                sizeof(EXCEPTION_REGISTRATION) < sizeof(frame) &&
+                d_r_safe_read(value, sizeof(EXCEPTION_REGISTRATION), &frame));
             goto post_borland;
         }
         /* frame.reg.handler is c or y, read extra prior bytes to look for b */
-        if (!safe_read((app_pc)frame.reg.handler - RET_0_LENGTH, sizeof(target_buf),
-                       target_buf)) {
+        if (!d_r_safe_read((app_pc)frame.reg.handler - RET_0_LENGTH, sizeof(target_buf),
+                           target_buf)) {
             goto post_borland;
         }
         if (is_jmp_rel32(&target_buf[RET_0_LENGTH], (app_pc)frame.reg.handler,
@@ -1406,10 +1407,10 @@ bb_process_SEH_push(dcontext_t *dcontext, build_bb_t *bb, void *value)
                     (app_pc)frame.reg.handler + JMP_LONG_LENGTH);
                 if ((DYNAMO_OPTION(rct_ind_jump) != OPTION_DISABLED ||
                      DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED)) {
-                    mutex_lock(&rct_module_lock);
+                    d_r_mutex_lock(&rct_module_lock);
                     rct_add_valid_ind_branch_target(
                         dcontext, (app_pc)frame.reg.handler + JMP_LONG_LENGTH);
-                    mutex_unlock(&rct_module_lock);
+                    d_r_mutex_unlock(&rct_module_lock);
                 }
                 /* we set this as an enabler for another exemption in
                  * callback .C, see notes there */
@@ -1429,8 +1430,8 @@ bb_process_SEH_push(dcontext_t *dcontext, build_bb_t *bb, void *value)
                      is_jmp_rel8(&target_buf[RET_0_LENGTH + JMP_LONG_LENGTH],
                                  (app_pc)frame.reg.handler + JMP_LONG_LENGTH,
                                  &finally_target)) &&
-                    safe_read(finally_target - sizeof(push_imm_buf), sizeof(push_imm_buf),
-                              push_imm_buf) &&
+                    d_r_safe_read(finally_target - sizeof(push_imm_buf),
+                                  sizeof(push_imm_buf), push_imm_buf) &&
                     push_imm_buf[0] == RAW_OPCODE_push_imm32) {
                     app_pc push_val = *(app_pc *)&push_imm_buf[1];
                     /* do a few more, expensive, sanity checks */
@@ -1451,9 +1452,9 @@ bb_process_SEH_push(dcontext_t *dcontext, build_bb_t *bb, void *value)
                             push_val, finally_target);
                         if ((DYNAMO_OPTION(rct_ind_jump) != OPTION_DISABLED ||
                              DYNAMO_OPTION(rct_ind_call) != OPTION_DISABLED)) {
-                            mutex_lock(&rct_module_lock);
+                            d_r_mutex_lock(&rct_module_lock);
                             rct_add_valid_ind_branch_target(dcontext, finally_target);
-                            mutex_unlock(&rct_module_lock);
+                            d_r_mutex_unlock(&rct_module_lock);
                         }
                         if (DYNAMO_OPTION(ret_after_call)) {
                             fragment_add_after_call(dcontext, push_val);
@@ -2188,7 +2189,7 @@ bb_process_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb)
              *   7c82ed52 0f34             sysenter
              */
             uint raw;
-            if (!safe_read(callee, sizeof(raw), &raw) || raw != 0x340fd48b)
+            if (!d_r_safe_read(callee, sizeof(raw), &raw) || raw != 0x340fd48b)
                 callee = NULL;
         } else {
             /* The callee should be a 2 byte "mov %xsp -> %xdx" followed by the
@@ -2785,7 +2786,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {
         LOG(THREAD, LOG_INTERP, 2, "client requested that we go native\n");
         SYSLOG_INTERNAL_INFO("thread " TIDFMT " is going native at client request",
-                             get_thread_id());
+                             d_r_get_thread_id());
         /* we leverage the existing native_exec mechanism */
         dcontext->native_exec_postsyscall = bb->start_pc;
         dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
@@ -4116,7 +4117,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (bb->for_cache && INTERNAL_OPTION(go_native_at_bb_count) > 0 &&
         debug_bb_count++ >= INTERNAL_OPTION(go_native_at_bb_count)) {
         SYSLOG_INTERNAL_INFO("thread " TIDFMT " is going native @%d bbs to " PFX,
-                             get_thread_id(), debug_bb_count - 1, bb->start_pc);
+                             d_r_get_thread_id(), debug_bb_count - 1, bb->start_pc);
         /* we leverage the existing native_exec mechanism */
         dcontext->native_exec_postsyscall = bb->start_pc;
         dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
@@ -4604,13 +4605,13 @@ decode_trace(void *drcontext, void *tag)
          * another thread's private traces.
          */
         if (!is_couldbelinking(dcontext))
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
         ilist = recreate_fragment_ilist(dcontext, NULL, &frag, &alloc_res,
                                         false /*no mangling*/
                                         _IF_CLIENT(false /*do not re-call client*/));
         ASSERT(!alloc_res);
         if (!is_couldbelinking(dcontext))
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
 
         return ilist;
     }
@@ -5340,7 +5341,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
      * the thread_initexit_lock since then we are looking up in someone else's
      * table (the dcontext's owning thread would also need to be suspended)
      */
-    ASSERT((dcontext != GLOBAL_DCONTEXT && get_thread_id() == dcontext->owning_thread &&
+    ASSERT((dcontext != GLOBAL_DCONTEXT &&
+            d_r_get_thread_id() == dcontext->owning_thread &&
             is_couldbelinking(dcontext)) ||
            (ASSERT_OWN_MUTEX(true, &thread_initexit_lock), true));
     STATS_INC(num_recreated_fragments);
