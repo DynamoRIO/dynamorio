@@ -61,7 +61,7 @@ is_macho_header(app_pc base, size_t size)
     if (size >= sizeof(hdr_safe)) {
         hdr = (struct mach_header *)base;
     } else {
-        if (!safe_read(base, sizeof(hdr_safe), &hdr_safe))
+        if (!d_r_safe_read(base, sizeof(hdr_safe), &hdr_safe))
             return false;
         hdr = &hdr_safe;
     }

@@ -255,7 +255,7 @@ bool
 is_at_do_syscall(dcontext_t *dcontext, app_pc pc, byte *esp)
 {
     app_pc buf[2];
-    bool res = safe_read(esp, sizeof(buf), buf);
+    bool res = d_r_safe_read(esp, sizeof(buf), buf);
     if (!res) {
         ASSERT(res); /* we expect the stack to always be readable */
         return false;
@@ -424,7 +424,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
              * via get_context on unsuspended thread (result of which is technically
              * undefined according to MS), see get_context post sys comments
              * (should prob. synch there in which case can assert here) */
-            ASSERT(trec->id != get_thread_id());
+            ASSERT(trec->id != d_r_get_thread_id());
             ASSERT_CURIOSITY(false &&
                              "translate failure, likely get context on "
                              "unsuspended native thread");
@@ -458,7 +458,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
      */
     ASSERT_CURIOSITY(trec->dcontext->whereami == DR_WHERE_FCACHE ||
                      trec->dcontext->whereami == DR_WHERE_SIGNAL_HANDLER ||
-                     native_translate || trec->id == get_thread_id());
+                     native_translate || trec->id == d_r_get_thread_id());
     LOG(THREAD_GET, LOG_SYNCH, 2,
         "translate context, thread " TIDFMT " at pc_recreatable spot translating\n",
         trec->id);
@@ -919,7 +919,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                   thread_synch_permission_t caller_state,
                   thread_synch_state_t desired_state, uint flags)
 {
-    thread_id_t my_id = get_thread_id();
+    thread_id_t my_id = d_r_get_thread_id();
     uint loop_count = 0;
     int expect_exiting = 0;
     thread_record_t *my_tr = thread_lookup(my_id), *trec = NULL;
@@ -956,7 +956,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
         caller_state, desired_state, block);
 
     if (!hold_initexit_lock)
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
 
     while (true) {
         /* get thread record */
@@ -1061,7 +1061,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             should_wait_at_safe_spot(dcontext)) {
             if (trec != NULL)
                 adjust_wait_at_safe_spot(trec->dcontext, -1);
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
             /* ref case 5552, if we've inc'ed the exiting thread count need to
              * adjust it back before calling check_wait_at_safe_spot since we
              * may end up being killed there */
@@ -1073,7 +1073,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             if (dcontext->is_exiting) {
                 ATOMIC_INC(int, exiting_thread_count);
             }
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
             trec = thread_lookup(id);
             /* Like above, we test the exiting thread count to avoid races
              * between terminate/suspend thread (current thread, though we
@@ -1082,7 +1082,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
              * shared resources (ref case 3121) */
             if (trec == NULL && exiting_thread_count == expect_exiting) {
                 if (!hold_initexit_lock)
-                    mutex_unlock(&thread_initexit_lock);
+                    d_r_mutex_unlock(&thread_initexit_lock);
                 return THREAD_SYNCH_RESULT_SUCCESS;
             }
             DOSTATS({
@@ -1095,7 +1095,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 adjust_wait_at_safe_spot(trec->dcontext, 1);
         }
         STATS_INC(synch_yields);
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         /* Note - we only need call the ENTER/EXIT_DR hooks if single thread
          * in dr since we are not really exiting DR here (we just need to give
          * up the exclusion lock for a while to let thread we are trying to
@@ -1105,7 +1105,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
         synch_thread_yield();
         if (INTERNAL_OPTION(single_thread_in_DR))
             ENTERING_DR(); /* re-gain DR exclusion lock */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
     }
     /* reset this back to before */
     adjust_wait_at_safe_spot(trec->dcontext, -1);
@@ -1139,7 +1139,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     }
 exit_synch_with_thread:
     if (!hold_initexit_lock)
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
     return res;
 }
 
@@ -1188,7 +1188,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         SYNCH_WITH_ALL_SYNCHED = 2,
     };
     bool all_synched = false;
-    thread_id_t my_id = get_thread_id();
+    thread_id_t my_id = d_r_get_thread_id();
     uint loop_count = 0;
     thread_record_t *tr = thread_lookup(my_id);
     dcontext_t *dcontext = NULL;
@@ -1265,7 +1265,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
      * race conditions in doing so?
      * Ditto on all other os_thread_yields in this file!
      */
-    while (!mutex_trylock(&all_threads_synch_lock)) {
+    while (!d_r_mutex_trylock(&all_threads_synch_lock)) {
         LOG(THREAD, LOG_SYNCH, 2, "Spinning on all threads synch lock\n");
         STATS_INC(synch_yields);
         if (dcontext != NULL && cur_state != THREAD_SYNCH_NONE &&
@@ -1294,7 +1294,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             ENTERING_DR(); /* re-gain DR exclusion lock */
     }
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     /* synch with all threads */
     /* FIXME: this should be a do/while loop - then we wouldn't have
      * to initialize all the variables above
@@ -1460,7 +1460,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             STATS_INC(synch_yields);
 
             /* release lock in case some other thread waiting on it */
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
             LOG(THREAD, LOG_SYNCH, 2, "Not all threads synched looping again\n");
             /* Note - we only need call the ENTER/EXIT_DR hooks if single
              * thread in dr since we are not really exiting DR here (we just
@@ -1472,7 +1472,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
             synch_thread_yield();
             if (INTERNAL_OPTION(single_thread_in_DR))
                 ENTERING_DR(); /* re-gain DR exclusion lock */
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
             /* We unlock and lock the thread_initexit_lock, so threads might be stale. */
             threads_are_stale = true;
         }
@@ -1568,8 +1568,8 @@ synch_with_all_abort:
             }
         }
     }
-    mutex_unlock(&thread_initexit_lock);
-    mutex_unlock(&all_threads_synch_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&all_threads_synch_lock);
     ASSERT(exiting_thread_count - expect_self_exiting == 0);
     ASSERT(!all_synched); /* ensure our OUT values will be NULL,0
                              for THREAD_SYNCH_SUSPEND_FAILURE_ABORT */
@@ -1593,7 +1593,7 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
     if (threads == NULL || num_threads == 0)
         return;
 
-    my_tid = get_thread_id();
+    my_tid = d_r_get_thread_id();
     for (i = 0; i < num_threads; i++) {
         if (my_tid == threads[i]->id)
             continue;
@@ -1634,8 +1634,8 @@ end_synch_with_all_threads(thread_record_t **threads, uint num_threads, bool res
     /* if we knew whether THREAD_SYNCH_*_CLEANED was specified we could set
      * synch_with_success to false, but it's unsafe otherwise
      */
-    mutex_unlock(&thread_initexit_lock);
-    mutex_unlock(&all_threads_synch_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&all_threads_synch_lock);
     if (threads != NULL) {
         global_heap_free(
             threads, num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
@@ -1856,7 +1856,8 @@ send_all_other_threads_native(void)
 
     ASSERT(dynamo_initialized && !dynamo_exited && my_dcontext != NULL);
     LOG(my_dcontext->logfile, LOG_ALL, 1, "%s\n", __FUNCTION__);
-    LOG(GLOBAL, LOG_ALL, 1, "%s: cur thread " TIDFMT "\n", __FUNCTION__, get_thread_id());
+    LOG(GLOBAL, LOG_ALL, 1, "%s: cur thread " TIDFMT "\n", __FUNCTION__,
+        d_r_get_thread_id());
 
     waslinking = is_couldbelinking(my_dcontext);
     if (waslinking)
@@ -2020,7 +2021,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
     ASSERT(dynamo_initialized);
     ASSERT(!dynamo_exited);
 
-    my_id = get_thread_id();
+    my_id = d_r_get_thread_id();
     my_dcontext = get_thread_private_dcontext();
     if (my_dcontext == NULL) {
         /* We support detach after just dr_app_setup() with no start. */

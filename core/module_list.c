@@ -64,7 +64,7 @@ void
 os_get_module_info_lock(void)
 {
     if (loaded_module_areas != NULL)
-        read_lock(&module_data_lock);
+        d_r_read_lock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 
@@ -73,7 +73,7 @@ os_get_module_info_unlock(void)
 {
     if (loaded_module_areas != NULL) {
         ASSERT_OWN_READ_LOCK(true, &module_data_lock);
-        read_unlock(&module_data_lock);
+        d_r_read_unlock(&module_data_lock);
     }
 }
 
@@ -81,7 +81,7 @@ void
 os_get_module_info_write_lock(void)
 {
     if (loaded_module_areas != NULL)
-        write_lock(&module_data_lock);
+        d_r_write_lock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 
@@ -89,7 +89,7 @@ void
 os_get_module_info_write_unlock(void)
 {
     if (loaded_module_areas != NULL)
-        write_unlock(&module_data_lock);
+        d_r_write_unlock(&module_data_lock);
     /* else we assume past exit: FIXME: best to have exited bool */
 }
 

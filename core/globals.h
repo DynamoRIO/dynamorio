@@ -1149,7 +1149,7 @@ d_r_sscanf(const char *str, const char *format, ...);
 int
 d_r_vsscanf(const char *str, const char *fmt, va_list ap);
 const char *
-parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed);
+d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed);
 ssize_t
 utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
                    size_t *written /*unicode chars*/);

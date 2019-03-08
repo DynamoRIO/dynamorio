@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -209,7 +209,7 @@ loader_thread_exit(dcontext_t *dcontext)
          * we're not worried about leaks from not calling DLL_THREAD_EXIT.
          * (We can't check get_thread_private_dcontext() b/c it's already cleared.)
          */
-        dcontext->owning_thread == get_thread_id()) {
+        dcontext->owning_thread == d_r_get_thread_id()) {
         acquire_recursive_lock(&privload_lock);
         /* Walk forward and call independent libs last */
         for (mod = modlist; mod != NULL; mod = mod->next) {

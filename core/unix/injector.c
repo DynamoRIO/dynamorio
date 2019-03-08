@@ -171,12 +171,12 @@ get_application_short_name(void)
     return "";
 }
 
-/* Shadow DR's internal_error so assertions work in standalone mode.  DR tries
+/* Shadow DR's d_r_internal_error so assertions work in standalone mode.  DR tries
  * to use safe_read to take a stack trace, but none of its signal handlers are
  * installed, so it will segfault before it prints our error.
  */
 void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     fprintf(stderr, "ASSERT failed: %s:%d (%s)\n", file, line, expr);
     fflush(stderr);

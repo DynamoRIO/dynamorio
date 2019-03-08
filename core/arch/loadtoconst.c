@@ -350,7 +350,7 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags, reg_t reg_edi, reg_t reg_esi
         if (dynamo_options.sideline) { // only use the frags_waiting list if using
                                        // sideline
             ASSERT_NOT_IMPLEMENTED(false && "this lock needs DELETE_LOCK");
-            mutex_lock(&waiting_LTC_lock);
+            d_r_mutex_lock(&waiting_LTC_lock);
             ASSERT(num_frags_waiting_LTC < MAX_TRACES_WAITING_FOR_LTC &&
                    num_frags_waiting_LTC >= 0);
 
@@ -359,14 +359,14 @@ check_mem_refs(app_pc tag, int errno, reg_t eflags, reg_t reg_edi, reg_t reg_esi
             // executing twice before sideline_optimize was able to replace the trace
             for (a = 0; a < num_frags_waiting_LTC; a++) {
                 if (frags_waiting_LTC[a] == curfrag) { // its already in the list
-                    mutex_unlock(&waiting_LTC_lock);
+                    d_r_mutex_unlock(&waiting_LTC_lock);
                     return false; // return value doesn't matter in sideline case
                 }
             }
 
             // if we get here, then the fragment isn't already in the list
             frags_waiting_LTC[num_frags_waiting_LTC++] = curfrag;
-            mutex_unlock(&waiting_LTC_lock);
+            d_r_mutex_unlock(&waiting_LTC_lock);
         } else // if not doing sideline, then do the insertion immediately!
                // (deterministically!)
 #    endif
@@ -512,8 +512,8 @@ LTC_examine_traces()
     LOG(GLOBAL, LOG_OPTS, 3, "in LTC_examine_traces, %d frags need optimizing\n",
         num_frags_waiting_LTC);
 
-    mutex_lock(&do_not_delete_lock);
-    mutex_lock(&waiting_LTC_lock);
+    d_r_mutex_lock(&do_not_delete_lock);
+    d_r_mutex_lock(&waiting_LTC_lock);
 
     curfrag = frags_waiting_LTC[0];
     t_curfrag = TRACE_FIELDS(curfrag);
@@ -522,21 +522,21 @@ LTC_examine_traces()
     memmove(frags_waiting_LTC, &frags_waiting_LTC[1],
             sizeof(fragment_t *) * num_frags_waiting_LTC);
 
-    mutex_unlock(&waiting_LTC_lock);
+    d_r_mutex_unlock(&waiting_LTC_lock);
 
     if (t_curfrag->ltc.ltc_already_optimized) {
         LOG(GLOBAL, LOG_OPTS, 3,
             "LTC_examine_traces: encountered this frag in frags_waiting, but its already "
             "optimized\n",
             curfrag->tag);
-        mutex_unlock(&do_not_delete_lock);
+        d_r_mutex_unlock(&do_not_delete_lock);
         return;
     }
 
     LOG(GLOBAL, LOG_OPTS, 3, "LTC_examine_traces: about to optimize F%d\n", curfrag->tag);
     t_curfrag->ltc.ltc_already_optimized = true;
     sideline_optimize(curfrag, remove_mem_ref_check, ltc_trace);
-    mutex_unlock(&do_not_delete_lock);
+    d_r_mutex_unlock(&do_not_delete_lock);
 }
 
 // if a fragment is ever deleted, then remove it from the list of fragments
@@ -547,7 +547,7 @@ LTC_fragment_delete(fragment_t *frag)
 {
     int a;
     // make sure this list isn't added to while we're in it
-    mutex_lock(&waiting_LTC_lock);
+    d_r_mutex_lock(&waiting_LTC_lock);
 
     for (a = 0; a < num_frags_waiting_LTC; a++) {
         if (frag == frags_waiting_LTC[a]) {
@@ -561,7 +561,7 @@ LTC_fragment_delete(fragment_t *frag)
         }
     }
 
-    mutex_unlock(&waiting_LTC_lock);
+    d_r_mutex_unlock(&waiting_LTC_lock);
 }
 #    endif
 

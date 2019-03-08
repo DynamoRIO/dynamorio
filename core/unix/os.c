@@ -883,7 +883,7 @@ os_init(void)
 #endif
 
     signal_init();
-    /* We now set up an early fault handler for safe_read() (i#350) */
+    /* We now set up an early fault handler for d_r_safe_read() (i#350) */
     fault_handling_initialized = true;
 
     memquery_init();
@@ -1331,7 +1331,7 @@ os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_c
                                     true /*whole process*/, 0, 0);
     } else {
         /* clean up may be impossible - just terminate */
-        config_exit(); /* delete .1config file */
+        d_r_config_exit(); /* delete .1config file */
         exit_process_syscall(exit_code);
     }
 }
@@ -1868,7 +1868,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
         void *ptr;
         ptr = (ushort *)opnd_compute_address_priv(opnd, get_mcontext(dcontext));
         ASSERT(ptr != NULL);
-        if (!safe_read(ptr, sizeof(sel), &sel)) {
+        if (!d_r_safe_read(ptr, sizeof(sel), &sel)) {
             /* FIXME: if invalid address, should deliver a signal to user. */
             ASSERT_NOT_IMPLEMENTED(false);
         }
@@ -1886,7 +1886,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     LOG(THREAD_GET, LOG_THREADS, 2,
         "thread " TIDFMT " segment change %s to selector 0x%x => "
         "app lib tls base: " PFX ", alt tls base: " PFX "\n",
-        get_thread_id(), reg_names[seg], sel, os_tls->app_lib_tls_base,
+        d_r_get_thread_id(), reg_names[seg], sel, os_tls->app_lib_tls_base,
         os_tls->app_alt_tls_base);
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
@@ -1945,16 +1945,16 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 
 #ifdef X86
     LOG(THREAD_GET, LOG_THREADS, 1,
-        "thread " TIDFMT " app lib tls reg: 0x%x, alt tls reg: 0x%x\n", get_thread_id(),
-        os_tls->app_lib_tls_reg, os_tls->app_alt_tls_reg);
+        "thread " TIDFMT " app lib tls reg: 0x%x, alt tls reg: 0x%x\n",
+        d_r_get_thread_id(), os_tls->app_lib_tls_reg, os_tls->app_alt_tls_reg);
 #endif
     LOG(THREAD_GET, LOG_THREADS, 1,
         "thread " TIDFMT " app lib tls base: " PFX ", alt tls base: " PFX "\n",
-        get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
+        d_r_get_thread_id(), os_tls->app_lib_tls_base, os_tls->app_alt_tls_base);
     LOG(THREAD_GET, LOG_THREADS, 1,
         "thread " TIDFMT " priv lib tls base: " PFX ", alt tls base: " PFX ", "
         "DR's tls base: " PFX "\n",
-        get_thread_id(), os_tls->os_seg_info.priv_lib_tls_base,
+        d_r_get_thread_id(), os_tls->os_seg_info.priv_lib_tls_base,
         os_tls->os_seg_info.priv_alt_tls_base, os_tls->os_seg_info.dr_tls_base);
 }
 
@@ -1975,7 +1975,8 @@ os_tls_init(void)
     byte *segment = heap_mmap(PAGE_SIZE, VMM_SPECIAL_MMAP);
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
-    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n", get_thread_id());
+    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread " TIDFMT "\n",
+        d_r_get_thread_id());
     ASSERT(!is_thread_tls_initialized());
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
@@ -2160,7 +2161,7 @@ os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
     uint offs = offsetof(os_local_state_t, client_tls);
     if (num_slots == 0 || num_slots > MAX_NUM_CLIENT_TLS)
         return false;
-    mutex_lock(&client_tls_lock);
+    d_r_mutex_lock(&client_tls_lock);
     for (i = 0; i < MAX_NUM_CLIENT_TLS; i++) {
         if (!client_tls_allocated[i] &&
             /* ALIGNED doesn't work for 0 */
@@ -2181,7 +2182,7 @@ os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
         *offset = offs + start * sizeof(void *);
         res = true;
     }
-    mutex_unlock(&client_tls_lock);
+    d_r_mutex_unlock(&client_tls_lock);
     return res;
 }
 
@@ -2191,13 +2192,13 @@ os_tls_cfree(uint offset, uint num_slots)
     uint i;
     uint offs = (offset - offsetof(os_local_state_t, client_tls)) / sizeof(void *);
     bool ok = true;
-    mutex_lock(&client_tls_lock);
+    d_r_mutex_lock(&client_tls_lock);
     for (i = 0; i < num_slots; i++) {
         if (!client_tls_allocated[i + offs])
             ok = false;
         client_tls_allocated[i + offs] = false;
     }
-    mutex_unlock(&client_tls_lock);
+    d_r_mutex_unlock(&client_tls_lock);
     return ok;
 }
 #endif
@@ -2371,8 +2372,8 @@ os_fork_pre(dcontext_t *dcontext)
      * non-suspendable client threads.  We keep our data in ostd to prevent some
      * conflicts, but there are some unhandled corner cases.
      */
-    mutex_unlock(&thread_initexit_lock);
-    mutex_unlock(&all_threads_synch_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&all_threads_synch_lock);
 }
 
 /* Happens after the fork in both the parent and child. */
@@ -2381,8 +2382,8 @@ os_fork_post(dcontext_t *dcontext, bool parent)
 {
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     /* Re-acquire the locks we released before the fork. */
-    mutex_lock(&all_threads_synch_lock);
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&all_threads_synch_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     /* Resume the other threads that we suspended. */
     if (parent) {
         LOG(GLOBAL, 2, LOG_SYSCALLS | LOG_THREADS,
@@ -2412,8 +2413,8 @@ os_fork_init(dcontext_t *dcontext)
      * encounter more deadlocks after fork, we can add more lock and data resets
      * on a case by case basis.
      */
-    mutex_fork_reset(&all_threads_synch_lock);
-    mutex_fork_reset(&thread_initexit_lock);
+    d_r_mutex_fork_reset(&all_threads_synch_lock);
+    d_r_mutex_fork_reset(&thread_initexit_lock);
 
     os_fork_post(dcontext, false /*!parent*/);
 
@@ -2700,7 +2701,7 @@ get_sys_thread_id(void)
 }
 
 thread_id_t
-get_thread_id(void)
+d_r_get_thread_id(void)
 {
     /* i#228/PR 494330: making a syscall here is a perf bottleneck since we call
      * this routine in read and recursive locks so use the TLS value instead
@@ -2746,7 +2747,7 @@ get_thread_private_dcontext(void)
      *
      * - dynamo_thread_init() calling is_thread_initialized() for a new thread
      *   created via clone or the start/stop interface: so we have
-     *   is_thread_initialized() pay the get_thread_id() cost.
+     *   is_thread_initialized() pay the d_r_get_thread_id() cost.
      * - new_thread_setup()'s ENTER_DR_HOOK kstats, or a crash and the signal
      *   handler asking about dcontext: we have new_thread_dynamo_start()
      *   clear the segment register for us early on.
@@ -2779,7 +2780,7 @@ get_thread_private_dcontext(void)
      * the current thread, they cannot both execute simultaneously for the
      * same tid, right?
      */
-    thread_id_t tid = get_thread_id();
+    thread_id_t tid = d_r_get_thread_id();
     int i;
     if (tls_table != NULL) {
         for (i = 0; i < MAX_THREADS; i++) {
@@ -2800,11 +2801,11 @@ set_thread_private_dcontext(dcontext_t *dcontext)
     ASSERT(is_thread_tls_allocated());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
 #else
-    thread_id_t tid = get_thread_id();
+    thread_id_t tid = d_r_get_thread_id();
     int i;
     bool found = false;
     ASSERT(tls_table != NULL);
-    mutex_lock(&tls_lock);
+    d_r_mutex_lock(&tls_lock);
     for (i = 0; i < MAX_THREADS; i++) {
         if (tls_table[i].tid == tid) {
             if (dcontext == NULL) {
@@ -2831,7 +2832,7 @@ set_thread_private_dcontext(dcontext_t *dcontext)
             }
         }
     }
-    mutex_unlock(&tls_lock);
+    d_r_mutex_unlock(&tls_lock);
     ASSERT(found);
 #endif
 }
@@ -2853,14 +2854,14 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     WRITE_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, new_tid);
 #else
     int i;
-    mutex_lock(&tls_lock);
+    d_r_mutex_lock(&tls_lock);
     for (i = 0; i < MAX_THREADS; i++) {
         if (tls_table[i].tid == old) {
             tls_table[i].tid = new;
             break;
         }
     }
-    mutex_unlock(&tls_lock);
+    d_r_mutex_unlock(&tls_lock);
 #endif
 }
 
@@ -3403,7 +3404,7 @@ os_thread_suspend(thread_record_t *tr)
     /* See synch comments in os_thread_resume: the mutex held there
      * prevents prematurely sending a re-suspend signal.
      */
-    mutex_lock(&ostd->suspend_lock);
+    d_r_mutex_lock(&ostd->suspend_lock);
     ostd->suspend_count++;
     ASSERT(ostd->suspend_count > 0);
     /* If already suspended, do not send another signal.  However, we do
@@ -3419,7 +3420,7 @@ os_thread_suspend(thread_record_t *tr)
         ASSERT(ksynch_get_value(&ostd->suspended) == 0);
         if (!known_thread_signal(tr, SUSPEND_SIGNAL)) {
             ostd->suspend_count--;
-            mutex_unlock(&ostd->suspend_lock);
+            d_r_mutex_unlock(&ostd->suspend_lock);
             return false;
         }
     }
@@ -3428,7 +3429,7 @@ os_thread_suspend(thread_record_t *tr)
      * can proceed as soon as the suspended thread is suspended, before the
      * suspending thread gets scheduled again.
      */
-    mutex_unlock(&ostd->suspend_lock);
+    d_r_mutex_unlock(&ostd->suspend_lock);
     while (ksynch_get_value(&ostd->suspended) == 0) {
         /* For Linux, waits only if the suspended flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked.
@@ -3460,18 +3461,18 @@ os_thread_resume(thread_record_t *tr)
      * Given that race, we can't just use atomic_add_exchange_int +
      * atomic_dec_becomes_zero on suspend_count.
      */
-    mutex_lock(&ostd->suspend_lock);
+    d_r_mutex_lock(&ostd->suspend_lock);
     ASSERT(ostd->suspend_count > 0);
     /* PR 479750: if do get here and target is not suspended then abort
      * to avoid possible deadlocks
      */
     if (ostd->suspend_count == 0) {
-        mutex_unlock(&ostd->suspend_lock);
+        d_r_mutex_unlock(&ostd->suspend_lock);
         return true; /* the thread is "resumed", so success status */
     }
     ostd->suspend_count--;
     if (ostd->suspend_count > 0) {
-        mutex_unlock(&ostd->suspend_lock);
+        d_r_mutex_unlock(&ostd->suspend_lock);
         return true; /* still suspended */
     }
     ksynch_set_value(&ostd->wakeup, 1);
@@ -3488,7 +3489,7 @@ os_thread_resume(thread_record_t *tr)
     }
     ksynch_set_value(&ostd->wakeup, 0);
     ksynch_set_value(&ostd->resumed, 0);
-    mutex_unlock(&ostd->suspend_lock);
+    d_r_mutex_unlock(&ostd->suspend_lock);
     return true;
 }
 
@@ -3636,7 +3637,7 @@ client_thread_run(void)
     ASSERT(rc != -1); /* this better be a new thread */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", get_thread_id());
+    LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     /* We stored the func and args in particular clone record fields */
     func = (void (*)(void *param))dcontext->next_tag;
     /* Reset any inherited mask (i#2337). */
@@ -3654,7 +3655,7 @@ client_thread_run(void)
     (*func)(arg);
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
-        get_thread_id());
+        d_r_get_thread_id());
     block_cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false /*just thread*/,
                                 IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
 }
@@ -4305,7 +4306,7 @@ safe_read_if_fast(const void *base, size_t size, void *out_buf)
 
 /* FIXME - fold this together with safe_read_ex() (is a lot of places to update) */
 bool
-safe_read(const void *base, size_t size, void *out_buf)
+d_r_safe_read(const void *base, size_t size, void *out_buf)
 {
     return safe_read_ex(base, size, out_buf, NULL);
 }
@@ -5131,7 +5132,7 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
      */
     if (sig == SIGABRT && !DYNAMO_OPTION(intercept_all_signals)) {
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 1,
-            "thread " TIDFMT " sending itself a SIGABRT\n", get_thread_id());
+            "thread " TIDFMT " sending itself a SIGABRT\n", d_r_get_thread_id());
         KSTOP(num_exits_dir_syscall);
         /* FIXME: need to check whether app has a handler for SIGABRT! */
         /* FIXME PR 211180/6723: this will do SYS_exit rather than the SIGABRT.
@@ -5686,7 +5687,7 @@ handle_execve(dcontext_t *dcontext)
     /* we need to clean up the .1config file here.  if the execve fails,
      * we'll just live w/o dynamic option re-read.
      */
-    config_exit();
+    d_r_config_exit();
     return 0;
 }
 
@@ -5748,7 +5749,7 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
     if (num_execve_threads == 0)
         return;
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     get_list_of_threads_ex(&threads, &num_threads, true /*include execve*/);
     for (i = 0; i < num_threads; i++) {
         if (threads[i]->execve) {
@@ -5757,7 +5758,7 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
             dynamo_other_thread_exit(threads[i]);
         }
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads,
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 }
@@ -5888,7 +5889,7 @@ handle_exit(dcontext_t *dcontext)
         thread_record_t **threads;
         int num_threads, i;
         exit_process = true;
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num_threads);
         for (i = 0; i < num_threads; i++) {
             if (threads[i]->pid != mypid && !IS_CLIENT_THREAD(threads[i]->dcontext)) {
@@ -5898,13 +5899,13 @@ handle_exit(dcontext_t *dcontext)
         }
         if (!exit_process) {
             /* We need to clean up the other threads in our group here. */
-            thread_id_t myid = get_thread_id();
+            thread_id_t myid = d_r_get_thread_id();
             priv_mcontext_t mcontext;
             DEBUG_DECLARE(thread_synch_result_t synch_res;)
             LOG(THREAD, LOG_TOP | LOG_SYSCALLS, 1,
                 "SYS_exit_group %d not final group: %d cleaning up just "
                 "threads in group\n",
-                get_process_id(), get_thread_id());
+                get_process_id(), d_r_get_thread_id());
             /* Set where we are to handle reciprocal syncs */
             copy_mcontext(mc, &mcontext);
             mc->pc = SYSCALL_PC(dcontext);
@@ -5929,7 +5930,7 @@ handle_exit(dcontext_t *dcontext)
             }
             copy_mcontext(&mcontext, mc);
         }
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         global_heap_free(
             threads, num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     }
@@ -5939,7 +5940,7 @@ handle_exit(dcontext_t *dcontext)
             "SYS_exit%s(%d) in final thread " TIDFMT " of " PIDFMT
             " => exiting DynamoRIO\n",
             (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "",
-            MCXT_SYSNUM_REG(mc), get_thread_id(), get_process_id());
+            MCXT_SYSNUM_REG(mc), d_r_get_thread_id(), get_process_id());
         /* we want to clean up even if not automatic startup! */
         automatic_startup = true;
         exit_process = true;
@@ -5947,7 +5948,7 @@ handle_exit(dcontext_t *dcontext)
         LOG(THREAD, LOG_TOP | LOG_THREADS | LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in thread " TIDFMT " of " PIDFMT " => cleaning up %s\n",
             (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "",
-            MCXT_SYSNUM_REG(mc), get_thread_id(), get_process_id(),
+            MCXT_SYSNUM_REG(mc), d_r_get_thread_id(), get_process_id(),
             exit_process ? "process" : "thread");
     }
     KSTOP(num_exits_dir_syscall);
@@ -5985,7 +5986,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
          * libraries, but only the first time it requests TLS.
          */
         if (user_desc->entry_number == -1 && return_stolen_lib_tls_gdt) {
-            mutex_lock(&set_thread_area_lock);
+            d_r_mutex_lock(&set_thread_area_lock);
             if (return_stolen_lib_tls_gdt) {
                 uint selector = read_thread_register(LIB_SEG_TLS);
                 uint index = SELECTOR_INDEX(selector);
@@ -5998,7 +5999,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
                     "selector 0x%x for first call to set_thread_area\n",
                     __FUNCTION__, selector);
             }
-            mutex_unlock(&set_thread_area_lock);
+            d_r_mutex_unlock(&set_thread_area_lock);
         }
 
         /* update the specific one */
@@ -6077,7 +6078,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
         ASSERT(res);
         LOG(GLOBAL, LOG_THREADS, 2,
             "%s %s: arch_prctl successful for thread " TIDFMT " base " PFX "\n",
-            __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
+            __FUNCTION__, to_app ? "to app" : "to DR", d_r_get_thread_id(), base);
         if (seg == SEG_TLS && base == NULL) {
             /* Set the selector to 0 so we don't think TLS is available. */
             /* FIXME i#107: Still assumes app isn't using SEG_TLS. */
@@ -6127,7 +6128,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
             __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: set_thread_area successful for thread " TIDFMT " base " PFX "\n",
-            __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
+            __FUNCTION__, to_app ? "to app" : "to DR", d_r_get_thread_id(), base);
         break;
     }
     case TLS_TYPE_LDT: {
@@ -6149,7 +6150,7 @@ os_switch_seg_to_base(dcontext_t *dcontext, os_local_state_t *os_tls, reg_id_t s
             WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
             "%s %s: ldt selector swap successful for thread " TIDFMT "\n", __FUNCTION__,
-            to_app ? "to app" : "to DR", get_thread_id());
+            to_app ? "to app" : "to DR", d_r_get_thread_id());
         break;
     }
     default: ASSERT_NOT_REACHED(); return false;
@@ -6237,7 +6238,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         res = write_thread_register(ostd->priv_lib_tls_base);
     }
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
-        __FUNCTION__, to_app ? "to app" : "to DR", res, get_thread_id());
+        __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
 #elif defined(AARCH64)
     (void)os_tls;
@@ -6337,7 +6338,7 @@ pre_system_call(dcontext_t *dcontext)
          */
         mmap_arg_struct_t *arg = (mmap_arg_struct_t *)sys_param(dcontext, 0);
         mmap_arg_struct_t arg_buf;
-        if (safe_read(arg, sizeof(mmap_arg_struct_t), &arg_buf)) {
+        if (d_r_safe_read(arg, sizeof(mmap_arg_struct_t), &arg_buf)) {
             void *addr = (void *)arg->addr;
             size_t len = (size_t)arg->len;
             uint prot = (uint)arg->prot;
@@ -6891,8 +6892,8 @@ pre_system_call(dcontext_t *dcontext)
         pid_t pid = (pid_t)sys_param(dcontext, 0);
         uint sig = (uint)sys_param(dcontext, 1);
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 2,
-            "thread " TIDFMT " sending signal %d to pid " PIDFMT "\n", get_thread_id(),
-            sig, pid);
+            "thread " TIDFMT " sending signal %d to pid " PIDFMT "\n",
+            d_r_get_thread_id(), sig, pid);
         /* We check whether targeting this process or this process group */
         if (pid == get_process_id() || pid == 0 || pid == -get_process_group_id()) {
             handle_self_signal(dcontext, sig);
@@ -6907,8 +6908,9 @@ pre_system_call(dcontext_t *dcontext)
         pid_t tid = (pid_t)sys_param(dcontext, 0);
         uint sig = (uint)sys_param(dcontext, 1);
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 2,
-            "thread " TIDFMT " sending signal %d to tid %d\n", get_thread_id(), sig, tid);
-        if (tid == get_thread_id()) {
+            "thread " TIDFMT " sending signal %d to tid %d\n", d_r_get_thread_id(), sig,
+            tid);
+        if (tid == d_r_get_thread_id()) {
             handle_self_signal(dcontext, sig);
         }
         break;
@@ -6923,8 +6925,8 @@ pre_system_call(dcontext_t *dcontext)
         pid_t tid = (pid_t)sys_param(dcontext, 1);
         uint sig = (uint)sys_param(dcontext, 2);
         LOG(GLOBAL, LOG_TOP | LOG_SYSCALLS, 2,
-            "thread " TIDFMT " sending signal %d to tid %d tgid %d\n", get_thread_id(),
-            sig, tid, tgid);
+            "thread " TIDFMT " sending signal %d to tid %d tgid %d\n",
+            d_r_get_thread_id(), sig, tid, tgid);
         /* some kernels support -1 values:
          +   tgkill(-1, tid, sig)  == tkill(tid, sig)
          *   tgkill(tgid, -1, sig) == kill(tgid, sig)
@@ -6932,7 +6934,7 @@ pre_system_call(dcontext_t *dcontext)
          * I don't want to kill the thread when the signal is never sent!
          * FIXME: the 1st is in my tkill manpage, but not my 2.6.20 kernel sources!
          */
-        if ((tgid == -1 || tgid == get_process_id()) && tid == get_thread_id()) {
+        if ((tgid == -1 || tgid == get_process_id()) && tid == d_r_get_thread_id()) {
             handle_self_signal(dcontext, sig);
         }
         break;
@@ -7053,7 +7055,7 @@ pre_system_call(dcontext_t *dcontext)
         /* Refer to comments in SYS_ppoll above. Taking extra steps here due to struct
          * argument in pselect6.
          */
-        if (!safe_read(data_param, sizeof(data), &data)) {
+        if (!d_r_safe_read(data_param, sizeof(data), &data)) {
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for pselect6\n");
             set_failure_return_val(dcontext, EFAULT);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7197,7 +7199,7 @@ pre_system_call(dcontext_t *dcontext)
 #else
             struct rlimit rlim;
 #endif
-            if (!safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim)) {
+            if (!d_r_safe_read((void *)sys_param(dcontext, 1), sizeof(rlim), &rlim)) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
                 set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7246,7 +7248,7 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param1 == RLIMIT_NOFILE &&
             dcontext->sys_param2 != (reg_t)NULL && DYNAMO_OPTION(steal_fds) > 0) {
             rlimit64_t rlim;
-            if (!safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim)) {
+            if (!d_r_safe_read((void *)(dcontext->sys_param2), sizeof(rlim), &rlim)) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for prlimit64\n");
                 set_failure_return_val(dcontext, EFAULT);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
@@ -7314,7 +7316,7 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_set_thread_area: {
         our_modify_ldt_t desc;
         if (INTERNAL_OPTION(mangle_app_seg) &&
-            safe_read((void *)sys_param(dcontext, 0), sizeof(desc), &desc)) {
+            d_r_safe_read((void *)sys_param(dcontext, 0), sizeof(desc), &desc)) {
             if (os_set_app_thread_area(dcontext, &desc) &&
                 safe_write_ex((void *)sys_param(dcontext, 0), sizeof(desc), &desc,
                               NULL)) {
@@ -7329,7 +7331,7 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_get_thread_area: {
         our_modify_ldt_t desc;
         if (INTERNAL_OPTION(mangle_app_seg) &&
-            safe_read((const void *)sys_param(dcontext, 0), sizeof(desc), &desc)) {
+            d_r_safe_read((const void *)sys_param(dcontext, 0), sizeof(desc), &desc)) {
             if (os_get_app_thread_area(dcontext, &desc) &&
                 safe_write_ex((void *)sys_param(dcontext, 0), sizeof(desc), &desc,
                               NULL)) {
@@ -9270,7 +9272,7 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
         /* we now have to undo our earlier request */
         atomic_dec_and_test(&lock->lock_requests);
 
-        while (!mutex_trylock(lock)) {
+        while (!d_r_mutex_trylock(lock)) {
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
@@ -9390,25 +9392,25 @@ destroy_event(event_t e)
 void
 signal_event(event_t e)
 {
-    mutex_lock(&e->lock);
+    d_r_mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 1);
     if (e->broadcast)
         ksynch_wake_all(&e->signaled);
     else
         ksynch_wake(&e->signaled);
     LOG(THREAD_GET, LOG_THREADS, 3, "thread " TIDFMT " signalling event " PFX "\n",
-        get_thread_id(), e);
-    mutex_unlock(&e->lock);
+        d_r_get_thread_id(), e);
+    d_r_mutex_unlock(&e->lock);
 }
 
 void
 reset_event(event_t e)
 {
-    mutex_lock(&e->lock);
+    d_r_mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 0);
     LOG(THREAD_GET, LOG_THREADS, 3, "thread " TIDFMT " resetting event " PFX "\n",
-        get_thread_id(), e);
-    mutex_unlock(&e->lock);
+        d_r_get_thread_id(), e);
+    d_r_mutex_unlock(&e->lock);
 }
 
 bool
@@ -9422,25 +9424,25 @@ wait_for_event(event_t e, int timeout_ms)
         start_time = query_time_millis();
     /* Use a user-space event on Linux, a kernel event on Windows. */
     LOG(THREAD, LOG_THREADS, 3, "thread " TIDFMT " waiting for event " PFX "\n",
-        get_thread_id(), e);
+        d_r_get_thread_id(), e);
     do {
         if (ksynch_get_value(&e->signaled) == 1) {
-            mutex_lock(&e->lock);
+            d_r_mutex_lock(&e->lock);
             if (ksynch_get_value(&e->signaled) == 0) {
                 /* some other thread beat us to it */
                 LOG(THREAD, LOG_THREADS, 3,
-                    "thread " TIDFMT " was beaten to event " PFX "\n", get_thread_id(),
-                    e);
-                mutex_unlock(&e->lock);
+                    "thread " TIDFMT " was beaten to event " PFX "\n",
+                    d_r_get_thread_id(), e);
+                d_r_mutex_unlock(&e->lock);
             } else {
                 if (!e->broadcast) {
                     /* reset the event */
                     ksynch_set_value(&e->signaled, 0);
                 }
-                mutex_unlock(&e->lock);
+                d_r_mutex_unlock(&e->lock);
                 LOG(THREAD, LOG_THREADS, 3,
                     "thread " TIDFMT " finished waiting for event " PFX "\n",
-                    get_thread_id(), e);
+                    d_r_get_thread_id(), e);
                 return true;
             }
         } else {
@@ -9667,7 +9669,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     while (exiting_thread_count > 0)
         os_thread_yield();
 
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     CLIENT_ASSERT(thread_takeover_records == NULL,
                   "Only one thread should attempt app take over!");
 
@@ -9676,7 +9678,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
      */
     tids = os_list_threads(dcontext, &num_threads);
     if (tids == NULL) {
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         return false; /* have to assume no unknown */
     }
     for (i = 0; i < num_threads; i++) {
@@ -9720,7 +9722,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         for (i = 0; i < threads_to_signal; i++) {
             thread_signal(get_process_id(), records[i].tid, SUSPEND_SIGNAL);
         }
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
 
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
@@ -9742,7 +9744,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         /* Now that we've taken over the other threads, we can safely free the
          * records and reset the shared globals.
          */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         LOG(GLOBAL, LOG_THREADS, 1,
             "TAKEOVER: takeover complete, unpublishing records\n");
         thread_takeover_records = NULL;
@@ -9755,7 +9757,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                         ACCT_THREAD_MGT, PROTECTED);
     }
 
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
 
     return threads_to_signal > 0;
@@ -9797,7 +9799,7 @@ os_thread_signal_taken_over(void)
     event_t event = NULL;
     uint i;
     /* Wake up the thread that initiated the take over. */
-    mytid = get_thread_id();
+    mytid = d_r_get_thread_id();
     ASSERT(thread_takeover_records != NULL);
     for (i = 0; i < num_thread_takeover_records; i++) {
         if (thread_takeover_records[i].tid == mytid) {
@@ -9895,7 +9897,7 @@ os_thread_take_over_secondary(priv_mcontext_t *mc)
     int i;
     dcontext_t *dcontext;
     /* We want to share with the thread that called dr_app_setup. */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     get_list_of_threads(&list, &num_threads);
     ASSERT(num_threads >= 1);
     for (i = 0; i < num_threads; i++) {
@@ -9908,7 +9910,7 @@ os_thread_take_over_secondary(priv_mcontext_t *mc)
     /* Assuming pthreads, prepare signal_field for sharing. */
     handle_clone(list[i]->dcontext, PTHREAD_CLONE_FLAGS);
     dcontext = init_thread_with_shared_siginfo(mc, list[i]->dcontext);
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     global_heap_free(list,
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     return dcontext;

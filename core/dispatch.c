@@ -589,7 +589,7 @@ handle_special_tag(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\n%s: thread " TIDFMT " returning to app @" PFX "\n",
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
-            get_thread_id(), dcontext->next_tag);
+            d_r_get_thread_id(), dcontext->next_tag);
 #ifdef DR_APP_EXPORTS
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
@@ -1123,21 +1123,21 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 #ifdef SIDELINE
     /* sideline synchronization */
     if (dynamo_options.sideline) {
-        thread_id_t tid = get_thread_id();
+        thread_id_t tid = d_r_get_thread_id();
         if (pause_for_sideline == tid) {
-            mutex_lock(&sideline_lock);
+            d_r_mutex_lock(&sideline_lock);
             if (pause_for_sideline == tid) {
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
                 wait_for_event(resume_from_sideline_event, 0);
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);
                 sideline_cleanup_replacement(dcontext);
             } else
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
         }
     }
 #endif
@@ -1167,7 +1167,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                         " at this time");
         }
 #    ifdef CLIENT_SIDELINE
-        mutex_lock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
 #    endif
         todo = dcontext->client_data->to_do;
         while (todo != NULL) {
@@ -1240,7 +1240,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         }
         dcontext->client_data->to_do = NULL;
 #    ifdef CLIENT_SIDELINE
-        mutex_unlock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
 #    endif
     }
 #endif /* CLIENT_INTERFACE */

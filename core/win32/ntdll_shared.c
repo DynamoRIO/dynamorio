@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,7 +60,7 @@
 #else
 /* we include globals.h mainly for ASSERT, even though we're
  * used by preinject.
- * preinject just defines its own internal_error!
+ * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
 #    include "../module_shared.h"

@@ -306,7 +306,7 @@ unsigned long
 d_r_strtoul(const char *str, char **end, int base)
 {
     uint64 num;
-    const char *parse_end = parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
+    const char *parse_end = d_r_parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
     if (end != NULL)
         *end = (char *)parse_end;
     if (parse_end == NULL)

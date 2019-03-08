@@ -426,7 +426,7 @@ dynamorio_app_init(void)
         statistics_pre_init();
 #endif
 
-        config_init();
+        d_r_config_init();
         options_init();
 #ifdef WINDOWS
         syscalls_init_options_read(); /* must be called after options_init
@@ -632,7 +632,7 @@ dynamorio_app_init(void)
 
         /* We move vm_areas_init() below dynamo_thread_init() so we can have
          * two things: 1) a dcontext and 2) a SIGSEGV handler, for TRY/EXCEPT
-         * inside vm_areas_init() for PR 361594's probes and for safe_read().
+         * inside vm_areas_init() for PR 361594's probes and for d_r_safe_read().
          * This means vm_areas_thread_init() runs before vm_areas_init().
          */
         if (!DYNAMO_OPTION(thin_client)) {
@@ -694,7 +694,7 @@ dynamorio_app_init(void)
                 /* grab the lock now -- the thread that is in dynamo must be holding
                  * the lock, and we are the initial thread in dynamo!
                  */
-                mutex_lock(&thread_initexit_lock);
+                d_r_mutex_lock(&thread_initexit_lock);
             }
             /* ENTERING_DR will increment, so decrement first
              * FIXME: waste of protection change since will nop-unprotect!
@@ -783,7 +783,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
         main_logfile = open_log_file(main_logfile_name(), NULL, 0);
         print_file(main_logfile, "%s\n", dynamorio_version_string);
         print_file(main_logfile, "New log file for child %d forked by parent %d\n",
-                   get_thread_id(), get_parent_id());
+                   d_r_get_thread_id(), get_parent_id());
         print_file(main_logfile, "Parent's log dir: %s\n", parent_logdir);
     }
 
@@ -802,7 +802,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
      * other threads (fork -> we're alone in address space), so clear
      * out entire thread table, then add child
      */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
     get_list_of_threads_ex(&threads, &num_threads, true /*include execve*/);
     for (i = 0; i < num_threads; i++) {
         if (threads[i] == dcontext->thread_record)
@@ -810,11 +810,11 @@ dynamorio_fork_init(dcontext_t *dcontext)
         else
             dynamo_other_thread_exit(threads[i]);
     }
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads,
                      num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
 
-    add_thread(get_process_id(), get_thread_id(), true /*under dynamo control*/,
+    add_thread(get_process_id(), d_r_get_thread_id(), true /*under dynamo control*/,
                dcontext);
 
     GLOBAL_STAT(num_threads) = 1;
@@ -824,9 +824,9 @@ dynamorio_fork_init(dcontext_t *dcontext)
         dcontext->logfile = open_log_file(thread_logfile_name(), NULL, 0);
         print_file(dcontext->logfile, "%s\n", dynamorio_version_string);
         print_file(dcontext->logfile, "New log file for child %d forked by parent %d\n",
-                   get_thread_id(), get_parent_id());
+                   d_r_get_thread_id(), get_parent_id());
         LOG(THREAD, LOG_TOP | LOG_THREADS, 1, "THREAD %d (dcontext " PFX ")\n\n",
-            get_thread_id(), dcontext);
+            d_r_get_thread_id(), dcontext);
     }
 #    endif
     num_threads = 1;
@@ -876,7 +876,7 @@ standalone_init(void)
     if (!syscalls_init())
         return NULL; /* typically b/c of unsupported OS version */
 #    endif
-    config_init();
+    d_r_config_init();
     options_init();
     vmm_heap_init();
     heap_init();
@@ -934,7 +934,7 @@ void
 standalone_exit(void)
 {
     /* should clean up here */
-    config_exit();
+    d_r_config_exit();
 }
 #endif
 
@@ -1035,21 +1035,21 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
         /* If we use dynamo_thread_exit() when toexit is the current thread,
          * it results in asserts in the win32.tls test, so we stick with this.
          */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         dynamo_other_thread_exit(toexit, false);
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
 #else
         /* On Linux, restoring segment registers can only be done
          * on the current thread, which must be toexit.
          */
-        ASSERT(toexit->id == get_thread_id());
+        ASSERT(toexit->id == d_r_get_thread_id());
         dynamo_thread_exit();
 #endif
     }
 
     if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
         /* We don't fully free cur thread until after client exit event (PR 536058) */
-        if (thread_lookup(get_thread_id()) == NULL) {
+        if (thread_lookup(d_r_get_thread_id()) == NULL) {
             LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
                 "Current thread never under DynamoRIO control, not exiting it\n");
         } else {
@@ -1061,12 +1061,12 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
         }
     }
     /* now that the final thread is exited, free the all_threads memory */
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     global_heap_free(all_threads,
                      HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) *
                          sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     all_threads = NULL;
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
 
 #ifdef WINDOWS
 #    ifdef CLIENT_INTERFACE
@@ -1120,7 +1120,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      */
     options_exit();
     utils_exit();
-    config_exit();
+    d_r_config_exit();
 
 #ifdef KSTATS
     kstat_exit();
@@ -1276,7 +1276,7 @@ dynamo_process_exit_cleanup(void)
         dynamo_process_exit_with_thread_info();
 
         if (INTERNAL_OPTION(single_privileged_thread)) {
-            mutex_unlock(&thread_initexit_lock);
+            d_r_mutex_unlock(&thread_initexit_lock);
         }
 
         /* if ExitProcess called before all threads terminated, they won't
@@ -1307,7 +1307,7 @@ dynamo_process_exit_cleanup(void)
          * things like couldbelinking (and thus we have to disable some API
          * routines in the thread exit event: i#1989).
          */
-        dynamo_thread_exit_pre_client(get_thread_private_dcontext(), get_thread_id());
+        dynamo_thread_exit_pre_client(get_thread_private_dcontext(), d_r_get_thread_id());
 
 #    ifdef WINDOWS
         /* FIXME : our call un-interception isn't atomic so (miniscule) chance
@@ -1379,7 +1379,7 @@ dynamo_process_exit(void)
              */
             LOG(GLOBAL, LOG_TOP, 1,
                 "\ndynamo_process_exit from thread " TIDFMT " -- cleaning up dynamo\n",
-                get_thread_id());
+                d_r_get_thread_id());
             dynamo_process_exit_cleanup();
         }
     }
@@ -1435,7 +1435,7 @@ dynamo_process_exit(void)
     if (each_thread) {
         thread_record_t **threads;
         int num, i;
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num);
 
         for (i = 0; i < num; i++) {
@@ -1463,14 +1463,14 @@ dynamo_process_exit(void)
             if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit)) {
                 instrument_thread_exit_event(threads[i]->dcontext);
                 /* i#1617: ensure we do all cleanup of priv libs */
-                if (threads[i]->id != get_thread_id()) /* i#1617: must delay this */
+                if (threads[i]->id != d_r_get_thread_id()) /* i#1617: must delay this */
                     loader_thread_exit(threads[i]->dcontext);
             }
 #    endif
         }
         global_heap_free(threads,
                          num * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
     }
 
     /* PR 522783: must be before we clear dcontext (if CLIENT_INTERFACE)! */
@@ -1653,7 +1653,7 @@ create_new_dynamo_context(bool initial, byte *dstack_in, priv_mcontext_t *mc)
     ASSERT(dcontext->try_except.try_except_state == NULL);
 
     DODEBUG({ dcontext->logfile = INVALID_FILE; });
-    dcontext->owning_thread = get_thread_id();
+    dcontext->owning_thread = d_r_get_thread_id();
 #ifdef UNIX
     dcontext->owning_process = get_process_id();
 #endif
@@ -1907,7 +1907,7 @@ bool
 is_thread_initialized(void)
 {
 #if defined(UNIX) && defined(HAVE_TLS)
-    /* We don't want to pay the get_thread_id() cost on every
+    /* We don't want to pay the d_r_get_thread_id() cost on every
      * get_thread_private_dcontext() when we only really need the
      * check for this call here, so we explicitly check.
      */
@@ -1932,7 +1932,7 @@ mark_thread_execve(thread_record_t *tr, bool execve)
 {
     ASSERT((execve && !tr->execve) || (!execve && tr->execve));
     tr->execve = execve;
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     if (execve) {
         /* since we free on a second vfork we should never accumulate
          * more than one
@@ -1943,7 +1943,7 @@ mark_thread_execve(thread_record_t *tr, bool execve)
         ASSERT(num_execve_threads > 0);
         num_execve_threads--;
     }
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
 }
 #endif /* UNIX */
 
@@ -1984,7 +1984,7 @@ get_list_of_threads_common(thread_record_t ***list,
     ASSERT(all_threads != NULL);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     /* Do not include vfork threads that exited via execve, unless we're exiting */
     max_num = IF_UNIX_ELSE((include_execve || dynamo_exiting) ? num_known_threads
                                                               : get_num_threads(),
@@ -2013,7 +2013,7 @@ get_list_of_threads_common(thread_record_t ***list,
 
     *num = cur;
     *list = mylist;
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
 }
 
 void
@@ -2042,10 +2042,10 @@ thread_lookup(thread_id_t tid)
     /* check that caller is self or has initexit_lock
      * FIXME: no way to tell who has initexit_lock
      */
-    ASSERT(mutex_testlock(&thread_initexit_lock) || tid == get_thread_id());
+    ASSERT(mutex_testlock(&thread_initexit_lock) || tid == d_r_get_thread_id());
 
     hindex = HASH_FUNC_BITS(tid, ALL_THREADS_HASH_BITS);
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     if (all_threads == NULL) {
         tr = NULL;
     } else {
@@ -2053,12 +2053,12 @@ thread_lookup(thread_id_t tid)
     }
     while (tr != NULL) {
         if (tr->id == tid) {
-            mutex_unlock(&all_threads_lock);
+            d_r_mutex_unlock(&all_threads_lock);
             return tr;
         }
         tr = tr->next;
     }
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
     return NULL;
 }
 
@@ -2121,7 +2121,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid), thread_id_t tid
     if (dcontext != NULL) /* we allow NULL for dr_create_client_thread() */
         dcontext->thread_record = tr;
 
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     tr->num = threads_ever_count++;
     hindex = HASH_FUNC_BITS(tr->id, ALL_THREADS_HASH_BITS);
     tr->next = all_threads[hindex];
@@ -2130,7 +2130,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid), thread_id_t tid
     RSTATS_ADD_PEAK(num_threads, 1);
     RSTATS_INC(num_threads_created);
     num_known_threads++;
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
 }
 
 /* return false if couldn't find the thread */
@@ -2142,7 +2142,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
 
     ASSERT(all_threads != NULL);
 
-    mutex_lock(&all_threads_lock);
+    d_r_mutex_lock(&all_threads_lock);
     for (tr = all_threads[hindex], prevtr = NULL; tr; prevtr = tr, tr = tr->next) {
         if (tr->id == tid) {
             if (prevtr)
@@ -2165,7 +2165,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
             break;
         }
     }
-    mutex_unlock(&all_threads_lock);
+    d_r_mutex_unlock(&all_threads_lock);
     return (tr != NULL);
 }
 
@@ -2206,7 +2206,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      * simple b/c it can be in ntdll waiting on a lock.
      */
     if (dr_api_entry)
-        os_take_over_mark_thread(get_thread_id());
+        os_take_over_mark_thread(d_r_get_thread_id());
 #endif
 
     /* Try to handle externally injected threads */
@@ -2214,7 +2214,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
         pre_second_thread();
 
     /* synch point so thread creation can be prevented for critical periods */
-    mutex_lock(&thread_initexit_lock);
+    d_r_mutex_lock(&thread_initexit_lock);
 
     /* XXX i#2611: during detach, there is a race where a thread can
      * reach here on Windows despite init_apc_go_native (i#2600).
@@ -2233,19 +2233,19 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
         DODEBUG_ONCE(LOG(GLOBAL, LOG_THREADS, 1,
                          "Thread %d reached initialization point while dynamo exiting, "
                          "waiting for app to exit\n",
-                         get_thread_id()););
-        mutex_unlock(&thread_initexit_lock);
+                         d_r_get_thread_id()););
+        d_r_mutex_unlock(&thread_initexit_lock);
         os_thread_yield();
         /* just in case we want to support exited and then restarted at some
          * point */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
     }
 
     if (is_thread_initialized()) {
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
 #if defined(WINDOWS) && defined(DR_APP_EXPORTS)
         if (dr_api_entry)
-            os_take_over_unmark_thread(get_thread_id());
+            os_take_over_unmark_thread(d_r_get_thread_id());
 #endif
         return -1;
     }
@@ -2280,7 +2280,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      * is held.  CHECK: is this always correct?  thread_lookup does have an assert
      * to try and enforce but cannot tell who has the lock.
      */
-    add_thread(IF_WINDOWS_ELSE(NT_CURRENT_THREAD, get_process_id()), get_thread_id(),
+    add_thread(IF_WINDOWS_ELSE(NT_CURRENT_THREAD, get_process_id()), d_r_get_thread_id(),
                under_dynamo_control, dcontext);
 #ifdef UNIX /* i#2600: Not easy on Windows: we rely on init_apc_go_native there. */
     if (dstack_in != NULL) { /* Else not a thread creation we observed */
@@ -2291,14 +2291,14 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
 #if defined(WINDOWS) && defined(DR_APP_EXPORTS)
     /* Now that the thread is in the main thread table we don't need to remember it */
     if (dr_api_entry)
-        os_take_over_unmark_thread(get_thread_id());
+        os_take_over_unmark_thread(d_r_get_thread_id());
 #endif
 
     LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
         "\ndynamo_thread_init: %d thread(s) now, dcontext=" PFX ", #=%d, id=" TIDFMT
         ", pid=" PIDFMT "\n\n",
-        GLOBAL_STAT(num_threads), dcontext, get_thread_num(get_thread_id()),
-        get_thread_id(), get_process_id());
+        GLOBAL_STAT(num_threads), dcontext, get_thread_num(d_r_get_thread_id()),
+        d_r_get_thread_id(), get_process_id());
 
     DOLOG(1, LOG_STATS, { dump_global_stats(false); });
 #ifdef DEBUG
@@ -2316,7 +2316,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
     });
 
     LOG(THREAD, LOG_TOP | LOG_THREADS, 1, "%sTHREAD %d (dcontext " PFX ")\n\n",
-        IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""), get_thread_id(),
+        IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""), d_r_get_thread_id(),
         dcontext);
     LOG(THREAD, LOG_TOP | LOG_THREADS, 1,
         "DR stack is " PFX "-" PFX " (passed in " PFX ")\n",
@@ -2352,7 +2352,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      * So we release it to shrink the time spent w/ this big lock, in particular
      * to avoid holding it while running private lib thread init code (i#875).
      */
-    mutex_unlock(&thread_initexit_lock);
+    d_r_mutex_unlock(&thread_initexit_lock);
 
 #ifdef CLIENT_INTERFACE
     /* Set up client data needed in loader_thread_init for IS_CLIENT_THREAD */
@@ -2386,18 +2386,18 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      */
     if (DYNAMO_OPTION(reset_at_nth_thread) != 0 && !reset_at_nth_thread_triggered &&
         (uint)get_num_threads() == DYNAMO_OPTION(reset_at_nth_thread)) {
-        mutex_lock(&reset_pending_lock);
+        d_r_mutex_lock(&reset_pending_lock);
         if (!reset_at_nth_thread_triggered) {
             reset_at_nth_thread_triggered = true;
             reset_at_nth_thread_pending = true;
         }
-        mutex_unlock(&reset_pending_lock);
+        d_r_mutex_unlock(&reset_pending_lock);
     }
 
     DOLOG(1, LOG_STATS, { dump_thread_stats(dcontext, false); });
 
     if (reset_at_nth_thread_pending) {
-        mutex_lock(&reset_pending_lock);
+        d_r_mutex_lock(&reset_pending_lock);
         /* fcache_reset_all_caches_proactively() will unlock */
         fcache_reset_all_caches_proactively(RESET_ALL);
     }
@@ -2454,7 +2454,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     /* synch point so thread exiting can be prevented for critical periods */
     /* see comment at start of method for other thread exit */
     if (!other_thread)
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
 
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 #ifdef WINDOWS
@@ -2544,7 +2544,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     if (!dynamo_exited ||
         (other_thread &&
          (IF_WINDOWS_ELSE(!doing_detach, true) ||
-          dcontext->owning_thread != get_thread_id()))) /* else already did this */
+          dcontext->owning_thread != d_r_get_thread_id()))) /* else already did this */
         loader_thread_exit(dcontext);
 
     /* set tls dc to NULL prior to cleanup, to avoid problems handling
@@ -2561,7 +2561,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     /* This must be called after instrument_thread_exit, which uses
      * get_thread_private_dcontext for app/dr state checks.
      */
-    if (id == get_thread_id())
+    if (id == d_r_get_thread_id())
         set_thread_private_dcontext(NULL);
 
     fcache_thread_exit(dcontext);
@@ -2626,7 +2626,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     }
 #endif
     if (!other_thread) {
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         /* FIXME: once thread_initexit_lock is released, we're not on
          * thread list, and a terminate targeting us could kill us in the middle
          * of this call -- but this can't come before the unlock b/c the lock's
@@ -2650,7 +2650,8 @@ int
 dynamo_thread_exit(void)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    return dynamo_thread_exit_common(dcontext, get_thread_id(), IF_WINDOWS_(false) false);
+    return dynamo_thread_exit_common(dcontext, d_r_get_thread_id(),
+                                     IF_WINDOWS_(false) false);
 }
 
 /* NOTE : you must hold thread_initexit_lock to call this function! */
@@ -2726,7 +2727,7 @@ dr_app_cleanup(void)
      * effect without addressing the FIXME comments in
      * dynamo_thread_not_under_dynamo() about updating tr->under_dynamo_control.
      */
-    tr = thread_lookup(get_thread_id());
+    tr = thread_lookup(d_r_get_thread_id());
     if (tr != NULL && tr->dcontext != NULL) {
         os_process_under_dynamorio_initiate(tr->dcontext);
         os_process_under_dynamorio_complete(tr->dcontext);
@@ -2740,7 +2741,7 @@ void
 dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME " not initialized");
-    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread " TIDFMT "\n", get_thread_id());
+    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread " TIDFMT "\n", d_r_get_thread_id());
     LOG(THREAD_GET, LOG_TOP, 1, "dr_app_start\n");
 
     if (!INTERNAL_OPTION(nullcalls)) {
@@ -3035,10 +3036,10 @@ dynamorio_protect(void)
 {
     ASSERT(SELF_PROTECT_ON_CXT_SWITCH);
     LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_protect thread=" TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
     /* we don't protect local heap here, that's done lazily */
 
-    mutex_lock(&protect_info->lock);
+    d_r_mutex_lock(&protect_info->lock);
     ASSERT(protect_info->num_threads_unprot > 0);
     /* FIXME: nice to also catch double enters but would need to track more info */
     if (protect_info->num_threads_unprot <= 0) {
@@ -3049,14 +3050,14 @@ dynamorio_protect(void)
          * had entered in the interim anyway.
          */
         protect_info->num_threads_unprot = 0;
-        mutex_unlock(&protect_info->lock);
+        d_r_mutex_unlock(&protect_info->lock);
         return;
     }
     protect_info->num_threads_unprot--;
     if (protect_info->num_threads_unprot > 0) {
         /* other threads still in DR, cannot protect global memory */
         LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_protect: not last thread => nop\n");
-        mutex_unlock(&protect_info->lock);
+        d_r_mutex_unlock(&protect_info->lock);
         return;
     }
 
@@ -3087,7 +3088,7 @@ dynamorio_protect(void)
         }
 
         /* thread init/exit can proceed now */
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
     }
 
     /* FIXME case 8073: temporary until we put in unprots in the
@@ -3097,7 +3098,7 @@ dynamorio_protect(void)
     SELF_PROTECT_DATASEC(DATASEC_FREQ_PROT);
     SELF_PROTECT_DATASEC(DATASEC_CXTSW_PROT);
 
-    mutex_unlock(&protect_info->lock);
+    d_r_mutex_unlock(&protect_info->lock);
 }
 
 static void
@@ -3105,7 +3106,8 @@ dynamorio_unprotect(void)
 {
     ASSERT(SELF_PROTECT_ON_CXT_SWITCH);
 
-    mutex_lock(&protect_info->lock); /* lock in unprot heap, not data segment, so safe! */
+    d_r_mutex_lock(
+        &protect_info->lock); /* lock in unprot heap, not data segment, so safe! */
     protect_info->num_threads_unprot++;
     if (protect_info->num_threads_unprot == 1) {
         /* was protected, so we need to do the unprotection */
@@ -3121,7 +3123,7 @@ dynamorio_unprotect(void)
              * but need to guarantee no new threads while we're suspending them,
              * and can't do that without setting a lock => need data segment!
              */
-            mutex_lock(&thread_initexit_lock);
+            d_r_mutex_lock(&thread_initexit_lock);
 
             if (get_num_threads() > 1) {
                 thread_record_t *tr;
@@ -3152,9 +3154,9 @@ dynamorio_unprotect(void)
     /* we don't re-protect local heap here, that's done at points where
      * it was protected lazily
      */
-    mutex_unlock(&protect_info->lock);
+    d_r_mutex_unlock(&protect_info->lock);
     LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_unprotect thread=" TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
 }
 
 #ifdef DEBUG
@@ -3255,11 +3257,11 @@ get_data_section_bounds(uint sec)
     /* for DEBUG we use for data_sections_enclose_region() */
     ASSERT(IF_WINDOWS(IF_DEBUG(true ||))
                TEST(DATASEC_SELFPROT[sec], dynamo_options.protect_mask));
-    mutex_lock(&datasec_lock[sec]);
+    d_r_mutex_lock(&datasec_lock[sec]);
     ASSERT(datasec_start[sec] == NULL);
     get_named_section_bounds(get_dynamorio_dll_start(), DATASEC_NAMES[sec],
                              &datasec_start[sec], &datasec_end[sec]);
-    mutex_unlock(&datasec_lock[sec]);
+    d_r_mutex_unlock(&datasec_lock[sec]);
     ASSERT(ALIGNED(datasec_start[sec], PAGE_SIZE));
     ASSERT(ALIGNED(datasec_end[sec], PAGE_SIZE));
     ASSERT(datasec_start[sec] < datasec_end[sec]);
@@ -3355,7 +3357,7 @@ protect_data_section(uint sec, bool writable)
         ASSERT(!dynamo_initialized);
         data_section_init();
     }
-    mutex_lock(&datasec_lock[sec]);
+    d_r_mutex_lock(&datasec_lock[sec]);
     ASSERT(datasec_start[sec] != NULL);
     /* if using libc, we cannot print while data segment is read-only!
      * thus, if making it writable, do that first, otherwise do it last.
@@ -3382,7 +3384,7 @@ protect_data_section(uint sec, bool writable)
     LOG(TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
         LOG_VMAREAS, TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
         "protect_data_section: thread " TIDFMT " %s (recur %d, stat %d) %s %s %d\n",
-        get_thread_id(), DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
+        d_r_get_thread_id(), DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
         DATASEC_WRITABLE(sec), GLOBAL_STAT(datasec_not_prot), DATASEC_NAMES[sec],
         writable ? "rw" : "r", DATASEC_WRITABLE(sec));
     if (!writable) {
@@ -3394,7 +3396,7 @@ protect_data_section(uint sec, bool writable)
         } else
             STATS_INC(datasec_prot_wasted_calls);
     }
-    mutex_unlock(&datasec_lock[sec]);
+    d_r_mutex_unlock(&datasec_lock[sec]);
 }
 
 /* enter/exit DR hooks */
@@ -3405,12 +3407,12 @@ entering_dynamorio(void)
         dynamorio_unprotect();
     ASSERT(HOOK_ENABLED);
     LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread=" TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
     STATS_INC(num_entering_DR);
     if (INTERNAL_OPTION(single_thread_in_DR)) {
         acquire_recursive_lock(&thread_in_DR_exclusion);
         LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread=" TIDFMT " count=%d\n",
-            get_thread_id(), thread_in_DR_exclusion.count);
+            d_r_get_thread_id(), thread_in_DR_exclusion.count);
     }
 }
 
@@ -3419,12 +3421,12 @@ exiting_dynamorio(void)
 {
     ASSERT(HOOK_ENABLED);
     LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread=" TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
     STATS_INC(num_exiting_DR);
     if (INTERNAL_OPTION(single_thread_in_DR)) {
         /* thread init/exit can proceed now */
         LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread=" TIDFMT " count=%d\n",
-            get_thread_id(), thread_in_DR_exclusion.count - 1);
+            d_r_get_thread_id(), thread_in_DR_exclusion.count - 1);
         release_recursive_lock(&thread_in_DR_exclusion);
     }
     if (SELF_PROTECT_ON_CXT_SWITCH && !dynamo_exited)
@@ -3466,10 +3468,10 @@ pre_second_thread(void)
      * SHARED_BB_UNLOCK().
      */
     if (!bb_lock_start) {
-        mutex_lock(&bb_building_lock);
+        d_r_mutex_lock(&bb_building_lock);
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         bb_lock_start = true;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-        mutex_unlock(&bb_building_lock);
+        d_r_mutex_unlock(&bb_building_lock);
     }
 }
