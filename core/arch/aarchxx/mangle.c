@@ -409,7 +409,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #    endif
     if (cci == NULL)
         cci = &default_clean_call_info;
-    if (cci->preserve_mcontext || cci->num_simd_skip != MCXT_NUM_SIMD_SLOTS) {
+    ASSERT(proc_num_simd_saved_abs() == MCXT_NUM_SIMD_SLOTS);
+    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_saved_abs()) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here */
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
@@ -523,7 +524,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
                           false /* is_gpr */);
 
-    dstack_offs += (MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t));
+    dstack_offs += (proc_num_simd_saved_abs() * sizeof(dr_simd_t));
+    ASSERT(proc_num_simd_saved_abs() == MCXT_NUM_SIMD_SLOTS);
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -544,7 +546,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr,
         INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
                             SIMD_REG_LIST_0_15));
-    dstack_offs += MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+
+    dstack_offs += proc_num_simd_saved_abs() * sizeof(dr_simd_t);
+    ASSERT(proc_num_simd_saved_abs() == MCXT_NUM_SIMD_SLOTS);
+
     /* pc and aflags */
     if (cci->skip_save_flags) {
         /* even if we skip flag saves we want to keep mcontext shape */
@@ -634,8 +639,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs =
-        get_clean_call_switch_stack_size() - MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t);
+    current_offs = get_clean_call_switch_stack_size() -
+        proc_num_simd_saved_abs() * sizeof(dr_simd_t);
+    ASSERT(proc_num_simd_saved_abs() == MCXT_NUM_SIMD_SLOTS);
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,

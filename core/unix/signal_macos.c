@@ -153,11 +153,15 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
      */
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: This assumption will change and the code below may need
+     * to take this into account.
+     */
+    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_saved_abs());
+    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
         memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_saved_abs(); i++) {
             memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
         }
     }
@@ -168,11 +172,15 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
     sigcontext_t *sc = sc_full->sc;
     int i;
-    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: This assumption will change and the code below may need
+     * to take this into account.
+     */
+    ASSERT(MCXT_NUM_SIMD_SLOTS == proc_num_simd_saved_abs());
+    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
         memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_saved_abs(); i++) {
             memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
         }
     }
@@ -200,7 +208,8 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         }
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
-    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    /* XXX i#1312: this needs to get extended to AVX-512. */
+    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
         LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
         for (j = 0; j < 4; j++) {
             LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
@@ -209,7 +218,7 @@ dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
         LOG(THREAD, LOG_ASYNCH, 1, "\n");
     }
     if (YMM_ENABLED()) {
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_saved_abs(); i++) {
             LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
             for (j = 0; j < 4; j++) {
                 LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
