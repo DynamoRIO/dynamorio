@@ -64,6 +64,8 @@
 /* this entry point is hardcoded, FIXME : abstract */
 #define DYNAMORIO_ENTRY "dynamo_auto_start"
 
+extern int proc_num_simd_saved_abs();
+
 #ifdef DEBUG
 /* for asserts, we import globals.h now (for pragmas) so don't need to
  * duplicate assert defines, declarations */
