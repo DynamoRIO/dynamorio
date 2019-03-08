@@ -337,7 +337,7 @@ typedef struct _clean_call_info_t {
     bool save_all_regs;
     bool skip_save_flags;
     bool skip_clear_flags;
-    uint num_simd_skip;
+    int num_simd_skip;
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];

@@ -5372,7 +5372,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (TESTANY(DR_CLEANCALL_NOSAVE_XMM | DR_CLEANCALL_NOSAVE_XMM_NONPARAM |
                     DR_CLEANCALL_NOSAVE_XMM_NONRET,
                 save_flags)) {
-        uint i;
+        int i;
         /* even if we remove xmm saves we want to keep mcontext shape */
         cci.preserve_mcontext = true;
         /* start w/ all */
