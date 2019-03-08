@@ -88,7 +88,7 @@ if (UNIX AND X86)
   # glibc versioning is only an issue on x86.
   add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
     "_memfuncs" "" "${asm_deps}")
-  add_library(drmemfuncs STATIC ${memfuncs_asm_src})
+  add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
 endif ()
 
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
