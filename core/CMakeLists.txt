@@ -377,11 +377,6 @@ if (UNIX)
     string.c
     io.c
     )
-  if (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
-  else (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_elf.c)
-  endif ()
 
 else (UNIX)
   set(OSNAME win32)
