@@ -473,17 +473,17 @@ get_config_dir_done:
     /* On failure, we still want to copy the last-tried dir out so drdeploy can have a
      * nicer error msg.
      */
-#   ifdef __GNUC__
-#       ifndef __clang__
-#           pragma GCC diagnostic ignored "-Wformat-truncation"
-#       endif
-#   endif
+#    ifdef __GNUC__
+#        ifndef __clang__
+#            pragma GCC diagnostic ignored "-Wformat-truncation"
+#        endif
+#    endif
     _snprintf(fname, fname_len, "%s/%s", dir, subdir);
-#   ifdef __GNUC__
-#       ifndef __clang__
-#           pragma GCC diagnostic pop
-#       endif
-#   endif
+#    ifdef __GNUC__
+#        ifndef __clang__
+#            pragma GCC diagnostic pop
+#        endif
+#    endif
     fname[fname_len - 1] = '\0';
     return res;
 }
@@ -692,17 +692,17 @@ write_config_param(FILE *f, const char *var, const TCHAR *val)
     int len;
     char buf[MAX_CONFIG_VALUE];
     DO_ASSERT(f != NULL);
-#   ifdef __GNUC__
-#       ifndef __clang__
-#           pragma GCC diagnostic ignored "-Wformat-truncation"
-#       endif
-#   endif
+#    ifdef __GNUC__
+#        ifndef __clang__
+#            pragma GCC diagnostic ignored "-Wformat-truncation"
+#        endif
+#    endif
     len = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s=" TSTR_FMT "\n", var, val);
-#   ifdef __GNUC__
-#       ifndef __clang__
-#           pragma GCC diagnostic pop
-#       endif
-#   endif
+#    ifdef __GNUC__
+#        ifndef __clang__
+#            pragma GCC diagnostic pop
+#        endif
+#    endif
     /* don't remove the newline: better to truncate options than to have none (i#547) */
     buf[BUFFER_SIZE_ELEMENTS(buf) - 2] = '\n';
     buf[BUFFER_SIZE_ELEMENTS(buf) - 1] = '\0';
