@@ -862,7 +862,7 @@ static const enum_name_pair_t pt_req_map[] = { { PTRACE_TRACEME, "PTRACE_TRACEME
 #    endif
                                                { PTRACE_ATTACH, "PTRACE_ATTACH" },
                                                { PTRACE_DETACH, "PTRACE_DETACH" },
-#    ifndef AARCH64
+#    if defined(PTRACE_GETFPXREGS) && defined(PTRACE_SETFPXREGS)
                                                { PTRACE_GETFPXREGS, "PTRACE_GETFPXREGS" },
                                                { PTRACE_SETFPXREGS, "PTRACE_SETFPXREGS" },
 #    endif
