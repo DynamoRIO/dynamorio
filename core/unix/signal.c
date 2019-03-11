@@ -466,7 +466,7 @@ unset_initial_crash_handlers(dcontext_t *dcontext)
 }
 
 void
-signal_init(void)
+d_r_signal_init(void)
 {
     kernel_sigset_t set;
     IF_LINUX(IF_X86_64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
@@ -495,7 +495,7 @@ signal_init(void)
 }
 
 void
-signal_exit()
+d_r_signal_exit()
 {
     IF_LINUX(signalfd_exit());
 #ifdef DEBUG
@@ -1060,7 +1060,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         }
 
         /* should be 1st thread */
-        if (get_num_threads() > 1)
+        if (d_r_get_num_threads() > 1)
             ASSERT_NOT_REACHED();
     }
 
@@ -4824,7 +4824,7 @@ master_signal_handler_C(byte *xsp)
         dcontext = GLOBAL_DCONTEXT;
     }
 
-    if (dynamo_exited && get_num_threads() > 1 && sig == SIGSEGV) {
+    if (dynamo_exited && d_r_get_num_threads() > 1 && sig == SIGSEGV) {
         /* PR 470957: this is almost certainly a race so just squelch it.
          * We live w/ the risk that it was holding a lock our release-build
          * exit code needs.

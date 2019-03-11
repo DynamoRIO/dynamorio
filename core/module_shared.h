@@ -352,7 +352,7 @@ os_get_module_info_all_names(const app_pc pc,
 typedef void *module_base_t;
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name);
+d_r_get_proc_address(module_base_t lib, const char *name);
 
 #ifdef UNIX
 /* if we add any more values, switch to a globally-defined dr_export_info_t

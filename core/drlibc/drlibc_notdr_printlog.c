@@ -39,7 +39,7 @@
 #include "../globals.h"
 
 WEAK void
-print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
+d_r_print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 {
     /* Do nothing for non-core. */
 }

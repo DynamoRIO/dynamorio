@@ -542,7 +542,7 @@ get_module_exports_directory_check(app_pc base_addr,
 }
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name)
+d_r_get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_common(lib, name, UINT_MAX _IF_NOT_X64(false), NULL);
 }
@@ -570,7 +570,7 @@ generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name)
 {
     /* We match GetProcAddress and follow forwarded exports (i#428).
-     * Not doing this inside get_proc_address() b/c I'm not certain the core
+     * Not doing this inside d_r_get_proc_address() b/c I'm not certain the core
      * never relies on the answer being inside the asked-about module.
      */
     const char *forwarder, *forwfunc;

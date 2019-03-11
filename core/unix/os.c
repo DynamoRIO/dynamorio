@@ -507,7 +507,7 @@ get_libc_errno_location(bool do_init)
                 bool found = true;
                 /* called during init when .data is writable */
                 libc_errno_loc =
-                    (errno_loc_t)get_proc_address(area->start, "__errno_location");
+                    (errno_loc_t)d_r_get_proc_address(area->start, "__errno_location");
                 ASSERT(libc_errno_loc != NULL);
                 LOG(GLOBAL, LOG_THREADS, 2, "libc errno loc func: " PFX "\n",
                     libc_errno_loc);
@@ -843,7 +843,7 @@ get_uname(void)
 
 /* os-specific initializations */
 void
-os_init(void)
+d_r_os_init(void)
 {
     ksynch_init();
 
@@ -882,7 +882,7 @@ os_init(void)
     vmk_init();
 #endif
 
-    signal_init();
+    d_r_signal_init();
     /* We now set up an early fault handler for d_r_safe_read() (i#350) */
     fault_handling_initialized = true;
 
@@ -1264,7 +1264,7 @@ find_stack_bottom()
 void
 os_slow_exit(void)
 {
-    signal_exit();
+    d_r_signal_exit();
     memquery_exit();
     ksynch_exit();
 
@@ -1749,7 +1749,7 @@ os_get_app_tls_reg_offset(reg_id_t reg)
 #endif
 
 void *
-get_tls(ushort tls_offs)
+d_r_get_tls(ushort tls_offs)
 {
     void *val;
     READ_TLS_SLOT(tls_offs, val);
@@ -1757,7 +1757,7 @@ get_tls(ushort tls_offs)
 }
 
 void
-set_tls(ushort tls_offs, void *value)
+d_r_set_tls(ushort tls_offs, void *value)
 {
     WRITE_TLS_SLOT(tls_offs, value);
 }
@@ -1795,7 +1795,7 @@ get_app_segment_base(uint seg)
         return NULL;
 #endif /* X86 */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-        return get_tls(os_get_app_tls_base_offset(seg));
+        return d_r_get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
 }
@@ -3964,7 +3964,7 @@ fd_table_add(file_t fd, uint flags)
     } else {
 #ifdef DEBUG
         num_fd_add_pre_heap++;
-        /* we add main_logfile in os_init() */
+        /* we add main_logfile in d_r_os_init() */
         ASSERT(num_fd_add_pre_heap == 1 && "only main_logfile should come here");
 #endif
     }
@@ -4283,7 +4283,7 @@ safe_read_ex(const void *base, size_t size, void *out_buf, size_t *bytes_read)
     STATS_INC(num_safe_reads);
     /* XXX i#350: we'd like to always use safe_read_fast() and remove this extra
      * call layer, but safe_read_fast() requires fault handling to be set up.
-     * We do set up an early signal handler in os_init(),
+     * We do set up an early signal handler in d_r_os_init(),
      * but there is still be a window prior to that with no handler.
      */
     if (!fault_handling_initialized) {

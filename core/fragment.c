@@ -859,7 +859,8 @@ fragment_add_to_hashtable(dcontext_t *dcontext, fragment_t *e, fragment_table_t 
      * thread in the process.
      */
     DOCHECK(1, {
-        if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) && get_num_threads() == 1)
+        if (TEST(FRAG_TABLE_IBL_TARGETED, table->table_flags) &&
+            d_r_get_num_threads() == 1)
             ASSERT(!TEST(FRAG_IS_TRACE_HEAD, e->flags));
     });
 

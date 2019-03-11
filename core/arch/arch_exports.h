@@ -1025,8 +1025,8 @@ get_time(void);
 #endif
 
 void
-arch_init(void);
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+d_r_arch_init(void);
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
 void
 arch_thread_init(dcontext_t *dcontext);
 void
@@ -1527,7 +1527,7 @@ app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 
 void
-decode_init(void);
+d_r_decode_init(void);
 
 /***************************************************************************
  * Arch-specific defines

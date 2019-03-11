@@ -1826,7 +1826,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
  * For now I'm assuming this routine changes little.
  */
 void
-print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
+d_r_print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 {
     va_list ap;
 
@@ -2707,8 +2707,8 @@ create_log_dir(int dir_type)
         strncpy(old_basedir, basedir, sizeof(old_basedir));
         /* option takes precedence over config var */
         if (IS_STRING_OPTION_EMPTY(logdir)) {
-            retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir,
-                                   BUFFER_SIZE_ELEMENTS(basedir));
+            retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_LOGDIR), basedir,
+                                       BUFFER_SIZE_ELEMENTS(basedir));
             if (IS_GET_PARAMETER_FAILURE(retval))
                 basedir[0] = '\0';
         } else {
@@ -3497,13 +3497,13 @@ get_random_offset(size_t max_offset)
 }
 
 void
-set_random_seed(uint seed)
+d_r_set_random_seed(uint seed)
 {
     random_seed = seed;
 }
 
 uint
-get_random_seed(void)
+d_r_get_random_seed(void)
 {
     return random_seed;
 }
