@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -314,7 +314,7 @@ const instr_info_t invalid_instr = { OP_INVALID, 0x000000, "(bad)", xx, xx, xx,
 
 /* PR 302344: used for shared traces -tracedump_origins where we
  * need to change the mode but we have no dcontext.
- * We update this in decode_init() once we have runtime options,
+ * We update this in d_r_decode_init() once we have runtime options,
  * but this is the only version for drdecodelib.
  */
 static dr_isa_mode_t initexit_isa_mode = DEFAULT_ISA_MODE_STATIC;
@@ -389,7 +389,7 @@ decode_debug_checks(void)
 #endif
 
 void
-decode_init(void)
+d_r_decode_init(void)
 {
     /* DEFAULT_ISA_MODE is no longer constant so we set it here */
     initexit_isa_mode = DEFAULT_ISA_MODE;

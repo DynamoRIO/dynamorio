@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1731,7 +1731,7 @@ typedef struct {
 /* These constants & macros are used by core, share and preinject, so this is
  * the only place they will build for win32 and linux! */
 /* return codes for [gs]et_parameter style functions
- * failure == 0 for compatibility with get_parameter()
+ * failure == 0 for compatibility with d_r_get_parameter()
  * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
  *  parameter returned is from the global options, because there
  *  was no app-specific key present.

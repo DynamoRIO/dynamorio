@@ -613,7 +613,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
             /* Win10 does not provide a version number so we use the presence
              * of newly added syscalls to distinguish major updates.
              */
-            if (get_proc_address(get_ntdll_base(), "NtAllocateVirtualMemoryEx") != NULL) {
+            if (d_r_get_proc_address(get_ntdll_base(), "NtAllocateVirtualMemoryEx") !=
+                NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1803_x64_syscalls;
                     os_name = "Microsoft Windows 10-1803 x64";
@@ -625,7 +626,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1803";
                 }
                 os_version = WINDOWS_VERSION_10_1803;
-            } else if (get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtCallEnclave") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1709_x64_syscalls;
                     os_name = "Microsoft Windows 10-1709 x64";
@@ -637,7 +638,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1709";
                 }
                 os_version = WINDOWS_VERSION_10_1709;
-            } else if (get_proc_address(get_ntdll_base(), "NtLoadHotPatch") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtLoadHotPatch") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1703_x64_syscalls;
                     os_name = "Microsoft Windows 10-1703 x64";
@@ -649,8 +650,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1703";
                 }
                 os_version = WINDOWS_VERSION_10_1703;
-            } else if (get_proc_address(get_ntdll_base(),
-                                        "NtCreateRegistryTransaction") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(),
+                                            "NtCreateRegistryTransaction") != NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1607_x64_syscalls;
                     os_name = "Microsoft Windows 10-1607 x64";
@@ -662,7 +663,8 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 10-1607";
                 }
                 os_version = WINDOWS_VERSION_10_1607;
-            } else if (get_proc_address(get_ntdll_base(), "NtCreateEnclave") != NULL) {
+            } else if (d_r_get_proc_address(get_ntdll_base(), "NtCreateEnclave") !=
+                       NULL) {
                 if (module_is_64bit(get_ntdll_base())) {
                     syscalls = (int *)windows_10_1511_x64_syscalls;
                     os_name = "Microsoft Windows 10-1511 x64";
@@ -728,7 +730,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
             /* i#437: ymm/avx is supported after Win-7 SP1 */
             if (os_service_pack_major >= 1) {
                 /* Sanity check on our SP ver retrieval */
-                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") != NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "RtlCopyContext") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_7_x64_syscalls;
@@ -738,7 +740,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows 7 SP1";
                 }
             } else {
-                ASSERT(get_proc_address(ntdllh, "RtlCopyContext") == NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "RtlCopyContext") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_7_x64_syscalls;
@@ -757,7 +759,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                  * for sp1 - see PR 246402.  They also differ for
                  * 32-bit vs 64-bit/wow64.
                  */
-                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "NtReplacePartitionUnit") != NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_vista_sp1_x64_syscalls;
@@ -767,7 +769,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                     os_name = "Microsoft Windows Vista SP1";
                 }
             } else {
-                ASSERT(get_proc_address(ntdllh, "NtReplacePartitionUnit") == NULL);
+                ASSERT(d_r_get_proc_address(ntdllh, "NtReplacePartitionUnit") == NULL);
                 if (module_is_64bit(get_ntdll_base()) ||
                     is_wow64_process(NT_CURRENT_PROCESS)) {
                     syscalls = (int *)windows_vista_sp0_x64_syscalls;
@@ -819,12 +821,12 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
              *   SP3: + Nt{Read,Write}FileScatter
              *   SP4: - NtW32Call
              */
-            if (get_proc_address(ntdllh, "NtW32Call") != NULL) {
+            if (d_r_get_proc_address(ntdllh, "NtW32Call") != NULL) {
                 /* < SP4 */
                 /* we don't know whether SP1 and SP2 fall in line w/ SP0 or w/ SP3,
                  * or possibly are different from both, but we don't support them
                  */
-                if (get_proc_address(ntdllh, "NtReadFileScatter") != NULL) {
+                if (d_r_get_proc_address(ntdllh, "NtReadFileScatter") != NULL) {
                     /* > SP0 */
                     syscalls = (int *)windows_NT_sp3_syscalls;
                     os_name = "Microsoft Windows NT SP3";
@@ -849,7 +851,7 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                                  : "");
                     NULL_TERMINATE_BUFFER(os_name_buf);
                     os_name = os_name_buf;
-                    /* We print a notification in os_init() after stderr_mask options
+                    /* We print a notification in d_r_os_init() after stderr_mask options
                      * have been parsed.
                      */
                 } else {
@@ -952,7 +954,7 @@ print_mem_quota()
 
 /* os-specific initializations */
 void
-os_init(void)
+d_r_os_init(void)
 {
     PEB *peb = get_own_peb();
     uint alignment = 0;
@@ -1042,9 +1044,9 @@ os_init(void)
          */
         /* initializing so get_module_handle should be safe, FIXME */
         module_handle_t ntdllh = get_ntdll_base();
-        app_pc return_point = (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+        app_pc return_point = (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         if (return_point != NULL) {
-            app_pc syscall_pc = (app_pc)get_proc_address(ntdllh, "KiFastSystemCall");
+            app_pc syscall_pc = (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCall");
             vsyscall_after_syscall = (app_pc)return_point;
             /* we'll re-set this once we see the 1st syscall, but we set an
              * initial value to what it should be for go-native scenarios
@@ -4549,14 +4551,14 @@ get_thread_private_dcontext(void)
      * We don't need to check whether this thread has been initialized under us -
      * Windows sets the value to 0 for us, so we'll just return NULL.
      */
-    return (dcontext_t *)get_tls(tls_dcontext_offs);
+    return (dcontext_t *)d_r_get_tls(tls_dcontext_offs);
 }
 
 /* sets the thread-private dcontext pointer for the calling thread */
 void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
-    set_tls(tls_dcontext_offs, dcontext);
+    d_r_set_tls(tls_dcontext_offs, dcontext);
 }
 
 #    ifdef WINDOWS_PC_SAMPLE
@@ -5385,7 +5387,7 @@ load_shared_library(const char *name, bool client)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
-    return (shlib_routine_ptr_t)get_proc_address(lib, name);
+    return (shlib_routine_ptr_t)d_r_get_proc_address(lib, name);
 }
 
 void
@@ -5775,8 +5777,8 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
          *   PVOID   pvStackUserBase;    // 08h Base of user stack
          * and assume fs is always a valid TIB pointer when called here
          */
-        stack_top = (byte *)get_tls(TOP_STACK_TIB_OFFSET);
-        stack_base = (byte *)get_tls(BASE_STACK_TIB_OFFSET);
+        stack_top = (byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET);
+        stack_base = (byte *)d_r_get_tls(BASE_STACK_TIB_OFFSET);
         LOG(THREAD, LOG_THREADS, 1, "app stack now is " PFX "-" PFX "\n", stack_base,
             stack_top); /* NULL dcontext => nop */
         /* we only have current base, we need to find reserved base */
@@ -7861,8 +7863,8 @@ os_dump_core_external_dump()
     };
 
     /* the ONCRASH key tells us exactly what to launch, with our pid appended */
-    int retval =
-        get_parameter(PARAM_STR(DYNAMORIO_VAR_ONCRASH), oncrash_var, sizeof(oncrash_var));
+    int retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_ONCRASH), oncrash_var,
+                                   sizeof(oncrash_var));
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         HANDLE child;
         /* ASSUMPTION: no spaces in exe name, should be ok since only developers will
@@ -9177,8 +9179,9 @@ open_trusted_cache_root_directory(void)
 
     if (DYNAMO_OPTION(aslr) != 0 || DYNAMO_OPTION(aslr_cache) != 0) {
         /* only use cache config var */
-        int retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT), base_directory,
-                                   BUFFER_SIZE_ELEMENTS(base_directory));
+        int retval =
+            d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT), base_directory,
+                              BUFFER_SIZE_ELEMENTS(base_directory));
         param_ok = !IS_GET_PARAMETER_FAILURE(retval);
     } else {
         /* no aslr so this is just for pcache */

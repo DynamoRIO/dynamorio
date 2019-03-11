@@ -4568,7 +4568,7 @@ get_exception_list()
 {
     /* typedef struct _NT_TIB { */
     /*     struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList; */
-    return (EXCEPTION_REGISTRATION *)get_tls(EXCEPTION_LIST_TIB_OFFSET);
+    return (EXCEPTION_REGISTRATION *)d_r_get_tls(EXCEPTION_LIST_TIB_OFFSET);
 }
 
 /* verify exception handler list is consistent */
@@ -5324,7 +5324,7 @@ intercept_exception(app_state_at_intercept_t *state)
      * FIXME: is_thread_known() may be unnecessary */
     dcontext_t *dcontext = get_thread_private_dcontext();
 
-    if (dynamo_exited && get_num_threads() > 1) {
+    if (dynamo_exited && d_r_get_num_threads() > 1) {
         /* PR 470957: this is almost certainly a race so just squelch it.
          * We live w/ the risk that it was holding a lock our release-build
          * exit code needs.
@@ -6695,7 +6695,7 @@ callback_start_return(priv_mcontext_t *mc)
             /* we need to restore changed memory protections because we won't
              * be intercepting system calls to fix things up */
             /* not multi-thread safe */
-            ASSERT(check_sole_thread() && get_num_threads() == 1);
+            ASSERT(check_sole_thread() && d_r_get_num_threads() == 1);
             revert_memory_regions();
         }
 
@@ -7176,7 +7176,7 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
          * to make sure other threads aren't blocked before modifying
          * protection that everything we're doing here is still safe
          */
-        ASSERT_CURIOSITY(check_sole_thread() && get_num_threads() == 1);
+        ASSERT_CURIOSITY(check_sole_thread() && d_r_get_num_threads() == 1);
         DOSTATS({ ASSERT_CURIOSITY(GLOBAL_STAT(num_threads_created) == 1); });
         /* If we weren't watching memory alloc/dealloc while the thread was
          * native we have to redo our exec list completely here.
@@ -7628,10 +7628,10 @@ callback_interception_init_start(void)
     /* LdrInitializeThunk is hooked for thin_client too, so that
      * each thread can have a dcontext (case 8884). */
     if (get_os_version() >= WINDOWS_VERSION_VISTA) {
-        LdrInitializeThunk = (byte *)get_proc_address(ntdllh, "LdrInitializeThunk");
+        LdrInitializeThunk = (byte *)d_r_get_proc_address(ntdllh, "LdrInitializeThunk");
         ASSERT(LdrInitializeThunk != NULL);
         /* initialize this now for use later in intercept_new_thread() */
-        RtlUserThreadStart = (byte *)get_proc_address(ntdllh, "RtlUserThreadStart");
+        RtlUserThreadStart = (byte *)d_r_get_proc_address(ntdllh, "RtlUserThreadStart");
         ASSERT(RtlUserThreadStart != NULL);
         ldr_init_pc = pc;
         pc = intercept_call(pc, (byte *)LdrInitializeThunk, intercept_ldr_init,
@@ -7708,7 +7708,7 @@ callback_interception_init_start(void)
     /* other initialization */
 #ifndef X64
     if (get_os_version() >= WINDOWS_VERSION_8) {
-        KiFastSystemCall = (byte *)get_proc_address(ntdllh, "KiFastSystemCall");
+        KiFastSystemCall = (byte *)d_r_get_proc_address(ntdllh, "KiFastSystemCall");
         ASSERT(KiFastSystemCall != NULL);
     }
 #endif
