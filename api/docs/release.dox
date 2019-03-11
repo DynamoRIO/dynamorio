@@ -136,6 +136,7 @@ clients.
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
 
+ - Added the type struct dr_zmm_t. dr_zmm_t is not used or supported yet.
  - Replaced NUM_SIMD_SLOTS with proc_num_simd_saved() and added the define
    #MCXT_NUM_SIMD_SLOTS. Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON)
    in order to provide the define NUM_SIMD_SLOTS using proc_num_simd_saved().
