@@ -1826,12 +1826,12 @@ typedef union _dr_zmm_t {
 #endif
 #ifdef API_EXPORT_ONLY
 #    ifdef X64
-    uint64 u64[8]; /**< Representation as 4 64-bit integers. */
+    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
 #    endif
 #endif
-    uint u32[16];                  /**< Representation as 8 32-bit integers. */
-    byte u8[64];                   /**< Representation as 32 8-bit integers. */
-    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 4 or 8 registers. */
+    uint u32[16];                  /**< Representation as 16 32-bit integers. */
+    byte u8[64];                   /**< Representation as 64 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
 } dr_zmm_t;
 
 #if defined(AARCHXX)
