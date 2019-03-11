@@ -1820,7 +1820,7 @@ typedef union _dr_ymm_t {
 /** 512-bit ZMM register. */
 typedef union _dr_zmm_t {
 #ifdef AVOID_API_EXPORT
-    /* XXX i#1312: There may be alignmet considerations that need to get
+    /* XXX i#1312: There may be alignment considerations that need to get
      * worked out when adding this to dr_mcontext_t.
      */
 #endif
