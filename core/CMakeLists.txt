@@ -1110,8 +1110,14 @@ DR_export_target(dynamorio)
 
 # XXX i#1997: not fully supported on Mac yet
 if (NOT APPLE)
-  install_exported_target(dynamorio_static ${INSTALL_LIB})
-  DR_export_target(dynamorio_static)
+  # Static DR libs are large so we provide a separate var to control their installation.
+  if (NOT DEFINED DO_DR_INSTALL_STATIC_DR)
+    set(DO_DR_INSTALL_STATIC_DR ON)
+  endif ()
+  if (DO_DR_INSTALL_STATIC_DR)
+    install_exported_target(dynamorio_static ${INSTALL_LIB})
+    DR_export_target(dynamorio_static)
+  endif ()
 endif ()
 
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
