@@ -1016,13 +1016,13 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT((SWAP_TEB_STACKBASE() &&
-                is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
+                is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
                (!SWAP_TEB_STACKBASE() &&
-                !is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)));
+                !is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)));
         ASSERT((SWAP_TEB_STACKLIMIT() &&
-                is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))) ||
+                is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))) ||
                (!SWAP_TEB_STACKLIMIT() &&
-                !is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))));
+                !is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))));
         /* DrMi#1723: ensure client hitting app guard page updated TEB.StackLimit.
          * Unfortunately this does happen with fiber code that updates TEB before
          * swapping the stack in the next bb so we make it a curiosity.
@@ -1031,7 +1031,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
             (SWAP_TEB_STACKLIMIT() &&
              get_mcontext(dcontext)->xsp >= (reg_t)dcontext->app_stack_limit) ||
             (!SWAP_TEB_STACKLIMIT() &&
-             get_mcontext(dcontext)->xsp >= (reg_t)get_tls(BASE_STACK_TIB_OFFSET)));
+             get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
     }

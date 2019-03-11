@@ -2582,9 +2582,9 @@ open_relocated_dlls_filecache_directory(void)
      * DYNAMORIO_VAR_CACHE_ROOT (\cache) in addition to the a per USER
      * subdirectory \cache\SID
      */
-    retval = get_parameter((per_user ? PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT)
-                                     : PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
-                           base_directory, sizeof(base_directory));
+    retval = d_r_get_parameter((per_user ? PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT)
+                                         : PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
+                               base_directory, sizeof(base_directory));
     if (IS_GET_PARAMETER_FAILURE(retval) || strchr(base_directory, DIRSEP) == NULL) {
         SYSLOG_INTERNAL_ERROR(
             " %s not set!"
@@ -6078,10 +6078,10 @@ gbop_exclude_filter(const gbop_hook_desc_t *gbop_hook)
         os_exclude_list = "shell32.dll!RealShellExecuteW;shell32.dll!RealShellExecuteExW";
         DODEBUG_ONCE({
             HANDLE shell_mod = get_module_handle(L"shell32.dll");
-            ASSERT(get_proc_address(shell_mod, "RealShellExecuteA") ==
-                   get_proc_address(shell_mod, "RealShellExecuteW"));
-            ASSERT(get_proc_address(shell_mod, "RealShellExecuteExA") ==
-                   get_proc_address(shell_mod, "RealShellExecuteExW"));
+            ASSERT(d_r_get_proc_address(shell_mod, "RealShellExecuteA") ==
+                   d_r_get_proc_address(shell_mod, "RealShellExecuteW"));
+            ASSERT(d_r_get_proc_address(shell_mod, "RealShellExecuteExA") ==
+                   d_r_get_proc_address(shell_mod, "RealShellExecuteExW"));
         });
     }
 

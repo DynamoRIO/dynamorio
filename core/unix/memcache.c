@@ -127,7 +127,7 @@ memcache_lock(void)
      * during heap init and before we can allocate it.  no lock needed then.
      */
     ASSERT(all_memory_areas != NULL ||
-           get_num_threads() <= 1 /* must be only DR thread */);
+           d_r_get_num_threads() <= 1 /* must be only DR thread */);
     if (all_memory_areas == NULL)
         return;
     if (self_owns_write_lock(&all_memory_areas->lock)) {
@@ -147,7 +147,8 @@ memcache_unlock(void)
     /* ok to ask for locks or mark stale before all_memory_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(all_memory_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(all_memory_areas != NULL ||
+           d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (all_memory_areas == NULL)
         return;
     if (all_memory_areas_recursion > 0) {

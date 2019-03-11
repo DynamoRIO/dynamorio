@@ -374,10 +374,10 @@ syscalls_init_get_num(HANDLE ntdllh, int sys_enum)
     app_pc wrapper;
     ASSERT(ntdllh != NULL);
     /* We can't check syscalls[] for SYSCALL_NOT_PRESENT b/c it's not set up yet */
-    /* get_proc_address() does invoke NtQueryVirtualMemory, but we go through the
+    /* d_r_get_proc_address() does invoke NtQueryVirtualMemory, but we go through the
      * ntdll wrapper for that syscall and thus it works this early.
      */
-    wrapper = (app_pc)get_proc_address(ntdllh, syscall_names[sys_enum]);
+    wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[sys_enum]);
     if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
         return *((int *)((wrapper) + SYSNUM_OFFS));
     else
@@ -556,7 +556,7 @@ syscalls_init()
              * which requires looking at the vsyscall code.
              */
             KiFastSystemCallRet_address =
-                (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+                (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
 #    endif
             set_syscall_method(SYSCALL_METHOD_SYSENTER);
             dr_which_syscall_t = DR_SYSCALL_SYSENTER;
@@ -570,11 +570,12 @@ syscalls_init()
         /* win8: call followed by ret */
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         /* kernel returns control to KiFastSystemCallRet, not local sysenter, of course */
-        sysenter_ret_address = (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+        sysenter_ret_address =
+            (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         ASSERT(sysenter_ret_address != NULL);
 #    ifdef CLIENT_INTERFACE
         KiFastSystemCallRet_address =
-            (app_pc)get_proc_address(ntdllh, "KiFastSystemCallRet");
+            (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
 #    endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
@@ -600,7 +601,7 @@ syscalls_init()
         for (i = 0; i < SYS_MAX; i++) {
             if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
                 continue;
-            wrapper = (app_pc)get_proc_address(ntdllh, syscall_names[i]);
+            wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
             if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
             /* We ignore TestAlert complications: we don't call it anyway */
@@ -618,7 +619,7 @@ syscalls_init()
             /* note that this check allows a hooker so we'll need a
              * better way of determining syscall numbers
              */
-            CHECK_SYSNUM_AT((byte *)get_proc_address(ntdllh, syscall_names[i]), i);
+            CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
         }
     });
     return true;
@@ -642,7 +643,7 @@ use_ki_syscall_routines()
      * work just as well. */
     static generic_func_t ki_fastsyscall_addr = (generic_func_t)PTR_UINT_MINUS_1;
     if (ki_fastsyscall_addr == (generic_func_t)PTR_UINT_MINUS_1) {
-        ki_fastsyscall_addr = get_proc_address(get_ntdll_base(), "KiFastSystemCall");
+        ki_fastsyscall_addr = d_r_get_proc_address(get_ntdll_base(), "KiFastSystemCall");
         ASSERT(ki_fastsyscall_addr != (generic_func_t)PTR_UINT_MINUS_1);
     }
     return (ki_fastsyscall_addr != NULL);
@@ -653,13 +654,14 @@ nt_get_context_extended_functions(app_pc base)
 {
     if (YMM_ENABLED()) { /* indicates OS support, not just processor support */
         ntdll_RtlGetExtendedContextLength =
-            (ntdll_RtlGetExtendedContextLength_t)get_proc_address(
+            (ntdll_RtlGetExtendedContextLength_t)d_r_get_proc_address(
                 base, "RtlGetExtendedContextLength");
         ntdll_RtlInitializeExtendedContext =
-            (ntdll_RtlInitializeExtendedContext_t)get_proc_address(
+            (ntdll_RtlInitializeExtendedContext_t)d_r_get_proc_address(
                 base, "RtlInitializeExtendedContext");
-        ntdll_RtlLocateLegacyContext = (ntdll_RtlLocateLegacyContext_t)get_proc_address(
-            base, "RtlLocateLegacyContext");
+        ntdll_RtlLocateLegacyContext =
+            (ntdll_RtlLocateLegacyContext_t)d_r_get_proc_address(
+                base, "RtlLocateLegacyContext");
         ASSERT(ntdll_RtlGetExtendedContextLength != NULL &&
                ntdll_RtlInitializeExtendedContext != NULL &&
                ntdll_RtlLocateLegacyContext != NULL);
@@ -669,7 +671,7 @@ nt_get_context_extended_functions(app_pc base)
 static void
 nt_init_dynamic_syscall_wrappers(app_pc base)
 {
-    NtGetNextThread = (NtGetNextThread_t)get_proc_address(base, "NtGetNextThread");
+    NtGetNextThread = (NtGetNextThread_t)d_r_get_proc_address(base, "NtGetNextThread");
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
@@ -2154,7 +2156,7 @@ NTSTATUS
 nt_remote_query_virtual_memory(HANDLE process, const byte *pc,
                                MEMORY_BASIC_INFORMATION *mbi, size_t mbilen, size_t *got)
 {
-    /* XXX: we can't switch this to a raw syscall as we rely on get_proc_address()
+    /* XXX: we can't switch this to a raw syscall as we rely on d_r_get_proc_address()
      * working in syscalls_init_get_num(), and it calls get_allocation_size()
      * which ends up here.
      */
@@ -5015,7 +5017,7 @@ are_mapped_files_the_same(app_pc addr1, app_pc addr2)
 
     /* FIXME: this doesn't exist on NT4 - make sure we handle
      * gracefully not finding the target - needs a very explicit
-     * get_proc_address() here.
+     * d_r_get_proc_address() here.
      */
     GET_NTDLL(ZwAreMappedFilesTheSame, (
                                         IN PVOID Address1,

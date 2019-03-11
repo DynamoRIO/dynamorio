@@ -1576,7 +1576,7 @@ heap_reset_init()
 
 /* initialization */
 void
-heap_init()
+d_r_heap_init()
 {
     int i;
     uint prev_sz = 0;
@@ -1693,7 +1693,7 @@ heap_reset_free()
 
 /* atexit cleanup */
 void
-heap_exit()
+d_r_heap_exit()
 {
     heap_unit_t *u, *next_u;
     heap_management_t *temp;
@@ -2564,8 +2564,8 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 }
 
 byte *
-map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         map_flags_t map_flags)
+d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+             map_flags_t map_flags)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
@@ -2582,7 +2582,7 @@ map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 }
 
 bool
-unmap_file(byte *map, size_t size)
+d_r_unmap_file(byte *map, size_t size)
 {
     bool success;
     ASSERT(map != NULL && ALIGNED(map, PAGE_SIZE));
@@ -2990,7 +2990,7 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
      */
     if (UNITALLOC(unit) <= HEAP_UNIT_MAX_SIZE &&
         (heapmgt->heap.num_dead < 5 ||
-         heapmgt->heap.num_dead * 4U <= (uint)get_num_threads())) {
+         heapmgt->heap.num_dead * 4U <= (uint)d_r_get_num_threads())) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.

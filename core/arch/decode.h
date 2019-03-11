@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -177,7 +177,7 @@ enum {
  * as opnd_size_t when we have the type available, so we can overlap
  * the two enums by adding new registers consecutively to the reg enum.
  * The reg_id_t type is now wider, but for x86 we ensure our values
- * all fit via an assert in arch_init().
+ * all fit via an assert in d_r_arch_init().
  * To maintain backward compatibility we keep the OPSZ_ constants
  * starting at the same spot, now midway through the reg enum:
  */

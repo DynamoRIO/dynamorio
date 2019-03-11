@@ -644,7 +644,7 @@ far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
 
 /* arch-specific initializations */
 void
-arch_init(void)
+d_r_arch_init(void)
 {
     ASSERT(sizeof(opnd_t) == EXPECTED_SIZEOF_OPND);
     IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(OPSZ_LAST)));
@@ -853,7 +853,7 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path

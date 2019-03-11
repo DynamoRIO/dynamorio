@@ -610,7 +610,7 @@ privload_unload(privmod_t *privmod)
             /* this routine may modify modlist, but we're done with it */
             privload_unload_imports(privmod);
             privload_remove_areas(privmod);
-            /* unmap_file removes from DR areas and calls unmap_file().
+            /* unmap_file removes from DR areas and calls d_r_unmap_file().
              * It's ok to call this for client libs: ok to remove what's not there.
              */
             privload_unmap_file(privmod);

@@ -77,7 +77,7 @@ get_os_version_ex(int *version OUT, uint *service_pack_major OUT,
 /* TEB offsets
  * we'd like to use offsetof(TEB, field) but that would require
  * everyone to include ntdll.h, and wouldn't work for inline assembly,
- * so we hardcode the fields we need here.  We check vs offsetof() in os_init().
+ * so we hardcode the fields we need here.  We check vs offsetof() in d_r_os_init().
  */
 enum {
 #ifdef X64
@@ -123,18 +123,18 @@ enum {
 
 /* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
  */
-#define get_tls(/*ushort*/ tls_offs) \
+#define d_r_get_tls(/*ushort*/ tls_offs) \
     ((void *)IF_X64_ELSE(__readgsqword, __readfsdword)(tls_offs))
 
 static inline void
-set_tls(ushort tls_offs, void *value)
+d_r_set_tls(ushort tls_offs, void *value)
 {
     IF_X64_ELSE(__writegsqword, __writefsdword)(tls_offs, (ptr_uint_t)value);
 }
 
 /* even INLINE_FORCED isn't inlining this into d_r_get_thread_id() in debug build (i#655)
  */
-#define get_own_teb() ((TEB *)get_tls(SELF_TIB_OFFSET))
+#define get_own_teb() ((TEB *)d_r_get_tls(SELF_TIB_OFFSET))
 
 /* We need to meet these requirements:
  * + DrMi#1676: cur esp is in [StackLimit..StackBase) at all times on Win8.1.

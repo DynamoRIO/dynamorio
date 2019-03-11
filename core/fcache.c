@@ -1478,7 +1478,7 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
     }
     /* heuristic: don't keep around more dead units than max(5, 1/4 num threads) */
     else if (allunits->num_dead < 5 ||
-             allunits->num_dead * 4U <= (uint)get_num_threads()) {
+             allunits->num_dead * 4U <= (uint)d_r_get_num_threads()) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.

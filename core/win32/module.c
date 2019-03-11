@@ -891,7 +891,7 @@ find_ntdll_mod_rbtree(module_handle_t ntdllh, RTL_RB_TREE *tomatch)
     instr_t inst;
     bool found_call = false;
     byte *pc;
-    byte *start = (byte *)get_proc_address(ntdllh, "LdrDisableThreadCalloutsForDll");
+    byte *start = (byte *)d_r_get_proc_address(ntdllh, "LdrDisableThreadCalloutsForDll");
     if (start == NULL)
         return NULL;
     instr_init(GLOBAL_DCONTEXT, &inst);
@@ -949,7 +949,7 @@ hide_from_rbtree(LDR_MODULE *mod)
     LOG(GLOBAL, LOG_ALL, 2, "Attempting to remove dll from rbtree\n");
 
     ntdllh = get_ntdll_base();
-    RtlRbRemoveNode = (RtlRbRemoveNode_t)get_proc_address(ntdllh, "RtlRbRemoveNode");
+    RtlRbRemoveNode = (RtlRbRemoveNode_t)d_r_get_proc_address(ntdllh, "RtlRbRemoveNode");
     if (RtlRbRemoveNode == NULL) {
         SYSLOG_INTERNAL_WARNING("cannot remove dll from rbtree: no RtlRbRemoveNode");
         return;
@@ -1290,7 +1290,7 @@ check_for_unsupported_modules()
     const char *short_name;
     uint traversed = 0;
     int retval =
-        get_parameter(PARAM_STR(DYNAMORIO_VAR_UNSUPPORTED), filter, sizeof(filter));
+        d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_UNSUPPORTED), filter, sizeof(filter));
     if (IS_GET_PARAMETER_FAILURE(retval) || filter[0] == 0 /* empty UNSUPPORTED list */) {
         /* no unsupported list, so nothing to look for */
         return false;
@@ -3814,7 +3814,7 @@ os_modules_init(void)
 
 #ifndef STATIC_LIBRARY
     if (DYNAMO_OPTION(hide) && !dr_earliest_injected) {
-        /* retrieve path before hiding, since this is called before os_init() */
+        /* retrieve path before hiding, since this is called before d_r_os_init() */
         get_dynamorio_library_path();
         hide_from_module_lists();
     }

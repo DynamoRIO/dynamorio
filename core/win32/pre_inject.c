@@ -191,7 +191,7 @@ static bool load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
         retval = get_parameter_64(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     } else
 #endif
-        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
+        retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         dr_marker_t mark;
         VERBOSE_MESSAGE("Loading \"%hs\"", path);
@@ -365,7 +365,7 @@ static int parameters_present(IF_NOT_X64(bool x64_in_wow64))
         retval = get_parameter_64(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     } else
 #endif
-        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
+        retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_AUTOINJECT), path, MAX_PATH);
     if (IS_GET_PARAMETER_SUCCESS(retval)) {
         return 1;
     } else {

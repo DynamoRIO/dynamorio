@@ -479,7 +479,7 @@ dynamorio_app_init(void)
         statistics_init();
 
 #ifdef VMX86_SERVER
-        /* Must be before {vmm_,}heap_init() */
+        /* Must be before {vmm,d_r}_heap_init() */
         vmk_init_lib();
 #endif
 
@@ -492,10 +492,10 @@ dynamorio_app_init(void)
          */
         instrument_load_client_libs();
 #endif
-        heap_init();
+        d_r_heap_init();
         dynamo_heap_initialized = true;
 
-        /* The process start event should be done after os_init() but before
+        /* The process start event should be done after d_r_os_init() but before
          * process_control_int() because the former initializes event logging
          * and the latter can kill the process if a violation occurs.
          */
@@ -518,10 +518,10 @@ dynamorio_app_init(void)
 #endif
 
         dynamo_vm_areas_init();
-        decode_init();
+        d_r_decode_init();
         proc_init();
         modules_init(); /* before vm_areas_init() */
-        os_init();
+        d_r_os_init();
         config_heap_init(); /* after heap_init */
 
         /* Setup for handling faults in loader_init() */
@@ -552,20 +552,20 @@ dynamorio_app_init(void)
 
 #ifdef WINDOWS
         /* loader initialization, finalize the private lib load.
-         * i#338: this must be before arch_init() for Windows, but Linux
+         * i#338: this must be before d_r_arch_init() for Windows, but Linux
          * wants it later (i#2751).
          */
         loader_init();
 #endif
-        arch_init();
+        d_r_arch_init();
         synch_init();
 
 #ifdef KSTATS
         kstat_init();
 #endif
-        monitor_init();
+        d_r_monitor_init();
         fcache_init();
-        link_init();
+        d_r_link_init();
         fragment_init();
         moduledb_init();    /* before vm_areas_init, after heap_init */
         perscache_init();   /* before vm_areas_init */
@@ -879,12 +879,12 @@ standalone_init(void)
     d_r_config_init();
     options_init();
     vmm_heap_init();
-    heap_init();
+    d_r_heap_init();
     dynamo_heap_initialized = true;
     dynamo_vm_areas_init();
-    decode_init();
+    d_r_decode_init();
     proc_init();
-    os_init();
+    d_r_os_init();
     config_heap_init();
 
 #    ifdef STANDALONE_UNIT_TEST
@@ -1004,7 +1004,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     instrument_exit();
 #    ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
-    if (get_num_threads() > 1)
+    if (d_r_get_num_threads() > 1)
         synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
     /* only current thread is alive */
     dynamo_exited_all_other_threads = true;
@@ -1081,11 +1081,11 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
         callback_interception_exit();
     }
 #endif
-    link_exit();
+    d_r_link_exit();
     fcache_exit();
-    monitor_exit();
+    d_r_monitor_exit();
     synch_exit();
-    arch_exit(IF_WINDOWS(detach_stacked_callbacks));
+    d_r_arch_exit(IF_WINDOWS(detach_stacked_callbacks));
 #ifdef CALL_PROFILE
     /* above os_exit to avoid eventlog_mutex trigger if we're the first to
      * create a log file
@@ -1110,7 +1110,7 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     exception_stack = NULL;
 #endif
     config_heap_exit();
-    heap_exit();
+    d_r_heap_exit();
     vmm_heap_exit();
     diagnost_exit();
     data_section_exit();
@@ -1188,7 +1188,7 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
     }
     LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
-        get_num_threads());
+        d_r_get_num_threads());
 
 #if defined(CLIENT_INTERFACE) && defined(WINDOWS)
     /* make sure client nudges are finished */
@@ -1398,7 +1398,7 @@ dynamo_process_exit(void)
     /* It is not clear whether the Event Log service handles unterminated connections */
 
     /* Do we need profile data for each thread?
-     * Note that windows prof_pcs duplicates the thread walk in os_exit()
+     * Note that windows prof_pcs duplicates the thread walk in d_r_os_exit()
      * FIXME: should combine that thread walk with this one
      */
     each_thread = TRACEDUMP_ENABLED();
@@ -1507,7 +1507,7 @@ dynamo_process_exit(void)
 
 #        ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
-        if (get_num_threads() > 1)
+        if (d_r_get_num_threads() > 1)
             synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
         dynamo_exited_all_other_threads = true;
 #        endif
@@ -1948,7 +1948,7 @@ mark_thread_execve(thread_record_t *tr, bool execve)
 #endif /* UNIX */
 
 int
-get_num_threads(void)
+d_r_get_num_threads(void)
 {
     return num_known_threads IF_UNIX(-num_execve_threads);
 }
@@ -1956,7 +1956,7 @@ get_num_threads(void)
 bool
 is_last_app_thread(void)
 {
-    return (get_num_threads() == IF_CLIENT_INTERFACE(get_num_client_threads() +) 1);
+    return (d_r_get_num_threads() == IF_CLIENT_INTERFACE(get_num_client_threads() +) 1);
 }
 
 /* This routine takes a snapshot of all the threads known to DR,
@@ -1987,8 +1987,8 @@ get_list_of_threads_common(thread_record_t ***list,
     d_r_mutex_lock(&all_threads_lock);
     /* Do not include vfork threads that exited via execve, unless we're exiting */
     max_num = IF_UNIX_ELSE((include_execve || dynamo_exiting) ? num_known_threads
-                                                              : get_num_threads(),
-                           get_num_threads());
+                                                              : d_r_get_num_threads(),
+                           d_r_get_num_threads());
     mylist = (thread_record_t **)global_heap_alloc(
         max_num * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     for (i = 0; i < HASHTABLE_SIZE(ALL_THREADS_HASH_BITS); i++) {
@@ -2190,7 +2190,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
     bool reset_at_nth_thread_pending = false;
     bool under_dynamo_control = true;
     APP_EXPORT_ASSERT(dynamo_initialized || dynamo_exited ||
-                          get_num_threads() == 0 IF_CLIENT_INTERFACE(|| client_thread),
+                          d_r_get_num_threads() ==
+                              0 IF_CLIENT_INTERFACE(|| client_thread),
                       PRODUCT_NAME " not initialized");
     if (INTERNAL_OPTION(nullcalls)) {
         ASSERT(uninit_thread_count == 0);
@@ -2385,7 +2386,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      * set a local bool reset_at_nth_thread_pending
      */
     if (DYNAMO_OPTION(reset_at_nth_thread) != 0 && !reset_at_nth_thread_triggered &&
-        (uint)get_num_threads() == DYNAMO_OPTION(reset_at_nth_thread)) {
+        (uint)d_r_get_num_threads() == DYNAMO_OPTION(reset_at_nth_thread)) {
         d_r_mutex_lock(&reset_pending_lock);
         if (!reset_at_nth_thread_triggered) {
             reset_at_nth_thread_triggered = true;
@@ -2621,7 +2622,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 
 #ifdef SIDELINE
     /* see notes above -- we can now wake up sideline thread */
-    if (dynamo_options.sideline && get_num_threads() > 0) {
+    if (dynamo_options.sideline && d_r_get_num_threads() > 0) {
         sideline_start();
     }
 #endif
@@ -2882,7 +2883,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     }
     DO_ONCE({
         char buf[16];
-        int num_threads = get_num_threads();
+        int num_threads = d_r_get_num_threads();
         if (num_threads > 1) { /* avoid for early injection */
             snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", num_threads);
             NULL_TERMINATE_BUFFER(buf);
@@ -3125,7 +3126,7 @@ dynamorio_unprotect(void)
              */
             d_r_mutex_lock(&thread_initexit_lock);
 
-            if (get_num_threads() > 1) {
+            if (d_r_get_num_threads() > 1) {
                 thread_record_t *tr;
                 int i;
                 /* current multiple-thread solution: suspend all other threads! */
@@ -3194,7 +3195,7 @@ check_should_be_protected(uint sec)
         DATASEC_PROTECTED(sec))
         return true;
     STATS_INC(datasec_not_prot);
-    /* FIXME: even checking get_num_threads()==1 is still racy as a thread could
+    /* FIXME: even checking d_r_get_num_threads()==1 is still racy as a thread could
      * exit, and it's not worth grabbing thread_initexit_lock here..
      */
     if (threads_ever_count == 1

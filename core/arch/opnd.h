@@ -762,7 +762,7 @@ enum {
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
 typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
 /* For x86 we do store reg_id_t here, but the x86 DR_REG_ enum is small enough
- * (checked in arch_init().
+ * (checked in d_r_arch_init().
  */
 typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 
@@ -1299,7 +1299,7 @@ struct _opnd_t {
 };
 #endif
 
-/* We assert that our fields are packed properly in arch_init().
+/* We assert that our fields are packed properly in d_r_arch_init().
  * We could use #pragma pack to shrink x64 back down to 12 bytes (it's at 16
  * b/c the struct is aligned to its max field align which is 8), but
  * probably not much gain since in either case it's passed/returned as a pointer
