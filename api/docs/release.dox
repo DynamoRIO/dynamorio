@@ -136,9 +136,9 @@ clients.
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
 
- - Added the function proc_num_simd_saved_abs().
- - Added the define MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
-   MCXT_NUM_SIMD_SLOTS is now a constant that shall be used only to determine
+ - Added the function proc_num_simd_registers().
+ - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
+   #MCXT_NUM_SIMD_SLOTS is now a constant that shall be used only to determine
    the number of SIMD slots in DynamoRIO's mcontext.
  - Replaced NUM_SIMD_SLOTS with proc_num_simd_saved().
    Clients may set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON) in order to provide

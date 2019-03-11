@@ -70,7 +70,7 @@
 static bool avx_enabled;
 
 static int num_simd_saved;
-static int num_simd_saved_abs;
+static int num_simd_registers;
 
 /* global writable variable for debug registers value */
 DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
@@ -358,7 +358,7 @@ proc_init_arch(void)
                   "Unsupported processor type: SSE and FXSR must match");
 
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
-    num_simd_saved_abs = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
@@ -435,9 +435,9 @@ proc_num_simd_saved(void)
 
 DR_API
 int
-proc_num_simd_saved_abs(void)
+proc_num_simd_registers(void)
 {
-    return num_simd_saved_abs;
+    return num_simd_registers;
 }
 
 DR_API

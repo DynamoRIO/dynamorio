@@ -44,14 +44,14 @@
 #endif
 
 static int num_simd_saved;
-static int num_simd_saved_abs;
+static int num_simd_registers;
 
 /* arch specific proc info */
 void
 proc_init_arch(void)
 {
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
-    num_simd_saved_abs = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
     /* FIXME i#1551: NYI on ARM */
     /* all of the CPUID registers are only accessible in privileged modes
@@ -101,9 +101,9 @@ proc_num_simd_saved(void)
 
 DR_API
 int
-proc_num_simd_saved_abs(void)
+proc_num_simd_registers(void)
 {
-    return num_simd_saved_abs;
+    return num_simd_registers;
 }
 
 DR_API

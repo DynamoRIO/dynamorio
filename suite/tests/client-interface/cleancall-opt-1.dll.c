@@ -139,7 +139,7 @@ codegen_out_of_line(void *dc)
     /* FIXME i#1569: FMOV support is NYI on AArch64 */
     /* XXX i#1312: check if test can get extended to AVX, AVX2 and AVX-512. */
 #ifdef X86
-    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         reg_id_t reg = DR_REG_XMM0 + (reg_id_t)i;
         APP(ilist,
             INSTR_CREATE_movd(dc, opnd_create_reg(reg),

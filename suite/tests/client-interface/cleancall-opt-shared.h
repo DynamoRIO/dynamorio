@@ -270,12 +270,12 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
     /* Only look at the initialized bits of the SSE regs. */
     /* XXX i#1312: check if test can get extended to AVX-512. */
     ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
-    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
             return false;
     }
 #elif defined(AARCH64)
-    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], sizeof(dr_simd_t)) != 0)
             return false;
     }
@@ -303,7 +303,7 @@ dump_diff_mcontexts(void)
 
     dr_fprintf(STDERR, "Printing XMM regs:\n");
     /* XXX i#1312: check if test can get extended to AVX-512. */
-    for (i = 0; i < proc_num_simd_saved_abs(); i++) {
+    for (i = 0; i < proc_num_simd_registers(); i++) {
 #ifdef X86
         dr_ymm_t before_reg = before_mcontext.ymm[i];
         dr_ymm_t after_reg = after_mcontext.ymm[i];

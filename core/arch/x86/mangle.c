@@ -342,8 +342,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* XXX i#1312: This assumption will change and the code below will need
      * to take this into account.
      */
-    ASSERT(proc_num_simd_saved_abs() == MCXT_NUM_SIMD_SLOTS);
-    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_saved_abs()) {
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
         int offs = MCXT_TOTAL_SIMD_SLOTS_SIZE + PRE_XMM_PADDING;
         if (cci->preserve_mcontext && cci->skip_save_flags) {
             offs_beyond_xmm = 2 * XSP_SZ; /* pc and flags */
@@ -372,7 +372,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         /* XXX i#1312: This assumption will change and the code below will need
          * to take this into account.
          */
-        ASSERT(proc_num_simd_saved() == proc_num_simd_saved_abs());
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
         for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,
@@ -517,7 +517,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         /* XXX i#1312: This assumption will change and the code below will need
          * to take this into account.
          */
-        ASSERT(proc_num_simd_saved() == proc_num_simd_saved_abs());
+        ASSERT(proc_num_simd_saved() == proc_num_simd_registers());
         for (i = 0; i < proc_num_simd_saved(); i++) {
             if (!cci->simd_skip[i]) {
                 PRE(ilist, instr,

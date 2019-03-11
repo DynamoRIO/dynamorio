@@ -35,13 +35,13 @@
 #include "instr.h"
 
 static int num_simd_saved;
-static int num_simd_saved_abs;
+static int num_simd_registers;
 
 void
 proc_init_arch(void)
 {
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
-    num_simd_saved_abs = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
     /* FIXME i#1569: NYI */
 }
@@ -76,9 +76,9 @@ proc_num_simd_saved(void)
 
 DR_API
 int
-proc_num_simd_saved_abs(void)
+proc_num_simd_registers(void)
 {
-    return num_simd_saved_abs;
+    return num_simd_registers;
 }
 
 DR_API

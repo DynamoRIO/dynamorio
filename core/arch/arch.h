@@ -1377,7 +1377,12 @@ typedef struct _callee_info_t {
     app_pc bwd_tgt;    /* earliest backward branch target */
     app_pc fwd_tgt;    /* last forward branch target */
     int num_simd_used; /* number of SIMD registers (xmms) used by callee */
-    bool simd_used[MCXT_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage */
+
+    bool simd_used[MCXT_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage. Part of
+                                          * the array might left uninitialized if
+                                          * proc_num_simd_registers() <
+                                          * MCXT_NUM_SIMD_SLOTS.
+                                          */
     bool reg_used[NUM_GP_REGS];          /* general purpose registers usage */
     int num_callee_save_regs;            /* number of regs callee saved */
     bool callee_save_regs[NUM_GP_REGS];  /* callee-save registers */
