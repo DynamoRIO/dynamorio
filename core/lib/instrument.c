@@ -6523,10 +6523,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
 #ifdef ARM
     if (TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
-        if (mc != NULL)
+        if (mc != NULL) {
             set_stolen_reg_val(mc,
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
-        else {
+        } else {
             set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
         }
