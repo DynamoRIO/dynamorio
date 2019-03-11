@@ -2371,10 +2371,10 @@ GLOBAL_LABEL(get_zmm_caller_saved:)
         ret
         END_FUNC(get_zmm_caller_saved)
 
-        /* void hashlookup_null_handler(void)
-         * PR 305731: if the app targets NULL, it ends up here, which indirects
-         * through hashlookup_null_target to end up in an ibl miss routine.
-         */
+/* void hashlookup_null_handler(void)
+ * PR 305731: if the app targets NULL, it ends up here, which indirects
+ * through hashlookup_null_target to end up in an ibl miss routine.
+ */
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
 #if !defined(X64) && defined(LINUX)
