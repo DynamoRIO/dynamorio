@@ -306,15 +306,15 @@ coarse_unit_reset_free_internal(dcontext_t *dcontext, coarse_info_t *info,
             ASSERT(info->mmap_pc != NULL);
             if (info->mmap_ro_size > 0) {
                 /* two views */
-                DEBUG_DECLARE(ok =) unmap_file(info->mmap_pc, info->mmap_ro_size);
+                DEBUG_DECLARE(ok =) d_r_unmap_file(info->mmap_pc, info->mmap_ro_size);
                 ASSERT(ok);
                 DEBUG_DECLARE(ok =)
-                unmap_file(info->mmap_pc + info->mmap_ro_size,
-                           info->mmap_size - info->mmap_ro_size);
+                d_r_unmap_file(info->mmap_pc + info->mmap_ro_size,
+                               info->mmap_size - info->mmap_ro_size);
                 ASSERT(ok);
                 info->mmap_ro_size = 0;
             } else {
-                DEBUG_DECLARE(ok =) unmap_file(info->mmap_pc, info->mmap_size);
+                DEBUG_DECLARE(ok =) d_r_unmap_file(info->mmap_pc, info->mmap_size);
                 ASSERT(ok);
             }
             if (DYNAMO_OPTION(persist_lock_file)) {
@@ -2120,7 +2120,7 @@ perscache_dirname(char *directory /* OUT */, uint directory_len)
     const char *param_name = DYNAMO_OPTION(persist_per_user)
         ? PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT)
         : PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED);
-    retval = get_parameter(param_name, directory, directory_len);
+    retval = d_r_get_parameter(param_name, directory, directory_len);
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         string_option_read_lock();
         if (DYNAMO_OPTION(persist_per_user) && !IS_STRING_OPTION_EMPTY(persist_dir)) {
@@ -3491,9 +3491,9 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation))) {
             /* FIXME if mmap up front (case 9758) don't need this mmap */
             sz = pers.header_len + pers.data_len - sizeof(persisted_footer_t);
-            map = map_file(fd, &sz, 0, NULL, MEMPROT_READ,
-                           /* won't change so save pagefile by not asking for COW */
-                           MAP_FILE_REACHABLE);
+            map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ,
+                               /* won't change so save pagefile by not asking for COW */
+                               MAP_FILE_REACHABLE);
             ASSERT(map != NULL);
             if (map == NULL) {
                 /* give up */
@@ -3506,7 +3506,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         if (TEST(PERSCACHE_GENFILE_MD5_COMPLETE, DYNAMO_OPTION(persist_gen_validation)) &&
             map != (byte *)&pers) {
             ASSERT(map != NULL); /* we cleared _COMPLETE so shouldn't get here */
-            unmap_file(map, sz);
+            d_r_unmap_file(map, sz);
         }
     } else {
         memset(&footer, 0, sizeof(footer));
@@ -3821,14 +3821,14 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     /* FIXME case 9642: control where in address space we map the file:
      * right after vmheap?  Randomized?
      */
-    map = map_file(fd, &map_size, 0, NULL,
-                   /* Ask for max, then restrict pieces */
-                   MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
-                   /* case 9599: asking for COW commits pagefile space
-                    * up front, so we map two separate views later: see below
-                    */
-                   MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                       MAP_FILE_REACHABLE);
+    map = d_r_map_file(fd, &map_size, 0, NULL,
+                       /* Ask for max, then restrict pieces */
+                       MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                       /* case 9599: asking for COW commits pagefile space
+                        * up front, so we map two separate views later: see below
+                        */
+                       MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                           MAP_FILE_REACHABLE);
     /* case 9925: if we keep the file handle open we can prevent writes
      * to the file while it's mapped in, but it prevents our rename replacement
      * scheme (case 9701/9720) so we have it under option control.
@@ -4010,20 +4010,20 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
         }
         ASSERT(fd != INVALID_FILE);
         if (fd != INVALID_FILE) {
-            unmap_file(map, map_size);
+            d_r_unmap_file(map, map_size);
             pers = NULL;
             map_size = ro_size;
             /* we know the whole thing fit @map, so try there */
-            map = map_file(fd, &map_size, 0, map,
-                           /* Ask for max, then restrict pieces */
-                           MEMPROT_READ | MEMPROT_EXEC,
-                           /* no COW to avoid pagefile cost */
-                           MAP_FILE_REACHABLE);
-            map2 = map_file(fd, &map2_size, map_size, map + map_size,
-                            /* Ask for max, then restrict pieces */
-                            MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
-                            MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
-                                MAP_FILE_REACHABLE);
+            map = d_r_map_file(fd, &map_size, 0, map,
+                               /* Ask for max, then restrict pieces */
+                               MEMPROT_READ | MEMPROT_EXEC,
+                               /* no COW to avoid pagefile cost */
+                               MAP_FILE_REACHABLE);
+            map2 = d_r_map_file(fd, &map2_size, map_size, map + map_size,
+                                /* Ask for max, then restrict pieces */
+                                MEMPROT_READ | MEMPROT_WRITE | MEMPROT_EXEC,
+                                MAP_FILE_COPY_ON_WRITE /*writes should not change file*/ |
+                                    MAP_FILE_REACHABLE);
             /* FIXME: try again if racy alloc and they both don't fit */
             if (!DYNAMO_OPTION(persist_lock_file)) {
                 os_close(fd);
@@ -4305,9 +4305,9 @@ coarse_unit_load_exit:
             info = NULL;
         } else {
             if (map != NULL)
-                unmap_file(map, map_size);
+                d_r_unmap_file(map, map_size);
             if (map2 != NULL)
-                unmap_file(map2, map2_size);
+                d_r_unmap_file(map2, map2_size);
             if (fd != INVALID_FILE)
                 os_close(fd);
         }

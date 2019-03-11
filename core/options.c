@@ -2379,8 +2379,8 @@ options_init()
     ASSERT(sizeof(dynamo_options) == sizeof(options_t));
     /* get dynamo options */
     adjust_defaults_for_page_size(&dynamo_options);
-    retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
-                           sizeof(option_string));
+    retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_OPTIONS), option_string,
+                               sizeof(option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, option_string);
 #    if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)

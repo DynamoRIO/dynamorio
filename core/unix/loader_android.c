@@ -73,8 +73,8 @@ init_android_version(void)
     uint read_ver = 0;
     if (fd != INVALID_FILE) {
         size_t sz = PAGE_SIZE;
-        byte *map = map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
-                             MAP_FILE_COPY_ON_WRITE);
+        byte *map = d_r_map_file(fd, &sz, 0, NULL, MEMPROT_READ | MEMPROT_WRITE,
+                                 MAP_FILE_COPY_ON_WRITE);
         if (map != NULL) {
             const char *prop;
             *(map + sz - 1) = '\0'; /* ensure our strstr stops */
@@ -83,7 +83,7 @@ init_android_version(void)
                 if (sscanf(prop + strlen(VER_PROP), "%d", &read_ver) == 1)
                     android_version = read_ver;
             }
-            unmap_file(map, sz);
+            d_r_unmap_file(map, sz);
         }
     }
     LOG(GLOBAL, LOG_LOADER, 1, "Android version %s is %d\n",

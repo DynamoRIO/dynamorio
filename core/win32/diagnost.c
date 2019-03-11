@@ -438,7 +438,7 @@ report_internal_data_structures(IN file_t diagnostics_file,
                "dynamo_initialized : %d\ndynamo_exited      : %d\n"
                "num_threads        : %d\ndynamorio.dll      = " PFX "\n",
                automatic_startup, control_all_threads, dynamo_initialized, dynamo_exited,
-               get_num_threads(), get_dynamorio_dll_start());
+               d_r_get_num_threads(), get_dynamorio_dll_start());
 
     /* skip for non-attack calls to avoid risk of any global locks */
     if (violation_type != NO_VIOLATION_BAD_INTERNAL_STATE) {

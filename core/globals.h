@@ -571,7 +571,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid);
 uint
 get_thread_num(thread_id_t tid);
 int
-get_num_threads(void);
+d_r_get_num_threads(void);
 bool
 is_last_app_thread(void);
 void

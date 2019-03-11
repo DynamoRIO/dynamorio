@@ -46,7 +46,7 @@ struct _local_state_t; /* in arch_exports.h */
 
 /* in os.c */
 void
-os_init(void);
+d_r_os_init(void);
 /* called on detach and on process exit in debug builds */
 void
 os_slow_exit(void);

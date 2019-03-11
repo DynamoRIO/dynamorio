@@ -3512,8 +3512,9 @@ void
 mark_dynamo_vm_areas_stale()
 {
     /* ok to ask for locks or mark stale before dynamo_areas is allocated */
-    ASSERT((dynamo_areas == NULL && get_num_threads() <= 1 /*must be only DR thread*/) ||
-           self_owns_write_lock(&dynamo_areas->lock));
+    ASSERT(
+        (dynamo_areas == NULL && d_r_get_num_threads() <= 1 /*must be only DR thread*/) ||
+        self_owns_write_lock(&dynamo_areas->lock));
     dynamo_areas_uptodate = false;
 }
 
@@ -3525,7 +3526,7 @@ dynamo_vm_areas_lock()
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (dynamo_areas == NULL)
         return;
     if (self_owns_write_lock(&dynamo_areas->lock)) {
@@ -3545,7 +3546,7 @@ dynamo_vm_areas_unlock()
     /* ok to ask for locks or mark stale before dynamo_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (dynamo_areas == NULL)
         return;
     if (dynamo_areas_recursion > 0) {
@@ -3562,7 +3563,7 @@ self_owns_dynamo_vm_area_lock()
     /* heap inits before dynamo_areas (which now needs heap to init) so
      * we ignore the lock prior to dynamo_areas init, assuming single-DR-thread.
      */
-    ASSERT(dynamo_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(dynamo_areas != NULL || d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     return dynamo_areas == NULL || self_owns_write_lock(&dynamo_areas->lock);
 }
 
@@ -4407,7 +4408,7 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                       "security_violation: \t killing thread #%d [max %d], tid=%d\n",
                       do_threshold_cur, DYNAMO_OPTION(kill_thread_max),
                       d_r_get_thread_id());
-                  /* FIXME: can't check if get_num_threads()==1 then say we're
+                  /* FIXME: can't check if d_r_get_num_threads()==1 then say we're
                    * killing process because it is possible that another
                    * thread has not been scheduled yet and we wouldn't have
                    * seen it.  Still, only our message will be wrong if we end
@@ -9070,7 +9071,7 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
                             /* we do count this thread, as we aren't checking the
                              * pending list here or inc-ing our flushtime
                              */
-                            get_num_threads(),
+                            d_r_get_num_threads(),
                             flushtime_global _IF_DEBUG(NULL) _IF_DEBUG(NULL));
         todelete->lazy_delete_list = NULL;
         todelete->lazy_delete_tail = NULL;
@@ -9653,7 +9654,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
                         flushtime_global - pend->flushtime_deleted);
         DOSTATS({
             /* metric: # times flushtime diff is > #threads */
-            if (flushtime_global - pend->flushtime_deleted > (uint)get_num_threads())
+            if (flushtime_global - pend->flushtime_deleted > (uint)d_r_get_num_threads())
                 STATS_INC(num_shared_flush_diffthreads);
         });
         LOG(THREAD, LOG_FRAGMENT | LOG_VMAREAS, 2,

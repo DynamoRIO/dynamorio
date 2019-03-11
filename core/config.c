@@ -709,7 +709,7 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
 }
 
 int
-get_parameter(const char *name, char *value, int maxlen)
+d_r_get_parameter(const char *name, char *value, int maxlen)
 {
     return get_parameter_ex(name, value, maxlen, false);
 }
@@ -718,7 +718,7 @@ int
 get_unqualified_parameter(const char *name, char *value, int maxlen)
 {
     /* we don't use qualified names w/ our config files yet */
-    return get_parameter(name, value, maxlen);
+    return d_r_get_parameter(name, value, maxlen);
 }
 
 #    ifdef UNIX

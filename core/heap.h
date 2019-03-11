@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -142,9 +142,9 @@ rel32_reachable_from_vmcode(byte *target);
 
 /* heap management */
 void
-heap_init(void);
+d_r_heap_init(void);
 void
-heap_exit(void);
+d_r_heap_exit(void);
 void
 heap_post_exit(void); /* post exit to support reattach */
 void
@@ -191,10 +191,10 @@ heap_munmap_ex(void *p, size_t size, bool guarded, which_vmm_t which);
 
 /* updates dynamo_areas and calls the os_ versions */
 byte *
-map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         map_flags_t map_flags);
+d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+             map_flags_t map_flags);
 bool
-unmap_file(byte *map, size_t size);
+d_r_unmap_file(byte *map, size_t size);
 
 /* Allocates executable memory in the same allocation region as this thread's
  * stack, to save address space (case 9474).
