@@ -59,7 +59,7 @@
  * to use DR's d_r_get_proc_address().  We're already linking w/ the files we need.
  */
 #include "os_private.h" /* for d_r_get_proc_address() and load_dynamo */
-#define GET_PROC_ADDR get_proc_address
+#define GET_PROC_ADDR d_r_get_proc_address
 
 /* this entry point is hardcoded, FIXME : abstract */
 #define DYNAMORIO_ENTRY "dynamo_auto_start"

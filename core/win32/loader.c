@@ -910,8 +910,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     *size = 0; /* map at full size */
     if (dynamo_heap_initialized) {
         /* These hold the DR lock and update DR areas */
-        map_func = map_file;
-        unmap_func = unmap_file;
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
     } else {
         map_func = os_map_file;
         unmap_func = os_unmap_file;
