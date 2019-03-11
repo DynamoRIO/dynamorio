@@ -2232,13 +2232,15 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
  *   stores the values of ymm0 through ymm5 consecutively into ymm_caller_saved_buf.
  *   ymm_caller_saved_buf need not be 32-byte aligned.
  *   for linux, also saves ymm6-15 (PR 302107).
- *   caller must ensure that the underlying processor supports AVX!
+ *   The caller must ensure that the underlying processor supports AVX!
  */
         DECLARE_FUNC(get_ymm_caller_saved)
 GLOBAL_LABEL(get_ymm_caller_saved:)
         mov      REG_XAX, ARG1
-       /* i#441: some compilers like gcc 4.3 and VS2005 do not know "vmovdqu".
-        * We just put in the raw bytes for these instrs:
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
         * Note the 64/32 bit have the same encoding for either rax or eax.
         * c5 fe 7f 00               vmovdqu %ymm0,0x00(%xax)
         * c5 fe 7f 48 20            vmovdqu %ymm1,0x20(%xax)
@@ -2287,17 +2289,16 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
 /* void get_zmm_caller_saved(byte *zmm_caller_saved_buf)
  *   stores the values of zmm0 through zmm31 consecutively into zmm_caller_saved_buf.
  *   zmm_caller_saved_buf need not be 64-byte aligned.
- *   caller must ensure that the underlying processor supports AVX-512!
+ *   The caller must ensure that the underlying processor supports AVX-512!
  */
         DECLARE_FUNC(get_zmm_caller_saved)
 GLOBAL_LABEL(get_zmm_caller_saved:)
         mov      REG_XAX, ARG1
-       /* i#441: some compilers like gcc 4.3 and VS2005 do not know "vmovdqu"
-        * or need architectural flags set (e.g. -mavx or -march=skylake-avx512),
-        * which would cause DynamoRIO to be less (or un-) portable.
-        * We just put in the raw bytes for these instrs:
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
         * Note the 64/32 bit have the same encoding for either rax or eax.
-        * Trivial: the destination (memory-) operand implies mask register k0.
         * Note the encodings are using the EVEX scaled compressed displacement form.
         * 62 f1 fe 48 7f 00       vmovdqu64 %zmm0,0x00(%rax)
         * 62 f1 fe 48 7f 48 01    vmovdqu64 %zmm1,0x40(%rax)
