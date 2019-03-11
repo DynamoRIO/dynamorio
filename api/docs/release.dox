@@ -136,7 +136,6 @@ clients.
 The changes between version \DR_VERSION and 7.1.0 include the following minor
 compatibility changes:
 
- - Added the function proc_num_simd_registers().
  - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
    #MCXT_NUM_SIMD_SLOTS is now a constant that shall be used only to determine
    the number of SIMD slots in DynamoRIO's mcontext.
@@ -149,6 +148,7 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added the function proc_num_simd_registers().
  - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
  - Added new fields to #dr_os_version_info_t which contain the build number,
    edition, and Windows 10 release identifier.

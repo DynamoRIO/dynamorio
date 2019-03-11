@@ -461,7 +461,8 @@ DR_API
 /**
  * Returns the number of SIMD registers preserved for a context switch. DynamoRIO
  * may decide to optimize the number of registers saved, in which case this number
- * may be less than proc_num_simd_registers().
+ * may be less than proc_num_simd_registers(). For x86 this only includes the
+ * vector registers (xmm/ymm/zmm).
  *
  * The number of saved SIMD registers may be variable. For example, we may decide
  * to optimize the number of saved registers in a context switch to avoid frequency
@@ -493,7 +494,8 @@ proc_num_simd_saved(void);
 DR_API
 /**
  * Returns the number of SIMD registers. The number returned here depends on the
- * processor and OS feature bits on a given machine.
+ * processor and OS feature bits on a given machine. For x86 this only includes
+ * the vector registers (xmm/ymm/zmm).
  *
  */
 int
