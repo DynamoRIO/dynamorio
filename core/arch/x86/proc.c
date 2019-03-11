@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,7 +72,7 @@ static bool avx_enabled;
 static int num_simd_saved;
 
 /* global writable variable for debug registers value */
-DECLARE_NEVERPROT_VAR(app_pc debugRegister[DEBUG_REGISTERS_NB], { 0 });
+DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
 
 static void
 get_cache_sizes_amd(uint max_ext_val)
@@ -326,7 +326,7 @@ proc_init_arch(void)
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
      */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
@@ -377,7 +377,7 @@ proc_init_arch(void)
         }
     }
     for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
-        debugRegister[i] = NULL;
+        d_r_debug_register[i] = NULL;
     }
 }
 

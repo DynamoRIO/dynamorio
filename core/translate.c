@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,8 +51,6 @@
 #include "../fcache.h"
 #include "proc.h"
 #include "instrument.h"
-
-#include <string.h> /* for memcpy */
 
 #if defined(DEBUG) || defined(INTERNAL)
 #    include "disassemble.h"
@@ -272,8 +270,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          */
         if (walk->translation == NULL) {
             DOLOG(4, LOG_INTERP, {
-                loginst(get_thread_private_dcontext(), 4, inst,
-                        "\tin clean call arg region");
+                d_r_loginst(get_thread_private_dcontext(), 4, inst,
+                            "\tin clean call arg region");
             });
             return;
         }
@@ -421,8 +419,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          */
         else {
             DOLOG(4, LOG_INTERP,
-                  loginst(get_thread_private_dcontext(), 4, inst,
-                          "unsupported mangle instr"););
+                  d_r_loginst(get_thread_private_dcontext(), 4, inst,
+                              "unsupported mangle instr"););
             walk->unsupported_mangle = true;
         }
     }
@@ -848,8 +846,8 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                         "translation (pc " PFX ")\n",
                         answer);
                     DOLOG(2, LOG_INTERP,
-                          loginst(get_thread_private_dcontext(), 2, prev_ok,
-                                  "\tprev instr"););
+                          d_r_loginst(get_thread_private_dcontext(), 2, prev_ok,
+                                      "\tprev instr"););
                 }
             } else {
                 answer = instr_get_translation(inst);
@@ -902,7 +900,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
         if (instr_get_translation(inst) != NULL) {
             prev_ok = inst;
             DOLOG(5, LOG_INTERP,
-                  loginst(get_thread_private_dcontext(), 5, prev_ok, "\tok instr"););
+                  d_r_loginst(get_thread_private_dcontext(), 5, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
             if (instr_is_app(inst)) {
                 /* we really want the pc after the translation target since we'll
@@ -1407,7 +1405,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restor
     recreate_success_t res;
 
 #ifdef DEBUG
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_SYNCH) != 0) {
         LOG(THREAD_GET, LOG_SYNCH, 2, "recreate_app_state -- translating from:\n");
         dump_mcontext(mcontext, THREAD_GET, DUMP_NOT_XML);
     }
@@ -1417,7 +1415,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restor
 
 #ifdef DEBUG
     if (res) {
-        if (stats->loglevel >= 2 && (stats->logmask & LOG_SYNCH) != 0) {
+        if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_SYNCH) != 0) {
             LOG(THREAD_GET, LOG_SYNCH, 2, "recreate_app_state -- translation is:\n");
             dump_mcontext(mcontext, THREAD_GET, DUMP_NOT_XML);
         }
@@ -1756,10 +1754,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             }
 
             if (spill_xcx_outstanding_offs != UINT_MAX) {
-                mc.xcx = (reg_t)get_tls(spill_xcx_outstanding_offs) + 1;
+                mc.xcx = (reg_t)d_r_get_tls(spill_xcx_outstanding_offs) + 1;
             } else {
-                mc.xcx =
-                    (reg_t)get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) +
+                mc.xcx = (reg_t)d_r_get_tls(
+                             os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) +
                     1;
             }
             mc.xsp = STRESS_XSP_INIT;
@@ -1771,7 +1769,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", xcx=" PFX
                 " vs " PFX "\n",
                 res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust, mc.xcx,
-                get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))));
+                d_r_get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
              */
@@ -1784,7 +1782,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* check that xsp and xcx are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
             ASSERT(spill_xcx_outstanding_offs == UINT_MAX ||
-                   mc.xcx == (reg_t)get_tls(spill_xcx_outstanding_offs));
+                   mc.xcx == (reg_t)d_r_get_tls(spill_xcx_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,10 +41,10 @@
 #include "dr_config.h" /* for dr_platform_t */
 
 void
-config_init(void);
+d_r_config_init(void);
 
 void
-config_exit(void);
+d_r_config_exit(void);
 
 void
 config_heap_init(void);
@@ -77,7 +77,7 @@ get_config_val_other_arch(const char *var, char *val, size_t valsz, bool *app_sp
 #    define PARAM_STR(name) L_IF_WIN(name)
 /* redeclared in inject_shared.h */
 int
-get_parameter(const wchar_t *name, char *value, int maxlen);
+d_r_get_parameter(const wchar_t *name, char *value, int maxlen);
 
 int
 get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache);
@@ -88,7 +88,7 @@ get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache
 #    define PARAM_STR(name) name
 
 int
-get_parameter(const char *name, char *value, int maxlen);
+d_r_get_parameter(const char *name, char *value, int maxlen);
 
 int
 get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache);

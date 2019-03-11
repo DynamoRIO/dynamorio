@@ -146,6 +146,8 @@ compatibility changes:
 Further non-compatibility-affecting changes include:
 
  - Added drfront_set_verbose() to obtain diagnostics from drfrontendlib.
+ - Added new fields to #dr_os_version_info_t which contain the build number,
+   edition, and Windows 10 release identifier.
 
 **************************************************
 <hr>

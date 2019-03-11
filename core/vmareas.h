@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -745,7 +745,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
 
 /* Returns NULL if should re-execute the faulting write
  * Else returns the target pc for a new basic block -- caller should
- * return to dispatch rather than the code cache.
+ * return to d_r_dispatch rather than the code cache.
  * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc

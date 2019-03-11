@@ -44,7 +44,6 @@
 
 #ifdef MACOS
 #    include <sys/utsname.h> /* for struct utsname */
-#    include <string.h>
 #endif
 
 /***************************************************************************
@@ -57,11 +56,11 @@
 WEAK bool
 safe_read_if_fast(const void *base, size_t size, void *out_buf)
 {
-    return safe_read(base, size, out_buf);
+    return d_r_safe_read(base, size, out_buf);
 }
 
 WEAK void
-internal_error(const char *file, int line, const char *expr)
+d_r_internal_error(const char *file, int line, const char *expr)
 {
     /* Do nothing for non-core. */
 }
@@ -72,10 +71,36 @@ ignore_assert(const char *assert_file_line, const char *expr)
     return true;
 }
 
+WEAK int
+d_r_strcmp(const char *left, const char *right)
+{
+    size_t i;
+    for (i = 0; left[i] != '\0' || right[i] != '\0'; i++) {
+        if (left[i] < right[i])
+            return -1;
+        if (left[i] > right[i])
+            return 1;
+    }
+    return 0;
+}
+
 WEAK file_t main_logfile;
 WEAK options_t dynamo_options;
 
 #ifdef MACOS
+WEAK int
+d_r_strncmp(const char *left, const char *right, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n && (left[i] != '\0' || right[i] != '\0'); i++) {
+        if (left[i] < right[i])
+            return -1;
+        if (left[i] > right[i])
+            return 1;
+    }
+    return 0;
+}
+
 WEAK bool
 kernel_is_64bit(void)
 {

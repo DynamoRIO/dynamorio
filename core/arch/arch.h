@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -425,8 +425,8 @@ void
 clean_call_info_init(clean_call_info_t *cci, void *callee, bool save_fpstate,
                      uint num_args);
 void
-mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
-       bool record_translation);
+d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool mangle_calls,
+           bool record_translation);
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */

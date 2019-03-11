@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2019 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -318,7 +319,7 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to initstack for cleanup of dstack */
+        /* switch to d_r_initstack for cleanup of dstack */
         adrp     x26, :got:initstack_mutex
         ldr      x26, [x26, #:got_lo12:initstack_mutex]
 cat_spin:
@@ -329,15 +330,15 @@ cat_spin:
 
 cat_have_lock:
         /* switch stack */
-        adrp     x0, :got:initstack
-        ldr      x0, [x0, #:got_lo12:initstack]
+        adrp     x0, :got:d_r_initstack
+        ldr      x0, [x0, #:got_lo12:d_r_initstack]
         ldr      x0, [x0]
         mov      sp, x0
 
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
-        /* give up initstack mutex */
+        /* give up initstack_mutex */
         adrp     x0, :got:initstack_mutex
         ldr      x0, [x0, #:got_lo12:initstack_mutex]
         mov      x1, #0

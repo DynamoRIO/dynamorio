@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,13 +30,31 @@
  * DAMAGE.
  */
 
-/* Default implementation to avoid the user of drlibc having to supply one.
- * We need to separate these as the MSVC linker will not complain about duplicate
- * symbols if an .obj has just one symbol in it.
+/*
+ * Private memmove for inclusion in libdrmemfuncs for isolation from libc in
+ * shared DR but not in static DR.  We need this in addition to memcpy
+ * and memset because the compiler will auto-issue a call to "memmove" when
+ * it cannot prove there are is no overlap and that memcpy is safe to call.
+ *
+ * We assume that this is not performance-critical as it is rarely called
+ * (in fact it only shows up once in the internal release build and not at
+ * all in the external release build) and so we just use simple C code.
  */
 
-#define DR_NO_FAST_IR /* Avoid pulling in deps from instr_inline.h from globals.h */
 #include "../globals.h"
 
-static dr_statistics_t libmodule_stats;
-WEAK dr_statistics_t *d_r_stats = &libmodule_stats;
+#undef memmove
+
+void *
+memmove(void *dst, const void *src, size_t n)
+{
+    ssize_t i;
+    byte *dst_b = (byte *)dst;
+    const byte *src_b = (const byte *)src;
+    if (dst < src)
+        return memcpy(dst, src, n);
+    for (i = n - 1; i >= 0; i--) {
+        dst_b[i] = src_b[i];
+    }
+    return dst;
+}

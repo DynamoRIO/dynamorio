@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,7 +55,6 @@
 #        include <sys/wait.h>    /* for wait */
 #        include <linux/sched.h> /* for clone */
 #        include <signal.h>      /* for SIGCHLD */
-#        include <string.h>      /* for memset */
 #        include <unistd.h>      /* for nice */
 #        define RUN_SIG
 typedef pid_t thread_t;
@@ -92,7 +91,7 @@ volatile fragment_t *sideline_trace;
 /* number of processors we're running on */
 int num_processors;
 
-/* used to signal which thread we need to pause in dispatch */
+/* used to signal which thread we need to pause in d_r_dispatch */
 thread_id_t pause_for_sideline;
 event_t paused_for_sideline_event;
 event_t resume_from_sideline_event;
@@ -530,7 +529,7 @@ sideline_examine_traces()
      * to make sure no fragments are deleted until our last dereference of
      * the hot fragment
      */
-    mutex_lock(&do_not_delete_lock);
+    d_r_mutex_lock(&do_not_delete_lock);
 
     /* now find hottest trace */
     e = find_hottest_entry();
@@ -538,7 +537,7 @@ sideline_examine_traces()
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\tSIDELINE: cannot find a hot entry w/ count > %d\n",
             SAMPLE_COUNT_THRESHOLD);
-        mutex_unlock(&do_not_delete_lock);
+        d_r_mutex_unlock(&do_not_delete_lock);
         return;
     }
 
@@ -554,7 +553,7 @@ sideline_examine_traces()
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\tSIDELINE: hottest entry F%d already sidelined\n", f->id);
         /* don't loop here looking for another entry -- let run() loop */
-        mutex_unlock(&do_not_delete_lock);
+        d_r_mutex_unlock(&do_not_delete_lock);
         return;
     } else {
         LOG(logfile, LOG_SIDELINE, VERB_2,
@@ -568,7 +567,7 @@ sideline_examine_traces()
 #    endif
     }
 
-    mutex_unlock(&do_not_delete_lock);
+    d_r_mutex_unlock(&do_not_delete_lock);
 }
 
 fragment_t *
@@ -601,7 +600,7 @@ sideline_optimize(fragment_t *f,
     ASSERT(is_thread_known(pause_for_sideline));
 
     if (dcontext->whereami != DR_WHERE_FCACHE) {
-        /* wait for thread to reach waiting point in dispatch */
+        /* wait for thread to reach waiting point in d_r_dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
             "\nsideline_optimize: waiting for target thread " TIDFMT "\n",
             pause_for_sideline);
@@ -613,9 +612,9 @@ sideline_optimize(fragment_t *f,
              * delete other fragments than f
              */
             fragment_now_optimizing = f;
-            mutex_unlock(&do_not_delete_lock);
+            d_r_mutex_unlock(&do_not_delete_lock);
             wait_for_event(paused_for_sideline_event, 0);
-            mutex_lock(&do_not_delete_lock);
+            d_r_mutex_lock(&do_not_delete_lock);
             /* if f was deleted, exit now */
             if (fragment_now_optimizing == NULL)
                 goto exit_sideline_optimize;
@@ -635,14 +634,14 @@ sideline_optimize(fragment_t *f,
 #    ifdef DEBUG
     ASSERT(instr_get_opcode(instrlist_last(ilist)) == OP_jmp);
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nbefore removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     remove_profiling_func(dcontext, ilist);
 
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, VERB_3, "\nafter removing profiling:\n");
-    if (stats->loglevel >= VERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= VERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
 
@@ -654,13 +653,13 @@ sideline_optimize(fragment_t *f,
          */
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nbefore optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     optimize_function(dcontext, f, ilist);
 #    ifdef DEBUG
     LOG(logfile, LOG_SIDELINE, OPTVERB_3, "\nafter optimization:\n");
-    if (stats->loglevel >= OPTVERB_3 && (stats->logmask & LOG_SIDELINE) != 0)
+    if (d_r_stats->loglevel >= OPTVERB_3 && (d_r_stats->logmask & LOG_SIDELINE) != 0)
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
 #    endif
     /* Note that the offline optimization interface cannot be used
@@ -707,8 +706,8 @@ sideline_optimize(fragment_t *f,
 
 #    ifdef DEBUG
     num_optimized++;
-    if (stats->loglevel >= 2 && (stats->logmask & LOG_SIDELINE) != 0) {
-        disassemble_fragment(dcontext, new_f, stats->loglevel < 3);
+    if (d_r_stats->loglevel >= 2 && (d_r_stats->logmask & LOG_SIDELINE) != 0) {
+        disassemble_fragment(dcontext, new_f, d_r_stats->loglevel < 3);
         LOG(logfile, LOG_SIDELINE, 2,
             "\tSIDELINE: emitted optimized F%d to replace F%d\n", new_f->id, f->id);
     }
@@ -716,10 +715,10 @@ sideline_optimize(fragment_t *f,
 
 exit_sideline_optimize:
     pause_for_sideline = (thread_id_t)0;
-    if (!mutex_trylock(&sideline_lock)) {
-        /* thread is waiting in dispatch */
+    if (!d_r_mutex_trylock(&sideline_lock)) {
+        /* thread is waiting in d_r_dispatch */
         signal_event(resume_from_sideline_event);
-        mutex_lock(&sideline_lock);
+        d_r_mutex_lock(&sideline_lock);
         /* at this point we know thread has read our resume event
          * clear all state
          */
@@ -730,7 +729,7 @@ exit_sideline_optimize:
     else
         num_opt_with_no_synch++;
 #    endif
-    mutex_unlock(&sideline_lock);
+    d_r_mutex_unlock(&sideline_lock);
     /* see HACK above */
     set_thread_private_dcontext(NULL);
 
@@ -751,7 +750,7 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
      */
     sideline_trace = NULL;
 
-    mutex_lock(&remember_lock);
+    d_r_mutex_lock(&remember_lock);
     for (l = remember, prev_l = NULL; l != NULL; prev_l = l, l = l->next) {
         if (l->dcontext == dcontext) {
             e = l->list;
@@ -777,11 +776,11 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
             else
                 remember = l->next;
             global_heap_free(l, sizeof(remember_list_t) HEAPACCT(ACCT_SIDELINE));
-            mutex_unlock(&remember_lock);
+            d_r_mutex_unlock(&remember_lock);
             return;
         }
     }
-    mutex_unlock(&remember_lock);
+    d_r_mutex_unlock(&remember_lock);
 }
 
 static sample_entry_t *
@@ -791,7 +790,7 @@ find_hottest_entry()
     sample_entry_t *e, *max = NULL;
     int max_counter = 0;
 
-    mutex_lock(&table.lock);
+    d_r_mutex_lock(&table.lock);
     for (i = 0; i < table.capacity; i++) {
         for (e = table.table[i]; e; e = e->next) {
             if (e->counter > max_counter) {
@@ -800,7 +799,7 @@ find_hottest_entry()
             }
         }
     }
-    mutex_unlock(&table.lock);
+    d_r_mutex_unlock(&table.lock);
     return max;
 }
 
@@ -812,7 +811,7 @@ update_sample_entry(ptr_uint_t tag)
     bool found = false;
 
     /* look up entry for id */
-    mutex_lock(&table.lock);
+    d_r_mutex_lock(&table.lock);
     hindex = HASH_FUNC((ptr_uint_t)tag, &table);
     for (e = table.table[hindex]; e; e = e->next) {
         if (e->tag == tag) {
@@ -833,7 +832,7 @@ update_sample_entry(ptr_uint_t tag)
         table.table[hindex] = e;
     }
 
-    mutex_unlock(&table.lock);
+    d_r_mutex_unlock(&table.lock);
     return e;
 }
 
@@ -843,7 +842,7 @@ sideline_fragment_delete(fragment_t *f)
 {
     if ((f->flags & FRAG_IS_TRACE) != 0) {
         /* see notes above on reasons for this extra lock */
-        mutex_lock(&do_not_delete_lock);
+        d_r_mutex_lock(&do_not_delete_lock);
         /* clear sample entry, it could still contain a pointer to f */
         sideline_trace = NULL;
         remove_sample_entry((ptr_uint_t)f);
@@ -851,7 +850,7 @@ sideline_fragment_delete(fragment_t *f)
         if (fragment_now_optimizing == f)
             fragment_now_optimizing = NULL;
 
-        mutex_unlock(&do_not_delete_lock);
+        d_r_mutex_unlock(&do_not_delete_lock);
     }
 }
 
@@ -861,7 +860,7 @@ remove_sample_entry(ptr_uint_t tag)
     uint hindex;
     sample_entry_t *e, *preve;
 
-    mutex_lock(&table.lock);
+    d_r_mutex_lock(&table.lock);
     hindex = HASH_FUNC((ptr_uint_t)tag, &table);
     for (e = table.table[hindex], preve = NULL; e != NULL; preve = e, e = e->next) {
         if (e->tag == tag) {
@@ -873,7 +872,7 @@ remove_sample_entry(ptr_uint_t tag)
             break;
         }
     }
-    mutex_unlock(&table.lock);
+    d_r_mutex_unlock(&table.lock);
 }
 
 static void
@@ -881,7 +880,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
 {
     remember_list_t *l;
     remember_entry_t *e;
-    mutex_lock(&remember_lock);
+    d_r_mutex_lock(&remember_lock);
     l = remember;
     while (l != NULL) {
         if (l->dcontext == dcontext) {
@@ -891,7 +890,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
             e->f = f;
             e->next = l->list;
             l->list = e;
-            mutex_unlock(&remember_lock);
+            d_r_mutex_unlock(&remember_lock);
             return;
         }
         l = l->next;
@@ -906,7 +905,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f)
     l->list->next = NULL;
     l->next = remember;
     remember = l;
-    mutex_unlock(&remember_lock);
+    d_r_mutex_unlock(&remember_lock);
 }
 
 #    ifdef UNIX /***************************************************************/

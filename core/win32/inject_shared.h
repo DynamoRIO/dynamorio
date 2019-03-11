@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -75,7 +75,7 @@ set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value);
  * intact (may not be true if GET_PARAMETER_BUF_TOO_SMALL is returned).
  */
 int
-get_parameter(const wchar_t *name, char *value, int maxlen);
+d_r_get_parameter(const wchar_t *name, char *value, int maxlen);
 
 /* Identical to get_parameter: for compatibility w/ non-PARAMS_IN_REGISTRY */
 int
@@ -123,7 +123,7 @@ get_parameter_64(const char *name, char *value, int maxlen);
 #endif /* PARAMS_IN_REGISTRY */
 /***************************************************************************/
 
-/* get_own_*_name routines cache their values and are primed by os_init() */
+/* get_own_*_name routines cache their values and are primed by d_r_os_init() */
 const wchar_t *
 get_own_qualified_name(void);
 

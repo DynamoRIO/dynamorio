@@ -2380,6 +2380,16 @@ endif ()
       tobuild_api(api.static_sideline_FLAKY api/static_sideline.c "" "" OFF ON)
       target_link_libraries(api.static_sideline_FLAKY ${libmath})
       link_with_pthread(api.static_sideline_FLAKY)
+
+      # i#3348: Ensure that DR without local symbols hidden is linkable and
+      # avoids conflicts (though CMake_symbol_check does most of the conflict
+      # checking).
+      tobuild_api(api.static_symbols api/static_symbols.c "" "" OFF ON)
+      get_target_property(lib_list api.static_symbols LINK_LIBRARIES)
+      list(REMOVE_ITEM lib_list dynamorio_static)
+      set_property(TARGET api.static_symbols PROPERTY LINK_LIBRARIES ${lib_list})
+      target_link_libraries(api.static_symbols dynamorio_static_nohide)
+      append_link_flags(api.static_symbols "-Wl,--warn-common -Wl,--fatal-warnings")
     endif ()
   endif ()
 

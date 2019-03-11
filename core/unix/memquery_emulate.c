@@ -43,7 +43,6 @@
 #include "../globals.h"
 #include "memquery.h"
 #include "os_private.h"
-#include <string.h>
 
 #ifdef HAVE_MEMINFO
 #    error Use kernel queries instead of emulation

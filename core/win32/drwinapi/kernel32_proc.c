@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -133,7 +133,7 @@ DWORD
 WINAPI
 redirect_GetCurrentThreadId(VOID)
 {
-    return (DWORD)get_thread_id();
+    return (DWORD)d_r_get_thread_id();
 }
 
 /***************************************************************************

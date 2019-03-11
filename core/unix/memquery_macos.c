@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -101,9 +101,9 @@ memquery_from_os_will_block(void)
 #else
     /* "may_alloc" is false for memquery_from_os() */
     bool res = true;
-    if (mutex_trylock(&memquery_backing_lock)) {
+    if (d_r_mutex_trylock(&memquery_backing_lock)) {
         res = false;
-        mutex_unlock(&memquery_backing_lock);
+        d_r_mutex_unlock(&memquery_backing_lock);
     }
     return res;
 #endif
@@ -148,7 +148,7 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
         ii->backing = HEAP_TYPE_ALLOC(ii->dcontext, struct proc_regionwithpathinfo,
                                       ACCT_MEM_MGT, PROTECTED);
     } else {
-        mutex_lock(&memquery_backing_lock);
+        d_r_mutex_lock(&memquery_backing_lock);
         ii->backing = &backing_info;
         ii->dcontext = NULL;
     }
@@ -163,7 +163,7 @@ memquery_iterator_stop(memquery_iter_t *iter)
         HEAP_TYPE_FREE(ii->dcontext, ii->backing, struct proc_regionwithpathinfo,
                        ACCT_MEM_MGT, PROTECTED);
     } else
-        mutex_unlock(&memquery_backing_lock);
+        d_r_mutex_unlock(&memquery_backing_lock);
 }
 
 bool

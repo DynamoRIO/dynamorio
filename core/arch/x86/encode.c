@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,8 +44,6 @@
 #include "disassemble.h"
 #include "decode_fast.h"
 #include "decode_private.h"
-
-#include <string.h> /* memcpy, memset */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -2341,7 +2339,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     /* first, walk through instr list to find format that matches
      * this instr's operands
      */
-    DOLOG(ENC_LEVEL, LOG_EMIT, { loginst(dcontext, 1, instr, "\n--- encoding"); });
+    DOLOG(ENC_LEVEL, LOG_EMIT, { d_r_loginst(dcontext, 1, instr, "\n--- encoding"); });
 
     memset(&di, 0, sizeof(decode_info_t));
     di.opcode = opc;
@@ -2632,7 +2630,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
 #if DEBUG_DISABLE /* turn back on if want to debug */
-    if (stats->loglevel >= 3) {
+    if (d_r_stats->loglevel >= 3) {
         byte *pc = cache_pc;
         LOG(THREAD, LOG_EMIT, 3, "instr_encode on: ");
         instr_disassemble(dcontext, instr, THREAD);

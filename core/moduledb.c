@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,7 +37,6 @@
 #include "utils.h"
 #include "moduledb.h"
 #include "module_shared.h"
-#include <string.h> /* for memset, strlen */
 
 /* An array of pointers to the various exempt lists indexed by the
  * moduledb_exempt_list_t enum.  We have the ugliness of an extra indirection
@@ -89,13 +88,13 @@ moduledb_update_exempt_list(char **list, const char *name, bool add)
 {
     LOG(GLOBAL, LOG_MODULEDB, 2, "\tlist before update \"%s\"\n",
         (*list == NULL) ? "" : *list);
-    write_lock(&moduledb_lock);
+    d_r_write_lock(&moduledb_lock);
     if (add && (*list == NULL || !check_filter(*list, name))) {
         *list = moduledb_add_to_exempt_list(*list, name);
     } else if (!add && *list != NULL && check_filter(*list, name)) {
         *list = moduledb_remove_from_exempt_list(*list, name);
     }
-    write_unlock(&moduledb_lock);
+    d_r_write_unlock(&moduledb_lock);
     LOG(GLOBAL, LOG_MODULEDB, 2, "\tlist after update \"%s\"\n",
         (*list == NULL) ? "" : *list);
 }
@@ -295,7 +294,7 @@ moduledb_check_exempt_list(moduledb_exempt_list_t list, const char *name)
 {
     bool found = false;
     ASSERT(exemption_lists != NULL);
-    read_lock(&moduledb_lock);
+    d_r_read_lock(&moduledb_lock);
     if (GET_EXEMPT_LIST(list) != NULL) {
         LOG(GLOBAL, LOG_MODULEDB, 2,
             "Moduledb checking %s exempt list =\"%s\" for module \"%s\"\n",
@@ -303,7 +302,7 @@ moduledb_check_exempt_list(moduledb_exempt_list_t list, const char *name)
             GET_EXEMPT_LIST(list) == NULL ? "" : GET_EXEMPT_LIST(list), name);
         found = check_filter(GET_EXEMPT_LIST(list), name);
     }
-    read_unlock(&moduledb_lock);
+    d_r_read_unlock(&moduledb_lock);
     return found;
 }
 
@@ -312,13 +311,13 @@ print_moduledb_exempt_lists(file_t file)
 {
     int i;
     ASSERT(exemption_lists != NULL);
-    read_lock(&moduledb_lock);
+    d_r_read_lock(&moduledb_lock);
     for (i = 0; i < MODULEDB_EXEMPT_NUM_LISTS; i++) {
         ASSERT(exempt_list_names[i] != NULL);
         print_file(file, "moduledb %s exemption list =\"%s\"\n", exempt_list_names[i],
                    GET_EXEMPT_LIST(i) == NULL ? "" : GET_EXEMPT_LIST(i));
     }
-    read_unlock(&moduledb_lock);
+    d_r_read_unlock(&moduledb_lock);
 }
 
 #ifdef PROCESS_CONTROL

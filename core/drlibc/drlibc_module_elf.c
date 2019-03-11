@@ -40,7 +40,6 @@
 #include "module_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
 
@@ -80,7 +79,7 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         if (!safe_read_if_fast(base, sizeof(ELF_HEADER_TYPE), &elf_header))
             return false;
     } else if (size == 0) {
-        if (!safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
+        if (!d_r_safe_read(base, sizeof(ELF_HEADER_TYPE), &elf_header))
             return false;
     } else {
         return false;

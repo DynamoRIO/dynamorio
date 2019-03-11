@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,7 +59,6 @@
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "../module_shared.h"
-#include <string.h>
 
 /* these are only needed for symbolic address lookup: */
 #include "../fragment.h" /* for fragment_pclookup */
@@ -1254,7 +1253,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
     if (dynamo_options.profile_times && (f->flags & FRAG_IS_TRACE) != 0) {
         int sz = profile_call_size();
         profile_end = pc + sz;
-        if (stats->loglevel < 3) {
+        if (d_r_stats->loglevel < 3) {
             /* don't print profile stuff to save space */
             print_file(outfile, "  " PFX "..." PFX " = profile code\n", pc,
                        (pc + sz - 1));
@@ -1365,7 +1364,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
 void
 disassemble_fragment(dcontext_t *dcontext, fragment_t *f, bool just_header)
 {
-    if ((stats->logmask & LOG_EMIT) != 0) {
+    if ((d_r_stats->logmask & LOG_EMIT) != 0) {
         common_disassemble_fragment(dcontext, f, THREAD, true, !just_header);
         if (!just_header)
             LOG(THREAD, LOG_EMIT, 1, "\n");
@@ -1549,7 +1548,7 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar, app_pc
                                                        : "Thread " TIDFMT
                                                          " call stack:\n",
                         /* We avoid TLS tid to work on crashes */
-                        IF_WINDOWS_ELSE(get_thread_id(), get_sys_thread_id()));
+                        IF_WINDOWS_ELSE(d_r_get_thread_id(), get_sys_thread_id()));
     }
 
     if (cur_pc != NULL) {

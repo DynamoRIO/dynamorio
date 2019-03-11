@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -100,7 +100,7 @@ const instr_info_t * const op_instr[] =
     /* OP_popa    */   &first_byte[0x61],
     /* OP_bound   */   &first_byte[0x62],
     /* OP_arpl    */   &x64_extensions[16][0],
-    /* OP_imul    */   &extensions[10][5],
+    /* OP_imul    */   &base_extensions[10][5],
 
     /* OP_jo_short    */   &first_byte[0x70],
     /* OP_jno_short   */   &first_byte[0x71],
@@ -120,14 +120,14 @@ const instr_info_t * const op_instr[] =
     /* OP_jnle_short  */   &first_byte[0x7f],
 
     /* OP_call          */   &first_byte[0xe8],
-    /* OP_call_ind      */   &extensions[12][2],
+    /* OP_call_ind      */   &base_extensions[12][2],
     /* OP_call_far      */   &first_byte[0x9a],
-    /* OP_call_far_ind  */   &extensions[12][3],
+    /* OP_call_far_ind  */   &base_extensions[12][3],
     /* OP_jmp           */   &first_byte[0xe9],
     /* OP_jmp_short     */   &first_byte[0xeb],
-    /* OP_jmp_ind       */   &extensions[12][4],
+    /* OP_jmp_ind       */   &base_extensions[12][4],
     /* OP_jmp_far       */   &first_byte[0xea],
-    /* OP_jmp_far_ind   */   &extensions[12][5],
+    /* OP_jmp_far_ind   */   &base_extensions[12][5],
 
     /* OP_loopne  */   &first_byte[0xe0],
     /* OP_loope   */   &first_byte[0xe1],
@@ -348,32 +348,32 @@ const instr_info_t * const op_instr[] =
     /* OP_pslldq      */   &prefix_extensions[102][2],
 
 
-    /* OP_rol          */   &extensions[ 4][0],
-    /* OP_ror          */   &extensions[ 4][1],
-    /* OP_rcl          */   &extensions[ 4][2],
-    /* OP_rcr          */   &extensions[ 4][3],
-    /* OP_shl          */   &extensions[ 4][4],
-    /* OP_shr          */   &extensions[ 4][5],
-    /* OP_sar          */   &extensions[ 4][7],
-    /* OP_not          */   &extensions[10][2],
-    /* OP_neg          */   &extensions[10][3],
-    /* OP_mul          */   &extensions[10][4],
-    /* OP_div          */   &extensions[10][6],
-    /* OP_idiv         */   &extensions[10][7],
-    /* OP_sldt         */   &extensions[13][0],
-    /* OP_str          */   &extensions[13][1],
-    /* OP_lldt         */   &extensions[13][2],
-    /* OP_ltr          */   &extensions[13][3],
-    /* OP_verr         */   &extensions[13][4],
-    /* OP_verw         */   &extensions[13][5],
+    /* OP_rol          */   &base_extensions[ 4][0],
+    /* OP_ror          */   &base_extensions[ 4][1],
+    /* OP_rcl          */   &base_extensions[ 4][2],
+    /* OP_rcr          */   &base_extensions[ 4][3],
+    /* OP_shl          */   &base_extensions[ 4][4],
+    /* OP_shr          */   &base_extensions[ 4][5],
+    /* OP_sar          */   &base_extensions[ 4][7],
+    /* OP_not          */   &base_extensions[10][2],
+    /* OP_neg          */   &base_extensions[10][3],
+    /* OP_mul          */   &base_extensions[10][4],
+    /* OP_div          */   &base_extensions[10][6],
+    /* OP_idiv         */   &base_extensions[10][7],
+    /* OP_sldt         */   &base_extensions[13][0],
+    /* OP_str          */   &base_extensions[13][1],
+    /* OP_lldt         */   &base_extensions[13][2],
+    /* OP_ltr          */   &base_extensions[13][3],
+    /* OP_verr         */   &base_extensions[13][4],
+    /* OP_verw         */   &base_extensions[13][5],
     /* OP_sgdt         */   &mod_extensions[0][0],
     /* OP_sidt         */   &mod_extensions[1][0],
     /* OP_lgdt         */   &mod_extensions[5][0],
     /* OP_lidt         */   &mod_extensions[4][0],
-    /* OP_smsw         */   &extensions[14][4],
-    /* OP_lmsw         */   &extensions[14][6],
+    /* OP_smsw         */   &base_extensions[14][4],
+    /* OP_lmsw         */   &base_extensions[14][6],
     /* OP_invlpg       */   &mod_extensions[2][0],
-    /* OP_cmpxchg8b    */   &extensions[16][1],
+    /* OP_cmpxchg8b    */   &base_extensions[16][1],
     /* OP_fxsave32     */   &rex_w_extensions[0][0],
     /* OP_fxrstor32    */   &rex_w_extensions[1][0],
     /* OP_ldmxcsr      */   &vex_extensions[61][0],
@@ -382,12 +382,12 @@ const instr_info_t * const op_instr[] =
     /* OP_mfence       */   &mod_extensions[7][1],
     /* OP_clflush      */   &mod_extensions[3][0],
     /* OP_sfence       */   &mod_extensions[3][1],
-    /* OP_prefetchnta  */   &extensions[23][0],
-    /* OP_prefetcht0   */   &extensions[23][1],
-    /* OP_prefetcht1   */   &extensions[23][2],
-    /* OP_prefetcht2   */   &extensions[23][3],
-    /* OP_prefetch     */   &extensions[24][0],
-    /* OP_prefetchw    */   &extensions[24][1],
+    /* OP_prefetchnta  */   &base_extensions[23][0],
+    /* OP_prefetcht0   */   &base_extensions[23][1],
+    /* OP_prefetcht1   */   &base_extensions[23][2],
+    /* OP_prefetcht2   */   &base_extensions[23][3],
+    /* OP_prefetch     */   &base_extensions[24][0],
+    /* OP_prefetchw    */   &base_extensions[24][1],
 
 
     /* OP_movups     */   &prefix_extensions[ 0][0],
@@ -1189,28 +1189,28 @@ const instr_info_t * const op_instr[] =
 
     /* AMD TBM */
     /* OP_bextr         */   &prefix_extensions[141][4],
-    /* OP_blcfill       */   &extensions[27][1],
-    /* OP_blci          */   &extensions[28][6],
-    /* OP_blcic         */   &extensions[27][5],
-    /* OP_blcmsk        */   &extensions[28][1],
-    /* OP_blcs          */   &extensions[27][3],
-    /* OP_blsfill       */   &extensions[27][2],
-    /* OP_blsic         */   &extensions[27][6],
-    /* OP_t1mskc        */   &extensions[27][7],
-    /* OP_tzmsk         */   &extensions[27][4],
+    /* OP_blcfill       */   &base_extensions[27][1],
+    /* OP_blci          */   &base_extensions[28][6],
+    /* OP_blcic         */   &base_extensions[27][5],
+    /* OP_blcmsk        */   &base_extensions[28][1],
+    /* OP_blcs          */   &base_extensions[27][3],
+    /* OP_blsfill       */   &base_extensions[27][2],
+    /* OP_blsic         */   &base_extensions[27][6],
+    /* OP_t1mskc        */   &base_extensions[27][7],
+    /* OP_tzmsk         */   &base_extensions[27][4],
 
     /* AMD LWP */
-    /* OP_llwpcb        */   &extensions[29][0],
-    /* OP_slwpcb        */   &extensions[29][1],
-    /* OP_lwpins        */   &extensions[30][0],
-    /* OP_lwpval        */   &extensions[30][1],
+    /* OP_llwpcb        */   &base_extensions[29][0],
+    /* OP_slwpcb        */   &base_extensions[29][1],
+    /* OP_lwpins        */   &base_extensions[30][0],
+    /* OP_lwpval        */   &base_extensions[30][1],
 
     /* Intel BMI1 */
     /* (includes non-immed form of OP_bextr) */
     /* OP_andn          */   &third_byte_38[100],
-    /* OP_blsr          */   &extensions[31][1],
-    /* OP_blsmsk        */   &extensions[31][2],
-    /* OP_blsi          */   &extensions[31][3],
+    /* OP_blsr          */   &base_extensions[31][1],
+    /* OP_blsmsk        */   &base_extensions[31][2],
+    /* OP_blsi          */   &base_extensions[31][3],
     /* OP_tzcnt         */   &prefix_extensions[140][1],
 
     /* Intel BMI2 */
@@ -1231,8 +1231,8 @@ const instr_info_t * const op_instr[] =
     /* OP_invpcid       */   &third_byte_38[103],
 
     /* Intel TSX */
-    /* OP_xabort        */   &extensions[17][7],
-    /* OP_xbegin        */   &extensions[18][7],
+    /* OP_xabort        */   &base_extensions[17][7],
+    /* OP_xbegin        */   &base_extensions[18][7],
     /* OP_xend          */   &rm_extensions[4][5],
     /* OP_xtest         */   &rm_extensions[4][6],
 
@@ -1276,7 +1276,7 @@ const instr_info_t * const op_instr[] =
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-    /* OP_jmpe      */   &extensions[13][6],
+    /* OP_jmpe      */   &base_extensions[13][6],
     /* OP_jmpe_abs  */   &second_byte[0xb8],
 #endif
 };
@@ -1652,7 +1652,7 @@ const instr_info_t * const op_instr[] =
 #define END_LIST  0
 #define tfb (ptr_int_t)&first_byte
 #define tsb (ptr_int_t)&second_byte
-#define tex (ptr_int_t)&extensions
+#define tex (ptr_int_t)&base_extensions
 #define t38 (ptr_int_t)&third_byte_38
 #define t3a (ptr_int_t)&third_byte_3a
 #define tpe (ptr_int_t)&prefix_extensions
@@ -2295,7 +2295,7 @@ const instr_info_t second_byte[] = {
  * Opcode extensions
  * This is from Table A-6
  */
-const instr_info_t extensions[][8] = {
+const instr_info_t base_extensions[][8] = {
   /* group 1a -- first opcode byte 80: all assumed to have Ib */
   { /* extensions[0] */
     {OP_add, 0x800020, "add", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][0]},

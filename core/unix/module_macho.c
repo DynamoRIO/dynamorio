@@ -58,7 +58,6 @@
 #include <mach-o/fat.h>
 #include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
-#include <string.h> /* strcmp */
 #include <dlfcn.h>
 
 bool
@@ -466,7 +465,7 @@ get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code 
 }
 
 generic_func_t
-get_proc_address(module_base_t lib, const char *name)
+d_r_get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_ex(lib, name, NULL);
 }
