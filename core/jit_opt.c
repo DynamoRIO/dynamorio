@@ -713,7 +713,7 @@ unit_test_insert_random_node(bb_node_t **node_list, app_pc random_base, uint ran
         node_list[index] = fragment_tree_insert(fragment_tree, random_start, random_end);
         return true;
     } else {
-        set_random_seed((uint)query_time_millis());
+        d_r_set_random_seed((uint)query_time_millis());
         return false;
     }
 }
@@ -873,7 +873,7 @@ unit_test_jit_fragment_tree()
     dynamo_options.opt_jit = true;
 
     fragment_tree = fragment_tree_create();
-    set_random_seed((uint)query_time_millis());
+    d_r_set_random_seed((uint)query_time_millis());
 
     for (i = 0; i < 3; i++) {
         print_file(STDERR, "pass %d... ", i + 1);

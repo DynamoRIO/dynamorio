@@ -1189,7 +1189,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
         do {                                                           \
             if (d_r_stats != NULL && d_r_stats->loglevel >= (level) && \
                 (d_r_stats->logmask & (mask)) != 0)                    \
-                print_log(file, mask, level, __VA_ARGS__);             \
+                d_r_print_log(file, mask, level, __VA_ARGS__);         \
         } while (0)
 /* use DOELOG for customer visible logging. statement can be a {} block */
 #    define DOELOG(level, mask, statement)                             \
@@ -1228,7 +1228,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    define DOCHECK(level, statement) /* nothing */
 #endif
 void
-print_log(file_t logfile, uint mask, uint level, const char *fmt, ...);
+d_r_print_log(file_t logfile, uint mask, uint level, const char *fmt, ...);
 void
 print_file(file_t f, const char *fmt, ...);
 
@@ -2250,10 +2250,10 @@ size_t
 get_random_offset(size_t max_offset);
 
 void
-set_random_seed(uint seed);
+d_r_set_random_seed(uint seed);
 
 uint
-get_random_seed(void);
+d_r_get_random_seed(void);
 
 void
 convert_millis_to_date(uint64 millis, dr_time_t *time OUT);

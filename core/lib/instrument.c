@@ -2814,14 +2814,14 @@ DR_API
 void
 dr_set_random_seed(uint seed)
 {
-    set_random_seed(seed);
+    d_r_set_random_seed(seed);
 }
 
 DR_API
 uint
 dr_get_random_seed(void)
 {
-    return get_random_seed();
+    return d_r_get_random_seed();
 }
 
 /***************************************************************************
@@ -4035,7 +4035,7 @@ dr_get_proc_address(module_handle_t lib, const char *name)
 #    ifdef WINDOWS
     return get_proc_address_resolve_forward(lib, name);
 #    else
-    return get_proc_address(lib, name);
+    return d_r_get_proc_address(lib, name);
 #    endif
 }
 
@@ -4076,7 +4076,7 @@ dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
 bool
 dr_unmap_executable_file(byte *base, size_t size)
 {
-    return unmap_file(base, size);
+    return d_r_unmap_file(base, size);
 }
 
 DR_API
@@ -4269,7 +4269,7 @@ DR_API
 void *
 dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot, uint flags)
 {
-    return (void *)map_file(
+    return (void *)d_r_map_file(
         f, size, offs, addr, prot,
         (TEST(DR_MAP_PRIVATE, flags) ? MAP_FILE_COPY_ON_WRITE : 0) |
             IF_WINDOWS((TEST(DR_MAP_IMAGE, flags) ? MAP_FILE_IMAGE : 0) |)
@@ -4298,7 +4298,7 @@ dr_unmap_file(void *map, size_t size)
     } else
         size = info.size;
 #    endif
-    return unmap_file((byte *)map, size);
+    return d_r_unmap_file((byte *)map, size);
 }
 
 DR_API
@@ -6523,11 +6523,12 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
 #ifdef ARM
     if (TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
-        if (mc != NULL)
-            set_stolen_reg_val(mc, (reg_t)get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
-        else {
+        if (mc != NULL) {
+            set_stolen_reg_val(mc,
+                               (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+        } else {
             set_stolen_reg_val(dr_mcontext_as_priv_mcontext(dmc),
-                               (reg_t)get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
+                               (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
         }
     }
 #endif
@@ -6592,7 +6593,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
          * on our stolen reg retaining its value on the stack)
          */
         priv_mcontext_t *mc = dr_mcontext_as_priv_mcontext(context);
-        set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *)get_stolen_reg_val(mc));
+        d_r_set_tls(os_tls_offset(TLS_REG_STOLEN_SLOT), (void *)get_stolen_reg_val(mc));
         /* save the reg val on the stack to be clobbered by the the copy below */
         reg_val = get_stolen_reg_val(state);
     }

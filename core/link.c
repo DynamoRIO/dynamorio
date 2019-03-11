@@ -309,14 +309,14 @@ link_reset_free(void)
 }
 
 void
-link_init()
+d_r_link_init()
 {
     link_reset_init();
     coarse_stubs_init();
 }
 
 void
-link_exit()
+d_r_link_exit()
 {
     coarse_stubs_free();
     link_reset_free();

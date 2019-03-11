@@ -839,10 +839,10 @@ hotp_read_data_file(uint type, size_t *buf_len /* OUT */)
 
     *buf_len = 0;
 
-    retval =
-        get_parameter(type == POLICY_FILE ? PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
-                                          : PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_MODES),
-                      file, BUFFER_SIZE_ELEMENTS(file));
+    retval = d_r_get_parameter(type == POLICY_FILE
+                                   ? PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_POLICIES)
+                                   : PARAM_STR(DYNAMORIO_VAR_HOT_PATCH_MODES),
+                               file, BUFFER_SIZE_ELEMENTS(file));
     if (IS_GET_PARAMETER_FAILURE(retval)) {
         SYSLOG_INTERNAL_WARNING("Can't find %s definition directory name.",
                                 (type == POLICY_FILE) ? "policy" : "mode");
@@ -1145,8 +1145,8 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
          * disable all associated vuls?   We are going to assert/log if we can't
          * find the dll (below) anyway.
          */
-        retval = get_parameter(PARAM_STR(DYNAMORIO_VAR_HOME), hotp_dll_cache,
-                               BUFFER_SIZE_ELEMENTS(hotp_dll_cache));
+        retval = d_r_get_parameter(PARAM_STR(DYNAMORIO_VAR_HOME), hotp_dll_cache,
+                                   BUFFER_SIZE_ELEMENTS(hotp_dll_cache));
         if (IS_GET_PARAMETER_FAILURE(retval)) {
             SYSLOG_INTERNAL_WARNING("Can't read %s.  Hot patch dll loading "
                                     "failed; hot patching won't work.",
@@ -2446,7 +2446,7 @@ hotp_process_image_helper(const app_pc base, const bool loaded,
                             /* gbop is only in -client mode, i.e., hotp_only */
                             ASSERT(DYNAMO_OPTION(hotp_only));
 
-                            func_addr = (app_pc)get_proc_address(
+                            func_addr = (app_pc)d_r_get_proc_address(
                                 (module_handle_t)base, GLOBAL_VUL(vul_idx).vul_id);
                             if (func_addr != NULL) { /* fix for case 7969 */
                                 ASSERT(func_addr > base);

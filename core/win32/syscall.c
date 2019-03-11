@@ -886,7 +886,8 @@ init_syscall_trampolines(void)
             fpo_adjustment = &syscall_trampoline_gbop_fpo_offset[i];
 #endif
 
-            syscall_trampoline_hook_pc[i] = (app_pc)get_proc_address(h, syscall_names[i]);
+            syscall_trampoline_hook_pc[i] =
+                (app_pc)d_r_get_proc_address(h, syscall_names[i]);
             syscall_trampoline_pc[i] =
                 /* FIXME: would like to use static references to entry points -- yet,
                  * set of those we care about varies dynamically by platform, and
@@ -981,7 +982,7 @@ check_syscall_numbers(dcontext_t *dcontext)
     for (i = 0; i < SYS_MAX; i++) {
         if (syscalls[i] == SYSCALL_NOT_PRESENT)
             continue;
-        addr = (byte *)get_proc_address(h, syscall_names[i]);
+        addr = (byte *)d_r_get_proc_address(h, syscall_names[i]);
         ASSERT(addr != NULL);
         LOG(GLOBAL, LOG_SYSCALLS, 4, "\tsyscall 0x%x %s: addr " PFX "\n", i,
             syscall_names[i], addr);
@@ -1857,7 +1858,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
          * w/ > 1 thread perhaps we should do the synchall.
          */
         LOG(THREAD, LOG_SYSCALLS, 2, "\tterminating process w/ %d running thread(s)\n",
-            get_num_threads());
+            d_r_get_num_threads());
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
         if (is_thread_currently_native(dcontext->thread_record)) {
@@ -1929,7 +1930,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
     } else {
         /* case 9347 - racy early thread, yet primary is not yet 'known' */
         /* we should evaluate dr_late_injected_primary_thread before
-         * get_num_threads()
+         * d_r_get_num_threads()
          */
         bool secondary = dr_injected_secondary_thread && !dr_late_injected_primary_thread;
 
@@ -4623,7 +4624,7 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         if (intercept_native_syscall(i) && strcmp(syscall_names[i], name) == 0)
             return true;
     }
-    if (get_proc_address(get_ntdll_base(), name) == NULL)
+    if (d_r_get_proc_address(get_ntdll_base(), name) == NULL)
         return false;
     /* no lock needed since only supported during dr_client_main */
     idx = SYS_MAX + syscall_extra_idx;
