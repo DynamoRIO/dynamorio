@@ -223,9 +223,9 @@ if (UNIX)
 
   function (check_avx_processor_and_compiler_support out)
     # XXX i#1312: add Windows support.
-    set(avx_prog "int main() {\
+    set(avx_prog "int main() { \
                     asm volatile(\"vmovdqu32 \%ymm0,(\%rsp)\"); \
-                    return 0;
+                    return 0; \
                   }")
     set(CMAKE_REQUIRED_FLAGS "-mavx")
     set(proc_found_avx 0)
@@ -249,10 +249,10 @@ if (UNIX)
 
   function (check_avx512_processor_and_compiler_support out)
     # XXX i#1312: add Windows support.
-    set(avx512_prog "int main() {\
-                    asm volatile(\"vmovdqu64 \%zmm0,(\%rsp)\"); \
-                    return 0;
-                  }")
+    set(avx512_prog "int main() { \
+                       asm volatile(\"vmovdqu64 \%zmm0,(\%rsp)\"); \
+                       return 0; \
+                     }")
     set(CMAKE_REQUIRED_FLAGS "-march=skylake-avx512")
     check_c_source_compiles("${avx512_prog}" compiler_supports_avx512)
     set(proc_found_avx512 0)
