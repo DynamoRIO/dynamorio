@@ -221,4 +221,46 @@ if (UNIX)
     append_property_string(TARGET ${target} LINK_FLAGS "${ldflags}")
   endfunction (set_preferred_base_start_and_end)
 
+  function (processor_and_compiler_support_avx out)
+    set(avx_prog "int main() {\
+                    asm volatile(\"vmovdqu32 \%ymm0,(\%rsp)\"); \
+                    return 0;
+                  }")
+    set(CMAKE_REQUIRED_FLAGS "-mavx")
+    check_c_source_compiles("${avx_prog}" compiler_supports_avx)
+    if (NOT compiler_supports_avx)
+      message(STATUS "WARNING: Compiler does not support AVX, skipping tests")
+    endif ()
+    if (compiler_supports_avx)
+      exec_program(cat ARGS "/proc/cpuinfo" OUTPUT_VARIABLE cpuinfo)
+      string(REGEX REPLACE "^.*(avx).*$" "\\1" grep_for_avx ${cpuinfo})
+      string(COMPARE EQUAL "avx" "${grep_for_avx}" proc_found_avx)
+      if (NOT proc_found_avx)
+        message(STATUS "WARNING: Processor does not support AVX, skipping tests")
+      endif ()
+    endif ()
+    set(${out} ${proc_found_avx} PARENT_SCOPE)
+  endfunction (processor_and_compiler_support_avx)
+
+  function (processor_and_compiler_support_avx512 out)
+    set(avx512_prog "int main() {\
+                    asm volatile(\"vmovdqu64 \%zmm0,(\%rsp)\"); \
+                    return 0;
+                  }")
+    set(CMAKE_REQUIRED_FLAGS "-march=skylake-avx512")
+    check_c_source_compiles("${avx512_prog}" compiler_supports_avx512)
+    if (NOT compiler_supports_avx512)
+      message(STATUS "WARNING: Compiler does not support AVX-512, skipping tests")
+    endif ()
+    if (compiler_supports_avx512)
+      exec_program(cat ARGS "/proc/cpuinfo" OUTPUT_VARIABLE cpuinfo)
+      string(REGEX REPLACE "^.*(avx512f).*$" "\\1" grep_for_avx512 ${cpuinfo})
+      string(COMPARE EQUAL "avx512f" "${grep_for_avx512}" proc_found_avx512)
+      if (NOT proc_found_avx512)
+        message(STATUS "WARNING: Processor does not support AVX-512, skipping tests")
+      endif ()
+      set(${out} ${proc_found_avx512} PARENT_SCOPE)
+    endif ()
+  endfunction (processor_and_compiler_support_avx512)
+
 endif (UNIX)
