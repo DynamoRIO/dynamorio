@@ -1122,11 +1122,15 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
     mcontext->r14 = cxt->R14;
     mcontext->r15 = cxt->R15;
 #        endif
+    /* XXX i#1312: This will need attention for AVX-512, specifically the different
+     * xstate formats supported by the processor, compacted and standard, as well as
+     * MPX.
+     */
     if (CONTEXT_PRESERVE_XMM && TESTALL(CONTEXT_XMM_FLAG, cxt->ContextFlags)) {
         /* no harm done if no sse support */
         /* CONTEXT_FLOATING_POINT or CONTEXT_EXTENDED_REGISTERS */
         int i;
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++)
+        for (i = 0; i < proc_num_simd_registers(); i++)
             memcpy(&mcontext->ymm[i], CXT_XMM(cxt, i), XMM_REG_SIZE);
     }
     /* if XSTATE is NOT set, the app has NOT used any ymm state and
@@ -1136,7 +1140,7 @@ context_to_mcontext_internal(priv_mcontext_t *mcontext, CONTEXT *cxt)
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
             int i;
-            for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+            for (i = 0; i < proc_num_simd_registers(); i++) {
                 memcpy(&mcontext->ymm[i].u32[4], &YMMH_AREA(ymmh_area, i).u32[0],
                        YMMH_REG_SIZE);
             }
@@ -1227,9 +1231,13 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
         memcpy(&cxt->ExtendedRegisters, fpstate, written);
 #        endif
         /* Now update w/ the xmm values from mcontext */
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++)
+        for (i = 0; i < proc_num_simd_registers(); i++)
             memcpy(CXT_XMM(cxt, i), &mcontext->ymm[i], XMM_REG_SIZE);
     }
+    /* XXX i#1312: This will need attention for AVX-512, specifically the different
+     * xstate formats supported by the processor, compacted and standard, as well as
+     * MPX.
+     */
     if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
@@ -1257,7 +1265,7 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
             memcpy(&YMMH_AREA(ymmh_area, 6).u32[0], &ymms[0].u32[4], YMMH_REG_SIZE);
             memcpy(&YMMH_AREA(ymmh_area, 7).u32[0], &ymms[1].u32[4], YMMH_REG_SIZE);
 #        endif
-            for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+            for (i = 0; i < proc_num_simd_registers(); i++) {
                 memcpy(&YMMH_AREA(ymmh_area, i).u32[0], &mcontext->ymm[i].u32[4],
                        YMMH_REG_SIZE);
             }
