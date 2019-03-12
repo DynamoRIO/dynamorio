@@ -165,10 +165,10 @@ endfunction ()
 
 function (check_avx_processor_and_compiler_support out)
   if (WIN32)
+    # XXX i#1312: add Windows support.
     message(FATAL_ERROR "Windows not supported yet.")
   endif ()
   include(CheckCSourceRuns)
-  # XXX i#1312: add Windows support.
   set(avx_prog "int main() { \
                   asm volatile(\"vmovdqu %ymm0, %ymm1\"); \
                   return 0; \
@@ -186,10 +186,10 @@ endfunction (check_avx_processor_and_compiler_support)
 
 function (check_avx512_processor_and_compiler_support out)
   if (WIN32)
+    # XXX i#1312: add Windows support.
     message(FATAL_ERROR "Windows not supported yet.")
   endif ()
   include(CheckCSourceRuns)
-  # XXX i#1312: add Windows support.
   set(avx512_prog "int main() { \
                      asm volatile(\"vmovdqu64 %zmm0, %zmm1\"); \
                      return 0; \
