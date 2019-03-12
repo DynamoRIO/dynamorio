@@ -4718,6 +4718,10 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
     /* Even if all, we have to ensure we have the ExtendedRegister fields,
      * which for a dynamically-laid-out context may not exist (i#1223).
      */
+    /* XXX i#1312: This will need attention for AVX-512, specifically the different
+     * xstate formats supported by the processor, compacted and standard, as well as
+     * MPX.
+     */
     if ((all && !CONTEXT_DYNAMICALLY_LAID_OUT(context->ContextFlags)) ||
         TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;

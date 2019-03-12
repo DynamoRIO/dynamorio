@@ -459,13 +459,18 @@ proc_fpstate_save_size(void);
 
 DR_API
 /**
- * Returns the number of SIMD registers to be saved.
+ * Returns the number of SIMD registers preserved for a context switch. DynamoRIO
+ * may decide to optimize the number of registers saved, in which case this number
+ * may be less than proc_num_simd_registers(). For x86 this only includes xmm/ymm/zmm.
  *
  * The number of saved SIMD registers may be variable. For example, we may decide
  * to optimize the number of saved registers in a context switch to avoid frequency
  * scaling (https://github.com/DynamoRIO/dynamorio/issues/3169).
  */
-/* PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
+/* XXX i#1312: Implement lazy update mechanism and add a callback so clients
+ * can adjust for changes mid-run.
+ *
+ * PR 306394: for 32-bit xmm0-7 are caller-saved, and are touched by
  * libc routines invoked by DR in some Linux systems (xref i#139),
  * so they should be saved in 32-bit Linux.
  *
@@ -484,6 +489,16 @@ DR_API
  */
 int
 proc_num_simd_saved(void);
+
+DR_API
+/**
+ * Returns the number of SIMD registers. The number returned here depends on the
+ * processor and OS feature bits on a given machine. For x86 this only includes
+ * xmm/ymm/zmm.
+ *
+ */
+int
+proc_num_simd_registers(void);
 
 DR_API
 /**
@@ -534,9 +549,10 @@ void
 proc_restore_fpstate(byte *buf);
 
 DR_API
-/** Returns whether AVX is enabled by both the processor and the operating system.
- * Even if the processor supports AVX, if the operating system does not enable
- * AVX state saving, then AVX instructions will fault.
+/**
+ * Returns whether AVX (or AVX2) is enabled by both the processor and the OS.
+ * Even if the processor supports AVX, if the OS does not enable AVX, then
+ * AVX instructions will fault.
  */
 bool
 proc_avx_enabled(void);
