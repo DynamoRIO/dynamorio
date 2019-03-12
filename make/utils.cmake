@@ -222,55 +222,39 @@ if (UNIX)
   endfunction (set_preferred_base_start_and_end)
 
   function (check_avx_processor_and_compiler_support out)
+    include(CheckCSourceRuns)
     # XXX i#1312: add Windows support.
     set(avx_prog "int main() { \
-                    asm volatile(\"vmovdqu32 \%ymm0,(\%rsp)\"); \
+                    asm volatile(\"vmovdqu %ymm0, %ymm1\"); \
                     return 0; \
                   }")
     set(CMAKE_REQUIRED_FLAGS "-mavx")
-    set(proc_found_avx 0)
-    check_c_source_compiles("${avx_prog}" compiler_supports_avx)
-    if (compiler_supports_avx)
-      message(STATUS "Compiler supports AVX.")
+    check_c_source_runs("${avx_prog}" proc_found_avx)
+    if (proc_found_avx)
+      message(STATUS "Compiler and processor support AVX.")
     else ()
-      message(STATUS "WARNING: Compiler does not support AVX. Skipping tests")
-    endif ()
-    if (compiler_supports_avx)
-      file(READ /proc/cpuinfo cpuinfo)
-      if (cpuinfo MATCHES "flags.*avx.*")
-        message(STATUS "Processor supports AVX.")
-        set(proc_found_avx 1)
-      else ()
-        message(STATUS "WARNING: Processor does not support AVX. Skipping tests")
-      endif ()
+      message(STATUS "WARNING: Compiler or processor do not support AVX."
+                     "Skipping tests")
     endif ()
     set(${out} ${proc_found_avx} PARENT_SCOPE)
   endfunction (check_avx_processor_and_compiler_support)
 
   function (check_avx512_processor_and_compiler_support out)
+    include(CheckCSourceRuns)
     # XXX i#1312: add Windows support.
     set(avx512_prog "int main() { \
-                       asm volatile(\"vmovdqu64 \%zmm0,(\%rsp)\"); \
+                       asm volatile(\"vmovdqu64 %zmm0, %zmm1\"); \
                        return 0; \
                      }")
-    set(CMAKE_REQUIRED_FLAGS "-march=skylake-avx512")
-    check_c_source_compiles("${avx512_prog}" compiler_supports_avx512)
-    set(proc_found_avx512 0)
-    if (compiler_supports_avx512)
-      message(STATUS "Compiler supports AVX-512.")
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f")
+    check_c_source_runs("${avx512_prog}" proc_found_avx512)
+    if (proc_found_avx512)
+      message(STATUS "Compiler and processor support AVX-512.")
     else ()
-      message(STATUS "WARNING: Compiler does not support AVX-512. Skipping tests")
+      message(STATUS "WARNING: Compiler or processor do not support AVX-512."
+                     "Skipping tests")
     endif ()
-    if (compiler_supports_avx512)
-      file(READ /proc/cpuinfo cpuinfo)
-      if (cpuinfo MATCHES "flags.*avx512f.*")
-        message(STATUS "Processor supports AVX-512.")
-        set(proc_found_avx512 1)
-      else ()
-        message(STATUS "WARNING: Processor does not support AVX-512. Skipping tests")
-      endif ()
-      set(${out} ${proc_found_avx512} PARENT_SCOPE)
-    endif ()
+    set(${out} ${proc_found_avx512} PARENT_SCOPE)
   endfunction (check_avx512_processor_and_compiler_support)
 
 endif (UNIX)
