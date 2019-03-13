@@ -7584,7 +7584,7 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map, app_pc base, size_t siz
 #endif /* HAVE_MEMINFO */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
     if (found_map) {
-        module_list_add(base, ALIGN_FORWARD(mod_size, PAGE_SIZE), at_map, filename,
+        module_list_add(base, ALIGN_FORWARD(mod_size, PAGE_SIZE), at_map, /* at_map */ filename,
                         inode);
         dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
@@ -8825,7 +8825,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                  * to force into the module list.
                  */
                 if (module_is_header(iter->vm_start, iter->vm_end - iter->vm_start)) {
-                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start, false,
+                    module_list_add(iter->vm_start, iter->vm_end - iter->vm_start, false, /* at_map */
                                     iter->comment, iter->inode);
                 }
             }
@@ -8909,7 +8909,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
                 /* We don't yet know whether contiguous so we have to settle for the
                  * first segment's size.  We'll update it in module_list_add().
                  */
-                module_list_add(iter->vm_start, mod_first_end - mod_base, false,
+                module_list_add(iter->vm_start, mod_first_end - mod_base, false, /* at_map */
                                 iter->comment, iter->inode);
 
 #    ifdef MACOS

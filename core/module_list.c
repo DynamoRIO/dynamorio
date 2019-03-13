@@ -255,7 +255,6 @@ module_list_add(app_pc base, size_t view_size, bool at_map,
          * the loaded_module_areas vector, to support non-contiguous
          * modules (i#160/PR 562667)
          */
-        SYSLOG_INTERNAL_INFO("\nfilepath=%s base=0x%x view_size=%d", filepath, base, view_size);
         module_area_t *ma =
             module_area_create(base, view_size, at_map, filepath _IF_UNIX(inode));
         ASSERT(ma != NULL);

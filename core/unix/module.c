@@ -72,6 +72,8 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     char *soname = NULL;
     ASSERT(module_is_header(base, view_size));
 
+    ma->os_data.source_file_name = filepath;
+
     /* i#1589: use privload data if it exists (for client lib) */
     if (!privload_fill_os_module_info(base, &mod_base, &mod_end, &soname, &ma->os_data)) {
         /* XXX i#1860: on Android we'll fail to fill in info from .dynamic, so

@@ -87,6 +87,8 @@ typedef struct _os_module_data_t {
     ptr_uint_t gnu_shift;
     ptr_uint_t gnu_bitidx;
     size_t gnu_symbias; /* .dynsym index of first export */
+    const char *source_file_name; /* Original from which module is created */
+    byte *source_file_map;        /* Flat mmap()ed address of the file */
 #else                   /* MACOS */
     byte *exports;     /* absolute addr of exports trie */
     size_t exports_sz; /* size of exports trie */

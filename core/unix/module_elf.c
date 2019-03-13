@@ -40,6 +40,8 @@
 #include "instrument.h"
 #include <stddef.h> /* offsetof */
 #include <link.h>   /* Elf_Symndx */
+#include <sys/mman.h> /* Flags for mmap_syscall */
+#include <fcntl.h>    /* O_RDONLY */
 
 #ifndef ANDROID
 struct tlsdesc_t {
@@ -209,15 +211,38 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
     return tgt;
 }
 
-Elf64_Off module_get_dynstr_offset(app_pc base, size_t view_size)
+/* TODO: Is there a way of accessing elf_loader_t's load_base and image_size here?
+ * If so, then this function may not be needed.
+ */
+static size_t
+module_map_file(os_module_data_t *os_mod_data)
+{
+    int fd;
+    uint64 size;
+
+    fd = open_syscall(os_mod_data->source_file_name, O_RDONLY, 0);
+    ASSERT(fd != -1);
+
+    if (!os_get_file_size_by_handle(fd, &size))
+        ASSERT(false);
+
+    os_mod_data->source_file_map = (byte *)mmap_syscall(NULL, size, PROT_READ,
+                                                    MAP_PRIVATE, fd, 0);
+    ASSERT(os_mod_data->source_file_map != (byte *)-1);
+
+    return size;
+}
+
+/* Extract .dynstr file offset from section header based on flat mmap of ELF file */
+static Elf64_Off
+module_get_dynstr_offset(app_pc base, size_t size)
 {
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
     ELF_SECTION_HEADER_TYPE *sec_hdr;
     char *strtab;
     uint i;
 
-    SYSLOG_INTERNAL_INFO("view_size=%d e_shoff=%d", view_size, elf_hdr->e_shoff);
-    ASSERT(view_size > elf_hdr->e_shoff);
+    ASSERT(size > elf_hdr->e_shoff);
     ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
 
     sec_hdr = (ELF_SECTION_HEADER_TYPE *)(base + elf_hdr->e_shoff);
@@ -227,7 +252,7 @@ Elf64_Off module_get_dynstr_offset(app_pc base, size_t view_size)
             return sec_hdr->sh_offset;
         ++sec_hdr;
     }
-    // TODO: assume all ELFs contain a .dynstr ?
+    // TODO: Can we assume *all* ELFs contain a .dynstr ?
     ASSERT(false);
     return 0;
 }
@@ -276,16 +301,25 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
             int soname_index = -1;
             char *dynstr = NULL;
             size_t sz = mod_max_end - mod_base;
+            size_t mapped_size = 0;
             while (dyn->d_tag != DT_NULL) {
                 if (dyn->d_tag == DT_SONAME) {
                     soname_index = dyn->d_un.d_val;
                     if (dynstr != NULL)
                         break;
                 } else if (dyn->d_tag == DT_STRTAB) {
-                    /* Fudge to only use module_get_dynstr_offset() for libarmflang.so
-                       libarmflang.so  19.1                   19.0 */
-                    if (view_size == 5603328 || view_size == 4030464)
-                        dynstr = (char *)(base + module_get_dynstr_offset(base, view_size));
+                    /* i#3385 Some ELF files' .dynstr section occurs late in the
+                     * file. This requires use of the file offset rather than the
+                     * virtual offset because the .dynstr segment has not yet been
+                     * mapped. at_map indicates whether all segments are fully
+                     * loaded (at_map=false => use virtual offsets) or file just
+                     * at the first flat mmap (at_map=true => use file offsets).
+                     */
+                    if (at_map == 1) {
+                        mapped_size = module_map_file(out_data);
+                        Elf64_Off offset = module_get_dynstr_offset(out_data->source_file_map, mapped_size);
+                        dynstr = (char *)(out_data->source_file_map + offset);
+                    }
                     else
                         dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
                                                      at_map, dyn_reloc);
@@ -326,17 +360,26 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
             if (soname_index != -1 && dynstr != NULL) {
                 *soname = dynstr + soname_index;
 
-                /* sanity check soname location */
-                if ((app_pc)*soname < base || (app_pc)*soname > base + sz) {
+                /* Sanity check soname location using base address and size
+                 * depending on if virtual or file offset has been used. See
+                 * i#3385 comment above.
+                 */
+                app_pc base_variant;
+                size_t size_variant;
+                if (at_map == 1) {
+                    base_variant = out_data->source_file_map;
+                    size_variant = mapped_size;
+                }
+                else {
+                    base_variant = base ;
+                    size_variant = sz;
+                }
+                if ((app_pc)*soname < base_variant ||
+                    (app_pc)*soname > base_variant + size_variant) {
                     ASSERT_CURIOSITY(false && "soname not in module");
-                    *soname = NULL;
-                } else if (at_map && (app_pc)*soname > base + view_size) {
-                    ASSERT_CURIOSITY(false && "soname not in initial map");
                     *soname = NULL;
                 }
 
-                SYSLOG_INTERNAL_INFO("soname [%p]", *soname);
-                SYSLOG_INTERNAL_INFO("soname [%s]", *soname);
                 /* test string readability while still in try/except
                  * in case we screwed up somewhere or module is
                  * malformed/only partially mapped */
