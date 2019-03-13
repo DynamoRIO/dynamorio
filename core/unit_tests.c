@@ -281,14 +281,16 @@ main(int argc, char **argv, char **envp)
     unit_test_asm(dc);
     unit_test_atomic_ops();
     unit_test_jit_fragment_tree();
+#ifdef UNIX
     /* The following unit tests are implemented outside of DynamoRIO's core modules,
      * because DynamoRIO itself is not compiled for AVX or AVX-512.
      */
-#ifdef __AVX__
+#    ifdef __AVX__
     unit_test_get_ymm_caller_saved();
-#endif
-#ifdef __AVX512F__
+#    endif
+#    ifdef __AVX512F__
     unit_test_get_zmm_caller_saved();
+#    endif
 #endif
     print_file(STDERR, "all done\n");
     return 0;
