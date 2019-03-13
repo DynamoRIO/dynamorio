@@ -589,13 +589,16 @@ typedef enum {
 static void
 report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code);
 
-enum {
-    /* maximum 512MB for 32-bit, 2GB for 64-bit */
-    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(2U * 1024 * 1024 * 1024, 512U * 1024 * 1024),
-    /* We should normally have only one large unit, so this is in fact
-     * the maximum we should count on in one process
-     */
-};
+/* Maximum reservation is 512MB for 32-bit or 2GB for 64-bit. */
+#ifdef X64
+#    define MAX_VMM_HEAP_UNIT_SIZE (2U * 1024 * 1024 * 1024)
+#else
+#    define MAX_VMM_HEAP_UNIT_SIZE (512U * 1024 * 1024)
+#endif
+/* We should normally have only one large unit, so this is in fact
+ * the maximum we should count on in one process
+ */
+
 /* minimum will be used only if an invalid option is set */
 #define MIN_VMM_HEAP_UNIT_SIZE DYNAMO_OPTION(vmm_block_size)
 
