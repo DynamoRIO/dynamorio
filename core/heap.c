@@ -590,8 +590,8 @@ static void
 report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code);
 
 enum {
-    /* maximum 512MB for 32-bit, 1GB for 64-bit */
-    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(1024 * 1024 * 1024, 512 * 1024 * 1024),
+    /* maximum 512MB for 32-bit, 2GB for 64-bit */
+    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(2U * 1024 * 1024 * 1024, 512U * 1024 * 1024),
     /* We should normally have only one large unit, so this is in fact
      * the maximum we should count on in one process
      */
@@ -614,9 +614,11 @@ typedef struct {
        static therefore we don't grab locks on read accesses.  Anyways,
        currently the bitmap_t is used with no write intent only for ASSERTs. */
     uint num_free_blocks; /* currently free blocks */
-    /* Bitmap uses 2KB static data for granularity 64KB and static maximum 1GB on Windows,
-     * and 32KB on Linux where granularity is 4KB.  These amounts are halved for
+    /* Bitmap uses 4KB static data for granularity 64KB and static maximum 2GB on Windows,
+     * and 64KB on Linux where granularity is 4KB.  These amounts are halved for
      * 32-bit, so 1KB Windows and 16KB Linux.
+     * We could make this dynamic to save some of the 64K for 64-bit: the default
+     * is 512M so we waste 48K.
      */
     /* Since we expect only two of these, for now it is ok for users
        to have static max rather than dynamically allocating with
