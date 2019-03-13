@@ -4160,7 +4160,6 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
     size_t commit_size;
     uint prot = get_prot(su);
     ASSERT_OWN_MUTEX(su->use_lock, &su->lock);
-    ASSERT(ALIGNED(size, PAGE_SIZE));
 
     if (pc != NULL) {
         u = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, special_heap_unit_t, ACCT_MEM_MGT,
@@ -4172,6 +4171,7 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         /* caller should arrange alignment */
         ASSERT(su->block_alignment == 0 || ALIGNED(u->start_pc, su->block_alignment));
     } else {
+        ASSERT(ALIGNED(size, PAGE_SIZE));
         commit_size = DYNAMO_OPTION(heap_commit_increment);
         ASSERT(commit_size <= size);
         /* create new unit */
