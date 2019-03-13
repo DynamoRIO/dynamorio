@@ -4061,6 +4061,7 @@ typedef struct _special_heap_unit_t {
 #define SPECIAL_UNIT_COMMIT_SIZE(u) ((u)->end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_RESERVED_SIZE(u) ((u)->reserved_end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_HEADER_INLINE(u) ((u)->alloc_pc != (u)->start_pc)
+#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
 
 /* the cfree list stores a next ptr and a count */
 typedef struct _cfree_header {
@@ -4170,6 +4171,7 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         /* caller should arrange alignment */
         ASSERT(su->block_alignment == 0 || ALIGNED(u->start_pc, su->block_alignment));
     } else {
+        ASSERT(ALIGNED(size, PAGE_SIZE));
         commit_size = DYNAMO_OPTION(heap_commit_increment);
         ASSERT(commit_size <= size);
         /* create new unit */
@@ -4577,7 +4579,8 @@ special_heap_calloc(void *special, uint num)
                 /* no room, need new unit */
                 special_heap_unit_t *new_unit;
                 special_heap_unit_t *prev = su->top_unit;
-                size_t size = UNITALLOC(u);
+                size_t size = SPECIAL_UNIT_ALLOC_SIZE(u);
+                ASSERT(ALIGNED(size, PAGE_SIZE));
                 while (prev->next != NULL)
                     prev = prev->next;
                 /* create new unit double size of old unit (until hit max size) */
@@ -4589,8 +4592,10 @@ special_heap_calloc(void *special, uint num)
                 prev->next = new_unit;
                 if (su->use_lock) {
                     /* if synch bad so is printing */
-                    LOG(THREAD, LOG_HEAP, 3, "\tCreating new heap unit %d\n",
-                        new_unit->id);
+                    LOG(THREAD, LOG_HEAP, 3,
+                        "%s: Creating new heap unit %d " PFX "-" PFX "-" PFX "\n",
+                        __FUNCTION__, new_unit->id, new_unit->alloc_pc, new_unit->end_pc,
+                        new_unit->reserved_end_pc);
                 }
                 su->cur_unit = new_unit;
                 u = new_unit;
