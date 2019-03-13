@@ -273,9 +273,10 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         }
     }
 #endif
-    if (modbase != vsyscall_page_start)
+    if (modbase != vsyscall_page_start) {
         module_list_add(modbase, modsize, false, /* at_map */ info->dlpi_name,
                         0 /*don't have inode*/);
+    }
 
     for (i = 0; i < info->dlpi_phnum; i++) {
         app_pc start, end;
