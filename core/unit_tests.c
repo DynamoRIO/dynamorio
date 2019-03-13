@@ -34,6 +34,8 @@
  */
 
 #include "globals.h"
+#include "arch.h"
+#include <immintrin.h>
 
 void
 unit_test_io(void);
@@ -60,6 +62,202 @@ unit_test_atomic_ops(void);
 void
 unit_test_jit_fragment_tree(void);
 
+#ifdef __AVX__
+
+void
+write_ymm_aux(dr_ymm_t *buffer, int regno)
+{
+    switch (regno) {
+#    define MOVE_TO_YMM_VEX(B, N) asm volatile("vmovdqu %0, %%ymm" #    N : : "m"(B[N]))
+#    define MOVE_TO_YMM_EVEX(B, N) asm volatile("vmovdqu32 %0, %%ymm" #    N : : "m"(B[N]))
+#    define CASE_MOVE_TO_YMM_VEX(B, N) \
+    case N:                            \
+        MOVE_TO_YMM_VEX(B, N);         \
+        break;
+#    define CASE_MOVE_TO_YMM_EVEX(B, N) \
+    case N: MOVE_TO_YMM_EVEX(B, N); break;
+
+        CASE_MOVE_TO_YMM_VEX(buffer, 0)
+        CASE_MOVE_TO_YMM_VEX(buffer, 1)
+        CASE_MOVE_TO_YMM_VEX(buffer, 2)
+        CASE_MOVE_TO_YMM_VEX(buffer, 3)
+        CASE_MOVE_TO_YMM_VEX(buffer, 4)
+        CASE_MOVE_TO_YMM_VEX(buffer, 5)
+        CASE_MOVE_TO_YMM_VEX(buffer, 6)
+        CASE_MOVE_TO_YMM_VEX(buffer, 7)
+#    ifdef X64
+        CASE_MOVE_TO_YMM_VEX(buffer, 8)
+        CASE_MOVE_TO_YMM_VEX(buffer, 9)
+        CASE_MOVE_TO_YMM_VEX(buffer, 10)
+        CASE_MOVE_TO_YMM_VEX(buffer, 11)
+        CASE_MOVE_TO_YMM_VEX(buffer, 12)
+        CASE_MOVE_TO_YMM_VEX(buffer, 13)
+        CASE_MOVE_TO_YMM_VEX(buffer, 14)
+        CASE_MOVE_TO_YMM_VEX(buffer, 15)
+#        ifdef __AVX512F__
+        CASE_MOVE_TO_YMM_EVEX(buffer, 16)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 17)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 18)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 19)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 20)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 21)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 22)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 23)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 24)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 25)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 26)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 27)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 28)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 29)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 30)
+        CASE_MOVE_TO_YMM_EVEX(buffer, 31)
+#        endif
+#    endif
+    default: FAIL(); break;
+    }
+}
+
+void
+unit_test_get_ymm_caller_saved()
+{
+    /* XXX i#1312: Once get_ymm_caller_saved(byte* buf) changes to reflect a dr_zmm_t type
+     * of the SIMD field in DynamoRIO's mcontext, this needs to become dr_zmm_t.
+     */
+    dr_ymm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
+    dr_ymm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
+    uint base = 0x78abcdef;
+    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        for (int dword = 0; dword < MCXT_SIMD_SLOT_SIZE / 4; ++dword) {
+            ref_buffer[regno].u32[dword] = 0;
+            get_buffer[regno].u32[dword] = 0;
+        }
+        base += regno;
+        for (int dword = 0; dword < 8; ++dword) {
+            ref_buffer[regno].u32[dword] = base + dword;
+        }
+        write_ymm_aux(ref_buffer, regno);
+    }
+    get_ymm_caller_saved(get_buffer);
+    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        print_file(
+            STDERR,
+            "ymm%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x - 0x%x 0x%x 0x%x 0x%x "
+            "0x%x 0x%x 0x%x 0x%x\n",
+            regno, ref_buffer[regno].u32[0], ref_buffer[regno].u32[1],
+            ref_buffer[regno].u32[2], ref_buffer[regno].u32[3], ref_buffer[regno].u32[4],
+            ref_buffer[regno].u32[5], ref_buffer[regno].u32[6], ref_buffer[regno].u32[7],
+            get_buffer[regno].u32[0], get_buffer[regno].u32[1], get_buffer[regno].u32[2],
+            get_buffer[regno].u32[3], get_buffer[regno].u32[4], get_buffer[regno].u32[5],
+            get_buffer[regno].u32[6], get_buffer[regno].u32[7]);
+    }
+    EXPECT(
+        memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
+        0);
+}
+
+#endif
+
+#ifdef __AVX512F__
+
+void
+write_zmm_aux(dr_zmm_t *buffer, int regno)
+{
+    switch (regno) {
+#    define MOVE_TO_ZMM(B, N) \
+    case N: asm volatile("vmovdqu32 %0, %%zmm" #N : : "m"(B[N])); break;
+        MOVE_TO_ZMM(buffer, 0)
+        MOVE_TO_ZMM(buffer, 1)
+        MOVE_TO_ZMM(buffer, 2)
+        MOVE_TO_ZMM(buffer, 3)
+        MOVE_TO_ZMM(buffer, 4)
+        MOVE_TO_ZMM(buffer, 5)
+        MOVE_TO_ZMM(buffer, 6)
+        MOVE_TO_ZMM(buffer, 7)
+#    ifdef X64
+        MOVE_TO_ZMM(buffer, 8)
+        MOVE_TO_ZMM(buffer, 9)
+        MOVE_TO_ZMM(buffer, 10)
+        MOVE_TO_ZMM(buffer, 11)
+        MOVE_TO_ZMM(buffer, 12)
+        MOVE_TO_ZMM(buffer, 13)
+        MOVE_TO_ZMM(buffer, 14)
+        MOVE_TO_ZMM(buffer, 15)
+#        ifdef __AVX512F__
+        MOVE_TO_ZMM(buffer, 16)
+        MOVE_TO_ZMM(buffer, 17)
+        MOVE_TO_ZMM(buffer, 18)
+        MOVE_TO_ZMM(buffer, 19)
+        MOVE_TO_ZMM(buffer, 20)
+        MOVE_TO_ZMM(buffer, 21)
+        MOVE_TO_ZMM(buffer, 22)
+        MOVE_TO_ZMM(buffer, 23)
+        MOVE_TO_ZMM(buffer, 24)
+        MOVE_TO_ZMM(buffer, 25)
+        MOVE_TO_ZMM(buffer, 26)
+        MOVE_TO_ZMM(buffer, 27)
+        MOVE_TO_ZMM(buffer, 28)
+        MOVE_TO_ZMM(buffer, 29)
+        MOVE_TO_ZMM(buffer, 30)
+        MOVE_TO_ZMM(buffer, 31)
+#        endif
+#    endif
+    default: FAIL(); break;
+    }
+}
+
+void
+unit_test_get_zmm_caller_saved()
+{
+    /* XXX i#1312: get_zmm_caller_saved(byte* buf) assumes that there is enough space in
+     * the buffer it's being passed. MCXT_NUM_SIMD_SLOTS does not yet reflect this. Once
+     * this happens, the array size should become MCXT_NUM_SIMD_SLOTS.
+     */
+    if (MCXT_NUM_SIMD_SLOTS == 32) {
+        /* This is a just reminder.*/
+        FAIL();
+    }
+    dr_zmm_t ref_buffer[32];
+    dr_zmm_t get_buffer[32];
+    uint base = 0x78abcdef;
+    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        for (int dword = 0; dword < MCXT_SIMD_SLOT_SIZE / 4; ++dword) {
+            ref_buffer[regno].u32[dword] = 0;
+            get_buffer[regno].u32[dword] = 0;
+        }
+        base += regno;
+        for (int dword = 0; dword < 16; ++dword) {
+            ref_buffer[regno].u32[dword] = base + dword;
+        }
+        write_zmm_aux(ref_buffer, regno);
+    }
+    get_zmm_caller_saved(get_buffer);
+    for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        print_file(
+            STDERR,
+            "zmm%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x "
+            "0x%x 0x%x 0x%x - 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x "
+            "0x%x 0x%x 0x%x 0x%x 0x%x\n",
+            regno, ref_buffer[regno].u32[0], ref_buffer[regno].u32[1],
+            ref_buffer[regno].u32[2], ref_buffer[regno].u32[3], ref_buffer[regno].u32[4],
+            ref_buffer[regno].u32[5], ref_buffer[regno].u32[6], ref_buffer[regno].u32[7],
+            ref_buffer[regno].u32[8], ref_buffer[regno].u32[9], ref_buffer[regno].u32[10],
+            ref_buffer[regno].u32[11], ref_buffer[regno].u32[12],
+            ref_buffer[regno].u32[13], ref_buffer[regno].u32[14],
+            ref_buffer[regno].u32[15], get_buffer[regno].u32[0], get_buffer[regno].u32[1],
+            get_buffer[regno].u32[2], get_buffer[regno].u32[3], get_buffer[regno].u32[4],
+            get_buffer[regno].u32[5], get_buffer[regno].u32[6], get_buffer[regno].u32[7],
+            get_buffer[regno].u32[8], get_buffer[regno].u32[9], get_buffer[regno].u32[10],
+            get_buffer[regno].u32[11], get_buffer[regno].u32[12],
+            get_buffer[regno].u32[13], get_buffer[regno].u32[14],
+            get_buffer[regno].u32[15]);
+    }
+    EXPECT(
+        memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
+        0);
+}
+
+#endif
+
 int
 main(int argc, char **argv, char **envp)
 {
@@ -83,6 +281,15 @@ main(int argc, char **argv, char **envp)
     unit_test_asm(dc);
     unit_test_atomic_ops();
     unit_test_jit_fragment_tree();
+    /* The following unit tests are implemented outside of DynamoRIO's core modules,
+     * because DynamoRIO itself is not compiled for AVX or AVX-512.
+     */
+#ifdef __AVX__
+    unit_test_get_ymm_caller_saved();
+#endif
+#ifdef __AVX512F__
+    unit_test_get_zmm_caller_saved();
+#endif
     print_file(STDERR, "all done\n");
     return 0;
 }
