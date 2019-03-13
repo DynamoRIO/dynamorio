@@ -1422,6 +1422,11 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
+  if (UNIX)
+    # Not used yet, testing AVX queries here.
+    check_avx_processor_and_compiler_support(proc_supports_avx)
+    check_avx512_processor_and_compiler_support(proc_supports_avx512)
+  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
