@@ -163,6 +163,48 @@ function (place_shared_lib_in_lib_dir target)
     ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 endfunction ()
 
+function (check_avx_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx_prog "int main() { \
+                  asm volatile(\"vmovdqu %ymm0, %ymm1\"); \
+                  return 0; \
+                }")
+  set(CMAKE_REQUIRED_FLAGS "-mavx")
+  check_c_source_runs("${avx_prog}" proc_found_avx)
+  if (proc_found_avx)
+    message(STATUS "Compiler and processor support AVX.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx} PARENT_SCOPE)
+endfunction (check_avx_processor_and_compiler_support)
+
+function (check_avx512_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx512_prog "int main() { \
+                     asm volatile(\"vmovdqu64 %zmm0, %zmm1\"); \
+                     return 0; \
+                   }")
+  set(CMAKE_REQUIRED_FLAGS "-mavx512f")
+  check_c_source_runs("${avx512_prog}" proc_found_avx512)
+  if (proc_found_avx512)
+    message(STATUS "Compiler and processor support AVX-512.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX-512. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx512} PARENT_SCOPE)
+endfunction (check_avx512_processor_and_compiler_support)
+
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as

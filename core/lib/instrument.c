@@ -5372,7 +5372,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (TESTANY(DR_CLEANCALL_NOSAVE_XMM | DR_CLEANCALL_NOSAVE_XMM_NONPARAM |
                     DR_CLEANCALL_NOSAVE_XMM_NONRET,
                 save_flags)) {
-        uint i;
+        int i;
         /* even if we remove xmm saves we want to keep mcontext shape */
         cci.preserve_mcontext = true;
         /* start w/ all */
@@ -5380,7 +5380,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         cci.num_simd_skip = 6;
 #else
         /* all 8 (or 16) are scratch */
-        cci.num_simd_skip = MCXT_NUM_SIMD_SLOTS;
+        cci.num_simd_skip = proc_num_simd_registers();
 #endif
         for (i = 0; i < cci.num_simd_skip; i++)
             cci.simd_skip[i] = true;
