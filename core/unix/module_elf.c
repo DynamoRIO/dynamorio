@@ -226,8 +226,8 @@ module_map_file(os_module_data_t *os_mod_data)
     if (!os_get_file_size_by_handle(fd, &size))
         ASSERT(false);
 
-    os_mod_data->source_file_map = (byte *)mmap_syscall(NULL, size, PROT_READ,
-                                                    MAP_PRIVATE, fd, 0);
+    os_mod_data->source_file_map =
+        (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     ASSERT(os_mod_data->source_file_map != (byte *)-1);
 
     return size;
@@ -317,12 +317,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                      */
                     if (at_map == 1) {
                         mapped_size = module_map_file(out_data);
-                        Elf64_Off offset = module_get_dynstr_offset(out_data->source_file_map, mapped_size);
+                        Elf64_Off offset = module_get_dynstr_offset(
+                            out_data->source_file_map, mapped_size);
                         dynstr = (char *)(out_data->source_file_map + offset);
-                    }
-                    else
-                        dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size, load_delta,
-                                                     at_map, dyn_reloc);
+                    } else
+                        dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size,
+                                                         load_delta, at_map, dyn_reloc);
                     if (out_data != NULL)
                         out_data->dynstr = (app_pc)dynstr;
                     if (soname_index != -1 && out_data == NULL)
@@ -369,9 +369,8 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 if (at_map == 1) {
                     base_variant = out_data->source_file_map;
                     size_variant = mapped_size;
-                }
-                else {
-                    base_variant = base ;
+                } else {
+                    base_variant = base;
                     size_variant = sz;
                 }
                 if ((app_pc)*soname < base_variant ||
