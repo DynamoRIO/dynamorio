@@ -34,6 +34,7 @@
  */
 
 #include "globals.h"
+#include "arch.h"
 
 void
 unit_test_io(void);

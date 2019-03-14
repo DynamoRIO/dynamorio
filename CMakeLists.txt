@@ -1422,8 +1422,11 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
+  set(proc_supports_avx 0FF)
+  set(proc_supports_avx512 0FF)
   if (UNIX)
-    # Not used yet, testing AVX queries here.
+    set(CFLAGS_AVX "-mavx")
+    set(CFLAGS_AVX512 "-mavx512f")
     check_avx_processor_and_compiler_support(proc_supports_avx)
     check_avx512_processor_and_compiler_support(proc_supports_avx512)
   endif ()

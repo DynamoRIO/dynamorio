@@ -173,7 +173,7 @@ function (check_avx_processor_and_compiler_support out)
                   asm volatile(\"vmovdqu %ymm0, %ymm1\"); \
                   return 0; \
                 }")
-  set(CMAKE_REQUIRED_FLAGS "-mavx")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX})
   check_c_source_runs("${avx_prog}" proc_found_avx)
   if (proc_found_avx)
     message(STATUS "Compiler and processor support AVX.")
@@ -194,7 +194,7 @@ function (check_avx512_processor_and_compiler_support out)
                      asm volatile(\"vmovdqu64 %zmm0, %zmm1\"); \
                      return 0; \
                    }")
-  set(CMAKE_REQUIRED_FLAGS "-mavx512f")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX512})
   check_c_source_runs("${avx512_prog}" proc_found_avx512)
   if (proc_found_avx512)
     message(STATUS "Compiler and processor support AVX-512.")

@@ -2345,6 +2345,7 @@ profile_callers_exit(void);
 #ifdef STANDALONE_UNIT_TEST
 
 /* an ASSERT replacement for use in unit tests */
+#    define FAIL() EXPECT(true, false)
 #    define EXPECT(expr, expected)                                     \
         do {                                                           \
             ptr_uint_t value_once = (ptr_uint_t)(expr);                \
