@@ -67,22 +67,22 @@ void
 write_ymm_aux(dr_ymm_t *buffer, int regno)
 {
     switch (regno) {
-#    define MOVE_TO_YMM_VEX(B, N)   \
-        asm volatile("vmovdqu %0, " \
-                     "%%ymm" #N     \
-                     :              \
-                     : "m"(B[N]))
-#    define MOVE_TO_YMM_EVEX(B, N)    \
-        asm volatile("vmovdqu32 %0, " \
-                     "%%ymm" #N       \
+#    define MOVE_TO_YMM_VEX(BUF, NUM) \
+        asm volatile("vmovdqu %0, "   \
+                     "%%ymm" #NUM     \
                      :                \
-                     : "m"(B[N]))
-#    define CASE_MOVE_TO_YMM_VEX(B, N) \
-    case N:                            \
-        MOVE_TO_YMM_VEX(B, N);         \
+                     : "m"(BUF[NUM]))
+#    define MOVE_TO_YMM_EVEX(BUF, NUM) \
+        asm volatile("vmovdqu32 %0, "  \
+                     "%%ymm" #NUM      \
+                     :                 \
+                     : "m"(BUF[NUM]))
+#    define CASE_MOVE_TO_YMM_VEX(BUF, NUM) \
+    case NUM:                              \
+        MOVE_TO_YMM_VEX(BUF, NUM);         \
         break;
-#    define CASE_MOVE_TO_YMM_EVEX(B, N) \
-    case N: MOVE_TO_YMM_EVEX(B, N); break;
+#    define CASE_MOVE_TO_YMM_EVEX(BUF, NUM) \
+    case NUM: MOVE_TO_YMM_EVEX(BUF, NUM); break;
 
         CASE_MOVE_TO_YMM_VEX(buffer, 0)
         CASE_MOVE_TO_YMM_VEX(buffer, 1)
@@ -134,28 +134,22 @@ unit_test_get_ymm_caller_saved()
     dr_ymm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
     uint base = 0x78abcdef;
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
-        for (int dword = 0; dword < MCXT_SIMD_SLOT_SIZE / 4; ++dword) {
+        for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
             get_buffer[regno].u32[dword] = 0;
         }
         base += regno;
-        for (int dword = 0; dword < 8; ++dword) {
+        for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = base + dword;
         }
         write_ymm_aux(ref_buffer, regno);
     }
     get_ymm_caller_saved(get_buffer);
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
-        print_file(
-            STDERR,
-            "ymm%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x - 0x%x 0x%x 0x%x 0x%x "
-            "0x%x 0x%x 0x%x 0x%x\n",
-            regno, ref_buffer[regno].u32[0], ref_buffer[regno].u32[1],
-            ref_buffer[regno].u32[2], ref_buffer[regno].u32[3], ref_buffer[regno].u32[4],
-            ref_buffer[regno].u32[5], ref_buffer[regno].u32[6], ref_buffer[regno].u32[7],
-            get_buffer[regno].u32[0], get_buffer[regno].u32[1], get_buffer[regno].u32[2],
-            get_buffer[regno].u32[3], get_buffer[regno].u32[4], get_buffer[regno].u32[5],
-            get_buffer[regno].u32[6], get_buffer[regno].u32[7]);
+        dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
+        dump_buffer_as_bytes(STDERR, &get_buffer[regno], sizeof(get_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
     }
     EXPECT(
         memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
@@ -170,8 +164,8 @@ void
 write_zmm_aux(dr_zmm_t *buffer, int regno)
 {
     switch (regno) {
-#    define MOVE_TO_ZMM(B, N) \
-    case N: asm volatile("vmovdqu32 %0, %%zmm" #N : : "m"(B[N])); break;
+#    define MOVE_TO_ZMM(BUF, NUM) \
+    case NUM: asm volatile("vmovdqu32 %0, %%zmm" #NUM : : "m"(BUF[NUM])); break;
         MOVE_TO_ZMM(buffer, 0)
         MOVE_TO_ZMM(buffer, 1)
         MOVE_TO_ZMM(buffer, 2)
@@ -227,36 +221,22 @@ unit_test_get_zmm_caller_saved()
     dr_zmm_t get_buffer[32];
     uint base = 0x78abcdef;
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
-        for (int dword = 0; dword < MCXT_SIMD_SLOT_SIZE / 4; ++dword) {
+        for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
             get_buffer[regno].u32[dword] = 0;
         }
         base += regno;
-        for (int dword = 0; dword < 16; ++dword) {
+        for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = base + dword;
         }
         write_zmm_aux(ref_buffer, regno);
     }
     get_zmm_caller_saved(get_buffer);
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
-        print_file(
-            STDERR,
-            "zmm%d: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x "
-            "0x%x 0x%x 0x%x - 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x "
-            "0x%x 0x%x 0x%x 0x%x 0x%x\n",
-            regno, ref_buffer[regno].u32[0], ref_buffer[regno].u32[1],
-            ref_buffer[regno].u32[2], ref_buffer[regno].u32[3], ref_buffer[regno].u32[4],
-            ref_buffer[regno].u32[5], ref_buffer[regno].u32[6], ref_buffer[regno].u32[7],
-            ref_buffer[regno].u32[8], ref_buffer[regno].u32[9], ref_buffer[regno].u32[10],
-            ref_buffer[regno].u32[11], ref_buffer[regno].u32[12],
-            ref_buffer[regno].u32[13], ref_buffer[regno].u32[14],
-            ref_buffer[regno].u32[15], get_buffer[regno].u32[0], get_buffer[regno].u32[1],
-            get_buffer[regno].u32[2], get_buffer[regno].u32[3], get_buffer[regno].u32[4],
-            get_buffer[regno].u32[5], get_buffer[regno].u32[6], get_buffer[regno].u32[7],
-            get_buffer[regno].u32[8], get_buffer[regno].u32[9], get_buffer[regno].u32[10],
-            get_buffer[regno].u32[11], get_buffer[regno].u32[12],
-            get_buffer[regno].u32[13], get_buffer[regno].u32[14],
-            get_buffer[regno].u32[15]);
+        dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
+        dump_buffer_as_bytes(STDERR, &get_buffer[regno], sizeof(get_buffer[regno]),
+                             DUMP_RAW | DUMP_DWORD);
     }
     EXPECT(
         memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
