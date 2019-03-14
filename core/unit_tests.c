@@ -67,8 +67,16 @@ void
 write_ymm_aux(dr_ymm_t *buffer, int regno)
 {
     switch (regno) {
-#    define MOVE_TO_YMM_VEX(B, N) asm volatile("vmovdqu %0, %%ymm" #    N : : "m"(B[N]))
-#    define MOVE_TO_YMM_EVEX(B, N) asm volatile("vmovdqu32 %0, %%ymm" #    N : : "m"(B[N]))
+#    define MOVE_TO_YMM_VEX(B, N)   \
+        asm volatile("vmovdqu %0, " \
+                     "%%ymm" #N     \
+                     :              \
+                     : "m"(B[N]))
+#    define MOVE_TO_YMM_EVEX(B, N)    \
+        asm volatile("vmovdqu32 %0, " \
+                     "%%ymm" #N       \
+                     :                \
+                     : "m"(B[N]))
 #    define CASE_MOVE_TO_YMM_VEX(B, N) \
     case N:                            \
         MOVE_TO_YMM_VEX(B, N);         \
