@@ -1416,12 +1416,12 @@ DYNAMIC_OPTION(bool, pause_via_loop,
     OPTION_DEFAULT_INTERNAL(bool, skip_out_of_vm_reserve_curiosity, false,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
     OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
-    OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(256,128)*1024*1024,
+    OPTION_DEFAULT(uint_size, vm_size, IF_X64_ELSE(512,128)*1024*1024,
                    /* XXX: default value is currently not good enough for sqlserver,
                     * for which we need more than 256MB.
                     */
                    "capacity of virtual memory region reserved (maximum supported is "
-                   "512MB for 32-bit and 1GB for 64-bit)")
+                   "512MB for 32-bit and 2GB for 64-bit)")
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
