@@ -87,6 +87,11 @@
 #    include "vmkuw.h"
 #endif
 
+#ifdef __AVX512F__
+#    error "DynamoRIO core should run without AVX-512 instructions to remain \
+portable and to avoid frequency scaling."
+#endif
+
 /* global thread-shared variables */
 bool dynamo_initialized = false;
 bool dynamo_heap_initialized = false;
