@@ -501,14 +501,6 @@ test_cpuid()
 #    endif
 }
 
-void
-unit_test_asm(dcontext_t *dc)
-{
-    print_file(STDERR, "testing asm\n");
-    test_call_switch_stack(dc);
-    test_cpuid();
-}
-
 #    ifdef __AVX__
 
 static void
@@ -572,7 +564,7 @@ write_ymm_aux(dr_ymm_t *buffer, int regno)
     }
 }
 
-void
+static void
 unit_test_get_ymm_caller_saved()
 {
     /* XXX i#1312: Once get_ymm_caller_saved(byte* buf) changes to reflect a dr_zmm_t type
@@ -654,7 +646,7 @@ write_zmm_aux(dr_zmm_t *buffer, int regno)
     }
 }
 
-void
+static void
 unit_test_get_zmm_caller_saved()
 {
     /* XXX i#1312: get_zmm_caller_saved(byte* buf) assumes that there is enough space in
@@ -692,5 +684,21 @@ unit_test_get_zmm_caller_saved()
 }
 
 #    endif
+
+void
+unit_test_asm(dcontext_t *dc)
+{
+    print_file(STDERR, "testing asm\n");
+    test_call_switch_stack(dc);
+    test_cpuid();
+#    ifdef UNIX
+#        ifdef __AVX__
+    unit_test_get_ymm_caller_saved();
+#        endif
+#        ifdef __AVX512F__
+    unit_test_get_zmm_caller_saved();
+#        endif
+#    endif
+}
 
 #endif /* STANDALONE_UNIT_TEST */
