@@ -1327,6 +1327,8 @@ void
 get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
 void
 get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
+void
+get_zmm_caller_saved(dr_zmm_t *zmm_caller_saved_buf);
 
 /* in encode.c */
 byte *

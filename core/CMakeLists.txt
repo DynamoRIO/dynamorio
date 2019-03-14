@@ -1059,6 +1059,11 @@ if (BUILD_TESTS)
     # -Wno-array-bounds to work around compiler bug (i#1796)
     set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
   endif ()
+  if (proc_supports_avx512)
+    set(unit_tests_extra_flags "${unit_tests_extra_flags} ${CFLAGS_AVX512}")
+  elseif (proc_supports_avx)
+    set(unit_tests_extra_flags "${unit_tests_extra_flags} ${CFLAGS_AVX}")
+  endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
