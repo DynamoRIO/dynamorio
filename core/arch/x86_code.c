@@ -43,7 +43,7 @@
 #include "../dispatch.h"
 #include "../monitor.h"
 #include "arch.h"
-if defined(UNIX) && defined(X86)
+#if defined(UNIX) && defined(X86)
 #include <immintrin.h>
 #endif
 
