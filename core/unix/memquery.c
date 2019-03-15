@@ -143,17 +143,25 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         ASSERT_CURIOSITY((slash - src) < dstsz);
                         /* we keep the last '/' at end */
                         ++slash;
-                        strncpy(dst, src, MIN(dstsz, (slash - src)));
+                        int copy_bytes = MIN(dstsz - 1, slash - src);
+                        strncpy(dst, src, copy_bytes);
+                        // dst was not 0-terminated by the strncpy because
+                        // copy_bytes is definitely less than strlen(src);
+                        // copy_bytes is either the index of the last byte in
+                        // the dst buffer (dstsz-1) or the index immediately
+                        // after the slash byte, so 0-terminate there:
+                        dst[copy_bytes] = '\0';
                         if (filename != NULL && slash != NULL) {
                             /* slash is filename */
                             strncpy(filename, slash, MIN(strlen(slash), filename_size));
                             filename[MIN(strlen(slash), filename_size - 1)] = '\0';
                         } else
                             filename[0] = '\0';
-                    } else
+                    } else {
                         strncpy(dst, src, dstsz);
-                    /* if max no null */
-                    dst[dstsz - 1] = '\0';
+                        /* Ensure zero termination in case dstsz < srcsz. */
+                        dst[dstsz - 1] = '\0';
+                    }
                 }
                 if (name == NULL)
                     name_cmp = dst;
