@@ -121,13 +121,14 @@ unit_test_memquery()
     print_file(STDERR, "START unit_test_memquery\n");
     enable_memquery_unit_test = true;
     for (int i = 0; i < NUM_MEMQUERY_TESTS; i++) {
-        print_file(STDERR, "Run memquery unit test %d...\n", i);
+        const char *test_name = all_memquery_test_names[i];
+        print_file(STDERR, "Run memquery unit test %s...\n", test_name);
         const char *status = "OK";
         if (!run_single_memquery_test(*all_memquery_tests[i])) {
             status = "FAILED";
             all_passed = false;
         }
-        print_file(STDERR, "**** memquery unit test %d %s\n", i, status);
+        print_file(STDERR, "**** memquery unit test %s %s\n", test_name, status);
     }
     enable_memquery_unit_test = false;
     if (!all_passed) {
