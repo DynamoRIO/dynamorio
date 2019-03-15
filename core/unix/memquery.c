@@ -145,6 +145,11 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         ++slash;
                         int copy_bytes = MIN(dstsz - 1, slash - src);
                         strncpy(dst, src, copy_bytes);
+                        // dst was not 0-terminated by the strncpy because
+                        // copy_bytes is definitely less than strlen(src);
+                        // copy_bytes is either the index of the last byte in
+                        // the dst buffer (dstsz-1) or the index immediately
+                        // after the slash byte, so 0-terminate there:
                         dst[copy_bytes] = '\0';
                         if (filename != NULL && slash != NULL) {
                             /* slash is filename */
