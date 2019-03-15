@@ -43,6 +43,7 @@
 #include "../dispatch.h"
 #include "../monitor.h"
 #include "arch.h"
+#include <immintrin.h>
 
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
  * (or all for linux) (or ymm) only if necessary.
@@ -503,66 +504,11 @@ test_cpuid()
 
 #    ifdef __AVX__
 
-static void
-write_ymm_aux(dr_ymm_t *buffer, int regno)
+#        if 0
+static void __attribute__((noinline)) write_ymm_aux(dr_ymm_t *buffer, int regno)
 {
-    switch (regno) {
-#        define MOVE_TO_YMM_VEX(buf, num) \
-            asm volatile("vmovdqu %0, "   \
-                         "%%ymm" #num     \
-                         :                \
-                         : "m"(buf[num]))
-#        define MOVE_TO_YMM_EVEX(buf, num) \
-            asm volatile("vmovdqu32 %0, "  \
-                         "%%ymm" #num      \
-                         :                 \
-                         : "m"(buf[num]))
-#        define CASE_MOVE_TO_YMM_VEX(buf, num) \
-        case num:                              \
-            MOVE_TO_YMM_VEX(buf, num);         \
-            break;
-#        define CASE_MOVE_TO_YMM_EVEX(buf, num) \
-        case num: MOVE_TO_YMM_EVEX(buf, num); break;
-
-        CASE_MOVE_TO_YMM_VEX(buffer, 0)
-        CASE_MOVE_TO_YMM_VEX(buffer, 1)
-        CASE_MOVE_TO_YMM_VEX(buffer, 2)
-        CASE_MOVE_TO_YMM_VEX(buffer, 3)
-        CASE_MOVE_TO_YMM_VEX(buffer, 4)
-        CASE_MOVE_TO_YMM_VEX(buffer, 5)
-        CASE_MOVE_TO_YMM_VEX(buffer, 6)
-        CASE_MOVE_TO_YMM_VEX(buffer, 7)
-#        ifdef X64
-        CASE_MOVE_TO_YMM_VEX(buffer, 8)
-        CASE_MOVE_TO_YMM_VEX(buffer, 9)
-        CASE_MOVE_TO_YMM_VEX(buffer, 10)
-        CASE_MOVE_TO_YMM_VEX(buffer, 11)
-        CASE_MOVE_TO_YMM_VEX(buffer, 12)
-        CASE_MOVE_TO_YMM_VEX(buffer, 13)
-        CASE_MOVE_TO_YMM_VEX(buffer, 14)
-        CASE_MOVE_TO_YMM_VEX(buffer, 15)
-#            ifdef __AVX512F__
-        CASE_MOVE_TO_YMM_EVEX(buffer, 16)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 17)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 18)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 19)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 20)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 21)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 22)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 23)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 24)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 25)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 26)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 27)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 28)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 29)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 30)
-        CASE_MOVE_TO_YMM_EVEX(buffer, 31)
-#            endif
-#        endif
-    default: FAIL(); break;
-    }
 }
+#        endif
 
 static void
 unit_test_get_ymm_caller_saved()
@@ -572,24 +518,81 @@ unit_test_get_ymm_caller_saved()
      */
     dr_ymm_t ref_buffer[MCXT_NUM_SIMD_SLOTS];
     dr_ymm_t get_buffer[MCXT_NUM_SIMD_SLOTS];
+    ASSERT(sizeof(dr_ymm_t) == YMM_REG_SIZE);
     uint base = 0x78abcdef;
+
+    register __m256 ymm0 asm("ymm0");
+    register __m256 ymm1 asm("ymm1");
+    register __m256 ymm2 asm("ymm2");
+    register __m256 ymm3 asm("ymm3");
+    register __m256 ymm4 asm("ymm4");
+    register __m256 ymm5 asm("ymm5");
+    register __m256 ymm6 asm("ymm6");
+    register __m256 ymm7 asm("ymm7");
+#        ifdef X64
+    register __m256 ymm8 asm("ymm8");
+    register __m256 ymm9 asm("ymm9");
+    register __m256 ymm10 asm("ymm10");
+    register __m256 ymm11 asm("ymm11");
+    register __m256 ymm12 asm("ymm12");
+    register __m256 ymm13 asm("ymm13");
+    register __m256 ymm14 asm("ymm14");
+    register __m256 ymm15 asm("ymm15");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
             get_buffer[regno].u32[dword] = 0;
         }
-        base += regno;
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
-            ref_buffer[regno].u32[dword] = base + dword;
+            ref_buffer[regno].u32[dword] = base++;
         }
-        write_ymm_aux(ref_buffer, regno);
     }
+
+#        define MAKE_YMM_REG(num) ymm##num
+#        define MOVE_TO_YMM(buf, num) \
+            asm volatile("vmovdqu %1, %0" : "=v"(MAKE_YMM_REG(num)) : "m"(buf[num]) :);
+
+    MOVE_TO_YMM(ref_buffer, 0)
+    MOVE_TO_YMM(ref_buffer, 1)
+    MOVE_TO_YMM(ref_buffer, 2)
+    MOVE_TO_YMM(ref_buffer, 3)
+    MOVE_TO_YMM(ref_buffer, 4)
+    MOVE_TO_YMM(ref_buffer, 5)
+    MOVE_TO_YMM(ref_buffer, 6)
+    MOVE_TO_YMM(ref_buffer, 7)
+#        ifdef X64
+    MOVE_TO_YMM(ref_buffer, 8)
+    MOVE_TO_YMM(ref_buffer, 9)
+    MOVE_TO_YMM(ref_buffer, 10)
+    MOVE_TO_YMM(ref_buffer, 11)
+    MOVE_TO_YMM(ref_buffer, 12)
+    MOVE_TO_YMM(ref_buffer, 13)
+    MOVE_TO_YMM(ref_buffer, 14)
+    MOVE_TO_YMM(ref_buffer, 15)
+#        endif
+
     get_ymm_caller_saved(get_buffer);
+
+    /* Even though it was experimentally determined that it is not needed, this barrier
+     * prevents the compiler from moving SSE code before the call above.
+     */
+    asm volatile("" ::: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7");
+#        ifdef X64
+    asm volatile("" ::
+                     : "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14",
+                       "xmm15");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        print_file(STDERR, "YMM%d ref\n:", regno);
         dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\nYMM%d get\n:", regno);
         dump_buffer_as_bytes(STDERR, &get_buffer[regno], sizeof(get_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\n");
     }
     EXPECT(
         memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
@@ -601,57 +604,12 @@ unit_test_get_ymm_caller_saved()
 #    ifdef __AVX512F__
 
 static void
-write_zmm_aux(dr_zmm_t *buffer, int regno)
-{
-    switch (regno) {
-#        define MOVE_TO_ZMM(buf, num) \
-        case num: asm volatile("vmovdqu32 %0, %%zmm" #num : : "m"(buf[num])); break;
-        MOVE_TO_ZMM(buffer, 0)
-        MOVE_TO_ZMM(buffer, 1)
-        MOVE_TO_ZMM(buffer, 2)
-        MOVE_TO_ZMM(buffer, 3)
-        MOVE_TO_ZMM(buffer, 4)
-        MOVE_TO_ZMM(buffer, 5)
-        MOVE_TO_ZMM(buffer, 6)
-        MOVE_TO_ZMM(buffer, 7)
-#        ifdef X64
-        MOVE_TO_ZMM(buffer, 8)
-        MOVE_TO_ZMM(buffer, 9)
-        MOVE_TO_ZMM(buffer, 10)
-        MOVE_TO_ZMM(buffer, 11)
-        MOVE_TO_ZMM(buffer, 12)
-        MOVE_TO_ZMM(buffer, 13)
-        MOVE_TO_ZMM(buffer, 14)
-        MOVE_TO_ZMM(buffer, 15)
-#            ifdef __AVX512F__
-        MOVE_TO_ZMM(buffer, 16)
-        MOVE_TO_ZMM(buffer, 17)
-        MOVE_TO_ZMM(buffer, 18)
-        MOVE_TO_ZMM(buffer, 19)
-        MOVE_TO_ZMM(buffer, 20)
-        MOVE_TO_ZMM(buffer, 21)
-        MOVE_TO_ZMM(buffer, 22)
-        MOVE_TO_ZMM(buffer, 23)
-        MOVE_TO_ZMM(buffer, 24)
-        MOVE_TO_ZMM(buffer, 25)
-        MOVE_TO_ZMM(buffer, 26)
-        MOVE_TO_ZMM(buffer, 27)
-        MOVE_TO_ZMM(buffer, 28)
-        MOVE_TO_ZMM(buffer, 29)
-        MOVE_TO_ZMM(buffer, 30)
-        MOVE_TO_ZMM(buffer, 31)
-#            endif
-#        endif
-    default: FAIL(); break;
-    }
-}
-
-static void
 unit_test_get_zmm_caller_saved()
 {
-    /* XXX i#1312: get_zmm_caller_saved(byte* buf) assumes that there is enough space in
-     * the buffer it's being passed. MCXT_NUM_SIMD_SLOTS does not yet reflect this. Once
-     * this happens, the array size should become MCXT_NUM_SIMD_SLOTS.
+    /* XXX i#1312: get_zmm_caller_saved(byte* buf) assumes that there is enough
+     * space in the buffer it's being passed. MCXT_NUM_SIMD_SLOTS does not yet
+     * reflect this. Once this happens, the array size should become
+     * MCXT_NUM_SIMD_SLOTS.
      */
     if (MCXT_NUM_SIMD_SLOTS == 32) {
         /* This is a just reminder.*/
@@ -659,7 +617,44 @@ unit_test_get_zmm_caller_saved()
     }
     dr_zmm_t ref_buffer[32];
     dr_zmm_t get_buffer[32];
+    ASSERT(sizeof(dr_zmm_t) == ZMM_REG_SIZE);
     uint base = 0x78abcdef;
+
+    register __m512 zmm0 asm("zmm0");
+    register __m512 zmm1 asm("zmm1");
+    register __m512 zmm2 asm("zmm2");
+    register __m512 zmm3 asm("zmm3");
+    register __m512 zmm4 asm("zmm4");
+    register __m512 zmm5 asm("zmm5");
+    register __m512 zmm6 asm("zmm6");
+    register __m512 zmm7 asm("zmm7");
+#        ifdef X64
+    register __m512 zmm8 asm("zmm8");
+    register __m512 zmm9 asm("zmm9");
+    register __m512 zmm10 asm("zmm10");
+    register __m512 zmm11 asm("zmm11");
+    register __m512 zmm12 asm("zmm12");
+    register __m512 zmm13 asm("zmm13");
+    register __m512 zmm14 asm("zmm14");
+    register __m512 zmm15 asm("zmm15");
+    register __m512 zmm16 asm("zmm16");
+    register __m512 zmm17 asm("zmm17");
+    register __m512 zmm18 asm("zmm18");
+    register __m512 zmm19 asm("zmm19");
+    register __m512 zmm20 asm("zmm20");
+    register __m512 zmm21 asm("zmm21");
+    register __m512 zmm22 asm("zmm22");
+    register __m512 zmm23 asm("zmm23");
+    register __m512 zmm24 asm("zmm24");
+    register __m512 zmm25 asm("zmm25");
+    register __m512 zmm26 asm("zmm26");
+    register __m512 zmm27 asm("zmm27");
+    register __m512 zmm28 asm("zmm28");
+    register __m512 zmm29 asm("zmm29");
+    register __m512 zmm30 asm("zmm30");
+    register __m512 zmm31 asm("zmm31");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
@@ -669,14 +664,69 @@ unit_test_get_zmm_caller_saved()
         for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = base + dword;
         }
-        write_zmm_aux(ref_buffer, regno);
     }
+
+#        define MAKE_ZMM_REG(num) zmm##num
+#        define MOVE_TO_ZMM(buf, num) \
+            asm volatile("vmovdqu32 %1, %0" : "=v"(MAKE_ZMM_REG(num)) : "m"(buf[num]) :);
+
+    MOVE_TO_ZMM(ref_buffer, 0)
+    MOVE_TO_ZMM(ref_buffer, 1)
+    MOVE_TO_ZMM(ref_buffer, 2)
+    MOVE_TO_ZMM(ref_buffer, 3)
+    MOVE_TO_ZMM(ref_buffer, 4)
+    MOVE_TO_ZMM(ref_buffer, 5)
+    MOVE_TO_ZMM(ref_buffer, 6)
+    MOVE_TO_ZMM(ref_buffer, 7)
+#        ifdef X64
+    MOVE_TO_ZMM(ref_buffer, 8)
+    MOVE_TO_ZMM(ref_buffer, 9)
+    MOVE_TO_ZMM(ref_buffer, 10)
+    MOVE_TO_ZMM(ref_buffer, 11)
+    MOVE_TO_ZMM(ref_buffer, 12)
+    MOVE_TO_ZMM(ref_buffer, 13)
+    MOVE_TO_ZMM(ref_buffer, 14)
+    MOVE_TO_ZMM(ref_buffer, 15)
+    MOVE_TO_ZMM(ref_buffer, 16)
+    MOVE_TO_ZMM(ref_buffer, 17)
+    MOVE_TO_ZMM(ref_buffer, 18)
+    MOVE_TO_ZMM(ref_buffer, 19)
+    MOVE_TO_ZMM(ref_buffer, 20)
+    MOVE_TO_ZMM(ref_buffer, 21)
+    MOVE_TO_ZMM(ref_buffer, 22)
+    MOVE_TO_ZMM(ref_buffer, 23)
+    MOVE_TO_ZMM(ref_buffer, 24)
+    MOVE_TO_ZMM(ref_buffer, 25)
+    MOVE_TO_ZMM(ref_buffer, 26)
+    MOVE_TO_ZMM(ref_buffer, 27)
+    MOVE_TO_ZMM(ref_buffer, 28)
+    MOVE_TO_ZMM(ref_buffer, 29)
+    MOVE_TO_ZMM(ref_buffer, 30)
+    MOVE_TO_ZMM(ref_buffer, 31)
+#        endif
+
     get_zmm_caller_saved(get_buffer);
+
+    /* Even though it was experimentally determined that it is not needed, this barrier
+     * prevents the compiler from moving SSE code before the call above.
+     */
+    asm volatile("" ::: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7");
+#        ifdef X64
+    asm volatile("" ::
+                     : "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14",
+                       "xmm15", "xmm16", "xmm17", "xmm18", "xmm19", "xmm20", "xmm21",
+                       "xmm22", "xmm23", "xmm24", "xmm25", "xmm26", "xmm27", "xmm28",
+                       "xmm29", "xmm30", "xmm31");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
+        print_file(STDERR, "ZMM%d ref\n:", regno);
         dump_buffer_as_bytes(STDERR, &ref_buffer[regno], sizeof(ref_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\nZMM%d get\n:", regno);
         dump_buffer_as_bytes(STDERR, &get_buffer[regno], sizeof(get_buffer[regno]),
                              DUMP_RAW | DUMP_DWORD);
+        print_file(STDERR, "\n");
     }
     EXPECT(
         memcmp(ref_buffer, get_buffer, proc_num_simd_registers() * MCXT_SIMD_SLOT_SIZE),
