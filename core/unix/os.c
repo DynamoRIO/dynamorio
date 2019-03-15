@@ -7584,8 +7584,8 @@ os_add_new_app_module(dcontext_t *dcontext, bool at_map, app_pc base, size_t siz
 #endif /* HAVE_MEMINFO */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
     if (found_map) {
-        module_list_add(base, ALIGN_FORWARD(mod_size, PAGE_SIZE), at_map,
-                        /* at_map */ filename, inode);
+        module_list_add(base, ALIGN_FORWARD(mod_size, PAGE_SIZE), at_map, filename,
+                        inode);
         dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
 }

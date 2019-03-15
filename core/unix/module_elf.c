@@ -211,7 +211,7 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
     return tgt;
 }
 
-/* TODO: Is there a way of accessing elf_loader_t's load_base and image_size here?
+/* XXX: Is there a way of accessing elf_loader_t's load_base and image_size here?
  * If so, then this function may not be needed.
  */
 static size_t
@@ -220,7 +220,7 @@ module_map_file(os_module_data_t *os_mod_data)
     int fd;
     uint64 size;
 
-    fd = open_syscall(os_mod_data->source_file_name, O_RDONLY, 0);
+    fd = open_syscall(os_mod_data->source_file_path, O_RDONLY, 0);
     ASSERT(fd != -1);
 
     if (!os_get_file_size_by_handle(fd, &size))
@@ -228,33 +228,9 @@ module_map_file(os_module_data_t *os_mod_data)
 
     os_mod_data->source_file_map =
         (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    ASSERT(os_mod_data->source_file_map != (byte *)-1);
+    ASSERT(mmap_syscall_succeeded(os_mod_data->source_file_map));
 
     return size;
-}
-
-/* Extract .dynstr file offset from section header based on flat mmap of ELF file */
-static Elf64_Off
-module_get_dynstr_offset(app_pc base, size_t size)
-{
-    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)base;
-    ELF_SECTION_HEADER_TYPE *sec_hdr;
-    char *strtab;
-    uint i;
-
-    ASSERT(size > elf_hdr->e_shoff);
-    ASSERT(elf_hdr->e_shentsize == sizeof(ELF_SECTION_HEADER_TYPE));
-
-    sec_hdr = (ELF_SECTION_HEADER_TYPE *)(base + elf_hdr->e_shoff);
-    strtab = (char *)(base + sec_hdr[elf_hdr->e_shstrndx].sh_offset);
-    for (i = 0; i < elf_hdr->e_shnum; i++) {
-        if (strcmp(".dynstr", strtab + sec_hdr->sh_name) == 0)
-            return sec_hdr->sh_offset;
-        ++sec_hdr;
-    }
-    // TODO: Can we assume *all* ELFs contain a .dynstr ?
-    ASSERT(false);
-    return 0;
 }
 
 /* common code to fill os_module_data_t for loader and module_area_t */
@@ -315,14 +291,19 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                      * loaded (at_map=false => use virtual offsets) or file just
                      * at the first flat mmap (at_map=true => use file offsets).
                      */
-                    if (at_map == 1) {
+                    if (at_map) {
+                        /* XXX: Perhaps compare sizes here and avoid full mapping
+                         * if current mapping is big enough?
+                         */
                         mapped_size = module_map_file(out_data);
-                        Elf64_Off offset = module_get_dynstr_offset(
-                            out_data->source_file_map, mapped_size);
+                        ELF_ADDR offset = module_get_section_with_name(
+                            out_data->source_file_map, mapped_size, ".dynstr");
+                        ASSERT(offset != (ELF_ADDR)NULL);
                         dynstr = (char *)(out_data->source_file_map + offset);
-                    } else
+                    } else {
                         dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size,
                                                          load_delta, at_map, dyn_reloc);
+                    }
                     if (out_data != NULL)
                         out_data->dynstr = (app_pc)dynstr;
                     if (soname_index != -1 && out_data == NULL)
@@ -366,7 +347,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                  */
                 app_pc base_variant;
                 size_t size_variant;
-                if (at_map == 1) {
+                if (at_map) {
                     base_variant = out_data->source_file_map;
                     size_variant = mapped_size;
                 } else {
@@ -922,7 +903,7 @@ module_get_section_with_name(app_pc image, size_t img_size, const char *sec_name
     /* walk the section table to check if a section name is ".text" */
     for (i = 0; i < elf_hdr->e_shnum; i++) {
         if (strcmp(sec_name, strtab + sec_hdr->sh_name) == 0)
-            return sec_hdr->sh_addr;
+            return sec_hdr->sh_offset;
         ++sec_hdr;
     }
     return (ELF_ADDR)NULL;
