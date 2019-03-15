@@ -82,9 +82,10 @@ bool enable_memquery_unit_test;
  * showed the strings are not equal, we know that the x and y pointers are also
  * not equal according to ==.
  */
-#define ASSERT_STR_EQ(x, y, sz)       \
-    if (strncmp((x), (y), (sz)) != 0) \
-    CHECK_EQ(x, y, "%s")
+#define ASSERT_STR_EQ(x, y, sz)         \
+    if (strncmp((x), (y), (sz)) != 0) { \
+        CHECK_EQ(x, y, "%s");           \
+    }
 
 bool
 run_single_memquery_test(memquery_library_bounds_test test)
@@ -248,12 +249,13 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
     while (memquery_iterator_next(&iter)) {
         iters_count++;
         print_file(STDERR, "{\n");
-        print_file(STDERR, ".iter_result = {"
-                       " .vm_start = (app_pc)" PFX ","
-                       " .vm_end = (app_pc)" PFX ","
-                       " .prot = %X,"
-                       " .comment = \"%s\" },",
-                       iter.vm_start, iter.vm_end, iter.prot, iter.comment);
+        print_file(STDERR,
+                   ".iter_result = {"
+                   " .vm_start = (app_pc)" PFX ","
+                   " .vm_end = (app_pc)" PFX ","
+                   " .prot = %X,"
+                   " .comment = \"%s\" },",
+                   iter.vm_start, iter.vm_end, iter.prot, iter.comment);
 
         app_pc mod_base = 0, mod_end = 0;
         bool is_header = false;
@@ -273,28 +275,31 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
                 ASSERT_NOT_REACHED();
             }
         }
-        print_file(STDERR, ".is_header = %s, .mod_base = (app_pc)" PFX
-                       ", .mod_end = (app_pc)" PFX ", \n},\n",
-                       is_header ? "true" : "false", mod_base, mod_end);
+        print_file(STDERR,
+                   ".is_header = %s, .mod_base = (app_pc)" PFX ", .mod_end = (app_pc)" PFX
+                   ", \n},\n",
+                   is_header ? "true" : "false", mod_base, mod_end);
     }
 
     print_file(STDERR, "\n};\n");
     memquery_iterator_stop(&iter);
 
-    print_file(STDERR, "memquery_library_bounds_test test_TODORENAME = {\n"
-                   " .iters = results_TODORENAME,\n"
-                   " .iters_count = %d,\n"
-                   " .in_start = (app_pc)" PFX ",\n",
-                   iters_count, *start);
+    print_file(STDERR,
+               "memquery_library_bounds_test test_TODORENAME = {\n"
+               " .iters = results_TODORENAME,\n"
+               " .iters_count = %d,\n"
+               " .in_start = (app_pc)" PFX ",\n",
+               iters_count, *start);
     if (name) {
         print_file(STDERR, " .in_name = \"%s\",\n", name);
     }
     int ret = memquery_library_bounds_by_iterator(name, start, end, fulldir, fulldir_size,
                                                   filename, filename_size);
-    print_file(STDERR, " .want_return = %d,\n"
-                   " .want_start = (app_pc)" PFX ",\n"
-                   " .want_end = (app_pc)" PFX ",\n",
-                   ret, *start, *end);
+    print_file(STDERR,
+               " .want_return = %d,\n"
+               " .want_start = (app_pc)" PFX ",\n"
+               " .want_end = (app_pc)" PFX ",\n",
+               ret, *start, *end);
     if (fulldir) {
         print_file(STDERR, " .want_fulldir = \"%s\",\n", fulldir);
     }
