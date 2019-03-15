@@ -40,6 +40,16 @@
 #include "memquery.h"
 #include "module.h"
 
+#if defined(STANDALONE_UNIT_TEST)
+#    include "memquery_test.h"
+#else
+#    define MEMQUERY_ITERATOR_START memquery_iterator_start
+#    define MEMQUERY_ITERATOR_NEXT memquery_iterator_next
+#    define MEMQUERY_ITERATOR_STOP memquery_iterator_stop
+#    define MODULE_IS_HEADER module_is_header
+#    define MODULE_WALK_PROGRAM_HEADERS module_walk_program_headers
+#endif
+
 /***************************************************************************
  * LIBRARY BOUNDS
  */
@@ -47,9 +57,7 @@
 /* See memquery.h for full interface specs, which are identical to
  * memquery_library_bounds().
  *
- * XXX: I'd like to make unit tests for these maps file readers, but we
- * can't just supply mock maps file enries: this code also walks ELF headers
- * which complicates things.  For now we just go with live tests.
+ * This module is tested by a standalone unit test in memquery_test.h.
  */
 int
 memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
@@ -77,14 +85,14 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
      * address space even when we have syscalls for memquery (e.g., on Mac).
      * Even if start is non-NULL, it could be in the middle of the library.
      */
-    memquery_iterator_start(&iter, NULL,
+    MEMQUERY_ITERATOR_START(&iter, NULL,
                             /* We're never called from a fragile place like a
                              * signal handler, so as long as it's not real early
                              * it's ok to alloc.
                              */
                             dynamo_heap_initialized);
     libname[0] = '\0';
-    while (memquery_iterator_next(&iter)) {
+    while (MEMQUERY_ITERATOR_NEXT(&iter)) {
         LOG(GLOBAL, LOG_VMAREAS, 5, "start=" PFX " end=" PFX " prot=%x comment=%s\n",
             iter.vm_start, iter.vm_end, iter.prot, iter.comment);
 
@@ -102,8 +110,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
              * schemes (i#2566).
              */
             if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ | MEMPROT_EXEC) &&
-                module_is_header(prev_base, prev_end - prev_base) &&
-                !module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
+                MODULE_IS_HEADER(prev_base, prev_end - prev_base) &&
+                !MODULE_IS_HEADER(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
             /* last_lib_end is used to know what's readable beyond last_lib_base */
             if (TEST(MEMPROT_READ, iter.prot))
@@ -143,17 +151,25 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         ASSERT_CURIOSITY((slash - src) < dstsz);
                         /* we keep the last '/' at end */
                         ++slash;
-                        strncpy(dst, src, MIN(dstsz, (slash - src)));
+                        int copy_bytes = MIN(dstsz - 1, (slash - src));
+                        strncpy(dst, src, copy_bytes);
+                        // dst was not 0-terminated by the strncpy because
+                        // copy_bytes is definitely less than strlen(src);
+                        // copy_bytes is either the index of the last byte in
+                        // the dst buffer (dstsz-1) or the index immediately
+                        // after the slash byte, so 0-terminate there:
+                        dst[copy_bytes] = '\0';
                         if (filename != NULL && slash != NULL) {
                             /* slash is filename */
                             strncpy(filename, slash, MIN(strlen(slash), filename_size));
                             filename[MIN(strlen(slash), filename_size - 1)] = '\0';
                         } else
                             filename[0] = '\0';
-                    } else
+                    } else {
                         strncpy(dst, src, dstsz);
-                    /* if max no null */
-                    dst[dstsz - 1] = '\0';
+                        /* Ensure zero termination in case dstsz < srcsz. */
+                        dst[dstsz - 1] = '\0';
+                    }
                 }
                 if (name == NULL)
                     name_cmp = dst;
@@ -171,9 +187,9 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                     mod_start = last_lib_base;
                     mod_readable_sz = last_lib_end - last_lib_base;
                 }
-                if (module_is_header(mod_start, mod_readable_sz)) {
+                if (MODULE_IS_HEADER(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
-                    if (module_walk_program_headers(mod_start, mod_readable_sz, false,
+                    if (MODULE_WALK_PROGRAM_HEADERS(mod_start, mod_readable_sz, false,
                                                     /*i#1589: ld.so relocated .dynamic*/
                                                     true, &mod_base, NULL, &mod_end, NULL,
                                                     NULL)) {
@@ -185,6 +201,13 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                         ASSERT_NOT_REACHED();
                     }
                 } else {
+#ifdef STANDALONE_UNIT_TEST
+                    /* For the unit test, it's more convenient to return an
+                     * incorrect result here to fail the specific query, rather
+                     * than crashing the entire thing.
+                     */
+                    return -1;
+#endif
                     ASSERT(false && "expected elf header");
                 }
             }
@@ -225,7 +248,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
          * second adjacent separate map of the same file.  Curiosity for now. */
         ASSERT_CURIOSITY(image_size == 0 || cur_end - mod_start == image_size);
     }
-    memquery_iterator_stop(&iter);
+    MEMQUERY_ITERATOR_STOP(&iter);
 
     if (name == NULL && *start < mod_start)
         count = 0; /* Our target adjustment missed: we never found a file-backed entry */
