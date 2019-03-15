@@ -87,9 +87,11 @@
 #    include "vmkuw.h"
 #endif
 
-#ifdef __AVX512F__
-#    error "DynamoRIO core should run without AVX-512 instructions to remain \
+#ifndef STANDALONE_UNIT_TEST
+#    ifdef __AVX512F__
+#        error "DynamoRIO core should run without AVX-512 instructions to remain \
 portable and to avoid frequency scaling."
+#    endif
 #endif
 
 /* global thread-shared variables */
