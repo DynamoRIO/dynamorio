@@ -321,6 +321,8 @@ else (UNIX)
   endif (RUNNING_OVER_SSH)
 endif (UNIX)
 
+CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
+
 # To avoid having separate subdirs with separate CMakeLists.txt files,
 # we use DynamoRIOConfig.cmake here.  It makes global changes, though.
 # We live with those changes on all our tests even though we don't
@@ -551,24 +553,6 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
-    # For common.nativeexec takeover tests, we do not support PIE. Newer (unix-) distri-
-    # butions with toolchains may enable PIE by default. In order to be able take over the
-    # "PLT style" dll call (test with executable in native exec list), we expect the call
-    # to jump to a PLT stub first. However with PIe enabled, the compiler will generate a
-    # rip-relative gotplt table call instead.
-    CHECK_C_COMPILER_FLAG("-no-pie" no_pie_avail)
-    if (no_pie_avail)
-      set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS
-        "${CMAKE_C_FLAGS} -fno-pie")
-      if ("${test}" MATCHES "common.nativeexec")
-        append_link_flags(${test} "-no-pie")
-      endif()
-      set_source_files_properties(client-interface/pcache.c PROPERTIES COMPILE_FLAGS
-        "${CMAKE_C_FLAGS} -fno-pie")
-      if ("${test}" MATCHES "client.pcache" OR "${test}" MATCHES "client.pcache-use")
-        append_link_flags(${test} "-no-pie")
-      endif()
-    endif()
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
         AND NOT ${test} MATCHES "drdecode")
@@ -1620,6 +1604,16 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     target_link_libraries(common.nativeexec common.nativeexec.appdll)
     # We want rpath on Linux so we can load the appdll.
     set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
+    # For common.nativeexec takeover tests, we do not support PIE. Newer (unix-) distri-
+    # butions with toolchains may enable PIE by default. In order to be able take over the
+    # "PLT style" dll call (test with executable in native exec list), we expect the call
+    # to jump to a PLT stub first. However with PIE enabled, the compiler will generate a
+    # rip-relative gotplt table call instead.
+    if (UNIX AND no_pie_avail)
+      set_source_files_properties(common/nativeexec.c PROPERTIES COMPILE_FLAGS
+        "${CMAKE_C_FLAGS} -fno-pie")
+      append_link_flags(common.nativeexec "-no-pie")
+    endif()
     if (UNIX)
       # FIXME i#978: Windows support NYI
       torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
@@ -2193,7 +2187,12 @@ if (CLIENT_INTERFACE)
   if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     # We need to load w/ the same base so the test passes
     set(DynamoRIO_SET_PREFERRED_BASE ON)
-    set(PREFERRED_BASE 0x6f000000)
+    if (X64)
+      # We need this higher than DR's vmm.
+      set(PREFERRED_BASE 0xabc00000)
+    else ()
+      set(PREFERRED_BASE 0x6f000000)
+    endif ()
     # Pass extra options to first run so this will pass when run repeatedly in local
     # build dir w/o loading any pcache
     tobuild_ci(client.pcache client-interface/pcache.c ""
@@ -2202,7 +2201,12 @@ if (CLIENT_INTERFACE)
     if (WIN32)
       append_link_flags(client.pcache "/dynamicbase:no")
     endif ()
-    set(DynamoRIO_SET_PREFERRED_BASE OFF)
+    if (UNIX AND no_pie_avail)
+      # i#2868: pcache tests are failing with ET_DYN so we disable PIE.
+      set_source_files_properties(client-interface/pcache.c PROPERTIES COMPILE_FLAGS
+        "${CMAKE_C_FLAGS} -fno-pie")
+      append_link_flags(client.pcache "-no-pie")
+    endif ()
     torunonly_ci(client.pcache-use client.pcache client.pcache.dll
       client-interface/pcache.c "" "-persist" "")
     # XXX: we should have the key be the default for the .expect but
@@ -2210,6 +2214,7 @@ if (CLIENT_INTERFACE)
     set(client.pcache-use_expectbase "pcache-use")
     # when running tests in parallel: have to generate pcaches first
     set(client.pcache-use_depends client.pcache)
+    set(DynamoRIO_SET_PREFERRED_BASE OFF)
   endif (X86)
 
   if (ARM AND NOT ANDROID)
