@@ -739,22 +739,42 @@ coarse_cti_is_intra_fragment(dcontext_t *dcontext, coarse_info_t *info, instr_t 
      * entrance stub or inlined indirect stub).
      */
     cache_pc tgt = opnd_get_pc(instr_get_target(inst));
-    if (tgt < start_pc || tgt >= start_pc + MAX_FRAGMENT_SIZE ||
-        /* if tgt is an entry, then it's a linked exit cti
-         * XXX: this may acquire info->lock if it's never been called before
-         */
-        fragment_coarse_entry_pclookup(dcontext, info, tgt) != NULL ||
-        /* these lookups can get expensive but should only hit them
-         * when have clients adding intra-fragment ctis.
-         * XXX: is there a min distance we could use to rule out
-         * being in stubs?  for frozen though prefixes are
-         * right after cache.
-         */
-        coarse_is_indirect_stub(tgt) || in_coarse_stubs(tgt) ||
-        in_coarse_stub_prefixes(tgt)) {
+    if (tgt < start_pc || tgt >= start_pc + MAX_FRAGMENT_SIZE)
         return false;
-    } else
-        return true;
+    /* If tgt is an entry, then it's a linked exit cti.
+     * XXX: This may acquire info->lock if it's never been called before.
+     */
+    if (fragment_coarse_entry_pclookup(dcontext, info, tgt) != NULL) {
+        /* i#1032: To handle an intra cti that targets the final instr in the bb which
+         * was a jmp and elided, we rely on the assumption that a coarse bb exit
+         * cti is either 1 indirect or 2 direct with no code past it.
+         * Thus, the instr after an exit cti must either be an entry point for
+         * an adjacent fragment, or the 2nd cti for a direct.
+         */
+        cache_pc post_inst_pc = instr_get_raw_bits(inst) + instr_length(dcontext, inst);
+        instr_t post_inst_instr;
+        bool intra = true;
+        instr_init(dcontext, &post_inst_instr);
+        if (post_inst_pc >= info->cache_end_pc ||
+            fragment_coarse_entry_pclookup(dcontext, info, post_inst_pc) != NULL ||
+            (decode_cti(dcontext, post_inst_pc, &post_inst_instr) != NULL &&
+             instr_is_cti(&post_inst_instr))) {
+            intra = false;
+        }
+        instr_free(dcontext, &post_inst_instr);
+        if (!intra)
+            return false;
+    }
+    /* These lookups can get expensive but should only hit them when have
+     * clients adding intra-fragment ctis.
+     * XXX: is there a min distance we could use to rule out being in stubs?
+     * For frozen though prefixes are right after cache.
+     */
+    if (coarse_is_indirect_stub(tgt) || in_coarse_stubs(tgt) ||
+        in_coarse_stub_prefixes(tgt))
+        return false;
+
+    return true;
 }
 
 cache_pc
