@@ -3937,7 +3937,11 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
             /* XXX: may not be at_map if re-add coarse post-load (e.g., IAT or other
              * special cases): how know?
              */
-            !module_has_text_relocs(modbase, dynamo_initialized /*at_map*/)) {
+            !module_has_text_relocs(modbase,
+                                    /* If !for_execution we're freezing at exit
+                                     * or sthg and not at_map.
+                                     */
+                                    for_execution && dynamo_initialized /*at_map*/)) {
             LOG(THREAD, LOG_CACHE, 1,
                 "  module base mismatch " PFX " vs persisted " PFX
                 ", but no text relocs so ok\n",

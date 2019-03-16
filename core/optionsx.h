@@ -1425,12 +1425,16 @@ DYNAMIC_OPTION(bool, pause_via_loop,
 
     /* We hardcode an address in the mmap_text region here, but verify via
      * in vmk_init().
-     * For Linux we start higher to avoid limiting the brk (i#766).
+     * For Linux we start higher to avoid limiting the brk (i#766), but with our
+     * new default -vm_size of 0x20000000 we want to stay below our various
+     * preferred addresses of 0x7xxx0000 so we keep the base plus offset plus
+     * size below that.
+     * We ignore this for x64 if -vm_base_near_app and the app is far away.
      */
     OPTION_DEFAULT(uint_addr, vm_base,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x40000000,0x10800000),
-                                 IF_WINDOWS_ELSE(0x16000000, 0x46000000)),
-                   "preferred base address hint (ignored for 64-bit linux)")
+                                 IF_WINDOWS_ELSE(0x16000000, 0x3f000000)),
+                   "preferred base address hint")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
     OPTION_DEFAULT(uint_addr, vm_max_offset,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x18000000,0x05800000),0x10000000),
