@@ -1356,7 +1356,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
      * But this is simpler than trying to parse that dll's table.
      * We ignore the version suffix ("-1-0", e.g.).
      */
-    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1"))
+    if (str_case_prefix(name, "API-MS-Win-Core-APIQuery-L1") ||
+        str_case_prefix(name, "API-MS-Win-Core-CRT-L1"))
         return "ntdll.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Console-L1"))
         return "kernel32.dll";
@@ -1402,7 +1403,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessEnvironment-L1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1")) {
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessThreads-L1") ||
+             str_case_prefix(name, "API-MS-Win-Core-AppInit-L1-1")) {
         /* This one includes CreateProcessAsUserW which is only in
          * kernel32, but kernel32 itself imports from here and its must come
          * from kernelbase to avoid infinite loop.  XXX: see above: seeming
@@ -1454,6 +1456,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-BEM-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Comm-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Console-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-File-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Job-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-L2-1") ||
@@ -1479,11 +1482,12 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1"))
         return "kernel32.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Core-CRT-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-CRT-L2-1"))
-        return "msvcrt.dll";
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Capability-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-Credentials-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Security-LSAPolicy-L1"))
         return "sechost.dll";
     else if (str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1")) {
@@ -1498,7 +1502,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-XState-L2-1"))
         return "kernelbase.dll";
-    else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
+    else if (str_case_prefix(name, "API-MS-Win-Core-Registry-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-ClassicProvider-L1-1"))
         return "advapi32.dll";
     /**************************************************/
     /* Added in Win10 (some may be 8.1 too) */
@@ -1519,20 +1524,24 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Quirks-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-RegistryUserSpecific-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Legacy-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-SHLWAPI-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-String-L2-1") ||
              str_case_prefix(name, "API-MS-Win-Core-StringAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-URL-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Version-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Version-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-VersionAnsi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Eventing-Provider-L1-1"))
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1"))
+             str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";
-    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1"))
+    else if (str_case_prefix(name, "API-MS-Win-Appmodel-Runtime-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Appmodel-State-L1-2"))
         return "kernel.appcore.dll";
     else if (str_case_prefix(name, "API-MS-Win-GDI-")) {
         /* We've seen many different GDI-* */
@@ -1542,10 +1551,39 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "ucrtbase.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-COM-L1-1") ||
                str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-COM-Private-L1-2") ||
+               str_case_prefix(name, "API-MS-Win-Core-Com-MidlProxyStub-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Core-WinRT-L1-1") ||
                str_case_prefix(name, "API-MS-Win-Core-WinRT-String-L1-1")) {
         return "combase.dll";
     } else if (str_case_prefix(name, "API-MS-Win-Core-Kernel32-Private-L1-1")) {
         return "kernel32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-Shellcom-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Stateseparation-Helpers-L1-1")) {
+        return "kernelbase.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shell-ShellFolders-L1-1")) {
+        /* Moved to windows.storage.dll on Windows 10 */
+        if (get_os_version() >= WINDOWS_VERSION_10) {
+            return "windows.storage.dll";
+        } else {
+            return "kernelbase.dll";
+        }
+    } else if (str_case_prefix(name, "API-MS-Win-Devices-Config-L1-1")) {
+        return "cfgmgr32.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shcore-")) {
+        /* There are a lot of these, and they all seem to redirect to shcore.dll */
+        return "shcore.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Storage-Exports-Internal-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Storage-Exports-External-L1-1")) {
+        return "windows.storage.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Security-Cryptoapi-L1-1")) {
+        return "cryptsp.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-Storage-L1-1") ||
+               str_case_prefix(name, "API-MS-Win-Shlwapi-WinRT-IE-L1-1")) {
+        return "shlwapi.dll";
+    } else if (str_case_prefix(name, "API-MS-Win-Power-Base-L1-1")) {
+        return "powrprof.dll";
     } else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
