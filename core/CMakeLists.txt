@@ -1062,13 +1062,20 @@ if (BUILD_TESTS)
   if (proc_supports_avx512)
     if (UNIX)
       set(unit_tests_extra_flags
-        "${unit_tests_extra_flags} ${CFLAGS_AVX512} -mno-vzeroupper")
+        "${unit_tests_extra_flags} ${CFLAGS_AVX512}")
     endif ()
   elseif (proc_supports_avx)
     if (UNIX)
       set(unit_tests_extra_flags
-        "${unit_tests_extra_flags} ${CFLAGS_AVX} -mno-vzeroupper")
+        "${unit_tests_extra_flags} ${CFLAGS_AVX}")
     endif ()
+  endif ()
+  if (CLANG)
+    set(unit_tests_extra_flags
+      "${unit_tests_extra_flags} -mllvm -x86-use-vzeroupper=0")
+  else ()
+    set(unit_tests_extra_flags
+      "${unit_tests_extra_flags} -mno-vzeroupper")
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
