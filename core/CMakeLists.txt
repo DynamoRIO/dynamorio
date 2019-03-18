@@ -1070,13 +1070,15 @@ if (BUILD_TESTS)
         "${unit_tests_extra_flags} ${CFLAGS_AVX}")
     endif ()
   endif ()
-  if (UNIX)
-    if (CLANG)
-      set(unit_tests_extra_flags
-        "${unit_tests_extra_flags} -mllvm -x86-use-vzeroupper=0")
-    else ()
-      set(unit_tests_extra_flags
-        "${unit_tests_extra_flags} -mno-vzeroupper")
+  if (proc_supports_avx OR proc_supports_avx512)
+    if (UNIX)
+      if (CLANG)
+        set(unit_tests_extra_flags
+          "${unit_tests_extra_flags} -mllvm -x86-use-vzeroupper=0")
+      else ()
+        set(unit_tests_extra_flags
+          "${unit_tests_extra_flags} -mno-vzeroupper")
+      endif ()
     endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
