@@ -517,6 +517,25 @@ unit_test_get_ymm_caller_saved()
     ASSERT(sizeof(dr_ymm_t) == YMM_REG_SIZE);
     uint base = 0x78abcdef;
 
+    register __m256 ymm0 asm("ymm0");
+    register __m256 ymm1 asm("ymm1");
+    register __m256 ymm2 asm("ymm2");
+    register __m256 ymm3 asm("ymm3");
+    register __m256 ymm4 asm("ymm4");
+    register __m256 ymm5 asm("ymm5");
+    register __m256 ymm6 asm("ymm6");
+    register __m256 ymm7 asm("ymm7");
+#        ifdef X64
+    register __m256 ymm8 asm("ymm8");
+    register __m256 ymm9 asm("ymm9");
+    register __m256 ymm10 asm("ymm10");
+    register __m256 ymm11 asm("ymm11");
+    register __m256 ymm12 asm("ymm12");
+    register __m256 ymm13 asm("ymm13");
+    register __m256 ymm14 asm("ymm14");
+    register __m256 ymm15 asm("ymm15");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
@@ -527,8 +546,9 @@ unit_test_get_ymm_caller_saved()
         }
     }
 
+#        define MAKE_YMM_REG(num) ymm##num
 #        define MOVE_TO_YMM(buf, num) \
-            asm volatile("vmovdqu %0, %%ymm" #num : : "m"(buf[num]) : "ymm" #num);
+            asm volatile("vmovdqu %1, %0" : "=v"(MAKE_YMM_REG(num)) : "m"(buf[num]) :);
 
     MOVE_TO_YMM(ref_buffer, 0)
     MOVE_TO_YMM(ref_buffer, 1)
@@ -596,6 +616,41 @@ unit_test_get_zmm_caller_saved()
     ASSERT(sizeof(dr_zmm_t) == ZMM_REG_SIZE);
     uint base = 0x78abcdef;
 
+    register __m512 zmm0 asm("zmm0");
+    register __m512 zmm1 asm("zmm1");
+    register __m512 zmm2 asm("zmm2");
+    register __m512 zmm3 asm("zmm3");
+    register __m512 zmm4 asm("zmm4");
+    register __m512 zmm5 asm("zmm5");
+    register __m512 zmm6 asm("zmm6");
+    register __m512 zmm7 asm("zmm7");
+#        ifdef X64
+    register __m512 zmm8 asm("zmm8");
+    register __m512 zmm9 asm("zmm9");
+    register __m512 zmm10 asm("zmm10");
+    register __m512 zmm11 asm("zmm11");
+    register __m512 zmm12 asm("zmm12");
+    register __m512 zmm13 asm("zmm13");
+    register __m512 zmm14 asm("zmm14");
+    register __m512 zmm15 asm("zmm15");
+    register __m512 zmm16 asm("zmm16");
+    register __m512 zmm17 asm("zmm17");
+    register __m512 zmm18 asm("zmm18");
+    register __m512 zmm19 asm("zmm19");
+    register __m512 zmm20 asm("zmm20");
+    register __m512 zmm21 asm("zmm21");
+    register __m512 zmm22 asm("zmm22");
+    register __m512 zmm23 asm("zmm23");
+    register __m512 zmm24 asm("zmm24");
+    register __m512 zmm25 asm("zmm25");
+    register __m512 zmm26 asm("zmm26");
+    register __m512 zmm27 asm("zmm27");
+    register __m512 zmm28 asm("zmm28");
+    register __m512 zmm29 asm("zmm29");
+    register __m512 zmm30 asm("zmm30");
+    register __m512 zmm31 asm("zmm31");
+#        endif
+
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = 0;
@@ -607,8 +662,9 @@ unit_test_get_zmm_caller_saved()
         }
     }
 
+#        define MAKE_ZMM_REG(num) zmm##num
 #        define MOVE_TO_ZMM(buf, num) \
-            asm volatile("vmovdqu32 %0, %%zmm" #num : : "m"(buf[num]) : "zmm" #num);
+            asm volatile("vmovdqu32 %1, %0" : "=v"(MAKE_ZMM_REG(num)) : "m"(buf[num]) :);
 
     MOVE_TO_ZMM(ref_buffer, 0)
     MOVE_TO_ZMM(ref_buffer, 1)
