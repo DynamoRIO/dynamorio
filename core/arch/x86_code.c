@@ -44,7 +44,7 @@
 #include "../monitor.h"
 #include "arch.h"
 #if defined(UNIX) && defined(X86)
-#include <immintrin.h>
+#    include <immintrin.h>
 #endif
 
 /* Helper routine for the x86.asm PUSH_DR_MCONTEXT, to fill in the xmm0-5 values
@@ -505,12 +505,6 @@ test_cpuid()
 }
 
 #    ifdef __AVX__
-
-#        if 0
-static void __attribute__((noinline)) write_ymm_aux(dr_ymm_t *buffer, int regno)
-{
-}
-#        endif
 
 static void
 unit_test_get_ymm_caller_saved()
