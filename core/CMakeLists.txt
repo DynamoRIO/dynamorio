@@ -1060,11 +1060,15 @@ if (BUILD_TESTS)
     set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
   endif ()
   if (proc_supports_avx512)
-    set(unit_tests_extra_flags
-      "${unit_tests_extra_flags} ${CFLAGS_AVX512} -mno-vzeroupper")
+    if (UNIX)
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX512} -mno-vzeroupper")
+    endif ()
   elseif (proc_supports_avx)
-    set(unit_tests_extra_flags
-      "${unit_tests_extra_flags} ${CFLAGS_AVX} -mno-vzeroupper")
+    if (UNIX)
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX} -mno-vzeroupper")
+    endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
