@@ -169,9 +169,12 @@ function (check_avx_processor_and_compiler_support out)
     message(FATAL_ERROR "Windows not supported yet.")
   endif ()
   include(CheckCSourceRuns)
-  set(avx_prog "int main() { \
-                  asm volatile(\"vmovdqu %ymm0, %ymm1\"); \
-                  return 0; \
+  set(avx_prog "#include <immintrin.h>
+                int main() {
+                  register __m256 ymm0 asm(\"ymm0\");
+                  (void)ymm0;
+                  asm volatile(\"vmovdqu %ymm0, %ymm1\");
+                  return 0;
                 }")
   set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX})
   check_c_source_runs("${avx_prog}" proc_found_avx)
@@ -190,9 +193,12 @@ function (check_avx512_processor_and_compiler_support out)
     message(FATAL_ERROR "Windows not supported yet.")
   endif ()
   include(CheckCSourceRuns)
-  set(avx512_prog "int main() { \
-                     asm volatile(\"vmovdqu64 %zmm0, %zmm1\"); \
-                     return 0; \
+  set(avx512_prog "#include <immintrin.h>
+                   int main() {
+                     register __m512 zmm0 asm(\"zmm0\");
+                     (void)zmm0;
+                     asm volatile(\"vmovdqu64 %zmm0, %zmm1\");
+                     return 0;
                    }")
   set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX512})
   check_c_source_runs("${avx512_prog}" proc_found_avx512)
