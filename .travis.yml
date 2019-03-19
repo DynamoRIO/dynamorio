@@ -105,7 +105,7 @@ install:
   # ImageMagick is present but these are not:
   - >
       if [[ "`uname`" == "Linux" ]]; then
-      sudo apt-get -y install doxygen transfig vera++ cmake zlib1g-dev libsnappy-dev; fi
+      sudo apt-get -y install ghostscript doxygen transfig vera++ cmake zlib1g-dev libsnappy-dev; fi
   # Install multilib for non-cross-compiling Linux builds:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == no ]]; then
