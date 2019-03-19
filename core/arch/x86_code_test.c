@@ -36,7 +36,7 @@
 /* Copyright (c) 2001 Hewlett-Packard Company */
 /* Copyright (c) 2019 Google, Inc.  All rights reserved. */
 /*
- * x86_code_test.c - unit tests for auxiliary C routines in x86_code.c
+ * x86_code_test.c - unit tests for auxiliary asm and some C routines
  */
 #include "../globals.h"
 #include "../fragment.h"
@@ -139,10 +139,7 @@ unit_test_get_ymm_caller_saved()
 
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
-            ref_buffer[regno].u32[dword] = 0;
             get_buffer[regno].u32[dword] = 0;
-        }
-        for (int dword = 0; dword < sizeof(dr_ymm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = base++;
         }
     }
@@ -254,13 +251,10 @@ unit_test_get_zmm_caller_saved()
 
     for (int regno = 0; regno < proc_num_simd_registers(); ++regno) {
         for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
-            ref_buffer[regno].u32[dword] = 0;
             get_buffer[regno].u32[dword] = 0;
-        }
-        base += regno;
-        for (int dword = 0; dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
             ref_buffer[regno].u32[dword] = base + dword;
         }
+        base += regno;
     }
 
 #        define MAKE_ZMM_REG(num) zmm##num

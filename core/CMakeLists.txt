@@ -1061,17 +1061,23 @@ if (BUILD_TESTS)
   endif ()
   if (proc_supports_avx512)
     if (UNIX)
+      # XXX i#3459: add Windows support.
       set(unit_tests_extra_flags
         "${unit_tests_extra_flags} ${CFLAGS_AVX512}")
     endif ()
   elseif (proc_supports_avx)
     if (UNIX)
+      # XXX i#3459: add Windows support.
       set(unit_tests_extra_flags
         "${unit_tests_extra_flags} ${CFLAGS_AVX}")
     endif ()
   endif ()
   if (proc_supports_avx OR proc_supports_avx512)
     if (UNIX)
+      # XXX i#3459: add Windows support.
+      # Force the compiler to not apply vzeroupper HW performance optimizations
+      # that applies to most Intel processors. In the unit test, this would
+      # destroy the upper halfs of the AVX registers we want to read.
       if (CLANG)
         set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
           "-mllvm -x86-use-vzeroupper=0")
