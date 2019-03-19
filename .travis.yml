@@ -64,11 +64,11 @@ jobs:
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
     # AArchXX cross-compile with gcc, no tests:
     - os: linux
-      compiler: gcc-4
+      compiler: gcc
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
     # Android ARM cross-compile with gcc, no tests:
     - os: linux
-      compiler: gcc-4
+      compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DEPLOY=no DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e'
     # 32-bit Linux build with clang, no tests (runsuite.cmake disables the tests):
     - os: linux
