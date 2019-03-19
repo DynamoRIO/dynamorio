@@ -236,6 +236,12 @@ if (WIN32)
   endif (BIND_EXECUTABLE)
   mark_as_advanced(BIND_EXECUTABLE)
 
+  # If we up our cmake minimum to 3.8.2 we can use enable_language(CSharp).
+  find_program(CSC csc.exe DOC "Path to CSharp compiler csc.exe")
+  if (NOT CSC)
+    message(STATUS "csc not found: .NET Windows tests will be disabled")
+  endif ()
+
   # if cygwin or mingw gcc is available, we do some extra tests
   find_program(GCC gcc.exe DOC "path to gcc.exe")
   if (NOT GCC)
@@ -863,6 +869,25 @@ function(torunonly test realtest source dr_ops exe_ops)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
 endfunction(torunonly)
+
+# macro so the PARENT_SCOPE in torunonly will reach caller of this
+macro(tobuild_csharp test source)
+  if (CSC)
+    set(exe "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${test}.exe")
+    add_custom_target(${test} ALL DEPENDS ${exe})
+    if (X64)
+      set(platform "x64")
+    else ()
+      set(platform "x86")
+    endif ()
+    set(source_winpath "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+    string(REGEX REPLACE "/" "\\\\" source_winpath "${source_winpath}")
+    add_custom_command(OUTPUT ${exe} DEPENDS ${source}
+      COMMAND ${CSC} ARGS /debug /platform:${platform} /t:exe /out:${exe}
+      "${source_winpath}" VERBATIM)
+    torunonly(${test} ${exe} ${source} "" "")
+  endif ()
+endmacro(tobuild_csharp)
 
 function(tobind target)
   if (BIND_EXECUTABLE)
@@ -3469,6 +3494,8 @@ else (UNIX)
   #tobuild_runall(runall.notepad runall/notepad.runall "")
   #tobuild_runall(runall.preunload runall/preunload.runall "")
   #tobuild_runall(runall.processchain runall/processchain.runall "")
+
+  tobuild_csharp(win32.dotnet win32/dotnet.cs)
 
   # Cross-arch mixedmode/x86_to_x64 test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
