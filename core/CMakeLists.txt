@@ -1047,6 +1047,10 @@ endif ()
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
+    # These unit tests have been moved from the x86_code module into a new x86_code
+    # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
+    # We want this option to apply only to code compiled for unit_test. Also clang
+    # specific target options break the clang build (xref i#3458).
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} arch/x86_code_test.c)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
