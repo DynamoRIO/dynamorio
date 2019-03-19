@@ -616,6 +616,19 @@ GLOBAL_LABEL(load_dynamo:)
      */
         /* two byte NOP to satisfy third party braindead-ness documented in case 3821 */
         mov      edi, edi
+        /* Update priv_mcontext_t's xcx/xax in case the target start address was changed
+         * for .NET (i#3046).  LdrpInitializeProcess goes and changes the initial
+         * thread's CONTEXT.Xcx from what the kernel set (the executable image entry),
+         * and what inject_into_thread() cached here on the stack, to something like
+         * MSCOREE!CorExeMain_Exported.  We assume no other state was changed: just
+         * Xcx/Xax.  Long-term we'd like to make early injection the default, which
+         * avoids this problem.
+         */
+#ifdef X64
+        mov      PTRSZ [MCONTEXT_XCX_OFFS + 4*ARG_SZ + REG_XSP], REG_XCX
+#else
+        mov      PTRSZ [MCONTEXT_XAX_OFFS + 4*ARG_SZ + REG_XSP], REG_XAX
+#endif
 #ifdef LOAD_DYNAMO_DEBUGBREAK
         /* having this code in front may hide the problem addressed with the
          * above padding */
