@@ -1047,7 +1047,7 @@ endif ()
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} arch/x86_code_test.c)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
@@ -1073,11 +1073,11 @@ if (BUILD_TESTS)
   if (proc_supports_avx OR proc_supports_avx512)
     if (UNIX)
       if (CLANG)
-        set(unit_tests_extra_flags
-          "${unit_tests_extra_flags} -mllvm -x86-use-vzeroupper=0")
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mllvm -x86-use-vzeroupper=0")
       else ()
-        set(unit_tests_extra_flags
-          "${unit_tests_extra_flags} -mno-vzeroupper")
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mno-vzeroupper")
       endif ()
     endif ()
   endif ()
