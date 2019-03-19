@@ -43,9 +43,9 @@ branches:
   only:
   - master
 
-# We use Trusty to get cmake 3.5 via the cmake3 package.
+# We use Xenial.
 sudo: required
-dist: trusty
+dist: xenial
 
 language:
   - c
@@ -83,7 +83,7 @@ jobs:
         apt:
           sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-trusty-6.0
+          - llvm-toolchain-xenial-7
           packages:
           - clang-format-6.0
     # 32-bit OSX build with clang and run tests:
