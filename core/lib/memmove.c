@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,25 +31,30 @@
  */
 
 /*
- * cross-platform assembly and trampoline code
+ * Private memmove for inclusion in libdrmemfuncs for isolation from libc in
+ * shared DR but not in static DR.  We need this in addition to memcpy
+ * and memset because the compiler will auto-issue a call to "memmove" when
+ * it cannot prove there are is no overlap and that memcpy is safe to call.
+ *
+ * We assume that this is not performance-critical as it is rarely called
+ * (in fact it only shows up once in the internal release build and not at
+ * all in the external release build) and so we just use simple C code.
  */
 
-#include "asm_defines.asm"
-START_FILE
+#include "../globals.h"
 
-DECL_EXTERN(d_r_internal_error)
+#undef memmove
 
-/* For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-        CALLC3(GLOBAL_REF(d_r_internal_error), HEX(0), HEX(0), HEX(0))
-        /* d_r_internal_error normally never returns */
-        /* Infinite loop is intentional.  Can we do better in release build?
-         * XXX: why not a debug instr?
-         */
-        JUMP  GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-
-END_FILE
+void *
+memmove(void *dst, const void *src, size_t n)
+{
+    ssize_t i;
+    byte *dst_b = (byte *)dst;
+    const byte *src_b = (const byte *)src;
+    if (dst < src)
+        return memcpy(dst, src, n);
+    for (i = n - 1; i >= 0; i--) {
+        dst_b[i] = src_b[i];
+    }
+    return dst;
+}

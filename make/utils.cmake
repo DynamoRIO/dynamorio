@@ -163,6 +163,54 @@ function (place_shared_lib_in_lib_dir target)
     ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 endfunction ()
 
+function (check_avx_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx_prog "#include <immintrin.h>
+                int main() {
+                  register __m256 ymm0 asm(\"ymm0\");
+                  (void)ymm0;
+                  asm volatile(\"vmovdqu %ymm0, %ymm1\");
+                  return 0;
+                }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX})
+  check_c_source_runs("${avx_prog}" proc_found_avx)
+  if (proc_found_avx)
+    message(STATUS "Compiler and processor support AVX.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx} PARENT_SCOPE)
+endfunction (check_avx_processor_and_compiler_support)
+
+function (check_avx512_processor_and_compiler_support out)
+  if (WIN32)
+    # XXX i#1312: add Windows support.
+    message(FATAL_ERROR "Windows not supported yet.")
+  endif ()
+  include(CheckCSourceRuns)
+  set(avx512_prog "#include <immintrin.h>
+                   int main() {
+                     register __m512 zmm0 asm(\"zmm0\");
+                     (void)zmm0;
+                     asm volatile(\"vmovdqu64 %zmm0, %zmm1\");
+                     return 0;
+                   }")
+  set(CMAKE_REQUIRED_FLAGS ${CFLAGS_AVX512})
+  check_c_source_runs("${avx512_prog}" proc_found_avx512)
+  if (proc_found_avx512)
+    message(STATUS "Compiler and processor support AVX-512.")
+  else ()
+    message(STATUS "WARNING: Compiler or processor do not support AVX-512. "
+                   "Skipping tests")
+  endif ()
+  set(${out} ${proc_found_avx512} PARENT_SCOPE)
+endfunction (check_avx512_processor_and_compiler_support)
+
 if (UNIX)
   # We always use a script for our own library bounds (PR 361594).
   # We could build this at configure time instead of build time as

@@ -141,13 +141,15 @@ d_r_strncat(char *dest, const char *src, size_t n)
     return dest;
 }
 
-/* Private memcpy is in arch/<arch>/<arch>.asm */
+/* Private memcpy is in arch/<arch>/<arch>.asm or memfuncs.asm */
 
-/* Private memset is in arch/<arch>/<arch>.asm */
+/* Private memset is in arch/<arch>/<arch>.asm or memfuncs.asm */
 
 /* Private memmove.  The only difference between memcpy and memmove is that if
  * you need to shift overlapping data forwards in memory, memmove will do what
  * you want.
+ * We also have a version named "memmove" in lib/memmove.c for shared
+ * DR libc isolation.
  */
 void *
 d_r_memmove(void *dst, const void *src, size_t n)
@@ -304,7 +306,7 @@ unsigned long
 d_r_strtoul(const char *str, char **end, int base)
 {
     uint64 num;
-    const char *parse_end = parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
+    const char *parse_end = d_r_parse_int(str, &num, base, 0 /*width*/, true /*signed*/);
     if (end != NULL)
         *end = (char *)parse_end;
     if (parse_end == NULL)

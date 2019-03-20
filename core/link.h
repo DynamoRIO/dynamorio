@@ -375,9 +375,9 @@ typedef struct _coarse_incoming_t {
     (EXIT_HAS_STUB(l_flags, f_flags) && !TEST(LINK_SEPARATE_STUB, (l_flags)))
 
 void
-link_init(void);
+d_r_link_init(void);
 void
-link_exit(void);
+d_r_link_exit(void);
 void
 link_reset_init(void);
 void

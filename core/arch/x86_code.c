@@ -181,7 +181,7 @@ auto_setup(ptr_uint_t appstack)
     ASSERT(dcontext);
 #ifdef WINDOWS
     LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread " TIDFMT "\n",
-        get_thread_id());
+        d_r_get_thread_id());
 #endif
 
     /* Despite what *should* happen, there can be other threads if a statically
@@ -278,7 +278,7 @@ new_thread_setup(priv_mcontext_t *mc)
     crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     /* As we used dstack as app thread stack to pass clone record, we now need
      * to switch back to the real app thread stack before continuing.
@@ -340,7 +340,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
     func_arg = (void *)get_clone_record_thread_arg(crec);
     LOG(GLOBAL, LOG_INTERP, 1,
         "new_thread_setup: thread " TIDFMT ", dstack " PFX " clone record " PFX "\n",
-        get_thread_id(), get_clone_record_dstack(crec), crec);
+        d_r_get_thread_id(), get_clone_record_dstack(crec), crec);
 
     rc = dynamo_thread_init(get_clone_record_dstack(crec), mc,
                             crec _IF_CLIENT_INTERFACE(false));
@@ -442,70 +442,3 @@ safe_read_resume_pc(void)
 {
     return (app_pc)&safe_read_asm_recover;
 }
-
-#if defined(STANDALONE_UNIT_TEST)
-
-#    define CONST_BYTE 0x1f
-#    define TEST_STACK_SIZE 4096
-/* Align stack to 16 bytes: sufficient for all current architectures. */
-byte ALIGN_VAR(16) test_stack[TEST_STACK_SIZE];
-static dcontext_t *static_dc;
-
-static void
-check_var(byte *var)
-{
-    EXPECT(*var, CONST_BYTE);
-}
-
-static void (*check_var_ptr)(byte *) = check_var;
-
-static void
-test_func(dcontext_t *dcontext)
-{
-    /* i#1577: we want to read the stack without bothering with a separate
-     * assembly routine and without getting an uninit var warning from the
-     * compiler.  We go through a separate function and avoid compiler analysis
-     * of that function via an indirect call.
-     */
-    byte var;
-    check_var_ptr(&var);
-    EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
-    return;
-}
-
-static void
-test_call_switch_stack(dcontext_t *dc)
-{
-    byte *stack_ptr = test_stack + TEST_STACK_SIZE;
-    static_dc = dc;
-    print_file(STDERR, "testing asm call_switch_stack\n");
-    memset(test_stack, CONST_BYTE, sizeof(test_stack));
-    call_switch_stack(dc, stack_ptr, (void (*)(void *))test_func, NULL,
-                      true /* should return */);
-}
-
-static void
-test_cpuid()
-{
-#    ifdef X86
-    int cpuid_res[4] = { 0 };
-#    endif
-    print_file(STDERR, "testing asm cpuid\n");
-    EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
-#    ifdef X86
-    our_cpuid(cpuid_res, 0, 0); /* get vendor id */
-    /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
-    EXPECT_NE(cpuid_res[1], 0);
-    EXPECT_NE(cpuid_res[2], 0);
-    EXPECT_NE(cpuid_res[3], 0);
-#    endif
-}
-
-void
-unit_test_asm(dcontext_t *dc)
-{
-    print_file(STDERR, "testing asm\n");
-    test_call_switch_stack(dc);
-    test_cpuid();
-}
-#endif /* STANDALONE_UNIT_TEST */

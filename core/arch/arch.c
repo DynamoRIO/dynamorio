@@ -644,7 +644,7 @@ far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
 
 /* arch-specific initializations */
 void
-arch_init(void)
+d_r_arch_init(void)
 {
     ASSERT(sizeof(opnd_t) == EXPECTED_SIZEOF_OPND);
     IF_X86(ASSERT(CHECK_TRUNCATE_TYPE_byte(OPSZ_LAST)));
@@ -763,7 +763,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
         protect_generated_code(tpc, WRITABLE);
 
         stop_profile(tpc->profile);
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
 
         /* Print the thread id so even if it has no hits we can
          * count the # total threads. */
@@ -836,7 +836,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
                                tpc->profile->end);
         }
 
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
         free_profile(tpc->profile);
         tpc->profile = NULL;
     }
@@ -853,7 +853,7 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path
@@ -3487,6 +3487,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     );
 
 #ifdef X86
+    /* XXX i#1312: this needs to get extended to AVX-512. */
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i = 0; i < proc_num_simd_saved(); i++) {
@@ -3518,7 +3519,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
     {
         int i, j;
         /* XXX: should be proc_num_simd_saved(). */
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < proc_num_simd_registers(); i++) {
             print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
             for (j = 0; j < 4; j++) {
                 print_file(f, "%08x ", context->simd[i].u32[j]);

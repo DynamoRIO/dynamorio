@@ -88,7 +88,8 @@ if (UNIX AND X86)
   # glibc versioning is only an issue on x86.
   add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
     "_memfuncs" "" "${asm_deps}")
-  add_library(drmemfuncs STATIC ${memfuncs_asm_src})
+  add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
+  add_gen_events_deps(drmemfuncs)
 endif ()
 
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
@@ -377,11 +378,6 @@ if (UNIX)
     string.c
     io.c
     )
-  if (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
-  else (APPLE)
-    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_elf.c)
-  endif ()
 
 else (UNIX)
   set(OSNAME win32)
@@ -1051,7 +1047,11 @@ endif ()
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+    # These unit tests have been moved from the x86_code module into a new x86_code
+    # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
+    # We want this option to apply only to code compiled for unit_test. Also clang
+    # specific target options break the clang build (xref i#3458).
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} arch/x86_code_test.c)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
@@ -1062,6 +1062,34 @@ if (BUILD_TESTS)
   if (UNIX AND NOT DEBUG)
     # -Wno-array-bounds to work around compiler bug (i#1796)
     set(unit_tests_extra_flags "${unit_tests_extra_flags} -Wno-array-bounds")
+  endif ()
+  if (proc_supports_avx512)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX512}")
+    endif ()
+  elseif (proc_supports_avx)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      set(unit_tests_extra_flags
+        "${unit_tests_extra_flags} ${CFLAGS_AVX}")
+    endif ()
+  endif ()
+  if (proc_supports_avx OR proc_supports_avx512)
+    if (UNIX)
+      # XXX i#3459: add Windows support.
+      # Force the compiler to not apply vzeroupper HW performance optimizations
+      # that applies to most Intel processors. In the unit test, this would
+      # destroy the upper halfs of the AVX registers we want to read.
+      if (CLANG)
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mllvm -x86-use-vzeroupper=0")
+      else ()
+        set_source_files_properties(arch/x86_code_test.c PROPERTIES COMPILE_FLAGS
+          "-mno-vzeroupper")
+      endif ()
+    endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"

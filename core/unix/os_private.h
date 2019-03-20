@@ -282,9 +282,9 @@ typedef kernel_sigaction_t prev_sigaction_t;
 #endif
 
 void
-signal_init(void);
+d_r_signal_init(void);
 void
-signal_exit(void);
+d_r_signal_exit(void);
 void
 signal_thread_init(dcontext_t *dcontext, void *os_data);
 void

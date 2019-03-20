@@ -1754,10 +1754,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             }
 
             if (spill_xcx_outstanding_offs != UINT_MAX) {
-                mc.xcx = (reg_t)get_tls(spill_xcx_outstanding_offs) + 1;
+                mc.xcx = (reg_t)d_r_get_tls(spill_xcx_outstanding_offs) + 1;
             } else {
-                mc.xcx =
-                    (reg_t)get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) +
+                mc.xcx = (reg_t)d_r_get_tls(
+                             os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))) +
                     1;
             }
             mc.xsp = STRESS_XSP_INIT;
@@ -1769,7 +1769,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", xcx=" PFX
                 " vs " PFX "\n",
                 res, mc.pc, mc.xsp, STRESS_XSP_INIT - /*negate*/ xsp_adjust, mc.xcx,
-                get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))));
+                d_r_get_tls(os_tls_offset((ushort)reg_spill_tls_offs(REG_XCX))));
             /* We should only have failures at tail end of mangle regions.
              * No instrs after a failing instr should touch app memory.
              */
@@ -1782,7 +1782,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             /* check that xsp and xcx are adjusted properly */
             ASSERT(mc.xsp == STRESS_XSP_INIT - /*negate*/ xsp_adjust);
             ASSERT(spill_xcx_outstanding_offs == UINT_MAX ||
-                   mc.xcx == (reg_t)get_tls(spill_xcx_outstanding_offs));
+                   mc.xcx == (reg_t)d_r_get_tls(spill_xcx_outstanding_offs));
 
             if (success_so_far && !res)
                 success_so_far = false;

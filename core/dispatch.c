@@ -589,7 +589,7 @@ handle_special_tag(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 1, "\n%s: thread " TIDFMT " returning to app @" PFX "\n",
             dcontext->go_native ? "Requested to go native"
                                 : "Found DynamoRIO stopping point",
-            get_thread_id(), dcontext->next_tag);
+            d_r_get_thread_id(), dcontext->next_tag);
 #ifdef DR_APP_EXPORTS
         if (dcontext->next_tag == (app_pc)dr_app_stop)
             send_all_other_threads_native();
@@ -1016,13 +1016,13 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT((SWAP_TEB_STACKBASE() &&
-                is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
+                is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)) ||
                (!SWAP_TEB_STACKBASE() &&
-                !is_dynamo_address((byte *)get_tls(TOP_STACK_TIB_OFFSET) - 1)));
+                !is_dynamo_address((byte *)d_r_get_tls(TOP_STACK_TIB_OFFSET) - 1)));
         ASSERT((SWAP_TEB_STACKLIMIT() &&
-                is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))) ||
+                is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))) ||
                (!SWAP_TEB_STACKLIMIT() &&
-                !is_dynamo_address(get_tls(BASE_STACK_TIB_OFFSET))));
+                !is_dynamo_address(d_r_get_tls(BASE_STACK_TIB_OFFSET))));
         /* DrMi#1723: ensure client hitting app guard page updated TEB.StackLimit.
          * Unfortunately this does happen with fiber code that updates TEB before
          * swapping the stack in the next bb so we make it a curiosity.
@@ -1031,7 +1031,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
             (SWAP_TEB_STACKLIMIT() &&
              get_mcontext(dcontext)->xsp >= (reg_t)dcontext->app_stack_limit) ||
             (!SWAP_TEB_STACKLIMIT() &&
-             get_mcontext(dcontext)->xsp >= (reg_t)get_tls(BASE_STACK_TIB_OFFSET)));
+             get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
     }
@@ -1123,21 +1123,21 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 #ifdef SIDELINE
     /* sideline synchronization */
     if (dynamo_options.sideline) {
-        thread_id_t tid = get_thread_id();
+        thread_id_t tid = d_r_get_thread_id();
         if (pause_for_sideline == tid) {
-            mutex_lock(&sideline_lock);
+            d_r_mutex_lock(&sideline_lock);
             if (pause_for_sideline == tid) {
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d waiting for sideline thread\n", tid);
                 signal_event(paused_for_sideline_event);
                 STATS_INC(num_wait_sideline);
                 wait_for_event(resume_from_sideline_event, 0);
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
                 LOG(THREAD, LOG_DISPATCH | LOG_THREADS | LOG_SIDELINE, 2,
                     "Thread %d resuming after sideline thread\n", tid);
                 sideline_cleanup_replacement(dcontext);
             } else
-                mutex_unlock(&sideline_lock);
+                d_r_mutex_unlock(&sideline_lock);
         }
     }
 #endif
@@ -1167,7 +1167,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                         " at this time");
         }
 #    ifdef CLIENT_SIDELINE
-        mutex_lock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
 #    endif
         todo = dcontext->client_data->to_do;
         while (todo != NULL) {
@@ -1240,7 +1240,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         }
         dcontext->client_data->to_do = NULL;
 #    ifdef CLIENT_SIDELINE
-        mutex_unlock(&(dcontext->client_data->sideline_mutex));
+        d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
 #    endif
     }
 #endif /* CLIENT_INTERFACE */

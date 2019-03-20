@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1731,7 +1731,7 @@ typedef struct {
 /* These constants & macros are used by core, share and preinject, so this is
  * the only place they will build for win32 and linux! */
 /* return codes for [gs]et_parameter style functions
- * failure == 0 for compatibility with get_parameter()
+ * failure == 0 for compatibility with d_r_get_parameter()
  * if GET_PARAMETER_NOAPPSPECIFIC is returned, that means the
  *  parameter returned is from the global options, because there
  *  was no app-specific key present.
@@ -1816,6 +1816,23 @@ typedef union _dr_ymm_t {
     byte u8[32];                  /**< Representation as 32 8-bit integers. */
     reg_t reg[IF_X64_ELSE(4, 8)]; /**< Representation as 4 or 8 registers. */
 } dr_ymm_t;
+
+/** 512-bit ZMM register. */
+typedef union _dr_zmm_t {
+#ifdef AVOID_API_EXPORT
+    /* XXX i#1312: There may be alignment considerations that need to get
+     * worked out when adding this to dr_mcontext_t.
+     */
+#endif
+#ifdef API_EXPORT_ONLY
+#    ifdef X64
+    uint64 u64[8]; /**< Representation as 8 64-bit integers. */
+#    endif
+#endif
+    uint u32[16];                  /**< Representation as 16 32-bit integers. */
+    byte u8[64];                   /**< Representation as 64 8-bit integers. */
+    reg_t reg[IF_X64_ELSE(8, 16)]; /**< Representation as 8 or 16 registers. */
+} dr_zmm_t;
 
 #if defined(AARCHXX)
 /**

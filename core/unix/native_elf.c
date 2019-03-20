@@ -774,8 +774,8 @@ native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm)
 {
     app_pc call_tgt, ret_tgt;
 
-    if (!safe_read(xsp, sizeof(app_pc), &call_tgt) ||
-        !safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
+    if (!d_r_safe_read(xsp, sizeof(app_pc), &call_tgt) ||
+        !d_r_safe_read(xsp + ret_imm + sizeof(XSP_SZ), sizeof(app_pc), &ret_tgt)) {
         ASSERT(false && "fail to read app stack!\n");
         return;
     }

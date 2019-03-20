@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1611,7 +1611,7 @@ static void HTNAME(hashtable_, NAME_KEY,
                    _groom_table)(dcontext_t *dcontext,
                                  HTNAME(, NAME_KEY, _table_t) * table)
 {
-    DOLOG(1, LOG_STATS, { print_timestamp(THREAD); });
+    DOLOG(1, LOG_STATS, { d_r_print_timestamp(THREAD); });
     LOG(THREAD, LOG_HTABLE, 1, "hashtable_" KEY_STRING "_groom_table %s\n", table->name);
 
     /* flush only tables caching data persistent in another table */
@@ -1943,7 +1943,7 @@ void HTNAME(hashtable_, NAME_KEY,
     /* mostly a copy of dump_table but printing only entries with non 0 stats */
     uint i;
     uint max_age = 0;
-    DOLOG(1, LOG_STATS, { print_timestamp(THREAD); });
+    DOLOG(1, LOG_STATS, { d_r_print_timestamp(THREAD); });
     LOG(THREAD, LOG_HTABLE, 1, "dump_and_clean_entry_statistics: %s\n", htable->name);
 
     DOLOG(1, LOG_HTABLE | LOG_STATS, {

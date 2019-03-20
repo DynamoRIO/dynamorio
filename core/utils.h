@@ -66,16 +66,16 @@
  * FIXME: cl debug build allocates a local for each ?:, so if this gets
  * unrolled in some optionsx or other expansion we could have stack problems!
  */
-#        define ASSERT(x)                                             \
-            ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x))            \
-                        ? (internal_error(__FILE__, __LINE__, #x), 0) \
+#        define ASSERT(x)                                                 \
+            ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x))                \
+                        ? (d_r_internal_error(__FILE__, __LINE__, #x), 0) \
                         : 0))
 /* make type void to avoid gcc 4.1 warnings about "value computed is not used"
  * (case 7851).  can also use statement expr ({;}) but only w/ gcc, not w/ cl.
  */
-#        define ASSERT_MESSAGE(level, msg, x)                                 \
-            ((DEBUG_CHECKS(level) && !(x))                                    \
-                 ? (internal_error(msg " @" __FILE__, __LINE__, #x), (void)0) \
+#        define ASSERT_MESSAGE(level, msg, x)                                     \
+            ((DEBUG_CHECKS(level) && !(x))                                        \
+                 ? (d_r_internal_error(msg " @" __FILE__, __LINE__, #x), (void)0) \
                  : (void)0)
 #        define REPORT_CURIOSITY(x)                                                   \
             do {                                                                      \
@@ -100,13 +100,13 @@
             } while (0)
 #    else
 /* cast to void to avoid gcc warning "statement with no effect" */
-#        define ASSERT(x)                                             \
-            ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x))            \
-                        ? (internal_error(__FILE__, __LINE__, ""), 0) \
+#        define ASSERT(x)                                                 \
+            ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x))                \
+                        ? (d_r_internal_error(__FILE__, __LINE__, ""), 0) \
                         : 0))
-#        define ASSERT_MESSAGE(level, msg, x)                         \
-            ((void)((DEBUG_CHECKS(level) && !(x))                     \
-                        ? (internal_error(__FILE__, __LINE__, ""), 0) \
+#        define ASSERT_MESSAGE(level, msg, x)                             \
+            ((void)((DEBUG_CHECKS(level) && !(x))                         \
+                        ? (d_r_internal_error(__FILE__, __LINE__, ""), 0) \
                         : 0))
 #        define ASSERT_CURIOSITY(x) ((void)0)
 #        define ASSERT_CURIOSITY_ONCE(x) ((void)0)
@@ -128,7 +128,7 @@
 
 #if defined(INTERNAL) || defined(DEBUG)
 void
-internal_error(const char *file, int line, const char *expr);
+d_r_internal_error(const char *file, int line, const char *expr);
 bool
 ignore_assert(const char *assert_file_line, const char *expr);
 #endif
@@ -748,35 +748,35 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
     }
 
 /* in order to use parallel names to the above INIT_*LOCK routines */
-#define DELETE_LOCK(lock) mutex_delete(&lock)
+#define DELETE_LOCK(lock) d_r_mutex_delete(&lock)
 #define DELETE_SPINMUTEX(spinmutex) spinmutex_delete(&spinmutex)
-#define DELETE_RECURSIVE_LOCK(rec_lock) mutex_delete(&(rec_lock).lock)
-#define DELETE_READWRITE_LOCK(rwlock) mutex_delete(&(rwlock).lock)
+#define DELETE_RECURSIVE_LOCK(rec_lock) d_r_mutex_delete(&(rec_lock).lock)
+#define DELETE_READWRITE_LOCK(rwlock) d_r_mutex_delete(&(rwlock).lock)
 /* mutexes need to release any kernel objects that were created */
 void
-mutex_delete(mutex_t *lock);
+d_r_mutex_delete(mutex_t *lock);
 
 /* basic synchronization functions */
 void
-mutex_lock(mutex_t *mutex);
+d_r_mutex_lock(mutex_t *mutex);
 bool
-mutex_trylock(mutex_t *mutex);
+d_r_mutex_trylock(mutex_t *mutex);
 void
-mutex_unlock(mutex_t *mutex);
+d_r_mutex_unlock(mutex_t *mutex);
 #ifdef UNIX
 void
-mutex_fork_reset(mutex_t *mutex);
+d_r_mutex_fork_reset(mutex_t *mutex);
 #endif
 #ifdef CLIENT_INTERFACE
 void
-mutex_mark_as_app(mutex_t *lock);
+d_r_mutex_mark_as_app(mutex_t *lock);
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
  * case that there is contention on this lock, this thread will be marked safe
  * to be relocated and even detached. The current thread's mcontext may be
  * clobbered with the provided value even if the thread is not suspended.
  */
 void
-mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
+d_r_mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
 #endif
 
 /* spinmutex synchronization */
@@ -834,15 +834,15 @@ acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void
-read_lock(read_write_lock_t *rw);
+d_r_read_lock(read_write_lock_t *rw);
 void
-write_lock(read_write_lock_t *rw);
+d_r_write_lock(read_write_lock_t *rw);
 bool
-write_trylock(read_write_lock_t *rw);
+d_r_write_trylock(read_write_lock_t *rw);
 void
-read_unlock(read_write_lock_t *rw);
+d_r_read_unlock(read_write_lock_t *rw);
 void
-write_unlock(read_write_lock_t *rw);
+d_r_write_unlock(read_write_lock_t *rw);
 bool
 self_owns_write_lock(read_write_lock_t *rw);
 
@@ -856,7 +856,7 @@ self_owns_write_lock(read_write_lock_t *rw);
  * knowing for sure.
  */
 #ifdef DEADLOCK_AVOIDANCE
-#    define OWN_MUTEX(m) ((m)->owner == get_thread_id())
+#    define OWN_MUTEX(m) ((m)->owner == d_r_get_thread_id())
 #    define ASSERT_OWN_MUTEX(pred, m) ASSERT(!(pred) || OWN_MUTEX(m))
 #    define ASSERT_DO_NOT_OWN_MUTEX(pred, m) ASSERT(!(pred) || !OWN_MUTEX(m))
 #    define OWN_NO_LOCKS(dc) thread_owns_no_locks(dc)
@@ -907,10 +907,10 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
      dr_modload_hook_exists())
 /* anyone guarding the bb_building_lock with this must use SHARED_BB_{UN,}LOCK */
 #define USE_BB_BUILDING_LOCK() (USE_BB_BUILDING_LOCK_STEADY_STATE() && bb_lock_start)
-#define SHARED_BB_LOCK()                     \
-    do {                                     \
-        if (USE_BB_BUILDING_LOCK())          \
-            mutex_lock(&(bb_building_lock)); \
+#define SHARED_BB_LOCK()                         \
+    do {                                         \
+        if (USE_BB_BUILDING_LOCK())              \
+            d_r_mutex_lock(&(bb_building_lock)); \
     } while (0)
 /* We explicitly check the lock_requests to handle a thread from appearing
  * suddenly and causing USE_BB_BUILDING_LOCK() to return true while we're
@@ -924,7 +924,7 @@ dr_modload_hook_exists(void); /* hard to include instrument.h here */
 #define SHARED_BB_UNLOCK()                                                              \
     do {                                                                                \
         if (USE_BB_BUILDING_LOCK() && bb_building_lock.lock_requests > LOCK_FREE_STATE) \
-            mutex_unlock(&(bb_building_lock));                                          \
+            d_r_mutex_unlock(&(bb_building_lock));                                      \
     } while (0)
 /* we assume dynamo_resetting is only done w/ all threads suspended */
 #define NEED_SHARED_LOCK(flags)                                             \
@@ -1189,7 +1189,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
         do {                                                           \
             if (d_r_stats != NULL && d_r_stats->loglevel >= (level) && \
                 (d_r_stats->logmask & (mask)) != 0)                    \
-                print_log(file, mask, level, __VA_ARGS__);             \
+                d_r_print_log(file, mask, level, __VA_ARGS__);         \
         } while (0)
 /* use DOELOG for customer visible logging. statement can be a {} block */
 #    define DOELOG(level, mask, statement)                             \
@@ -1228,7 +1228,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    define DOCHECK(level, statement) /* nothing */
 #endif
 void
-print_log(file_t logfile, uint mask, uint level, const char *fmt, ...);
+d_r_print_log(file_t logfile, uint mask, uint level, const char *fmt, ...);
 void
 print_file(file_t f, const char *fmt, ...);
 
@@ -1353,13 +1353,13 @@ extern mutex_t do_threshold_mutex;
     {                                                                           \
         DECLARE_THRESHOLD_LOCK(section)                                         \
         static uint do_threshold_cur VAR_IN_SECTION(section) = 0;               \
-        mutex_lock(&do_threshold_mutex);                                        \
+        d_r_mutex_lock(&do_threshold_mutex);                                    \
         if (do_threshold_cur < threshold) {                                     \
             do_threshold_cur++;                                                 \
-            mutex_unlock(&do_threshold_mutex);                                  \
+            d_r_mutex_unlock(&do_threshold_mutex);                              \
             statement_below;                                                    \
         } else {                                                                \
-            mutex_unlock(&do_threshold_mutex);                                  \
+            d_r_mutex_unlock(&do_threshold_mutex);                              \
             statement_after; /* or at */                                        \
         }                                                                       \
     }
@@ -2133,7 +2133,7 @@ stats_thread_exit(dcontext_t *dcontext);
 uint
 print_timestamp_to_buffer(char *buffer, size_t len);
 uint
-print_timestamp(file_t logfile);
+d_r_print_timestamp(file_t logfile);
 
 /* prints a symbolic name, or best guess of it into a caller provided buffer */
 void
@@ -2250,10 +2250,10 @@ size_t
 get_random_offset(size_t max_offset);
 
 void
-set_random_seed(uint seed);
+d_r_set_random_seed(uint seed);
 
 uint
-get_random_seed(void);
+d_r_get_random_seed(void);
 
 void
 convert_millis_to_date(uint64 millis, dr_time_t *time OUT);
@@ -2345,6 +2345,7 @@ profile_callers_exit(void);
 #ifdef STANDALONE_UNIT_TEST
 
 /* an ASSERT replacement for use in unit tests */
+#    define FAIL() EXPECT(true, false)
 #    define EXPECT(expr, expected)                                     \
         do {                                                           \
             ptr_uint_t value_once = (ptr_uint_t)(expr);                \

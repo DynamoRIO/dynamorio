@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -127,7 +127,7 @@ memcache_lock(void)
      * during heap init and before we can allocate it.  no lock needed then.
      */
     ASSERT(all_memory_areas != NULL ||
-           get_num_threads() <= 1 /* must be only DR thread */);
+           d_r_get_num_threads() <= 1 /* must be only DR thread */);
     if (all_memory_areas == NULL)
         return;
     if (self_owns_write_lock(&all_memory_areas->lock)) {
@@ -138,7 +138,7 @@ memcache_lock(void)
          */
         ASSERT_CURIOSITY(all_memory_areas_recursion <= 4);
     } else
-        write_lock(&all_memory_areas->lock);
+        d_r_write_lock(&all_memory_areas->lock);
 }
 
 void
@@ -147,14 +147,15 @@ memcache_unlock(void)
     /* ok to ask for locks or mark stale before all_memory_areas is allocated,
      * during heap init and before we can allocate it.  no lock needed then.
      */
-    ASSERT(all_memory_areas != NULL || get_num_threads() <= 1 /*must be only DR thread*/);
+    ASSERT(all_memory_areas != NULL ||
+           d_r_get_num_threads() <= 1 /*must be only DR thread*/);
     if (all_memory_areas == NULL)
         return;
     if (all_memory_areas_recursion > 0) {
         ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
         all_memory_areas_recursion--;
     } else
-        write_unlock(&all_memory_areas->lock);
+        d_r_write_unlock(&all_memory_areas->lock);
 }
 
 /* vmvector callbacks */

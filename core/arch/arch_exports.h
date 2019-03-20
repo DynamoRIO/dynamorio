@@ -58,6 +58,7 @@
  */
 #    define XMM_REG_SIZE 16
 #    define YMM_REG_SIZE 32
+#    define ZMM_REG_SIZE 64
 #    define MCXT_SIMD_SLOT_SIZE YMM_REG_SIZE
 #    define MCXT_TOTAL_SIMD_SLOTS_SIZE (MCXT_NUM_SIMD_SLOTS * MCXT_SIMD_SLOT_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
@@ -1025,8 +1026,8 @@ get_time(void);
 #endif
 
 void
-arch_init(void);
-void arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
+d_r_arch_init(void);
+void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void));
 void
 arch_thread_init(dcontext_t *dcontext);
 void
@@ -1527,7 +1528,7 @@ app_pc
 canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 
 void
-decode_init(void);
+d_r_decode_init(void);
 
 /***************************************************************************
  * Arch-specific defines
@@ -2371,6 +2372,8 @@ void *
 memcpy(void *dst, const void *src, size_t n);
 void *
 memset(void *dst, int val, size_t n);
+void *
+memmove(void *dst, const void *src, size_t n);
 #endif /* UNIX */
 
 #ifdef UNIX

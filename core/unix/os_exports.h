@@ -147,9 +147,9 @@ extern uint android_tls_base_offs;
 #endif
 
 void *
-get_tls(ushort tls_offs);
+d_r_get_tls(ushort tls_offs);
 void
-set_tls(ushort tls_offs, void *value);
+d_r_set_tls(ushort tls_offs, void *value);
 byte *
 os_get_dr_tls_base(dcontext_t *dcontext);
 
@@ -230,6 +230,8 @@ extern char **environ;
 #else
 extern char **our_environ;
 #endif
+bool
+is_our_environ_followed_by_auxv(void);
 void
 dynamorio_set_envp(char **envp);
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)

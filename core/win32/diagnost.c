@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -438,7 +438,7 @@ report_internal_data_structures(IN file_t diagnostics_file,
                "dynamo_initialized : %d\ndynamo_exited      : %d\n"
                "num_threads        : %d\ndynamorio.dll      = " PFX "\n",
                automatic_startup, control_all_threads, dynamo_initialized, dynamo_exited,
-               get_num_threads(), get_dynamorio_dll_start());
+               d_r_get_num_threads(), get_dynamorio_dll_start());
 
     /* skip for non-attack calls to avoid risk of any global locks */
     if (violation_type != NO_VIOLATION_BAD_INTERNAL_STATE) {
@@ -487,12 +487,12 @@ report_internal_data_structures(IN file_t diagnostics_file,
     }
 #endif
 
-    mutex_lock(&reg_mutex);
+    d_r_mutex_lock(&reg_mutex);
     get_dynamo_options_string(&dynamo_options, optstring_buf,
                               BUFFER_SIZE_ELEMENTS(optstring_buf), true);
     NULL_TERMINATE_BUFFER(optstring_buf);
     print_file(diagnostics_file, "option string = \"%s\"\n", optstring_buf);
-    mutex_unlock(&reg_mutex);
+    d_r_mutex_unlock(&reg_mutex);
 
     DOLOG(1, LOG_ALL, {
         uchar test_buf[UCHAR_MAX + 2];
@@ -761,7 +761,7 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
      */
     ASSERT(!report_thread_list || violation_type >= 0 /*non-violation*/);
     if (report_thread_list) {
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num_threads);
         for (i = 0; i < num_threads; i++) {
             if (threads[i]->dcontext != NULL) {
@@ -769,7 +769,7 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
                               conservative);
             }
         }
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         if (couldbelinking) {
             enter_couldbelinking(get_thread_private_dcontext(), NULL,
                                  false /*not a cache transition*/);
@@ -777,8 +777,8 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
         global_heap_free(
             threads, num_threads * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
     } else {
-        report_thread(diagnostics_file, 0, get_thread_id(), get_thread_private_dcontext(),
-                      conservative);
+        report_thread(diagnostics_file, 0, d_r_get_thread_id(),
+                      get_thread_private_dcontext(), conservative);
     }
 
     print_file(diagnostics_file, "</thread-list>\n</current-process>\n\n");
@@ -1308,7 +1308,7 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
 
     report_system_diagnostics(diagnostics_file);
 
-    mutex_lock(&reg_mutex);
+    d_r_mutex_lock(&reg_mutex);
     print_file(diagnostics_file, "<registry-settings>\n<![CDATA[\n");
     report_registry_settings(diagnostics_file, DYNAMORIO_REGISTRY_BASE,
                              (DIAGNOSTICS_REG_ALLKEYS | DIAGNOSTICS_REG_ALLSUBKEYS |
@@ -1339,7 +1339,7 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
     print_file(diagnostics_file, "]]>\n</registry-settings>\n\n");
     report_ntdll_info(diagnostics_file);
     report_autostart_programs(diagnostics_file);
-    mutex_unlock(&reg_mutex);
+    d_r_mutex_unlock(&reg_mutex);
 
     report_internal_data_structures(diagnostics_file, violation_type);
 

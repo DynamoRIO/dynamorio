@@ -543,7 +543,7 @@ typedef struct _fcache_thread_units_t {
 #define PROTECT_CACHE(cache, op)                                  \
     do {                                                          \
         if ((cache)->is_shared && !is_self_allsynch_flushing()) { \
-            mutex_##op(&(cache)->lock);                           \
+            d_r_mutex_##op(&(cache)->lock);                       \
         }                                                         \
     } while (0);
 
@@ -905,7 +905,7 @@ fcache_unit_profile_stop(fcache_unit_t *u)
             shared = u->cache->is_shared;
             trace = u->cache->is_trace;
         }
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
         if (shared) {
             print_file(profile_file,
                        "\nDumping fcache %s unit profile (Shared)\n%d hits\n",
@@ -916,7 +916,7 @@ fcache_unit_profile_stop(fcache_unit_t *u)
                        trace ? "trace" : "bb", u->dcontext->owning_thread, sum);
         }
         dump_profile(profile_file, u->profile);
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
     }
 }
 #endif
@@ -1042,7 +1042,7 @@ fcache_reset_free(void)
      * we must free the units here as they are unreachable elsewhere.
      * their fragments will be freed by the fragment htable walk.
      */
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     u = allunits->units_to_flush;
     while (u != NULL) {
         next_u = u->next_local;
@@ -1053,12 +1053,12 @@ fcache_reset_free(void)
         u = next_u;
     }
     allunits->units_to_flush = NULL;
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 
     /* should be freed via vm_area_check_shared_pending() */
     ASSERT(allunits->units_to_free == NULL);
 
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     u = allunits->dead;
     while (u != NULL) {
         next_u = u->next_global;
@@ -1068,7 +1068,7 @@ fcache_reset_free(void)
     /* clear fields for reset_init() */
     allunits->dead = NULL;
     allunits->num_dead = 0;
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 }
 
 /* atexit cleanup -- needs no locks */
@@ -1085,14 +1085,14 @@ fcache_exit()
     fcache_reset_free();
 
     /* free heap for all live units (reset did dead ones) */
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     u = allunits->units;
     while (u != NULL) {
         next_u = u->next_global;
         fcache_really_free_unit(u, false /*live*/, true /*dealloc*/);
         u = next_u;
     }
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 
     ASSERT(vmvector_empty(fcache_unit_areas));
     vmvector_delete_vector(GLOBAL_DCONTEXT, fcache_unit_areas);
@@ -1110,7 +1110,7 @@ void
 fcache_profile_exit()
 {
     fcache_unit_t *u;
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     for (u = allunits->units; u != NULL; u = u->next_global) {
         if (u->profile) {
             fcache_unit_profile_stop(u);
@@ -1118,7 +1118,7 @@ fcache_profile_exit()
             u->profile = NULL;
         }
     }
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 }
 #endif
 
@@ -1285,7 +1285,7 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
         /* FIXME: right now no synch here, so one thread could unprot, another prots,
          * and the first segfaults
          */
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->units;
         while (u != NULL) {
             if (u->writable != writable) {
@@ -1294,7 +1294,7 @@ fcache_change_fragment_protection(dcontext_t *dcontext, fragment_t *f, bool writ
             }
             u = u->next_global;
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
 }
 
@@ -1330,7 +1330,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
 
     if (pc == NULL) {
         /* take from dead list if possible */
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         if (allunits->dead != NULL) {
             fcache_unit_t *prev_u = NULL;
             u = allunits->dead;
@@ -1360,7 +1360,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
                 u = u->next_global;
             }
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
 
     if (u == NULL) {
@@ -1417,7 +1417,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
     STATS_FCACHE_MAX(u->cache, capacity_peak, capacity);
 
     u->next_local = NULL; /* must be set by caller */
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
 
     if (allunits->units != NULL)
         allunits->units->prev_global = u;
@@ -1438,7 +1438,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
         }
     }
 
-    mutex_unlock(&allunits_lock);
+    d_r_mutex_unlock(&allunits_lock);
 
     return u;
 }
@@ -1458,7 +1458,7 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
             ASSERT(dynamo_exited || dynamo_resetting || CACHE_PROTECTED(unit->cache));
         }
     });
-    mutex_lock(&allunits_lock);
+    d_r_mutex_lock(&allunits_lock);
     /* remove from live list */
     if (unit->prev_global != NULL)
         unit->prev_global->next_global = unit->next_global;
@@ -1472,13 +1472,13 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 
     if (!dealloc_or_reuse) {
         /* up to caller to dealloc */
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
         /* we do want to update cache->size and fcache_unit_areas: */
         fcache_really_free_unit(unit, false /*live*/, false /*do not dealloc unit*/);
     }
     /* heuristic: don't keep around more dead units than max(5, 1/4 num threads) */
     else if (allunits->num_dead < 5 ||
-             allunits->num_dead * 4U <= (uint)get_num_threads()) {
+             allunits->num_dead * 4U <= (uint)d_r_get_num_threads()) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.
@@ -1506,9 +1506,9 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 #endif
         /* this is done by fcache_really_free_unit for else path */
         remove_unit_from_cache(unit);
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     } else {
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
         fcache_really_free_unit(unit, false /*live*/, true /*dealloc*/);
     }
 }
@@ -1947,7 +1947,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     /* take from dead list if possible */
     if (allunits->dead != NULL) {
         fcache_unit_t *u, *prev_u;
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->dead;
         prev_u = NULL;
         while (u != NULL) {
@@ -2008,7 +2008,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             prev_u = u;
             u = u->next_global;
         }
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
     }
     if (new_memory == NULL) {
         /* allocate new memory for unit */
@@ -2591,7 +2591,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                     if (unit == oldest)
                         unit = NULL;
 
-                    mutex_lock(&unit_flush_lock);
+                    d_r_mutex_lock(&unit_flush_lock);
                     oldest->next_local = allunits->units_to_flush;
                     allunits->units_to_flush = oldest;
                     STATS_ADD_PEAK(cache_units_toflush, 1);
@@ -2603,7 +2603,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                      * This does mean that cache->size is too big from now until
                      * then, so we don't really support hardcoded cache sizes.
                      */
-                    mutex_unlock(&unit_flush_lock);
+                    d_r_mutex_unlock(&unit_flush_lock);
 
                     tu->pending_flush = true;
                     STATS_INC(cache_units_wset_flushed);
@@ -3572,16 +3572,16 @@ get_cache_for_new_fragment(dcontext_t *dcontext, fragment_t *f)
                  * before acquiring the info->lock
                  */
                 cache = fcache_cache_init(GLOBAL_DCONTEXT, f->flags, true);
-                mutex_lock(&info->lock);
+                d_r_mutex_lock(&info->lock);
                 if (info->cache == NULL) {
                     cache->coarse_info = info;
                     coarse_unit_init(info, cache);
                     ASSERT(cache == info->cache);
-                    mutex_unlock(&info->lock);
+                    d_r_mutex_unlock(&info->lock);
                 } else {
                     /* w/ bb_building_lock we shouldn't have a race here */
                     ASSERT_CURIOSITY(false && "race in creating coarse cache");
-                    mutex_unlock(&info->lock);
+                    d_r_mutex_unlock(&info->lock);
                     fcache_cache_free(GLOBAL_DCONTEXT, cache, true);
                 }
             }
@@ -3746,7 +3746,7 @@ fcache_is_flush_pending(dcontext_t *dcontext)
 static void
 append_units_to_free_list(fcache_unit_t *u)
 {
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
 
     /* must append to keep in increasing flushtime order */
     if (allunits->units_to_free_tail == NULL) {
@@ -3775,7 +3775,7 @@ append_units_to_free_list(fcache_unit_t *u)
     allunits->units_to_free_tail = u;
     ASSERT(allunits->units_to_free_tail->next_local == NULL);
 
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 }
 
 /* It is up to the caller to ensure it's safe to string the fragments in
@@ -3914,10 +3914,10 @@ fcache_flush_pending_units(dcontext_t *dcontext, fragment_t *was_I_flushed)
     /* we grab a local copy to deal w/ races to flush these units up front
      * rather than getting into the flush synch and finding someone beat us
      */
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     local_to_flush = allunits->units_to_flush;
     allunits->units_to_flush = NULL;
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
     if (local_to_flush == NULL)
         return not_flushed;
 
@@ -4002,7 +4002,7 @@ void
 fcache_free_pending_units(dcontext_t *dcontext, uint flushtime)
 {
     fcache_unit_t *u, *nxt;
-    mutex_lock(&unit_flush_lock);
+    d_r_mutex_lock(&unit_flush_lock);
     for (u = allunits->units_to_free; u != NULL; u = nxt) {
         nxt = u->next_local;
         /* free list must be sorted in increasing flushtime */
@@ -4025,7 +4025,7 @@ fcache_free_pending_units(dcontext_t *dcontext, uint flushtime)
         } else
             break; /* sorted! */
     }
-    mutex_unlock(&unit_flush_lock);
+    d_r_mutex_unlock(&unit_flush_lock);
 }
 
 /* Used to prevent shared units earmarked for freeing from being re-used.
@@ -4130,7 +4130,7 @@ fcache_reset_all_caches_proactively(uint target)
     /* FIXME: use a cleaner model than having callers grab this lock? */
     ASSERT_OWN_MUTEX(true, &reset_pending_lock);
     if (reset_in_progress) {
-        mutex_unlock(&reset_pending_lock);
+        d_r_mutex_unlock(&reset_pending_lock);
         return;
     }
     /* N.B.: we relax various synch checks if dynamo_resetting is true, since
@@ -4143,12 +4143,12 @@ fcache_reset_all_caches_proactively(uint target)
     /* this lock is only for synchronizing resets and we do not give it the
      * rank it would need to be held across the whole routine
      */
-    mutex_unlock(&reset_pending_lock);
+    d_r_mutex_unlock(&reset_pending_lock);
 
     LOG(GLOBAL, LOG_CACHE, 2,
         "\nfcache_reset_all_caches_proactively: thread " TIDFMT
         " suspending all threads\n",
-        get_thread_id());
+        d_r_get_thread_id());
 
     /* Suspend all DR-controlled threads at safe locations.
      * Case 6821: other synch-all-thread uses can be ignored, as none of them carry
@@ -4361,10 +4361,10 @@ schedule_reset(uint target)
 {
     bool added_target;
     ASSERT(target != 0);
-    mutex_lock(&reset_pending_lock);
+    d_r_mutex_lock(&reset_pending_lock);
     added_target = !TESTALL(target, reset_pending);
     reset_pending |= target;
-    mutex_unlock(&reset_pending_lock);
+    d_r_mutex_unlock(&reset_pending_lock);
     return added_target;
 }
 
@@ -4503,7 +4503,7 @@ fcache_low_on_memory()
      */
     if (lockwise_safe_to_allocate_memory() && !self_owns_dynamo_vm_area_lock() &&
         !self_owns_write_lock(&fcache_unit_areas->lock)) {
-        mutex_lock(&allunits_lock);
+        d_r_mutex_lock(&allunits_lock);
         u = allunits->dead;
         while (u != NULL) {
             next_u = u->next_global;
@@ -4512,7 +4512,7 @@ fcache_low_on_memory()
             u = next_u;
         }
         allunits->dead = NULL;
-        mutex_unlock(&allunits_lock);
+        d_r_mutex_unlock(&allunits_lock);
         LOG(GLOBAL, LOG_CACHE | LOG_STATS, 1, "fcache_low_on_memory: freed %d KB\n",
             freed / 1024);
     } else {

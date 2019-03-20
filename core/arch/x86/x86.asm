@@ -166,7 +166,7 @@ DECL_EXTERN(dynamorio_app_take_over_helper)
 DECL_EXTERN(found_modified_code)
 DECL_EXTERN(get_cleanup_and_terminate_global_do_syscall_entry)
 #ifdef INTERNAL
-DECL_EXTERN(internal_error)
+DECL_EXTERN(d_r_internal_error)
 #endif
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
@@ -2232,13 +2232,15 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
  *   stores the values of ymm0 through ymm5 consecutively into ymm_caller_saved_buf.
  *   ymm_caller_saved_buf need not be 32-byte aligned.
  *   for linux, also saves ymm6-15 (PR 302107).
- *   caller must ensure that the underlying processor supports SSE!
+ *   The caller must ensure that the underlying processor supports AVX!
  */
         DECLARE_FUNC(get_ymm_caller_saved)
 GLOBAL_LABEL(get_ymm_caller_saved:)
         mov      REG_XAX, ARG1
-       /* i#441: some compilers like gcc 4.3 and VS2005 do not know "vmovdqu".
-        * We just put in the raw bytes for these instrs:
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
         * Note the 64/32 bit have the same encoding for either rax or eax.
         * c5 fe 7f 00               vmovdqu %ymm0,0x00(%xax)
         * c5 fe 7f 48 20            vmovdqu %ymm1,0x20(%xax)
@@ -2283,6 +2285,91 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
 #endif
         ret
         END_FUNC(get_ymm_caller_saved)
+
+/* void get_zmm_caller_saved(byte *zmm_caller_saved_buf)
+ *   stores the values of zmm0 through zmm31 consecutively into zmm_caller_saved_buf.
+ *   zmm_caller_saved_buf need not be 64-byte aligned.
+ *   The caller must ensure that the underlying processor supports AVX-512!
+ */
+        DECLARE_FUNC(get_zmm_caller_saved)
+GLOBAL_LABEL(get_zmm_caller_saved:)
+        mov      REG_XAX, ARG1
+       /* i#441: Some compilers need one of the architectural flags set (e.g. -mavx or
+        * -march=skylake-avx512), which would cause DynamoRIO to be less (or un-)
+        * portable or cause frequency scaling (i#3169). We just put in the raw bytes
+        * for these instrs:
+        * Note the 64/32 bit have the same encoding for either rax or eax.
+        * Note the encodings are using the EVEX scaled compressed displacement form.
+        * 62 f1 fe 48 7f 00       vmovdqu64 %zmm0,0x00(%rax)
+        * 62 f1 fe 48 7f 48 01    vmovdqu64 %zmm1,0x40(%rax)
+        * 62 f1 fe 48 7f 50 02    vmovdqu64 %zmm2,0x80(%rax)
+        * 62 f1 fe 48 7f 58 03    vmovdqu64 %zmm3,0xc0(%rax)
+        * 62 f1 fe 48 7f 60 04    vmovdqu64 %zmm4,0x100(%rax)
+        * 62 f1 fe 48 7f 68 05    vmovdqu64 %zmm5,0x140(%rax)
+        * 62 f1 fe 48 7f 70 06    vmovdqu64 %zmm6,0x180(%rax)
+        * 62 f1 fe 48 7f 78 07    vmovdqu64 %zmm7,0x1c0(%rax)
+        */
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(00)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(01)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(02)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(03)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(04)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(05)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(06)
+        RAW(62) RAW(f1) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(07)
+#ifdef X64
+       /* 62 71 fe 48 7f 40 08    vmovdqu64 %zmm8,0x200(%rax)
+        * 62 71 fe 48 7f 48 09    vmovdqu64 %zmm9,0x240(%rax)
+        * 62 71 fe 48 7f 50 0a    vmovdqu64 %zmm10,0x280(%rax)
+        * 62 71 fe 48 7f 58 0b    vmovdqu64 %zmm11,0x2c0(%rax)
+        * 62 71 fe 48 7f 60 0c    vmovdqu64 %zmm12,0x300(%rax)
+        * 62 71 fe 48 7f 68 0d    vmovdqu64 %zmm13,0x340(%rax)
+        * 62 71 fe 48 7f 70 0e    vmovdqu64 %zmm14,0x380(%rax)
+        * 62 71 fe 48 7f 78 0f    vmovdqu64 %zmm15,0x3c0(%rax)
+        * 62 e1 fe 48 7f 40 10    vmovdqu64 %zmm16,0x400(%rax)
+        * 62 e1 fe 48 7f 48 11    vmovdqu64 %zmm17,0x440(%rax)
+        * 62 e1 fe 48 7f 50 12    vmovdqu64 %zmm18,0x480(%rax)
+        * 62 e1 fe 48 7f 58 13    vmovdqu64 %zmm19,0x4c0(%rax)
+        * 62 e1 fe 48 7f 60 14    vmovdqu64 %zmm20,0x500(%rax)
+        * 62 e1 fe 48 7f 68 15    vmovdqu64 %zmm21,0x540(%rax)
+        * 62 e1 fe 48 7f 70 16    vmovdqu64 %zmm22,0x580(%rax)
+        * 62 e1 fe 48 7f 78 17    vmovdqu64 %zmm23,0x5c0(%rax)
+        * 62 61 fe 48 7f 40 18    vmovdqu64 %zmm24,0x600(%rax)
+        * 62 61 fe 48 7f 48 19    vmovdqu64 %zmm25,0x640(%rax)
+        * 62 61 fe 48 7f 50 1a    vmovdqu64 %zmm26,0x680(%rax)
+        * 62 61 fe 48 7f 58 1b    vmovdqu64 %zmm27,0x6c0(%rax)
+        * 62 61 fe 48 7f 60 1c    vmovdqu64 %zmm28,0x700(%rax)
+        * 62 61 fe 48 7f 68 1d    vmovdqu64 %zmm29,0x740(%rax)
+        * 62 61 fe 48 7f 70 1e    vmovdqu64 %zmm30,0x780(%rax)
+        * 62 61 fe 48 7f 78 1f    vmovdqu64 %zmm31,0x7c0(%rax)
+        */
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(08)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(09)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(0a)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(0b)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(0c)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(0d)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(0e)
+        RAW(62) RAW(71) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(0f)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(10)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(11)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(12)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(13)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(14)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(15)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(16)
+        RAW(62) RAW(e1) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(17)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(40) RAW(18)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(48) RAW(19)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(50) RAW(1a)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(58) RAW(1b)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(60) RAW(1c)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(68) RAW(1d)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(70) RAW(1e)
+        RAW(62) RAW(61) RAW(fe) RAW(48) RAW(7f) RAW(78) RAW(1f)
+#endif
+        ret
+        END_FUNC(get_zmm_caller_saved)
 
 /* void hashlookup_null_handler(void)
  * PR 305731: if the app targets NULL, it ends up here, which indirects

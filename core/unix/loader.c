@@ -415,8 +415,8 @@ privload_unmap_file(privmod_t *privmod)
             dr_strfree(privmod->name HEAPACCT(ACCT_VMAREAS));
             privmod->name = NULL;
         }
-        unmap_file(opd->os_data.segments[i].start,
-                   opd->os_data.segments[i].end - opd->os_data.segments[i].start);
+        d_r_unmap_file(opd->os_data.segments[i].start,
+                       opd->os_data.segments[i].end - opd->os_data.segments[i].start);
     }
     /* free segments */
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, opd->os_data.segments, module_segment_t,
@@ -475,11 +475,11 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     ASSERT_OWN_RECURSIVE_LOCK(!TEST(MODLOAD_NOT_PRIVLIB, flags), &privload_lock);
     /* get appropriate function */
     /* NOTE: all but the client lib will be added to DR areas list b/c using
-     * map_file()
+     * d_r_map_file()
      */
     if (dynamo_heap_initialized) {
-        map_func = map_file;
-        unmap_func = unmap_file;
+        map_func = d_r_map_file;
+        unmap_func = d_r_unmap_file;
         prot_func = set_protection;
     } else {
         map_func = os_map_file;
@@ -1466,7 +1466,7 @@ reserve_brk(app_pc post_app)
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
          * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in os_init() to ensure no DR mmap limits its size?
+         * in d_r_os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);
@@ -1650,7 +1650,7 @@ relocate_dynamorio(byte *dr_map, size_t dr_size, byte *sp)
     const char **env = (const char **)sp + argc + 2;
     os_privmod_data_t opd = { { 0 } };
 
-    os_page_size_init(env);
+    os_page_size_init(env, true);
 
     if (dr_map == NULL) {
         /* we do not know where dynamorio is, so check backward page by page */

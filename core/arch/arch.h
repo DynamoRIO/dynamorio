@@ -337,7 +337,7 @@ typedef struct _clean_call_info_t {
     bool save_all_regs;
     bool skip_save_flags;
     bool skip_clear_flags;
-    uint num_simd_skip;
+    int num_simd_skip;
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
@@ -1327,6 +1327,8 @@ void
 get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
 void
 get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
+void
+get_zmm_caller_saved(dr_zmm_t *zmm_caller_saved_buf);
 
 /* in encode.c */
 byte *
@@ -1377,11 +1379,14 @@ typedef struct _callee_info_t {
     app_pc bwd_tgt;    /* earliest backward branch target */
     app_pc fwd_tgt;    /* last forward branch target */
     int num_simd_used; /* number of SIMD registers (xmms) used by callee */
-    bool simd_used[MCXT_NUM_SIMD_SLOTS]; /* SIMD (xmm/ymm) registers usage */
-    bool reg_used[NUM_GP_REGS];          /* general purpose registers usage */
-    int num_callee_save_regs;            /* number of regs callee saved */
-    bool callee_save_regs[NUM_GP_REGS];  /* callee-save registers */
-    bool has_locals;                     /* if reference local via stack */
+    /* SIMD (xmm/ymm) registers usage. Part of the array might be left
+     * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
+     */
+    bool simd_used[MCXT_NUM_SIMD_SLOTS];
+    bool reg_used[NUM_GP_REGS];         /* general purpose registers usage */
+    int num_callee_save_regs;           /* number of regs callee saved */
+    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
+    bool has_locals;                    /* if reference local via stack */
     bool standard_fp;   /* if standard reg (xbp/x29) is used as frame pointer */
     bool opt_inline;    /* can be inlined or not */
     bool write_flags;   /* if the function changes flags */

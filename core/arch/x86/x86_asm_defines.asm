@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -120,6 +120,8 @@
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 #define PUSHGPR_XSP_OFFS  (3*ARG_SZ)
 #define MCONTEXT_XSP_OFFS (PUSHGPR_XSP_OFFS)
+#define MCONTEXT_XCX_OFFS (MCONTEXT_XSP_OFFS + 3*ARG_SZ)
+#define MCONTEXT_XAX_OFFS (MCONTEXT_XSP_OFFS + 4*ARG_SZ)
 #define PUSH_PRIV_MCXT_PRE_PC_SHIFT (- MCXT_TOTAL_SIMD_SLOTS_SIZE - PRE_XMM_PADDING)
 
 #if defined(WINDOWS) && !defined(X64)

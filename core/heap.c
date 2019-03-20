@@ -472,7 +472,7 @@ request_region_be_heap_reachable(byte *start, size_t size)
     ASSERT(!POINTER_OVERFLOW_ON_ADD(start, size));
     ASSERT(size > 0);
 
-    mutex_lock(&request_region_be_heap_reachable_lock);
+    d_r_mutex_lock(&request_region_be_heap_reachable_lock);
     if (start < must_reach_region_start) {
         byte *allowable_end_tmp;
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -502,7 +502,7 @@ request_region_be_heap_reachable(byte *start, size_t size)
     /* verify can be addressed absolutely (if required), correctness check */
     ASSERT(!DYNAMO_OPTION(heap_in_lower_4GB) ||
            heap_allowable_region_end <= (byte *)POINTER_MAX_32BIT);
-    mutex_unlock(&request_region_be_heap_reachable_lock);
+    d_r_mutex_unlock(&request_region_be_heap_reachable_lock);
 
     LOG(GLOBAL, LOG_HEAP, 1,
         "Added must-be-reachable-from-heap region " PFX "-" PFX "\n"
@@ -589,13 +589,16 @@ typedef enum {
 static void
 report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code);
 
-enum {
-    /* maximum 512MB for 32-bit, 1GB for 64-bit */
-    MAX_VMM_HEAP_UNIT_SIZE = IF_X64_ELSE(1024 * 1024 * 1024, 512 * 1024 * 1024),
-    /* We should normally have only one large unit, so this is in fact
-     * the maximum we should count on in one process
-     */
-};
+/* Maximum reservation is 512MB for 32-bit or 2GB for 64-bit. */
+#ifdef X64
+#    define MAX_VMM_HEAP_UNIT_SIZE (2U * 1024 * 1024 * 1024)
+#else
+#    define MAX_VMM_HEAP_UNIT_SIZE (512U * 1024 * 1024)
+#endif
+/* We should normally have only one large unit, so this is in fact
+ * the maximum we should count on in one process
+ */
+
 /* minimum will be used only if an invalid option is set */
 #define MIN_VMM_HEAP_UNIT_SIZE DYNAMO_OPTION(vmm_block_size)
 
@@ -614,9 +617,11 @@ typedef struct {
        static therefore we don't grab locks on read accesses.  Anyways,
        currently the bitmap_t is used with no write intent only for ASSERTs. */
     uint num_free_blocks; /* currently free blocks */
-    /* Bitmap uses 2KB static data for granularity 64KB and static maximum 1GB on Windows,
-     * and 32KB on Linux where granularity is 4KB.  These amounts are halved for
+    /* Bitmap uses 4KB static data for granularity 64KB and static maximum 2GB on Windows,
+     * and 64KB on Linux where granularity is 4KB.  These amounts are halved for
      * 32-bit, so 1KB Windows and 16KB Linux.
+     * We could make this dynamic to save some of the 64K for 64-bit: the default
+     * is 512M so we waste 48K.
      */
     /* Since we expect only two of these, for now it is ok for users
        to have static max rather than dynamically allocating with
@@ -716,11 +721,11 @@ vmm_dump_map(vm_heap_t *vmh)
 void
 print_vmm_heap_data(file_t outf)
 {
-    mutex_lock(&heapmgt->vmheap.lock);
+    d_r_mutex_lock(&heapmgt->vmheap.lock);
     print_file(outf, "VM heap: addr range " PFX "--" PFX ", # free blocks %d\n",
                heapmgt->vmheap.start_addr, heapmgt->vmheap.end_addr,
                heapmgt->vmheap.num_free_blocks);
-    mutex_unlock(&heapmgt->vmheap.lock);
+    d_r_mutex_unlock(&heapmgt->vmheap.lock);
 }
 
 static inline void
@@ -1087,16 +1092,16 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, which_vmm_t which)
         "vmm_heap_reserve_blocks: size=%d => %d in blocks=%d free_blocks~=%d\n", size_in,
         size, request, vmh->num_free_blocks);
 
-    mutex_lock(&vmh->lock);
+    d_r_mutex_lock(&vmh->lock);
     if (vmh->num_free_blocks < request) {
-        mutex_unlock(&vmh->lock);
+        d_r_mutex_unlock(&vmh->lock);
         return NULL;
     }
     first_block = bitmap_allocate_blocks(vmh->blocks, vmh->num_blocks, request);
     if (first_block != BITMAP_NOT_FOUND) {
         vmh->num_free_blocks -= request;
     }
-    mutex_unlock(&vmh->lock);
+    d_r_mutex_unlock(&vmh->lock);
 
     if (first_block != BITMAP_NOT_FOUND) {
         p = vmm_block_to_addr(vmh, first_block);
@@ -1136,10 +1141,10 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in, which_vmm_t wh
     LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free_blocks: size=%d blocks=%d p=" PFX "\n", size,
         request, p);
 
-    mutex_lock(&vmh->lock);
+    d_r_mutex_lock(&vmh->lock);
     bitmap_free_blocks(vmh->blocks, vmh->num_blocks, first_block, request);
     vmh->num_free_blocks += request;
-    mutex_unlock(&vmh->lock);
+    d_r_mutex_unlock(&vmh->lock);
 
     ASSERT(vmh->num_free_blocks <= vmh->num_blocks);
     RSTATS_SUB(vmm_vsize_used, size);
@@ -1576,7 +1581,7 @@ heap_reset_init()
 
 /* initialization */
 void
-heap_init()
+d_r_heap_init()
 {
     int i;
     uint prev_sz = 0;
@@ -1693,7 +1698,7 @@ heap_reset_free()
 
 /* atexit cleanup */
 void
-heap_exit()
+d_r_heap_exit()
 {
     heap_unit_t *u, *next_u;
     heap_management_t *temp;
@@ -2564,8 +2569,8 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
 }
 
 byte *
-map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
-         map_flags_t map_flags)
+d_r_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
+             map_flags_t map_flags)
 {
     byte *view;
     /* memory alloc/dealloc and updating DR list must be atomic */
@@ -2582,7 +2587,7 @@ map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 }
 
 bool
-unmap_file(byte *map, size_t size)
+d_r_unmap_file(byte *map, size_t size)
 {
     bool success;
     ASSERT(map != NULL && ALIGNED(map, PAGE_SIZE));
@@ -2990,7 +2995,7 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
      */
     if (UNITALLOC(unit) <= HEAP_UNIT_MAX_SIZE &&
         (heapmgt->heap.num_dead < 5 ||
-         heapmgt->heap.num_dead * 4U <= (uint)get_num_threads())) {
+         heapmgt->heap.num_dead * 4U <= (uint)d_r_get_num_threads())) {
         /* Keep dead list sorted small-to-large to avoid grabbing large
          * when can take small and then needing to allocate when only
          * have small left.  Helps out with lots of small threads.
@@ -4061,6 +4066,7 @@ typedef struct _special_heap_unit_t {
 #define SPECIAL_UNIT_COMMIT_SIZE(u) ((u)->end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_RESERVED_SIZE(u) ((u)->reserved_end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_HEADER_INLINE(u) ((u)->alloc_pc != (u)->start_pc)
+#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
 
 /* the cfree list stores a next ptr and a count */
 typedef struct _cfree_header {
@@ -4170,6 +4176,7 @@ special_heap_create_unit(special_units_t *su, byte *pc, size_t size, bool unit_f
         /* caller should arrange alignment */
         ASSERT(su->block_alignment == 0 || ALIGNED(u->start_pc, su->block_alignment));
     } else {
+        ASSERT(ALIGNED(size, PAGE_SIZE));
         commit_size = DYNAMO_OPTION(heap_commit_increment);
         ASSERT(commit_size <= size);
         /* create new unit */
@@ -4311,10 +4318,10 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
         /* Add to the global master list, which requires a lock */
-        mutex_lock(&special_units_list_lock);
+        d_r_mutex_lock(&special_units_list_lock);
         su->next = special_units_list;
         special_units_list = su;
-        mutex_unlock(&special_units_list_lock);
+        d_r_mutex_unlock(&special_units_list_lock);
     }
 #endif
 
@@ -4402,10 +4409,10 @@ special_heap_profile_stop(special_heap_unit_t *u)
     stop_profile(u->profile);
     sum = sum_profile(u->profile);
     if (sum > 0) {
-        mutex_lock(&profile_dump_lock);
+        d_r_mutex_lock(&profile_dump_lock);
         print_file(profile_file, "\nDumping special heap unit profile\n%d hits\n", sum);
         dump_profile(profile_file, u->profile);
-        mutex_unlock(&profile_dump_lock);
+        d_r_mutex_unlock(&profile_dump_lock);
     }
 }
 #endif
@@ -4418,19 +4425,19 @@ special_heap_profile_exit()
     special_heap_unit_t *u;
     special_units_t *su;
     ASSERT(special_heap_profile_enabled()); /* will never be compiled in I guess :) */
-    mutex_lock(&special_units_list_lock);
+    d_r_mutex_lock(&special_units_list_lock);
     for (su = special_units_list; su != NULL; su = su->next) {
         if (su->use_lock)
-            mutex_lock(&su->lock);
+            d_r_mutex_lock(&su->lock);
         for (u = su->top_unit; u != NULL; u = u->next) {
             if (u->profile != NULL)
                 special_heap_profile_stop(u);
             /* fast exit path: do not bother to free */
         }
         if (su->use_lock)
-            mutex_unlock(&su->lock);
+            d_r_mutex_unlock(&su->lock);
     }
-    mutex_unlock(&special_units_list_lock);
+    d_r_mutex_unlock(&special_units_list_lock);
 }
 #endif
 
@@ -4487,7 +4494,7 @@ special_heap_exit(void *special)
 #if defined(WINDOWS_PC_SAMPLE) && !defined(DEBUG)
     if (special_heap_profile_enabled()) {
         /* Removed this special_units_t from the master list */
-        mutex_lock(&special_units_list_lock);
+        d_r_mutex_lock(&special_units_list_lock);
         if (special_units_list == su)
             special_units_list = su->next;
         else {
@@ -4498,7 +4505,7 @@ special_heap_exit(void *special)
             ASSERT(prev->next == su);
             prev->next = su->next;
         }
-        mutex_unlock(&special_units_list_lock);
+        d_r_mutex_unlock(&special_units_list_lock);
     }
 #endif
     if (su->use_lock)
@@ -4524,7 +4531,7 @@ special_heap_calloc(void *special, uint num)
     bool took_free = false;
     ASSERT(num > 0);
     if (su->use_lock)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
     u = su->cur_unit;
     if (su->free_list != NULL && num == 1) {
         p = (void *)su->free_list;
@@ -4577,7 +4584,8 @@ special_heap_calloc(void *special, uint num)
                 /* no room, need new unit */
                 special_heap_unit_t *new_unit;
                 special_heap_unit_t *prev = su->top_unit;
-                size_t size = UNITALLOC(u);
+                size_t size = SPECIAL_UNIT_ALLOC_SIZE(u);
+                ASSERT(ALIGNED(size, PAGE_SIZE));
                 while (prev->next != NULL)
                     prev = prev->next;
                 /* create new unit double size of old unit (until hit max size) */
@@ -4589,8 +4597,10 @@ special_heap_calloc(void *special, uint num)
                 prev->next = new_unit;
                 if (su->use_lock) {
                     /* if synch bad so is printing */
-                    LOG(THREAD, LOG_HEAP, 3, "\tCreating new heap unit %d\n",
-                        new_unit->id);
+                    LOG(THREAD, LOG_HEAP, 3,
+                        "%s: Creating new heap unit %d " PFX "-" PFX "-" PFX "\n",
+                        __FUNCTION__, new_unit->id, new_unit->alloc_pc, new_unit->end_pc,
+                        new_unit->reserved_end_pc);
                 }
                 su->cur_unit = new_unit;
                 u = new_unit;
@@ -4608,7 +4618,7 @@ special_heap_calloc(void *special, uint num)
                           su->block_size * num);
     }
     if (su->use_lock)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 
 #ifdef DEBUG_MEMORY
     DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_ALLOCATED_BYTE, su->block_size * num););
@@ -4632,7 +4642,7 @@ special_heap_cfree(void *special, void *p, uint num)
     /* Allow freeing while iterating w/o deadlock (iterator holds lock) */
     ASSERT(!su->in_iterator || OWN_MUTEX(&su->lock));
     if (su->use_lock && !su->in_iterator)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
 #ifdef DEBUG_MEMORY
     /* FIXME: ensure that p is in allocated state */
     DOCHECK(CHKLVL_MEMFILL, memset(p, HEAP_UNALLOCATED_BYTE, su->block_size * num););
@@ -4651,7 +4661,7 @@ special_heap_cfree(void *special, void *p, uint num)
     ACCOUNT_FOR_FREE(su, ACCT_SPECIAL, su->block_size * num);
 #endif
     if (su->use_lock && !su->in_iterator)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 }
 
 void
@@ -4668,7 +4678,7 @@ special_heap_can_calloc(void *special, uint num)
 
     ASSERT(num > 0);
     if (su->use_lock)
-        mutex_lock(&su->lock);
+        d_r_mutex_lock(&su->lock);
     if (su->free_list != NULL && num == 1) {
         can_calloc = true;
     } else if (su->cfree_list != NULL && num > 1) {
@@ -4687,7 +4697,7 @@ special_heap_can_calloc(void *special, uint num)
                       !POINTER_OVERFLOW_ON_ADD(u->cur_pc, su->block_size * num));
     }
     if (su->use_lock)
-        mutex_unlock(&su->lock);
+        d_r_mutex_unlock(&su->lock);
 
     return can_calloc;
 }
@@ -4710,7 +4720,7 @@ special_heap_iterator_start(void *heap, special_heap_iterator_t *shi)
     special_units_t *su = (special_units_t *)heap;
     ASSERT(heap != NULL);
     ASSERT(shi != NULL);
-    mutex_lock(&su->lock);
+    d_r_mutex_lock(&su->lock);
     shi->heap = heap;
     shi->next_unit = (void *)su->top_unit;
     su->in_iterator = true;
@@ -4764,7 +4774,7 @@ special_heap_iterator_stop(special_heap_iterator_t *shi)
     ASSERT(su != NULL);
     ASSERT_OWN_MUTEX(true, &su->lock);
     su->in_iterator = false;
-    mutex_unlock(&su->lock);
+    d_r_mutex_unlock(&su->lock);
     DODEBUG({
         shi->heap = NULL;
         shi->next_unit = NULL;
@@ -4895,7 +4905,7 @@ alloc_landing_pad(app_pc addr_to_hook)
     /* Check if there is an existing landing pad area within the reachable
      * region for the hook location.  If so use it, else allocate one.
      */
-    write_lock(&landing_pad_areas->lock);
+    d_r_write_lock(&landing_pad_areas->lock);
     if (vmvector_overlap(landing_pad_areas, alloc_region_start, alloc_region_end)) {
         /* Now we have to get that landing pad area that is FULLY contained
          * within alloc_region_start and alloc_region_end.  If a landing pad
@@ -5028,7 +5038,7 @@ alloc_landing_pad(app_pc addr_to_hook)
 
     /* Boundary check to make sure the allocation is within the landing pad area. */
     ASSERT(lpad_area->cur_ptr <= lpad_area->end);
-    write_unlock(&landing_pad_areas->lock);
+    d_r_write_unlock(&landing_pad_areas->lock);
     return lpad;
 }
 
@@ -5042,14 +5052,14 @@ trim_landing_pad(byte *lpad_start, size_t space_used)
 {
     landing_pad_area_t *lpad_area = NULL;
     bool res = false;
-    write_lock(&landing_pad_areas->lock);
+    d_r_write_lock(&landing_pad_areas->lock);
     if (vmvector_lookup_data(landing_pad_areas, lpad_start, NULL, NULL, &lpad_area)) {
         if (lpad_start == lpad_area->cur_ptr - LANDING_PAD_SIZE) {
             lpad_area->cur_ptr -= (LANDING_PAD_SIZE - space_used);
             res = true;
         }
     }
-    write_unlock(&landing_pad_areas->lock);
+    d_r_write_unlock(&landing_pad_areas->lock);
     return res;
 }
 

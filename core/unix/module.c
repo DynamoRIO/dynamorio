@@ -740,13 +740,13 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
     byte buf[MAX(sizeof(DL_RUNTIME_RESOLVE_MAGIC_1),
                  sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))] = { 0 };
 
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) ==
             0) {
         *ret_imm = 0x8;
         return true;
     }
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
         memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) ==
             0) {
         LOG(THREAD, LOG_INTERP, 1,

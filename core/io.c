@@ -396,7 +396,7 @@ in_charset(const char *charset, int c)
 }
 
 const char *
-parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed)
+d_r_parse_int(const char *sp, uint64 *res_out, uint base, uint width, bool is_signed)
 {
     bool negative = false;
     uint64 res = 0;
@@ -666,7 +666,7 @@ d_r_vsscanf(const char *str, const char *fmt, va_list ap)
             /* C sscanf skips leading whitespace before parsing integers. */
             while (*sp != '\0' && our_isspace(*sp))
                 sp++;
-            sp = parse_int(sp, &res, base, width, is_signed);
+            sp = d_r_parse_int(sp, &res, base, width, is_signed);
             if (sp == NULL)
                 return num_parsed;
 

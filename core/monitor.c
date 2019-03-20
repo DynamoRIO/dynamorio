@@ -297,7 +297,7 @@ mangle_trace_at_end(void)
 /* Initialization */
 /* thread-shared init does nothing, thread-private init does it all */
 void
-monitor_init()
+d_r_monitor_init()
 {
     /* to reduce memory, we use ushorts for some offsets in fragment bodies,
      * so we have to stop a trace at that size
@@ -331,7 +331,7 @@ trace_abort_and_delete(dcontext_t *dcontext)
 }
 
 void
-monitor_exit()
+d_r_monitor_exit()
 {
     LOG(GLOBAL, LOG_MONITOR | LOG_STATS, 1, "Trace fragments generated: %d\n",
         GLOBAL_STAT(num_traces));
@@ -644,9 +644,9 @@ unlink_ibt_trace_head(dcontext_t *dcontext, fragment_t *f)
          * remove completely here */
         fragment_remove_from_ibt_tables(dcontext, f, false /*leave in shared ibt*/);
         /* Remove the fragment from other thread's tables. */
-        mutex_lock(&thread_initexit_lock);
+        d_r_mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&threads, &num_threads);
-        mutex_unlock(&thread_initexit_lock);
+        d_r_mutex_unlock(&thread_initexit_lock);
         for (i = 0; i < num_threads; i++) {
             dcontext_t *tgt_dcontext = threads[i]->dcontext;
             LOG(THREAD, LOG_FRAGMENT, 2, "  considering thread %d/%d = " TIDFMT "\n",
@@ -1367,13 +1367,13 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
      */
     if (TEST(FRAG_SHARED, md->trace_flags)) {
         ASSERT(DYNAMO_OPTION(shared_traces));
-        mutex_lock(&trace_building_lock);
+        d_r_mutex_lock(&trace_building_lock);
         /* we left the bb there, so we rely on any shared trace shadowing it */
         trace_f = fragment_lookup_trace(dcontext, tag);
         if (trace_f != NULL) {
             /* someone beat us to it!  tough luck -- throw it all away */
             ASSERT(TEST(FRAG_IS_TRACE, trace_f->flags));
-            mutex_unlock(&trace_building_lock);
+            d_r_mutex_unlock(&trace_building_lock);
             trace_abort(dcontext);
             STATS_INC(num_aborted_traces_race);
 #ifdef DEBUG
@@ -1517,7 +1517,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         trace_tr->bbs[i] = md->blk_info[i].info;
 
     if (TEST(FRAG_SHARED, md->trace_flags))
-        mutex_unlock(&trace_building_lock);
+        d_r_mutex_unlock(&trace_building_lock);
 
     RSTATS_INC(num_traces);
     DOSTATS(
@@ -1973,7 +1973,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                  */
                 fragment_t *head = NULL;
                 if (USE_BB_BUILDING_LOCK())
-                    mutex_lock(&bb_building_lock);
+                    d_r_mutex_lock(&bb_building_lock);
                 if (DYNAMO_OPTION(coarse_units)) {
                     /* the existing lookup routines will shadow a coarse bb so we do
                      * a custom lookup
@@ -2016,7 +2016,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                     }
                 }
                 if (USE_BB_BUILDING_LOCK())
-                    mutex_unlock(&bb_building_lock);
+                    d_r_mutex_unlock(&bb_building_lock);
                 /* use the bb from here on out */
                 f = head;
             }
