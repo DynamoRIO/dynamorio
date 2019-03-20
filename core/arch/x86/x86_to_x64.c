@@ -401,6 +401,7 @@ translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     for (i = 7; i >= 0; --i) {
         instr_t *mov;
         print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, opsz);
+
         mov = INSTR_CREATE_mov_st(
             dcontext, opnd_create_base_disp(REG_RSP, REG_NULL, 0, i * opsz_bytes, opsz),
             opnd_create_reg(reg_32_to_opsz(pushad_registers[i], opsz)));
