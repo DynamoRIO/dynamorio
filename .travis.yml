@@ -64,7 +64,7 @@ jobs:
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=yes EXTRA_ARGS="64_only package"
     # AArchXX cross-compile with gcc, no tests:
     - os: linux
-      compiler: gcc
+      compiler: gcc-6
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=yes DEPLOY=no
     # Android ARM cross-compile with gcc, no tests:
     - os: linux
@@ -113,7 +113,7 @@ install:
   # Install cross-compilers for cross-compiling Linux build:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == yes ]]; then
-      sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
+      sudo apt-get -y install g++-6-arm-linux-gnueabihf g++-6-aarch64-linux-gnu; fi
   # Fetch and install Android NDK for Andoid cross-compile build only.
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ANDROID_ONLY == yes ]]; then
