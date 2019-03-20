@@ -2323,16 +2323,12 @@ if (CLIENT_INTERFACE)
     if (NOT WIN32) # XXX i#2611: fix for Windows
       if (X64)
         set(detach_spawn_name api.detach_spawn)
-        set(detach_spawn_stress_name api.detach_spawn_stress)
       else ()
         # FIXME i#2694: failing sometimes on 32-bit Linux.
         set(detach_spawn_name api.detach_spawn_FLAKY)
-        set(detach_spawn_stress_name api.detach_spawn_stress)
       endif ()
       tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
       link_with_pthread(${detach_spawn_name})
-      tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
-      link_with_pthread(${detach_spawn_stress_name})
     endif ()
   endif ()
   # test static decoder library
