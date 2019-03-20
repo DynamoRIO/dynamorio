@@ -186,7 +186,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_ma
     if (soname == NULL)
         ma->names.module_name = NULL;
     else
-        ma->names.module_name = dr_strdup(soname HEAPACCT(which));
+        ma->names.module_name = soname;
 
     /* Fields for pcaches (PR 295534).  These entries are not present in
      * all libs: I see DT_CHECKSUM and the prelink field on FC12 but not

@@ -215,10 +215,13 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
  * If so, then this function may not be needed.
  */
 static size_t
-module_map_file(os_module_data_t *os_mod_data)
+module_map_file(os_module_data_t *os_mod_data, byte **base)
 {
     int fd;
     uint64 size;
+
+    ASSERT(os_mod_data != NULL);
+    ASSERT(base != NULL);
 
     fd = open_syscall(os_mod_data->source_file_path, O_RDONLY, 0);
     ASSERT(fd != -1);
@@ -226,9 +229,8 @@ module_map_file(os_module_data_t *os_mod_data)
     if (!os_get_file_size_by_handle(fd, &size))
         ASSERT(false);
 
-    os_mod_data->source_file_map =
-        (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    ASSERT(mmap_syscall_succeeded(os_mod_data->source_file_map));
+    *base = (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    ASSERT(mmap_syscall_succeeded(*base));
 
     return size;
 }
@@ -256,8 +258,10 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                                           : (app_pc)prog_hdr->p_vaddr + load_delta);
     ASSERT(prog_hdr->p_type == PT_DYNAMIC);
     dcontext_t *dcontext = get_thread_private_dcontext();
-    /* i#489, DT_SONAME is optional, init soname to NULL first */
-    *soname = NULL;
+    /* i#489, DT_SONAME is optional. i#3385, caller passes in **soname as NULL
+     * if it is not required.
+     */
+    char *name = NULL;
 #ifdef ANDROID
     /* On Android only the first segment is mapped in and .dynamic is not
      * accessible.  We try to avoid the cost of the fault.
@@ -277,7 +281,8 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
             int soname_index = -1;
             char *dynstr = NULL;
             size_t sz = mod_max_end - mod_base;
-            size_t mapped_size = 0;
+            byte *map_base;         /* i#3385, flat mmap address and size of the file */
+            size_t mapped_size = 0; /* when using file rather than virtual offsets */
             while (dyn->d_tag != DT_NULL) {
                 if (dyn->d_tag == DT_SONAME) {
                     soname_index = dyn->d_un.d_val;
@@ -295,11 +300,11 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                         /* XXX: Perhaps compare sizes here and avoid full mapping
                          * if current mapping is big enough?
                          */
-                        mapped_size = module_map_file(out_data);
+                        mapped_size = module_map_file(out_data, &map_base);
                         ELF_ADDR offset = module_get_section_with_name(
-                            out_data->source_file_map, mapped_size, ".dynstr");
+                            map_base, mapped_size, ".dynstr");
                         ASSERT(offset != (ELF_ADDR)NULL);
-                        dynstr = (char *)(out_data->source_file_map + offset);
+                        dynstr = (char *)(map_base + offset);
                     } else {
                         dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size,
                                                          load_delta, at_map, dyn_reloc);
@@ -339,32 +344,45 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 dyn++;
             }
             if (soname_index != -1 && dynstr != NULL) {
-                *soname = dynstr + soname_index;
+                name = dynstr + soname_index;
 
-                /* Sanity check soname location using base address and size
+                /* Sanity check name location using base address and size
                  * depending on if virtual or file offset has been used. See
                  * i#3385 comment above.
                  */
                 app_pc base_variant;
                 size_t size_variant;
                 if (at_map) {
-                    base_variant = out_data->source_file_map;
+                    base_variant = map_base;
                     size_variant = mapped_size;
                 } else {
                     base_variant = base;
                     size_variant = sz;
                 }
-                if ((app_pc)*soname < base_variant ||
-                    (app_pc)*soname > base_variant + size_variant) {
+                if ((app_pc)name < base_variant ||
+                    (app_pc)name > base_variant + size_variant) {
                     ASSERT_CURIOSITY(false && "soname not in module");
-                    *soname = NULL;
+                    name = NULL;
                 }
 
                 /* test string readability while still in try/except
                  * in case we screwed up somewhere or module is
                  * malformed/only partially mapped */
-                if (*soname != NULL && strlen(*soname) == -1) {
+                if (name != NULL && strlen(name) == -1) {
                     ASSERT_NOT_REACHED();
+                }
+
+                if (soname != (char **)NULL) {
+                    /* i#3385, it is the responsibility of the caller to free memory
+                     * using dr_strfree()
+                     */
+                    *soname = dr_strdup(name HEAPACCT(ACCT_VMAREAS));
+                }
+
+                if (at_map) {
+                    long rc = munmap_syscall(map_base, mapped_size);
+                    ASSERT_CURIOSITY(rc == 0 && "module munmap failed");
+                    map_base = NULL;
                 }
             }
             if (out_data != NULL) {
@@ -376,7 +394,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
         },
         { /* EXCEPT */
           ASSERT_CURIOSITY(false && "crashed while walking dynamic header");
-          *soname = NULL;
+          name = NULL;
           res = false;
         });
     if (res && out_data != NULL)
@@ -443,8 +461,9 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map, bool dyn
             }
             if ((out_soname != NULL || out_data != NULL) &&
                 prog_hdr->p_type == PT_DYNAMIC) {
-                module_fill_os_data(prog_hdr, mod_base, max_end, base, view_size, at_map,
-                                    dyn_reloc, load_delta, &soname, out_data);
+                module_fill_os_data(prog_hdr, mod_base, max_end, base, view_size,
+                                    at_map, dyn_reloc, load_delta,
+                                    out_soname == NULL ? NULL : &soname, out_data);
                 DOLOG(LOG_INTERP | LOG_VMAREAS, 2, {
                     if (out_data != NULL) {
                         LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
@@ -513,7 +532,7 @@ os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
                                         !at_map, /* i#1589: ld.so relocates .dynamic */
                                         load_delta, &soname, &ma->os_data);
                     if (soname != NULL)
-                        ma->names.module_name = dr_strdup(soname HEAPACCT(ACCT_VMAREAS));
+                        ma->names.module_name = soname;
                     LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
                         "%s " PFX ": %s dynamic info\n", __FUNCTION__, base,
                         ma->os_data.have_dynamic_info ? "have" : "no");

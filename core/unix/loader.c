@@ -321,6 +321,10 @@ void
 os_loader_exit(void)
 {
     if (libdr_opd != NULL) {
+        if (libdr_opd->soname != NULL) {
+            dr_strfree(libdr_opd->soname HEAPACCT(ACCT_VMAREAS));
+            libdr_opd->soname = NULL;
+        }
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, libdr_opd->os_data.segments, module_segment_t,
                         libdr_opd->os_data.alloc_segments, ACCT_OTHER, PROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd, os_privmod_data_t, ACCT_OTHER,
@@ -407,6 +411,10 @@ privload_unmap_file(privmod_t *privmod)
 
     /* unmap segments */
     for (i = 0; i < opd->os_data.num_segments; i++) {
+        if (privmod->name != NULL) {
+            dr_strfree(privmod->name HEAPACCT(ACCT_VMAREAS));
+            privmod->name = NULL;
+        }
         unmap_file(opd->os_data.segments[i].start,
                    opd->os_data.segments[i].end - opd->os_data.segments[i].start);
     }
@@ -874,11 +882,10 @@ get_private_library_address(app_pc modbase, const char *name)
          * For this case, we have to compute the temporary os_data instead.
          */
         ptr_int_t delta;
-        char *soname;
         os_module_data_t os_data;
         memset(&os_data, 0, sizeof(os_data));
         if (!module_read_os_data(mod->base, false /* .dynamic not relocated (i#1589) */,
-                                 &delta, &os_data, &soname)) {
+                                 &delta, &os_data, NULL)) {
             release_recursive_lock(&privload_lock);
             return NULL;
         }
@@ -1121,13 +1128,17 @@ privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc)
     module_walk_program_headers(privmod->base, privmod->size,
                                 false, /* segments are remapped */
                                 dyn_reloc, &opd->os_data.base_address, NULL,
-                                &opd->max_end, &opd->soname, &opd->os_data);
+                                &opd->max_end, NULL, &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size, false /*!relocated*/, opd);
 }
 
 static void
 privload_delete_os_privmod_data(privmod_t *privmod)
 {
+    if (privmod->name != NULL) {
+        dr_strfree(privmod->name HEAPACCT(ACCT_VMAREAS));
+        privmod->name = NULL;
+    }
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, privmod->os_privmod_data, os_privmod_data_t,
                    ACCT_OTHER, PROTECTED);
     privmod->os_privmod_data = NULL;
