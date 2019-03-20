@@ -1807,8 +1807,6 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
-        /* make d_r_dispatch happy */
-        dcontext->whereami = DR_WHERE_FCACHE;
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
