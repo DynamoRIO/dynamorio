@@ -45,8 +45,6 @@ my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 
-$ENV{'VERBOSE'} = 1;
-
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
@@ -79,7 +77,7 @@ if ($child) {
     # that has to be manually downloaded.  We thus stick with -V for
     # Travis.  For Appveyor where many devs have no local Visual
     # Studio we do use -VV so build warning details are visible.
-    my $verbose = "-VV";
+    my $verbose = "-V";
     if ($^O eq 'cygwin') {
         $verbose = "-VV";
         # CMake is native Windows so pass it a Windows path.
