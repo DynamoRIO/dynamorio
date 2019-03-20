@@ -233,13 +233,6 @@ memquery_library_bounds_by_iterator_internal(
                         ASSERT_NOT_REACHED();
                     }
                 } else {
-#ifdef STANDALONE_UNIT_TEST
-                    /* For the unit test, it's more convenient to return an
-                     * incorrect result here to fail the specific query, rather
-                     * than crashing the entire thing.
-                     */
-                    return -1;
-#endif
                     ASSERT(false && "expected elf header");
                 }
             }
