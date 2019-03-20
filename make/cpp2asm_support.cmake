@@ -215,8 +215,6 @@ elseif (UNIX)
     # No 64-bit support yet.
     # Some tests and libgcc/arm use deprecated instructions, disable warnings.
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
-    endif ()
-
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
