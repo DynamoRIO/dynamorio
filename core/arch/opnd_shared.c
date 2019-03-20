@@ -2003,8 +2003,10 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);
 #endif
-    else
+    else {
+        print_file(STDERR, "sz is %d\n", sz);
         CLIENT_ASSERT(false, "reg_32_to_opsz: invalid size parameter");
+    }
     return reg;
 }
 
