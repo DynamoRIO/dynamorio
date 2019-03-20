@@ -2003,10 +2003,8 @@ reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
     else if (sz == OPSZ_8)
         return reg_32_to_64(reg);
 #endif
-    else {
-        print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, sz);
+    else
         CLIENT_ASSERT(false, "reg_32_to_opsz: invalid size parameter");
-    }
     return reg;
 }
 
@@ -2015,7 +2013,6 @@ reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
     CLIENT_ASSERT(reg_is_gpr(reg), "reg_resize_to_opsz: passed non GPR reg");
     reg = reg_to_pointer_sized(reg);
-    print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, sz);
     return reg_32_to_opsz(IF_X64_ELSE(reg_64_to_32(reg), reg), sz);
 }
 
