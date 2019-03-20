@@ -40,14 +40,43 @@
 #include "memquery.h"
 #include "module.h"
 
-#if defined(STANDALONE_UNIT_TEST)
+/* memquery_library_bounds_funcs is a collection of all functionality that we
+ * swap out during memquery_library_bounds_by_iterator's unit test.
+ */
+typedef struct {
+    bool (*memquery_iterator_start)(memquery_iter_t *iter, app_pc start, bool may_alloc);
+    bool (*memquery_iterator_next)(memquery_iter_t *iter);
+    void (*memquery_iterator_stop)(memquery_iter_t *iter);
+    bool (*module_is_header)(app_pc base, size_t size);
+    bool (*module_walk_program_headers)(app_pc base, size_t view_size, bool at_map,
+                                        bool dyn_reloc,
+                                        OUT app_pc *out_base /* relative pc */,
+                                        OUT app_pc *out_first_end /* relative pc */,
+                                        OUT app_pc *out_max_end /* relative pc */,
+                                        OUT char **out_soname,
+                                        OUT os_module_data_t *out_data);
+} memquery_library_bounds_funcs;
+
+/* real_memquery_library_bounds_funcs is the collection of "real" dependencies
+ * for use by code outside the standalone unit test.
+ */
+static const memquery_library_bounds_funcs real_memquery_library_bounds_funcs = {
+    .memquery_iterator_start = memquery_iterator_start,
+    .memquery_iterator_next = memquery_iterator_next,
+    .memquery_iterator_stop = memquery_iterator_stop,
+    .module_is_header = module_is_header,
+    .module_walk_program_headers = module_walk_program_headers,
+};
+
+/* Forward declaration for use in the unit test */
+int
+memquery_library_bounds_by_iterator_internal(
+    const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+    char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+    size_t filename_size, const memquery_library_bounds_funcs *funcs);
+
+#if defined(STANDALONE_UNIT_TEST) || defined(RECORD_MEMQUERY)
 #    include "memquery_test.h"
-#else
-#    define MEMQUERY_ITERATOR_START memquery_iterator_start
-#    define MEMQUERY_ITERATOR_NEXT memquery_iterator_next
-#    define MEMQUERY_ITERATOR_STOP memquery_iterator_stop
-#    define MODULE_IS_HEADER module_is_header
-#    define MODULE_WALK_PROGRAM_HEADERS module_walk_program_headers
 #endif
 
 /***************************************************************************
@@ -57,13 +86,16 @@
 /* See memquery.h for full interface specs, which are identical to
  * memquery_library_bounds().
  *
- * This module is tested by a standalone unit test in memquery_test.h.
+ * This module is tested by a standalone unit test in memquery_test.h by passing
+ * in a set of fake memquery_library_bounds_funcs. The "real"
+ * memquery_library_bounds_by_iterator is below and hard-codes the use of
+ * real_memquery_library_bounds_funcs.
  */
 int
-memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
-                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
-                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
-                                    size_t filename_size)
+memquery_library_bounds_by_iterator_internal(
+    const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
+    char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+    size_t filename_size, const memquery_library_bounds_funcs *funcs)
 {
     int count = 0;
     bool found_library = false;
@@ -85,14 +117,14 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
      * address space even when we have syscalls for memquery (e.g., on Mac).
      * Even if start is non-NULL, it could be in the middle of the library.
      */
-    MEMQUERY_ITERATOR_START(&iter, NULL,
-                            /* We're never called from a fragile place like a
-                             * signal handler, so as long as it's not real early
-                             * it's ok to alloc.
-                             */
-                            dynamo_heap_initialized);
+    funcs->memquery_iterator_start(&iter, NULL,
+                                   /* We're never called from a fragile place like a
+                                    * signal handler, so as long as it's not real early
+                                    * it's ok to alloc.
+                                    */
+                                   dynamo_heap_initialized);
     libname[0] = '\0';
-    while (MEMQUERY_ITERATOR_NEXT(&iter)) {
+    while (funcs->memquery_iterator_next(&iter)) {
         LOG(GLOBAL, LOG_VMAREAS, 5, "start=" PFX " end=" PFX " prot=%x comment=%s\n",
             iter.vm_start, iter.vm_end, iter.prot, iter.comment);
 
@@ -110,8 +142,8 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
              * schemes (i#2566).
              */
             if (prev_end == iter.vm_start && prev_prot == (MEMPROT_READ | MEMPROT_EXEC) &&
-                MODULE_IS_HEADER(prev_base, prev_end - prev_base) &&
-                !MODULE_IS_HEADER(iter.vm_start, iter.vm_end - iter.vm_start))
+                funcs->module_is_header(prev_base, prev_end - prev_base) &&
+                !funcs->module_is_header(iter.vm_start, iter.vm_end - iter.vm_start))
                 last_lib_base = prev_base;
             /* last_lib_end is used to know what's readable beyond last_lib_base */
             if (TEST(MEMPROT_READ, iter.prot))
@@ -187,12 +219,12 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
                     mod_start = last_lib_base;
                     mod_readable_sz = last_lib_end - last_lib_base;
                 }
-                if (MODULE_IS_HEADER(mod_start, mod_readable_sz)) {
+                if (funcs->module_is_header(mod_start, mod_readable_sz)) {
                     app_pc mod_base, mod_end;
-                    if (MODULE_WALK_PROGRAM_HEADERS(mod_start, mod_readable_sz, false,
-                                                    /*i#1589: ld.so relocated .dynamic*/
-                                                    true, &mod_base, NULL, &mod_end, NULL,
-                                                    NULL)) {
+                    if (funcs->module_walk_program_headers(
+                            mod_start, mod_readable_sz, false,
+                            /*i#1589: ld.so relocated .dynamic*/
+                            true, &mod_base, NULL, &mod_end, NULL, NULL)) {
                         image_size = mod_end - mod_base;
                         LOG(GLOBAL, LOG_VMAREAS, 4, "%s: image size is " PIFX "\n",
                             __FUNCTION__, image_size);
@@ -248,7 +280,7 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
          * second adjacent separate map of the same file.  Curiosity for now. */
         ASSERT_CURIOSITY(image_size == 0 || cur_end - mod_start == image_size);
     }
-    MEMQUERY_ITERATOR_STOP(&iter);
+    funcs->memquery_iterator_stop(&iter);
 
     if (name == NULL && *start < mod_start)
         count = 0; /* Our target adjustment missed: we never found a file-backed entry */
@@ -257,4 +289,16 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
     if (end != NULL)
         *end = cur_end;
     return count;
+}
+
+/* See comment for memquery_library_bounds_by_iterator_internal. */
+int
+memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/OUT*/,
+                                    app_pc *end /*OUT*/, char *fulldir /*OPTIONAL OUT*/,
+                                    size_t fulldir_size, char *filename /*OPTIONAL OUT*/,
+                                    size_t filename_size)
+{
+    return memquery_library_bounds_by_iterator_internal(
+        name, start, end, fulldir, fulldir_size, filename, filename_size,
+        &real_memquery_library_bounds_funcs);
 }
