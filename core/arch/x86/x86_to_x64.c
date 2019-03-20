@@ -400,6 +400,7 @@ translate_pusha(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
                          OPND_CREATE_MEM_lea(REG_RSP, REG_NULL, 0, -8 * opsz_bytes)));
     for (i = 7; i >= 0; --i) {
         instr_t *mov;
+        print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, opsz);
         mov = INSTR_CREATE_mov_st(
             dcontext, opnd_create_base_disp(REG_RSP, REG_NULL, 0, i * opsz_bytes, opsz),
             opnd_create_reg(reg_32_to_opsz(pushad_registers[i], opsz)));
@@ -430,6 +431,7 @@ translate_popa(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     uint opsz_bytes = opnd_size_in_bytes(opsz);
     int i;
 
+    print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, opsz);
     pre(ilist, *instr,
         INSTR_CREATE_mov_ld(
             dcontext, opnd_create_reg(reg_32_to_opsz(REG_R8D, opsz)),
@@ -437,6 +439,7 @@ translate_popa(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr)
     for (i = 0; i < 8; ++i) {
         if (pushad_registers[i] == REG_ESP) /* skip sp/esp */
             continue;
+        print_file(STDERR, "%s:%d: sz is %d\n", __FUNCTION__, __LINE__, opsz);
         pre(ilist, *instr,
             INSTR_CREATE_mov_ld(
                 dcontext, opnd_create_reg(reg_32_to_opsz(pushad_registers[i], opsz)),
