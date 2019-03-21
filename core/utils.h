@@ -2367,11 +2367,26 @@ profile_callers_exit(void);
 #    define EXPECT_RELATION_INTERNAL(exprstr, value, REL, expected)                     \
         do {                                                                            \
             LOG(GLOBAL, LOG_ALL, 1, "%s = %d [expected " #REL " %d] %s\n", exprstr,     \
-                value_once, expected, value_once REL expected ? "good" : "BAD");        \
+                value_once, expected,                                                   \
+                value_once REL(ptr_uint_t) expected ? "good" : "BAD");                  \
             /* Avoid ASSERT to support a release build. */                              \
-            if (!(value REL expected)) {                                                \
+            if (!(value REL(ptr_uint_t) expected)) {                                    \
                 print_file(STDERR, "EXPECT failed at %s:%d in test %s: %s\n", __FILE__, \
                            __LINE__, __FUNCTION__, exprstr);                            \
+                os_terminate(NULL, TERMINATE_PROCESS);                                  \
+            }                                                                           \
+        } while (0)
+
+#    define EXPECT_STR(expr, expected, n)                                               \
+        do {                                                                            \
+            const char *value_once = expr;                                              \
+            bool ok = strncmp(value_once, expected, n) == 0;                            \
+            LOG(GLOBAL, LOG_ALL, 1, #expr " = %s [expected == %s] %s\n", value_once,    \
+                expected, ok ? "good" : "BAD");                                         \
+            /* Avoid ASSERT to support a release build. */                              \
+            if (!ok) {                                                                  \
+                print_file(STDERR, "EXPECT failed at %s:%d in test %s: %s\n", __FILE__, \
+                           __LINE__, __FUNCTION__, #expr);                              \
                 os_terminate(NULL, TERMINATE_PROCESS);                                  \
             }                                                                           \
         } while (0)
