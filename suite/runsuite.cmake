@@ -324,6 +324,16 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only)
       INTERNAL:BOOL=ON
       ${install_path_cache}
       ")
+    if (UNIX)
+      # Ensure the code to record memquery unit test cases continues to
+      # at least compile.
+      testbuild("record-memquery-64" ON "
+        RECORD_MEMQUERY:BOOL=ON
+        DEBUG:BOOL=OFF
+        INTERNAL:BOOL=ON
+        ${install_path_cache}
+        ")
+    endif (UNIX)
   endif (DO_ALL_BUILDS)
   # Non-official-API builds but not all are in pre-commit suite, esp on Windows
   # where building is slow: we'll rely on bots to catch breakage in most of these
