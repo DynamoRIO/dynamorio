@@ -69,7 +69,7 @@ static const memquery_library_bounds_funcs real_memquery_library_bounds_funcs = 
 };
 
 /* Forward declaration for use in the unit test */
-int
+static int
 memquery_library_bounds_by_iterator_internal(
     const char *name, app_pc *start /*IN/OUT*/, app_pc *end /*OUT*/,
     char *fulldir /*OPTIONAL OUT*/, size_t fulldir_size, char *filename /*OPTIONAL OUT*/,

@@ -79,8 +79,9 @@ void
 unit_test_memquery()
 {
 #    ifndef X64
-    // Instead of putting effort into generating test cases which work under both
-    // 32/64 bit, just skip the test when not running 64 bits.
+    /* Instead of putting effort into generating test cases which work under both
+     * 32/64 bit, just skip the test when not running 64 bits.
+     */
     return;
 #    endif
     bool all_passed = true;
@@ -95,10 +96,7 @@ unit_test_memquery()
         }
         print_file(STDERR, "**** memquery unit test %s %s\n", test->test_name, status);
     }
-    if (!all_passed) {
-        print_file(STDERR, "unit_test_memquery had failing test(s)!\n");
-        os_terminate(NULL, TERMINATE_PROCESS);
-    }
+    EXPECT(all_passed, true);
     print_file(STDERR, "END unit_test_memquery\n");
 }
 
@@ -209,8 +207,11 @@ run_single_memquery_test(const memquery_library_bounds_test *test)
     return true;
 }
 
-#endif // STANDALONE_UNIT_TEST
+#endif /* STANDALONE_UNIT_TEST */
 
+/****************************************************************************
+ * Test case recording feature for memquery_library_bounds_by_iterator.
+ */
 #ifdef RECORD_MEMQUERY
 
 #    ifndef RECORD_MEMQUERY_RESULTS_FILE
@@ -218,8 +219,9 @@ run_single_memquery_test(const memquery_library_bounds_test *test)
 #        define RECORD_MEMQUERY_TESTS_FILE "/tmp/memquery_tests.txt"
 #    endif
 
-// We rename memquery_library_bounds_by_iterator to
-// real_memquery_library_bounds_by_iterator in a define below.
+/* We rename memquery_library_bounds_by_iterator to
+ * real_memquery_library_bounds_by_iterator in a define below.
+ */
 #    define record_memquery_library_bounds_by_iterator memquery_library_bounds_by_iterator
 
 int
@@ -256,8 +258,9 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
     int test_fd = os_open(RECORD_MEMQUERY_TESTS_FILE, OS_OPEN_WRITE | OS_OPEN_APPEND);
     ASSERT(results_fd != 0 && test_fd != 0);
 
-    // To support generating new tests from arbitrary sources, we pick the
-    // timestamp to avoid name collisions.
+    /* To support generating new tests from arbitrary sources, we pick the
+     * timestamp to avoid name collisions.
+     */
     char identifier[100];
     d_r_snprintf(identifier, BUFFER_SIZE_ELEMENTS(identifier), "%X", query_time_micros());
 
@@ -287,7 +290,7 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
              * even though their mappings are listed as readable.
              */
             iter.vm_start < (app_pc)0xffffffff00000000 &&
-#    endif // X64
+#    endif /* X64 */
             module_is_header(iter.vm_start, iter.vm_end - iter.vm_start)) {
 
             is_header = true;
@@ -341,4 +344,4 @@ record_memquery_library_bounds_by_iterator(const char *name, app_pc *start /*IN/
 
 #    define memquery_library_bounds_by_iterator real_memquery_library_bounds_by_iterator
 
-#endif // RECORD_MEMQUERY
+#endif /* RECORD_MEMQUERY */

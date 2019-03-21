@@ -739,7 +739,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
             INVALID_THREAD_ID, 0                                                \
         };                                                                      \
         var = initializer_##lock;                                               \
-     } while (0)
+    } while (0)
 
 #define INIT_SPINLOCK_FREE(lock) \
     STRUCTURE_TYPE(mutex_t)      \
