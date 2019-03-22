@@ -215,13 +215,12 @@ elf_dt_abs_addr(ELF_DYNAMIC_ENTRY_TYPE *dyn, app_pc base, size_t size, size_t vi
  * If so, then this function may not be needed.
  */
 static size_t
-module_map_file(os_module_data_t *os_mod_data, byte **base)
+module_map_file(os_module_data_t *os_mod_data)
 {
     int fd;
     uint64 size;
 
     ASSERT(os_mod_data != NULL);
-    ASSERT(base != NULL);
 
     fd = open_syscall(os_mod_data->source_file_path, O_RDONLY, 0);
     ASSERT(fd != -1);
@@ -229,8 +228,10 @@ module_map_file(os_module_data_t *os_mod_data, byte **base)
     if (!os_get_file_size_by_handle(fd, &size))
         ASSERT(false);
 
-    *base = (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    ASSERT(mmap_syscall_succeeded(*base));
+    os_mod_data->source_file_map =
+        (byte *)mmap_syscall(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    ASSERT(mmap_syscall_succeeded(os_mod_data->source_file_map));
+    os_mod_data->source_file_map_size = size;
 
     return size;
 }
@@ -281,7 +282,6 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
             int soname_index = -1;
             char *dynstr = NULL;
             size_t sz = mod_max_end - mod_base;
-            byte *map_base;         /* i#3385, flat mmap address and size of the file */
             size_t mapped_size = 0; /* when using file rather than virtual offsets */
             while (dyn->d_tag != DT_NULL) {
                 if (dyn->d_tag == DT_SONAME) {
@@ -300,11 +300,11 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                         /* XXX: Perhaps compare sizes here and avoid full mapping
                          * if current mapping is big enough?
                          */
-                        mapped_size = module_map_file(out_data, &map_base);
+                        mapped_size = module_map_file(out_data);
                         ELF_ADDR offset = module_get_section_with_name(
-                            map_base, mapped_size, ".dynstr");
+                            out_data->source_file_map, mapped_size, ".dynstr");
                         ASSERT(offset != (ELF_ADDR)NULL);
-                        dynstr = (char *)(map_base + offset);
+                        dynstr = (char *)(out_data->source_file_map + offset);
                     } else {
                         dynstr = (char *)elf_dt_abs_addr(dyn, base, sz, view_size,
                                                          load_delta, at_map, dyn_reloc);
@@ -353,7 +353,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                 app_pc base_variant;
                 size_t size_variant;
                 if (at_map) {
-                    base_variant = map_base;
+                    base_variant = out_data->source_file_map;
                     size_variant = mapped_size;
                 } else {
                     base_variant = base;
@@ -377,12 +377,6 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                      * using dr_strfree()
                      */
                     *soname = dr_strdup(name HEAPACCT(ACCT_VMAREAS));
-                }
-
-                if (at_map) {
-                    long rc = munmap_syscall(map_base, mapped_size);
-                    ASSERT_CURIOSITY(rc == 0 && "module munmap failed");
-                    map_base = NULL;
                 }
             }
             if (out_data != NULL) {
@@ -512,7 +506,7 @@ os_module_update_dynamic_info(app_pc base, size_t size, bool at_map)
     ma = module_pc_lookup(base);
     if (ma != NULL && !ma->os_data.have_dynamic_info) {
         uint i;
-        char *soname;
+        char *soname = NULL;
         ptr_int_t load_delta = ma->start - ma->os_data.base_address;
         ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)ma->start;
         ASSERT(base >= ma->start && base + size <= ma->end);

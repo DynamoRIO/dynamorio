@@ -325,6 +325,15 @@ os_loader_exit(void)
             dr_strfree(libdr_opd->soname HEAPACCT(ACCT_VMAREAS));
             libdr_opd->soname = NULL;
         }
+        if (libdr_opd->os_data.source_file_map != NULL) {                                                    
+            long rc = munmap_syscall(libdr_opd->os_data.source_file_map,
+                          libdr_opd->os_data.source_file_map_size);             
+            if (rc != 0) {                                               
+                ASSERT_CURIOSITY(false && "module munmap failed");       
+            }                                                            
+            libdr_opd->os_data.source_file_map = NULL;                                             
+            libdr_opd->os_data.source_file_map_size = 0;
+        }
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, libdr_opd->os_data.segments, module_segment_t,
                         libdr_opd->os_data.alloc_segments, ACCT_OTHER, PROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd, os_privmod_data_t, ACCT_OTHER,
