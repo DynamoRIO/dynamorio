@@ -482,12 +482,10 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
          */
 #    ifdef WINDOWS
         /* XXX i#2946: support Windows */
-        return 0;
 #    else
         /* XXX: we may want to re-factor and move functions like this into drx. */
         uint eax, ebx, ecx, edx;
         cpuid(0xd, 0, &eax, &ebx, &ecx, &edx);
-#    endif
         switch (instr_get_opcode(inst)) {
         case OP_xsave32:
         case OP_xsave64:
@@ -497,7 +495,7 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
         case OP_xsavec64: return ebx; break;
         default: ASSERT(false, "memsize internal error"); return 0;
         }
-
+#    endif
         return 0;
     } else
 #endif /* X86 */
