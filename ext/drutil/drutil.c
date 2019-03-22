@@ -435,10 +435,15 @@ native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
 #ifdef WINDOWS
     /* XXX i#2946: support Windows. */
 #else
-    asm volatile("cpuid"
-                 : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
-                 : "0"(*eax), "2"(*ecx)
-                 : "memory");
+    /* We need to do this ebx trick, because ebx might be used for fPIC,
+     * and gcc < 5 chokes on it. This can get removed and replaced by
+     * a "=b" constraint when moving to gcc-5.
+     */
+    asm volatile("xchgl\t%%ebx, %k1\n\t"
+                 "cpuid\n\t"
+                 "xchgl\t%%ebx, %k1\n\t"
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
 #endif
 }
 

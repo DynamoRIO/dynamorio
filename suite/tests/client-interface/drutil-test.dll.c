@@ -204,7 +204,7 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 dr_restore_reg(drcontext, bb, instr, reg1, SPILL_SLOT_1);
             }
         }
-#if X86
+#ifdef X86
         if (instr_is_xsave(instr)) {
             ushort size =
                 (ushort)drutil_opnd_mem_size_in_bytes(instr_get_dst(instr, 0), instr);
