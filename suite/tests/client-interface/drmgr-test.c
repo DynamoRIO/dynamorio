@@ -296,7 +296,7 @@ main(int argc, char **argv)
     char table[2] = { 'A', 'B' };
 #    ifdef X86
     char ch;
-    /* test xlat for drutil_insert_get_mem_addr,
+    /* Test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
     __asm("mov %1, %%" IF_X64_ELSE("rbx", "ebx") "\n\t"
@@ -314,6 +314,18 @@ main(int argc, char **argv)
 #    else
     print("%c\n", table[1]);
 #    endif
+
+    /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
+     * xsave support is available and enabled, which should be the case
+     * on all machines we're running on.
+     * XXX i#2946: support Windows.
+     */
+    char buffer[2048] __attribute__((aligned(64)));
+    asm volatile("or $-1, %%eax\n"
+                 "\txsave %0"
+                 : "=m"(buffer)
+                 :
+                 : "eax");
 
     intervals = 10;
     /* Initialize the lock on pi */
