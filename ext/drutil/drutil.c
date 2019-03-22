@@ -429,6 +429,27 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 }
 #endif     /* X86/AARCHXX */
 
+static inline void
+native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+#ifdef WINDOWS
+    /* XXX i#2946: support Windows. */
+#else
+    asm volatile("cpuid"
+                 : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx)
+                 : "memory");
+#endif
+}
+
+static inline void
+cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+    *eax = op;
+    *ecx = subop;
+    native_cpuid(eax, ebx, ecx, edx);
+}
+
 DR_EXPORT
 uint
 drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
@@ -439,6 +460,45 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
         uint sz = opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
         ASSERT(opnd_is_immed_int(instr_get_src(inst, 1)), "malformed OP_enter");
         return sz * extra_pushes;
+    } else if (inst != NULL && instr_is_xsave(inst)) {
+        /*
+         * The following is an incomplete computation of the xsave instruction's
+         * written xsave area's size. Specifically, it
+         *
+         * - Ignores the user state mask components set in edx:eax, because it is
+         *   a dynamic value at runtime. The real output size of xsave depends on
+         *   the instruction's user state mask AND the user state mask as supported
+         *   by the CPU based on XCR0.
+         * - Ignores supervisor state component PT (bit 8).
+         * - Ignores the user state component PKRU state (bit 9).
+         * - Ignores the xsaveopt flavor of xsave.
+         * - Ignores the xsavec flavor of xsave (compacted format).
+         *
+         * It computes the expected size for the standard format of the x87 user
+         * state component (bit 0), the SSE user state component (bit 1), the AVX
+         * user state component (bit 2), the MPX user state components (bit 2 and 3)
+         * and the AVX-512 user state component (bit 7).
+         *
+         */
+#    ifdef WINDOWS
+        /* XXX i#2946: support Windows */
+        return 0;
+#    else
+        /* XXX: we may want to re-factor and move functions like this into drx. */
+        uint eax, ebx, ecx, edx;
+        cpuid(0xd, 0, &eax, &ebx, &ecx, &edx);
+#    endif
+        switch (instr_get_opcode(inst)) {
+        case OP_xsave32:
+        case OP_xsave64:
+        case OP_xsaveopt32:
+        case OP_xsaveopt64:
+        case OP_xsavec32:
+        case OP_xsavec64: return ebx; break;
+        default: ASSERT(false, "memsize internal error"); return 0;
+        }
+
+        return 0;
     } else
 #endif /* X86 */
         return opnd_size_in_bytes(opnd_get_size(memref));

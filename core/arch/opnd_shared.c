@@ -1577,7 +1577,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_128: return 128;
     case OPSZ_512: return 512;
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
-    case OPSZ_xsave: return 0;       /* > 512 bytes: use cpuid to determine */
+    case OPSZ_xsave:
+        return 0; /* > 512 bytes: client to use drutil_opnd_mem_size_in_bytes */
     default: CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type"); return 0;
     }
 }
