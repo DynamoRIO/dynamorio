@@ -315,17 +315,19 @@ main(int argc, char **argv)
     print("%c\n", table[1]);
 #    endif
 
+#    ifdef X86
     /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
      * xsave support is available and enabled, which should be the case
      * on all machines we're running on.
      * XXX i#2946: support Windows.
      */
     char buffer[2048] __attribute__((aligned(64)));
-    asm volatile("or $-1, %%eax\n"
-                 "\txsave %0"
-                 : "=m"(buffer)
-                 :
-                 : "eax");
+    __asm("or $-1, %%eax\n"
+          "\txsave %0"
+          : "=m"(buffer)
+          :
+          : "eax");
+#    endif
 
     intervals = 10;
     /* Initialize the lock on pi */
