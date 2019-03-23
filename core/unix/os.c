@@ -9727,6 +9727,16 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
         /* Wait for all the threads we signaled. */
         ASSERT_OWN_NO_LOCKS();
         for (i = 0; i < threads_to_signal; i++) {
+            static const int progress_period = 50;
+            if (i % progress_period == 0) {
+                char buf[16];
+                /* +1 to include the attach request thread to match the final msg. */
+                snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d/%d", i + 1,
+                         threads_to_signal + 1);
+                NULL_TERMINATE_BUFFER(buf);
+                SYSLOG(SYSLOG_VERBOSE, INFO_ATTACHED, 3, buf, get_application_name(),
+                       get_application_pid());
+            }
             static const int wait_ms = 25;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
