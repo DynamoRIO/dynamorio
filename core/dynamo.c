@@ -2888,16 +2888,14 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
                                     get_application_name(), get_application_pid());
     }
-    DO_ONCE({
-        char buf[16];
-        int num_threads = d_r_get_num_threads();
-        if (num_threads > 1) { /* avoid for early injection */
-            snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", num_threads);
-            NULL_TERMINATE_BUFFER(buf);
-            SYSLOG(SYSLOG_INFORMATION, INFO_ATTACHED, 3, buf, get_application_name(),
-                   get_application_pid());
-        }
-    });
+    char buf[16];
+    int num_threads = d_r_get_num_threads();
+    if (num_threads > 1) { /* avoid for early injection */
+        snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d", num_threads);
+        NULL_TERMINATE_BUFFER(buf);
+        SYSLOG(SYSLOG_INFORMATION, INFO_ATTACHED, 3, buf, get_application_name(),
+               get_application_pid());
+    }
 }
 
 /* Called by dynamorio_app_take_over in arch-specific assembly file */
