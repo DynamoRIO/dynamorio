@@ -4017,9 +4017,9 @@ const instr_info_t prefix_extensions[][8] = {
    * SSSE3
    */
   { /* prefix extension 118 */
-    {OP_pshufb,     0x380018, "pshufb",   Pq, xx, Qq, xx, xx, mrm, x, tpe[118][2]},
+    {OP_pshufb,     0x380018, "pshufb",   Pq, xx, Qq, Pq, xx, mrm, x, tpe[118][2]},
     {INVALID,     0xf3380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
-    {OP_pshufb,   0x66380018, "pshufb",   Vdq, xx, Wdq, xx, xx, mrm, x, END_LIST},
+    {OP_pshufb,   0x66380018, "pshufb",   Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,     0xf2380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x380018, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0xf3380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
