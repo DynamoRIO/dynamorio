@@ -1,6 +1,7 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -44,21 +45,7 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  string(REPLACE "Visual Studio " "" vsgen_ver "${CMAKE_GENERATOR}")
-else ()
-  set(vsgen_ver "0.0")
-endif ()
-
-if (${vsgen_ver} VERSION_GREATER 9)
-  # for i#801 workaround
-  cmake_minimum_required(VERSION 2.8.8)
-elseif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # for output dir name control
-  cmake_minimum_required(VERSION 2.8.2)
-else ()
-  cmake_minimum_required(VERSION 2.6.4) # VERSION_LESS
-endif ()
+cmake_minimum_required(VERSION 3.2)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
@@ -76,25 +63,12 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   else (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
   endif (DEBUG)
-  # we want to use the _LOCATION_<config> property
+  # we want to use the <VAR>_<config> variants of config-dependent properties
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
   set(location_suffix "_${upper}")
 else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   set(location_suffix "")
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-
-set(cmake_ver_string
-  "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
-if ("${cmake_ver_string}" VERSION_LESS "2.6.4")
-  # Workaround for cmake bug #8639 where CMAKE_ASM_SOURCE_FILE_EXTENSIONS
-  # is not set and our asm files are not built (should be fixed in 2.6.4).
-  # We can simply set the var ahead of time, luckily, since noone clears it:
-  # Alternative workarounds:
-  # - Use ASM-ATT instead of ASM: should work
-  # - I tried puting a patched CMakeASMInformation.cmake ahead of share/Modules
-  #   but enable_language() seems to not use the CMAKE_MODULE_PATH
-  set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S;asm)
-endif ("${cmake_ver_string}" VERSION_LESS "2.6.4")
 
 # I want to override the default CMAKE_INSTALL_PREFIX, but allow it to
 # be set (as the same var name, so CPack and other standard tools
@@ -334,6 +308,10 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
+if (UNIX)
+  option(RECORD_MEMQUERY "generate test cases for memquery_library_bounds_by_iterator")
+endif ()
+
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
@@ -504,10 +482,9 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: if VERSION_NUMBER's major number is incremented without also
-# incrementing OLDEST_COMPATIBLE_VERSION we'll need to add another
-# symlink loop in core/CMakeLists.txt
-set(VERSION_NUMBER_DEFAULT "6.2.${VERSION_NUMBER_PATCHLEVEL}")
+# N.B.: when updating this, update the git tag in .travis.yml.
+# We should find a way to share (xref i#1565).
+set(VERSION_NUMBER_DEFAULT "7.1.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -520,12 +497,14 @@ message(STATUS "Version number: ${VERSION_NUMBER}")
 set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
 set(CUSTOM_PRODUCT_NAME "" CACHE STRING "Custom product name")
+set(PACKAGE_PLATFORM "" CACHE STRING "Platform for package name (should have trailing -)")
 mark_as_advanced(
   VERSION_NUMBER
   VERSION_COMMA_DELIMITED
   BUILD_NUMBER
   UNIQUE_BUILD_NUMBER
   CUSTOM_PRODUCT_NAME
+  PACKAGE_PLATFORM
   )
 # This is hardcoded in globals_shared.h: going to leave it that way, but
 # adding indirection within cmake files
@@ -574,6 +553,18 @@ if (UNIX)
   endif (NOT CMAKE_COMPILER_IS_GNUCC)
 
   check_if_linker_is_gnu_gold(LINKER_IS_GNU_GOLD)
+
+  # FIXME i#2949: static 32-bit release-build linking with gcc 7.3.1 fails when
+  # static C++ clients like drmemtrace or drmemtrace_raw2trace are linked in.
+  # For now we disable those builds.
+  if (UNIX AND NOT X64 AND NOT DEBUG AND NOT CLANG AND
+      "${CMAKE_C_COMPILER_VERSION}" VERSION_GREATER "7.3")
+    message(STATUS "gcc 7.3+ non-debug 32-bit detected: disabling static C++ client "
+      "tests to work around i#2949")
+    set(DISABLE_FOR_BUG_2949 ON)
+  else ()
+    set(DISABLE_FOR_BUG_2949 OFF)
+  endif ()
 
 else (UNIX)
 
@@ -688,6 +679,7 @@ set(BASE_CFLAGS "")
 set(BASE_CONLY_FLAGS "")
 set(BASE_CXXONLY_FLAGS "")
 if (UNIX)
+  set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -std=c++11")
   # -std=c99 doesn't quite work
   # FIXME case 191480: we used to pass -pedantic just to cpp;
   # now w/ no separate cpp step we should eliminate the
@@ -776,6 +768,11 @@ if (UNIX)
     set(OPT "${OPT} -fno-omit-frame-pointer")
   endif ()
 
+  # Omit unwind tables in optimized mode.
+  if (NOT DEBUG)
+    set(BASE_CONLY_FLAGS "${BASE_CONLY_FLAGS} -fno-unwind-tables")
+  endif ()
+
   if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
     # Generate the .hash section in addition to .gnu.hash for every target, to
     # avoid SIGFPE when running our binaries on old systems:
@@ -808,7 +805,7 @@ if (UNIX)
   if (NOT CMAKE_COMPILER_IS_CLANG)
     set(DBG_OPT "${DBG_OPT} -fno-builtin-strcmp")
   endif ()
-  set(LINK_DBG "")
+  set(LINK_EXTRA_FLAGS "")
 else (UNIX)
   # FIXME: why isn't ${CMAKE_CL_NOLOGO} set?
   set(BASE_CFLAGS "${BASE_CFLAGS} /nologo")
@@ -835,13 +832,15 @@ else (UNIX)
   # Default from cmake has /W3 so remove to avoid warning about overriding
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REGEX REPLACE "/W[0-9]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  # Shrink binaries and pdbs (/Gy should already be there)
+  set(LINK_EXTRA_FLAGS "/opt:ref /opt:icf /pdbcompress")
   if (GENERATE_PDBS)
     set(DBG "/Zi")
-    set(LINK_DBG "/debug")
+    set(LINK_EXTRA_FLAGS "${LINK_EXTRA_FLAGS} /debug")
   else (GENERATE_PDBS)
     # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
     set(DBG "")
-    set(LINK_DBG "")
+    set(LINK_EXTRA_FLAGS "")
     # Default from cmake in DEBUG and RELWITHDEBINFO has /debug
     string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS
       "${CMAKE_EXE_LINKER_FLAGS}")
@@ -1061,7 +1060,7 @@ endif (UNIX)
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
@@ -1069,11 +1068,11 @@ else (DEBUG)
     set (OPT "")
   endif (CALLPROF)
   set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_CFLAGS} ${OPT}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
 endif (DEBUG)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_DBG}")
-set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_DBG}")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINK_DBG}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 if (NOT DISABLE_WARNINGS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARN}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARN}")
@@ -1135,7 +1134,14 @@ macro(DR_target_install_dst dst)
     else ()
       set(inst_dst ${dst})
     endif ()
-    install(${ARGN} DESTINATION ${inst_dst})
+    set(export_flag "")
+    foreach (n ${ARGN})
+      if (n MATCHES EXPORT)
+        set(export_flag "EXPORT_LINK_INTERFACE_LIBRARIES")
+      endif ()
+      break ()
+    endforeach ()
+    install(${ARGN} DESTINATION ${inst_dst} ${export_flag})
   endif (DO_DR_INSTALL_TARGETS)
 endmacro(DR_target_install_dst)
 function (install_exported_target target dest)
@@ -1188,11 +1194,12 @@ string(REGEX REPLACE
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
+# Every release since has had minor compat breakages.
 # 6.0 broke backcompat in Linux injection, mod load event, etc.
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "600")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "701")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1289,8 +1296,8 @@ endif (X64)
 file(WRITE ${PROJECT_BINARY_DIR}/cmake/${exported_map_name}.cmake "")
 set(exported_targets_append "")
 macro(DR_export_target target)
-  export(TARGETS ${ARGV} FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
-    APPEND)
+  export(TARGETS ${ARGV} APPEND FILE ${PROJECT_BINARY_DIR}/cmake/${exported_targets_name}.cmake
+    EXPORT_LINK_INTERFACE_LIBRARIES)
   set(toadd "
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELEASE RelWithDebInfo)
 SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebInfo)
@@ -1419,6 +1426,14 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
+  set(proc_supports_avx 0FF)
+  set(proc_supports_avx512 0FF)
+  if (UNIX)
+    set(CFLAGS_AVX "-mavx")
+    set(CFLAGS_AVX512 "-mavx512f")
+    check_avx_processor_and_compiler_support(proc_supports_avx)
+    check_avx512_processor_and_compiler_support(proc_supports_avx512)
+  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
@@ -1564,6 +1579,10 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
     DEPENDS ${EXTRA_HEADERS})
+  if (AARCH64)
+    add_dependencies(api_headers gen_aarch64_codec)
+  endif()
+
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
@@ -1583,8 +1602,8 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
     REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
 
-# Used by tests in multiple places.
-if (BUILD_TESTS AND UNIX)
+# Used by tests in multiple places, and by some drcachesim non-test binaries.
+if (UNIX)
   if (ANDROID)
     # pthreads is inside Bionic on Android, and for some reason find_library() can't
     # locate libm or libdl within the Android toolchain: we just assume they're there.
@@ -1614,6 +1633,25 @@ if (BUILD_TESTS AND UNIX)
     if (NOT libmath OR NOT libdl OR NOT libpthread)
       message(FATAL_ERROR "cannot find required libs m, dl, and/or pthread")
     endif ()
+  endif ()
+endif ()
+
+function (link_with_pthread target)
+  if (UNIX AND NOT ANDROID) # pthreads is inside Bionic on Android
+    target_link_libraries(${target} ${libpthread})
+  endif ()
+endfunction ()
+
+# zlib and snappy are used for some clients/ and tests.
+if (CMAKE_CROSSCOMPILING)
+  # find_package looks at the host system.
+  # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
+  set(ZLIB_FOUND OFF)
+else ()
+  find_package(ZLIB)
+  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
+  if (UNIX AND X64)
+    find_library(libsnappy snappy)
   endif ()
 endif ()
 
@@ -1717,6 +1755,24 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
 else (CLIENT_INTERFACE OR APP_EXPORTS)
   message("no documentation will be built for this target")
 endif (CLIENT_INTERFACE OR APP_EXPORTS)
+
+###########################################################################
+# Style checks:
+
+find_package(vera++ QUIET)
+if (vera++_FOUND)
+  message(STATUS "Using vera++ for code style checks")
+  include(${VERA++_USE_FILE})
+  # We use our own modified copy in order to pass --error and for
+  # regex exclusions with vera++ 1.2.1.
+  include(third_party/vera++/use_vera++.cmake)
+  add_vera_targets_for_dynamorio(*.h *.c *.cpp
+    RECURSE
+    EXCLUSION "${PROJECT_SOURCE_DIR}/make/style_checks/exclude"
+    ROOT "${PROJECT_SOURCE_DIR}/make/style_checks")
+else ()
+  message(STATUS "WARNING: vera++ not found: disabling code style checks")
+endif ()
 
 ###########################################################################
 
@@ -1887,7 +1943,7 @@ string(REGEX REPLACE
 # having the full version in the base dir is a good thing, though I'm not
 # sure about the caps.
 set(CPACK_PACKAGE_FILE_NAME
-  "DynamoRIO-${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
+  "DynamoRIO-${PACKAGE_PLATFORM}${CPACK_SYSTEM_NAME}-${CPACK_PACKAGE_VERSION}-${BUILD_NUMBER}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "dynamorio")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "DynamoRIO")
 set(CPACK_PACKAGE_RELOCATABLE "true")

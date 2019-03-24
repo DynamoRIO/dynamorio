@@ -35,11 +35,10 @@
 #include "instr.h"
 #include "decode.h"
 #include "disassemble.h"
-#include <string.h>
 
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
-static const char * const pred_names[] = {
+static const char *const pred_names[] = {
     "",   /* DR_PRED_NONE */
     "eq", /* DR_PRED_EQ */
     "ne", /* DR_PRED_NE */
@@ -60,17 +59,16 @@ static const char * const pred_names[] = {
 };
 
 int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                      byte *pc, byte *next_pc, instr_t *instr)
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+                      byte *next_pc, instr_t *instr)
 {
     print_to_buffer(buf, bufsz, sofar, " %08x   ", *(uint *)pc);
     return 0;
 }
 
 void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            byte *pc, byte *next_pc, int extra_sz,
-                            const char *extra_bytes_prefix)
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
+                            byte *next_pc, int extra_sz, const char *extra_bytes_prefix)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
@@ -78,20 +76,19 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
 static const char *
 shift_name(dr_shift_type_t shift)
 {
-    static const char * const names[] = { "lsl", "lsr", "asr", "ror" };
+    static const char *const names[] = { "lsl", "lsr", "asr", "ror" };
     int i = shift;
-    return (0 <= i && i < sizeof(names) / sizeof(*names) ?
-            names[i] : "<UNKNOWN SHIFT>");
+    return (0 <= i && i < sizeof(names) / sizeof(*names) ? names[i] : "<UNKNOWN SHIFT>");
 }
 
 static const char *
 extend_name(dr_extend_type_t extend)
 {
-    static const char * const names[] = { "uxtb", "uxth", "uxtw", "uxtx",
-                                          "sxtb", "sxth", "sxtw", "sxtx" };
+    static const char *const names[] = { "uxtb", "uxth", "uxtw", "uxtx",
+                                         "sxtb", "sxth", "sxtw", "sxtx" };
     int i = extend;
-    return (0 <= i && i < sizeof(names) / sizeof(*names) ?
-            names[i] : "<UNKNOWN EXTENSION>");
+    return (0 <= i && i < sizeof(names) / sizeof(*names) ? names[i]
+                                                         : "<UNKNOWN EXTENSION>");
 }
 
 void
@@ -131,29 +128,28 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings,
-                            bool dst, int *idx INOUT)
+                            dcontext_t *dcontext, instr_t *instr, byte optype,
+                            opnd_t opnd, bool prev, bool multiple_encodings, bool dst,
+                            int *idx INOUT)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
 }
 
 void
-print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
-                     char *buf, size_t bufsz, size_t *sofar INOUT)
+print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
+                     size_t *sofar INOUT)
 {
 }
 
 void
-print_opcode_name(instr_t *instr, const char *name,
-                  char *buf, size_t bufsz, size_t *sofar INOUT)
+print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
+                  size_t *sofar INOUT)
 {
     if (instr_get_opcode(instr) == OP_bcond) {
         print_to_buffer(buf, bufsz, sofar, "b.%s",
                         pred_names[instr_get_predicate(instr)]);
-    }
-    else
+    } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
 

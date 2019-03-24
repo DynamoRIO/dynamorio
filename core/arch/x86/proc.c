@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,20 +41,20 @@
 
 #include "../globals.h"
 #include "proc.h"
-#include "instr.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h" /* for dr_insert_{save,restore}_fpstate */
+#include "instr.h"        /* for dr_insert_{save,restore}_fpstate */
+#include "instrument.h"   /* for dr_insert_{save,restore}_fpstate */
 #include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
-#include "decode.h" /* for dr_insert_{save,restore}_fpstate */
+#include "decode.h"       /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
 /* Intel processors:  ebx:edx:ecx spell GenuineIntel */
@@ -69,20 +69,26 @@
 
 static bool avx_enabled;
 
+static int num_simd_saved;
+static int num_simd_registers;
+
+/* global writable variable for debug registers value */
+DECLARE_NEVERPROT_VAR(app_pc d_r_debug_register[DEBUG_REGISTERS_NB], { 0 });
+
 static void
 get_cache_sizes_amd(uint max_ext_val)
 {
     uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
 
     if (max_ext_val >= 0x80000005) {
-        our_cpuid((int*)cpuid_res_local, 0x80000005, 0);
-        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 24), &cpu_info.L1_icache_size);
-        set_cache_size((cpuid_res_local[3]/*edx*/ >> 24), &cpu_info.L1_dcache_size);
+        our_cpuid((int *)cpuid_res_local, 0x80000005, 0);
+        set_cache_size((cpuid_res_local[2] /*ecx*/ >> 24), &cpu_info.L1_icache_size);
+        set_cache_size((cpuid_res_local[3] /*edx*/ >> 24), &cpu_info.L1_dcache_size);
     }
 
     if (max_ext_val >= 0x80000006) {
-        our_cpuid((int*)cpuid_res_local, 0x80000006, 0);
-        set_cache_size((cpuid_res_local[2]/*ecx*/ >> 16), &cpu_info.L2_cache_size);
+        our_cpuid((int *)cpuid_res_local, 0x80000006, 0);
+        set_cache_size((cpuid_res_local[2] /*ecx*/ >> 16), &cpu_info.L2_cache_size);
     }
 }
 
@@ -96,7 +102,7 @@ get_cache_sizes_intel(uint max_val)
     if (max_val < 2)
         return;
 
-    our_cpuid((int*)cache_codes, 2, 0);
+    our_cpuid((int *)cache_codes, 2, 0);
     /* The lower 8 bits of eax specify the number of times cpuid
      * must be executed to obtain a complete picture of the cache
      * characteristics.
@@ -109,7 +115,7 @@ get_cache_sizes_intel(uint max_val)
      * indicates that the codes should be ignored... zero
      * all four bytes when that happens
      */
-    for (i=0; i<4; i++) {
+    for (i = 0; i < 4; i++) {
         if (cache_codes[i] & 0x80000000)
             cache_codes[i] = 0;
     }
@@ -117,8 +123,8 @@ get_cache_sizes_intel(uint max_val)
     /* Table 3-17, pg 3-171 of IA-32 instruction set reference lists
      * all codes.  Omitting L3 cache characteristics for now...
      */
-    for (i=0; i<16; i++) {
-        switch (((uchar*)cache_codes)[i]) {
+    for (i = 0; i < 16; i++) {
+        switch (((uchar *)cache_codes)[i]) {
         case 0x06: cpu_info.L1_icache_size = CACHE_SIZE_8_KB; break;
         case 0x08: cpu_info.L1_icache_size = CACHE_SIZE_16_KB; break;
         case 0x0a: cpu_info.L1_dcache_size = CACHE_SIZE_8_KB; break;
@@ -174,7 +180,7 @@ get_processor_specific_info(void)
     /* FIXME: Perhaps we should abort when the cpuid instruction
      * doesn't exist since the cache_line_size may be incorrect.
      * (see case 463 for discussion)
-    */
+     */
     if (!cpuid_supported()) {
         ASSERT_CURIOSITY(false && "cpuid instruction unsupported");
         SYSLOG_INTERNAL_WARNING("cpuid instruction unsupported -- cache_line_size "
@@ -201,13 +207,13 @@ get_processor_specific_info(void)
     } else {
         cpu_info.vendor = VENDOR_UNKNOWN;
         SYSLOG_INTERNAL_ERROR("Running on unknown processor type");
-        LOG(GLOBAL, LOG_TOP, 1, "cpuid returned "PFX" "PFX" "PFX" "PFX"\n",
+        LOG(GLOBAL, LOG_TOP, 1, "cpuid returned " PFX " " PFX " " PFX " " PFX "\n",
             res_eax, res_ebx, res_ecx, res_edx);
     }
 
     /* Try to get extended cpuid information */
     our_cpuid(cpuid_res_local, 0x80000000, 0);
-    max_ext_val = cpuid_res_local[0]/*eax*/;
+    max_ext_val = cpuid_res_local[0] /*eax*/;
 
     /* Extended feature flags */
     if (max_ext_val >= 0x80000001) {
@@ -235,9 +241,9 @@ get_processor_specific_info(void)
      *   extended family, extended model, type, family, model, stepping id
      *   20:27,           16:19,          12:13, 8:11,  4:7,   0:3
      */
-    cpu_info.type   = (res_eax >> 12) & 0x3;
-    cpu_info.family = (res_eax >>  8) & 0xf;
-    cpu_info.model  = (res_eax >>  4) & 0xf;
+    cpu_info.type = (res_eax >> 12) & 0x3;
+    cpu_info.family = (res_eax >> 8) & 0xf;
+    cpu_info.model = (res_eax >> 4) & 0xf;
     cpu_info.stepping = res_eax & 0xf;
 
     /* Pages 3-164 and 3-165 of the IA-32 instruction set
@@ -293,9 +299,9 @@ get_processor_specific_info(void)
 
     /* Processor brand string */
     if (max_ext_val >= 0x80000004) {
-        our_cpuid((int*)&cpu_info.brand_string[0], 0x80000002, 0);
-        our_cpuid((int*)&cpu_info.brand_string[4], 0x80000003, 0);
-        our_cpuid((int*)&cpu_info.brand_string[8], 0x80000004, 0);
+        our_cpuid((int *)&cpu_info.brand_string[0], 0x80000002, 0);
+        our_cpuid((int *)&cpu_info.brand_string[4], 0x80000003, 0);
+        our_cpuid((int *)&cpu_info.brand_string[8], 0x80000004, 0);
     }
 }
 
@@ -303,14 +309,16 @@ get_processor_specific_info(void)
 void
 proc_init_arch(void)
 {
+    size_t i;
+
     get_processor_specific_info();
 #ifdef X64
     CLIENT_ASSERT(proc_has_feature(FEATURE_LAHF),
                   "Unsupported processor type - processor must support LAHF/SAHF in "
                   "64bit mode.");
     if (!proc_has_feature(FEATURE_LAHF)) {
-        FATAL_USAGE_ERROR(UNSUPPORTED_PROCESSOR_LAHF, 2,
-                          get_application_name(), get_application_pid());
+        FATAL_USAGE_ERROR(UNSUPPORTED_PROCESSOR_LAHF, 2, get_application_name(),
+                          get_application_pid());
     }
 #endif
 
@@ -318,8 +326,8 @@ proc_init_arch(void)
     /* FIXME: This is a small subset of processor features.  If we
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
-    */
-    if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) {
+     */
+    if (d_r_stats->loglevel > 0 && (d_r_stats->logmask & LOG_TOP) != 0) {
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n\tedx = 0x%08x\n\tecx = 0x%08x\n",
             cpu_info.features.flags_edx, cpu_info.features.flags_ecx);
         LOG(GLOBAL, LOG_TOP, 1, "\text_edx = 0x%08x\n\text_ecx = 0x%08x\n",
@@ -346,8 +354,11 @@ proc_init_arch(void)
 #endif
     /* PR 264138: for 32-bit CONTEXT we assume fxsave layout */
     CLIENT_ASSERT((proc_has_feature(FEATURE_FXSR) && proc_has_feature(FEATURE_SSE)) ||
-                  (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
+                      (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
+
+    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
 
     if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
         /* Even if the processor supports AVX, it will #UD on any AVX instruction
@@ -360,12 +371,15 @@ proc_init_arch(void)
         uint bv_high = 0, bv_low = 0;
         dr_xgetbv(&bv_high, &bv_low);
         LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
-        if (TESTALL(XCR0_AVX|XCR0_SSE, bv_low)) {
+        if (TESTALL(XCR0_AVX | XCR0_SSE, bv_low)) {
             avx_enabled = true;
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
         } else {
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
+    }
+    for (i = 0; i < DEBUG_REGISTERS_NB; i++) {
+        d_r_debug_register[i] = NULL;
     }
 }
 
@@ -407,9 +421,23 @@ size_t
 proc_fpstate_save_size(void)
 {
     CLIENT_ASSERT(opnd_size_in_bytes(OPSZ_512) == 512 &&
-                  opnd_size_in_bytes(OPSZ_108) == 108,
+                      opnd_size_in_bytes(OPSZ_108) == 108,
                   "internal sizing discrepancy");
-    return (proc_has_feature(FEATURE_FXSR) ?  512 : 108);
+    return (proc_has_feature(FEATURE_FXSR) ? 512 : 108);
+}
+
+DR_API
+int
+proc_num_simd_saved(void)
+{
+    return num_simd_saved;
+}
+
+DR_API
+int
+proc_num_simd_registers(void)
+{
+    return num_simd_registers;
 }
 
 DR_API
@@ -435,7 +463,7 @@ proc_save_fpstate(byte *buf)
 #ifdef WINDOWS
         dr_fnsave(buf);
 #else
-        asm volatile("fnsave %0 ; fwait" : "=m" ((*buf)));
+        asm volatile("fnsave %0 ; fwait" : "=m"((*buf)));
 #endif
     }
     return proc_fpstate_save_size();
@@ -464,7 +492,7 @@ proc_restore_fpstate(byte *buf)
 #ifdef WINDOWS
         dr_frstor(buf);
 #else
-        asm volatile("frstor %0" : : "m" ((*buf)));
+        asm volatile("frstor %0" : : "m"((*buf)));
 #endif
     }
 }
@@ -473,10 +501,9 @@ proc_restore_fpstate(byte *buf)
  * we can try to support it in the future.
  */
 void
-dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       opnd_t buf)
+dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         /* we want "fxsave, fnclex, finit" */
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
@@ -499,10 +526,9 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
 }
 
 void
-dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          opnd_t buf)
+dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t buf)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");

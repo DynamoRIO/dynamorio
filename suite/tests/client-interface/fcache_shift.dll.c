@@ -44,8 +44,9 @@ event_bb(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool translating)
     instr_t *where = instrlist_first(bb);
     instr_t *ret_label = INSTR_CREATE_label(dc);
     dr_save_reg(dc, bb, where, DR_REG_XAX, SPILL_SLOT_1);
-    PRE(bb, where, INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
-                                        opnd_create_instr(ret_label)));
+    PRE(bb, where,
+        INSTR_CREATE_mov_imm(dc, opnd_create_reg(DR_REG_XAX),
+                             opnd_create_instr(ret_label)));
     PRE(bb, where, INSTR_CREATE_jmp(dc, opnd_create_pc(slowpath)));
     PRE(bb, where, ret_label);
     dr_restore_reg(dc, bb, where, DR_REG_XAX, SPILL_SLOT_1);
@@ -65,9 +66,8 @@ dr_init(client_id_t id)
     void *dc = dr_get_current_drcontext();
     instrlist_t *ilist = instrlist_create(dc);
     PRE(ilist, NULL, INSTR_CREATE_jmp_ind(dc, opnd_create_reg(DR_REG_XAX)));
-    slowpath = dr_nonheap_alloc(SLOWPATH_SIZE, (DR_MEMPROT_READ|
-                                                DR_MEMPROT_WRITE|
-                                                DR_MEMPROT_EXEC));
+    slowpath = dr_nonheap_alloc(SLOWPATH_SIZE,
+                                (DR_MEMPROT_READ | DR_MEMPROT_WRITE | DR_MEMPROT_EXEC));
     instrlist_encode(dc, ilist, slowpath, false /*no relative jumps*/);
     instrlist_clear_and_destroy(dc, ilist);
 

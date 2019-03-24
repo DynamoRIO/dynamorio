@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,14 +47,14 @@
 #include <setjmp.h>
 
 static SIGJMP_BUF mark;
-static int bar;
 
 static void
 #ifdef UNIX
-__attribute__((used))  /* Prevents deletion as unreachable. */
+    __attribute__((used)) /* Prevents deletion as unreachable. */
 #endif
-foo(void)
-{ /* nothing: just a marker */ }
+    foo(void)
+{ /* nothing: just a marker */
+}
 
 static void
 redirect_target(void)
@@ -84,15 +84,16 @@ unintercept_signal(int sig)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) SIG_DFL;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))SIG_DFL;
     /* disarm the signal */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);
 }
 
 int
-main(int argc, char** argv)
+main(int argc, char **argv)
 {
+    int bar;
     intercept_signal(SIGUSR1, signal_handler, false);
     intercept_signal(SIGUSR2, signal_handler, false);
     intercept_signal(SIGURG, signal_handler, false);
@@ -130,19 +131,19 @@ main(int argc, char** argv)
      * modifies mcontext
      */
 #ifdef X64
-# define EAX "%rax"
-# define ECX "%rcx"
+#    define EAX "%rax"
+#    define ECX "%rcx"
 #else
-# define EAX "%eax"
-# define ECX "%ecx"
+#    define EAX "%eax"
+#    define ECX "%ecx"
 #endif
-    asm("push "EAX);
-    asm("push "ECX);
-    asm("mov %0, %"ECX"" : : "g"(&bar)); /* ok place to read from */
-    asm("mov $0, "EAX);
-    asm("mov ("EAX"), "EAX);
-    asm("pop "ECX);
-    asm("pop "EAX);
+    asm("push " EAX);
+    asm("push " ECX);
+    asm("mov %0, %" ECX "" : : "g"(&bar)); /* ok place to read from */
+    asm("mov $0, " EAX);
+    asm("mov (" EAX "), " EAX);
+    asm("pop " ECX);
+    asm("pop " EAX);
 
     print("Sending SIGUSR1\n");
     kill(getpid(), SIGUSR1);

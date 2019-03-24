@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -129,8 +129,13 @@ is not violated (see \ref sec_utils).
 
 DynamoRIO and its clients must avoid acquiring locks that the application
 also acquires, such as the \p LoaderLock on Windows.  Additionally, there
-are restrictions imposed by DynamoRIO on when its own locks can be
-acquired, to allow it to safely synchronize with multiple threads:
+are restrictions imposed by DynamoRIO on when its own locks (including
+client locks) can be acquired, to allow it to safely synchronize with
+multiple threads: no lock should be held while application code is
+executing in the code cache.  Locks can be used while inside client code
+reached from clean calls out of the code cache, but they must be released
+before returning to the cache.  Failing to follow these restrictions can
+lead to deadlocks.
 
 ***************************************************************************
 \section sec_trans_unmod Leaving the Application Unchanged When Possible

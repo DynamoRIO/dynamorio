@@ -45,23 +45,23 @@
 #include "drreg.h"
 
 #ifdef UNIX
-# ifdef LINUX
-#  include "../../core/unix/include/syscall.h"
-# else
-#  include <sys/syscall.h>
-# endif
-# include <signal.h> /* SIGKILL */
+#    ifdef LINUX
+#        include "../../core/unix/include/syscall.h"
+#    else
+#        include <sys/syscall.h>
+#    endif
+#    include <signal.h> /* SIGKILL */
 #endif
 
 #include <limits.h>
 
 #ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
-# define IF_DEBUG(x) x
+#    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#    define IF_DEBUG(x) x
 #else
-# define ASSERT(x, msg) /* nothing */
-# define IF_DEBUG(x) /* nothing */
-#endif /* DEBUG */
+#    define ASSERT(x, msg) /* nothing */
+#    define IF_DEBUG(x)    /* nothing */
+#endif                     /* DEBUG */
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -77,21 +77,25 @@ static ptr_uint_t note_base;
 
 static bool soft_kills_enabled;
 
-static void soft_kills_exit(void);
+static void
+soft_kills_exit(void);
 
 /* For debugging */
 static uint verbose = 0;
 
 #undef NOTIFY
-#define NOTIFY(n, ...) do { \
-    if (verbose >= (n)) {             \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-    } \
-} while (0)
+#define NOTIFY(n, ...)                       \
+    do {                                     \
+        if (verbose >= (n)) {                \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+        }                                    \
+    } while (0)
 
 /* defined in drx_buf.c */
-bool drx_buf_init_library(void);
-void drx_buf_exit_library(void);
+bool
+drx_buf_init_library(void);
+void
+drx_buf_exit_library(void);
 
 /***************************************************************************
  * INIT
@@ -108,7 +112,7 @@ drx_init(void)
      * We set do_not_sum_slots to true so that we only ask for *more* slots
      * if the client doesn't ask for any.
      */
-    drreg_options_t ops = {sizeof(ops), 2, false, NULL, true};
+    drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
 
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)
@@ -139,7 +143,6 @@ drx_exit()
     drreg_exit();
     drmgr_exit();
 }
-
 
 /***************************************************************************
  * INSTRUCTION NOTE FIELD
@@ -178,10 +181,9 @@ drx_aflags_are_dead(instr_t *where)
             if (instr_is_app(instr) &&
                 (instr_is_ubr(instr) || instr_is_call_direct(instr))) {
                 instr_t *next = instr_get_next(instr);
-                opnd_t   tgt  = instr_get_target(instr);
+                opnd_t tgt = instr_get_target(instr);
                 /* continue on elision */
-                if (next != NULL && instr_is_app(next) &&
-                    opnd_is_pc(tgt) &&
+                if (next != NULL && instr_is_app(next) && opnd_is_pc(tgt) &&
                     opnd_get_pc(tgt) == instr_get_app_pc(next))
                     continue;
             }
@@ -192,21 +194,19 @@ drx_aflags_are_dead(instr_t *where)
     return false;
 }
 
-
 /***************************************************************************
  * INSTRUMENTATION
  */
 
 #ifdef AARCHXX
 /* XXX i#1603: add liveness analysis and pick dead regs */
-# define SCRATCH_REG0 DR_REG_R0
-# define SCRATCH_REG1 DR_REG_R1
+#    define SCRATCH_REG0 DR_REG_R0
+#    define SCRATCH_REG1 DR_REG_R1
 #endif
 
 /* insert a label instruction with note */
 static void
-ilist_insert_note_label(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        void *note)
+ilist_insert_note_label(void *drcontext, instrlist_t *ilist, instr_t *where, void *note)
 {
     instr_t *instr = INSTR_CREATE_label(drcontext);
     instr_set_note(instr, note);
@@ -225,24 +225,21 @@ ilist_insert_note_label(void *drcontext, instrlist_t *ilist, instr_t *where,
  * - saves reg first to slot, unless !save_reg.
  */
 static void
-drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
-                     bool save_reg, bool save_oflag,
-                     dr_spill_slot_t slot, reg_id_t reg)
+drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where, bool save_reg,
+                     bool save_oflag, dr_spill_slot_t slot, reg_id_t reg)
 {
-#ifdef X86
+#    ifdef X86
     instr_t *instr;
     /* save %eax if necessary */
     if (save_reg) {
         if (reg != DR_REG_NULL) {
-            ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR &&
-                   reg != DR_REG_XAX, "wrong dead reg");
+            ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR && reg != DR_REG_XAX,
+                   "wrong dead reg");
             MINSERT(ilist, where,
-                    INSTR_CREATE_mov_st(drcontext,
-                                        opnd_create_reg(reg),
+                    INSTR_CREATE_mov_st(drcontext, opnd_create_reg(reg),
                                         opnd_create_reg(DR_REG_XAX)));
         } else {
-            ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
-                   "wrong spill slot");
+            ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX, "wrong spill slot");
             dr_save_reg(drcontext, ilist, where, DR_REG_XAX, slot);
         }
     }
@@ -254,17 +251,16 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
         instr = INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL));
         MINSERT(ilist, where, instr);
     }
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     if (save_reg) {
-        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
-               "wrong spill slot");
+        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX, "wrong spill slot");
         dr_save_reg(drcontext, ilist, where, reg, slot);
     }
-    MINSERT(ilist, where, INSTR_CREATE_msr
-            (drcontext, opnd_create_reg(DR_REG_CPSR), OPND_CREATE_INT_MSR_NZCVQG(),
-             opnd_create_reg(reg)));
-#endif
+    MINSERT(ilist, where,
+            INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_CPSR),
+                             OPND_CREATE_INT_MSR_NZCVQG(), opnd_create_reg(reg)));
+#    endif
 }
 
 /* Insert arithmetic flags restore code with more control.
@@ -281,13 +277,13 @@ drx_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
  */
 static void
 drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        bool restore_reg, bool restore_oflag,
-                        dr_spill_slot_t slot, reg_id_t reg)
+                        bool restore_reg, bool restore_oflag, dr_spill_slot_t slot,
+                        reg_id_t reg)
 {
     instr_t *instr;
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
-#ifdef X86
+#    ifdef X86
     if (restore_oflag) {
         /* add 0x7f, %al */
         instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_AL),
@@ -301,30 +297,27 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* restore eax if necessary */
     if (restore_reg) {
         if (reg != DR_REG_NULL) {
-            ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR &&
-                   reg != DR_REG_XAX, "wrong dead reg");
+            ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR && reg != DR_REG_XAX,
+                   "wrong dead reg");
             MINSERT(ilist, where,
-                    INSTR_CREATE_mov_st(drcontext,
-                                        opnd_create_reg(DR_REG_XAX),
+                    INSTR_CREATE_mov_st(drcontext, opnd_create_reg(DR_REG_XAX),
                                         opnd_create_reg(reg)));
         } else {
-            ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
-                   "wrong spill slot");
+            ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX, "wrong spill slot");
             dr_restore_reg(drcontext, ilist, where, DR_REG_XAX, slot);
         }
     }
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
-    instr = INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg),
-                             opnd_create_reg(DR_REG_CPSR));
+    instr =
+        INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_CPSR));
     instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
     MINSERT(ilist, where, instr);
     if (restore_reg) {
-        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX,
-               "wrong spill slot");
+        ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX, "wrong spill slot");
         dr_restore_reg(drcontext, ilist, where, reg, slot);
     }
-#endif
+#    endif
     ilist_insert_note_label(drcontext, ilist, where,
                             NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
 }
@@ -340,7 +333,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
  * On ARM the labels are from drx_insert_counter_update.
  */
 static instr_t *
-merge_prev_drx_spill(instr_t *where, bool aflags)
+merge_prev_drx_spill(instrlist_t *ilist, instr_t *where, bool aflags)
 {
     instr_t *instr;
 #ifdef DEBUG
@@ -360,11 +353,14 @@ merge_prev_drx_spill(instr_t *where, bool aflags)
      */
     if (instr_get_note(instr) != NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END))
         return NULL;
+    /* On ARM we do not want to merge two drx spills if they are
+     * predicated differently.
+     */
+    if (instr_get_predicate(instr) != instrlist_get_auto_predicate(ilist))
+        return NULL;
 
     /* find DRX_NOTE_AFLAGS_RESTORE_BEGIN */
-    for (instr  = instr_get_prev(instr);
-         instr != NULL;
-         instr  = instr_get_prev(instr)) {
+    for (instr = instr_get_prev(instr); instr != NULL; instr = instr_get_prev(instr)) {
         if (instr_is_app(instr)) {
             /* we do not expect any app instr */
             ASSERT(false, "drx aflags restore is corrupted");
@@ -393,7 +389,7 @@ counter_crosses_cache_line(byte *addr, size_t size)
 {
     size_t cache_line_size = proc_get_cache_line_size();
     if (ALIGN_BACKWARD(addr, cache_line_size) ==
-        ALIGN_BACKWARD(addr+size-1, cache_line_size))
+        ALIGN_BACKWARD(addr + size - 1, cache_line_size))
         return false;
     return true;
 }
@@ -401,8 +397,9 @@ counter_crosses_cache_line(byte *addr, size_t size)
 DR_EXPORT
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
-                          dr_spill_slot_t slot, IF_NOT_X86_(dr_spill_slot_t slot2)
-                          void *addr, int value, uint flags)
+                          dr_spill_slot_t slot,
+                          IF_NOT_X86_(dr_spill_slot_t slot2) void *addr, int value,
+                          uint flags)
 {
     instr_t *instr;
     bool use_drreg = false;
@@ -425,7 +422,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
-            slot != SPILL_SLOT_MAX+1) {
+            slot != SPILL_SLOT_MAX + 1) {
             ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
             return false;
         }
@@ -454,7 +451,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* if save_aflags, check if we can merge with the prev aflags save */
         save_aflags = !drx_aflags_are_dead(where);
         if (save_aflags) {
-            instr = merge_prev_drx_spill(where, true/*aflags*/);
+            instr = merge_prev_drx_spill(ilist, where, true /*aflags*/);
             if (instr != NULL) {
                 save_aflags = false;
                 where = instr;
@@ -462,38 +459,35 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
         /* save aflags if necessary */
         if (save_aflags) {
-            drx_save_arith_flags(drcontext, ilist, where,
-                                 true /* save eax */, true /* save oflag */,
-                                 slot, DR_REG_NULL);
+            drx_save_arith_flags(drcontext, ilist, where, true /* save eax */,
+                                 true /* save oflag */, slot, DR_REG_NULL);
         }
     }
     /* update counter */
-    instr = INSTR_CREATE_add(drcontext,
-                             OPND_CREATE_ABSMEM
-                             (addr, IF_X64_ELSE((is_64 ? OPSZ_8 : OPSZ_4), OPSZ_4)),
-                             OPND_CREATE_INT_32OR8(value));
+    instr = INSTR_CREATE_add(
+        drcontext,
+        OPND_CREATE_ABSMEM(addr, IF_X64_ELSE((is_64 ? OPSZ_8 : OPSZ_4), OPSZ_4)),
+        OPND_CREATE_INT_32OR8(value));
     if (TEST(DRX_COUNTER_LOCK, flags))
         instr = LOCK(instr);
     MINSERT(ilist, where, instr);
 
-# ifndef X64
+#    ifndef X64
     if (is_64) {
         MINSERT(ilist, where,
-                INSTR_CREATE_adc(drcontext,
-                                 OPND_CREATE_ABSMEM
-                                 ((void *)((ptr_int_t)addr + 4), OPSZ_4),
-                                 OPND_CREATE_INT32(0)));
+                INSTR_CREATE_adc(
+                    drcontext, OPND_CREATE_ABSMEM((void *)((ptr_int_t)addr + 4), OPSZ_4),
+                    OPND_CREATE_INT32(0)));
     }
-# endif /* !X64 */
+#    endif /* !X64 */
     if (use_drreg) {
         if (drreg_unreserve_aflags(drcontext, ilist, where) != DRREG_SUCCESS)
             return false;
     } else {
         /* restore aflags if necessary */
         if (save_aflags) {
-            drx_restore_arith_flags(drcontext, ilist, where,
-                                    true /* restore eax */, true /* restore oflag */,
-                                    slot, DR_REG_NULL);
+            drx_restore_arith_flags(drcontext, ilist, where, true /* restore eax */,
+                                    true /* restore oflag */, slot, DR_REG_NULL);
         }
     }
 #elif defined(AARCHXX)
@@ -501,17 +495,16 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
 
     if (use_drreg) {
-        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1)
-            != DRREG_SUCCESS ||
-            drreg_reserve_register(drcontext, ilist, where, NULL, &reg2)
-            != DRREG_SUCCESS)
+        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) !=
+                DRREG_SUCCESS ||
+            drreg_reserve_register(drcontext, ilist, where, NULL, &reg2) != DRREG_SUCCESS)
             return false;
     } else {
         reg1 = SCRATCH_REG0;
         reg2 = SCRATCH_REG1;
         /* merge w/ prior restore */
         if (save_regs) {
-            instr = merge_prev_drx_spill(where, false/*!aflags*/);
+            instr = merge_prev_drx_spill(ilist, where, false /*!aflags*/);
             if (instr != NULL) {
                 save_regs = false;
                 where = instr;
@@ -526,17 +519,16 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
      * address being near this one, and add to reg1 instead of
      * taking 2 instrs to load it fresh.
      */
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr,
-                                     opnd_create_reg(reg1),
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr, opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
-    MINSERT(ilist, where, XINST_CREATE_load
-            (drcontext, opnd_create_reg(reg2),
-             OPND_CREATE_MEMPTR(reg1, 0)));
-    MINSERT(ilist, where, XINST_CREATE_add
-            (drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
-    MINSERT(ilist, where, XINST_CREATE_store
-            (drcontext, OPND_CREATE_MEMPTR(reg1, 0),
-             opnd_create_reg(reg2)));
+    MINSERT(
+        ilist, where,
+        XINST_CREATE_load(drcontext, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
+    MINSERT(ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                               opnd_create_reg(reg2)));
     if (use_drreg) {
         if (drreg_unreserve_register(drcontext, ilist, where, reg1) != DRREG_SUCCESS ||
             drreg_unreserve_register(drcontext, ilist, where, reg2) != DRREG_SUCCESS)
@@ -579,8 +571,8 @@ soft_kills_invoke_cbs(process_id_t pid, int exit_code)
 {
     cb_entry_t *e;
     bool skip = false;
-    NOTIFY(1, "--drx-- parent %d soft killing pid %d code %d\n", dr_get_process_id(),
-           pid, exit_code);
+    NOTIFY(1, "--drx-- parent %d soft killing pid %d code %d\n", dr_get_process_id(), pid,
+           exit_code);
     dr_mutex_lock(cb_lock);
     for (e = cb_list; e != NULL; e = e->next) {
         /* If anyone wants to skip, we skip */
@@ -596,19 +588,19 @@ soft_kills_invoke_cbs(process_id_t pid, int exit_code)
  * These are are in ntoskrnl so we get away without drsyscall.
  */
 enum {
-    SYS_NUM_PARAMS_TerminateProcess        = 2,
-    SYS_NUM_PARAMS_TerminateJobObject      = 2,
+    SYS_NUM_PARAMS_TerminateProcess = 2,
+    SYS_NUM_PARAMS_TerminateJobObject = 2,
     SYS_NUM_PARAMS_SetInformationJobObject = 4,
-    SYS_NUM_PARAMS_Close                   = 1,
-    SYS_NUM_PARAMS_DuplicateObject         = 7,
+    SYS_NUM_PARAMS_Close = 1,
+    SYS_NUM_PARAMS_DuplicateObject = 7,
 };
 
 enum {
-    SYS_WOW64_IDX_TerminateProcess        = 0,
-    SYS_WOW64_IDX_TerminateJobObject      = 0,
+    SYS_WOW64_IDX_TerminateProcess = 0,
+    SYS_WOW64_IDX_TerminateJobObject = 0,
     SYS_WOW64_IDX_SetInformationJobObject = 7,
-    SYS_WOW64_IDX_Close                   = 0,
-    SYS_WOW64_IDX_DuplicateObject         = 0,
+    SYS_WOW64_IDX_Close = 0,
+    SYS_WOW64_IDX_DuplicateObject = 0,
 };
 
 static int sysnum_TerminateProcess;
@@ -618,7 +610,7 @@ static int sysnum_Close;
 static int sysnum_DuplicateObject;
 
 /* Table of job handles for which the app set JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE */
-#define JOB_TABLE_HASH_BITS 6
+#    define JOB_TABLE_HASH_BITS 6
 static hashtable_t job_table;
 
 /* Entry in job_table.  If it is present in the table, it should only be
@@ -653,22 +645,21 @@ typedef struct _cls_soft_t {
  */
 
 typedef LONG NTSTATUS;
-#define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
+#    define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
 
 /* Since we invoke only in a client/privlib context, we can statically link
  * with ntdll to call these syscall wrappers:
  */
-#define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
+#    define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
-GET_NTDLL(NtQueryInformationJobObject, (IN HANDLE JobHandle,
-                                        IN JOBOBJECTINFOCLASS JobInformationClass,
-                                        OUT PVOID JobInformation,
-                                        IN ULONG JobInformationLength,
-                                        OUT PULONG ReturnLength OPTIONAL));
+GET_NTDLL(NtQueryInformationJobObject,
+          (IN HANDLE JobHandle, IN JOBOBJECTINFOCLASS JobInformationClass,
+           OUT PVOID JobInformation, IN ULONG JobInformationLength,
+           OUT PULONG ReturnLength OPTIONAL));
 
-#define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005L)
+#    define STATUS_BUFFER_OVERFLOW ((NTSTATUS)0x80000005L)
 
-#define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
+#    define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
 
 typedef LONG KPRIORITY;
 
@@ -678,7 +669,7 @@ typedef enum _PROCESSINFOCLASS {
 
 typedef struct _PROCESS_BASIC_INFORMATION {
     NTSTATUS ExitStatus;
-    void * PebBaseAddress;
+    void *PebBaseAddress;
     ULONG_PTR AffinityMask;
     KPRIORITY BasePriority;
     ULONG_PTR UniqueProcessId;
@@ -686,13 +677,11 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 } PROCESS_BASIC_INFORMATION;
 typedef PROCESS_BASIC_INFORMATION *PPROCESS_BASIC_INFORMATION;
 
-GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
-                                      IN PROCESSINFOCLASS ProcessInformationClass,
-                                      OUT PVOID ProcessInformation,
-                                      IN ULONG ProcessInformationLength,
-                                      OUT PULONG ReturnLength OPTIONAL));
-GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle,
-                               IN NTSTATUS ExitStatus));
+GET_NTDLL(NtQueryInformationProcess,
+          (IN HANDLE ProcessHandle, IN PROCESSINFOCLASS ProcessInformationClass,
+           OUT PVOID ProcessInformation, IN ULONG ProcessInformationLength,
+           OUT PULONG ReturnLength OPTIONAL));
+GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle, IN NTSTATUS ExitStatus));
 
 static ssize_t
 num_job_object_pids(HANDLE job)
@@ -705,10 +694,10 @@ num_job_object_pids(HANDLE job)
     JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info;
     NTSTATUS res;
     DWORD len;
-    res = NtQueryInformationJobObject(job, JobObjectBasicAccountingInformation,
-                                      &info, sizeof(info), &len);
-    NOTIFY(1, "--drx-- job 0x%x => %d pids len=%d res=0x%08x\n",
-           job, info.ActiveProcesses, len, res);
+    res = NtQueryInformationJobObject(job, JobObjectBasicAccountingInformation, &info,
+                                      sizeof(info), &len);
+    NOTIFY(1, "--drx-- job 0x%x => %d pids len=%d res=0x%08x\n", job,
+           info.ActiveProcesses, len, res);
     if (NT_SUCCESS(res))
         return info.ActiveProcesses;
     else
@@ -719,8 +708,8 @@ static bool
 get_job_object_pids(HANDLE job, JOBOBJECT_BASIC_PROCESS_ID_LIST *list, size_t list_sz)
 {
     NTSTATUS res;
-    res = NtQueryInformationJobObject(job, JobObjectBasicProcessIdList,
-                                      list, (ULONG) list_sz, NULL);
+    res = NtQueryInformationJobObject(job, JobObjectBasicProcessIdList, list,
+                                      (ULONG)list_sz, NULL);
     return NT_SUCCESS(res);
 }
 
@@ -732,11 +721,11 @@ get_app_exit_code(int *exit_code)
     PROCESS_BASIC_INFORMATION info;
     NTSTATUS res;
     memset(&info, 0, sizeof(PROCESS_BASIC_INFORMATION));
-    res = NtQueryInformationProcess(NT_CURRENT_PROCESS, ProcessBasicInformation,
-                                    &info, sizeof(PROCESS_BASIC_INFORMATION), &got);
+    res = NtQueryInformationProcess(NT_CURRENT_PROCESS, ProcessBasicInformation, &info,
+                                    sizeof(PROCESS_BASIC_INFORMATION), &got);
     if (!NT_SUCCESS(res) || got != sizeof(PROCESS_BASIC_INFORMATION))
         return false;
-    *exit_code = (int) info.ExitStatus;
+    *exit_code = (int)info.ExitStatus;
     return true;
 }
 
@@ -745,10 +734,10 @@ soft_kills_context_init(void *drcontext, bool new_depth)
 {
     cls_soft_t *cls;
     if (new_depth) {
-        cls = (cls_soft_t *) dr_thread_alloc(drcontext, sizeof(*cls));
+        cls = (cls_soft_t *)dr_thread_alloc(drcontext, sizeof(*cls));
         drmgr_set_cls_field(drcontext, cls_idx_soft, cls);
     } else {
-        cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+        cls = (cls_soft_t *)drmgr_get_cls_field(drcontext, cls_idx_soft);
     }
     memset(cls, 0, sizeof(*cls));
 }
@@ -757,7 +746,7 @@ static void
 soft_kills_context_exit(void *drcontext, bool thread_exit)
 {
     if (thread_exit) {
-        cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+        cls_soft_t *cls = (cls_soft_t *)drmgr_get_cls_field(drcontext, cls_idx_soft);
         dr_thread_free(drcontext, cls, sizeof(*cls));
     }
     /* else, nothing to do: we leave the struct for re-use on next callback */
@@ -777,7 +766,7 @@ soft_kills_get_sysnum(const char *name, int num_params, int wow64_idx)
         ntdll = data->handle;
         dr_free_module_data(data);
     }
-    wrapper = (app_pc) dr_get_proc_address(ntdll, name);
+    wrapper = (app_pc)dr_get_proc_address(ntdll, name);
     if (wrapper == NULL)
         return -1;
     sysnum = drmgr_decode_sysnum_from_wrapper(wrapper);
@@ -799,9 +788,9 @@ soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
     NOTIFY(1, "--drx-- for job 0x%x got %d jobs\n", job, num_jobs);
     if (num_jobs > 0) {
         JOBOBJECT_BASIC_PROCESS_ID_LIST *list;
-        size_t sz = sizeof(*list) + (num_jobs- 1)*sizeof(list->ProcessIdList[0]);
+        size_t sz = sizeof(*list) + (num_jobs - 1) * sizeof(list->ProcessIdList[0]);
         byte *buf = dr_thread_alloc(drcontext, sz);
-        list = (JOBOBJECT_BASIC_PROCESS_ID_LIST *) buf;
+        list = (JOBOBJECT_BASIC_PROCESS_ID_LIST *)buf;
         if (get_job_object_pids(job, list, sz)) {
             uint i;
             NOTIFY(1, "--drx-- for job 0x%x got %d jobs in list\n", job,
@@ -827,7 +816,7 @@ soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
 static void
 soft_kills_free_job_info(void *ptr)
 {
-    job_info_t *jinfo = (job_info_t *) ptr;
+    job_info_t *jinfo = (job_info_t *)ptr;
     if (jinfo->ref_count == 0)
         dr_global_free(jinfo, sizeof(*jinfo));
 }
@@ -844,8 +833,8 @@ soft_kills_handle_close(void *drcontext, job_info_t *jinfo, HANDLE job, int exit
     ASSERT(jinfo->ref_count > 0, "invalid ref count");
     jinfo->ref_count--;
     if (jinfo->ref_count == 0) {
-        NOTIFY(1, "--drx-- closing kill-on-close handle 0x%x in pid %d\n",
-               job, dr_get_process_id());
+        NOTIFY(1, "--drx-- closing kill-on-close handle 0x%x in pid %d\n", job,
+               dr_get_process_id());
         /* XXX: It's possible for us to miss a handle being closed from another
          * process.  In such a case, our ref count won't reach 0 and we'll
          * fail to kill the child at all.
@@ -865,29 +854,25 @@ soft_kills_handle_close(void *drcontext, job_info_t *jinfo, HANDLE job, int exit
 static bool
 soft_kills_filter_syscall(void *drcontext, int sysnum)
 {
-    return (sysnum == sysnum_TerminateProcess ||
-            sysnum == sysnum_TerminateJobObject ||
-            sysnum == sysnum_SetInformationJobObject ||
-            sysnum == sysnum_Close ||
+    return (sysnum == sysnum_TerminateProcess || sysnum == sysnum_TerminateJobObject ||
+            sysnum == sysnum_SetInformationJobObject || sysnum == sysnum_Close ||
             sysnum == sysnum_DuplicateObject);
 }
 
 static bool
 soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
 {
-    HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
-    JOBOBJECTINFOCLASS class = (JOBOBJECTINFOCLASS)
-        dr_syscall_get_param(drcontext, 1);
-    ULONG sz = (ULONG) dr_syscall_get_param(drcontext, 3);
+    HANDLE job = (HANDLE)dr_syscall_get_param(drcontext, 0);
+    JOBOBJECTINFOCLASS class = (JOBOBJECTINFOCLASS)dr_syscall_get_param(drcontext, 1);
+    ULONG sz = (ULONG)dr_syscall_get_param(drcontext, 3);
     /* MSDN claims that JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE requires an
      * extended info struct, which we trust, though it seems odd as it's
      * a flag in the basic struct.
      */
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
-    if (class == JobObjectExtendedLimitInformation &&
-        sz >= sizeof(info) &&
-        dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2),
-                     sizeof(info), &info, NULL)) {
+    if (class == JobObjectExtendedLimitInformation && sz >= sizeof(info) &&
+        dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2), sizeof(info), &info,
+                     NULL)) {
         if (TEST(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
                  info.BasicLimitInformation.LimitFlags)) {
             /* Remove the kill-on-close flag from the syscall arg.
@@ -897,8 +882,8 @@ soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
              * perfect.
              */
             JOBOBJECT_EXTENDED_LIMIT_INFORMATION *ptr =
-                (JOBOBJECT_EXTENDED_LIMIT_INFORMATION *)
-                dr_syscall_get_param(drcontext, 2);
+                (JOBOBJECT_EXTENDED_LIMIT_INFORMATION *)dr_syscall_get_param(drcontext,
+                                                                             2);
             ULONG new_flags = info.BasicLimitInformation.LimitFlags &
                 (~JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE);
             bool isnew;
@@ -906,22 +891,25 @@ soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
             cls->job_limit_flags_orig = info.BasicLimitInformation.LimitFlags;
             cls->job_limit_flags_loc = &ptr->BasicLimitInformation.LimitFlags;
             ASSERT(sizeof(cls->job_limit_flags_orig) ==
-                   sizeof(ptr->BasicLimitInformation.LimitFlags), "size mismatch");
+                       sizeof(ptr->BasicLimitInformation.LimitFlags),
+                   "size mismatch");
             if (!dr_safe_write(cls->job_limit_flags_loc,
-                               sizeof(ptr->BasicLimitInformation.LimitFlags),
-                               &new_flags, NULL)) {
+                               sizeof(ptr->BasicLimitInformation.LimitFlags), &new_flags,
+                               NULL)) {
                 /* XXX: Any way we can send a WARNING on our failure to write? */
-                NOTIFY(1, "--drx-- FAILED to remove kill-on-close from job 0x%x "
-                       "in pid %d\n", job, dr_get_process_id());
-            } else {
-                NOTIFY(1, "--drx-- removed kill-on-close from job 0x%x in pid %d\n",
+                NOTIFY(1,
+                       "--drx-- FAILED to remove kill-on-close from job 0x%x "
+                       "in pid %d\n",
                        job, dr_get_process_id());
+            } else {
+                NOTIFY(1, "--drx-- removed kill-on-close from job 0x%x in pid %d\n", job,
+                       dr_get_process_id());
             }
             /* Track the handle so we can notify the client on close or exit */
             hashtable_lock(&job_table);
             /* See if already there (in case app called Set 2x) */
             if (hashtable_lookup(&job_table, (void *)job) == NULL) {
-                jinfo = (job_info_t *) dr_global_alloc(sizeof(*jinfo));
+                jinfo = (job_info_t *)dr_global_alloc(sizeof(*jinfo));
                 jinfo->ref_count = 1;
                 isnew = hashtable_add(&job_table, (void *)job, (void *)jinfo);
                 ASSERT(isnew, "missed an NtClose");
@@ -941,7 +929,7 @@ soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
 static bool
 soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
 {
-    HANDLE proc_src = (HANDLE) dr_syscall_get_param(drcontext, 0);
+    HANDLE proc_src = (HANDLE)dr_syscall_get_param(drcontext, 0);
     process_id_t id_src = dr_convert_handle_to_pid(proc_src);
     cls->dup_proc_src_us = (id_src == dr_get_process_id());
     cls->dup_jinfo = NULL;
@@ -949,16 +937,15 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
         /* NtDuplicateObject seems more likely than NtClose to fail, so we
          * shift as much handling as possible post-syscall.
          */
-        HANDLE proc_dst = (HANDLE) dr_syscall_get_param(drcontext, 2);
+        HANDLE proc_dst = (HANDLE)dr_syscall_get_param(drcontext, 2);
         process_id_t id_dst = dr_convert_handle_to_pid(proc_dst);
         cls->dup_proc_dst_us = (id_dst == dr_get_process_id());
-        cls->dup_src = (HANDLE) dr_syscall_get_param(drcontext, 1);
-        cls->dup_dst = (HANDLE *) dr_syscall_get_param(drcontext, 3);
-        cls->dup_options = (ULONG) dr_syscall_get_param(drcontext, 6);
+        cls->dup_src = (HANDLE)dr_syscall_get_param(drcontext, 1);
+        cls->dup_dst = (HANDLE *)dr_syscall_get_param(drcontext, 3);
+        cls->dup_options = (ULONG)dr_syscall_get_param(drcontext, 6);
         hashtable_lock(&job_table);
         /* We have to save jinfo b/c dup_src will be gone */
-        cls->dup_jinfo = (job_info_t *)
-            hashtable_lookup(&job_table, (void *)cls->dup_src);
+        cls->dup_jinfo = (job_info_t *)hashtable_lookup(&job_table, (void *)cls->dup_src);
         if (cls->dup_jinfo != NULL) {
             if (TEST(DUPLICATE_CLOSE_SOURCE, cls->dup_options)) {
                 /* "This occurs regardless of any error status returned"
@@ -975,7 +962,7 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
                            cls->dup_src, dr_get_process_id());
                     /* The exit code is set to 0 by the kernel for this case */
                     soft_kills_handle_close(drcontext, cls->dup_jinfo, cls->dup_src, 0,
-                                            true/*remove*/);
+                                            true /*remove*/);
                 } else {
                     hashtable_remove(&job_table, (void *)cls->dup_src);
                     /* Adjust refcount after removing to avoid freeing prematurely.
@@ -995,7 +982,7 @@ soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
 static void
 soft_kills_post_DuplicateObject(void *drcontext)
 {
-    cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+    cls_soft_t *cls = (cls_soft_t *)drmgr_get_cls_field(drcontext, cls_idx_soft);
     HANDLE dup_dst;
     if (cls->dup_jinfo == NULL)
         return;
@@ -1010,8 +997,8 @@ soft_kills_post_DuplicateObject(void *drcontext)
     hashtable_lock(&job_table);
     if (cls->dup_dst != NULL &&
         dr_safe_read(cls->dup_dst, sizeof(dup_dst), &dup_dst, NULL)) {
-        NOTIFY(1, "--drx-- job 0x%x duplicated as 0x%x in pid %d\n",
-               cls->dup_src, dup_dst, dr_get_process_id());
+        NOTIFY(1, "--drx-- job 0x%x duplicated as 0x%x in pid %d\n", cls->dup_src,
+               dup_dst, dr_get_process_id());
         cls->dup_jinfo->ref_count++;
         hashtable_add(&job_table, (void *)dup_dst, (void *)cls->dup_jinfo);
     }
@@ -1022,7 +1009,7 @@ soft_kills_post_DuplicateObject(void *drcontext)
 static bool
 soft_kills_pre_syscall(void *drcontext, int sysnum)
 {
-    cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+    cls_soft_t *cls = (cls_soft_t *)drmgr_get_cls_field(drcontext, cls_idx_soft);
     /* Xref DrMem i#544, DrMem i#1297, and DRi#1231: give child
      * processes a chance for clean exit for dumping of data or other
      * actions.
@@ -1031,19 +1018,18 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
      * alive: but that's a risk we can live with.
      */
     if (sysnum == sysnum_TerminateProcess) {
-        HANDLE proc = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        HANDLE proc = (HANDLE)dr_syscall_get_param(drcontext, 0);
         process_id_t pid = dr_convert_handle_to_pid(proc);
         if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
-            int exit_code = (int) dr_syscall_get_param(drcontext, 1);
+            int exit_code = (int)dr_syscall_get_param(drcontext, 1);
             NOTIFY(1, "--drx-- NtTerminateProcess in pid %d\n", dr_get_process_id());
             if (soft_kills_invoke_cbs(pid, exit_code)) {
-                dr_syscall_set_result(drcontext, 0/*success*/);
+                dr_syscall_set_result(drcontext, 0 /*success*/);
                 return false; /* skip syscall */
             } else
                 return true; /* execute syscall */
         }
-    }
-    else if (sysnum == sysnum_TerminateJobObject) {
+    } else if (sysnum == sysnum_TerminateJobObject) {
         /* There are several ways a process in a job can be killed:
          *
          *   1) NtTerminateJobObject
@@ -1053,36 +1039,33 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
          *
          * XXX: we only handle #1 and #2.
          */
-        HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
-        NTSTATUS exit_code = (NTSTATUS) dr_syscall_get_param(drcontext, 1);
-        NOTIFY(1, "--drx-- NtTerminateJobObject job 0x%x in pid %d\n",
-               job, dr_get_process_id());
+        HANDLE job = (HANDLE)dr_syscall_get_param(drcontext, 0);
+        NTSTATUS exit_code = (NTSTATUS)dr_syscall_get_param(drcontext, 1);
+        NOTIFY(1, "--drx-- NtTerminateJobObject job 0x%x in pid %d\n", job,
+               dr_get_process_id());
         soft_kills_handle_job_termination(drcontext, job, exit_code);
         /* We always skip this syscall.  If individual processes were requested
          * to not be skipped, we emulated via NtTerminateProcess in
          * soft_kills_handle_job_termination().
          */
-        dr_syscall_set_result(drcontext, 0/*success*/);
+        dr_syscall_set_result(drcontext, 0 /*success*/);
         return false; /* skip syscall */
-    }
-    else if (sysnum == sysnum_SetInformationJobObject) {
+    } else if (sysnum == sysnum_SetInformationJobObject) {
         return soft_kills_pre_SetInformationJobObject(drcontext, cls);
-    }
-    else if (sysnum == sysnum_Close) {
+    } else if (sysnum == sysnum_Close) {
         /* If a job object, act on it, and remove from our table */
-        HANDLE handle = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        HANDLE handle = (HANDLE)dr_syscall_get_param(drcontext, 0);
         job_info_t *jinfo;
         hashtable_lock(&job_table);
-        jinfo = (job_info_t *) hashtable_lookup(&job_table, (void *)handle);
+        jinfo = (job_info_t *)hashtable_lookup(&job_table, (void *)handle);
         if (jinfo != NULL) {
-            NOTIFY(1, "--drx-- explicit close of job 0x%x in pid %d\n",
-                   handle, dr_get_process_id());
+            NOTIFY(1, "--drx-- explicit close of job 0x%x in pid %d\n", handle,
+                   dr_get_process_id());
             /* The exit code is set to 0 by the kernel for this case */
-            soft_kills_handle_close(drcontext, jinfo, handle, 0, true/*remove*/);
+            soft_kills_handle_close(drcontext, jinfo, handle, 0, true /*remove*/);
         }
         hashtable_unlock(&job_table);
-    }
-    else if (sysnum == sysnum_DuplicateObject) {
+    } else if (sysnum == sysnum_DuplicateObject) {
         return soft_kills_pre_DuplicateObject(drcontext, cls);
     }
     return true;
@@ -1092,7 +1075,7 @@ static void
 soft_kills_post_syscall(void *drcontext, int sysnum)
 {
     if (sysnum == sysnum_SetInformationJobObject) {
-        cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+        cls_soft_t *cls = (cls_soft_t *)drmgr_get_cls_field(drcontext, cls_idx_soft);
         if (cls->job_limit_flags_loc != NULL) {
             /* Restore the app's memory */
             if (!dr_safe_write(cls->job_limit_flags_loc,
@@ -1102,8 +1085,7 @@ soft_kills_post_syscall(void *drcontext, int sysnum)
             }
             cls->job_limit_flags_loc = NULL;
         }
-    }
-    else if (sysnum == sysnum_DuplicateObject) {
+    } else if (sysnum == sysnum_DuplicateObject) {
         soft_kills_post_DuplicateObject(drcontext);
     }
 }
@@ -1120,14 +1102,16 @@ static bool
 soft_kills_pre_syscall(void *drcontext, int sysnum)
 {
     if (sysnum == SYS_kill) {
-        process_id_t pid = (process_id_t) dr_syscall_get_param(drcontext, 0);
-        int sig = (int) dr_syscall_get_param(drcontext, 1);
+        process_id_t pid = (process_id_t)dr_syscall_get_param(drcontext, 0);
+        int sig = (int)dr_syscall_get_param(drcontext, 1);
         if (sig == SIGKILL && pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
             /* Pass exit code << 8 for use with dr_exit_process() */
             int exit_code = sig << 8;
             if (soft_kills_invoke_cbs(pid, exit_code)) {
                 /* set result to 0 (success) and use_high and use_errno to false */
-                dr_syscall_result_info_t info = { sizeof(info), };
+                dr_syscall_result_info_t info = {
+                    sizeof(info),
+                };
                 info.succeeded = true;
                 dr_syscall_set_result_ex(drcontext, &info);
                 return false; /* skip syscall */
@@ -1162,73 +1146,63 @@ soft_kills_init(void)
     cb_lock = dr_mutex_create();
 
 #ifdef WINDOWS
-    hashtable_init_ex(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false/*!strdup*/,
-                      false/*!synch*/, soft_kills_free_job_info, NULL, NULL);
+    hashtable_init_ex(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false /*!strdup*/,
+                      false /*!synch*/, soft_kills_free_job_info, NULL, NULL);
 
     sysnum_TerminateProcess =
-        soft_kills_get_sysnum("NtTerminateProcess",
-                              SYS_NUM_PARAMS_TerminateProcess,
+        soft_kills_get_sysnum("NtTerminateProcess", SYS_NUM_PARAMS_TerminateProcess,
                               SYS_WOW64_IDX_TerminateProcess);
     if (sysnum_TerminateProcess == -1)
         return false;
     sysnum_TerminateJobObject =
-        soft_kills_get_sysnum("NtTerminateJobObject",
-                              SYS_NUM_PARAMS_TerminateJobObject,
+        soft_kills_get_sysnum("NtTerminateJobObject", SYS_NUM_PARAMS_TerminateJobObject,
                               SYS_WOW64_IDX_TerminateJobObject);
     if (sysnum_TerminateJobObject == -1)
         return false;
-    sysnum_SetInformationJobObject =
-        soft_kills_get_sysnum("NtSetInformationJobObject",
-                              SYS_NUM_PARAMS_SetInformationJobObject,
-                              SYS_WOW64_IDX_SetInformationJobObject);
+    sysnum_SetInformationJobObject = soft_kills_get_sysnum(
+        "NtSetInformationJobObject", SYS_NUM_PARAMS_SetInformationJobObject,
+        SYS_WOW64_IDX_SetInformationJobObject);
     if (sysnum_SetInformationJobObject == -1)
         return false;
-    sysnum_Close = soft_kills_get_sysnum("NtClose",
-                                         SYS_NUM_PARAMS_Close, SYS_WOW64_IDX_Close);
+    sysnum_Close =
+        soft_kills_get_sysnum("NtClose", SYS_NUM_PARAMS_Close, SYS_WOW64_IDX_Close);
     if (sysnum_Close == -1)
         return false;
     sysnum_DuplicateObject =
-        soft_kills_get_sysnum("NtDuplicateObject",
-                              SYS_NUM_PARAMS_DuplicateObject,
+        soft_kills_get_sysnum("NtDuplicateObject", SYS_NUM_PARAMS_DuplicateObject,
                               SYS_WOW64_IDX_DuplicateObject);
     if (sysnum_DuplicateObject == -1)
         return false;
 
-    cls_idx_soft = drmgr_register_cls_field(soft_kills_context_init,
-                                            soft_kills_context_exit);
+    cls_idx_soft =
+        drmgr_register_cls_field(soft_kills_context_init, soft_kills_context_exit);
     if (cls_idx_soft == -1)
         return false;
 
     /* Ensure that DR intercepts these when we're native */
-    IF_DEBUG(ok = )
-        dr_syscall_intercept_natively("NtTerminateProcess",
-                                      sysnum_TerminateProcess,
-                                      SYS_NUM_PARAMS_TerminateProcess,
-                                      SYS_WOW64_IDX_TerminateProcess);
+    IF_DEBUG(ok =)
+    dr_syscall_intercept_natively("NtTerminateProcess", sysnum_TerminateProcess,
+                                  SYS_NUM_PARAMS_TerminateProcess,
+                                  SYS_WOW64_IDX_TerminateProcess);
     ASSERT(ok, "failure to watch syscall while native");
-    IF_DEBUG(ok = )
-        dr_syscall_intercept_natively("NtTerminateJobObject",
-                                      sysnum_TerminateJobObject,
-                                      SYS_NUM_PARAMS_TerminateJobObject,
-                                      SYS_WOW64_IDX_TerminateJobObject);
+    IF_DEBUG(ok =)
+    dr_syscall_intercept_natively("NtTerminateJobObject", sysnum_TerminateJobObject,
+                                  SYS_NUM_PARAMS_TerminateJobObject,
+                                  SYS_WOW64_IDX_TerminateJobObject);
     ASSERT(ok, "failure to watch syscall while native");
-    IF_DEBUG(ok = )
-        dr_syscall_intercept_natively("NtSetInformationJobObject",
-                                      sysnum_SetInformationJobObject,
-                                      SYS_NUM_PARAMS_SetInformationJobObject,
-                                      SYS_WOW64_IDX_SetInformationJobObject);
+    IF_DEBUG(ok =)
+    dr_syscall_intercept_natively(
+        "NtSetInformationJobObject", sysnum_SetInformationJobObject,
+        SYS_NUM_PARAMS_SetInformationJobObject, SYS_WOW64_IDX_SetInformationJobObject);
     ASSERT(ok, "failure to watch syscall while native");
-    IF_DEBUG(ok = )
-        dr_syscall_intercept_natively("NtClose",
-                                      sysnum_Close,
-                                      SYS_NUM_PARAMS_Close,
-                                      SYS_WOW64_IDX_Close);
+    IF_DEBUG(ok =)
+    dr_syscall_intercept_natively("NtClose", sysnum_Close, SYS_NUM_PARAMS_Close,
+                                  SYS_WOW64_IDX_Close);
     ASSERT(ok, "failure to watch syscall while native");
-    IF_DEBUG(ok = )
-        dr_syscall_intercept_natively("NtDuplicateObject",
-                                      sysnum_DuplicateObject,
-                                      SYS_NUM_PARAMS_DuplicateObject,
-                                      SYS_WOW64_IDX_DuplicateObject);
+    IF_DEBUG(ok =)
+    dr_syscall_intercept_natively("NtDuplicateObject", sysnum_DuplicateObject,
+                                  SYS_NUM_PARAMS_DuplicateObject,
+                                  SYS_WOW64_IDX_DuplicateObject);
     ASSERT(ok, "failure to watch syscall while native");
 #endif
 
@@ -1257,12 +1231,12 @@ soft_kills_exit(void)
     for (i = 0; i < HASHTABLE_SIZE(job_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = job_table.table[i]; he != NULL; he = he->next) {
-            HANDLE job = (HANDLE) he->key;
-            job_info_t *jinfo = (job_info_t *) he->payload;
-            NOTIFY(1, "--drx-- implicit close of job 0x%x in pid %d\n",
-                   job, dr_get_process_id());
+            HANDLE job = (HANDLE)he->key;
+            job_info_t *jinfo = (job_info_t *)he->payload;
+            NOTIFY(1, "--drx-- implicit close of job 0x%x in pid %d\n", job,
+                   dr_get_process_id());
             soft_kills_handle_close(dr_get_current_drcontext(), jinfo, job, exit_code,
-                                    false/*do not remove*/);
+                                    false /*do not remove*/);
         }
     }
     hashtable_unlock(&job_table);
@@ -1311,9 +1285,9 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code))
  * LOGGING
  */
 #ifdef WINDOWS
-# define DIRSEP '\\'
+#    define DIRSEP '\\'
 #else
-# define DIRSEP '/'
+#    define DIRSEP '/'
 #endif
 
 file_t
@@ -1325,11 +1299,9 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
     int i;
     ssize_t len;
     for (i = 0; i < 10000; i++) {
-        len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                          "%s%c%s.%04d.%s", dir, DIRSEP, prefix,
-                          (extra_flags == DRX_FILE_SKIP_OPEN) ?
-                          dr_get_random_value(9999) : i,
-                          suffix);
+        len = dr_snprintf(
+            buf, BUFFER_SIZE_ELEMENTS(buf), "%s%c%s.%04d.%s", dir, DIRSEP, prefix,
+            (extra_flags == DRX_FILE_SKIP_OPEN) ? dr_get_random_value(9999) : i, suffix);
         if (len < 0)
             return INVALID_FILE;
         NULL_TERMINATE_BUFFER(buf);
@@ -1345,17 +1317,17 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
 }
 
 file_t
-drx_open_unique_appid_file(const char *dir, ptr_int_t id,
-                           const char *prefix, const char *suffix,
-                           uint extra_flags, char *result OUT, size_t result_len)
+drx_open_unique_appid_file(const char *dir, ptr_int_t id, const char *prefix,
+                           const char *suffix, uint extra_flags, char *result OUT,
+                           size_t result_len)
 {
     int len;
     char appid[MAXIMUM_PATH];
     const char *app_name = dr_get_application_name();
     if (app_name == NULL)
         app_name = "<unknown-app>";
-    len = dr_snprintf(appid, BUFFER_SIZE_ELEMENTS(appid),
-                      "%s.%s.%05d", prefix, app_name, id);
+    len = dr_snprintf(appid, BUFFER_SIZE_ELEMENTS(appid), "%s.%s.%05d", prefix, app_name,
+                      id);
     if (len < 0 || (size_t)len >= BUFFER_SIZE_ELEMENTS(appid))
         return INVALID_FILE;
     NULL_TERMINATE_BUFFER(appid);
@@ -1364,9 +1336,8 @@ drx_open_unique_appid_file(const char *dir, ptr_int_t id,
 }
 
 bool
-drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
-                          const char *prefix, const char *suffix,
-                          char *result OUT, size_t result_len)
+drx_open_unique_appid_dir(const char *dir, ptr_int_t id, const char *prefix,
+                          const char *suffix, char *result OUT, size_t result_len)
 {
     char buf[MAXIMUM_PATH];
     int i;
@@ -1375,9 +1346,8 @@ drx_open_unique_appid_dir(const char *dir, ptr_int_t id,
         const char *app_name = dr_get_application_name();
         if (app_name == NULL)
             app_name = "<unknown-app>";
-        len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                          "%s%c%s.%s.%05d.%04d.%s",
-                          dir, DIRSEP, prefix, app_name, id, i, suffix);
+        len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s%c%s.%s.%05d.%04d.%s", dir,
+                          DIRSEP, prefix, app_name, id, i, suffix);
         if (len < 0 || (size_t)len >= BUFFER_SIZE_ELEMENTS(buf))
             return false;
         NULL_TERMINATE_BUFFER(buf);

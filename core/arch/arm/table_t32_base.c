@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,9 @@
  * format for easier human readability.  Thus we store 0xf8df 0x1004 as 0xf8df1004.
  * We refer to the first half-word as A and the second as B.
  */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /****************************************************************************
  * Top-level T32 table for non-coprocessor instructions starting with 0xe.
@@ -103,10 +106,10 @@ const instr_info_t T32_base_e[] = {
     {EXT_RCPC,    0xeb000000, "(ext rcpc 2)", xx, xx, xx, xx, xx, no, x, 2},
     {INVALID,     0xeb200000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xeb300000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_adc,      0xeb400000, "adc",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, x, END_LIST},
-    {OP_adcs,     0xeb500000, "adcs",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZCV, END_LIST},
-    {OP_sbc,      0xeb600000, "sbc",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, x, END_LIST},
-    {OP_sbcs,     0xeb700000, "sbcs",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fWNZCV, END_LIST},
+    {OP_adc,      0xeb400000, "adc",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fRC, END_LIST},
+    {OP_adcs,     0xeb500000, "adcs",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fRC|fWNZCV, END_LIST},
+    {OP_sbc,      0xeb600000, "sbc",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fRC, END_LIST},
+    {OP_sbcs,     0xeb700000, "sbcs",   RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, fRC|fWNZCV, END_LIST},
     {INVALID,     0xeb800000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xeb900000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_sub,      0xeba00000, "sub",    RCw, RAw, RDw, sh2_4, i5x12_6, srcX4, x, END_LIST},
@@ -1129,3 +1132,5 @@ const instr_info_t T32_extra_operands[] =
     {OP_CONTD, 0x00000000, "<srs* cont'd>",  xx, xx, SPSR, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<{s,u}mlal{,d} cont'd>",  xx, xx, RDw, xx, xx, no, x, END_LIST},
 };
+
+/* clang-format on */

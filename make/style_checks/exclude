@@ -1,0 +1,90 @@
+#!/usr/bin/tclsh
+# **********************************************************
+# Copyright (c) 2017-2018 Google, Inc.    All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+##################################################
+# Exclusions for *all* code style checks:
+
+# XXX: even recent Ubuntu (i.e., including Travis) is still packaging
+# vera++ 1.2.1 which uses an older exclusion syntax that does not
+# support regular expressions.  Thus we use the older syntax here for the files
+# that are easy to list, but for excluding whole dirs we use regex checks
+# inside our own third_party/vera++/use_vera++.cmake.
+
+set rules {
+    line_length_content
+    multi_line_body
+    break_after_return_type
+    no_space_after_control
+    space_after_call
+}
+
+foreach rule $rules {
+    set ruleExclusions($rule) {
+        # Don't complain about the test file during the build.
+        style_test.c
+        # Rarely-used files consisting of very old code which we
+        # should probably just remove is exempted as it's not worth
+        # the time to clean up right now.
+        vista_hash.c
+        optimize.c
+        loadtoconst.c
+        loadtoconst.h
+        retcheck.c
+        sideline.c
+        steal_reg.c
+        symtab.c
+        # tools/* in this category is excluded via regex.
+    }
+}
+
+## 1.3.0 syntax for reference:
+##
+## # Third-party files we do not plan to change.
+## .*/third_party/.*
+##
+## # Don't complain about the test file during the build.
+## .*/make/style_checks/.*
+##
+## # Rarely-used files consisting of very old code which we should probably just remove
+## # is exempted as it's not worth the time to clean up right now.
+## .*/clients/standalone/vista_hash.c
+## .*/core/arch/x86/optimize.c
+## .*/core/arch/loadtoconst.*
+## .*/core/arch/retcheck.c
+## .*/core/arch/sideline.c
+## .*/core/arch/steal_reg.c
+## .*/core/unix/symtab.c
+## .*/tools/.*
+##
+## # XXX i#2369: these have not yet been cleaned up but we plan to enable here
+## # at some point.
+## .*/suite/tests/.*
+## .*/libutil/.*

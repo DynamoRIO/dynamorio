@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,6 +52,12 @@ native_exec_exit(void);
 
 bool
 is_native_pc(app_pc pc);
+
+/* Includes regions where we execute natively as well as DR entry points where
+ * we should not re-takeover if we're already native.
+ */
+bool
+is_stay_native_pc(app_pc pc);
 
 /* Gets called on every call into a native module. */
 void

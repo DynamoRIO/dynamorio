@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
-#include "arch.h"    /* need this to include decode.h (byte, etc. */
+#include "arch.h"       /* need this to include decode.h (byte, etc. */
 #include "decode.h"
 #include "decode_private.h"
 #include "table_private.h"
@@ -41,6 +41,9 @@
  */
 
 /* FIXME i#1551: add support for instrs that can only be "outside or last in IT block". */
+
+// We skip auto-formatting for the entire file to keep our single-line table entries:
+/* clang-format off */
 
 /* top-level table */
 /* Indexed by bits 15:12*/
@@ -179,8 +182,8 @@ const instr_info_t T32_16_it_ext_bits_9_6[][16] = {
       {OP_lsl,    0x4080, "lsl",   RZw, xx, RZDw,  RYw, xx, no, x, xi126[0][0x01]},
       {OP_lsr,    0x40c0, "lsr",   RZw, xx, RZDw,  RYw, xx, no, x, z11[0][0x01]},
       {OP_asr,    0x4100, "asr",   RZw, xx, RZDw,  RYw, xx, no, x, z11[1][0x00]},
-      {OP_adc,    0x4140, "adc",   RZw, xx, RZDw,  RYw, xx, no, x, xfop8[0][0x14]},
-      {OP_sbc,    0x4180, "sbc",   RZw, xx, RZDw,  RYw, xx, no, x, xfop8[0][0x16]},
+      {OP_adc,    0x4140, "adc",   RZw, xx, RZDw,  RYw, xx, no, fRC, xfop8[0][0x14]},
+      {OP_sbc,    0x4180, "sbc",   RZw, xx, RZDw,  RYw, xx, no, fRC, xfop8[0][0x16]},
       {OP_ror,    0x41c0, "ror",   RZw, xx, RZDw,  RYw, xx, no, x, xi126[1][0x01]},
       {OP_tst,    0x4200, "tst",    xx, xx,  RZw,  RYw, xx, no, fWNZCV, xrcpc[4][0x01]},
       {OP_rsb,    0x4240, "rsb",   RZw, xx,  RYw,   k0, xx, no, x, xfop8[0][0x1c]},
@@ -280,3 +283,5 @@ const instr_info_t T32_16_it_ext_imm_10_6[][2] = {
       {OP_lsl,   0x0000, "lsl",        RZw, xx, RYw, i5_6, xx, no, x, z96[0][0x02]},
     },
 };
+
+/* clang-format on */

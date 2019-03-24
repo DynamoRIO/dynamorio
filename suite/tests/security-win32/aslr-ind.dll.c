@@ -38,7 +38,7 @@
 
 typedef int (*fiptr)();
 
-#define NAKED __declspec( naked )
+#define NAKED __declspec(naked)
 
 /* could be an export but instead is address taken callback */
 NAKED
@@ -49,7 +49,7 @@ funny_target()
     __asm {
         mov eax,1
         jmp short over
-        mov eax,2               /* bad target */
+        mov eax,2 /* bad target */
 over:
         add eax,eax
         add eax,eax
@@ -59,23 +59,18 @@ over:
     }
 }
 
-fiptr
-__declspec(dllexport)
-giveme_target(int arg)
+fiptr __declspec(dllexport) giveme_target(int arg)
 {
     print("ready to go %d\n", arg);
     return funny_target;
 }
 
-void
-__declspec(dllexport)
-precious(void)
+void __declspec(dllexport) precious(void)
 {
     print("PRECIOUS in a DLL, ATTACK SUCCESSFUL!\n");
     /* stack not clean have to stop here */
     exit(1);
 }
-
 
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)

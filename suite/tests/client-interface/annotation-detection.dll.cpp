@@ -84,8 +84,8 @@ test_nine_args(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, u
 }
 
 static void
-test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
-              uint g, uint h, uint i, uint j)
+test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i,
+              uint j)
 {
     PRINTF("Test many args: "
            "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d",
@@ -132,9 +132,9 @@ register_call(const char *annotation, void *target, uint num_args)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-# ifdef WINDOWS
+#ifdef WINDOWS
     dr_enable_console_printing();
-# endif
+#endif
 
     client_id = id;
 
@@ -151,9 +151,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         PRINT("Init annotation test client with fast decoding");
     }
 
-    register_call("test_annotation_two_args", (void *) test_two_args, 2);
-    register_call("test_annotation_three_args", (void *) test_three_args, 3);
-    register_call("test_annotation_eight_args", (void *) test_eight_args, 8);
-    register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
-    register_call("test_annotation_ten_args", (void *) test_ten_args, 10);
+    register_call("test_annotation_two_args", (void *)test_two_args, 2);
+    register_call("test_annotation_three_args", (void *)test_three_args, 3);
+    register_call("test_annotation_eight_args", (void *)test_eight_args, 8);
+    register_call("test_annotation_nine_args", (void *)test_nine_args, 9);
+    register_call("test_annotation_ten_args", (void *)test_ten_args, 10);
 }

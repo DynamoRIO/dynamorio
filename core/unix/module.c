@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -34,16 +34,16 @@
 
 #include "../globals.h"
 #include "../module_shared.h"
+#include "module_private.h"
 #include "os_private.h"
 #include "../utils.h"
 #include "instrument.h"
-#include <string.h>
 #include <stddef.h> /* offsetof */
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
-# undef LOG
-# define LOG(...) /* nothing */
-#else /* !NOT_DYNAMORIO_CORE_PROPER */
+#    undef LOG
+#    define LOG(...) /* nothing */
+#else                /* !NOT_DYNAMORIO_CORE_PROPER */
 
 /* XXX; perhaps make a module_list interface to check for overlap? */
 extern vm_area_vector_t *loaded_module_areas;
@@ -64,9 +64,8 @@ os_modules_exit(void)
  * modules -- we'll update the module's size here
  */
 void
-os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
-                    bool at_map, const char *filepath, uint64 inode
-                    HEAPACCT(which_heap_t which))
+os_module_area_init(module_area_t *ma, app_pc base, size_t view_size, bool at_map,
+                    const char *filepath, uint64 inode HEAPACCT(which_heap_t which))
 {
     app_pc mod_base, mod_end;
     ptr_int_t load_delta;
@@ -74,8 +73,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     ASSERT(module_is_header(base, view_size));
 
     /* i#1589: use privload data if it exists (for client lib) */
-    if (!privload_fill_os_module_info(base, &mod_base, &mod_end,
-                                      &soname, &ma->os_data)) {
+    if (!privload_fill_os_module_info(base, &mod_base, &mod_end, &soname, &ma->os_data)) {
         /* XXX i#1860: on Android we'll fail to fill in info from .dynamic, so
          * we'll have incomplete data until the loader maps the segment with .dynamic.
          * ma->os_data.have_dynamic_info indicates whether we have the info.
@@ -85,7 +83,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                                     &mod_base, NULL, &mod_end, &soname, &ma->os_data);
     }
     if (ma->os_data.contiguous) {
-        app_pc map_end = ma->os_data.segments[ma->os_data.num_segments-1].end;
+        app_pc map_end = ma->os_data.segments[ma->os_data.num_segments - 1].end;
         module_list_add_mapping(ma, base, map_end);
         /* update, since may just be 1st segment size */
         ma->end = map_end;
@@ -122,31 +120,32 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                               ma->os_data.segments[i - 1].end))
             module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
         DOLOG(2, LOG_VMAREAS, {
-            LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "segment list\n");
+            LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2, "segment list\n");
             for (i = 0; i < ma->os_data.num_segments; i++) {
-                LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
-                    "\tsegment %d: ["PFX","PFX") prot=%x\n", i,
+                LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 2,
+                    "\tsegment %d: [" PFX "," PFX ") prot=%x\n", i,
                     ma->os_data.segments[i].start, ma->os_data.segments[i].end,
                     ma->os_data.segments[i].prot);
             }
         });
         /* update to max end (view_size may just be 1st segment end) */
-        ma->end = ma->os_data.segments[ma->os_data.num_segments-1].end;
+        ma->end = ma->os_data.segments[ma->os_data.num_segments - 1].end;
     }
 
-#ifdef LINUX
+#    ifdef LINUX
     LOG(GLOBAL, LOG_SYMBOLS, 2,
-        "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
+        "%s: hashtab=" PFX ", dynsym=" PFX ", dynstr=" PFX ", strsz=" SZFMT
+        ", symsz=" SZFMT "\n",
         __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
         ma->os_data.dynstr_size, ma->os_data.symentry_size);
-#endif
+#    endif
 
-#ifdef LINUX /* on Mac the entire dyld shared cache has split __TEXT and __DATA */
+#    ifdef LINUX /* on Mac the entire dyld shared cache has split __TEXT and __DATA */
     /* expect to map whole module */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
-    ASSERT_CURIOSITY(mod_end - mod_base == at_map ?
-                     ALIGN_FORWARD(view_size, PAGE_SIZE) : view_size);
-#endif
+    ASSERT_CURIOSITY(mod_end - mod_base == at_map ? ALIGN_FORWARD(view_size, PAGE_SIZE)
+                                                  : view_size);
+#    endif
 
     ma->os_data.base_address = mod_base;
     load_delta = base - mod_base;
@@ -157,15 +156,15 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
      * filename, we treat both as NULL, but leave the distinction for SONAME. */
     if (filepath == NULL || filepath[0] == '\0') {
         ma->names.file_name = NULL;
-#ifdef VMX86_SERVER
+#    ifdef VMX86_SERVER
         /* XXX: provide a targeted query to avoid full walk */
         void *iter = vmk_mmaps_iter_start();
         if (iter != NULL) { /* backward compatibility: support lack of iter */
             byte *start;
             size_t length;
             char name[MAXIMUM_PATH];
-            while (vmk_mmaps_iter_next(iter, &start, &length, NULL,
-                                       name, BUFFER_SIZE_ELEMENTS(name))) {
+            while (vmk_mmaps_iter_next(iter, &start, &length, NULL, name,
+                                       BUFFER_SIZE_ELEMENTS(name))) {
                 if (base == start) {
                     ma->names.file_name = dr_strdup(name HEAPACCT(which));
                     break;
@@ -173,7 +172,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
             }
             vmk_mmaps_iter_stop(iter);
         }
-#endif
+#    endif
         ma->full_path = NULL;
     } else {
         ma->names.file_name = dr_strdup(get_short_name(filepath) HEAPACCT(which));
@@ -193,7 +192,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     if (ma->os_data.checksum == 0 &&
         (DYNAMO_OPTION(coarse_enable_freeze) || DYNAMO_OPTION(use_persisted))) {
         /* Use something so we have usable pcache names */
-        ma->os_data.checksum = crc32((const char *)ma->start, PAGE_SIZE);
+        ma->os_data.checksum = d_r_crc32((const char *)ma->start, PAGE_SIZE);
     }
     /* Timestamp we just leave as 0 */
 }
@@ -214,10 +213,11 @@ module_copy_os_data(os_module_data_t *dst, os_module_data_t *src)
 {
     memcpy(dst, src, sizeof(*dst));
     if (src->segments != NULL) {
-        dst->segments = (module_segment_t *)
-            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
-                             src->alloc_segments, ACCT_OTHER, PROTECTED);
-        memcpy(dst->segments, src->segments, src->num_segments*sizeof(module_segment_t));
+        dst->segments = (module_segment_t *)HEAP_ARRAY_ALLOC(
+            GLOBAL_DCONTEXT, module_segment_t, src->alloc_segments, ACCT_OTHER,
+            PROTECTED);
+        memcpy(dst->segments, src->segments,
+               src->num_segments * sizeof(module_segment_t));
     }
 }
 
@@ -233,16 +233,16 @@ print_modules(file_t f, bool dump_xml)
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
         module_area_t *ma = module_iterator_next(mi);
-        print_file(f, dump_xml ?
-                   "\t<so range=\""PFX"-"PFX"\" "
-                   "entry=\""PFX"\" base_address="PFX"\n"
-                   "\tname=\"%s\" />\n" :
-                   "  "PFX"-"PFX" entry="PFX" base_address="PFX"\n"
-                   "\tname=\"%s\" \n",
+        print_file(f,
+                   dump_xml ? "\t<so range=\"" PFX "-" PFX "\" "
+                              "entry=\"" PFX "\" base_address=" PFX "\n"
+                              "\tname=\"%s\" />\n"
+                            : "  " PFX "-" PFX " entry=" PFX " base_address=" PFX "\n"
+                              "\tname=\"%s\" \n",
                    ma->start, ma->end - 1, /* inclusive */
                    ma->entry_point, ma->os_data.base_address,
-                   GET_MODULE_NAME(&ma->names) == NULL ?
-                       "(null)" : GET_MODULE_NAME(&ma->names));
+                   GET_MODULE_NAME(&ma->names) == NULL ? "(null)"
+                                                       : GET_MODULE_NAME(&ma->names));
     }
     module_iterator_stop(mi);
 
@@ -279,8 +279,8 @@ os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which))
 
 /* Returns the bounds of the first section with matching name. */
 bool
-get_named_section_bounds(app_pc module_base, const char *name,
-                         app_pc *start/*OUT*/, app_pc *end/*OUT*/)
+get_named_section_bounds(app_pc module_base, const char *name, app_pc *start /*OUT*/,
+                         app_pc *end /*OUT*/)
 {
     /* FIXME: not implemented */
     ASSERT(module_is_header(module_base, 0));
@@ -297,7 +297,6 @@ rct_is_exported_function(app_pc tag)
     /* FIXME: not implemented */
     return false;
 }
-
 
 /* FIXME PR 295529: NYI, here so code origins policies aren't all ifdef WINDOWS */
 const char *
@@ -339,8 +338,8 @@ is_range_in_code_section(app_pc module_base, app_pc start_pc, app_pc end_pc,
 
 /* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
-is_in_code_section(app_pc module_base, app_pc addr,
-                   app_pc *sec_start /* OUT */, app_pc *sec_end /* OUT */)
+is_in_code_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
+                   app_pc *sec_end /* OUT */)
 {
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -348,8 +347,8 @@ is_in_code_section(app_pc module_base, app_pc addr,
 
 /* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
-is_in_dot_data_section(app_pc module_base, app_pc addr,
-                       app_pc *sec_start /* OUT */, app_pc *sec_end /* OUT */)
+is_in_dot_data_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
+                       app_pc *sec_end /* OUT */)
 {
     return false;
     ASSERT_NOT_IMPLEMENTED(false);
@@ -357,8 +356,8 @@ is_in_dot_data_section(app_pc module_base, app_pc addr,
 
 /* FIXME PR 212458: NYI, here so code origins policies aren't all ifdef WINDOWS */
 bool
-is_in_any_section(app_pc module_base, app_pc addr,
-                  app_pc *sec_start /* OUT */, app_pc *sec_end /* OUT */)
+is_in_any_section(app_pc module_base, app_pc addr, app_pc *sec_start /* OUT */,
+                  app_pc *sec_end /* OUT */)
 {
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
@@ -369,7 +368,6 @@ is_mapped_as_image(app_pc module_base)
 {
     return module_is_header(module_base, 0);
 }
-
 
 /* Gets module information of module containing pc, cached from our module list.
  * Returns false if not in module; none of the OUT arguments are set in that case.
@@ -388,9 +386,8 @@ is_mapped_as_image(app_pc module_base)
  * caller has no obligations.
  */
 bool
-os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
-                   size_t *size, const char **name, size_t *code_size,
-                   uint64 *file_version)
+os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp, size_t *size,
+                   const char **name, size_t *code_size, uint64 *file_version)
 {
     module_area_t *ma;
     if (!is_module_list_initialized())
@@ -399,7 +396,8 @@ os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
     /* read lock to protect custom data */
     if (name == NULL)
         os_get_module_info_lock();
-    ASSERT(os_get_module_info_locked());;
+    ASSERT(os_get_module_info_locked());
+    ;
 
     ma = module_pc_lookup(pc);
     if (ma != NULL) {
@@ -420,8 +418,7 @@ os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
             ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
             for (i = 0; i < ma->os_data.num_segments; i++) {
                 if (ma->os_data.segments[i].prot == (MEMPROT_EXEC | MEMPROT_READ)) {
-                    rx_sz = ma->os_data.segments[i].end -
-                        ma->os_data.segments[i].start;
+                    rx_sz = ma->os_data.segments[i].end - ma->os_data.segments[i].start;
                     break;
                 }
             }
@@ -440,14 +437,14 @@ os_get_module_info(const app_pc pc, uint *checksum, uint *timestamp,
 
 bool
 os_get_module_info_all_names(const app_pc pc, uint *checksum, uint *timestamp,
-                             size_t *size, module_names_t **names,
-                             size_t *code_size, uint64 *file_version)
+                             size_t *size, module_names_t **names, size_t *code_size,
+                             uint64 *file_version)
 {
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
-#if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
+#    if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 extern rct_module_table_t rct_global_table;
 
 /* Caller must hold module_data_lock */
@@ -459,17 +456,14 @@ os_module_get_rct_htable(app_pc pc, rct_type_t which)
         return &rct_global_table;
     return NULL; /* we use rac_non_module_table */
 }
-#endif
+#    endif
 
 /* Adds an entry for a segment to the out_data->segments array */
 void
-module_add_segment_data(OUT os_module_data_t *out_data,
-                        uint num_segments /*hint only*/,
-                        app_pc segment_start,
-                        size_t segment_size,
+module_add_segment_data(OUT os_module_data_t *out_data, uint num_segments /*hint only*/,
+                        app_pc segment_start, size_t segment_size,
                         uint segment_prot, /* MEMPROT_ */
-                        size_t alignment,
-                        bool shared)
+                        size_t alignment, bool shared, uint64 offset)
 {
     uint seg, i;
     if (out_data->alignment == 0) {
@@ -490,9 +484,8 @@ module_add_segment_data(OUT os_module_data_t *out_data,
             newsz = (num_segments == 0 ? 4 : num_segments);
         else
             newsz = out_data->alloc_segments * 2;
-        newmem = (module_segment_t *)
-            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
-                             newsz, ACCT_OTHER, PROTECTED);
+        newmem = (module_segment_t *)HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
+                                                      newsz, ACCT_OTHER, PROTECTED);
         if (out_data->alloc_segments > 0) {
             memcpy(newmem, out_data->segments,
                    out_data->alloc_segments * sizeof(*out_data->segments));
@@ -516,11 +509,12 @@ module_add_segment_data(OUT os_module_data_t *out_data,
     out_data->num_segments++;
     ASSERT(out_data->num_segments <= out_data->alloc_segments);
     /* ELF requires p_vaddr to already be aligned to p_align */
-    out_data->segments[seg].start = (app_pc) ALIGN_BACKWARD(segment_start, PAGE_SIZE);
-    out_data->segments[seg].end = (app_pc)
-        ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
+    out_data->segments[seg].start = (app_pc)ALIGN_BACKWARD(segment_start, PAGE_SIZE);
+    out_data->segments[seg].end =
+        (app_pc)ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
     out_data->segments[seg].prot = segment_prot;
     out_data->segments[seg].shared = shared;
+    out_data->segments[seg].offset = offset;
     if (seg > 0) {
         ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
         if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
@@ -535,9 +529,8 @@ module_add_segment_data(OUT os_module_data_t *out_data,
 
 /* Returns true if the module has an nth segment, false otherwise. */
 bool
-module_get_nth_segment(app_pc module_base, uint n,
-                       app_pc *start/*OPTIONAL OUT*/, app_pc *end/*OPTIONAL OUT*/,
-                       uint *chars/*OPTIONAL OUT*/)
+module_get_nth_segment(app_pc module_base, uint n, app_pc *start /*OPTIONAL OUT*/,
+                       app_pc *end /*OPTIONAL OUT*/, uint *chars /*OPTIONAL OUT*/)
 {
     module_area_t *ma;
     bool res = false;
@@ -546,7 +539,7 @@ module_get_nth_segment(app_pc module_base, uint n,
     os_get_module_info_lock();
     ma = module_pc_lookup(module_base);
     if (ma != NULL && n < ma->os_data.num_segments) {
-        LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 3, "%s: ["PFX"-"PFX") %x\n",
+        LOG(GLOBAL, LOG_INTERP | LOG_VMAREAS, 3, "%s: [" PFX "-" PFX ") %x\n",
             __FUNCTION__, ma->os_data.segments[n].start, ma->os_data.segments[n].end,
             ma->os_data.segments[n].prot);
         if (start != NULL)
@@ -570,7 +563,8 @@ module_get_nth_segment(app_pc module_base, uint n,
 dr_module_import_iterator_t *
 dr_module_import_iterator_start(module_handle_t handle)
 {
-    CLIENT_ASSERT(false, "No imports on Linux, use "
+    CLIENT_ASSERT(false,
+                  "No imports on Linux, use "
                   "dr_symbol_import_iterator_t instead");
     return NULL;
 }
@@ -660,10 +654,44 @@ redirect_free(void *mem)
      */
     if (mem != NULL) {
         mem -= sizeof(size_t);
-        global_heap_free(mem, *((size_t *)mem) HEAPACCT(ACCT_LIBDUP));
+        global_heap_free(mem, *((size_t *)mem)HEAPACCT(ACCT_LIBDUP));
     }
 }
 
+#    ifdef DEBUG
+/* i#975: these help clients support static linking with the app. */
+void *
+redirect_malloc_initonly(size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "malloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_malloc(size);
+}
+
+void *
+redirect_realloc_initonly(void *mem, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "realloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_realloc(mem, size);
+}
+
+void *
+redirect_calloc_initonly(size_t nmemb, size_t size)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "calloc invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    return redirect_calloc(nmemb, size);
+}
+
+void
+redirect_free_initonly(void *mem)
+{
+    CLIENT_ASSERT(!disallow_unsafe_static_calls || !dynamo_initialized || dynamo_exited,
+                  "free invoked mid-run when disallowed by DR_DISALLOW_UNSAFE_STATIC");
+    redirect_free(mem);
+}
+#    endif
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool
@@ -701,25 +729,26 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
      */
     static const byte DL_RUNTIME_RESOLVE_MAGIC_1[8] =
         /* pop edx, pop ecx; xchg eax, (esp) ret 8 */
-    {0x5a, 0x59, 0x87, 0x04, 0x24, 0xc2, 0x08, 0x00};
+        { 0x5a, 0x59, 0x87, 0x04, 0x24, 0xc2, 0x08, 0x00 };
     static const byte DL_RUNTIME_RESOLVE_MAGIC_2[14] =
         /* pop edx, mov (esp)->ecx, mov eax->(esp), mov 4(esp)->eax, ret 12 */
-    {0x5a, 0x8b, 0x0c, 0x24, 0x89, 0x04, 0x24, 0x8b, 0x44, 0x24,
-        0x04, 0xc2, 0x0c, 0x00};
+        { 0x5a, 0x8b, 0x0c, 0x24, 0x89, 0x04, 0x24,
+          0x8b, 0x44, 0x24, 0x04, 0xc2, 0x0c, 0x00 };
     byte buf[MAX(sizeof(DL_RUNTIME_RESOLVE_MAGIC_1),
-                 sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))]= {0};
+                 sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))] = { 0 };
 
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf)
-        && memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1,
-                  sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) == 0) {
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf) &&
+        memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) ==
+            0) {
         *ret_imm = 0x8;
         return true;
     }
-    if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf)
-        && memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2,
-                  sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) == 0) {
-        LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception this is "
-                "_dl_runtime_resolve --ok \n");
+    if (d_r_safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf) &&
+        memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) ==
+            0) {
+        LOG(THREAD, LOG_INTERP, 1,
+            "RCT: KNOWN exception this is "
+            "_dl_runtime_resolve --ok \n");
         *ret_imm = 0xc;
         return true;
     }
@@ -748,11 +777,9 @@ module_contains_addr(module_area_t *ma, app_pc pc)
         uint i;
         ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
         for (i = 0; i < ma->os_data.num_segments; i++) {
-            if (pc >= ma->os_data.segments[i].start &&
-                pc < ma->os_data.segments[i].end)
+            if (pc >= ma->os_data.segments[i].start && pc < ma->os_data.segments[i].end)
                 return true;
         }
-
     }
     return false;
 }

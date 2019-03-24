@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,27 +36,27 @@
 #ifndef _HISTOGRAM_H_
 #define _HISTOGRAM_H_ 1
 
-#include <map>
+#include <unordered_map>
 #include <string>
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 
-class histogram_t : public analysis_tool_t
-{
- public:
-    histogram_t();
+class histogram_t : public analysis_tool_t {
+public:
+    histogram_t(unsigned int line_size, unsigned int report_top, unsigned int verbose);
     virtual ~histogram_t();
-    virtual bool process_memref(const memref_t &memref);
-    virtual bool print_results();
+    virtual bool
+    process_memref(const memref_t &memref);
+    virtual bool
+    print_results();
 
- protected:
-    /* FIXME i#2020: use unsorted_map (C++11) for faster lookup */
-    std::map<addr_t, uint64_t> icache_map;
-    std::map<addr_t, uint64_t> dcache_map;
+protected:
+    std::unordered_map<addr_t, uint64_t> icache_map;
+    std::unordered_map<addr_t, uint64_t> dcache_map;
 
-    size_t line_size;
+    unsigned int knob_line_size;
+    unsigned int knob_report_top; /* most accessed lines */
     size_t line_size_bits;
-    size_t report_top;  /* most accessed lines */
     static const std::string TOOL_NAME;
 };
 

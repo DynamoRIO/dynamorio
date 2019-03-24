@@ -90,7 +90,7 @@ drsym_obj_symbol_name(void *mod_in, uint idx);
  */
 drsym_error_t
 drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
-                       size_t *offs_end OUT);
+                      size_t *offs_end OUT);
 
 drsym_error_t
 drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT);

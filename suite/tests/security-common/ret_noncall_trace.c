@@ -53,11 +53,11 @@
 #define MAX_SUM (NUM_TIMES * (NUM_TIMES + 1) / 2 * INNER_LOOP_COUNT)
 
 #ifdef AARCHXX
-# define OFFSET 8
+#    define OFFSET 8
 #elif defined(X86)
-# define OFFSET 6
+#    define OFFSET 6
 #else
-# error NYI
+#    error NYI
 #endif
 
 static ptr_uint_t saved_eip;
@@ -65,47 +65,45 @@ static ptr_uint_t saved_eip;
 int
 next_num(void **retaddr_p)
 {
-  static int counter;
+    static int counter;
 
-  counter++;
-  saved_eip = (ptr_uint_t)*retaddr_p;
-  saved_eip += OFFSET;           /* Set rp to main()'s do-while loop. */
-  return counter;
+    counter++;
+    saved_eip = (ptr_uint_t)*retaddr_p;
+    saved_eip += OFFSET; /* Set rp to main()'s do-while loop. */
+    return counter;
 }
 
 int
 check_sum(void **retaddr_p)
 {
-  *retaddr_p = (void*)saved_eip;
-  return 1;                     /* Make the bogus transition here. */
+    *retaddr_p = (void *)saved_eip;
+    return 1; /* Make the bogus transition here. */
 }
 
 int
 main(void)
 {
-  int i, val, inner_loop, sum = 0;
+    int i, val, inner_loop, sum = 0;
 
-  INIT();
+    INIT();
 
-  print ("I think, therefore I am\n");
+    print("I think, therefore I am\n");
 
-  for (i = 0; i < NUM_TIMES; i++)
-  {
-    inner_loop = INNER_LOOP_COUNT;
-    /* Get next_num() into a trace. */
-    val = call_with_retaddr((void*)next_num);
-    do {
-      sum += val;
-      if (sum > MAX_SUM)
-      {
-        print(" ... in serious trouble!\n");
-        exit(-1);
-      }
-    } while (--inner_loop);
-  }
+    for (i = 0; i < NUM_TIMES; i++) {
+        inner_loop = INNER_LOOP_COUNT;
+        /* Get next_num() into a trace. */
+        val = call_with_retaddr((void *)next_num);
+        do {
+            sum += val;
+            if (sum > MAX_SUM) {
+                print(" ... in serious trouble!\n");
+                exit(-1);
+            }
+        } while (--inner_loop);
+    }
 
-  val = call_with_retaddr((void*)check_sum);
+    val = call_with_retaddr((void *)check_sum);
 
-  print("error: check_sum returned %d unexpectedly\n", val);
-  return 1;
+    print("error: check_sum returned %d unexpectedly\n", val);
+    return 1;
 }

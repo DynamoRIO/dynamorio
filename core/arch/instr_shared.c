@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -61,33 +61,30 @@
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
-#include <string.h> /* for memcpy */
-
 #ifdef DEBUG
-# include "disassemble.h"
+#    include "disassemble.h"
 #endif
 
 #ifdef VMX86_SERVER
-# include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
+#    include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
 #endif
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-# undef ASSERT_TRUNCATE
-# undef ASSERT_BITFIELD_TRUNCATE
-# undef ASSERT_NOT_REACHED
-# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
-
 /* returns an empty instr_t object */
-instr_t*
+instr_t *
 instr_create(dcontext_t *dcontext)
 {
-    instr_t *instr = (instr_t*) heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
@@ -99,7 +96,7 @@ instr_create(dcontext_t *dcontext)
     return instr;
 }
 
-/* deletes the instr_t object with handle "inst" and frees its storage */
+/* deletes the instr_t object with handle "instr" and frees its storage */
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
@@ -113,7 +110,7 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig)
 {
-    instr_t *instr = (instr_t*) heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     memcpy((void *)instr, (void *)orig, sizeof(instr_t));
     instr->next = NULL;
     instr->prev = NULL;
@@ -126,31 +123,27 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 
     if ((orig->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         /* instr length already set from memcpy */
-        instr->bytes = (byte *) heap_alloc(dcontext, instr->length
-                                           HEAPACCT(ACCT_IR));
+        instr->bytes = (byte *)heap_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
     }
 #ifdef CUSTOM_EXIT_STUBS
     if ((orig->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
         /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *) orig->dsts;
+        instrlist_t *existing = (instrlist_t *)orig->dsts;
         CLIENT_ASSERT(existing != NULL, "instr_clone: src has inconsistent custom stub");
-        instr->dsts = (opnd_t *) instrlist_clone(dcontext, existing);
-    }
-    else /* disable normal dst cloning */
+        instr->dsts = (opnd_t *)instrlist_clone(dcontext, existing);
+    } else /* disable normal dst cloning */
 #endif
-    if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
-        instr->dsts = (opnd_t *) heap_alloc(dcontext, instr->num_dsts*sizeof(opnd_t)
-                                          HEAPACCT(ACCT_IR));
-        memcpy((void *)instr->dsts, (void *)orig->dsts,
-               instr->num_dsts*sizeof(opnd_t));
+        if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
+        instr->dsts = (opnd_t *)heap_alloc(
+            dcontext, instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        memcpy((void *)instr->dsts, (void *)orig->dsts, instr->num_dsts * sizeof(opnd_t));
     }
     if (orig->num_srcs > 1) { /* checking num_src, not srcs, b/c of label data */
-        instr->srcs = (opnd_t *) heap_alloc(dcontext,
-                                          (instr->num_srcs-1)*sizeof(opnd_t)
-                                          HEAPACCT(ACCT_IR));
+        instr->srcs = (opnd_t *)heap_alloc(
+            dcontext, (instr->num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         memcpy((void *)instr->srcs, (void *)orig->srcs,
-               (instr->num_srcs-1)*sizeof(opnd_t));
+               (instr->num_srcs - 1) * sizeof(opnd_t));
     }
     /* copy note (we make no guarantee, and have no way, to do a deep clone) */
     instr->note = orig->note;
@@ -173,6 +166,8 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 void
 instr_free(dcontext_t *dcontext, instr_t *instr)
 {
+    if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
+        (*instr->label_cb)(dcontext, instr);
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0) {
         heap_free(dcontext, instr->bytes, instr->length HEAPACCT(ACCT_IR));
         instr->bytes = NULL;
@@ -181,22 +176,22 @@ instr_free(dcontext_t *dcontext, instr_t *instr)
 #ifdef CUSTOM_EXIT_STUBS
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
         /* HACK: dsts is used to store list */
-        instrlist_t *existing = (instrlist_t *) instr->dsts;
+        instrlist_t *existing = (instrlist_t *)instr->dsts;
         CLIENT_ASSERT(existing != NULL, "instr_free: custom stubs inconsistent");
         instrlist_clear_and_destroy(dcontext, existing);
         instr->dsts = NULL;
     }
 #endif
     if (instr->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
-        heap_free(dcontext, instr->dsts, instr->num_dsts*sizeof(opnd_t)
-                  HEAPACCT(ACCT_IR));
+        heap_free(dcontext, instr->dsts,
+                  instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         instr->dsts = NULL;
         instr->num_dsts = 0;
     }
     if (instr->num_srcs > 1) { /* checking num_src, not src, b/c of label data */
         /* remember one src is static, rest are dynamic */
-        heap_free(dcontext, instr->srcs, (instr->num_srcs-1)*sizeof(opnd_t)
-                  HEAPACCT(ACCT_IR));
+        heap_free(dcontext, instr->srcs,
+                  (instr->num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         instr->srcs = NULL;
         instr->num_srcs = 0;
     }
@@ -213,7 +208,7 @@ instr_mem_usage(instr_t *instr)
 #ifdef CUSTOM_EXIT_STUBS
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
         /* HACK: dsts is used to store list */
-        instrlist_t *il = (instrlist_t *) instr->dsts;
+        instrlist_t *il = (instrlist_t *)instr->dsts;
         instr_t *in;
         CLIENT_ASSERT(il != NULL, "instr_mem_usage: custom stubs inconsistent");
         for (in = instrlist_first(il); in != NULL; in = instr_get_next(in))
@@ -221,16 +216,15 @@ instr_mem_usage(instr_t *instr)
     }
 #endif
     if (instr->dsts != NULL) {
-        usage += instr->num_dsts*sizeof(opnd_t);
+        usage += instr->num_dsts * sizeof(opnd_t);
     }
     if (instr->srcs != NULL) {
         /* remember one src is static, rest are dynamic */
-        usage += (instr->num_srcs-1)*sizeof(opnd_t);
+        usage += (instr->num_srcs - 1) * sizeof(opnd_t);
     }
     usage += sizeof(instr_t);
     return usage;
 }
-
 
 /* Frees all dynamically allocated storage that was allocated by instr
  * Also zeroes out instr's fields
@@ -340,16 +334,18 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
-            SYSLOG_INTERNAL_WARNING("cannot encode %s", opcode_to_encoding_info
-                                    (instr->opcode, instr_get_isa_mode(instr)
-                                     _IF_ARM(false))->name);
+            SYSLOG_INTERNAL_WARNING("cannot encode %s",
+                                    opcode_to_encoding_info(instr->opcode,
+                                                            instr_get_isa_mode(instr)
+                                                                _IF_ARM(false))
+                                        ->name);
             heap_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
         valid_to_cache = false;
     }
-    len = (int) (nxt - buf);
+    len = (int)(nxt - buf);
     CLIENT_ASSERT(len > 0 || instr_is_label(instr),
                   "encode instr for length/eflags error: zero length");
     CLIENT_ASSERT(len <= MAX_INSTR_LENGTH,
@@ -395,11 +391,11 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     return len;
 }
 
-#define inlined_instr_get_opcode(instr) \
-    (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type")) \
-     (((instr)->opcode == OP_UNDECODED) ? \
-      (instr_decode_with_current_dcontext(instr), (instr)->opcode) : \
-      (instr)->opcode))
+#define inlined_instr_get_opcode(instr)                                           \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
+        ((instr)->opcode == OP_UNDECODED)                                         \
+            ? (instr_decode_with_current_dcontext(instr), (instr)->opcode)        \
+            : (instr)->opcode))
 int
 instr_get_opcode(instr_t *instr)
 {
@@ -424,12 +420,12 @@ instr_set_opcode(instr_t *instr, int opcode)
 {
     instr->opcode = opcode;
     /* if we're modifying opcode, don't use original bits to encode! */
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     /* do not assume operands are valid, they are separate from opcode,
      * but if opcode is invalid operands shouldn't be valid
      */
     CLIENT_ASSERT((opcode != OP_INVALID && opcode != OP_UNDECODED) ||
-                  !instr_operands_valid(instr),
+                      !instr_operands_valid(instr),
                   "instr_set_opcode: operand-opcode validity mismatch");
 }
 
@@ -465,7 +461,6 @@ instr_opcode_valid(instr_t *instr)
     return (instr->opcode != OP_INVALID && instr->opcode != OP_UNDECODED);
 }
 
-
 const instr_info_t *
 instr_get_instr_info(instr_t *instr)
 {
@@ -487,8 +482,8 @@ instr_get_instr_info(instr_t *instr)
             in_it_block = true;
     }
 #endif
-    return opcode_to_encoding_info(instr_get_opcode(instr), isa_mode
-                                   _IF_ARM(in_it_block));
+    return opcode_to_encoding_info(instr_get_opcode(instr),
+                                   isa_mode _IF_ARM(in_it_block));
 }
 
 const instr_info_t *
@@ -498,9 +493,8 @@ get_instr_info(int opcode)
      *e.g., eflags in instr_get_opcode_eflags for OP_adds vs OP_add, so it does
      * not matter whether it is in an IT block or not.
      */
-    return opcode_to_encoding_info(opcode,
-                                   dr_get_isa_mode(get_thread_private_dcontext())
-                                   _IF_ARM(false));
+    return opcode_to_encoding_info(
+        opcode, dr_get_isa_mode(get_thread_private_dcontext()) _IF_ARM(false));
 }
 
 #undef instr_get_src
@@ -523,31 +517,31 @@ instr_get_dst(instr_t *instr, uint pos)
  * assumes that instr is currently all zeroed out!
  */
 void
-instr_set_num_opnds(dcontext_t *dcontext,
-                    instr_t *instr, int instr_num_dsts, int instr_num_srcs)
+instr_set_num_opnds(dcontext_t *dcontext, instr_t *instr, int instr_num_dsts,
+                    int instr_num_srcs)
 {
     if (instr_num_dsts > 0) {
         CLIENT_ASSERT(instr->num_dsts == 0 && instr->dsts == NULL,
                       "instr_set_num_opnds: dsts are already set");
         CLIENT_ASSERT_TRUNCATE(instr->num_dsts, byte, instr_num_dsts,
                                "instr_set_num_opnds: too many dsts");
-        instr->num_dsts = (byte) instr_num_dsts;
-        instr->dsts = (opnd_t *) heap_alloc(dcontext, instr_num_dsts*sizeof(opnd_t)
-                                          HEAPACCT(ACCT_IR));
+        instr->num_dsts = (byte)instr_num_dsts;
+        instr->dsts = (opnd_t *)heap_alloc(
+            dcontext, instr_num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
     }
     if (instr_num_srcs > 0) {
         /* remember that src0 is static, rest are dynamic */
         if (instr_num_srcs > 1) {
             CLIENT_ASSERT(instr->num_srcs <= 1 && instr->srcs == NULL,
                           "instr_set_num_opnds: srcs are already set");
-            instr->srcs = (opnd_t *) heap_alloc(dcontext, (instr_num_srcs-1)*sizeof(opnd_t)
-                                              HEAPACCT(ACCT_IR));
+            instr->srcs = (opnd_t *)heap_alloc(
+                dcontext, (instr_num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
         }
         CLIENT_ASSERT_TRUNCATE(instr->num_srcs, byte, instr_num_srcs,
                                "instr_set_num_opnds: too many srcs");
-        instr->num_srcs = (byte) instr_num_srcs;
+        instr->num_srcs = (byte)instr_num_srcs;
     }
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     /* assume all operands are valid */
     instr_set_operands_valid(instr, true);
 }
@@ -561,9 +555,9 @@ instr_set_src(instr_t *instr, uint pos, opnd_t opnd)
     if (pos == 0)
         instr->src0 = opnd;
     else
-        instr->srcs[pos-1] = opnd;
+        instr->srcs[pos - 1] = opnd;
     /* if we're modifying operands, don't use original bits to encode! */
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     /* assume all operands are valid */
     instr_set_operands_valid(instr, true);
 }
@@ -575,7 +569,7 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd)
     CLIENT_ASSERT(pos >= 0 && pos < instr->num_dsts, "instr_set_dst: ordinal invalid");
     instr->dsts[pos] = opnd;
     /* if we're modifying operands, don't use original bits to encode! */
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     /* assume all operands are valid */
     instr_set_operands_valid(instr, true);
 }
@@ -588,24 +582,24 @@ instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
     CLIENT_ASSERT(start >= 0 && end <= instr->num_srcs && start < end,
                   "instr_remove_srcs: ordinals invalid");
     if (instr->num_srcs - 1 > (byte)(end - start)) {
-        new_srcs = (opnd_t *) heap_alloc
-            (dcontext, (instr->num_srcs - 1 - (end-start))*sizeof(opnd_t)
-             HEAPACCT(ACCT_IR));
+        new_srcs = (opnd_t *)heap_alloc(dcontext,
+                                        (instr->num_srcs - 1 - (end - start)) *
+                                            sizeof(opnd_t) HEAPACCT(ACCT_IR));
         if (start > 1)
-            memcpy(new_srcs, instr->srcs, (start-1)*sizeof(opnd_t));
+            memcpy(new_srcs, instr->srcs, (start - 1) * sizeof(opnd_t));
         if ((byte)end < instr->num_srcs - 1) {
-            memcpy(new_srcs + (start == 0 ? 0 : (start-1)), instr->srcs + end,
-                   (instr->num_srcs - 1 - end)*sizeof(opnd_t));
+            memcpy(new_srcs + (start == 0 ? 0 : (start - 1)), instr->srcs + end,
+                   (instr->num_srcs - 1 - end) * sizeof(opnd_t));
         }
     } else
         new_srcs = NULL;
     if (start == 0 && end < instr->num_srcs)
         instr->src0 = instr->srcs[end - 1];
-    heap_free(dcontext, instr->srcs, (instr->num_srcs-1)*sizeof(opnd_t)
-              HEAPACCT(ACCT_IR));
+    heap_free(dcontext, instr->srcs,
+              (instr->num_srcs - 1) * sizeof(opnd_t) HEAPACCT(ACCT_IR));
     instr->num_srcs -= (byte)(end - start);
     instr->srcs = new_srcs;
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     instr_set_operands_valid(instr, true);
 }
 
@@ -617,20 +611,21 @@ instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
     CLIENT_ASSERT(start >= 0 && end <= instr->num_dsts && start < end,
                   "instr_remove_dsts: ordinals invalid");
     if (instr->num_dsts > (byte)(end - start)) {
-        new_dsts = (opnd_t *) heap_alloc
-            (dcontext, (instr->num_dsts - (end-start))*sizeof(opnd_t) HEAPACCT(ACCT_IR));
+        new_dsts = (opnd_t *)heap_alloc(dcontext,
+                                        (instr->num_dsts - (end - start)) *
+                                            sizeof(opnd_t) HEAPACCT(ACCT_IR));
         if (start > 0)
-            memcpy(new_dsts, instr->dsts, start*sizeof(opnd_t));
+            memcpy(new_dsts, instr->dsts, start * sizeof(opnd_t));
         if (end < instr->num_dsts) {
             memcpy(new_dsts + start, instr->dsts + end,
-                   (instr->num_dsts - end)*sizeof(opnd_t));
+                   (instr->num_dsts - end) * sizeof(opnd_t));
         }
     } else
         new_dsts = NULL;
-    heap_free(dcontext, instr->dsts, instr->num_dsts*sizeof(opnd_t) HEAPACCT(ACCT_IR));
+    heap_free(dcontext, instr->dsts, instr->num_dsts * sizeof(opnd_t) HEAPACCT(ACCT_IR));
     instr->num_dsts -= (byte)(end - start);
     instr->dsts = new_dsts;
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     instr_set_operands_valid(instr, true);
 }
 
@@ -662,7 +657,7 @@ instr_t *
 instr_set_prefix_flag(instr_t *instr, uint prefix)
 {
     instr->prefixes |= prefix;
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
     return instr;
 }
 
@@ -676,7 +671,7 @@ void
 instr_set_prefixes(instr_t *instr, uint prefixes)
 {
     instr->prefixes = prefixes;
-    instr_being_modified(instr, false/*raw bits invalid*/);
+    instr_being_modified(instr, false /*raw bits invalid*/);
 }
 
 uint
@@ -866,7 +861,7 @@ instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub)
     CLIENT_ASSERT(instr->num_dsts == 0, "instr_set_exit_stub_code: instr invalid");
     if (stub != NULL && (instr->flags & INSTR_HAS_CUSTOM_STUB) != 0) {
         /* delete existing */
-        instrlist_t *existing = (instrlist_t *) instr->dsts;
+        instrlist_t *existing = (instrlist_t *)instr->dsts;
         instrlist_clear_and_destroy(get_thread_private_dcontext(), existing);
     }
     if (stub == NULL) {
@@ -874,7 +869,7 @@ instr_set_exit_stub_code(instr_t *instr, instrlist_t *stub)
         instr->dsts = NULL;
     } else {
         instr->flags |= INSTR_HAS_CUSTOM_STUB;
-        instr->dsts = (opnd_t *) stub;
+        instr->dsts = (opnd_t *)stub;
     }
 }
 
@@ -890,7 +885,7 @@ instr_exit_stub_code(instr_t *instr)
         return NULL;
     if ((instr->flags & INSTR_HAS_CUSTOM_STUB) == 0)
         return NULL;
-    return (instrlist_t *) instr->dsts;
+    return (instrlist_t *)instr->dsts;
 }
 #endif
 
@@ -920,7 +915,7 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
         if (instr_needs_encoding(instr)) {
             int len;
             encoded = true;
-            len = private_instr_encode(dcontext, instr, true/*cache*/);
+            len = private_instr_encode(dcontext, instr, true /*cache*/);
             if (len == 0) {
                 if (!instr_is_label(instr))
                     CLIENT_ASSERT(false, "instr_get_eflags: invalid instr");
@@ -1092,9 +1087,8 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     byte *original_bits = NULL;
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0)
         original_bits = instr->bytes;
-    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 ||
-        instr->length != num_bytes) {
-        byte * new_bits = (byte *) heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+    if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 || instr->length != num_bytes) {
+        byte *new_bits = (byte *)heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place
@@ -1115,6 +1109,27 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
+}
+
+void
+instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb == NULL, "label callback function is already set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = cb;
+}
+
+instr_label_callback_t
+instr_get_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only label instructions have a callback function");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    return instr->label_cb;
 }
 
 instr_t *
@@ -1168,7 +1183,7 @@ instr_get_raw_byte(instr_t *instr, uint pos)
 uint
 instr_get_raw_word(instr_t *instr, uint pos)
 {
-    CLIENT_ASSERT(pos >= 0 && pos+3 < instr->length && instr->bytes != NULL,
+    CLIENT_ASSERT(pos >= 0 && pos + 3 < instr->length && instr->bytes != NULL,
                   "instr_get_raw_word: ordinal invalid, or no raw bits");
     return *((uint *)(instr->bytes + pos));
 }
@@ -1185,7 +1200,7 @@ instr_set_raw_byte(instr_t *instr, uint pos, byte val)
                   "instr_set_raw_byte: no raw bits");
     CLIENT_ASSERT(pos >= 0 && pos < instr->length && instr->bytes != NULL,
                   "instr_set_raw_byte: ordinal invalid, or no raw bits");
-    instr->bytes[pos] = (byte) val;
+    instr->bytes[pos] = (byte)val;
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
@@ -1217,9 +1232,9 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
 {
     CLIENT_ASSERT((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0,
                   "instr_set_raw_word: no raw bits");
-    CLIENT_ASSERT(pos >= 0 && pos+3 < instr->length && instr->bytes != NULL,
+    CLIENT_ASSERT(pos >= 0 && pos + 3 < instr->length && instr->bytes != NULL,
                   "instr_set_raw_word: ordinal invalid, or no raw bits");
-    *((uint *)(instr->bytes+pos)) = word;
+    *((uint *)(instr->bytes + pos)) = word;
 #ifdef X86_64
     instr_set_rip_rel_valid(instr, false); /* relies on original raw bits */
 #endif
@@ -1246,7 +1261,7 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
         return res;
 
     /* else, encode to find length */
-    return private_instr_encode(dcontext, instr, false/*don't need to cache*/);
+    return private_instr_encode(dcontext, instr, false /*don't need to cache*/);
 }
 
 /***********************************************************************/
@@ -1282,7 +1297,13 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         !instr_valid(instr))
         return instr;
 
-    DOLOG(5, LOG_ALL, { loginst(dcontext, 4, instr, "instr_expand"); });
+    DOLOG(5, LOG_ALL, {
+        /* disassembling might change the instruction object, we're cloning it
+         * for the logger */
+        instr_t *log_instr = instr_clone(dcontext, instr);
+        d_r_loginst(dcontext, 4, log_instr, "instr_expand");
+        instr_free(dcontext, log_instr);
+    });
 
     /* decode routines use dcontext mode, but we want instr mode */
     dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
@@ -1315,7 +1336,8 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             dr_set_isa_mode(dcontext, old_mode, NULL);
             return firstinstr;
         }
-        DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
+        DOLOG(5, LOG_ALL,
+              { d_r_loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
 
         /* CAREFUL of what you call here -- don't call anything that
          * auto-upgrades instr to Level 2, it will fail on Level 0 bundles!
@@ -1346,7 +1368,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 
         IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(newbytes - curbytes),
                              "instr_expand: internal truncation error"));
-        cur_inst_len = (int) (newbytes - curbytes);
+        cur_inst_len = (int)(newbytes - curbytes);
         remaining_bytes -= cur_inst_len;
         curbytes = newbytes;
 
@@ -1379,8 +1401,7 @@ instr_is_level_0(instr_t *instr)
     /* never have opnds but not opcode */
     CLIENT_ASSERT(!instr_operands_valid(instr),
                   "instr_is_level_0: opnds are already valid");
-    CLIENT_ASSERT(instr_raw_bits_valid(instr),
-                  "instr_is_level_0: raw bits are invalid");
+    CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_is_level_0: raw bits are invalid");
     dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
     if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X86_64(NULL)) ==
         instr->length) {
@@ -1423,7 +1444,6 @@ instrlist_first_expanded(dcontext_t *dcontext, instrlist_t *ilist)
     instr_expand(dcontext, ilist, instrlist_first(ilist));
     return instrlist_first(ilist);
 }
-
 
 /* If the last instr is at Level 0 (i.e., a bundled group of instrs as raw bits),
  * expands it into a sequence of Level 1 instrs using decode_raw() which
@@ -1547,9 +1567,9 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
 /* Calls instr_decode() with the current dcontext.  Mostly useful as the slow
  * path for IR routines that get inlined.
  */
-NOINLINE  /* rarely called */
-instr_t *
-instr_decode_with_current_dcontext(instr_t *instr)
+NOINLINE /* rarely called */
+    instr_t *
+    instr_decode_with_current_dcontext(instr_t *instr)
 {
     instr_decode(get_thread_private_dcontext(), instr);
     return instr;
@@ -1580,8 +1600,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
     });
 
     /* just use the expanding iterator to get to Level 1, then decode cti */
-    for (instr = instrlist_first_expanded(dcontext, ilist);
-         instr != NULL;
+    for (instr = instrlist_first_expanded(dcontext, ilist); instr != NULL;
          instr = instr_get_next_expanded(dcontext, ilist, instr)) {
         /* if arith flags are missing but otherwise decoded, who cares,
          * next get_arith_flags() will fill it in
@@ -1589,10 +1608,10 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
         if (!instr_opcode_valid(instr) ||
             (instr_is_cti(instr) && !instr_operands_valid(instr))) {
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
+                d_r_loginst(dcontext, 4, instr, "instrlist_decode_cti: about to decode");
             });
             instr_decode_cti(dcontext, instr);
-            DOLOG(4, LOG_ALL, { loginst(dcontext, 4, instr, "\tjust decoded"); });
+            DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, instr, "\tjust decoded"); });
         }
     }
 
@@ -1600,23 +1619,23 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
      * assumption: all intra-ilist cti's have been marked as do-not-mangle,
      * plus all targets have their raw bits already set
      */
-    for (instr = instrlist_first(ilist); instr != NULL;
-         instr = instr_get_next(instr)) {
+    for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
         /* N.B.: if we change exit cti's to have instr_t targets, we have to
          * change other modules like emit to handle that!
          * FIXME
          */
         if (!instr_is_exit_cti(instr) &&
             instr_opcode_valid(instr) && /* decode_cti only filled in cti opcodes */
-            instr_is_cti(instr) &&
-            instr_num_srcs(instr) > 0 && opnd_is_near_pc(instr_get_src(instr, 0))) {
+            instr_is_cti(instr) && instr_num_srcs(instr) > 0 &&
+            opnd_is_near_pc(instr_get_src(instr, 0))) {
             instr_t *tgt;
             DOLOG(4, LOG_ALL, {
-                loginst(dcontext, 4, instr, "instrlist_decode_cti: found cti w/ pc target");
+                d_r_loginst(dcontext, 4, instr,
+                            "instrlist_decode_cti: found cti w/ pc target");
             });
             for (tgt = instrlist_first(ilist); tgt != NULL; tgt = instr_get_next(tgt)) {
-                DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tchecking"); });
-                LOG(THREAD, LOG_INTERP|LOG_OPTS, 4, "\t\taddress is "PFX"\n",
+                DOLOG(4, LOG_ALL, { d_r_loginst(dcontext, 4, tgt, "\tchecking"); });
+                LOG(THREAD, LOG_INTERP | LOG_OPTS, 4, "\t\taddress is " PFX "\n",
                     instr_get_raw_bits(tgt));
                 if (opnd_get_pc(instr_get_target(instr)) == instr_get_raw_bits(tgt)) {
                     /* cti targets this instr */
@@ -1629,7 +1648,8 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
                     instr_set_target(instr, opnd_create_instr(tgt));
                     if (bits != 0)
                         instr_set_raw_bits(instr, bits, len);
-                    DOLOG(4, LOG_ALL, { loginst(dcontext, 4, tgt, "\tcti targets this"); });
+                    DOLOG(4, LOG_ALL,
+                          { d_r_loginst(dcontext, 4, tgt, "\tcti targets this"); });
                     break;
                 }
             }
@@ -1647,28 +1667,27 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
 /* utility routines */
 
 void
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
+d_r_loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
-        instr_disassemble(dcontext,instr,THREAD);
-        LOG(THREAD, LOG_ALL, level,"\n");
+        instr_disassemble(dcontext, instr, THREAD);
+        LOG(THREAD, LOG_ALL, level, "\n");
     });
 }
 
 void
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
+d_r_logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
         opnd_disassemble(dcontext, opnd, THREAD);
-        LOG(THREAD, LOG_ALL, level,"\n");
+        LOG(THREAD, LOG_ALL, level, "\n");
     });
 }
 
-
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
+d_r_logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;
@@ -1691,26 +1710,24 @@ instr_shrink_to_16_bits(instr_t *instr)
 {
     int i;
     opnd_t opnd;
-    const instr_info_t * info;
+    const instr_info_t *info;
     byte optype;
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_16_bits: invalid opnds");
     info = get_encoding_info(instr);
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
         /* some non-memory references vary in size by addr16, not data16:
          * e.g., the edi/esi inc/dec of string instrs
          */
-        optype = instr_info_opnd_type(info, false/*dst*/, i);
-        if (!opnd_is_memory_reference(opnd) &&
-            !optype_is_indir_reg(optype)) {
+        optype = instr_info_opnd_type(info, false /*dst*/, i);
+        if (!opnd_is_memory_reference(opnd) && !optype_is_indir_reg(optype)) {
             instr_set_dst(instr, i, opnd_shrink_to_16_bits(opnd));
         }
     }
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
-        optype = instr_info_opnd_type(info, true/*dst*/, i);
-        if (!opnd_is_memory_reference(opnd) &&
-            !optype_is_indir_reg(optype)) {
+        optype = instr_info_opnd_type(info, true /*dst*/, i);
+        if (!opnd_is_memory_reference(opnd) && !optype_is_indir_reg(optype)) {
             instr_set_src(instr, i, opnd_shrink_to_16_bits(opnd));
         }
     }
@@ -1726,11 +1743,11 @@ instr_shrink_to_32_bits(instr_t *instr)
     int i;
     opnd_t opnd;
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_32_bits: invalid opnds");
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
         instr_set_dst(instr, i, opnd_shrink_to_32_bits(opnd));
     }
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
         if (opnd_is_immed_int(opnd)) {
             CLIENT_ASSERT(opnd_get_immed_int(opnd) <= INT_MAX,
@@ -1744,15 +1761,17 @@ instr_shrink_to_32_bits(instr_t *instr)
 bool
 instr_uses_reg(instr_t *instr, reg_id_t reg)
 {
-    return (instr_reg_in_dst(instr,reg)||instr_reg_in_src(instr,reg));
+    return (instr_reg_in_dst(instr, reg) || instr_reg_in_src(instr, reg));
 }
 
-bool instr_reg_in_dst(instr_t *instr, reg_id_t reg)
+bool
+instr_reg_in_dst(instr_t *instr, reg_id_t reg)
 {
     int i;
-    for (i=0; i<instr_num_dsts(instr); i++)
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_uses_reg(instr_get_dst(instr, i), reg))
             return true;
+    }
     return false;
 }
 
@@ -1765,7 +1784,7 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg)
     if (instr_get_opcode(instr) == OP_nop_modrm)
         return false;
 #endif
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), reg))
             return true;
     }
@@ -1790,7 +1809,7 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
      * operand are covered by DR_QUERY_INCLUDE_COND_SRCS rather than
      * DR_QUERY_INCLUDE_COND_DSTS (i#1849).
      */
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
         if (!opnd_is_reg(opnd) && opnd_uses_reg(opnd, reg))
             return true;
@@ -1799,7 +1818,8 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 }
 
 /* this checks sub-registers */
-bool instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
+bool
+instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
     int i;
     opnd_t opnd;
@@ -1807,16 +1827,17 @@ bool instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t fla
     if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
-    for (i=0; i<instr_num_dsts(instr); i++) {
-        opnd=instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd)&&(dr_reg_fixer[opnd_get_reg(opnd)]==dr_reg_fixer[reg]))
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && (dr_reg_fixer[opnd_get_reg(opnd)] == dr_reg_fixer[reg]))
             return true;
     }
     return false;
 }
 
 /* in this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
-bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
+bool
+instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
     int i;
     opnd_t opnd;
@@ -1824,9 +1845,10 @@ bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags
     if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
         return false;
 
-    for (i=0; i<instr_num_dsts(instr); i++) {
-        opnd=instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd) && (opnd_get_reg(opnd)==reg)
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) &&
+            (opnd_get_reg(opnd) == reg)
             /* for case like OP_movt on ARM and SIMD regs on X86,
              * partial reg writen with full reg name in opnd
              */
@@ -1836,41 +1858,42 @@ bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags
     return false;
 }
 
-bool instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd)
+bool
+instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd)
 {
-    int srcs,a;
+    int srcs, a;
 
-    srcs=instr_num_srcs(instr);
+    srcs = instr_num_srcs(instr);
 
-    for (a=0;a<srcs;a++) {
-        if (opnd_same(instr_get_src(instr,a),old_opnd)||
-            opnd_same_address(instr_get_src(instr,a),old_opnd)) {
-            instr_set_src(instr,a,new_opnd);
+    for (a = 0; a < srcs; a++) {
+        if (opnd_same(instr_get_src(instr, a), old_opnd) ||
+            opnd_same_address(instr_get_src(instr, a), old_opnd)) {
+            instr_set_src(instr, a, new_opnd);
             return true;
         }
     }
     return false;
 }
 
-
-bool instr_same(instr_t *inst1,instr_t *inst2)
+bool
+instr_same(instr_t *inst1, instr_t *inst2)
 {
-    int dsts,srcs,a;
+    int dsts, srcs, a;
 
-    if (instr_get_opcode(inst1)!=instr_get_opcode(inst2))
+    if (instr_get_opcode(inst1) != instr_get_opcode(inst2))
         return false;
 
-    if ((srcs=instr_num_srcs(inst1))!=instr_num_srcs(inst2))
+    if ((srcs = instr_num_srcs(inst1)) != instr_num_srcs(inst2))
         return false;
-    for (a=0;a<srcs;a++) {
-        if (!opnd_same(instr_get_src(inst1,a),instr_get_src(inst2,a)))
+    for (a = 0; a < srcs; a++) {
+        if (!opnd_same(instr_get_src(inst1, a), instr_get_src(inst2, a)))
             return false;
     }
 
-    if ((dsts=instr_num_dsts(inst1))!=instr_num_dsts(inst2))
+    if ((dsts = instr_num_dsts(inst1)) != instr_num_dsts(inst2))
         return false;
-    for (a=0;a<dsts;a++) {
-        if (!opnd_same(instr_get_dst(inst1,a),instr_get_dst(inst2,a)))
+    for (a = 0; a < dsts; a++) {
+        if (!opnd_same(instr_get_dst(inst1, a), instr_get_dst(inst2, a)))
             return false;
     }
 
@@ -1901,8 +1924,8 @@ instr_reads_memory(instr_t *instr)
     if (opc_is_not_a_real_memory_load(opc))
         return false;
 
-    for (a=0; a<instr_num_srcs(instr); a++) {
-        curop = instr_get_src(instr,a);
+    for (a = 0; a < instr_num_srcs(instr); a++) {
+        curop = instr_get_src(instr, a);
         if (opnd_is_memory_reference(curop)) {
             return true;
         }
@@ -1915,8 +1938,8 @@ instr_writes_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
-    for (a=0; a<instr_num_dsts(instr); a++) {
-        curop = instr_get_dst(instr,a);
+    for (a = 0; a < instr_num_dsts(instr); a++) {
+        curop = instr_get_dst(instr, a);
         if (opnd_is_memory_reference(curop)) {
             return true;
         }
@@ -1935,7 +1958,7 @@ instr_zeroes_ymmh(instr_t *instr)
     /* legacy instrs always preserve top half of ymm */
     if (!TEST(REQUIRES_VEX, info->flags))
         return false;
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
         if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)) &&
             !reg_is_ymm(opnd_get_reg(opnd)))
@@ -1965,7 +1988,7 @@ instr_zeroes_ymmh(instr_t *instr)
  * For now, we do use some of these routines, but none that use the rip_rel_pos.
  */
 
-# ifdef X86_64
+#    ifdef X86_64
 bool
 instr_rip_rel_valid(instr_t *instr)
 {
@@ -1992,10 +2015,10 @@ instr_set_rip_rel_pos(instr_t *instr, uint pos)
 {
     CLIENT_ASSERT_TRUNCATE(instr->rip_rel_pos, byte, pos,
                            "instr_set_rip_rel_pos: offs must be <= 256");
-    instr->rip_rel_pos = (byte) pos;
+    instr->rip_rel_pos = (byte)pos;
     instr_set_rip_rel_valid(instr, true);
 }
-# endif /* X86_64 */
+#    endif /* X86_64 */
 
 bool
 instr_get_rel_addr_target(instr_t *instr, app_pc *target)
@@ -2004,58 +2027,65 @@ instr_get_rel_addr_target(instr_t *instr, app_pc *target)
     opnd_t curop;
     if (!instr_valid(instr))
         return false;
-#ifdef X86_64
+#    ifdef X86_64
     /* PR 251479: we support rip-rel info in level 1 instrs */
     if (instr_rip_rel_valid(instr)) {
         if (instr_get_rip_rel_pos(instr) > 0) {
-            if (target != NULL)
+            if (target != NULL) {
                 *target = instr->bytes + instr->length +
                     *((int *)(instr->bytes + instr_get_rip_rel_pos(instr)));
+            }
             return true;
         } else
             return false;
     }
-#endif
+#    endif
     /* else go to level 3 operands */
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
-        IF_ARM_ELSE({
-            /* DR_REG_PC as an index register is not allowed */
-            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
-                if (target != NULL) {
-                    *target = opnd_get_disp(curop) +
-                        decode_cur_pc(instr_get_app_pc(instr), instr_get_isa_mode(instr),
-                                      instr_get_opcode(instr), instr);
+        IF_ARM_ELSE(
+            {
+                /* DR_REG_PC as an index register is not allowed */
+                if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
+                    if (target != NULL) {
+                        *target = opnd_get_disp(curop) +
+                            decode_cur_pc(instr_get_app_pc(instr),
+                                          instr_get_isa_mode(instr),
+                                          instr_get_opcode(instr), instr);
+                    }
+                    return true;
                 }
-                return true;
-            }
-        }, {
-            if (opnd_is_rel_addr(curop)) {
-                if (target != NULL)
-                    *target = opnd_get_addr(curop);
-                return true;
-            }
-        });
+            },
+            {
+                if (opnd_is_rel_addr(curop)) {
+                    if (target != NULL)
+                        *target = opnd_get_addr(curop);
+                    return true;
+                }
+            });
     }
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         curop = instr_get_src(instr, i);
-        IF_ARM_ELSE({
-            /* DR_REG_PC as an index register is not allowed */
-            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
-                if (target != NULL) {
-                    *target = opnd_get_disp(curop) +
-                        decode_cur_pc(instr_get_app_pc(instr), instr_get_isa_mode(instr),
-                                      instr_get_opcode(instr), instr);
+        IF_ARM_ELSE(
+            {
+                /* DR_REG_PC as an index register is not allowed */
+                if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC) {
+                    if (target != NULL) {
+                        *target = opnd_get_disp(curop) +
+                            decode_cur_pc(instr_get_app_pc(instr),
+                                          instr_get_isa_mode(instr),
+                                          instr_get_opcode(instr), instr);
+                    }
+                    return true;
                 }
-                return true;
-            }
-        }, {
-            if (opnd_is_rel_addr(curop)) {
-                if (target != NULL)
-                    *target = opnd_get_addr(curop);
-                return true;
-            }
-        });
+            },
+            {
+                if (opnd_is_rel_addr(curop)) {
+                    if (target != NULL)
+                        *target = opnd_get_addr(curop);
+                    return true;
+                }
+            });
     }
     return false;
 }
@@ -2074,15 +2104,17 @@ instr_get_rel_addr_dst_idx(instr_t *instr)
     if (!instr_valid(instr))
         return -1;
     /* must go to level 3 operands */
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
-        IF_ARM_ELSE({
-            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
-                return i;
-        }, {
-            if (opnd_is_rel_addr(curop))
-                return i;
-        });
+        IF_ARM_ELSE(
+            {
+                if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
+                    return i;
+            },
+            {
+                if (opnd_is_rel_addr(curop))
+                    return i;
+            });
     }
     return -1;
 }
@@ -2095,15 +2127,17 @@ instr_get_rel_addr_src_idx(instr_t *instr)
     if (!instr_valid(instr))
         return -1;
     /* must go to level 3 operands */
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         curop = instr_get_src(instr, i);
-        IF_ARM_ELSE({
-            if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
-                return i;
-        }, {
-            if (opnd_is_rel_addr(curop))
-                return i;
-        });
+        IF_ARM_ELSE(
+            {
+                if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_PC)
+                    return i;
+            },
+            {
+                if (opnd_is_rel_addr(curop))
+                    return i;
+            });
     }
     return -1;
 }
@@ -2124,29 +2158,58 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+bool
+instr_is_our_mangling_epilogue(instr_t *instr)
+{
+    ASSERT(!TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags) ||
+           instr_is_our_mangling(instr));
+    return TEST(INSTR_OUR_MANGLING_EPILOGUE, instr->flags);
+}
+
+void
+instr_set_our_mangling_epilogue(instr_t *instr, bool epilogue)
+{
+    if (epilogue) {
+        instr->flags |= INSTR_OUR_MANGLING_EPILOGUE;
+    } else
+        instr->flags &= ~INSTR_OUR_MANGLING_EPILOGUE;
+}
+
+instr_t *
+instr_set_translation_mangling_epilogue(dcontext_t *dcontext, instrlist_t *ilist,
+                                        instr_t *instr)
+{
+    if (instrlist_get_translation_target(ilist) != NULL) {
+        int sz = decode_sizeof(dcontext, instrlist_get_translation_target(ilist),
+                               NULL _IF_X86_64(NULL));
+        instr_set_translation(instr, instrlist_get_translation_target(ilist) + sz);
+    }
+    instr_set_our_mangling_epilogue(instr, true);
+    return instr;
+}
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
 static bool
 instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
-                             dr_mcontext_flags_t mc_flags, uint index,
-                             OUT app_pc *addr, OUT bool *is_write,
-                             OUT uint *pos)
+                             dr_mcontext_flags_t mc_flags, uint index, OUT app_pc *addr,
+                             OUT bool *is_write, OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
      */
     int i;
-    opnd_t curop = {0};
+    opnd_t curop = { 0 };
     int memcount = -1;
     bool write = false;
     bool have_addr = false;
     /* We allow not selecting xmm fields since clients may legitimately
      * emulate a memref w/ just GPRs
      */
-    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc_flags),
+    CLIENT_ASSERT(TESTALL(DR_MC_CONTROL | DR_MC_INTEGER, mc_flags),
                   "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
             memcount++;
@@ -2159,7 +2222,7 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
     if (memcount != (int)index &&
         /* lea has a mem_ref source operand, but doesn't actually read */
         !opc_is_not_a_real_memory_load(instr_get_opcode(instr))) {
-        for (i=0; i<instr_num_srcs(instr); i++) {
+        for (i = 0; i < instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
                 if (opnd_is_vsib(curop)) {
@@ -2194,32 +2257,29 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
 
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write,
-                              OUT uint *pos)
+                              OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
 {
-    return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL,
-                                        index, addr, is_write, pos);
+    return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL, index, addr,
+                                        is_write, pos);
 }
 
 DR_API
 bool
-instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
-                         OUT app_pc *addr, OUT bool *is_write)
+instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index, OUT app_pc *addr,
+                         OUT bool *is_write)
 {
-    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc),
-                                        mc->size, mc->flags,
-                                        index, addr, is_write, NULL);
+    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
+                                        mc->flags, index, addr, is_write, NULL);
 }
 
 /* i#682: add pos so that the caller knows which opnd is used. */
 DR_API
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
-                             OUT app_pc *addr, OUT bool *is_write,
-                             OUT uint *pos)
+                             OUT app_pc *addr, OUT bool *is_write, OUT uint *pos)
 {
-    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc),
-                                        mc->size, mc->flags, index, addr, is_write, pos);
+    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc), mc->size,
+                                        mc->flags, index, addr, is_write, pos);
 }
 
 /* Returns NULL if none of instr's operands is a memory reference.
@@ -2255,12 +2315,12 @@ instr_memory_reference_size(instr_t *instr)
     int i;
     if (!instr_valid(instr))
         return 0;
-    for (i=0; i<instr_num_dsts(instr); i++) {
+    for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
             return opnd_size_in_bytes(opnd_get_size(instr_get_dst(instr, i)));
         }
     }
-    for (i=0; i<instr_num_srcs(instr); i++) {
+    for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_is_memory_reference(instr_get_src(instr, i))) {
             return opnd_size_in_bytes(opnd_get_size(instr_get_src(instr, i)));
         }
@@ -2371,7 +2431,7 @@ instr_is_exit_cti(instr_t *instr)
 }
 
 bool
-instr_is_cti(instr_t *instr)      /* any control-transfer instruction */
+instr_is_cti(instr_t *instr) /* any control-transfer instruction */
 {
     instr_get_opcode(instr); /* force opcode decode, just once */
     return (instr_is_cbr_arch(instr) || instr_is_ubr_arch(instr) ||
@@ -2389,10 +2449,10 @@ instr_get_interrupt_number(instr_t *instr)
          * too late to bother changing that.
          */
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_sbyte(val), "invalid interrupt number");
-        return (int) (byte) val;
+        return (int)(byte)val;
     } else if (instr_raw_bits_valid(instr)) {
         /* widen as unsigned */
-        return (int) (uint) instr_get_raw_byte(instr, 1);
+        return (int)(uint)instr_get_raw_byte(instr, 1);
     } else {
         CLIENT_ASSERT(false, "instr_get_interrupt_number: invalid instr");
         return 0;
@@ -2411,8 +2471,8 @@ instr_uses_fp_reg(instr_t *instr)
 {
     int a;
     opnd_t curop;
-    for (a=0; a<instr_num_dsts(instr); a++) {
-        curop = instr_get_dst(instr,a);
+    for (a = 0; a < instr_num_dsts(instr); a++) {
+        curop = instr_get_dst(instr, a);
         if (opnd_is_reg(curop) && reg_is_fp(opnd_get_reg(curop)))
             return true;
         else if (opnd_is_memory_reference(curop)) {
@@ -2423,8 +2483,8 @@ instr_uses_fp_reg(instr_t *instr)
         }
     }
 
-    for (a=0; a<instr_num_srcs(instr); a++) {
-        curop = instr_get_src(instr,a);
+    for (a = 0; a < instr_num_srcs(instr); a++) {
+        curop = instr_get_src(instr, a);
         if (opnd_is_reg(curop) && reg_is_fp(opnd_get_reg(curop)))
             return true;
         else if (opnd_is_memory_reference(curop)) {
@@ -2502,8 +2562,7 @@ instr_create_0dst_1src(dcontext_t *dcontext, int opcode, opnd_t src)
 }
 
 instr_t *
-instr_create_0dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2)
+instr_create_0dst_2src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2)
 {
     instr_t *in = instr_build(dcontext, opcode, 0, 2);
     instr_set_src(in, 0, src1);
@@ -2512,8 +2571,8 @@ instr_create_0dst_2src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_0dst_3src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
+                       opnd_t src3)
 {
     instr_t *in = instr_build(dcontext, opcode, 0, 3);
     instr_set_src(in, 0, src1);
@@ -2523,8 +2582,8 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_0dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4)
 {
     instr_t *in = instr_build(dcontext, opcode, 0, 4);
     instr_set_src(in, 0, src1);
@@ -2543,8 +2602,7 @@ instr_create_1dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst)
 }
 
 instr_t *
-instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src)
+instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 1);
     instr_set_dst(in, 0, dst);
@@ -2553,8 +2611,8 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_1dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2)
+instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 2);
     instr_set_dst(in, 0, dst);
@@ -2564,8 +2622,8 @@ instr_create_1dst_2src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_1dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 3);
     instr_set_dst(in, 0, dst);
@@ -2576,8 +2634,8 @@ instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_1dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_1dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 4);
     instr_set_dst(in, 0, dst);
@@ -2589,9 +2647,8 @@ instr_create_1dst_4src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3,
-                       opnd_t src4, opnd_t src5)
+instr_create_1dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 5);
     instr_set_dst(in, 0, dst);
@@ -2604,8 +2661,7 @@ instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_0src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2)
+instr_create_2dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 0);
     instr_set_dst(in, 0, dst1);
@@ -2614,8 +2670,8 @@ instr_create_2dst_0src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t src)
+instr_create_2dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t src)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 1);
     instr_set_dst(in, 0, dst1);
@@ -2625,8 +2681,8 @@ instr_create_2dst_1src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t src1, opnd_t src2)
+instr_create_2dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 2);
     instr_set_dst(in, 0, dst1);
@@ -2637,8 +2693,8 @@ instr_create_2dst_2src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_2dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2, opnd_t src3)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 3);
     instr_set_dst(in, 0, dst1);
@@ -2650,8 +2706,7 @@ instr_create_2dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2,
+instr_create_2dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 4);
@@ -2665,8 +2720,7 @@ instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2,
+instr_create_2dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
 {
     instr_t *in = instr_build(dcontext, opcode, 2, 5);
@@ -2681,8 +2735,8 @@ instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_3dst_0src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3)
+instr_create_3dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3)
 {
     instr_t *in = instr_build(dcontext, opcode, 3, 0);
     instr_set_dst(in, 0, dst1);
@@ -2692,9 +2746,8 @@ instr_create_3dst_0src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_3dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2)
+instr_create_3dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2)
 {
     instr_t *in = instr_build(dcontext, opcode, 3, 2);
     instr_set_dst(in, 0, dst1);
@@ -2706,9 +2759,8 @@ instr_create_3dst_2src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_3dst_3src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_3dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3)
 {
     instr_t *in = instr_build(dcontext, opcode, 3, 3);
     instr_set_dst(in, 0, dst1);
@@ -2721,9 +2773,8 @@ instr_create_3dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_3dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_3dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
 {
     instr_t *in = instr_build(dcontext, opcode, 3, 4);
     instr_set_dst(in, 0, dst1);
@@ -2737,10 +2788,9 @@ instr_create_3dst_4src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_3dst_5src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
-                       opnd_t src1, opnd_t src2, opnd_t src3,
-                       opnd_t src4, opnd_t src5)
+instr_create_3dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
+                       opnd_t src5)
 {
     instr_t *in = instr_build(dcontext, opcode, 3, 5);
     instr_set_dst(in, 0, dst1);
@@ -2755,9 +2805,8 @@ instr_create_3dst_5src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src)
+instr_create_4dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src)
 {
     instr_t *in = instr_build(dcontext, opcode, 4, 1);
     instr_set_dst(in, 0, dst1);
@@ -2769,9 +2818,8 @@ instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src1, opnd_t src2)
+instr_create_4dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2)
 {
     instr_t *in = instr_build(dcontext, opcode, 4, 2);
     instr_set_dst(in, 0, dst1);
@@ -2784,9 +2832,9 @@ instr_create_4dst_2src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
-instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
-                       opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_4dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
+                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3,
+                       opnd_t src4)
 {
     instr_t *in = instr_build(dcontext, opcode, 4, 4);
     instr_set_dst(in, 0, dst1);
@@ -2822,7 +2870,7 @@ instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         opnd_t opnd = va_arg(ap, opnd_t);
         /* assuming non-reg opnds (if any) are in the fixed positon */
         CLIENT_ASSERT(!check_order ||
-                      (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
+                          (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
                       "instr_create_Ndst_Msrc_varsrc: wrong register order in reglist");
         instr_set_src(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
@@ -2854,7 +2902,7 @@ instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
         opnd_t opnd = va_arg(ap, opnd_t);
         /* assuming non-reg opnds (if any) are in the fixed positon */
         CLIENT_ASSERT(!check_order ||
-                      (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
+                          (opnd_is_reg(opnd) && opnd_get_reg(opnd) > prev_reg),
                       "instr_create_Ndst_Msrc_vardst: wrong register order in reglist");
         instr_set_dst(in, var_ord + i, opnd_add_flags(opnd, DR_OPND_IN_LIST));
         if (check_order)
@@ -2878,8 +2926,7 @@ instr_create_raw_1byte(dcontext_t *dcontext, byte byte1)
 }
 
 instr_t *
-instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2)
+instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1, byte byte2)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 2);
     instr_set_raw_byte(in, 0, byte1);
@@ -2888,8 +2935,7 @@ instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3)
+instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 3);
     instr_set_raw_byte(in, 0, byte1);
@@ -2899,8 +2945,7 @@ instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3,
+instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
                         byte byte4)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 4);
@@ -2912,8 +2957,7 @@ instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3,
+instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
                         byte byte4, byte byte5)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 5);
@@ -2926,10 +2970,8 @@ instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3,
-                        byte byte4, byte byte5,
-                        byte byte6)
+instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 6);
     instr_set_raw_byte(in, 0, byte1);
@@ -2942,10 +2984,8 @@ instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3,
-                        byte byte4, byte byte5,
-                        byte byte6, byte byte7)
+instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6, byte byte7)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 7);
     instr_set_raw_byte(in, 0, byte1);
@@ -2959,11 +2999,8 @@ instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1,
 }
 
 instr_t *
-instr_create_raw_8bytes(dcontext_t *dcontext, byte byte1,
-                        byte byte2, byte byte3,
-                        byte byte4, byte byte5,
-                        byte byte6, byte byte7,
-                        byte byte8)
+instr_create_raw_8bytes(dcontext_t *dcontext, byte byte1, byte byte2, byte byte3,
+                        byte byte4, byte byte5, byte byte6, byte byte7, byte byte8)
 {
     instr_t *in = instr_build_bits(dcontext, OP_UNDECODED, 8);
     instr_set_raw_byte(in, 0, byte1);
@@ -3009,16 +3046,16 @@ instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
  * Auto-magically picks the mem opnd size to match reg if it's a GPR.
  */
 instr_t *
-instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                     reg_id_t reg, int offs)
+instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, reg_id_t reg,
+                                     int offs)
 {
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
         return XINST_CREATE_load_simd(dcontext, opnd_create_reg(reg), memopnd);
     } else {
-        opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
-            (dcontext, basereg, offs, reg_get_size(reg));
+        opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz(dcontext, basereg, offs,
+                                                               reg_get_size(reg));
         return XINST_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
     }
 }
@@ -3027,16 +3064,16 @@ instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
  * Auto-magically picks the mem opnd size to match reg if it's a GPR.
  */
 instr_t *
-instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                reg_id_t reg, int offs)
+instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, reg_id_t reg,
+                                int offs)
 {
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
         return XINST_CREATE_store_simd(dcontext, memopnd, opnd_create_reg(reg));
     } else {
-        opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
-            (dcontext, basereg, offs, reg_get_size(reg));
+        opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz(dcontext, basereg, offs,
+                                                               reg_get_size(reg));
         return XINST_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
     }
 }
@@ -3070,33 +3107,31 @@ instr_create_save_immed16_to_dcontext(dcontext_t *dcontext, int immed, int offs)
 instr_t *
 instr_create_save_immed8_to_dcontext(dcontext_t *dcontext, int immed, int offs)
 {
-    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_1,
-                                                OPND_CREATE_INT8(immed), offs);
+    return instr_create_save_immedN_to_dcontext(dcontext, OPSZ_1, OPND_CREATE_INT8(immed),
+                                                offs);
 }
 
 instr_t *
-instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
-                                      int offs, ptr_int_t immed, opnd_size_t sz)
+instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, int offs,
+                                      ptr_int_t immed, opnd_size_t sz)
 {
-    opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
-        (dcontext, basereg, offs, sz);
+    opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz(dcontext, basereg, offs, sz);
     ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
     /* There is no immed to mem instr on ARM or AArch64. */
     IF_NOT_X86(ASSERT_NOT_IMPLEMENTED(false));
-    return XINST_CREATE_store(dcontext, memopnd,
-                              opnd_create_immed_int(immed, sz));
+    return XINST_CREATE_store(dcontext, memopnd, opnd_create_immed_int(immed, sz));
 }
 
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
-#ifdef AARCH64
+#    ifdef AARCH64
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
-#else
+#    else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     return XINST_CREATE_jump_mem(dcontext, memopnd);
-#endif
+#    endif
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -3113,41 +3148,38 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
 bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
-#ifdef X86
+#    ifdef X86
     ASSERT_NOT_IMPLEMENTED(reg != REG_XAX);
-# ifdef X64
+#        ifdef X64
     /* match insert_jmp_to_ibl */
-    if     (*pc == TLS_SEG_OPCODE &&
-            *(pc+1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
-            *(pc+2) == MOV_REG2MEM_OPCODE &&
-            /* 0x1c for ebx, 0x0c for ecx, 0x04 for eax */
-            *(pc+3) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 4/*rm*/) &&
-            *(pc+4) == 0x25 &&
-            *((uint*)(pc+5)) == (uint) os_tls_offset(offs))
+    if (*pc == TLS_SEG_OPCODE &&
+        *(pc + 1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
+        *(pc + 2) == MOV_REG2MEM_OPCODE &&
+        /* 0x1c for ebx, 0x0c for ecx, 0x04 for eax */
+        *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 4 /*rm*/) &&
+        *(pc + 4) == 0x25 && *((uint *)(pc + 5)) == (uint)os_tls_offset(offs))
         return true;
-    /* we also check for 32-bit.  we could take in flags and only check for one
-     * version, but we're not worried about false positives.
-     */
-# endif
+        /* we also check for 32-bit.  we could take in flags and only check for one
+         * version, but we're not worried about false positives.
+         */
+#        endif
     /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
     /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
-    return (*pc == ADDR_PREFIX_OPCODE &&
-            *(pc+1) == TLS_SEG_OPCODE &&
-            *(pc+2) == MOV_REG2MEM_OPCODE &&
+    return (*pc == ADDR_PREFIX_OPCODE && *(pc + 1) == TLS_SEG_OPCODE &&
+            *(pc + 2) == MOV_REG2MEM_OPCODE &&
             /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
-            *(pc+3) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
-            *((ushort*)(pc+4)) == os_tls_offset(offs)) ||
+            *(pc + 3) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
+            *((ushort *)(pc + 4)) == os_tls_offset(offs)) ||
         /* PR 209709: allow for no addr16 prefix */
-        (*pc == TLS_SEG_OPCODE &&
-         *(pc+1) == MOV_REG2MEM_OPCODE &&
+        (*pc == TLS_SEG_OPCODE && *(pc + 1) == MOV_REG2MEM_OPCODE &&
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
-         *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
-         *((uint*)(pc+4)) == os_tls_offset(offs));
-#elif defined(AARCHXX)
+         *(pc + 2) == MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 6 /*rm*/) &&
+         *((uint *)(pc + 4)) == os_tls_offset(offs));
+#    elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif /* X86/ARM */
+#    endif /* X86/ARM */
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -3167,27 +3199,25 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
-#ifdef X86
+#    ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
-#endif
+#    endif
     } else
         return false;
     if (opnd_is_reg(regop) &&
-#ifdef X86
-        opnd_is_far_base_disp(memop) &&
-        opnd_get_segment(memop) == SEG_TLS &&
+#    ifdef X86
+        opnd_is_far_base_disp(memop) && opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#elif defined(AARCHXX)
-        opnd_is_base_disp(memop) &&
-        opnd_get_base(memop) == dr_reg_stolen &&
+#    elif defined(AARCHXX)
+        opnd_is_base_disp(memop) && opnd_get_base(memop) == dr_reg_stolen &&
         opnd_get_index(memop) == DR_REG_NULL
-#endif
-        ) {
+#    endif
+    ) {
         if (reg != NULL)
             *reg = opnd_get_reg(regop);
         if (offs != NULL)
@@ -3204,7 +3234,7 @@ bool
 instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs)
 {
     reg_id_t check_reg = REG_NULL; /* init to satisfy some compilers */
-    int check_disp = 0; /* init to satisfy some compilers */
+    int check_disp = 0;            /* init to satisfy some compilers */
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             spill && check_reg == reg && check_disp == os_tls_offset(offs));
@@ -3217,7 +3247,7 @@ bool
 instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
 {
     reg_id_t check_reg = REG_NULL; /* init to satisfy some compilers */
-    int check_disp = 0; /* init to satisfy some compilers */
+    int check_disp = 0;            /* init to satisfy some compilers */
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             !spill && (reg == REG_NULL || check_reg == reg) &&
@@ -3230,29 +3260,29 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
 bool
 instr_is_tls_xcx_spill(instr_t *instr)
 {
-#ifdef X86
+#    ifdef X86
     if (instr_raw_bits_valid(instr)) {
         /* avoid upgrading instr */
-        return instr_raw_is_tls_spill(instr_get_raw_bits(instr),
-                                      REG_ECX, MANGLE_XCX_SPILL_SLOT);
+        return instr_raw_is_tls_spill(instr_get_raw_bits(instr), REG_ECX,
+                                      MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     /* FIXME i#1551, i#1569: NYI on ARM/AArch64 */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
-#endif
+#    endif
 }
 
 /* this routine may upgrade a level 1 instr */
 static bool
-instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
-                                   bool *spill, reg_id_t *reg, int *offs)
+instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr, bool *spill,
+                                   reg_id_t *reg, int *offs)
 {
-#ifdef X64
+#    ifdef X64
     /* PR 244737: we always use tls for x64 */
     return false;
-#else
+#    else
     opnd_t regop, memop;
     if (instr_get_opcode(instr) == OP_store) {
         regop = instr_get_src(instr, 0);
@@ -3264,21 +3294,20 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
-# ifdef X86
+#        ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
-# endif /* X86 */
+#        endif /* X86 */
     } else
         return false;
-    if (opnd_is_near_base_disp(memop) &&
-        opnd_is_abs_base_disp(memop) &&
+    if (opnd_is_near_base_disp(memop) && opnd_is_abs_base_disp(memop) &&
         opnd_is_reg(regop)) {
-        byte *pc = (byte *) opnd_get_disp(memop);
-        byte *mc = (byte *) get_mcontext(dcontext);
+        byte *pc = (byte *)opnd_get_disp(memop);
+        byte *mc = (byte *)get_mcontext(dcontext);
         if (pc >= mc && pc < mc + sizeof(priv_mcontext_t)) {
             if (reg != NULL)
                 *reg = opnd_get_reg(regop);
@@ -3288,23 +3317,30 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
         }
     }
     return false;
-#endif
+#    endif
 }
 
 static bool
-instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
-                                 bool *tls, bool *spill, reg_id_t *reg, uint *offs_out)
+instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, bool *tls,
+                                 bool *spill, reg_id_t *reg, uint *offs_out)
 {
-    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int check_disp = 0; /* init to satisfy some compilers */
     reg_id_t myreg;
     CLIENT_ASSERT(instr != NULL, "invalid NULL argument");
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
-        int offs = reg_spill_tls_offs(*reg);
         if (!DR_only ||
-            (offs != -1 && check_disp == os_tls_offset((ushort)offs))) {
+            (reg_spill_tls_offs(*reg) != -1 &&
+             /* Mangling may choose to spill registers to a not natural tls offset,
+              * e.g. rip-rel mangling will, if rax is used by the instruction. We
+              * allow for all possible internal DR slots to recognize a DR spill.
+              */
+             (check_disp == os_tls_offset((ushort)TLS_REG0_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)
@@ -3313,11 +3349,9 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
         }
     }
     if (dcontext != GLOBAL_DCONTEXT &&
-        instr_check_mcontext_spill_restore(dcontext, instr, spill,
-                                           reg, &check_disp)) {
+        instr_check_mcontext_spill_restore(dcontext, instr, spill, reg, &check_disp)) {
         int offs = opnd_get_reg_dcontext_offs(dr_reg_fixer[*reg]);
-        if (!DR_only ||
-            (offs != -1 && check_disp == offs)) {
+        if (!DR_only || (offs != -1 && check_disp == offs)) {
             if (tls != NULL)
                 *tls = false;
             if (offs_out != NULL)
@@ -3330,19 +3364,19 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only,
 
 DR_API
 bool
-instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr,
-                              bool *tls, bool *spill, reg_id_t *reg, uint *offs)
+instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
+                              reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false,
-                                            tls, spill, reg, offs);
+    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill, reg,
+                                            offs);
 }
 
 bool
-instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr,
-                                 bool *tls, bool *spill, reg_id_t *reg)
+instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
+                                 reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, true,
-                                            tls, spill, reg, NULL);
+    return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
+                                            offs);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other
@@ -3375,7 +3409,7 @@ instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2
     return XINST_CREATE_move(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
-#ifdef X86_64
+#    ifdef X86_64
 /* Returns NULL if pc is not the start of a rip-rel lea.
  * If it could be, returns the address it refers to (which we assume is
  * never NULL).
@@ -3388,39 +3422,38 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end)
      * necessary for say WOW64 or other known-lower-4GB situations
      */
     if (pc + 7 <= read_end) {
-        if (*(pc+1) == RAW_OPCODE_lea &&
+        if (*(pc + 1) == RAW_OPCODE_lea &&
             (TESTALL(REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG, *pc) &&
              !TESTANY(~(REX_PREFIX_BASE_OPCODE | REX_PREFIX_ALL_OPFLAGS), *pc)) &&
             /* does mod==0 and rm==5? */
-            ((*(pc+2)) | MODRM_BYTE(0,7,0)) == MODRM_BYTE(0,7,5)) {
-            return pc + 7 + *(int*)(pc+3);
+            ((*(pc + 2)) | MODRM_BYTE(0, 7, 0)) == MODRM_BYTE(0, 7, 5)) {
+            return pc + 7 + *(int *)(pc + 3);
         }
     }
     return NULL;
 }
-#endif
+#    endif
 
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32)
 {
-# ifdef X86
+#    ifdef X86
     if (YMM_ENABLED()) {
         /* must preserve ymm registers */
         return (aligned32 ? OP_vmovdqa : OP_vmovdqu);
-    }
-    else if (proc_has_feature(FEATURE_SSE2)) {
+    } else if (proc_has_feature(FEATURE_SSE2)) {
         return (aligned16 ? OP_movdqa : OP_movdqu);
     } else {
         CLIENT_ASSERT(proc_has_feature(FEATURE_SSE), "running on unsupported processor");
         return (aligned16 ? OP_movaps : OP_movups);
     }
-# elif defined(ARM)
+#    elif defined(ARM)
     /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
     return OP_vmov;
-# elif defined(AARCH64)
+#    elif defined(AARCH64)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return 0;
-# endif /* X86/ARM */
+#    endif /* X86/ARM */
 }
 
 #endif /* !STANDALONE_DECODER */

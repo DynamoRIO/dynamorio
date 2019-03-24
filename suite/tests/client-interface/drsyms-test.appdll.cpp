@@ -32,14 +32,14 @@
 
 #include "configure.h"
 #if defined(UNIX) || defined(_MSC_VER)
-# include "tools.h"
+#    include "tools.h"
 #else /* cygwin/mingw */
-# include <windows.h>
-# include <stdio.h>
-# define print(...) fprintf(stderr, __VA_ARGS__)
+#    include <windows.h>
+#    include <stdio.h>
+#    define print(...) fprintf(stderr, __VA_ARGS__)
 /* we want PE exports so dr_get_proc_addr finds them */
-# define EXPORT __declspec(dllexport)
-# define NOINLINE __declspec(noinline)
+#    define EXPORT __declspec(dllexport)
+#    define NOINLINE __declspec(noinline)
 #endif
 
 NOINLINE void
@@ -58,17 +58,17 @@ NOINLINE int
 dll_public(int a)
 {
     stack_trace();
-    return a+1;
+    return a + 1;
 }
 
 static NOINLINE int
 dll_static(int a)
 {
-    return dll_public(a+1);
+    return dll_public(a + 1);
 }
 
 extern "C" EXPORT int
 dll_export(int a)
 {
-    return dll_static(a+1);
+    return dll_static(a + 1);
 }

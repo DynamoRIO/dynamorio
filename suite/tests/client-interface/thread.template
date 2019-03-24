@@ -32,3 +32,7 @@ TLS slot 1 is 0xbadcab43
 TLS slot 2 is 0xbadcab44
 TLS slot 3 is 0xbadcab45
 #endif
+#ifdef UNIX
+process is exiting
+client thread is dying
+#endif

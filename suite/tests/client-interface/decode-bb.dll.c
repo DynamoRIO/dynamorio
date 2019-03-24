@@ -56,13 +56,12 @@ verify_identical(instrlist_t *il1, instrlist_t *il2, app_pc label)
     }
 
     if (i != NULL || j != NULL) {
-        dr_fprintf(STDERR, "ERROR: mismatch in block at "PFX"\n", label);
+        dr_fprintf(STDERR, "ERROR: mismatch in block at " PFX "\n", label);
     }
 }
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     if (!translating) {
         app_pc pc = dr_fragment_app_pc(tag);
@@ -90,15 +89,15 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
-static
-dr_emit_flags_t trace_event(void *drcontext, void *tag, instrlist_t *trace,
-                            bool translating)
+static dr_emit_flags_t
+trace_event(void *drcontext, void *tag, instrlist_t *trace, bool translating)
 {
     instr_t *i;
     for (i = instrlist_first(trace); i != NULL; i = instr_get_next(i)) {
         if (instr_get_app_pc(i) == NULL) {
-            dr_fprintf(STDERR, "ERROR: app pc not available for all trace instrs "PFX"\n",
-                      dr_fragment_app_pc(tag));
+            dr_fprintf(STDERR,
+                       "ERROR: app pc not available for all trace instrs " PFX "\n",
+                       dr_fragment_app_pc(tag));
         }
     }
 
@@ -136,7 +135,8 @@ dr_exit(void)
 }
 
 DR_EXPORT
-void dr_init(client_id_t id)
+void
+dr_init(client_id_t id)
 {
     last_trace_mutex = dr_mutex_create();
     dr_fprintf(STDERR, "thank you for testing the client interface\n");

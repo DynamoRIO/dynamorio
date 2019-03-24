@@ -1,0 +1,21 @@
+Running under DR
+calling via IAT-style call
+nativeexec.dll:import_me1(57) not under DR
+calling via PLT-style call
+nativeexec.dll:import_me2(37) not under DR
+calling via funky ind call
+nativeexec.dll:import_me3(17) not under DR
+calling nested native
+#ifdef native_exec_retakeover
+nativeexec.exe:print_int(42) under DR
+#else
+nativeexec.exe:print_int(42) not under DR
+#endif
+calling cross-module unwinder
+before longjmp, 1
+after longjmp
+calling indirect ret_imm
+ -> 40
+calling loop_test
+Running under DR
+all done

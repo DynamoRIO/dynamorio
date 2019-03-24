@@ -47,27 +47,32 @@ class QHBoxLayout;
 class QVBoxLayout;
 class QActionGroup;
 
-class drgui_options_window_t : public QDialog
-{
+class drgui_options_window_t : public QDialog {
     Q_OBJECT
 
 public:
     drgui_options_window_t(QActionGroup *tool_group_);
 
-    void display(void);
+    void
+    display(void);
 
 public slots:
-    void change_page(QListWidgetItem *current, QListWidgetItem *previous);
+    void
+    change_page(QListWidgetItem *current, QListWidgetItem *previous);
 
 private slots:
-    void save(void);
+    void
+    save(void);
 
-    void cancel(void);
+    void
+    cancel(void);
 
 private:
-    void create_tool_list(void);
+    void
+    create_tool_list(void);
 
-    void read_settings(void);
+    void
+    read_settings(void);
 
     /* GUI */
     QVBoxLayout *main_layout;

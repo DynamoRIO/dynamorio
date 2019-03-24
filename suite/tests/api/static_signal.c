@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,7 +32,7 @@
 
 #include "configure.h"
 #ifndef UNIX
-# error UNIX-only
+#    error UNIX-only
 #endif
 #include "dr_api.h"
 #include "tools.h"
@@ -43,8 +43,9 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <sys/time.h> /* itimer */
 
-#define ALT_STACK_SIZE  (SIGSTKSZ*2)
+#define ALT_STACK_SIZE (SIGSTKSZ * 2)
 
 static int num_bbs;
 static int num_signals;
@@ -55,6 +56,9 @@ static void *got_signal;
 
 SIGJMP_BUF mark;
 
+/* No synchronization is needed b/c only one itimer handler runs at a time. */
+static int buckets[DR_WHERE_LAST];
+
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -64,6 +68,8 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     } else if (sig == SIGSEGV) {
         print("Got SIGSEGV\n");
         SIGLONGJMP(mark, 1);
+    } else if (sig == SIGPROF) {
+        /* Do nothing. */
     } else {
         print("Got unexpected signal %d\n", sig);
     }
@@ -74,7 +80,7 @@ thread_func(void *arg)
 {
     stack_t sigstack;
     int rc;
-    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
     sigstack.ss_flags = SS_ONSTACK;
     rc = sigaltstack(&sigstack, NULL);
@@ -86,8 +92,7 @@ thread_func(void *arg)
 }
 
 static dr_emit_flags_t
-event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-         bool translating)
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     num_bbs++;
     return DR_EMIT_DEFAULT;
@@ -101,10 +106,41 @@ event_signal(void *drcontext, dr_siginfo_t *info)
 }
 
 static void
+event_sample(void *drcontext, dr_mcontext_t *mcontext)
+{
+    void *tag;
+    dr_where_am_i_t whereami = dr_where_am_i(drcontext, mcontext->pc, &tag);
+    buckets[whereami]++;
+    DR_ASSERT(mcontext->pc != NULL &&
+              /* Ensure DR wrote the value and it's not the uninit 0xab pattern. */
+              mcontext->pc != (app_pc)IF_X64_ELSE(0xabababababababab, 0xabababab));
+#if VERBOSE
+    dr_fprintf(STDERR, "sample: %p %d %p\n", mcontext->pc, whereami, tag);
+#endif
+}
+
+static void
 event_exit(void)
 {
+    int total = 0;
+    int i;
+    for (i = 0; i < DR_WHERE_LAST; i++) {
+        total += buckets[i];
+#if VERBOSE
+        dr_fprintf(STDERR, "bucket %d: %d\n", i, buckets[i]);
+#endif
+    }
+    DR_ASSERT(total > 0);
+
     dr_fprintf(STDERR, "Saw %s bb events\n", num_bbs > 0 ? "some" : "no");
-    dr_fprintf(STDERR, "Saw %d signal(s)\n", num_signals);
+    /* Unfortunately we have no synch to guarantee we see some alarm
+     * signals.
+     * FIXME: once we have i#2311 and can ensure alarms only arrive in
+     * the 2nd thread, we can use a cond var from the signal handler and
+     * ensure we see some.  For now we just hope to occasionally test some
+     * races with alarms.
+     */
+    dr_fprintf(STDERR, "Saw %s signals\n", num_signals >= 2 ? ">=2" : "<2");
 }
 
 DR_EXPORT void
@@ -114,12 +150,22 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_bb_event(event_bb);
     dr_register_signal_event(event_signal);
     dr_register_exit_event(event_exit);
+    /* Test pc sampling with detach */
+    if (!dr_set_itimer(ITIMER_VIRTUAL, 10, event_sample))
+        dr_fprintf(STDERR, "unable to set timer callback\n");
+    /* i#2907: Try to trigger signal itimer issues between init and attach by delaying
+     * attach.  We don't want to lengthen the test suite so we keep this smaller than
+     * ideal for manually reproducing every time: it will still catch races, just
+     * not every run.
+     */
+    for (int i = 0; i < 100000; ++i)
+        sched_yield();
 }
 
 static int
 do_some_work(void)
 {
-    static int iters = 8192;
+    static int iters = 81920;
     int i;
     double val = num_bbs;
     for (i = 0; i < iters; ++i) {
@@ -132,13 +178,37 @@ int
 main(int argc, const char *argv[])
 {
     pthread_t thread;
-    intercept_signal(SIGUSR1, signal_handler, true/*sigstack*/);
-    intercept_signal(SIGSEGV, signal_handler, true/*sigstack*/);
+    struct itimerval timer;
+    sigset_t mask;
+    int rc;
+
+    /* Enable an itimer to test i#2907. */
+    if (!my_setenv("DYNAMORIO_OPTIONS", "-prof_pcs -stderr_mask 0xc"))
+        dr_fprintf(STDERR, "Failed to set env var!\n");
+
+    intercept_signal(SIGUSR1, signal_handler, true /*sigstack*/);
+    intercept_signal(SIGSEGV, signal_handler, true /*sigstack*/);
     thread_ready = create_cond_var();
     thread_exit = create_cond_var();
     got_signal = create_cond_var();
+
+    intercept_signal(SIGPROF, signal_handler, true /*sigstack*/);
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 1000;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 1000;
+    rc = setitimer(ITIMER_PROF, &timer, NULL);
+    assert(rc == 0);
+
     pthread_create(&thread, NULL, thread_func, NULL);
     wait_cond_var(thread_ready);
+
+#if 0 /* FIXME i#2311: once fixed in DR we can enable this. */
+    /* Block SIGPROF in the main thread to better test races. */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGPROF);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+#endif
 
     print("Sending SIGUSR1 pre-DR-init\n");
     pthread_kill(thread, SIGUSR1);
@@ -188,6 +258,12 @@ main(int argc, const char *argv[])
 
     signal_cond_var(thread_exit);
     pthread_join(thread, NULL);
+
+    // i#2871: ensure our itimer is still there.
+    rc = getitimer(ITIMER_PROF, &timer);
+    assert(rc == 0);
+    // We don't compare to 1000 b/c the min may be larger.
+    assert(timer.it_interval.tv_usec > 0);
 
     print("all done\n");
     return 0;

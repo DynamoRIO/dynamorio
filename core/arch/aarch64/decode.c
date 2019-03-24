@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -67,8 +68,14 @@ byte *
 decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
                     dr_opnd_query_flags_t flags)
 {
-    *usage = 0; /* FIXME i#1569 */
-    return pc + 4;
+    /* XXX i#2374: Performing full decode here is inefficient. */
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    pc = decode_common(dcontext, pc, pc, &instr);
+    ASSERT(instr_eflags_valid(&instr));
+    *usage = instr.eflags;
+    instr_free(dcontext, &instr);
+    return pc;
 }
 
 byte *
@@ -144,7 +151,7 @@ instr_info_opnd_type(const instr_info_t *info, bool src, int num)
 }
 
 const instr_info_t *
-get_next_instr_info(const instr_info_t * info)
+get_next_instr_info(const instr_info_t *info)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return NULL;
@@ -201,13 +208,13 @@ optype_is_gpr(int optype)
 }
 
 #ifdef DEBUG
-# ifndef STANDALONE_DECODER
+#    ifndef STANDALONE_DECODER
 void
 check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 }
-# endif /* STANDALONE_DECODER */
+#    endif /* STANDALONE_DECODER */
 
 void
 decode_debug_checks_arch(void)
@@ -218,9 +225,10 @@ decode_debug_checks_arch(void)
 
 #ifdef DECODE_UNIT_TEST
 
-# include "instr_create.h"
+#    include "instr_create.h"
 
-int main()
+int
+main()
 {
     bool res = true;
     standalone_init();

@@ -42,7 +42,7 @@ main()
     BOOL res;
     int size = 0x04000;
 
-    p = VirtualAlloc(0, size, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    p = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(p);
     res = VirtualFree(p, 0, MEM_RELEASE);
     assert(res);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,7 @@
  */
 
 #include "tools.h"
+#include "thread.h"
 #include <windows.h>
 #include <process.h>
 #include <stdio.h>
@@ -38,7 +39,7 @@
 volatile long thread_started = 0;
 
 int WINAPI
-run_func(void * arg)
+run_func(void *arg)
 {
     InterlockedIncrement(&thread_started);
     SleepEx(20000, FALSE);

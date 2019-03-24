@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -38,15 +39,15 @@
 #include "globals_shared.h"
 
 #ifdef WINDOWS
-  /* No registry for stats (b/c it requires advapi32.dll which can't be used
-   * when injected via user32.dll registry key)
-   * Instead, a piece of shared memory with the key base name below holds the
-   * total number of DR instances.
-   */
-# define DR_SHMEM_KEY "DynamoRIOStatistics"
+/* No registry for stats (b/c it requires advapi32.dll which can't be used
+ * when injected via user32.dll registry key)
+ * Instead, a piece of shared memory with the key base name below holds the
+ * total number of DR instances.
+ */
+#    define DR_SHMEM_KEY "DynamoRIOStatistics"
 #elif defined(UNIX)
-# define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
-# define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
+#    define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
+#    define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
 #endif
 
 #define STAT_NAME_MAX_LEN 50
@@ -71,25 +72,25 @@ typedef struct _dr_statistics_t {
 #ifdef UNIX
     char magicstring[DYNAMORIO_MAGIC_STRING_LEN];
 #endif
-    process_id_t process_id;    /* process id */
+    process_id_t process_id;         /* process id */
     char process_name[MAXIMUM_PATH]; /* process name */
-    uint logmask;               /* what to log */
-    uint loglevel;              /* how much detail to log */
-    char logdir[MAXIMUM_PATH];  /* full path of logging directory */
+    uint logmask;                    /* what to log */
+    uint loglevel;                   /* how much detail to log */
+    char logdir[MAXIMUM_PATH];       /* full path of logging directory */
     uint64 perfctr_vals[NUM_EVENTS];
     uint num_stats;
 #ifdef NOT_DYNAMORIO_CORE
     /* variable-length to avoid tying to specific DR version */
     single_stat_t stats[1];
 #else
-# ifdef DEBUG
-#  define STATS_DEF(desc, name) single_stat_t name##_pair;
-# else
-#  define RSTATS_DEF(desc, name) single_stat_t name##_pair;
-# endif
-#  include "statsx.h"
-# undef STATS_DEF
-# undef RSTATS_DEF
+#    ifdef DEBUG
+#        define STATS_DEF(desc, name) single_stat_t name##_pair;
+#    else
+#        define RSTATS_DEF(desc, name) single_stat_t name##_pair;
+#    endif
+#    include "statsx.h"
+#    undef STATS_DEF
+#    undef RSTATS_DEF
 #endif
 } dr_statistics_t;
 
@@ -97,30 +98,35 @@ typedef struct _dr_statistics_t {
 /* Thread local statistics */
 typedef struct {
     thread_id_t thread_id;
-    mutex_t thread_stats_lock;    /* transactional stats, for multiple stats invariants to hold */
-    /* TODO: We may also want to print another threads's stats without necessarily halting it,
-     * TODO: add stat name##_delta, which should be applied as a batch to the safe to read values.
-     * The basic idea of transactional stats is that uncommitted changes are not visible to readers.
-     * Some invariants between statistics, i.e. A=B+C should hold at the dump/committed points.
+    /* transactional stats, for multiple stats invariants to hold */
+    mutex_t thread_stats_lock;
+    /* TODO: We may also want to print another threads's stats without
+     * necessarily halting it, TODO: add stat name##_delta, which
+     * should be applied as a batch to the safe to read values.  The
+     * basic idea of transactional stats is that uncommitted changes
+     * are not visible to readers.  Some invariants between
+     * statistics, i.e. A=B+C should hold at the dump/committed
+     * points.
      *
      * The plan is:
      *   1) delta accessed w/o lock only by the owning thread,
-     *   2) on dump any other thread which only reads the committed values while holding the commit lock,
-     *   3) The owning thread is the single writer to the committed values to apply the deltas,
-     *      while holding the commit lock.
+     *   2) on dump any other thread which only reads the committed
+     *     values while holding the commit lock,
+     *   3) The owning thread is the single writer to the committed
+     *      values to apply the deltas, while holding the commit lock.
      *
      * Used for other threads to be able to request thread local stats,
      * and also for the not fully explained self-interruption on linux?
      */
-#ifdef DEBUG
-# define STATS_DEF(desc, name) stats_int_t name##_thread;
-#else
-# define RSTATS_DEF(desc, name) stats_int_t name##_thread;
-#endif
-# include "statsx.h"
+#    ifdef DEBUG
+#        define STATS_DEF(desc, name) stats_int_t name##_thread;
+#    else
+#        define RSTATS_DEF(desc, name) stats_int_t name##_thread;
+#    endif
+#    include "statsx.h"
 } thread_local_statistics_t;
-#undef STATS_DEF
-#undef RSTATS_DEF
+#    undef STATS_DEF
+#    undef RSTATS_DEF
 #endif /* !NOT_DYNAMORIO_CORE */
 
 #endif /* _DR_STATS_H_ */

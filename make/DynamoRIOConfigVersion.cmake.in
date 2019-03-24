@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2018 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -88,5 +88,19 @@ if (NOT "${PACKAGE_FIND_VERSION_MAJOR}" EQUAL 0)
   # Automatically define PAGE_SIZE and PAGE_START if client targets older version
   if ("${PACKAGE_FIND_VERSION}" VERSION_LESS "6.3")
     set(DynamoRIO_PAGE_SIZE_COMPATIBILITY ON PARENT_SCOPE)
+  endif ()
+  # Ditto with the LOG_ defines.
+  if ("${PACKAGE_FIND_VERSION_COUNT}" GREATER 2 AND
+      "${PACKAGE_FIND_VERSION}" STREQUAL "7.0.0")
+    set(DynamoRIO_LOG_COMPATIBILITY ON PARENT_SCOPE)
+  elseif ("${PACKAGE_FIND_VERSION}" VERSION_LESS "7.0")
+    set(DynamoRIO_LOG_COMPATIBILITY ON PARENT_SCOPE)
+  endif ()
+  # Automatically define NUM_SIMD_SLOTS if client targets older version
+  if ("${PACKAGE_FIND_VERSION_COUNT}" GREATER 2 AND
+      "${PACKAGE_FIND_VERSION}" STREQUAL "7.1.0")
+    set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON PARENT_SCOPE)
+  elseif ("${PACKAGE_FIND_VERSION}" VERSION_LESS "7.1")
+    set(DynamoRIO_NUM_SIMD_SLOTS_COMPATIBILITY ON PARENT_SCOPE)
   endif ()
 endif ()

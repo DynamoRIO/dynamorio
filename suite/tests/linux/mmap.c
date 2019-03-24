@@ -46,27 +46,25 @@ main()
                                     * kernel
                                     */
     void *p;
-    print("Calling mmap(0, "PFX", "PFX", "PFX", "PFX", 0)\n",
-           size, PROT_EXEC|PROT_READ|PROT_WRITE,
-           MAP_ANON|MAP_PRIVATE, -1);
-    p = mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE,
-                   MAP_ANON|MAP_PRIVATE, -1, 0);
+    print("Calling mmap(0, " PFX ", " PFX ", " PFX ", " PFX ", 0)\n", size,
+          PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1);
+    p = mmap(0, size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {
-        print("mmap ERROR "PFX"\n", p);
+        print("mmap ERROR " PFX "\n", p);
         return 1;
     }
 #if VERBOSE
-    print("mmap returned "PFX"\n", p);
+    print("mmap returned " PFX "\n", p);
 #endif
 #ifndef MACOS
     p = (void *)mremap(p, size, newsize, 0);
-    if ((ptr_int_t) p == -1) {
-        print("mremap ERROR "PFX"\n", p);
+    if ((ptr_int_t)p == -1) {
+        print("mremap ERROR " PFX "\n", p);
         return 1;
     }
-# if VERBOSE
-    print("mremap returned "PFX"\n", p);
-# endif
+#    if VERBOSE
+    print("mremap returned " PFX "\n", p);
+#    endif
 #endif
     munmap(p, newsize);
     return 0;

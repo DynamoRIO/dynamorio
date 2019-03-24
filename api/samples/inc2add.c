@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,11 +46,11 @@
 #include "drreg.h"
 
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-# define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)(&(var)))
+#    define DISPLAY_STRING(msg) dr_messagebox(msg)
+#    define ATOMIC_INC(var) _InterlockedIncrement((volatile LONG *)(&(var)))
 #else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-# define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
+#    define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+#    define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m"(var) : : "memory")
 #endif
 
 static bool enable;
@@ -65,8 +65,8 @@ static bool
 replace_inc_with_add(void *drcontext, instr_t *inst, instrlist_t *trace);
 
 static dr_emit_flags_t
-event_instruction_change(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating);
+event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                         bool translating);
 
 static void
 event_exit(void);
@@ -75,7 +75,7 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* We only used drreg for liveness, not for spilling, so we need no slots. */
-    drreg_options_t ops = {sizeof(ops), 0 /*no slots needed*/, false};
+    drreg_options_t ops = { sizeof(ops), 0 /*no slots needed*/, false };
     dr_set_client_name("DynamoRIO Sample Client 'inc2add'",
                        "http://dynamorio.org/issues");
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
@@ -98,14 +98,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     enable = true;
 
     /* Make it easy to tell by looking at the log file which client executed. */
-    dr_log(NULL, LOG_ALL, 1, "Client 'inc2add' initializing\n");
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inc2add' initializing\n");
 #ifdef SHOW_RESULTS
     /* Also give notification to stderr */
     if (dr_is_notify_on()) {
-# ifdef WINDOWS
+#    ifdef WINDOWS
         /* Ask for best-effort printing to cmd window.  Must be called at init. */
         dr_enable_console_printing();
-# endif
+#    endif
         dr_fprintf(STDERR, "Client inc2add is running\n");
     }
 #endif
@@ -121,15 +121,15 @@ event_exit(void)
     char msg[256];
     int len;
     if (enable) {
-        len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                          "converted %d out of %d inc/dec to add/sub\n",
-                          num_converted, num_examined);
+        len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
+                          "converted %d out of %d inc/dec to add/sub\n", num_converted,
+                          num_examined);
     } else {
-        len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+        len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]),
                           "decided to keep all original inc/dec\n");
     }
     DR_ASSERT(len > 0);
-    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    msg[sizeof(msg) / sizeof(msg[0]) - 1] = '\0';
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     if (!drmgr_unregister_bb_app2app_event(event_instruction_change) ||
@@ -142,8 +142,8 @@ event_exit(void)
  * If cannot replace (eflags constraints), leaves original instruction alone.
  */
 static dr_emit_flags_t
-event_instruction_change(void *drcontext, void *tag, instrlist_t *bb,
-                         bool for_trace, bool translating)
+event_instruction_change(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                         bool translating)
 {
     int opcode;
     instr_t *instr, *next_instr;
@@ -202,14 +202,14 @@ replace_inc_with_add(void *drcontext, instr_t *instr, instrlist_t *bb)
 #ifdef VERBOSE
         dr_printf("\treplacing inc with add\n");
 #endif
-        new_instr = INSTR_CREATE_add(drcontext, instr_get_dst(instr, 0),
-                                     OPND_CREATE_INT8(1));
+        new_instr =
+            INSTR_CREATE_add(drcontext, instr_get_dst(instr, 0), OPND_CREATE_INT8(1));
     } else {
 #ifdef VERBOSE
         dr_printf("\treplacing dec with sub\n");
 #endif
-        new_instr = INSTR_CREATE_sub(drcontext, instr_get_dst(instr, 0),
-                                     OPND_CREATE_INT8(1));
+        new_instr =
+            INSTR_CREATE_sub(drcontext, instr_get_dst(instr, 0), OPND_CREATE_INT8(1));
     }
     if (instr_get_prefix_flag(instr, PREFIX_LOCK))
         instr_set_prefix_flag(new_instr, PREFIX_LOCK);

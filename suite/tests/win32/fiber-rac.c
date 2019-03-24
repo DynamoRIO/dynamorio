@@ -38,36 +38,38 @@
 /* case 1543 - Fibers on Win2003 RAC false positive */
 
 typedef struct {
-   LPVOID pFiberUI;
+    LPVOID pFiberUI;
 } FIBERINFO, *PFIBERINFO;
 
 FIBERINFO g_FiberInfo;
 
-void WINAPI FiberFunc(PVOID pvParam) {
+void WINAPI
+FiberFunc(PVOID pvParam)
+{
 
-   PFIBERINFO pFiberInfo = (PFIBERINFO) pvParam;
+    PFIBERINFO pFiberInfo = (PFIBERINFO)pvParam;
 
-   print("in worker fiber\n");
-   GetCurrentFiber();
-   if (GetFiberData() != pvParam) {
-       print("GetFiberData() mismatch!\n");
-       abort();
-   }
+    print("in worker fiber\n");
+    GetCurrentFiber();
+    if (GetFiberData() != pvParam) {
+        print("GetFiberData() mismatch!\n");
+        abort();
+    }
 
-   print("back to main\n");
-   SwitchToFiber(pFiberInfo->pFiberUI);
+    print("back to main\n");
+    SwitchToFiber(pFiberInfo->pFiberUI);
 
-   print("in worker fiber again\n");
+    print("in worker fiber again\n");
 
-   // Reschedule the UI thread. When the UI thread is running
-   // and has no events to process, the thread is put to sleep.
-   // NOTE: If we just allow the fiber function to return,
-   // the thread and the UI fiber die -- we don't want this!
-   SwitchToFiber(pFiberInfo->pFiberUI);
-   print("SHOULD NOT GET HERE!\n");
+    // Reschedule the UI thread. When the UI thread is running
+    // and has no events to process, the thread is put to sleep.
+    // NOTE: If we just allow the fiber function to return,
+    // the thread and the UI fiber die -- we don't want this!
+    SwitchToFiber(pFiberInfo->pFiberUI);
+    print("SHOULD NOT GET HERE!\n");
 
-   /* map user32.dll for RunAll testing */
-   MessageBeep(0);
+    /* map user32.dll for RunAll testing */
+    MessageBeep(0);
 }
 
 int
@@ -83,7 +85,7 @@ main()
 
     print("main thread converted to fiber\n");
 
-    for(i = 0; i < 2; i++) {
+    for (i = 0; i < 2; i++) {
         print("creating worker fiber %d\n", i);
         pFiberCounter = CreateFiber(0, FiberFunc, &g_FiberInfo);
 

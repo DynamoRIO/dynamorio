@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,6 +34,8 @@
 /* configure.cmake.h
  * processed by cmake to contain all configuration defines
  */
+/* We disable formatting as it messes up the ${var} references: */
+/* clang-format off */
 #ifndef _CONFIGURE_H_
 #define _CONFIGURE_H_ 1
 
@@ -77,6 +79,7 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
+#cmakedefine RECORD_MEMQUERY
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
@@ -154,10 +157,11 @@
 #    $(D)KSTATS - on for INTERNAL, DEBUG, and PROFILE builds, use KSTATS=1 for
 # release builds
 #    $(D)PROGRAM_SHEPHERDING -  (always ON)
-#         currently turns on code origins checks and diagnostics, eventually will also turn
-#         on return-after-call and other restricted control transfer features
+#         currently turns on code origins checks and diagnostics, eventually will also
+#         turn on return-after-call and other restricted control transfer features
 #    $(D)RETURN_AFTER_CALL  - (always ON) return only to instructions after seen calls
-#    $(D)RCT_IND_BRANCH     - (experimental) indirect branch only to address taken entry points
+#    $(D)RCT_IND_BRANCH     - (experimental) indirect branch only to address taken
+#                             entry points
 #    $(D)DGC_DIAGNOSTICS
 #    $(D)CHECK_RETURNS_SSE2 (experimental security feature)
 #    $(D)CHECK_RETURNS_SSE2_EMIT (experimental unfinished)
@@ -170,7 +174,8 @@
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
-#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags) (defines ASSUME_NORMAL_EFLAGS)
+#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags)
+#                      (defines ASSUME_NORMAL_EFLAGS)
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
@@ -179,7 +184,7 @@
 #      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
 #    $(D)CLIENT_INTERFACE
-#    $(D)ANNOTATIONS -- optional instrumentation of binary annotations 
+#    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
 #    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE
@@ -198,7 +203,6 @@
 # debugging
 #    $(D)DEBUG for debug builds
 #    $(D)DEBUG_MEMORY (on for DEBUG)
-#    $(D)STACK_GUARD_PAGE (on for DEBUG)
 #    $(D)DEADLOCK_AVOIDANCE (on for DEBUG) - enforce total rank order on locks
 #    $(D)MUTEX_CALLSTACK - enable collecting callstack info, requires DEADLOCK_AVOIDANCE
 #    $(D)HEAP_ACCOUNTING (on for DEBUG)
@@ -233,98 +237,98 @@
    /* we do not support linking to libc.  we should probably remove
     * this define from the code and eliminate it altogether.
     */
-#  define NOLIBC
+# define NOLIBC
 #endif
 
 #ifdef MACOS
-#  define ASSEMBLE_WITH_NASM
+# define ASSEMBLE_WITH_NASM
 #elif defined(UNIX)
-#  define ASSEMBLE_WITH_GAS
+# define ASSEMBLE_WITH_GAS
 #else
-#  define ASSEMBLE_WITH_MASM
+# define ASSEMBLE_WITH_MASM
 #endif
 
 /* operating system */
 #ifdef UNIX
 
-#  ifdef VMKERNEL
-#    define VMX86_SERVER
-#    define USERLEVEL
-     /* PR 361894/388563: only on ESX4.1+ */
-#    define HAVE_TLS
-#  elif defined(MACOS)
-#    define MACOS
-#    define HAVE_MEMINFO
-#    define HAVE_MEMINFO_QUERY
-#    define HAVE_TLS
-#    define HAVE_SIGALTSTACK
-#  elif defined(LINUX)
-#    define HAVE_MEMINFO
-#    define HAVE_MEMINFO_MAPS
-#    define HAVE_TLS
-#    define HAVE_SIGALTSTACK
-#  else
-#    error Unknown operating system
-#  endif
+# ifdef VMKERNEL
+#  define VMX86_SERVER
+#  define USERLEVEL
+   /* PR 361894/388563: only on ESX4.1+ */
+#  define HAVE_TLS
+# elif defined(MACOS)
+#  define MACOS
+#  define HAVE_MEMINFO
+#  define HAVE_MEMINFO_QUERY
+#  define HAVE_TLS
+#  define HAVE_SIGALTSTACK
+# elif defined(LINUX)
+#  define HAVE_MEMINFO
+#  define HAVE_MEMINFO_MAPS
+#  define HAVE_TLS
+#  define HAVE_SIGALTSTACK
+# else
+#  error Unknown operating system
+# endif
 
-#  ifdef HAVE_FVISIBILITY
-#    define USE_VISIBILITY_ATTRIBUTES
-#  endif
+# ifdef HAVE_FVISIBILITY
+#  define USE_VISIBILITY_ATTRIBUTES
+# endif
 #endif
 
 #ifdef WINDOWS
-#  define HAVE_MEMINFO
-#  define HAVE_MEMINFO_QUERY
-#  define WINDOWS_PC_SAMPLE
+# define HAVE_MEMINFO
+# define HAVE_MEMINFO_QUERY
+# define WINDOWS_PC_SAMPLE
 /* i#1424: avoid pulling in features from recent versions to keep compatibility */
-#  ifndef _WIN32_WINNT
-#   define _WIN32_WINNT _WIN32_WINNT_NT4
-#  endif
+# ifndef _WIN32_WINNT
+#  define _WIN32_WINNT _WIN32_WINNT_NT4
+# endif
 #endif
 
 #ifdef PROGRAM_SHEPHERDING
-#  define RETURN_AFTER_CALL
-#  define RCT_IND_BRANCH
+# define RETURN_AFTER_CALL
+# define RCT_IND_BRANCH
 #endif
 
 #ifdef CLIENT_INTERFACE
-   /* standard client interface features */
-#  define DYNAMORIO_IR_EXPORTS
-#  define CUSTOM_TRACES
-#  define CLIENT_SIDELINE
-   /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
-    * issues with CUSTOM_EXIT_STUBS
-#  define CUSTOM_EXIT_STUBS
-#  define UNSUPPORTED_API
-    */
+  /* standard client interface features */
+# define DYNAMORIO_IR_EXPORTS
+# define CUSTOM_TRACES
+# define CLIENT_SIDELINE
+  /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
+   * issues with CUSTOM_EXIT_STUBS
+# define CUSTOM_EXIT_STUBS
+# define UNSUPPORTED_API
+   */
 #endif
 
 #if defined(HOT_PATCHING_INTERFACE) && defined(CLIENT_INTERFACE)
-#  define PROBE_API
+# define PROBE_API
 #endif
 
 #if defined(PROGRAM_SHEPHERDING) && defined(CLIENT_INTERFACE)
 /* used by libutil and tools */
-#  define MF_API
-#  define PROBE_API
+# define MF_API
+# define PROBE_API
 #endif
 
 #ifdef APP_EXPORTS
-#  define DR_APP_EXPORTS
+# define DR_APP_EXPORTS
 #endif
 
 /* FIXME: some GBOP hooks depend on hotp_only HOT_PATCHING_INTERFACE */
 
 #ifdef DEBUG
    /* for bug fixing this is useful so we turn on for all debug builds */
-#  define DEBUG_MEMORY
-#  define STACK_GUARD_PAGE
-#  define HEAP_ACCOUNTING
-#  define DEADLOCK_AVOIDANCE
-#  define MUTEX_CALLSTACK /* requires DEADLOCK_AVOIDANCE */
-   /* even though only usable in all-private config useful in default builds */
-#  define SHARING_STUDY
-#  define HASHTABLE_STATISTICS
+# define DEBUG_MEMORY
+# define HEAP_ACCOUNTING
+# define DEADLOCK_AVOIDANCE
+# define MUTEX_CALLSTACK /* requires DEADLOCK_AVOIDANCE */
+  /* even though only usable in all-private config useful in default builds */
+# define SHARING_STUDY
+# define HASHTABLE_STATISTICS
 #endif
 
 #endif /* _CONFIGURE_H_ */
+/* clang-format on */

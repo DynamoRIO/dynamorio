@@ -43,30 +43,28 @@
 #ifndef _DRMARKER_H_
 #define _DRMARKER_H_
 
-
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define L_DR_MARKER_HOOKED_DLL L"ntdll.dll"
 #ifdef UNICODE
-# define DR_MARKER_HOOKED_DLL L_DR_MARKER_HOOKED_DLL
+#    define DR_MARKER_HOOKED_DLL L_DR_MARKER_HOOKED_DLL
 #else
-# define DR_MARKER_HOOKED_DLL "ntdll.dll"
+#    define DR_MARKER_HOOKED_DLL "ntdll.dll"
 #endif
 
 #define DR_MARKER_HOOKED_FUNCTION KiUserCallbackDispatcher
-#define DR_MARKER_HOOKED_FUNCTION_ARGS (IN PVOID Unknown1, IN PVOID Unknown2, \
-                                        IN PVOID Unknown3)
+#define DR_MARKER_HOOKED_FUNCTION_ARGS \
+    (IN PVOID Unknown1, IN PVOID Unknown2, IN PVOID Unknown3)
 #define DR_MARKER_HOOKED_FUNCTION_STRING STRINGIFY(DR_MARKER_HOOKED_FUNCTION)
 
 enum {
-    DR_MARKER_RELEASE_BUILD  = 0x1,
-    DR_MARKER_DEBUG_BUILD    = 0x2,
-    DR_MARKER_PROFILE_BUILD  = 0x4,
-    DR_MARKER_BUILD_TYPES    =
-        DR_MARKER_RELEASE_BUILD|DR_MARKER_DEBUG_BUILD|DR_MARKER_PROFILE_BUILD
+    DR_MARKER_RELEASE_BUILD = 0x1,
+    DR_MARKER_DEBUG_BUILD = 0x2,
+    DR_MARKER_PROFILE_BUILD = 0x4,
+    DR_MARKER_BUILD_TYPES =
+        DR_MARKER_RELEASE_BUILD | DR_MARKER_DEBUG_BUILD | DR_MARKER_PROFILE_BUILD
 };
 
 #define DR_MARKER_VERSION_1 1
@@ -103,11 +101,7 @@ typedef struct _dr_marker_t {
      * into DR are added */
 } dr_marker_t;
 
-enum {
-    DR_MARKER_FOUND                   = 0,
-    DR_MARKER_NOT_FOUND               = 1,
-    DR_MARKER_ERROR                   = 2
-};
+enum { DR_MARKER_FOUND = 0, DR_MARKER_NOT_FOUND = 1, DR_MARKER_ERROR = 2 };
 
 /* process must grant PROCESS_VM_READ */
 int

@@ -33,19 +33,17 @@
 #ifndef _DBGHELP_IMPORTS_H_
 #define _DBGHELP_IMPORTS_H_ 1
 
-
 #if _MSC_VER <= 1400 /* VS2005- */
 /* Not present in VS2005 DbgHelp.h.  Our own dbghelp_imports.lib lets us link.
  * This is present in dbghelp.dll 6.0+ which we already say we require.
  */
 typedef struct _IMAGEHLP_LINEW64 {
-    DWORD    SizeOfStruct;           // set to sizeof(IMAGEHLP_LINE64)
-    PVOID    Key;                    // internal
-    DWORD    LineNumber;             // line number in file
-    PWSTR    FileName;               // full filename
-    DWORD64  Address;                // first instruction of line
+    DWORD SizeOfStruct; // set to sizeof(IMAGEHLP_LINE64)
+    PVOID Key;          // internal
+    DWORD LineNumber;   // line number in file
+    PWSTR FileName;     // full filename
+    DWORD64 Address;    // first instruction of line
 } IMAGEHLP_LINEW64, *PIMAGEHLP_LINEW64;
 #endif
-
 
 #endif /* _DBGHELP_IMPORTS_H_ */

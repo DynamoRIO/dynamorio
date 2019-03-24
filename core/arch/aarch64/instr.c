@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -53,6 +54,11 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
+    if (instr_get_opcode(instr) == OP_ldstex) {
+        ASSERT(instr->length != 0);
+        return instr->length;
+    }
+    ASSERT(instr_get_opcode(instr) != OP_ldstex);
     return AARCH64_INSTR_SIZE;
 }
 
@@ -72,16 +78,11 @@ instr_branch_type(instr_t *cti_instr)
     case OP_cbnz:
     case OP_cbz:
     case OP_tbnz:
-    case OP_tbz:
-        return LINK_DIRECT|LINK_JMP;
-    case OP_bl:
-        return LINK_DIRECT|LINK_CALL;
-    case OP_blr:
-        return LINK_INDIRECT|LINK_CALL;
-    case OP_br:
-        return LINK_INDIRECT|LINK_JMP;
-    case OP_ret:
-        return LINK_INDIRECT|LINK_RETURN;
+    case OP_tbz: return LINK_DIRECT | LINK_JMP;
+    case OP_bl: return LINK_DIRECT | LINK_CALL;
+    case OP_blr: return LINK_INDIRECT | LINK_CALL;
+    case OP_br: return LINK_INDIRECT | LINK_JMP;
+    case OP_ret: return LINK_INDIRECT | LINK_RETURN;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -138,10 +139,10 @@ instr_is_return(instr_t *instr)
 bool
 instr_is_cbr_arch(instr_t *instr)
 {
-    int opc = instr->opcode; /* caller ensures opcode is valid */
-    return (opc == OP_bcond ||
-            opc == OP_cbnz || opc ==  OP_cbz ||
-            opc == OP_tbnz || opc ==  OP_tbz);
+    int opc = instr->opcode;                   /* caller ensures opcode is valid */
+    return (opc == OP_bcond ||                 /* clang-format: keep */
+            opc == OP_cbnz || opc == OP_cbz || /* clang-format: keep */
+            opc == OP_tbnz || opc == OP_tbz);
 }
 
 bool
@@ -231,8 +232,7 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
         opnd_t reg = instr_get_src(instr, 0);
         opnd_t imm = instr_get_src(instr, 1);
         if (opnd_is_reg(reg) &&
-            (opnd_get_reg(reg) == DR_REG_WZR ||
-             opnd_get_reg(reg) == DR_REG_XZR) &&
+            (opnd_get_reg(reg) == DR_REG_WZR || opnd_get_reg(reg) == DR_REG_XZR) &&
             opnd_is_immed_int(imm)) {
             *value = opnd_get_immed_int(imm);
             return true;
@@ -243,9 +243,22 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
     return false;
 }
 
-bool instr_is_prefetch(instr_t *instr)
+bool
+instr_is_prefetch(instr_t *instr)
 {
     /* FIXME i#1569: NYI */
+    return false;
+}
+
+bool
+instr_is_string_op(instr_t *instr)
+{
+    return false;
+}
+
+bool
+instr_is_rep_string_op(instr_t *instr)
+{
     return false;
 }
 
@@ -277,8 +290,7 @@ instr_is_undefined(instr_t *instr)
      * unallocated encodings, but for testing purposes we can recognise
      * some of them: blocks at the top and bottom of the encoding space.
      */
-    if (instr_opcode_valid(instr) &&
-        instr_get_opcode(instr) == OP_xx) {
+    if (instr_opcode_valid(instr) && instr_get_opcode(instr) == OP_xx) {
         uint enc = opnd_get_immed_int(instr_get_src(instr, 0));
         return ((enc & 0x18000000) == 0 || (~enc & 0xde000000) == 0);
     }
@@ -372,16 +384,14 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
 bool
 instr_reads_thread_register(instr_t *instr)
 {
-    return (instr_get_opcode(instr) == OP_mrs &&
-            opnd_is_reg(instr_get_src(instr, 0)) &&
+    return (instr_get_opcode(instr) == OP_mrs && opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_TPIDR_EL0);
 }
 
 bool
 instr_writes_thread_register(instr_t *instr)
 {
-    return (instr_get_opcode(instr) == OP_msr &&
-            instr_num_dsts(instr) == 1 &&
+    return (instr_get_opcode(instr) == OP_msr && instr_num_dsts(instr) == 1 &&
             opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_TPIDR_EL0);
 }
@@ -398,8 +408,7 @@ instr_is_exclusive_store(instr_t *instr)
     case OP_stxp:
     case OP_stxr:
     case OP_stxrb:
-    case OP_stxrh:
-        return true;
+    case OP_stxrh: return true;
     }
     return false;
 }

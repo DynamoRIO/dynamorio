@@ -53,14 +53,14 @@ process(void *arg)
 #if VERBOSE
     fprintf(stderr, "\tthread %d starting\n", id);
 #endif
-    iproc = (int)(long) arg;
+    iproc = (int)(long)arg;
 
     /* Set width */
     width = 1.0 / intervals;
 
     /* Do the local computations */
     localsum = 0;
-    for (i=iproc; i<intervals; i+=2) {
+    for (i = iproc; i < intervals; i += 2) {
         register double x = (i + 0.5) * width;
         localsum += 4.0 / (1.0 + x * x);
         /* Make a system call to trigger DR operations that might
@@ -78,7 +78,7 @@ process(void *arg)
 #if VERBOSE
     fprintf(stderr, "\tthread %d exiting\n", id);
 #endif
-    return(NULL);
+    return (NULL);
 }
 
 #define NUM_THREADS 10

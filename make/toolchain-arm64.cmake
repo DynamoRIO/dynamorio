@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2017 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@
 #   $ sudo apt-get install g++-aarch64-linux-gnu
 # - cross-compiling config
 #   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+# You may have to set CMAKE_FIND_ROOT_PATH to point to the target enviroment, e.g.
+# by passing -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu on Debian-like systems.
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 set(TARGET_ABI "linux-gnu")
@@ -40,9 +42,10 @@ set(TARGET_ABI "linux-gnu")
 SET(CMAKE_C_COMPILER   aarch64-${TARGET_ABI}-gcc)
 SET(CMAKE_CXX_COMPILER aarch64-${TARGET_ABI}-g++)
 
-# Assuming the cross compiler is installed to /usr/bin,
-# we do not need to set where the target environment is.
-SET(CMAKE_FIND_ROOT_PATH)
+# To build the tests, we need to set where the target environment containing
+# the required library is. On Debian-like systems, this is
+# /usr/aarch64-linux-gnu.
+SET(CMAKE_FIND_ROOT_PATH "/usr/aarch64-${TARGET_ABI}")
 # search for programs in the build host directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 # for libraries and headers in the target directories

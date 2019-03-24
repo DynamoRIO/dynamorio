@@ -30,11 +30,8 @@
  * DAMAGE.
  */
 
-
-
 #ifndef _DETERMINA_PARSER_H_
 #define _DETERMINA_PARSER_H_
-
 
 #define L_NEWLINE L"\r\n"
 #define L_EQUALS L"="
@@ -46,8 +43,8 @@ char *
 parse_line(char *start, BOOL *done, WCHAR *param, WCHAR *value, SIZE_T maxchars);
 
 char *
-parse_line_sep(char *start, char sep, BOOL *done,
-               WCHAR *param, WCHAR *value, SIZE_T maxchars);
+parse_line_sep(char *start, char sep, BOOL *done, WCHAR *param, WCHAR *value,
+               SIZE_T maxchars);
 
 char *
 get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size);
@@ -56,7 +53,7 @@ void
 msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen);
 
 void
-msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
-               WCHAR *name, WCHAR *value);
+msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen, WCHAR *name,
+               WCHAR *value);
 
 #endif

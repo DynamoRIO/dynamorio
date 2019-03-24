@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,27 +36,32 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
+#include <string>
 #include "caching_device_stats.h"
 
-class cache_stats_t : public caching_device_stats_t
-{
- public:
-    cache_stats_t();
+class cache_stats_t : public caching_device_stats_t {
+public:
+    explicit cache_stats_t(const std::string &miss_file = "",
+                           bool warmup_enabled = false);
 
     // In addition to caching_device_stats_t::access,
     // cache_stats_t::access processes prefetching requests.
-    virtual void access(const memref_t &memref, bool hit);
+    virtual void
+    access(const memref_t &memref, bool hit);
 
     // process CPU cache flushes
-    virtual void flush(const memref_t &memref);
+    virtual void
+    flush(const memref_t &memref);
 
-    virtual void reset();
+    virtual void
+    reset();
 
- protected:
+protected:
     // In addition to caching_device_stats_t::print_counts,
     // cache_stats_t::print_counts prints stats for flushes and
     // prefetching requests.
-    virtual void print_counts(std::string prefix);
+    virtual void
+    print_counts(std::string prefix);
 
     // A CPU cache handles flushes and prefetching requests
     // as well as regular memory accesses.

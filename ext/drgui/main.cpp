@@ -45,8 +45,10 @@ struct tool_data_t {
     QStringList arguments;
 };
 
-static tool_data_t *process_arguments(int argc, char *argv[]);
-static void print_usage(char *arg_0);
+static tool_data_t *
+process_arguments(int argc, char *argv[]);
+static void
+print_usage(char *arg_0);
 
 int
 main(int argc, char *argv[])
@@ -100,6 +102,6 @@ print_usage(char *arg_0)
     printf("  %-40s%s", "-h", "Display option list");
     std::cout << std::endl;
     printf("  %-40s%s", "-t <tool_name> [options]",
-        "Automatically load a tool with optional arguments");
+           "Automatically load a tool with optional arguments");
     std::cout << std::endl;
 }

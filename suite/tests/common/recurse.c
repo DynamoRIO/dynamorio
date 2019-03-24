@@ -36,40 +36,42 @@
 
 #define GOAL 256
 
-int bar(int n)
+int
+bar(int n)
 {
     printf("bar %d\n", n);
-    if (n==0) return 1;
+    if (n == 0)
+        return 1;
     if (n % 2 == 0)
-        return n + foo(n-1);
+        return n + foo(n - 1);
     if (n % 2 == 1)
-        return n + bar(n-1);
+        return n + bar(n - 1);
     printf("\tdone with bar %d\n", n);
     return 0;
 }
 
-int foo(int n)
+int
+foo(int n)
 {
     printf("foo %d\n", n);
-    if (n==0) return 1;
+    if (n == 0)
+        return 1;
     if (n % 2 == 0)
-        return n + foo(n-1);
+        return n + foo(n - 1);
     if (n % 2 == 1)
-        return n + bar(n-1);
+        return n + bar(n - 1);
     printf("\tdone with foo %d\n", n);
     return 0;
 }
-
 
 main()
 {
     int i, t = 0;
 
-    for (i=GOAL; i<=GOAL; i++) {
+    for (i = GOAL; i <= GOAL; i++) {
         t = foo(i);
         printf("%d %d\n", i, t);
     }
 
     return 0;
 }
-

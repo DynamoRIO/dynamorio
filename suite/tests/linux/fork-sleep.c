@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,12 +51,13 @@ signal_handler(int sig)
         print("received SIGCHLD\n");
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
     pid_t child;
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) signal_handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))signal_handler;
     rc = sigfillset(&act.sa_mask);
     ASSERT_NOERR(rc);
     /* set SA_RESTART to test that part of DR code */

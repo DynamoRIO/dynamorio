@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,15 +38,18 @@
 
 #include "cache.h"
 
-class cache_fifo_t : public cache_t
-{
- public:
-    virtual bool init(int associativity, int line_size, int total_size,
-                      caching_device_t *parent, caching_device_stats_t *stats);
+class cache_fifo_t : public cache_t {
+public:
+    virtual bool
+    init(int associativity, int line_size, int total_size, caching_device_t *parent,
+         caching_device_stats_t *stats, prefetcher_t *prefetcher, bool inclusive = false,
+         const std::vector<caching_device_t *> &children = {});
 
- protected:
-    virtual void access_update(int line_idx, int way);
-    virtual int replace_which_way(int line_idx);
+protected:
+    virtual void
+    access_update(int line_idx, int way);
+    virtual int
+    replace_which_way(int line_idx);
 };
 
 #endif /* _CACHE_FIFO_H_ */

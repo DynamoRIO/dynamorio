@@ -1,0 +1,13 @@
+\[drmemtrace\]: Reading module file from memory
+open|close
+\[drmemtrace\]: Successfully read [0-9]+ modules
+\[drmemtrace\]: Successfully converted [0-9]+ thread files
+Processed
+About to load modules
+Loaded modules successfully
+Successfully found app entry
+Custom user_free was called
+Read timestamp from thread header
+Read timestamp without thread header
+Verified boundary conditions
+Verfied invalid buffer
