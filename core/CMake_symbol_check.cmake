@@ -38,6 +38,25 @@
 
 include(${lib_fileloc}.cmake)
 
+# XXX i#3450: Return whether binutils is version 2.30.
+function (is_i3450_binutils_version var_out)
+  set(readelfver ${READELF_EXECUTABLE} --version)
+  execute_process(COMMAND ${readelfver}
+    RESULT_VARIABLE readelf_result
+    ERROR_QUIET
+    OUTPUT_VARIABLE readelf_out)
+  set(is_i3450 0)
+  if (readelf_result)
+    message("Failed to get readelf version.")
+  elseif ("${readelf_out}" MATCHES "GNU readelf")
+    string(REGEX MATCH "[0-9.].*$" readelf_verno "${readelf_out}")
+  endif ()
+  if (readelf_verno EQUAL 2.30)
+    set(is_i3450 1)
+  endif ()
+  set(${var_out} ${is_i3450} PARENT_SCOPE)
+endfunction (is_i3450_binutils_version)
+
 get_filename_component(lib_file ${lib_fileloc} NAME)
 
 # Get the list of symbols.
@@ -47,8 +66,22 @@ execute_process(COMMAND
   ERROR_VARIABLE readelf_error
   OUTPUT_VARIABLE output
   )
+
+is_i3450_binutils_version(is_i3450)
+
+# XXX i#3450: Check for binutils/readelf version 2.30, and if yes, then ignore errors
+# for 32-bit release build. Binutils bug #24382 has been filed. Both earlier and later
+# versions seem ok.
+if (X86 AND NOT X64)
+  if (NOT DEBUG)
+    if (is_i3450)
+      set(readelf_error "")
+    endif ()
+  endif ()
+endif ()
 if (readelf_result OR readelf_error)
   message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
+endif ()
 endif (readelf_result OR readelf_error)
 
 # Limit to global defined symbols: no "UND".
