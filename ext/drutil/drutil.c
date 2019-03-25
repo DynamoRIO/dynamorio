@@ -91,7 +91,7 @@ cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
 #    ifdef WINDOWS
     int output[4];
-    __cpuidex(op, subop, 0);
+    __cpuidex(output, op, subop);
     /* XXX i#3469: On a Windows laptop, I inspected this and it returned 1088
      * bytes, which is a rather unexpected number. Investigate whether this is
      * correct.
