@@ -213,12 +213,8 @@ elseif (UNIX)
     endif (X64)
   elseif (ARM)
     # No 64-bit support yet.
-    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon")
-    if (BUILD_TESTS)
-      # Some tests use deprecated instructions, disable warnings.
-      set(ASM_FLAGS "${ASM_FLAGS} -mno-warn-deprecated")
-    endif ()
-
+    # Some tests and libgcc/arm use deprecated instructions, disable warnings.
+    set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
   endif ()
   set(ASM_FLAGS "${ASM_FLAGS} --noexecstack")
   if (DEBUG)
