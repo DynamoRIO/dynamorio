@@ -58,7 +58,9 @@
 /* for inserting an app instruction, which must have a translation ("xl8") field */
 #define PREXL8 instrlist_preinsert
 
+#ifdef X86
 static uint drutil_xsave_area_size;
+#endif
 
 /***************************************************************************
  * INIT
@@ -103,7 +105,8 @@ drutil_init(void)
     if (count > 1)
         return true;
 
-#ifdef WINDOWS
+#ifdef X86
+#    ifdef WINDOWS
     int output[4];
     const int proc_ext_state_main_leaf = 0xd;
     __cpuidex(output, proc_ext_state_main_leaf, 0);
@@ -112,13 +115,14 @@ drutil_init(void)
      * correct.
      */
     drutil_xsave_area_size = output[1];
-#else
+#    else
     /* XXX: we may want to re-factor and move functions like this into drx and/or
      * using pre-existing versions in clients/drcpusim/tests/cpuid.c.
      */
     uint eax, ecx, edx;
     const int proc_ext_state_main_leaf = 0xd;
     cpuid(proc_ext_state_main_leaf, 0, &eax, &drutil_xsave_area_size, &ecx, &edx);
+#    endif
 #endif
 
     /* nothing yet: but putting in API up front in case need later */
