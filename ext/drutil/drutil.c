@@ -71,7 +71,7 @@ static int drutil_init_count;
 #ifdef X86
 
 static inline void
-native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
+native_unix_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
 #    ifdef UNIX
     /* We need to do this ebx trick, because ebx might be used for fPIC,
@@ -89,9 +89,22 @@ native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
 static inline void
 cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
+#    ifdef WINDOWS
+    int output[4];
+    __cpuidex(op, subop, 0);
+    /* XXX i#3469: On a Windows laptop, I inspected this and it returned 1088
+     * bytes, which is a rather unexpected number. Investigate whether this is
+     * correct.
+     */
+    *eax = output[0];
+    *ebx = output[1];
+    *ecx = output[2];
+    *edx = output[3];
+#    else
     *eax = op;
     *ecx = subop;
-    native_cpuid(eax, ebx, ecx, edx);
+    native_unix_cpuid(eax, ebx, ecx, edx);
+#    endif
 }
 
 #endif
@@ -106,23 +119,12 @@ drutil_init(void)
         return true;
 
 #ifdef X86
-#    ifdef WINDOWS
-    int output[4];
-    const int proc_ext_state_main_leaf = 0xd;
-    __cpuidex(output, proc_ext_state_main_leaf, 0);
-    /* XXX i#3469: On a Windows laptop, I inspected this and it returned 1088
-     * bytes, which is a rather unexpected number. Investigate whether this is
-     * correct.
-     */
-    drutil_xsave_area_size = output[1];
-#    else
     /* XXX: we may want to re-factor and move functions like this into drx and/or
      * using pre-existing versions in clients/drcpusim/tests/cpuid.c.
      */
     uint eax, ecx, edx;
     const int proc_ext_state_main_leaf = 0xd;
     cpuid(proc_ext_state_main_leaf, 0, &eax, &drutil_xsave_area_size, &ecx, &edx);
-#    endif
 #endif
 
     /* nothing yet: but putting in API up front in case need later */
@@ -500,7 +502,7 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
         case OP_xsaveopt64:
         case OP_xsavec32:
         case OP_xsavec64: return drutil_xsave_area_size; break;
-        default: ASSERT(false, "memsize internal error"); return 0;
+        default: ASSERT(false, "unknown xsave opcode"); return 0;
         }
     } else
 #endif /* X86 */
