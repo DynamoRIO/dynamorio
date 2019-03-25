@@ -1966,6 +1966,16 @@ instr_zeroes_ymmh(instr_t *instr)
     }
     return false;
 }
+
+bool
+instr_is_xsave(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr); /* force decode */
+    if (opcode == OP_xsave32 || opcode == OP_xsaveopt32 || opcode == OP_xsave64 ||
+        opcode == OP_xsaveopt64 || opcode == OP_xsavec32 || opcode == OP_xsavec64)
+        return true;
+    return false;
+}
 #endif /* X86 */
 
 #if defined(X64) || defined(ARM)
