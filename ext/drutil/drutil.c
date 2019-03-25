@@ -58,11 +58,41 @@
 /* for inserting an app instruction, which must have a translation ("xl8") field */
 #define PREXL8 instrlist_preinsert
 
+static uint drutil_xsave_area_size;
+
 /***************************************************************************
  * INIT
  */
 
 static int drutil_init_count;
+
+#ifdef X86
+
+static inline void
+native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+#    ifdef UNIX
+    /* We need to do this ebx trick, because ebx might be used for fPIC,
+     * and gcc < 5 chokes on it. This can get removed and replaced by
+     * a "=b" constraint when moving to gcc-5.
+     */
+    asm volatile("xchgl\t%%ebx, %k1\n\t"
+                 "cpuid\n\t"
+                 "xchgl\t%%ebx, %k1\n\t"
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
+#    endif
+}
+
+static inline void
+cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
+{
+    *eax = op;
+    *ecx = subop;
+    native_cpuid(eax, ebx, ecx, edx);
+}
+
+#endif
 
 DR_EXPORT
 bool
@@ -72,6 +102,24 @@ drutil_init(void)
     int count = dr_atomic_add32_return_sum(&drutil_init_count, 1);
     if (count > 1)
         return true;
+
+#ifdef WINDOWS
+    int output[4];
+    const int proc_ext_state_main_leaf = 0xd;
+    __cpuidex(output, proc_ext_state_main_leaf, 0);
+    /* XXX i#3469: On a Windows laptop, I inspected this and it returned 1088
+     * bytes, which is a rather unexpected number. Investigate whether this is
+     * correct.
+     */
+    drutil_xsave_area_size = output[1];
+#else
+    /* XXX: we may want to re-factor and move functions like this into drx and/or
+     * using pre-existing versions in clients/drcpusim/tests/cpuid.c.
+     */
+    uint eax, ecx, edx;
+    const int proc_ext_state_main_leaf = 0xd;
+    cpuid(proc_ext_state_main_leaf, 0, &eax, &drutil_xsave_area_size, &ecx, &edx);
+#endif
 
     /* nothing yet: but putting in API up front in case need later */
 
@@ -429,32 +477,6 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
 }
 #endif     /* X86/AARCHXX */
 
-static inline void
-native_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
-{
-#ifdef WINDOWS
-    /* XXX i#2946: support Windows. */
-#else
-    /* We need to do this ebx trick, because ebx might be used for fPIC,
-     * and gcc < 5 chokes on it. This can get removed and replaced by
-     * a "=b" constraint when moving to gcc-5.
-     */
-    asm volatile("xchgl\t%%ebx, %k1\n\t"
-                 "cpuid\n\t"
-                 "xchgl\t%%ebx, %k1\n\t"
-                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
-                 : "0"(*eax), "2"(*ecx));
-#endif
-}
-
-static inline void
-cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
-{
-    *eax = op;
-    *ecx = subop;
-    native_cpuid(eax, ebx, ecx, edx);
-}
-
 DR_EXPORT
 uint
 drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
@@ -466,42 +488,16 @@ drutil_opnd_mem_size_in_bytes(opnd_t memref, instr_t *inst)
         ASSERT(opnd_is_immed_int(instr_get_src(inst, 1)), "malformed OP_enter");
         return sz * extra_pushes;
     } else if (inst != NULL && instr_is_xsave(inst)) {
-        /*
-         * The following is an incomplete computation of the xsave instruction's
-         * written xsave area's size. Specifically, it
-         *
-         * - Ignores the user state mask components set in edx:eax, because it is
-         *   a dynamic value at runtime. The real output size of xsave depends on
-         *   the instruction's user state mask AND the user state mask as supported
-         *   by the CPU based on XCR0.
-         * - Ignores supervisor state component PT (bit 8).
-         * - Ignores the user state component PKRU state (bit 9).
-         * - Ignores the xsaveopt flavor of xsave.
-         * - Ignores the xsavec flavor of xsave (compacted format).
-         *
-         * It computes the expected size for the standard format of the x87 user
-         * state component (bit 0), the SSE user state component (bit 1), the AVX
-         * user state component (bit 2), the MPX user state components (bit 2 and 3)
-         * and the AVX-512 user state component (bit 7).
-         *
-         */
-#    ifdef WINDOWS
-        /* XXX i#2946: support Windows */
-#    else
-        /* XXX: we may want to re-factor and move functions like this into drx. */
-        uint eax, ebx, ecx, edx;
-        cpuid(0xd, 0, &eax, &ebx, &ecx, &edx);
+        /* See the doxygen docs. */
         switch (instr_get_opcode(inst)) {
         case OP_xsave32:
         case OP_xsave64:
         case OP_xsaveopt32:
         case OP_xsaveopt64:
         case OP_xsavec32:
-        case OP_xsavec64: return ebx; break;
+        case OP_xsavec64: return drutil_xsave_area_size; break;
         default: ASSERT(false, "memsize internal error"); return 0;
         }
-#    endif
-        return 0;
     } else
 #endif /* X86 */
         return opnd_size_in_bytes(opnd_get_size(memref));

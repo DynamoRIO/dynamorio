@@ -1761,8 +1761,8 @@ bool
 instr_zeroes_ymmh(instr_t *instr);
 
 DR_API
-/** Returns true if \p instr's opcode is OP_xsave32, OP_xsaveopt32, OP_xsave64,
- * OP_xsaveopt64, OP_xsavec32 or OP_xsavec64.
+/** Returns true if \p instr's opcode is #OP_xsave32, #OP_xsaveopt32, #OP_xsave64,
+ * #OP_xsaveopt64, #OP_xsavec32 or #OP_xsavec64.
  */
 bool
 instr_is_xsave(instr_t *instr);

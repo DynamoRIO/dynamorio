@@ -232,6 +232,10 @@ main(int argc, char **argv)
         Sleep(0);
 
     WaitForSingleObject(hThread, INFINITE);
+
+    char ALIGN_VAR(64) buffer[2048];
+    _xsave(buffer, -1);
+
     print("All done\n");
 
     HMODULE hmod;
@@ -319,9 +323,8 @@ main(int argc, char **argv)
     /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
      * xsave support is available and enabled, which should be the case
      * on all machines we're running on.
-     * XXX i#2946: support Windows.
      */
-    char buffer[2048] __attribute__((aligned(64)));
+    char ALIGN_VAR(64) buffer[2048];
     __asm("or $-1, %%eax\n"
           "\txsave %0"
           : "=m"(buffer)
