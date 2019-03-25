@@ -1686,7 +1686,7 @@ OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
         options->diagnostics = true;
 
         /* xref PR 232126 */
-        options->syslog_mask = SYSLOG_ALL;
+        options->syslog_mask = SYSLOG_ALL_NOVERBOSE;
         options->syslog_init = true;
         IF_INTERNAL(options->syslog_internal_mask = SYSLOG_ALL;)
 

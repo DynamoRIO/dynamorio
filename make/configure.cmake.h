@@ -79,6 +79,7 @@
 # define CALL_PROFILE
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
+#cmakedefine RECORD_MEMQUERY
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}

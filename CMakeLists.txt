@@ -308,6 +308,10 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
 
+if (UNIX)
+  option(RECORD_MEMQUERY "generate test cases for memquery_library_bounds_by_iterator")
+endif ()
+
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
