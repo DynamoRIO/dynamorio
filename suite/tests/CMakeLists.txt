@@ -964,7 +964,7 @@ function(template2expect outexpect template runops key)
     " " rundefs "${rundefs}")
   # We replace bad define-name chars in client_lib with _.
   string(REGEX REPLACE
-    "[;/\\.!]"
+    "[;/\\.!,]"
     "_" rundefs "${rundefs}")
   string(REGEX REPLACE
     "([^ ])-"
@@ -3784,11 +3784,9 @@ if (APPLE)
     code_api|client.null_instrument
     code_api|client.option_parse
     code_api|client.drcontainers-test
-    code_api|client.fcache_shift
     code_api|client.destructor
     code_api|sample.signal
     code_api|tool.drcpusim.simple
-    code_api|tool.drcpusim.cpuid-Banias
     code_api|tool.drcpusim.cpuid-Prescott
     code_api|tool.drcpusim.cpuid-Presler
     code_api|tool.drcpusim.cpuid-Merom
@@ -3802,5 +3800,11 @@ if (APPLE)
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
+  endif ()
+  if (NOT X64)
+    set_tests_properties(
+      code_api|client.fcache_shift
+    code_api|tool.drcpusim.cpuid-Banias
+      PROPERTIES LABELS OSX)
   endif ()
 endif ()

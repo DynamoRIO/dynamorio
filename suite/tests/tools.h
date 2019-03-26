@@ -62,6 +62,14 @@
 #    include <ucontext.h>
 #    include <unistd.h>
 #    include "../../core/unix/os_public.h"
+#    ifdef X64
+/* XCode 10.1 (probably others too) toolchain wants _STRUCT_MCONTEXT
+ * w/o _AVX64 and has a field named uc_mcontext with no 64.
+ */
+#        undef _STRUCT_MCONTEXT_AVX64
+#        define _STRUCT_MCONTEXT_AVX64 _STRUCT_MCONTEXT64
+#        define uc_mcontext64 uc_mcontext
+#    endif
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */

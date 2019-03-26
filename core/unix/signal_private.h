@@ -190,7 +190,7 @@ typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
 #    define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t *)&((ucxt)->uc_sigmask))
 #endif
 
-#ifdef LINUX
+#if defined(LINUX) || defined(X64)
 #    define SIGINFO_FROM_RT_FRAME(frame) (&(frame)->info)
 #elif defined(MACOS)
 /* Make sure to access through pinfo rather than info as on Mac the info
