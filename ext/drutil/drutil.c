@@ -71,7 +71,7 @@ static int drutil_init_count;
 #ifdef X86
 
 static inline void
-native_unix_cpuid(uint *xax, uint *xbx, uint *xcx, uint *xdx)
+native_unix_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
 #    ifdef UNIX
     /* We need to do this xbx trick, because xbx might be used for fPIC,
@@ -79,23 +79,24 @@ native_unix_cpuid(uint *xax, uint *xbx, uint *xcx, uint *xdx)
      * a "=b" constraint when moving to gcc-5.
      */
 #        ifdef X64
+    /* In 64-bit, we are getting a 64-bit pointer (xref i#3478). */
     asm volatile("xchgq\t%%rbx, %q1\n\t"
                  "cpuid\n\t"
                  "xchgq\t%%rbx, %q1\n\t"
-                 : "=a"(*xax), "=&r"(*xbx), "=c"(*xcx), "=d"(*xdx)
-                 : "0"(*xax), "2"(*xcx));
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
 #        else
-    asm volatile("xchg{l}\t%%ebx, %k1\n\t"
+    asm volatile("xchgl\t%%ebx, %k1\n\t"
                  "cpuid\n\t"
                  "xchgl\t%%ebx, %k1\n\t"
-                 : "=a"(*xax), "=&r"(*xbx), "=c"(*xcx), "=d"(*xdx)
-                 : "0"(*xax), "2"(*xcx));
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
 #        endif
 #    endif
 }
 
 static inline void
-cpuid(uint op, uint subop, uint *xax, uint *xbx, uint *xcx, uint *xdx)
+cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
 #    ifdef WINDOWS
     int output[4];
@@ -104,14 +105,14 @@ cpuid(uint op, uint subop, uint *xax, uint *xbx, uint *xcx, uint *xdx)
      * bytes, which is a rather unexpected number. Investigate whether this is
      * correct.
      */
-    *xax = output[0];
-    *xbx = output[1];
-    *xcx = output[2];
-    *xdx = output[3];
+    *eax = output[0];
+    *ebx = output[1];
+    *ecx = output[2];
+    *edx = output[3];
 #    else
-    *xax = op;
-    *xcx = subop;
-    native_unix_cpuid(xax, xbx, xcx, xdx);
+    *eax = op;
+    *ecx = subop;
+    native_unix_cpuid(eax, ebx, ecx, edx);
 #    endif
 }
 
