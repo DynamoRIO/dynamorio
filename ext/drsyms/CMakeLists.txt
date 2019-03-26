@@ -189,7 +189,7 @@ endif ()
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the
 # user's machine.  Clearing this property prevents that.
 # i#3474: LINK_INTERFACE_LIBRARIES is deprecated, which is overridden by
-#  the INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
+# INTERFACE_LINK_LIBRARIES property if policy CMP0022 is NEW.
 set_target_properties(drsyms PROPERTIES INTERFACE_LINK_LIBRARIES "")
 
 # If drsyms is built static we need to include these with an exports path
