@@ -68,8 +68,8 @@ execute_process(COMMAND
   )
 
 # Check for binutils/readelf version 2.30, and if yes, then ignore error for 32-bit
-# release build. Binutils bug #24382 has been filed. Both earlier and later versions
-# seem ok (xref i#3450).
+# release build. Binutils bug https://sourceware.org/bugzilla/show_bug.cgi?id=24382
+# has been filed. Both earlier and later versions seem ok (xref i#3450).
 is_i3450_binutils_version(is_i3450)
 
 if (X86 AND NOT X64 AND NOT DEBUG AND is_i3450)
