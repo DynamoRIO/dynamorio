@@ -334,9 +334,12 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
-else (WIN32 AND DEBUG)
+elseif (APPLE AND X64)
+  # Set to higher than _PAGEZERO which is [0..0x1'00000000).
+  set(preferred_base "0x171000000" CACHE STRING "Preferred library base address")
+else ()
   set(preferred_base "0x71000000" CACHE STRING "Preferred library base address")
-endif (WIN32 AND DEBUG)
+endif ()
 
 # for x64: PR 253624: we need our library to be next to our heap
 # for win32: not PIC so need a base
@@ -730,9 +733,10 @@ if (UNIX)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
-    # We're building our release package on 10.11, and that XCode does not
+    # We're building our release package on 10.14, and that XCode does not
     # supply C++ libraries for below 10.9, causing drcachesim to fail to build.
     # Thus we have abandoned support for below 10.9.
+    # If this is updated, update drcachesim's as well.
     set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.9")
   endif ()
   if (APPLE)
