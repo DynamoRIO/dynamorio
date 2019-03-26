@@ -71,23 +71,31 @@ static int drutil_init_count;
 #ifdef X86
 
 static inline void
-native_unix_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
+native_unix_cpuid(uint *xax, uint *xbx, uint *xcx, uint *xdx)
 {
 #    ifdef UNIX
-    /* We need to do this ebx trick, because ebx might be used for fPIC,
+    /* We need to do this xbx trick, because xbx might be used for fPIC,
      * and gcc < 5 chokes on it. This can get removed and replaced by
      * a "=b" constraint when moving to gcc-5.
      */
-    asm volatile("xchgl\t%%ebx, %k1\n\t"
+#        ifdef X64
+    asm volatile("xchgq\t%%rbx, %q1\n\t"
+                 "cpuid\n\t"
+                 "xchgq\t%%rbx, %q1\n\t"
+                 : "=a"(*xax), "=&r"(*xbx), "=c"(*xcx), "=d"(*xdx)
+                 : "0"(*xax), "2"(*xcx));
+#        else
+    asm volatile("xchg{l}\t%%ebx, %k1\n\t"
                  "cpuid\n\t"
                  "xchgl\t%%ebx, %k1\n\t"
-                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
-                 : "0"(*eax), "2"(*ecx));
+                 : "=a"(*xax), "=&r"(*xbx), "=c"(*xcx), "=d"(*xdx)
+                 : "0"(*xax), "2"(*xcx));
+#        endif
 #    endif
 }
 
 static inline void
-cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
+cpuid(uint op, uint subop, uint *xax, uint *xbx, uint *xcx, uint *xdx)
 {
 #    ifdef WINDOWS
     int output[4];
@@ -96,14 +104,14 @@ cpuid(uint op, uint subop, uint *eax, uint *ebx, uint *ecx, uint *edx)
      * bytes, which is a rather unexpected number. Investigate whether this is
      * correct.
      */
-    *eax = output[0];
-    *ebx = output[1];
-    *ecx = output[2];
-    *edx = output[3];
+    *xax = output[0];
+    *xbx = output[1];
+    *xcx = output[2];
+    *xdx = output[3];
 #    else
-    *eax = op;
-    *ecx = subop;
-    native_unix_cpuid(eax, ebx, ecx, edx);
+    *xax = op;
+    *xcx = subop;
+    native_unix_cpuid(xax, xbx, xcx, xdx);
 #    endif
 }
 
