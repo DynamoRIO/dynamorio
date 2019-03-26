@@ -38,7 +38,7 @@
 
 include(${lib_fileloc}.cmake)
 
-# XXX i#3450: Return whether binutils is version 2.30.
+# Return whether binutils is version 2.30 (xref i#3450).
 function (is_i3450_binutils_version var_out)
   set(readelfver ${READELF_EXECUTABLE} --version)
   execute_process(COMMAND ${readelfver}
@@ -67,21 +67,16 @@ execute_process(COMMAND
   OUTPUT_VARIABLE output
   )
 
+# Check for binutils/readelf version 2.30, and if yes, then ignore error for 32-bit
+# release build. Binutils bug #24382 has been filed. Both earlier and later versions
+# seem ok (xref i#3450).
 is_i3450_binutils_version(is_i3450)
 
-# XXX i#3450: Check for binutils/readelf version 2.30, and if yes, then ignore errors
-# for 32-bit release build. Binutils bug #24382 has been filed. Both earlier and later
-# versions seem ok.
-if (X86 AND NOT X64)
-  if (NOT DEBUG)
-    if (is_i3450)
-      set(readelf_error "")
-    endif ()
-  endif ()
+if (X86 AND NOT X64 AND NOT DEBUG AND is_i3450)
+  set(readelf_error "")
 endif ()
 if (readelf_result OR readelf_error)
   message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
-endif ()
 endif (readelf_result OR readelf_error)
 
 # Limit to global defined symbols: no "UND".
