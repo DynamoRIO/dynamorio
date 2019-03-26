@@ -232,6 +232,10 @@ main(int argc, char **argv)
         Sleep(0);
 
     WaitForSingleObject(hThread, INFINITE);
+
+    char ALIGN_VAR(64) buffer[2048];
+    _xsave(buffer, -1);
+
     print("All done\n");
 
     HMODULE hmod;
@@ -296,7 +300,7 @@ main(int argc, char **argv)
     char table[2] = { 'A', 'B' };
 #    ifdef X86
     char ch;
-    /* test xlat for drutil_insert_get_mem_addr,
+    /* Test xlat for drutil_insert_get_mem_addr,
      * we do not bother to run this test on Windows side.
      */
     __asm("mov %1, %%" IF_X64_ELSE("rbx", "ebx") "\n\t"
@@ -313,6 +317,19 @@ main(int argc, char **argv)
      */
 #    else
     print("%c\n", table[1]);
+#    endif
+
+#    ifdef X86
+    /* Test xsave for drutil_opnd_mem_size_in_bytes. We're assuming that
+     * xsave support is available and enabled, which should be the case
+     * on all machines we're running on.
+     */
+    char ALIGN_VAR(64) buffer[2048];
+    __asm("or $-1, %%eax\n"
+          "\txsave %0"
+          : "=m"(buffer)
+          :
+          : "eax");
 #    endif
 
     intervals = 10;
