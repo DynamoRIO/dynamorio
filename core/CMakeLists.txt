@@ -863,6 +863,9 @@ if (NOT APPLE)
         ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -D CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+             -D X86=${X86}
+             -D X64=${X64}
+             -D DEBUG=${DEBUG}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_symbol_check.cmake
         VERBATIM
         )

@@ -74,15 +74,24 @@ static inline void
 native_unix_cpuid(uint *eax, uint *ebx, uint *ecx, uint *edx)
 {
 #    ifdef UNIX
-    /* We need to do this ebx trick, because ebx might be used for fPIC,
+    /* We need to do this xbx trick, because xbx might be used for fPIC,
      * and gcc < 5 chokes on it. This can get removed and replaced by
      * a "=b" constraint when moving to gcc-5.
      */
+#        ifdef X64
+    /* In 64-bit, we are getting a 64-bit pointer (xref i#3478). */
+    asm volatile("xchgq\t%%rbx, %q1\n\t"
+                 "cpuid\n\t"
+                 "xchgq\t%%rbx, %q1\n\t"
+                 : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(*eax), "2"(*ecx));
+#        else
     asm volatile("xchgl\t%%ebx, %k1\n\t"
                  "cpuid\n\t"
                  "xchgl\t%%ebx, %k1\n\t"
                  : "=a"(*eax), "=&r"(*ebx), "=c"(*ecx), "=d"(*edx)
                  : "0"(*eax), "2"(*ecx));
+#        endif
 #    endif
 }
 
