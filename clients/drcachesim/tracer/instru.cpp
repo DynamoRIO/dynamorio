@@ -130,9 +130,8 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
         // operand is.
         // XXX: Should we honor user's op_verbose or anything?  We have no current
         // precedent for printing from instru_t.
-        dr_fprintf(STDERR,
-                   "FATAL: %s: drutil_insert_get_mem_addr failed @%p: ", __FUNCTION__,
-                   instr_get_app_pc(where));
+        dr_fprintf(STDERR, "FATAL: %s: drutil_insert_get_mem_addr failed @ " PFX ": ",
+                   __FUNCTION__, instr_get_app_pc(where));
         instr_disassemble(drcontext, where, STDERR);
         dr_fprintf(STDERR, "\n");
         DR_ASSERT(ok);
