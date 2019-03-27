@@ -8465,6 +8465,21 @@ exit_post_system_call:
     dcontext->whereami = old_whereami;
 }
 
+#ifdef STATIC_LIBRARY
+/* static libraries may optionally define two linker variables
+ * (dynamorio_so_start and dynamorio_so_end) to help mitigate
+ * edge cases in detecting DR's library bounds.
+ *
+ * If not specified, the variables' location will default to
+ * weak_dynamorio_so_bounds_filler and they will not be used.
+ */
+static int weak_dynamorio_so_bounds_filler;
+extern int dynamorio_so_start __attribute__((weak))
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_end __attribute__((weak))
+    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+#endif
+
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
  * release-time assert if there is a problem doing so. It does not use any
  * heap, and we assume it is called prior to find_executable_vm_areas.
@@ -8482,11 +8497,19 @@ get_dynamo_library_bounds(void)
     char *libdir;
     const char *dynamorio_libname;
 #ifdef STATIC_LIBRARY
-    /* We don't know our image name, so look up our bounds with an internal
-     * address.
-     */
+    bool have_linker_vars = &dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
+            &dynamorio_so_end != &weak_dynamorio_so_bounds_filler;
     dynamorio_libname = NULL;
-    check_start = (app_pc)&get_dynamo_library_bounds;
+    if(have_linker_vars) {
+        dynamo_dll_start = (app_pc)&dynamorio_so_start;
+        dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
+        check_start = dynamo_dll_start;
+    } else {
+        /* We don't know our image name nor bounds, so look up our bounds with
+         * an internal address.
+         */
+        check_start = (app_pc)&get_dynamo_library_bounds;
+    }
 #else /* !STATIC_LIBRARY */
 #    ifdef LINUX
     /* PR 361594: we get our bounds from linker-provided symbols.
@@ -8525,8 +8548,10 @@ get_dynamo_library_bounds(void)
     ASSERT(check_start == dynamo_dll_start);
     dynamo_dll_end = check_end;
 #else
-    dynamo_dll_start = check_start;
-    dynamo_dll_end = check_end;
+    if (!have_linker_vars) {
+        dynamo_dll_start = check_start;
+        dynamo_dll_end = check_end;
+    }
 #endif
     LOG(GLOBAL, LOG_VMAREAS, 1, "DR library bounds: " PFX " to " PFX "\n",
         dynamo_dll_start, dynamo_dll_end);
