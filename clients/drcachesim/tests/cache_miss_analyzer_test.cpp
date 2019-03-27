@@ -66,7 +66,7 @@ no_dominant_stride()
 
     // Analyze a stream of memory load references with no dominant stride.
     addr_t addr = 0x1000;
-    for (int i = 0; i < 50000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
         addr += kLineSize;
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
@@ -109,7 +109,7 @@ one_dominant_stride()
 
     // Analyze a stream of memory load references with one dominant stride.
     addr_t addr = 0x1000;
-    for (int i = 0; i < 50000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
         addr += (kLineSize * kStride);
         analyzer.process_memref(generate_mem_ref(addr, 0xAAAA));
@@ -164,7 +164,7 @@ two_dominant_strides()
     // Analyze a stream of memory load references with two dominant strides.
     addr_t addr1 = 0x1000;
     addr_t addr2 = 0x2000;
-    for (int i = 0; i < 50000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         analyzer.process_memref(generate_mem_ref(addr1, 0xAAAA));
         addr1 += (kLineSize * kStride1);
         analyzer.process_memref(generate_mem_ref(addr1, 0xAAAA));
