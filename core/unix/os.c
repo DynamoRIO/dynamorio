@@ -8474,10 +8474,10 @@ exit_post_system_call:
  * weak_dynamorio_so_bounds_filler and they will not be used.
  */
 static int weak_dynamorio_so_bounds_filler;
-extern int dynamorio_so_start __attribute__((weak))
-    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
-extern int dynamorio_so_end __attribute__((weak))
-    __attribute__((alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_start
+    __attribute__((weak, alias("weak_dynamorio_so_bounds_filler")));
+extern int dynamorio_so_end
+    __attribute__((weak, alias("weak_dynamorio_so_bounds_filler")));
 #endif
 
 /* get_dynamo_library_bounds initializes dynamorio library bounds, using a
@@ -8500,7 +8500,7 @@ get_dynamo_library_bounds(void)
     bool have_linker_vars = &dynamorio_so_start != &weak_dynamorio_so_bounds_filler &&
             &dynamorio_so_end != &weak_dynamorio_so_bounds_filler;
     dynamorio_libname = NULL;
-    if(have_linker_vars) {
+    if (have_linker_vars) {
         dynamo_dll_start = (app_pc)&dynamorio_so_start;
         dynamo_dll_end = (app_pc)ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
         check_start = dynamo_dll_start;
