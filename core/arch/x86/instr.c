@@ -264,29 +264,29 @@ instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT, instr_t *instr,
                 return false;
         } else if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
             return false;
-        mask = (int)mc->ymm[mask_reg - reg_start].u32[ordinal];
+        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal];
         if (mask >= 0) { /* top bit not set */
             *selected = false;
             return true;
         }
         *selected = true;
-        index_addr = mc->ymm[index_reg - reg_start].u32[ordinal];
+        index_addr = mc->simd[index_reg - reg_start].u32[ordinal];
     } else if (index_size == OPSZ_8) {
         int mask; /* just top half */
         if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
             return false;
-        mask = (int)mc->ymm[mask_reg - reg_start].u32[ordinal * 2 + 1];
+        mask = (int)mc->simd[mask_reg - reg_start].u32[ordinal * 2 + 1];
         if (mask >= 0) { /* top bit not set */
             *selected = false;
             return true;
         }
         *selected = true;
 #ifdef X64
-        index_addr = mc->ymm[index_reg - reg_start].reg[ordinal];
+        index_addr = mc->simd[index_reg - reg_start].reg[ordinal];
 #else
         index_addr =
-            (((uint64)mc->ymm[index_reg - reg_start].u32[ordinal * 2 + 1]) << 32) |
-            mc->ymm[index_reg - reg_start].u32[ordinal * 2];
+            (((uint64)mc->simd[index_reg - reg_start].u32[ordinal * 2 + 1]) << 32) |
+            mc->simd[index_reg - reg_start].u32[ordinal * 2];
 #endif
     } else
         return false;

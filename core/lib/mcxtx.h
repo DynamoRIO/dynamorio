@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -217,7 +217,7 @@
         byte *IF_X64_ELSE(rip, eip); /**< The platform-dependent name for
                                           rip/eip register. */
     };
-    byte padding[PRE_XMM_PADDING]; /**< The padding to get ymm field 32-byte aligned. */
+    byte padding[PRE_XMM_PADDING]; /**< The padding to get zmm field 64-byte aligned. */
     /**
      * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
      * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
@@ -245,5 +245,5 @@
      * DrMi#665: we now preserve all of the xmm registers.
      */
 #    endif
-    dr_ymm_t ymm[MCXT_NUM_SIMD_SLOTS];
+    dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
 #endif /* ARM/X86 */

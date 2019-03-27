@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -271,7 +272,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
     /* XXX i#1312: check if test can get extended to AVX-512. */
     ymm_bytes_used = (proc_has_feature(FEATURE_AVX) ? 32 : 16);
     for (i = 0; i < proc_num_simd_registers(); i++) {
-        if (memcmp(&mc_a->ymm[i], &mc_b->ymm[i], ymm_bytes_used) != 0)
+        if (memcmp(&mc_a->simd[i], &mc_b->simd[i], ymm_bytes_used) != 0)
             return false;
     }
 #elif defined(AARCH64)
@@ -305,8 +306,9 @@ dump_diff_mcontexts(void)
     /* XXX i#1312: check if test can get extended to AVX-512. */
     for (i = 0; i < proc_num_simd_registers(); i++) {
 #ifdef X86
-        dr_ymm_t before_reg = before_mcontext.ymm[i];
-        dr_ymm_t after_reg = after_mcontext.ymm[i];
+        dr_zmm_t before_reg = before_mcontext.simd[i];
+        dr_zmm_t after_reg = after_mcontext.simd[i];
+        /* XXX bug? */
         size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) : sizeof(dr_ymm_t);
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");

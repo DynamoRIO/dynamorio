@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -232,20 +232,20 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         /* we assume no padding */
 #ifdef X64
         /* __u32 xmm_space[64] */
-        memcpy(&sc->fpstate->xmm_space[i * 4], &get_mcontext(dcontext)->ymm[i],
+        memcpy(&sc->fpstate->xmm_space[i * 4], &get_mcontext(dcontext)->simd[i],
                XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
-                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->simd[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
         }
 #else
-        memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
+        memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->simd[i], XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside kernel_xstate_t */
             memcpy(&xstate->ymmh.ymmh_space[i * 4],
-                   ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
+                   ((void *)&get_mcontext(dcontext)->simd[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
         }
 #endif
@@ -449,7 +449,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
     if (sc->fpstate != NULL) {
         int i;
         for (i = 0; i < proc_num_simd_registers(); i++) {
-            memcpy(&mc->ymm[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]),
+            memcpy(&mc->simd[i], &sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]),
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
@@ -461,7 +461,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_registers(); i++) {
-                    memcpy(&mc->ymm[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
+                    memcpy(&mc->simd[i].u32[4], &xstate->ymmh.ymmh_space[i * 4],
                            YMMH_REG_SIZE);
                 }
             }
@@ -477,7 +477,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     if (sc->fpstate != NULL) {
         int i;
         for (i = 0; i < proc_num_simd_registers(); i++) {
-            memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]), &mc->ymm[i],
+            memcpy(&sc->fpstate->IF_X64_ELSE(xmm_space[i * 4], _xmm[i]), &mc->simd[i],
                    XMM_REG_SIZE);
         }
         if (YMM_ENABLED()) {
@@ -489,7 +489,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                 ASSERT(sc->fpstate->sw_reserved.extended_size >= sizeof(*xstate));
                 ASSERT(TEST(XCR0_AVX, sc->fpstate->sw_reserved.xstate_bv));
                 for (i = 0; i < proc_num_simd_registers(); i++) {
-                    memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->ymm[i].u32[4],
+                    memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
                 }
             }

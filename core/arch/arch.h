@@ -101,7 +101,7 @@ mixed_mode_enabled(void)
 #        define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 #        define R15_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
 #    endif /* X64 */
-#    define XMM_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+#    define XMM_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -1324,9 +1324,9 @@ void
 global_do_syscall_syscall(void);
 #endif
 void
-get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
+get_xmm_caller_saved(dr_zmm_t *xmm_caller_saved_buf);
 void
-get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
+get_ymm_caller_saved(dr_zmm_t *ymm_caller_saved_buf);
 void
 get_zmm_caller_saved(dr_zmm_t *zmm_caller_saved_buf);
 
