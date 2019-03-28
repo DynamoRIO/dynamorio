@@ -139,11 +139,10 @@ unit_test_get_ymm_caller_saved()
             get_buffer[regno].u32[dword] = 0;
             ref_buffer[regno].u32[dword] = base++;
         }
-        for (int dword = sizeof(dr_ymm_t) / sizeof(uint);
-             dword < sizeof(dr_zmm_t) / sizeof(uint); ++dword) {
-            get_buffer[regno].u32[dword] = 0;
-            ref_buffer[regno].u32[dword] = 0;
-        }
+        memset(&get_buffer[regno].u32[sizeof(dr_ymm_t) / sizeof(uint)], 0,
+               sizeof(dr_zmm_t) - sizeof(dr_ymm_t));
+        memset(&ref_buffer[regno].u32[sizeof(dr_ymm_t) / sizeof(uint)], 0,
+               sizeof(dr_zmm_t) - sizeof(dr_ymm_t));
     }
 
 #        define MAKE_YMM_REG(num) ymm##num
