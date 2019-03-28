@@ -307,7 +307,7 @@ dump_diff_mcontexts(void)
 #ifdef X86
         dr_ymm_t before_reg = before_mcontext.ymm[i];
         dr_ymm_t after_reg = after_mcontext.ymm[i];
-        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_xmm_t) : sizeof(dr_ymm_t);
+        size_t mmsz = proc_has_feature(FEATURE_AVX) ? sizeof(dr_ymm_t) : sizeof(dr_xmm_t);
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
         dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],
