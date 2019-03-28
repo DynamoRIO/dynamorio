@@ -117,7 +117,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
     LPVOID load_dynamo_code = NULL; /* = base of code allocation */
     ptr_uint_t addr;
     reg_t *bufptr;
-    char buf[MAX_PATH * 2];
+    char buf[MAX_PATH * 3];
     uint old_prot;
 
     ASSERT(cxt != NULL);
