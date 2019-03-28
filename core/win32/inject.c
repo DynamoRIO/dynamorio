@@ -245,6 +245,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_pa
             /* XXX i#1312: This should be proc_num_simd_registers() which is part of
              * the dynamorio lib.
              */
+            ASSERT(MCXT_SIMD_SLOT_SIZE == YMM_REG_SIZE);
             for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
                 for (j = 0; j < XMM_REG_SIZE / sizeof(*bufptr); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];
